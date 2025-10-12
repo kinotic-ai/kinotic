@@ -29,6 +29,9 @@ interface VisualizationComponent {
   createdAt: Date
   status: string
   supportsDateRangeFiltering?: boolean
+  saved?: boolean
+  component?: DataInsightsComponent
+  userQuery?: string
 }
 
 interface DateRange {
@@ -91,9 +94,6 @@ export default class DataInsights extends Vue {
 
   get currentApplicationName(): string {
     const appId = APPLICATION_STATE.currentApplication?.id
-    console.log('DataInsights: Getting currentApplicationName:', appId)
-    console.log('DataInsights: Full APPLICATION_STATE:', APPLICATION_STATE)
-    console.log('DataInsights: APPLICATION_STATE.currentApplication:', APPLICATION_STATE.currentApplication)
     return appId || 'Unknown Application'
   }
 
@@ -103,20 +103,14 @@ export default class DataInsights extends Vue {
     }
     
     this.currentApplicationId = APPLICATION_STATE.currentApplication?.id || this.$route.params.applicationId as string || 'default'
-    console.log('DataInsights: Mounted with application ID:', this.currentApplicationId)
-    console.log('DataInsights: APPLICATION_STATE.currentApplication:', APPLICATION_STATE.currentApplication)
     
     const routeAppId = this.$route.params.applicationId as string
-    console.log('DataInsights: Trying to set application from route:', routeAppId)
-    console.log('DataInsights: All applications available:', APPLICATION_STATE.allApplications?.map(a => a.id))
     
     if (routeAppId && !APPLICATION_STATE.currentApplication) {
       const app = APPLICATION_STATE.allApplications?.find(a => a.id === routeAppId)
       if (app) {
-        console.log('DataInsights: Found application in list, setting as current:', app.id)
         APPLICATION_STATE.currentApplication = app
       } else {
-        console.log('DataInsights: Application not found in list, using route ID:', routeAppId)
         this.currentApplicationId = routeAppId
       }
     }
@@ -127,11 +121,9 @@ export default class DataInsights extends Vue {
   }
 
   setCurrentApplication(appId: string): void {
-    console.log('DataInsights: Manually setting current application to:', appId)
     const app = APPLICATION_STATE.allApplications?.find(a => a.id === appId)
     if (app) {
       APPLICATION_STATE.currentApplication = app
-      console.log('DataInsights: Successfully set current application:', app.id)
       this.currentApplicationId = app.id
       this.chatMessages = []
       this.visualizations = []
@@ -140,19 +132,14 @@ export default class DataInsights extends Vue {
         dashboardContainer.innerHTML = ''
       }
       this.addWelcomeMessage()
-    } else {
-      console.log('DataInsights: Application not found:', appId)
     }
   }
 
   restoreStateFromStoredInsights(): void {
-    console.log('DataInsights: Restoring state from stored insights')
-    
     this.visualizations = []
     this.chatMessages = []
     
     const storedInsights = INSIGHTS_STATE.getInsightsByApplication(this.currentApplicationId)
-    console.log('DataInsights: Found stored insights:', storedInsights.length)
     
     if (storedInsights.length === 0) {
       this.addWelcomeMessage()
@@ -177,13 +164,11 @@ export default class DataInsights extends Vue {
       tasks: [],
       isExpanded: false
     })
-    setTimeout(() => {
-      this.visualizations.forEach(viz => {
-        this.executeVisualization(viz.htmlContent)
-      })
-    }, 1000)
-
-    console.log('DataInsights: State restored successfully')
+     setTimeout(() => {
+       this.visualizations.forEach(viz => {
+         this.executeVisualization(viz.htmlContent, viz.id)
+       })
+     }, 1000)
   }
 
   addWelcomeMessage() {
@@ -204,14 +189,8 @@ Components that support date filtering will automatically respond to the global 
   }
 
   @Watch('APPLICATION_STATE.currentApplication', { immediate: true, deep: true })
-  onApplicationChange(newApp: any, oldApp: any) {
-    console.log('DataInsights: Application change detected', { newApp, oldApp })
-    console.log('DataInsights: Current APPLICATION_STATE:', APPLICATION_STATE.currentApplication)
-    console.log('DataInsights: New app ID:', newApp?.id)
-    console.log('DataInsights: Old app ID:', oldApp?.id)
-    
+  onApplicationChange() {
     if (APPLICATION_STATE.currentApplication) {
-      console.log('DataInsights: Updating to new application:', APPLICATION_STATE.currentApplication.id)
       this.currentApplicationId = APPLICATION_STATE.currentApplication.id
       this.chatMessages = []
       this.visualizations = []
@@ -220,15 +199,11 @@ Components that support date filtering will automatically respond to the global 
         dashboardContainer.innerHTML = ''
       }
       this.restoreStateFromStoredInsights()
-    } else {
-      console.log('DataInsights: No current application set')
     }
   }
   @Watch('currentApplicationName', { immediate: true })
   onApplicationNameChange(newName: string, oldName: string) {
-    console.log('DataInsights: Application name changed from', oldName, 'to', newName)
     if (newName !== 'Unknown Application' && newName !== oldName) {
-      console.log('DataInsights: Application name changed, updating component')
       this.currentApplicationId = APPLICATION_STATE.currentApplication?.id || ''
       this.chatMessages = []
       this.visualizations = []
@@ -242,7 +217,6 @@ Components that support date filtering will automatically respond to the global 
   }
 
   updateDateRange() {
-    console.log('Date range updated:', this.dateRange)
     window.globalDateRangeObservable.updateDateRange(this.dateRange)
   }
 
@@ -301,41 +275,39 @@ Components that support date filtering will automatically respond to the global 
             loadingMessage.content = progress.message
           }
           
-          if (progress.type === ProgressType.COMPONENTS_READY && progress.components && progress.components.length > 0) {
-            progress.components.forEach(async (component: DataInsightsComponent) => {
-              this.visualizations.push({
-                id: component.id,
-                htmlContent: component.rawHtml,
-                createdAt: new Date(component.modifiedAt),
-                status: 'success',
-                supportsDateRangeFiltering: component.supportsDateRangeFiltering || false
-              })
+           if (progress.type === ProgressType.COMPONENTS_READY && progress.components && progress.components.length > 0) {
+             progress.components.forEach(async (component: DataInsightsComponent) => {
+               this.visualizations.push({
+                 id: component.id,
+                 htmlContent: component.rawHtml,
+                 createdAt: new Date(component.modifiedAt),
+                 status: 'success',
+                 supportsDateRangeFiltering: component.supportsDateRangeFiltering || false,
+                 saved: false,
+                 component: component,
+                 userQuery: userQuery
+               })
 
-              const insightData: InsightData = {
-                id: component.id,
-                title: this.generateInsightTitle(userQuery),
-                description: `AI-generated insight for: "${userQuery}"`,
-                query: userQuery,
-                applicationId: this.currentApplicationId,
-                createdAt: new Date(component.modifiedAt),
-                data: component,
-                visualizationType: this.detectVisualizationType(component.rawHtml),
-                htmlContent: component.rawHtml,
-                metadata: {
-                  tasks: loadingMessage?.tasks,
-                  status: 'success'
-                }
-              }
-              INSIGHTS_STATE.addInsight(insightData)
+               const insightData: InsightData = {
+                 id: component.id,
+                 title: this.generateInsightTitle(userQuery),
+                 description: `AI-generated insight for: "${userQuery}"`,
+                 query: userQuery,
+                 applicationId: this.currentApplicationId,
+                 createdAt: new Date(component.modifiedAt),
+                 data: component,
+                 visualizationType: this.detectVisualizationType(component.rawHtml),
+                 htmlContent: component.rawHtml,
+                 metadata: {
+                   tasks: loadingMessage?.tasks,
+                   status: 'success'
+                 }
+               }
+               INSIGHTS_STATE.addInsight(insightData)
 
-              // Save widget as entity for dashboard sidebar
-              await this.saveWidgetAsEntity(component, userQuery)
-
-              this.executeVisualization(component.rawHtml)
-            })
-          } else if (progress.type === ProgressType.COMPONENTS_READY) {
-            console.warn('COMPONENTS_READY event received but no components found')
-          }
+               this.executeVisualization(component.rawHtml, component.id)
+             })
+           }
           
           if (progress.type === ProgressType.COMPLETED) {
             const loadingMessage = this.chatMessages.find(msg => msg.loading)
@@ -356,7 +328,6 @@ Components that support date filtering will automatically respond to the global 
           }
         },
         error: (error) => {
-          console.error('Error in progress stream:', error)
           const loadingMessage = this.chatMessages.find(msg => msg.loading)
           if (loadingMessage) {
             loadingMessage.loading = false
@@ -376,57 +347,50 @@ Components that support date filtering will automatically respond to the global 
         loadingMessage.isExpanded = false
       }
       
-      console.error('Data insights error:', error)
       this.isLoading = false
     }
   }
 
-  executeVisualization(htmlContent: string) {
+  executeVisualization(htmlContent: string, componentId?: string) {
     try {
-      console.log('Executing visualization with content length:', htmlContent.length)
       
-      // Execute the web component code (it should define itself)
       const script = document.createElement('script')
       script.textContent = htmlContent
       document.head.appendChild(script)
       
-      // The AI should generate code that defines a custom element
-      // We'll try to find what element name was defined by looking for customElements.define
       const elementNameMatch = htmlContent.match(/customElements\.define\(['"`]([^'"`]+)['"`]/)
       const elementName = elementNameMatch ? elementNameMatch[1] : 'data-insights-dashboard'
       
-      console.log('Extracted element name:', elementName)
-      
-      // Wait a bit for the script to execute and register the custom element
-      // Increased timeout to allow ApexCharts to load
       setTimeout(() => {
         try {
-          // Check if the custom element is defined
           if (!customElements.get(elementName)) {
-            console.error('Custom element not defined:', elementName)
             return
           }
           
-          // Create an instance of the defined web component
+          const wrapper = document.createElement('div')
+          wrapper.className = 'visualization-wrapper relative'
+          wrapper.setAttribute('data-viz-id', componentId || '')
+          
+          const saveButton = document.createElement('button')
+          saveButton.className = 'save-widget-btn absolute top-2 right-2 bg-white hover:bg-primary-500 hover:text-white text-surface-600 rounded-full p-2 shadow-md transition-all duration-200 z-10 flex items-center justify-center w-10 h-10'
+          saveButton.innerHTML = '<i class="pi pi-bookmark text-base"></i>'
+          saveButton.onclick = () => this.handleSaveWidget(componentId!)
+          
           const element = document.createElement(elementName)
           
-          // Add to dashboard container
+          wrapper.appendChild(saveButton)
+          wrapper.appendChild(element)
+          
           const dashboardContainer = document.getElementById('dashboard-container')
           if (dashboardContainer) {
-            dashboardContainer.appendChild(element)
-            console.log('Added element to dashboard:', elementName)
+            dashboardContainer.appendChild(wrapper)
             
-            // Chart library availability is handled by each web component
-            console.log('Web component added to dashboard:', elementName)
           } else {
-            console.error('Dashboard container not found')
           }
         } catch (error) {
-          console.error('Error creating element:', error)
         }
       }, 1000)
     } catch (error) {
-      console.error('Error executing visualization:', error)
     }
   }
 
@@ -464,6 +428,50 @@ Components that support date filtering will automatically respond to the global 
       return 'stat'
     } else {
       return 'list'
+    }
+  }
+
+  async handleSaveWidget(componentId: string): Promise<void> {
+    const visualization = this.visualizations.find(v => v.id === componentId)
+    
+    if (!visualization || !visualization.component || !visualization.userQuery) {
+      return
+    }
+    
+    if (visualization.saved) {
+      return
+    }
+    
+    try {
+      // Update button to show saving state
+      const wrapper = document.querySelector(`[data-viz-id="${componentId}"]`)
+      const saveButton = wrapper?.querySelector('.save-widget-btn') as HTMLButtonElement
+      if (saveButton) {
+        saveButton.disabled = true
+        saveButton.innerHTML = '<i class="pi pi-spin pi-spinner text-base"></i>'
+      }
+      
+      await this.saveWidgetAsEntity(visualization.component, visualization.userQuery)
+      
+      // Mark as saved
+      visualization.saved = true
+      
+      // Update button to show saved state
+      if (saveButton) {
+        saveButton.className = 'save-widget-btn absolute top-2 right-2 bg-gray-200 text-gray-600 rounded p-2 shadow-sm z-10 flex items-center justify-center w-10 h-10 cursor-default'
+        saveButton.innerHTML = '<i class="pi pi-bookmark-fill text-base"></i>'
+        saveButton.disabled = true
+      }
+      
+    } catch (error) {
+      
+      const wrapper = document.querySelector(`[data-viz-id="${componentId}"]`)
+      const saveButton = wrapper?.querySelector('.save-widget-btn') as HTMLButtonElement
+      if (saveButton) {
+        saveButton.disabled = false
+        saveButton.className = 'save-widget-btn absolute top-2 right-2 bg-white hover:bg-primary-500 hover:text-white text-surface-600 rounded-full p-2 shadow-md transition-all duration-200 z-10 flex items-center justify-center w-10 h-10'
+        saveButton.innerHTML = '<i class="pi pi-bookmark text-base"></i>'
+      }
     }
   }
 
@@ -511,19 +519,13 @@ Components that support date filtering will automatically respond to the global 
             aiSubtitle = pElement.textContent?.trim() || ''
           }
           
-          // Get the rendered HTML (just the custom element tag)
           renderedHTML = tempElement.outerHTML
-          console.log('AI Generated Title:', aiTitle)
-          console.log('AI Generated Subtitle:', aiSubtitle)
           
-          // Clean up
           document.body.removeChild(tempContainer)
         } else {
-          console.warn('Custom element not defined, using element tag')
           renderedHTML = `<${elementName}></${elementName}>`
         }
       } catch (error) {
-        console.warn('Error creating custom element, using element tag:', error)
         renderedHTML = `<${elementName}></${elementName}>`
       }
       
@@ -550,9 +552,7 @@ Components that support date filtering will automatically respond to the global 
       widget.updated = new Date()
 
       await this.widgetService.save(widget)
-      console.log('Widget saved successfully:', widget.name)
     } catch (error) {
-      console.error('Error saving widget:', error)
     }
   }
 

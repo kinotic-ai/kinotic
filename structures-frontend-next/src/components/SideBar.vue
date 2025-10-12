@@ -72,6 +72,9 @@ export default class Sidebar extends Vue {
   }
 
   isActive(path: string): boolean {
+    if (path.includes('/dashboards') && !path.includes('/dashboards/')) {
+      return this.route.path === path || this.route.path.startsWith(path + '/')
+    }
     return this.route.path === path
   }
 }

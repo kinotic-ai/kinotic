@@ -5,11 +5,11 @@
     <Tabs :value="activeTab" @update:value="(value: string | number) => activeTab = Number(value)">
       <TabList>
         <Tab :value="0">General</Tab>
-        <Tab :value="1">Widgets</Tab>
+        <Tab :value="1">Saved widgets</Tab>
       </TabList>
-      <TabPanels>
+      <TabPanels class="!p-0">
         <TabPanel :value="0">
-          <div v-show="activeTab === 0" class="pt-4">
+          <div v-show="activeTab === 0">
             <div class="max-w-[400px] mx-auto">
               <form @submit.prevent="saveSettings" class="flex flex-col gap-4">
                 <div>
@@ -70,24 +70,112 @@
           </div>
         </TabPanel>
         <TabPanel :value="1">
-          <div v-show="activeTab === 1" class="pt-4">
-            <div class="text-center py-8 text-gray-500">
-              <h3 class="text-lg font-medium mb-2">Widgets Configuration</h3>
-              <p>Widget settings will be available here in the future.</p>
+          <div v-show="activeTab === 1">
+            <!-- Loading state -->
+            <div v-if="loadingWidgets" class="flex justify-center py-12">
+              <i class="pi pi-spin pi-spinner text-3xl text-primary-500"></i>
+            </div>
+
+            <!-- Empty state -->
+            <div v-else-if="savedWidgets.length === 0" class="text-center py-12">
+              <div class="mb-4">
+                <i class="pi pi-chart-bar text-6xl text-surface-300"></i>
+              </div>
+              <h3 class="text-lg font-semibold text-surface-800 mb-2">No saved widgets yet</h3>
+              <p class="text-surface-500">
+                Create data insights in the Data Insights page to save widgets here.
+              </p>
+            </div>
+
+            <div v-else class="">
+              <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-4">
+                <div class="w-full sm:w-auto flex items-center gap-2">
+                  <IconField icon-position="left" class="w-full sm:w-80">
+                    <InputIcon class="pi pi-search" />
+                    <InputText 
+                      v-model="widgetSearchText" 
+                      placeholder="Search widgets..." 
+                      class="w-full"
+                    />
+                  </IconField>
+                  <Button 
+                    v-if="widgetSearchText"
+                    icon="pi pi-times" 
+                    severity="secondary"
+                    text
+                    rounded
+                    @click="widgetSearchText = ''"
+                    aria-label="Clear search"
+                  />
+                </div>
+              </div>
+              
+              <!-- No search results -->
+              <div v-if="filteredWidgets.length === 0 && widgetSearchText" class="text-center py-12">
+                <div class="mb-4">
+                  <i class="pi pi-search text-4xl text-surface-300"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-surface-800 mb-2">No widgets found</h3>
+                <p class="text-surface-500">
+                  No widgets match your search "{{ widgetSearchText }}"
+                </p>
+              </div>
+              
+              <!-- Widgets grid -->
+              <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <SavedWidgetItem
+                  v-for="widget in filteredWidgets"
+                  :key="widget.id || 'unknown'"
+                  :widget="widget"
+                  @delete="confirmDelete"
+                />
+              </div>
             </div>
           </div>
         </TabPanel>
       </TabPanels>
     </Tabs>
+
+    <!-- Delete Confirmation Dialog -->
+    <Dialog
+      v-model:visible="showDeleteDialog"
+      modal
+      header="Delete Widget"
+      :style="{ width: '450px' }"
+    >
+      <div class="flex items-start gap-3">
+        <i class="pi pi-exclamation-triangle text-3xl text-orange-500"></i>
+        <div>
+          <p class="text-surface-700">
+            Are you sure you want to delete this widget? This action cannot be undone.
+          </p>
+        </div>
+      </div>
+      <template #footer>
+        <Button
+          label="Cancel"
+          severity="secondary"
+          @click="showDeleteDialog = false"
+        />
+        <Button
+          label="Delete"
+          severity="danger"
+          @click="deleteWidget"
+        />
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, defineProps, onMounted, watch } from 'vue'
-import { InputText, Textarea, Button, ToggleButton, Tabs, TabList, Tab, TabPanels, TabPanel } from 'primevue'
+import { ref, defineProps, onMounted, watch, computed } from 'vue'
+import { InputText, Textarea, Button, ToggleButton, Tabs, TabList, Tab, TabPanels, TabPanel, Dialog, IconField, InputIcon } from 'primevue'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { Structures } from '@kinotic/structures-api'
 import { useToast } from 'primevue/usetoast'
+import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEntityService'
+import type { DataInsightsWidget } from '@/domain/DataInsightsWidget'
+import SavedWidgetItem from '@/components/SavedWidgetItem.vue'
 
 defineProps({
   applicationId: {
@@ -104,6 +192,13 @@ const enableOpenAPI = ref(false)
 const enableMCP = ref(false)
 const loading = ref(false)
 const activeTab = ref(0)
+
+const widgetService = new DataInsightsWidgetEntityService()
+const savedWidgets = ref<DataInsightsWidget[]>([])
+const loadingWidgets = ref(false)
+const showDeleteDialog = ref(false)
+const widgetToDelete = ref<string | null>(null)
+const widgetSearchText = ref('')
 
 watch(() => APPLICATION_STATE.currentApplication, (newApp) => {
   if (newApp) {
@@ -158,7 +253,6 @@ const saveSettings = async () => {
       life: 3000
     })
   } catch (error) {
-    console.error('Failed to save application settings:', error)
     toast.add({
       severity: 'error',
       summary: 'Error',
@@ -169,4 +263,96 @@ const saveSettings = async () => {
     loading.value = false
   }
 }
+
+const loadSavedWidgets = async () => {
+  if (!APPLICATION_STATE.currentApplication?.id) {
+    savedWidgets.value = []
+    return
+  }
+
+  loadingWidgets.value = true
+  try {
+    const widgets = await widgetService.findByApplicationId(APPLICATION_STATE.currentApplication.id)
+    savedWidgets.value = widgets
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to load saved widgets',
+      life: 3000
+    })
+  } finally {
+    loadingWidgets.value = false
+  }
+}
+
+const confirmDelete = (widgetId: string) => {
+  widgetToDelete.value = widgetId
+  showDeleteDialog.value = true
+}
+
+const deleteWidget = async () => {
+  if (!widgetToDelete.value) return
+
+  try {
+    await widgetService.deleteById(widgetToDelete.value)
+    savedWidgets.value = savedWidgets.value.filter(w => w.id !== widgetToDelete.value)
+    
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Widget deleted successfully',
+      life: 3000
+    })
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to delete widget',
+      life: 3000
+    })
+  } finally {
+    showDeleteDialog.value = false
+    widgetToDelete.value = null
+  }
+}
+
+watch(activeTab, (newTab) => {
+  if (newTab === 1) {
+    loadSavedWidgets()
+  }
+})
+
+watch(() => APPLICATION_STATE.currentApplication, () => {
+  if (activeTab.value === 1) {
+    loadSavedWidgets()
+  }
+})
+
+const filteredWidgets = computed(() => {
+  if (!widgetSearchText.value) return savedWidgets.value
+  
+  const searchLower = widgetSearchText.value.toLowerCase()
+  return savedWidgets.value.filter(widget => {
+    const name = widget.name?.toLowerCase() || ''
+    const description = widget.description?.toLowerCase() || ''
+    const widgetType = widget.widgetType?.toLowerCase() || ''
+    
+    try {
+      const config = JSON.parse(widget.config || '{}')
+      const aiTitle = config.aiTitle?.toLowerCase() || ''
+      const aiSubtitle = config.aiSubtitle?.toLowerCase() || ''
+      
+      return name.includes(searchLower) || 
+             description.includes(searchLower) || 
+             widgetType.includes(searchLower) ||
+             aiTitle.includes(searchLower) ||
+             aiSubtitle.includes(searchLower)
+    } catch {
+      return name.includes(searchLower) || 
+             description.includes(searchLower) || 
+             widgetType.includes(searchLower)
+    }
+  })
+})
 </script>

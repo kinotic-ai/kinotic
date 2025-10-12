@@ -48,6 +48,11 @@ const pageRoutes: RouteRecordRaw[] = [
           path: `/application/${route.params.applicationId}/data-insights`
         },
         {
+          label: 'Data Insights Widgets',
+          icon: 'pi pi-bookmark',
+          path: `/application/${route.params.applicationId}/saved-widgets`
+        },
+        {
           label: 'Application settings',
           icon: 'pi pi-cog',
           path: `/application/${route.params.applicationId}/settings`
@@ -68,18 +73,45 @@ const pageRoutes: RouteRecordRaw[] = [
         props: (route) => ({ applicationId: route.params.applicationId })
       },
       {
-        name: 'dashboard-details',
+        name: 'dashboard-view',
         path: 'dashboards/:dashboardId',
         component: () => import('@/pages/DashboardDetails.vue'),
         props: (route) => ({ 
           applicationId: route.params.applicationId,
-          dashboardId: route.params.dashboardId 
+          dashboardId: route.params.dashboardId,
+          mode: 'view'
+        })
+      },
+      {
+        name: 'dashboard-edit',
+        path: 'dashboards/:dashboardId/edit',
+        component: () => import('@/pages/DashboardDetails.vue'),
+        props: (route) => ({ 
+          applicationId: route.params.applicationId,
+          dashboardId: route.params.dashboardId,
+          mode: 'edit'
+        })
+      },
+      {
+        name: 'dashboard-new',
+        path: 'dashboards/new',
+        component: () => import('@/pages/DashboardDetails.vue'),
+        props: (route) => ({ 
+          applicationId: route.params.applicationId,
+          dashboardId: 'new',
+          mode: 'edit'
         })
       },
       {
         name: 'application-data-insights',
         path: 'data-insights',
         component: () => import('@/pages/DataInsights.vue'),
+        props: (route) => ({ applicationId: route.params.applicationId })
+      },
+      {
+        name: 'application-saved-widgets',
+        path: 'saved-widgets',
+        component: () => import('@/pages/SavedWidgets.vue'),
         props: (route) => ({ applicationId: route.params.applicationId })
       },
       {

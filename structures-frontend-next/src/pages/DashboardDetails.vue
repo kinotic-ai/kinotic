@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, onMounted, computed, nextTick } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { GridStack } from 'gridstack'
 import 'gridstack/dist/gridstack.min.css'
@@ -9,14 +9,18 @@ import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEn
 import { DataInsightsWidget } from '@/domain/DataInsightsWidget'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
+import Calendar from 'primevue/calendar'
 import { useToast } from 'primevue/usetoast'
+import SavedWidgetItem from '@/components/SavedWidgetItem.vue'
+import { DateRangeObservable } from '../observables/DateRangeObservable'
 
 const router = useRouter()
 const toast = useToast()
 
 const props = defineProps<{ 
   applicationId: string
-  dashboardId: string 
+  dashboardId: string
+  mode?: 'view' | 'edit'
 }>()  
 
 const dashboardService = new DashboardEntityService()
@@ -29,35 +33,32 @@ const gridStack = ref<GridStack | null>(null)
 const savedWidgets = ref<DataInsightsWidget[]>([])
 const widgetSearchText = ref('')
 const addedWidgetIds = new Set<string>()
-const executedScripts = new Set<string>()
-const definedElements = new Set<string>()
+const hasWidgets = ref(false)
+const loadingSidebarWidgets = ref(true)
 
-const showAllWidgetContent = () => {
-  const allWidgets = document.querySelectorAll('[data-widget-id]')
-  allWidgets.forEach((widgetElement) => {
-    const previewContent = widgetElement.querySelector('.widget-preview-content') as HTMLElement
-    const loadingOverlay = widgetElement.querySelector('.widget-loading-overlay') as HTMLElement
-    
-    if (previewContent) {
-      previewContent.style.opacity = '1'
-      previewContent.style.transition = 'opacity 0.3s ease'
-    }
-    
-    if (loadingOverlay) {
-      loadingOverlay.style.opacity = '0'
-      loadingOverlay.style.transition = 'opacity 0.3s ease'
-      setTimeout(() => {
-        loadingOverlay.style.display = 'none'
-      }, 300)
-    }
-  })
-}
+const dateRange = ref<{ startDate: Date | null, endDate: Date | null }>({
+  startDate: null,
+  endDate: null
+})
+const showDateRangePicker = ref(false)
+
+const isEditMode = computed(() => {
+  if (props.mode) {
+    return props.mode === 'edit'
+  }
+  return props.dashboardId === 'new'
+})
+
 
 const filteredWidgets = computed(() => {
   if (!widgetSearchText.value) return savedWidgets.value
   return savedWidgets.value.filter(w =>
     w.name.toLowerCase().includes(widgetSearchText.value.toLowerCase())
   )
+})
+
+const hasWidgetsInGrid = computed(() => {
+  return hasWidgets.value
 })
 
 const isNewDashboard = computed(() => {
@@ -68,164 +69,24 @@ const saveButtonLabel = computed(() => {
   return isNewDashboard.value ? 'Create' : 'Save'
 })
 
+const headerTitle = computed(() => {
+  return dashboard.value?.name || dashboardTitle.value || 'Dashboard'
+})
+
+const headerSubtitle = computed(() => {
+  return dashboard.value?.description || 'Dashboard'
+})
+
 const loadWidgets = async () => {
   try {
+    loadingSidebarWidgets.value = true
     savedWidgets.value = await widgetService.findByApplicationId(props.applicationId)
-    
-    await nextTick()
-    
-    setTimeout(() => {
-      savedWidgets.value.forEach((widget) => {
-        executeWidgetHTML(widget)
-      })
-    }, 500)
-    
-    setTimeout(() => {
-      savedWidgets.value.forEach((widget) => {
-        const previewContainer = document.querySelector(`[data-widget-id="${widget.id}"] .widget-preview-content`)
-        if (previewContainer && !previewContainer.querySelector('canvas, svg, [class*="chart"], [class*="apex"]')) {
-          executeWidgetHTML(widget)
-        }
-      })
-    }, 2000)
-    
-    setTimeout(() => {
-      showAllWidgetContent()
-    }, 5000)
-    
+    loadingSidebarWidgets.value = false
   } catch (error) {
-    console.error('Error loading widgets:', error)
+    loadingSidebarWidgets.value = false
   }
 }
 
-const executeWidgetHTML = (widget: DataInsightsWidget, targetContainer?: HTMLElement) => {
-  const config = JSON.parse(widget.config || '{}')
-  const htmlContent = config.originalRawHtml || widget.src
-  
-  if (!htmlContent) return
-  
-  try {
-    const elementNameMatch = htmlContent.match(/customElements\.define\(['"`]([^'"`]+)['"`]/)
-    const elementName = elementNameMatch ? elementNameMatch[1] : null
-    
-    if (!elementName) return
-    
-    if (widget.id && executedScripts.has(widget.id)) {
-      setTimeout(() => {
-        if (elementName && customElements.get(elementName)) {
-          createWidgetElement(widget, elementName, targetContainer)
-        }
-      }, 100)
-      return
-    }
-    if (customElements.get(elementName) || definedElements.has(elementName)) {
-      if (widget.id) {
-        executedScripts.add(widget.id)
-      }
-      setTimeout(() => {
-        createWidgetElement(widget, elementName, targetContainer)
-      }, 100)
-      return
-    }
-    eval(htmlContent)
-    definedElements.add(elementName)
-    if (widget.id) {
-      executedScripts.add(widget.id)
-    }
-    setTimeout(() => {
-      if (elementName && customElements.get(elementName)) {
-        createWidgetElement(widget, elementName, targetContainer)
-      }
-    }, 500)
-  } catch (error) {
-    console.error('Error executing widget HTML:', error)
-  }
-}
-
-const createWidgetElement = (widget: DataInsightsWidget, elementName: string, targetContainer?: HTMLElement) => {
-  const previewContainer = targetContainer || document.querySelector(`[data-widget-id="${widget.id}"] .widget-preview-content`)
-  
-  if (previewContainer) {
-    const element = document.createElement(elementName)
-    previewContainer.innerHTML = ''
-    previewContainer.appendChild(element)
-    
-    setTimeout(() => {
-      if (element.shadowRoot) {
-        const h3Element = element.shadowRoot.querySelector('h3')
-        const pElement = element.shadowRoot.querySelector('p')
-        
-        let extractedTitle = ''
-        let extractedSubtitle = ''
-        
-        if (h3Element) {
-          extractedTitle = h3Element.textContent?.trim() || ''
-        }
-        if (pElement) {
-          extractedSubtitle = pElement.textContent?.trim() || ''
-        }
-        
-        if (extractedTitle || extractedSubtitle) {
-          try {
-            updateWidgetConfig(widget, { 
-              aiTitle: extractedTitle, 
-              aiSubtitle: extractedSubtitle 
-            })
-          } catch (error) {
-            console.error('Error updating widget config:', error)
-          }
-        }
-        
-        const style = document.createElement('style')
-        style.textContent = `
-          h1, h2, h3, h4, h5, h6, p, span, label, title, desc, .title, .description { display: none !important; } 
-          :host { 
-            padding: 0 !important; 
-            margin: 0 !important; 
-            border: none !important; 
-            box-shadow: none !important; 
-            background: transparent !important;
-            width: 100% !important;
-            height: 100% !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-          }
-          canvas, svg {
-            max-width: 100% !important;
-            max-height: 100% !important;
-            width: auto !important;
-            height: auto !important;
-            display: block !important;
-            margin: auto !important;
-          }
-          .apexcharts-canvas, .apexcharts-svg, [class*="apex"] {
-            margin: auto !important;
-            display: block !important;
-          }
-          /* Show chart elements and their containers */
-          canvas, svg, [class*="chart"], [class*="apex"], [class*="visualization"], div[class*="chart"], div[class*="apex"], .chart-container {
-            display: block !important;
-          }
-        `
-        element.shadowRoot.appendChild(style)
-        
-        const chartElements = element.shadowRoot.querySelectorAll('canvas, svg, [class*="chart"], [class*="apex"]')
-        
-        if (chartElements.length === 0) {
-          const placeholder = previewContainer.querySelector('.chart-placeholder') as HTMLElement
-          if (placeholder) {
-            placeholder.style.display = 'block'
-          }
-        }
-      } else {
-        console.warn('No shadow root for widget')
-      }
-    }, 500)
-  } else {
-    console.warn('Preview container not found for widget')
-  }
-}
 
 const loadDashboard = async () => {
   try {
@@ -237,6 +98,7 @@ const loadDashboard = async () => {
       dashboard.value.description = 'New dashboard'
       dashboard.value.layout = ''
       dashboardTitle.value = ''
+      hasWidgets.value = false
       loading.value = false
       return
     }
@@ -249,6 +111,7 @@ const loadDashboard = async () => {
         const layoutData = JSON.parse(dashboard.value.layout)
         
         if (layoutData.widgets && layoutData.widgets.length > 0) {
+          hasWidgets.value = true
           setTimeout(() => {
             
             layoutData.widgets.forEach((widgetData: any) => {
@@ -320,7 +183,7 @@ const setupResizeIconObserver = () => {
 }
 
 const initGrid = () => {
-  gridStack.value = GridStack.init({
+  const gridOptions = {
     cellHeight: 80,
     column: 12,
     margin: 5,
@@ -328,7 +191,101 @@ const initGrid = () => {
     acceptWidgets: true,
     resizable: { handles: 'se' },
     draggable: { handle: '.grid-stack-item-content' }
-  })
+  }
+  
+  // Disable interactions in view mode
+  if (!isEditMode.value) {
+    gridOptions.acceptWidgets = false
+    gridOptions.resizable = { handles: '' }
+    gridOptions.draggable = { handle: '' }
+  }
+  
+  gridStack.value = GridStack.init(gridOptions)
+  
+  // Apply view mode settings immediately after initialization
+  if (!isEditMode.value) {
+    updateGridMode()
+  }
+  
+  // In view mode, immediately disable all interactions
+  if (!isEditMode.value) {
+    const hideDeleteButtons = () => {
+      // Remove all resize handles, drag handles, and delete buttons
+      const gridItems = document.querySelectorAll('.grid-stack-item')
+      gridItems.forEach((item) => {
+        const resizeHandles = item.querySelectorAll('.ui-resizable-handle, .ui-resizable-se, .grid-stack-item-resize')
+        resizeHandles.forEach((handle) => {
+          const handleEl = handle as HTMLElement
+          handleEl.style.display = 'none'
+          handleEl.style.visibility = 'hidden'
+        })
+        
+        // Remove drag cursor but enable scrolling
+        const content = item.querySelector('.grid-stack-item-content')
+        if (content) {
+          const contentEl = content as HTMLElement
+          contentEl.style.cursor = 'default'
+          contentEl.style.overflow = 'auto'
+          contentEl.style.height = '100%'
+        }
+        
+        // Enable scrolling for the widget but lock it in place
+        const itemEl = item as HTMLElement
+        itemEl.style.overflow = 'auto'
+        
+        // Completely lock widget in place
+        itemEl.style.position = 'absolute'
+        itemEl.style.left = itemEl.style.left || '0px'
+        itemEl.style.top = itemEl.style.top || '0px'
+        itemEl.setAttribute('data-gs-locked', 'true')
+        itemEl.setAttribute('data-gs-no-move', 'true')
+        itemEl.setAttribute('data-gs-no-resize', 'true')
+        
+        // Hide delete buttons - try multiple selectors more aggressively
+        const deleteBtns = item.querySelectorAll('.remove-btn, button.remove-btn, .grid-stack-item-remove, .pi-trash, .pi-times, [class*="remove"], [class*="delete"], [class*="close"], button[class*="trash"], i[class*="trash"], i[class*="times"], .delete-button, .close-button, .remove-button')
+        deleteBtns.forEach((btn) => {
+          const btnEl = btn as HTMLElement
+          btnEl.style.display = 'none'
+          btnEl.style.visibility = 'hidden'
+          btnEl.style.opacity = '0'
+          btnEl.style.pointerEvents = 'none'
+        })
+      })
+    }
+    
+    // Run multiple times to catch dynamically added elements
+    setTimeout(hideDeleteButtons, 100)
+    setTimeout(hideDeleteButtons, 500)
+    setTimeout(hideDeleteButtons, 1000)
+  } else {
+    // In edit mode, ensure delete buttons and resize handles are visible
+    const showEditControls = () => {
+      const gridItems = document.querySelectorAll('.grid-stack-item')
+      gridItems.forEach((item) => {
+        // Show delete buttons
+        const deleteBtns = item.querySelectorAll('.remove-btn, button.remove-btn, .grid-stack-item-remove, .pi-trash, .pi-times, [class*="remove"], [class*="delete"], [class*="close"], button[class*="trash"], i[class*="trash"], i[class*="times"], .delete-button, .close-button, .remove-button')
+        deleteBtns.forEach((btn) => {
+          const btnEl = btn as HTMLElement
+          btnEl.style.display = 'block'
+          btnEl.style.visibility = 'visible'
+          btnEl.style.opacity = '1'
+          btnEl.style.pointerEvents = 'auto'
+        })
+        
+        // Ensure content is interactive
+        const content = item.querySelector('.grid-stack-item-content')
+        if (content) {
+          const contentEl = content as HTMLElement
+          contentEl.style.cursor = 'move'
+          contentEl.style.pointerEvents = 'auto'
+        }
+      })
+    }
+    
+    // Run to ensure edit controls are visible
+    setTimeout(showEditControls, 100)
+    setTimeout(showEditControls, 500)
+  }
   
   setTimeout(() => {
     addResizeIcons()
@@ -423,10 +380,9 @@ const addWidgetToGrid = (widget: DataInsightsWidget, x?: number, y?: number, w?:
     const elementNameMatch = htmlContent.match(/customElements\.define\(['"`]([^'"`]+)['"`]/)
     const elementName = elementNameMatch ? elementNameMatch[1] : null
     
-    if (elementName && !customElements.get(elementName) && !executedScripts.has(widget.id)) {
+    if (elementName && !customElements.get(elementName)) {
       try {
         eval(htmlContent)
-        executedScripts.add(widget.id)
       } catch (error) {
       }
     }
@@ -457,6 +413,11 @@ const addWidgetToGrid = (widget: DataInsightsWidget, x?: number, y?: number, w?:
     removeBtn.addEventListener('click', async () => {
       gridStack.value?.removeWidget(el)
       addedWidgetIds.delete(widgetInstanceId)
+      
+      setTimeout(() => {
+        const remainingWidgets = document.querySelectorAll('.grid-stack-item')
+        hasWidgets.value = remainingWidgets.length > 0
+      }, 100)
     })
   }
   const getWidgetSize = (widget: DataInsightsWidget) => {
@@ -490,6 +451,7 @@ const addWidgetToGrid = (widget: DataInsightsWidget, x?: number, y?: number, w?:
   
   gridStack.value.makeWidget(el, options)
   addedWidgetIds.add(widgetInstanceId)
+  hasWidgets.value = true
   
   const resizeObserver = new ResizeObserver((entries) => {
     entries.forEach((entry) => {
@@ -581,7 +543,6 @@ const addWidgetToGrid = (widget: DataInsightsWidget, x?: number, y?: number, w?:
                       aiSubtitle: extractedSubtitle 
                     })
                 } catch (error) {
-                  console.error('Grid: Error updating widget config:', error)
                 }
               }
               
@@ -598,7 +559,7 @@ const addWidgetToGrid = (widget: DataInsightsWidget, x?: number, y?: number, w?:
 
 const createDashboard = async () => {
   if (!dashboardTitle.value || dashboardTitle.value.trim() === '') {
-    toast.add({ severity: 'warn', summary: 'Warning', detail: 'Please enter a dashboard title' })
+    toast.add({ severity: 'warn', summary: 'Warning', detail: 'Please enter a dashboard title', life: 3000 })
     return
   }
   
@@ -616,19 +577,18 @@ const createDashboard = async () => {
     
     const savedDashboard = await dashboardService.save(newDashboard)
     
-    toast.add({ severity: 'success', summary: 'Created', detail: `Dashboard "${savedDashboard.name}" created successfully` })
+    toast.add({ severity: 'success', summary: 'Created', detail: `Dashboard "${savedDashboard.name}" created successfully`, life: 3000 })
     
+    // Redirect to view mode of the created dashboard
     setTimeout(() => {
-      router.push({
-        path: `/application/${props.applicationId}/dashboards`,
-        query: { refresh: Date.now().toString() }
-      })
+      router.push(`/application/${props.applicationId}/dashboards/${savedDashboard.id}`)
     }, 500)
   } catch (error: any) {
     toast.add({ 
       severity: 'error', 
       summary: 'Error', 
-      detail: error?.message || 'Failed to create dashboard' 
+      detail: error?.message || 'Failed to create dashboard',
+      life: 3000
     })
   }
 }
@@ -657,10 +617,16 @@ const updateDashboard = async () => {
     dashboard.value.layout = JSON.stringify({ widgets: widgetInstances })
     dashboard.value.updated = new Date()
     
+    await dashboardService.save(dashboard.value)
     
-    toast.add({ severity: 'success', summary: 'Updated', detail: 'Dashboard updated successfully' })
+    toast.add({ severity: 'success', summary: 'Updated', detail: 'Dashboard updated successfully', life: 3000 })
+    
+    // Redirect to view mode after update
+    setTimeout(() => {
+      router.push(`/application/${props.applicationId}/dashboards/${props.dashboardId}`)
+    }, 500)
   } catch (error) {
-    toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update dashboard' })
+    toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update dashboard', life: 3000 })
   }
 }
 
@@ -674,6 +640,38 @@ const saveDashboard = async () => {
 
 const goBack = () => {
   router.push(`/application/${props.applicationId}/dashboards`)
+}
+
+const updateDateRange = () => {
+  if (typeof window !== 'undefined' && window.globalDateRangeObservable) {
+    window.globalDateRangeObservable.updateDateRange(dateRange.value)
+  }
+}
+
+const toggleDateRangePicker = () => {
+  showDateRangePicker.value = !showDateRangePicker.value
+}
+
+const enterEditMode = () => {
+  router.push(`/application/${props.applicationId}/dashboards/${props.dashboardId}/edit`)
+}
+
+const exitEditMode = () => {
+  router.push(`/application/${props.applicationId}/dashboards/${props.dashboardId}`)
+}
+
+const updateGridMode = () => {
+  if (!gridStack.value) return
+  
+  if (!isEditMode.value) {
+    gridStack.value.setStatic(true)
+    gridStack.value.enableMove(false)
+    gridStack.value.enableResize(false)
+  } else {
+    gridStack.value.setStatic(false)
+    gridStack.value.enableMove(true)
+    gridStack.value.enableResize(true)
+  }
 }
 
 const updateWidgetConfig = (widget: DataInsightsWidget, updates: { aiTitle?: string, aiSubtitle?: string }) => {
@@ -700,47 +698,30 @@ const updateWidgetConfig = (widget: DataInsightsWidget, updates: { aiTitle?: str
   }
 }
 
-const getWidgetTitle = (widget: DataInsightsWidget): string => {
-  try {
-    const config = JSON.parse(widget.config || '{}')
-    const aiTitle = config.aiTitle
-    if (aiTitle && aiTitle !== 'Test' && !aiTitle.includes('AI-generated') && aiTitle.length > 2) {
-      return aiTitle
-    }
-    const widgetName = widget.name || ''
-    if (widgetName && !widgetName.includes('AI-generated')) {
-      return widgetName
-    }
-    
-    return 'Data Insight'
-  } catch {
-    return 'Data Insight'
-  }
-}
 
-const getWidgetSubtitle = (widget: DataInsightsWidget): string => {
-  try {
-    const config = JSON.parse(widget.config || '{}')
-    const aiSubtitle = config.aiSubtitle
-    if (aiSubtitle && !aiSubtitle.includes('AI-generated') && !aiSubtitle.includes('widget for:') && aiSubtitle.length > 5) {
-      return aiSubtitle
-    }
-    const widgetDesc = widget.description || ''
-    if (widgetDesc && !widgetDesc.includes('AI-generated')) {
-      return widgetDesc
-    }
+watch(isEditMode, () => {
+  if (gridStack.value) {
+    updateGridMode()
     
-    return 'Data visualization'
-  } catch {
-    return 'Data visualization'
+    if (isEditMode.value) {
+      setTimeout(() => setupDragDrop(), 100)
+    }
   }
-}
+})
 
 onMounted(async () => {
+  if (!window.globalDateRangeObservable) {
+    window.globalDateRangeObservable = new DateRangeObservable()
+  }
+  
   await Promise.all([loadDashboard(), loadWidgets()])
+  
   setTimeout(() => {
     initGrid()
-    setTimeout(() => setupDragDrop(), 100)
+    
+    if (isEditMode.value) {
+      setTimeout(() => setupDragDrop(), 100)
+    }
   }, 200)
 })
 </script>
@@ -748,58 +729,117 @@ onMounted(async () => {
 <template>
   <div class="h-full flex">
     <div class="flex-1 flex flex-col">
-      <div class="flex justify-between items-center p-4 bg-white">
+      <div class="flex justify-between items-center p-4 bg-white border-b border-surface-200">
         <div class="flex items-center gap-4">
           <Button @click="goBack" icon="pi pi-arrow-left" class="p-button-text p-button-sm" />
-          <InputText v-model="dashboardTitle" placeholder="Dashboard Title" class="text-xl font-semibold" />
+          <!-- View Mode: Display title and description -->
+          <div v-if="!isEditMode">
+            <h1 class="text-xl font-semibold text-surface-900">{{ headerTitle }}</h1>
+            <p class="text-sm text-surface-500">{{ headerSubtitle }}</p>
+          </div>
+          <!-- Edit Mode: Editable title input -->
+          <InputText v-if="isEditMode" v-model="dashboardTitle" placeholder="Dashboard Title" class="text-xl font-semibold" />
         </div>
-        <div class="flex gap-2">
-          <Button @click="goBack" label="Cancel" class="p-button-outlined" />
-          <Button @click="saveDashboard" :label="saveButtonLabel" class="p-button-primary" />
+        <div class="flex gap-2 items-center">
+          <!-- View Mode: Date Range Picker -->
+          <div v-if="!isEditMode" class="flex items-center gap-2">
+            <Button
+              @click="toggleDateRangePicker"
+              :class="showDateRangePicker ? 'p-button-primary' : 'p-button-outlined'"
+              icon="pi pi-calendar"
+              size="small"
+              :label="showDateRangePicker ? 'Hide Date Range' : 'Set Date Range'"
+            />
+            
+            <div v-if="showDateRangePicker" class="flex items-center gap-2 bg-white p-2 rounded border">
+              <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-surface-700">From:</label>
+                <Calendar
+                  v-model="dateRange.startDate"
+                  @date-select="updateDateRange"
+                  placeholder="Start Date"
+                  size="small"
+                  showIcon
+                />
+              </div>
+              
+              <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-surface-700">To:</label>
+                <Calendar
+                  v-model="dateRange.endDate"
+                  @date-select="updateDateRange"
+                  placeholder="End Date"
+                  size="small"
+                  showIcon
+                />
+              </div>
+              
+              <Button
+                @click="dateRange = { startDate: null, endDate: null }; updateDateRange()"
+                icon="pi pi-times"
+                size="small"
+                class="p-button-text"
+                title="Clear date range"
+              />
+            </div>
+          </div>
+          
+          <!-- View Mode: Edit button -->
+          <Button v-if="!isEditMode" @click="enterEditMode" label="Edit" icon="pi pi-pencil" class="p-button-primary" />
+          <!-- Edit Mode: Cancel and Save buttons -->
+          <template v-if="isEditMode">
+            <Button @click="exitEditMode" label="Cancel" class="p-button-outlined" />
+            <Button @click="saveDashboard" :label="saveButtonLabel" class="p-button-primary" />
+          </template>
         </div>
       </div>
 
-      <div class="flex-1 p-4 flex flex-col">
-        <div v-if="loading" class="flex items-center justify-center flex-1">
-          <i class="pi pi-spin pi-spinner text-3xl"></i>
-        </div>
-        <div v-else class="grid-stack flex-1 overflow-y-auto"></div>
-      </div>
+       <div class="flex-1 p-4 flex flex-col">
+         <div v-if="loading" class="flex items-center justify-center flex-1">
+           <i class="pi pi-spin pi-spinner text-3xl"></i>
+         </div>
+         <div v-else :class="['grid-stack flex-1 overflow-y-auto relative', { 'view-mode': !isEditMode, 'edit-mode': isEditMode }]">
+           <div v-if="!hasWidgetsInGrid && isEditMode" class="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+             <div class="text-center text-gray-500 bg-white bg-opacity-90 p-6 rounded-lg">
+               <p class="text-sm text-gray-500">Drag and drop widgets from the sidebar to start building your dashboard</p>
+             </div>
+           </div>
+           <div v-if="!hasWidgetsInGrid && !isEditMode" class="flex items-center justify-center flex-1">
+             <div class="text-center text-surface-500">
+               <i class="pi pi-chart-bar text-6xl mb-4"></i>
+               <h3 class="text-lg font-semibold mb-2">No widgets yet</h3>
+               <p class="text-surface-400 mb-4">This dashboard doesn't have any widgets configured.</p>
+               <Button @click="enterEditMode" label="Add Widgets" class="p-button-primary" />
+             </div>
+           </div>
+         </div>
+       </div>
     </div>
 
-    <div class="w-80 border-l border-surface-200 flex flex-col h-full overflow-y-auto">
+    <!-- Sidebar: Only visible in edit mode -->
+    <div v-if="isEditMode" class="w-80 border-l border-surface-200 flex flex-col h-full overflow-y-auto">
       <div class="p-4 bg-white flex-shrink-0">
         <h3 class="text-lg font-semibold mb-3">Widgets</h3>
         <InputText v-model="widgetSearchText" placeholder="Search..." class="w-full mb-3" />
       </div>
       <div class="flex-1 p-4 overflow-y-auto">
-        <div class="space-y-2">
-            <div
-              v-for="widget in filteredWidgets"
-              :key="widget.id || ''"
-              :data-widget-id="widget.id || ''"
-              class="widget-card bg-white rounded-lg cursor-move border border-surface-200 overflow-hidden"
-            >
-              <div class="widget-chart-area bg-gray-50 p-2 relative">
-                <div class="widget-loading-overlay absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-10">
-                  <div class="text-center">
-                    <i class="pi pi-spin pi-spinner text-blue-500 text-lg mb-1"></i>
-                    <div class="text-xs text-gray-600">Loading...</div>
-                  </div>
-                </div>
-                
-                <div class="widget-preview-content" :data-widget-id="widget.id">
-                  <div class="chart-placeholder" style="display: none; color: #999; font-size: 12px; text-align: center;">
-                    Loading chart...
-                  </div>
-                </div>
-              </div>
-              
-              <div class="p-3">
-                <div class="font-semibold text-sm text-gray-900 mb-1">{{ getWidgetTitle(widget) }}</div>
-                <div class="text-xs text-gray-500 truncate">{{ getWidgetSubtitle(widget) }}</div>
-              </div>
-            </div>
+        <div v-if="loadingSidebarWidgets" class="flex items-center justify-center h-32">
+          <div class="text-center">
+            <i class="pi pi-spin pi-spinner text-blue-500 text-2xl mb-2"></i>
+            <div class="text-sm text-gray-600">Loading widgets...</div>
+          </div>
+        </div>
+        <div v-else class="space-y-2 sidebar-widgets">
+          <div
+            v-for="widget in filteredWidgets"
+            :key="widget.id || ''"
+            class="cursor-move"
+          >
+            <SavedWidgetItem
+              :widget="widget"
+              @delete="() => {}"
+            />
+          </div>
         </div>
       </div>
       </div>
@@ -843,24 +883,105 @@ onMounted(async () => {
   cursor: move;
 }
 
-:deep(.grid-stack-item .ui-resizable-handle) {
+/* View mode styles - widgets are completely locked in place */
+.view-mode .grid-stack-item {
+  overflow: auto !important;
+  position: absolute !important;
+  cursor: default !important;
+  user-select: text !important;
+}
+
+.view-mode .grid-stack-item-content {
+  cursor: default !important;
+  overflow: auto !important;
+  height: 100% !important;
+  user-select: text !important;
+}
+
+/* Completely disable any movement in view mode */
+.view-mode .grid-stack-item[data-gs-locked="true"],
+.view-mode .grid-stack-item[data-gs-no-move="true"] {
+  position: absolute !important;
+  transform: none !important;
+  left: unset !important;
+  top: unset !important;
+  right: unset !important;
+  bottom: unset !important;
+}
+
+/* Hide delete button in view mode with maximum specificity */
+.view-mode .grid-stack-item .remove-btn,
+.view-mode .grid-stack-item button.remove-btn,
+.view-mode .remove-btn,
+.view-mode .grid-stack-item .grid-stack-item-remove,
+.view-mode .grid-stack-item .ui-dialog-titlebar-close,
+.view-mode .grid-stack-item .pi-trash,
+.view-mode .grid-stack-item .pi-times,
+.view-mode .grid-stack-item [class*="remove"],
+.view-mode .grid-stack-item [class*="delete"],
+.view-mode .grid-stack-item [class*="close"],
+.view-mode .grid-stack-item button[class*="trash"],
+.view-mode .grid-stack-item i[class*="trash"],
+.view-mode .grid-stack-item i[class*="times"],
+.view-mode .grid-stack-item .delete-button,
+.view-mode .grid-stack-item .close-button,
+.view-mode .grid-stack-item .remove-button {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Hide all resize handles in view mode */
+.view-mode .grid-stack-item .ui-resizable-se,
+.view-mode .grid-stack-item .ui-resizable-handle,
+.view-mode .grid-stack-item .grid-stack-item-resize,
+.view-mode .ui-resizable-se,
+.view-mode .ui-resizable-handle,
+.view-mode .grid-stack-item-resize {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Completely hide all resize handles and drag handles in view mode */
+.view-mode .grid-stack-item::after,
+.view-mode .grid-stack-item::before {
+  display: none !important;
+}
+
+/* Disable dragging in view mode but allow scrolling */
+
+/* Allow pointer events for scrollable content and charts in view mode */
+.view-mode .grid-stack-item .widget-body,
+.view-mode .grid-stack-item .widget-preview-content,
+.view-mode .grid-stack-item canvas,
+.view-mode .grid-stack-item svg,
+.view-mode .grid-stack-item [class*="chart"],
+.view-mode .grid-stack-item [class*="apex"],
+.view-mode .grid-stack-item .widget-content,
+.view-mode .grid-stack-item .content,
+.view-mode .grid-stack-item div,
+.view-mode .grid-stack-item p,
+.view-mode .grid-stack-item span {
+  pointer-events: auto !important;
+}
+
+/* Allow page scrolling in view mode */
+.view-mode.grid-stack {
+  pointer-events: auto !important;
+  overflow: auto !important;
+}
+
+.view-mode.grid-stack .grid-stack-item {
+  pointer-events: auto !important;
+}
+
+/* Edit mode only - show resize handles and delete buttons */
+:deep(.edit-mode .grid-stack-item .ui-resizable-handle) {
   display: none;
 }
 
-:deep(.grid-stack-item .ui-resizable-se) {
-  display: block !important;
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 20px;
-  height: 20px;
-  background: #e5e7eb;
-  border: 1px solid #9ca3af;
-  cursor: se-resize;
-  z-index: 10;
-}
-
-:deep(.grid-stack-item .ui-resizable-se) {
+:deep(.edit-mode .grid-stack-item .ui-resizable-se) {
   display: block !important;
   position: absolute;
   bottom: 6px;
@@ -875,6 +996,56 @@ onMounted(async () => {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+}
+
+/* Show delete buttons in edit mode */
+:deep(.edit-mode .grid-stack-item .remove-btn),
+:deep(.edit-mode .grid-stack-item button.remove-btn),
+:deep(.edit-mode .remove-btn),
+:deep(.edit-mode .grid-stack-item .grid-stack-item-remove),
+:deep(.edit-mode .grid-stack-item .pi-trash),
+:deep(.edit-mode .grid-stack-item .pi-times),
+:deep(.edit-mode .grid-stack-item [class*="remove"]),
+:deep(.edit-mode .grid-stack-item [class*="delete"]),
+:deep(.edit-mode .grid-stack-item [class*="close"]),
+:deep(.edit-mode .grid-stack-item button[class*="trash"]),
+:deep(.edit-mode .grid-stack-item i[class*="trash"]),
+:deep(.edit-mode .grid-stack-item i[class*="times"]),
+:deep(.edit-mode .grid-stack-item .delete-button),
+:deep(.edit-mode .grid-stack-item .close-button),
+:deep(.edit-mode .grid-stack-item .remove-button) {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* View mode - completely hide all resize handles and delete buttons */
+:deep(.view-mode .grid-stack-item .ui-resizable-handle),
+:deep(.view-mode .grid-stack-item .ui-resizable-se) {
+  display: none !important;
+}
+
+/* View mode - hide delete buttons */
+:deep(.view-mode .grid-stack-item .remove-btn),
+:deep(.view-mode .grid-stack-item button.remove-btn),
+:deep(.view-mode .remove-btn),
+:deep(.view-mode .grid-stack-item .grid-stack-item-remove),
+:deep(.view-mode .grid-stack-item .pi-trash),
+:deep(.view-mode .grid-stack-item .pi-times),
+:deep(.view-mode .grid-stack-item [class*="remove"]),
+:deep(.view-mode .grid-stack-item [class*="delete"]),
+:deep(.view-mode .grid-stack-item [class*="close"]),
+:deep(.view-mode .grid-stack-item button[class*="trash"]),
+:deep(.view-mode .grid-stack-item i[class*="trash"]),
+:deep(.view-mode .grid-stack-item i[class*="times"]),
+:deep(.view-mode .grid-stack-item .delete-button),
+:deep(.view-mode .grid-stack-item .close-button),
+:deep(.view-mode .grid-stack-item .remove-button) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 :deep(.grid-stack-item .grid-stack-item-resize) {
@@ -1046,6 +1217,15 @@ onMounted(async () => {
 :deep(.widget-body .chart-container) {
   margin: 0 !important;
   padding: 0 !important;
+}
+
+/* Hide delete button in sidebar widgets */
+.sidebar-widgets :deep(.pi-trash) {
+  display: none !important;
+}
+
+.sidebar-widgets :deep(button[title="Delete Widget"]) {
+  display: none !important;
 }
 </style>
 

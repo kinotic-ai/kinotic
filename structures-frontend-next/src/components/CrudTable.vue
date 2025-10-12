@@ -271,7 +271,7 @@ export default toNative(CrudTable);
   <div :style="{ '--row-hover-color': rowHoverColor }">
     <Toolbar class="!border-none !px-0 !mb-6 !py-0">
       <template #start>
-        <IconField class="w-full max-w-sm">
+        <IconField class="max-w-sm">
           <InputIcon class="pi pi-search" />
           <InputText
             v-model="searchText"
