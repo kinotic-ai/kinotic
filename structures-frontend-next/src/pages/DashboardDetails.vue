@@ -66,7 +66,7 @@ const isNewDashboard = computed(() => {
 })
 
 const saveButtonLabel = computed(() => {
-  return isNewDashboard.value ? 'Create' : 'Save'
+  return "Save Dashboard"
 })
 
 const headerTitle = computed(() => {
@@ -193,7 +193,6 @@ const initGrid = () => {
     draggable: { handle: '.grid-stack-item-content' }
   }
   
-  // Disable interactions in view mode
   if (!isEditMode.value) {
     gridOptions.acceptWidgets = false
     gridOptions.resizable = { handles: '' }
@@ -202,15 +201,12 @@ const initGrid = () => {
   
   gridStack.value = GridStack.init(gridOptions)
   
-  // Apply view mode settings immediately after initialization
   if (!isEditMode.value) {
     updateGridMode()
   }
   
-  // In view mode, immediately disable all interactions
   if (!isEditMode.value) {
     const hideDeleteButtons = () => {
-      // Remove all resize handles, drag handles, and delete buttons
       const gridItems = document.querySelectorAll('.grid-stack-item')
       gridItems.forEach((item) => {
         const resizeHandles = item.querySelectorAll('.ui-resizable-handle, .ui-resizable-se, .grid-stack-item-resize')
@@ -220,7 +216,6 @@ const initGrid = () => {
           handleEl.style.visibility = 'hidden'
         })
         
-        // Remove drag cursor but enable scrolling
         const content = item.querySelector('.grid-stack-item-content')
         if (content) {
           const contentEl = content as HTMLElement
@@ -229,11 +224,8 @@ const initGrid = () => {
           contentEl.style.height = '100%'
         }
         
-        // Enable scrolling for the widget but lock it in place
         const itemEl = item as HTMLElement
         itemEl.style.overflow = 'auto'
-        
-        // Completely lock widget in place
         itemEl.style.position = 'absolute'
         itemEl.style.left = itemEl.style.left || '0px'
         itemEl.style.top = itemEl.style.top || '0px'
@@ -241,7 +233,6 @@ const initGrid = () => {
         itemEl.setAttribute('data-gs-no-move', 'true')
         itemEl.setAttribute('data-gs-no-resize', 'true')
         
-        // Hide delete buttons - try multiple selectors more aggressively
         const deleteBtns = item.querySelectorAll('.remove-btn, button.remove-btn, .grid-stack-item-remove, .pi-trash, .pi-times, [class*="remove"], [class*="delete"], [class*="close"], button[class*="trash"], i[class*="trash"], i[class*="times"], .delete-button, .close-button, .remove-button')
         deleteBtns.forEach((btn) => {
           const btnEl = btn as HTMLElement
@@ -253,16 +244,13 @@ const initGrid = () => {
       })
     }
     
-    // Run multiple times to catch dynamically added elements
     setTimeout(hideDeleteButtons, 100)
     setTimeout(hideDeleteButtons, 500)
     setTimeout(hideDeleteButtons, 1000)
   } else {
-    // In edit mode, ensure delete buttons and resize handles are visible
     const showEditControls = () => {
       const gridItems = document.querySelectorAll('.grid-stack-item')
       gridItems.forEach((item) => {
-        // Show delete buttons
         const deleteBtns = item.querySelectorAll('.remove-btn, button.remove-btn, .grid-stack-item-remove, .pi-trash, .pi-times, [class*="remove"], [class*="delete"], [class*="close"], button[class*="trash"], i[class*="trash"], i[class*="times"], .delete-button, .close-button, .remove-button')
         deleteBtns.forEach((btn) => {
           const btnEl = btn as HTMLElement
@@ -272,7 +260,6 @@ const initGrid = () => {
           btnEl.style.pointerEvents = 'auto'
         })
         
-        // Ensure content is interactive
         const content = item.querySelector('.grid-stack-item-content')
         if (content) {
           const contentEl = content as HTMLElement
@@ -282,7 +269,6 @@ const initGrid = () => {
       })
     }
     
-    // Run to ensure edit controls are visible
     setTimeout(showEditControls, 100)
     setTimeout(showEditControls, 500)
   }
@@ -579,7 +565,6 @@ const createDashboard = async () => {
     
     toast.add({ severity: 'success', summary: 'Created', detail: `Dashboard "${savedDashboard.name}" created successfully`, life: 3000 })
     
-    // Redirect to view mode of the created dashboard
     setTimeout(() => {
       router.push(`/application/${props.applicationId}/dashboards/${savedDashboard.id}`)
     }, 500)
@@ -621,7 +606,6 @@ const updateDashboard = async () => {
     
     toast.add({ severity: 'success', summary: 'Updated', detail: 'Dashboard updated successfully', life: 3000 })
     
-    // Redirect to view mode after update
     setTimeout(() => {
       router.push(`/application/${props.applicationId}/dashboards/${props.dashboardId}`)
     }, 500)
@@ -745,7 +729,7 @@ onMounted(async () => {
           <div v-if="!isEditMode" class="flex items-center gap-2">
             <Button
               @click="toggleDateRangePicker"
-              :class="showDateRangePicker ? 'p-button-primary' : 'p-button-outlined'"
+              :class="showDateRangePicker ? '!bg-blue-600 !border-blue-600 !text-white !hover:bg-blue-700 !hover:border-blue-700 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px] [&_.pi]:!w-[14px] [&_.pi]:!h-[14px]' : '!bg-white !border !border-gray-300 !text-gray-700 !hover:bg-gray-50 !hover:border-gray-400 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px] [&_.pi]:!w-[14px] [&_.pi]:!h-[14px]'"
               icon="pi pi-calendar"
               size="small"
               :label="showDateRangePicker ? 'Hide Date Range' : 'Set Date Range'"
@@ -785,11 +769,14 @@ onMounted(async () => {
           </div>
           
           <!-- View Mode: Edit button -->
-          <Button v-if="!isEditMode" @click="enterEditMode" label="Edit" icon="pi pi-pencil" class="p-button-primary" />
+          <Button v-if="!isEditMode" @click="enterEditMode" label="Edit" icon="pi pi-pencil" 
+                  class="!bg-white !border !border-gray-300 !text-gray-700 !hover:bg-gray-50 !hover:border-gray-400 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px] [&_.pi]:!w-[14px] [&_.pi]:!h-[14px]" />
           <!-- Edit Mode: Cancel and Save buttons -->
           <template v-if="isEditMode">
-            <Button @click="exitEditMode" label="Cancel" class="p-button-outlined" />
-            <Button @click="saveDashboard" :label="saveButtonLabel" class="p-button-primary" />
+            <Button @click="exitEditMode" label="Cancel" 
+                    class="!bg-gray-200 !border-gray-200 !text-gray-700 !hover:bg-gray-300 !hover:border-gray-300 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px]" />
+            <Button @click="saveDashboard" :label="saveButtonLabel" 
+                    class="!bg-blue-600 !border-blue-600 !text-white !hover:bg-blue-700 !hover:border-blue-700 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px]" />
           </template>
         </div>
       </div>
@@ -809,7 +796,8 @@ onMounted(async () => {
                <i class="pi pi-chart-bar text-6xl mb-4"></i>
                <h3 class="text-lg font-semibold mb-2">No widgets yet</h3>
                <p class="text-surface-400 mb-4">This dashboard doesn't have any widgets configured.</p>
-               <Button @click="enterEditMode" label="Add Widgets" class="p-button-primary" />
+               <Button @click="enterEditMode" label="Add Widgets" 
+                       class="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 rounded-md px-3 py-2 font-medium" />
              </div>
            </div>
          </div>
