@@ -269,44 +269,40 @@ export default toNative(CrudTable);
 
 <template>
   <div :style="{ '--row-hover-color': rowHoverColor }">
-    <Toolbar class="!border-none !px-0 !mb-6 !py-0">
-      <template #start>
-        <IconField class="max-w-sm">
-          <InputIcon class="pi pi-search" />
-          <InputText
-            v-model="searchText"
-            placeholder="Search"
-            size="small"
-            @input="onSearchChange"
-            @keyup.enter="find"
-          />
-        </IconField>
-      </template>
+    <div class="flex justify-between items-center mb-6">
+      <IconField class="max-w-sm">
+        <InputIcon class="pi pi-search" />
+        <InputText
+          v-model="searchText"
+          placeholder="Search"
+          size="small"
+          @input="onSearchChange"
+          @keyup.enter="find"
+        />
+      </IconField>
 
-      <template #end>
-        <div class="flex items-center gap-2 h-[33px]">
-          <SelectButton
-            size="small"
-            v-if="enableViewSwitcher"
-            v-model="activeView"
-            :options="viewOptions"
-            optionValue="value"
-            dataKey="value"
-          >
-            <template #option="slotProps">
-              <i :class="slotProps.option.icon"></i>
-            </template>
-          </SelectButton>
-          <Button
-            size="small"
-            v-if="!disableModifications && isShowAddNew"
-            @click="addItem"
-            :label="createNewButtonText"
-            icon="pi pi-plus"
-          />
-        </div>
-      </template>
-    </Toolbar>
+      <div class="flex items-center gap-2 h-[33px]">
+        <SelectButton
+          size="small"
+          v-if="enableViewSwitcher"
+          v-model="activeView"
+          :options="viewOptions"
+          optionValue="value"
+          dataKey="value"
+        >
+          <template #option="slotProps">
+            <i :class="slotProps.option.icon"></i>
+          </template>
+        </SelectButton>
+        <Button
+          size="small"
+          v-if="!disableModifications && isShowAddNew"
+          @click="addItem"
+          :label="createNewButtonText"
+          icon="pi pi-plus"
+        />
+      </div>
+    </div>
 
     <div class="mb-6">
       <div v-if="isColumnView">
