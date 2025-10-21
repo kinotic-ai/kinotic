@@ -53,6 +53,9 @@ importers:
       dagre:
         specifier: ^0.8.5
         version: 0.8.5
+      gridstack:
+        specifier: ^12.3.3
+        version: 12.3.3
       js-cookie:
         specifier: ^3.0.5
         version: 3.0.5
@@ -1067,6 +1070,9 @@ packages:
 
   graphlib@2.1.8:
     resolution: {integrity: sha512-jcLLfkpoVGmH7/InMC/1hIvOPSUh38oJtGhvrOFGzioE1DZ+0YW16RgmOJhHiuWTvGiJQ9Z1Ik43JvkRPRvE+A==}
+
+  gridstack@12.3.3:
+    resolution: {integrity: sha512-Bboi4gj7HXGnx1VFXQNde4Nwi5srdUSuCCnOSszKhFjBs8EtMEWhsKX02BjIKkErq/FjQUkNUbXUYeQaVMQ0jQ==}
 
   hash.js@1.1.7:
     resolution: {integrity: sha512-taOaskGt4z4SOANNseOviYDvjEJinIkRgmp7LbKP2YTTmVxWBl87s/uzK9r+44BclBSp2X7K1hqeNfz9JbBeXA==}
@@ -2465,6 +2471,8 @@ snapshots:
   graphlib@2.1.8:
     dependencies:
       lodash: 4.17.21
+
+  gridstack@12.3.3: {}
 
   hash.js@1.1.7:
     dependencies:
