@@ -2,11 +2,11 @@
   <div ref="headerRef" class="px-6 py-4 bg-surface-950 flex justify-between items-center sticky top-0 left-0 z-50">
     <div class="flex items-center gap-2 text-white relative">
       <RouterLink to="/applications" class="flex items-center gap-2">
-        <img v-if="!isApplicationDetailsPage && !isProjectStructuresPage && !isApplicationSettingsPage" src="@/assets/logo.svg" class="h-8" />
+        <img v-if="!isApplicationDetailsPage && !isProjectStructuresPage && !isApplicationSettingsPage && !isDashboardsPage && !isDataInsightsPage && !isSavedWidgetsPage" src="@/assets/logo.svg" class="h-8" />
         <img v-else src="@/assets/sidebar-logo.svg" class="!h-8 !w-8" />
       </RouterLink>
 
-      <template v-if="isApplicationDetailsPage || isProjectStructuresPage || isApplicationSettingsPage">
+      <template v-if="isApplicationDetailsPage || isProjectStructuresPage || isApplicationSettingsPage || isDashboardsPage || isDataInsightsPage || isSavedWidgetsPage">
         <span class="text-surface-400 text-lg">/</span>
 
         <div ref="appDropdownRef" class="relative inline-block mr-8">
@@ -38,7 +38,7 @@
           </div>
         </div>
 
-                 <template v-if="currentApp">
+                 <template v-if="currentApp && !isApplicationSettingsPage && !isDashboardsPage && !isDataInsightsPage && !isSavedWidgetsPage">
            <span class="text-surface-400 text-lg">/</span>
            <div ref="projectDropdownRef" class="relative inline-block">
             <button @click="toggleProjectDropdown"
@@ -120,6 +120,9 @@ export default class Header extends Vue {
   isApplicationDetailsPage = false;
   isProjectStructuresPage = false;
   isApplicationSettingsPage = false;
+  isDashboardsPage = false;
+  isDataInsightsPage = false;
+  isSavedWidgetsPage = false;
 
   projectsForCurrentApp: Project[] = [];
   currentApp: Application | null = null;
@@ -183,6 +186,18 @@ export default class Header extends Vue {
     this.isApplicationDetailsPage = /^\/application\/[^/]+$/.test(path);
     this.isProjectStructuresPage = /^\/application\/[^/]+\/project\/[^/]+\/structures$/.test(path);
     this.isApplicationSettingsPage = /^\/application\/[^/]+\/settings$/.test(path);
+    this.isDashboardsPage = /^\/application\/[^/]+\/dashboards(\/.*)?$/.test(path);
+    this.isDataInsightsPage = /^\/application\/[^/]+\/data-insights$/.test(path);
+    this.isSavedWidgetsPage = /^\/application\/[^/]+\/saved-widgets$/.test(path);
+    
+    // Set current application based on route
+    if (this.isApplicationDetailsPage || this.isProjectStructuresPage || this.isApplicationSettingsPage || this.isDashboardsPage || this.isDataInsightsPage || this.isSavedWidgetsPage) {
+      const applicationId = this.$route.params.applicationId as string;
+      if (applicationId && this.currentApp?.id !== applicationId) {
+        this.setActiveAppById(applicationId);
+      }
+    }
+    
     if (this.isApplicationDetailsPage && !this.isProjectStructuresPage) {
       this.currentProject = null;
     }
@@ -192,7 +207,7 @@ export default class Header extends Vue {
         this.setCurrentProjectById(projectId);
       }
     }
-    else if (this.isApplicationSettingsPage) {
+    else if (this.isApplicationSettingsPage || this.isDashboardsPage || this.isDataInsightsPage || this.isSavedWidgetsPage) {
       this.currentProject = null;
     }
   }
