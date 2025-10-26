@@ -372,6 +372,15 @@ public class InsightsContextService {
             ```
             
             EXAMPLE JSON RESPONSE FORMAT:
+                CRITICAL: Return your response as a JSON array of DataInsightsComponent objects.
+                Each DataInsightsComponent should contain:
+                - id: unique identifier (UUID)
+                - name: descriptive name for the component
+                - description: what the component shows
+                - rawHtml: the complete JavaScript code for the web component
+                - applicationId: the application ID
+                - modifiedAt: timestamp
+                - supportsDateRangeFiltering: boolean (true only if structure has DateC3Type fields)
             ```json
             [
               {
