@@ -482,8 +482,9 @@ Components that support date filtering will automatically respond to the global 
       widget.dataInsightsComponent = component
       widget.created = new Date()
       widget.updated = new Date()
-
-      await this.widgetService.save(widget)
+      console.log('widget', widget)
+      const a = await this.widgetService.save(widget)
+      console.log('dataaaaaaaaaaaaa', a)
     } catch (error) {
       console.error('Failed to save widget:', error)
     }
