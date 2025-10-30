@@ -127,6 +127,8 @@ export default class Header extends Vue {
   projectsForCurrentApp: Project[] = [];
   currentApp: Application | null = null;
   currentProject: Project | null = null;
+  isLoadingProjects: boolean = false;
+  isSwitchingApplication: boolean = false;
 
   mounted() {
     this.updateRouteState();
@@ -176,7 +178,9 @@ export default class Header extends Vue {
   @Watch('APPLICATION_STATE.currentApplication', { immediate: true })
   onGlobalApplicationChange() {
     this.currentApp = APPLICATION_STATE.currentApplication;
-    if (this.currentApp) {
+    // Only auto-load projects if we're not in the middle of switching applications
+    // to prevent race conditions and infinite loops
+    if (this.currentApp && !this.isSwitchingApplication) {
       this.loadProjectsForCurrentApp();
     }
   }
@@ -251,7 +255,9 @@ export default class Header extends Vue {
   }
 
   async loadProjectsForCurrentApp() {
-    if (!this.currentApp) return;
+    if (!this.currentApp || this.isLoadingProjects) return;
+    
+    this.isLoadingProjects = true;
     try {
       const pageable = { pageNumber: 0, pageSize: 100 } as any;
       const result = await Structures.getProjectService().findAllForApplication(this.currentApp.id, pageable);
@@ -259,26 +265,46 @@ export default class Header extends Vue {
       
       if (this.isProjectStructuresPage) {
         const projectId = this.$route.params.projectId as string;
-        if (projectId && this.currentProject?.id !== projectId) {
+        const routeAppId = this.$route.params.applicationId as string;
+        
+        // Only try to set the project if we're still on the same application
+        // This prevents infinite loops when switching to an app with no projects
+        if (projectId && routeAppId === this.currentApp.id && this.currentProject?.id !== projectId) {
           this.setCurrentProjectById(projectId);
         }
       }
     } catch (e) {
       console.error('[Header] Failed to load projects:', e);
+    } finally {
+      this.isLoadingProjects = false;
     }
   }
 
   async selectApp(app: Application) {
-    this.currentApp = app;
-    APPLICATION_STATE.currentApplication = app;
-    this.appDropdownOpen = false;
-    this.currentProject = null;
-    this.searchTextApp = '';
+    // Set flag to prevent watchers from triggering during the switch
+    this.isSwitchingApplication = true;
+    
+    try {
+      this.currentApp = app;
+      APPLICATION_STATE.currentApplication = app;
+      this.appDropdownOpen = false;
+      this.currentProject = null;
+      this.projectsForCurrentApp = []; // Clear projects from previous app
+      this.searchTextApp = '';
 
-    await this.loadProjectsForCurrentApp();
-    await this.$router.push(`/application/${encodeURIComponent(app.id)}`);
+      // Navigate first to change the route context, then load projects
+      await this.$router.push(`/application/${encodeURIComponent(app.id)}`);
+      
+      // Small delay to ensure route has fully updated
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      await this.loadProjectsForCurrentApp();
 
-    this.$emit('application-changed', app);
+      this.$emit('application-changed', app);
+    } finally {
+      // Always clear the flag even if there's an error
+      this.isSwitchingApplication = false;
+    }
   }
 
   selectProject(proj: Project) {
@@ -321,16 +347,26 @@ export default class Header extends Vue {
   }
 
   setCurrentProjectById(projectId: string): void {
-    
     if (this.projectsForCurrentApp.length > 0) {
       const proj = this.projectsForCurrentApp.find(p => p.id === projectId);
       if (proj) {
         this.currentProject = proj;
+      } else {
+        // Project not found in the list, clear current project
+        console.warn('[Header] Project not found in current application:', projectId);
+        this.currentProject = null;
       }
     } else {
-      this.loadProjectsForCurrentApp().then(() => {
-        this.setCurrentProjectById(projectId);
-      });
+      // No projects loaded yet - only try to load if we're not already loading
+      // and if the route application matches the current application
+      // and we're not in the middle of switching applications
+      const routeAppId = this.$route.params.applicationId as string;
+      if (routeAppId === this.currentApp?.id && !this.isLoadingProjects && !this.isSwitchingApplication) {
+        this.loadProjectsForCurrentApp();
+      } else {
+        // Different application in route vs state, or already loading, just clear
+        this.currentProject = null;
+      }
     }
   }
 
