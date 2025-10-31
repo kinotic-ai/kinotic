@@ -14,14 +14,9 @@ const previewLoaded = ref(false)
 
 const getWidgetTitle = (): string => {
   try {
-    const config = JSON.parse(props.widget.config || '{}')
-    const aiTitle = config.aiTitle
-    if (aiTitle && aiTitle !== 'Test' && !aiTitle.includes('AI-generated') && aiTitle.length > 2) {
-      return aiTitle
-    }
-    const widgetName = props.widget.name || ''
-    if (widgetName && !widgetName.includes('AI-generated')) {
-      return widgetName
+    const name = props.widget.dataInsightsComponent?.name || ''
+    if (name && name.length > 0) {
+      return name
     }
     return 'Data Insight'
   } catch {
@@ -31,14 +26,9 @@ const getWidgetTitle = (): string => {
 
 const getWidgetSubtitle = (): string => {
   try {
-    const config = JSON.parse(props.widget.config || '{}')
-    const aiSubtitle = config.aiSubtitle
-    if (aiSubtitle && !aiSubtitle.includes('AI-generated') && !aiSubtitle.includes('widget for:') && aiSubtitle.length > 5) {
-      return aiSubtitle
-    }
-    const widgetDesc = props.widget.description || ''
-    if (widgetDesc && !widgetDesc.includes('AI-generated')) {
-      return widgetDesc
+    const description = props.widget.dataInsightsComponent?.description || ''
+    if (description && description.length > 0) {
+      return description
     }
     return 'Data visualization'
   } catch {
@@ -46,23 +36,82 @@ const getWidgetSubtitle = (): string => {
   }
 }
 
-const executeWidgetHTML = () => {
-  const config = JSON.parse(props.widget.config || '{}')
-  const htmlContent = config.originalRawHtml || props.widget.src
+const loadEchartsIfNeeded = (): Promise<void> => {
+  return new Promise((resolve) => {
+    if ((window as any).echarts) {
+      resolve()
+      return
+    }
+    
+    if ((window as any).echartsLoading) {
+      const checkInterval = setInterval(() => {
+        if ((window as any).echarts) {
+          clearInterval(checkInterval)
+          resolve()
+        }
+      }, 100)
+      return
+    }
+    
+    ;(window as any).echartsLoading = true
+    const script = document.createElement('script')
+    script.src = 'https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js'
+    script.onload = () => {
+      ;(window as any).echartsLoading = false
+      resolve()
+    }
+    script.onerror = () => {
+      ;(window as any).echartsLoading = false
+      resolve()
+    }
+    document.head.appendChild(script)
+  })
+}
+
+const executeWidgetHTML = async () => {
+  const htmlContent = props.widget.dataInsightsComponent?.rawHtml || ''
   
   if (!htmlContent) return
   
+  if (htmlContent.includes('echarts')) {
+    await loadEchartsIfNeeded()
+  }
+  
+  executeWidgetElement(htmlContent)
+}
+
+const executeWidgetElement = (htmlContent: string) => {
   try {
     const elementNameMatch = htmlContent.match(/customElements\.define\(['"`]([^'"`]+)['"`]/)
-    const elementName = elementNameMatch ? elementNameMatch[1] : null
+    let elementName = elementNameMatch ? elementNameMatch[1] : null
     
     if (!elementName) return
     
+    // If element already exists, create unique name for this widget instance
     if (customElements.get(elementName)) {
+      console.log('⚠️ Element already registered, using existing:', elementName)
+      // Check if it's the same class or different
+      const existingElement = customElements.get(elementName)
+      const newClassMatch = htmlContent.match(/class\s+(\w+)\s+extends\s+HTMLElement/)
+      const newClassName = newClassMatch ? newClassMatch[1] : null
+      
+      // If different implementation, create unique element name
+      if (newClassName && existingElement && existingElement.name !== newClassName) {
+        const uniqueName = `${elementName}-${props.widget.id?.substring(0, 8)}`
+        console.log('🔄 Creating unique element name:', uniqueName)
+        const modifiedHtml = htmlContent.replace(
+          `customElements.define('${elementName}'`,
+          `customElements.define('${uniqueName}'`
+        )
+        eval(modifiedHtml)
+        elementName = uniqueName
+      }
+      
       createWidgetElement(elementName)
       return
     }
     
+    console.log('🔧 Registering new element:', elementName)
     eval(htmlContent)
     
     setTimeout(() => {
@@ -78,51 +127,67 @@ const executeWidgetHTML = () => {
 const createWidgetElement = (elementName: string) => {
   const previewContainer = document.querySelector(`[data-widget-id="${props.widget.id}"] .widget-preview-content`)
   
+  console.log('🎨 Creating element for:', props.widget.dataInsightsComponent?.name)
+  console.log('📦 Container found:', !!previewContainer)
+  console.log('🏷️ Element name:', elementName)
+  console.log('✅ Custom element registered?', !!customElements.get(elementName))
+  
   if (previewContainer) {
     const element = document.createElement(elementName)
+    console.log('🔧 Element created:', element)
     previewContainer.innerHTML = ''
     previewContainer.appendChild(element)
+    console.log('✅ Element appended to container')
     
     setTimeout(() => {
+      console.log('⏰ Checking shadow root after 300ms...')
+      console.log('🔍 Shadow root exists?', !!element.shadowRoot)
+      
       if (element.shadowRoot) {
+        console.log('✅ Shadow root confirmed!')
         const style = document.createElement('style')
-        style.textContent = `
-          h1, h2, h3, h4, h5, h6, p, span, label, title, desc, .title, .description { display: none !important; } 
-          :host { 
-            padding: 0 !important; 
-            margin: 0 !important; 
-            border: none !important; 
-            box-shadow: none !important; 
-            background: transparent !important;
-            width: 100% !important;
-            height: 100% !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-          }
-          canvas, svg {
-            max-width: 100% !important;
-            max-height: 100% !important;
-            width: auto !important;
-            height: auto !important;
-            display: block !important;
-            margin: auto !important;
-          }
-        `
         element.shadowRoot.appendChild(style)
+        console.log('🎨 Styles appended')
         
         setTimeout(() => {
+          console.log('⏰ Setting preview loaded...')
           previewLoaded.value = true
-        }, 500)
+          console.log('✅ Preview loaded for:', props.widget.dataInsightsComponent?.name)
+          
+          if (element.shadowRoot) {
+            const chartContainer = element.shadowRoot.querySelector('.chart-container, [id="chart"]')
+            console.log('📊 Chart container in shadow:', !!chartContainer)
+            
+            const canvas = element.shadowRoot.querySelector('canvas')
+            const svg = element.shadowRoot.querySelector('svg')
+            console.log('🎨 Canvas found:', !!canvas)
+            console.log('🎨 SVG found:', !!svg)
+            
+            const chartElement = element.shadowRoot.querySelector('canvas, svg, [id="chart"]') as any
+            if (chartElement && chartElement.__ec_inner__) {
+              setTimeout(() => {
+                console.log('📊 Resizing echarts...')
+                chartElement.__ec_inner__.resize()
+                console.log('✅ ECharts resized')
+              }, 500)
+            } else {
+              console.log('ℹ️ No echarts instance found (might be other chart library)')
+            }
+          }
+        }, 1000)
+      } else {
+        console.error('❌ No shadow root found!')
       }
-    }, 100)
+    }, 300)
+  } else {
+    console.error('❌ Preview container not found for:', props.widget.id)
   }
 }
 
 onMounted(() => {
   setTimeout(() => {
     executeWidgetHTML()
-  }, 100)
+  }, 200)
 })
 </script>
 
@@ -150,8 +215,8 @@ onMounted(() => {
     </div>
     
     <div class="p-3 relative">
-      <div class="font-semibold text-sm text-gray-900 mb-1">{{ getWidgetTitle() }}</div>
-      <div class="text-xs text-gray-500 truncate">{{ getWidgetSubtitle() }}</div>
+      <div class="font-semibold text-sm text-gray-900 mb-1 pr-6">{{ getWidgetTitle() }}</div>
+      <div class="text-xs text-gray-500 line-clamp-2 pr-6">{{ getWidgetSubtitle() }}</div>
       
       <button
         @click.stop="emit('delete', widget.id!)"
@@ -216,5 +281,17 @@ onMounted(() => {
   margin: auto !important;
   display: block !important;
 }
-</style>
 
+.widget-preview-content :deep(.chart-container) {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-clamp: 2;
+}
+</style>
