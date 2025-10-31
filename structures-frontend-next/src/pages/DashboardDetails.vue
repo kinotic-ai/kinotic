@@ -33,6 +33,7 @@ const gridStack = ref<GridStack | null>(null)
 const savedWidgets = ref<DataInsightsWidget[]>([])
 const widgetSearchText = ref('')
 const addedWidgetIds = new Set<string>()
+const renderedWidgetIds = new Set<string>()
 const hasWidgets = ref(false)
 const loadingSidebarWidgets = ref(true)
 
@@ -52,9 +53,12 @@ const isEditMode = computed(() => {
 
 const filteredWidgets = computed(() => {
   if (!widgetSearchText.value) return savedWidgets.value
-  return savedWidgets.value.filter(w =>
-    w.name.toLowerCase().includes(widgetSearchText.value.toLowerCase())
-  )
+  return savedWidgets.value.filter(w => {
+    const name = w.dataInsightsComponent?.name?.toLowerCase() || ''
+    const description = w.dataInsightsComponent?.description?.toLowerCase() || ''
+    const searchLower = widgetSearchText.value.toLowerCase()
+    return name.includes(searchLower) || description.includes(searchLower)
+  })
 })
 
 const hasWidgetsInGrid = computed(() => {
@@ -112,25 +116,50 @@ const loadDashboard = async () => {
         
         if (layoutData.widgets && layoutData.widgets.length > 0) {
           hasWidgets.value = true
+          
           setTimeout(() => {
+            if (!gridStack.value) {
+              return
+            }
+            
+            gridStack.value.removeAll(false)
+            gridStack.value.batchUpdate()
+            gridStack.value.float(false)
             
             layoutData.widgets.forEach((widgetData: any) => {
               const widget = savedWidgets.value.find(w => w.id === widgetData.widgetId)
               
               if (widget) {
-                addWidgetToGrid(widget, widgetData.x, widgetData.y, widgetData.w, widgetData.h, widgetData.instanceId)
-              } else {
+                addWidgetToGrid(
+                  widget, 
+                  widgetData.x, 
+                  widgetData.y, 
+                  widgetData.w, 
+                  widgetData.h, 
+                  widgetData.instanceId
+                )
               }
             })
+            
             setTimeout(() => {
-              addResizeIcons()
+              if (gridStack.value) {
+                gridStack.value.commit()
+                
+                setTimeout(() => {
+                  if (gridStack.value) {
+                    gridStack.value.float(false)
+                    if (!isEditMode.value) {
+                      gridStack.value.setStatic(true)
+                    }
+                  }
             }, 2000)
+              }
+              addResizeIcons()
+            }, 3000)
           }, 1500)
-        } else {
         }
       } catch (error) {
       }
-    } else {
     }
   } catch (error) {
   } finally {
@@ -141,11 +170,7 @@ const loadDashboard = async () => {
 const addResizeIcons = () => {
   const resizeHandles = document.querySelectorAll('.grid-stack-item .ui-resizable-se')
   
-  if (resizeHandles.length === 0) {
-  }
-  
   resizeHandles.forEach((handle) => {
-    
     handle.innerHTML = ''
     
     const icon = document.createElement('i')
@@ -154,7 +179,6 @@ const addResizeIcons = () => {
     icon.style.color = '#6b7280'
     
     handle.appendChild(icon)
-    
   })
 }
 
@@ -183,23 +207,32 @@ const setupResizeIconObserver = () => {
 }
 
 const initGrid = () => {
-  const gridOptions = {
-    cellHeight: 80,
+  const gridOptions: any = {
+    cellHeight: 71,
     column: 12,
     margin: 5,
-    float: true,
+    float: false,
     acceptWidgets: true,
     resizable: { handles: 'se' },
-    draggable: { handle: '.grid-stack-item-content' }
-  }
-  
-  if (!isEditMode.value) {
-    gridOptions.acceptWidgets = false
-    gridOptions.resizable = { handles: '' }
-    gridOptions.draggable = { handle: '' }
+    draggable: { handle: '.grid-stack-item-content' },
+    disableDrag: false,
+    disableResize: false,
+    animate: true,
+    staticGrid: false,
+    disableOneColumnMode: true
   }
   
   gridStack.value = GridStack.init(gridOptions)
+  
+  if (!isEditMode.value) {
+    setTimeout(() => {
+      if (gridStack.value) {
+        gridStack.value.setStatic(true)
+        gridStack.value.enableMove(false)
+        gridStack.value.enableResize(false)
+      }
+    }, 100)
+  }
   
   if (!isEditMode.value) {
     updateGridMode()
@@ -281,95 +314,239 @@ const initGrid = () => {
 }
 
 const setupDragDrop = () => {
-  const widgets = document.querySelectorAll('.widget-card')
+  if (!gridStack.value) return
   
-  widgets.forEach(card => {
-    (card as HTMLElement).draggable = true
+  console.log('🔧 Setting up GridStack drag-in...')
+  
+  // First, set widget sizes as GridStack attributes
+  const updateWidgetAttributes = () => {
+    const widgets = document.querySelectorAll('.sidebar-widgets .widget-card')
+    console.log('📦 Found sidebar widgets:', widgets.length)
     
-    card.addEventListener('dragstart', (e: Event) => {
-      const dragEvent = e as DragEvent
+    widgets.forEach(card => {
       const widgetId = card.getAttribute('data-widget-id')
-      if (dragEvent.dataTransfer && widgetId) {
-        dragEvent.dataTransfer.setData('text/plain', widgetId)
-        
-        const dragImage = card.cloneNode(true) as HTMLElement
-        dragImage.style.position = 'absolute'
-        dragImage.style.top = '-1000px'
-        dragImage.style.left = '-1000px'
-        dragImage.style.width = '300px'
-        dragImage.style.height = '200px'
-        dragImage.style.transform = 'rotate(5deg)'
-        dragImage.style.opacity = '0.8'
-        dragImage.style.border = '2px solid #3b82f6'
-        dragImage.style.borderRadius = '8px'
-        dragImage.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.2)'
-        dragImage.style.zIndex = '1000'
-        
-        document.body.appendChild(dragImage)
-        
-        dragEvent.dataTransfer.setDragImage(dragImage, 150, 100)
+      if (!widgetId) return
+      
+      const widget = savedWidgets.value.find(w => w.id === widgetId)
+      if (!widget) return
+      
+      const cardElement = card as HTMLElement
+      cardElement.setAttribute('gs-w', '4')
+      cardElement.setAttribute('gs-h', '4')
+      cardElement.classList.add('grid-stack-item')
+    })
+  }
+  
+  updateWidgetAttributes()
+  
+  GridStack.setupDragIn('.sidebar-widgets .widget-card', {
+    appendTo: 'body',
+    helper: 'clone'
+  })
+  
+  gridStack.value.on('dropped', (_event: any, _previousNode: any, newNode: any) => {
+    if (!newNode || !newNode.el) {
+      return
+    }
+    
+    const droppedEl = newNode.el
+    const widgetId = droppedEl.getAttribute('data-widget-id')
+    
+    if (widgetId) {
+      const widget = savedWidgets.value.find(w => w.id === widgetId)
+      
+      if (widget) {
+        gridStack.value?.removeWidget(droppedEl, true, false)
         
         setTimeout(() => {
-          if (document.body.contains(dragImage)) {
-            document.body.removeChild(dragImage)
+          addWidgetToGrid(widget, newNode.x, newNode.y, newNode.w, newNode.h)
+        }, 50)
+      }
+    }
+  })
+  
+  const reRenderWidget = (element: HTMLElement) => {
+    const instanceId = element.getAttribute('data-instance-id')
+    const widgetId = element.getAttribute('data-widget-id')
+    if (!instanceId || !widgetId) return
+    
+    const widget = savedWidgets.value.find(w => w.id === widgetId)
+    if (!widget) return
+    
+    const widgetBody = element.querySelector('.widget-body')
+    if (!widgetBody) return
+    
+    const loadingOverlay = element.querySelector('.widget-loading-overlay') as HTMLElement
+    if (loadingOverlay) {
+      loadingOverlay.style.display = 'flex'
+      loadingOverlay.style.opacity = '1'
+    }
+    
+    renderedWidgetIds.delete(instanceId)
+    
+    const htmlContent = widget.dataInsightsComponent?.rawHtml || ''
+    if (!htmlContent || !htmlContent.includes('customElements.define')) return
+    
+    const elementNameMatch = htmlContent.match(/customElements\.define\(['"`]([^'"`]+)['"`]/)
+    const storedElementName = element.getAttribute('data-element-name')
+    const elementName = storedElementName || (elementNameMatch ? elementNameMatch[1] : null)
+    
+    if (!elementName || !customElements.get(elementName)) return
+    
+    widgetBody.innerHTML = ''
+    const chartElement = document.createElement(elementName)
+    widgetBody.appendChild(chartElement)
+    
+    renderedWidgetIds.add(instanceId)
+    
+    setTimeout(() => {
+      if (chartElement.shadowRoot) {
+        const style = document.createElement('style')
+        style.textContent = `
+          h1, h2, h3, h4, h5, h6, p, span:not([class*="apex"]), label, title, desc, 
+          .title, .description, .container h3, .container p { 
+            display: none !important; 
+            visibility: hidden !important;
+            height: 0 !important;
           }
+          :host { 
+            padding: 0 !important; 
+            margin: 0 !important; 
+            border: none !important; 
+            box-shadow: none !important; 
+            background: transparent !important;
+          }
+          .container {
+            border: none !important;
+            padding: 0 !important;
+            background: transparent !important;
+          }
+          canvas, svg, .chart-container { 
+            display: block !important; 
+            max-width: 100% !important;
+            max-height: 100% !important;
+          }
+        `
+        chartElement.shadowRoot.appendChild(style)
+        
+        setTimeout(() => {
+          if (chartElement.shadowRoot) {
+            const canvas = chartElement.shadowRoot.querySelector('canvas') as any
+            if (canvas && canvas.__ec_inner__) {
+              canvas.__ec_inner__.resize()
+            }
+          }
+          
+          setTimeout(() => {
+            const loadingOverlay = element.querySelector('.widget-loading-overlay') as HTMLElement
+            if (loadingOverlay) {
+              loadingOverlay.style.opacity = '0'
+              setTimeout(() => {
+                loadingOverlay.style.display = 'none'
+              }, 300)
+            }
+          }, 200)
         }, 100)
       }
-    })
+    }, 100)
+  }
+  
+  gridStack.value.on('resizestop', (_event: any, el: any) => {
+    const element = el.el || el
+    reRenderWidget(element)
   })
-
-  const gridEl = document.querySelector('.grid-stack')
-  if (!gridEl) return
-
-  gridEl.addEventListener('dragover', (e: Event) => {
-    e.preventDefault()
-    gridEl.classList.add('drag-over')
-  })
-
-  gridEl.addEventListener('dragleave', () => {
-    gridEl.classList.remove('drag-over')
-  })
-
-  gridEl.addEventListener('drop', (e: Event) => {
-    e.preventDefault()
-    gridEl.classList.remove('drag-over')
-    
-    const dragEvent = e as DragEvent
-    const widgetId = dragEvent.dataTransfer?.getData('text/plain')
-    if (!widgetId) return
-
-    const widget = savedWidgets.value.find(w => w.id === widgetId)
-    if (widget) {
-      const gridRect = gridEl.getBoundingClientRect()
-      const x = dragEvent.clientX - gridRect.left
-      const y = dragEvent.clientY - gridRect.top
-      
-      const cellHeight = 80 + 5
-      const cellWidth = gridRect.width / 12
-      const col = Math.max(0, Math.min(Math.floor(x / cellWidth), 11))
-      const row = Math.max(0, Math.floor(y / cellHeight))
-      
-      
-      addWidgetToGrid(widget, col, row)
+  
+  gridStack.value.on('resize', (_event: any, el: any) => {
+    const element = el.el || el
+    const widgetBody = element.querySelector('.widget-body')
+    if (widgetBody) {
+      const chartElement = widgetBody.querySelector('*')
+      if (chartElement && (chartElement as any).shadowRoot) {
+        const canvas = (chartElement as any).shadowRoot.querySelector('canvas') as any
+        if (canvas && canvas.__ec_inner__) {
+          canvas.__ec_inner__.resize()
+        }
+      }
     }
   })
 }
 
-const addWidgetToGrid = (widget: DataInsightsWidget, x?: number, y?: number, w?: number, h?: number, instanceId?: string) => {
+const loadEchartsForGrid = (): Promise<void> => {
+  return new Promise((resolve) => {
+    if ((window as any).echarts) {
+      resolve()
+      return
+    }
+    
+    if ((window as any).echartsLoading) {
+      const checkInterval = setInterval(() => {
+        if ((window as any).echarts) {
+          clearInterval(checkInterval)
+          resolve()
+        }
+      }, 100)
+      return
+    }
+    
+    ;(window as any).echartsLoading = true
+    const script = document.createElement('script')
+    script.src = 'https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js'
+    script.onload = () => {
+      ;(window as any).echartsLoading = false
+      resolve()
+    }
+    script.onerror = () => {
+      ;(window as any).echartsLoading = false
+      resolve()
+    }
+    document.head.appendChild(script)
+  })
+}
+
+const addWidgetToGrid = async (widget: DataInsightsWidget, x?: number, y?: number, w?: number, h?: number, instanceId?: string) => {
   if (!gridStack.value || !widget.id) return
   const widgetInstanceId = instanceId || `${widget.id}-${Date.now()}`
 
-  const config = JSON.parse(widget.config || '{}')
-  const htmlContent = config.originalRawHtml || widget.src
+  const htmlContent = widget.dataInsightsComponent?.rawHtml || ''
+  const widgetTitle = widget.dataInsightsComponent?.name || 'Untitled Widget'
+  const widgetSubtitle = widget.dataInsightsComponent?.description || ''
+  
+  if (htmlContent.includes('echarts')) {
+    await loadEchartsForGrid()
+  }
+
+  let finalElementName = null
 
   if (htmlContent && htmlContent.includes('customElements.define')) {
     const elementNameMatch = htmlContent.match(/customElements\.define\(['"`]([^'"`]+)['"`]/)
-    const elementName = elementNameMatch ? elementNameMatch[1] : null
+    let elementName = elementNameMatch ? elementNameMatch[1] : null
     
-    if (elementName && !customElements.get(elementName)) {
+    if (elementName) {
+      if (!customElements.get(elementName)) {
       try {
         eval(htmlContent)
+          finalElementName = elementName
       } catch (error) {
+        }
+      } else {
+        const newClassMatch = htmlContent.match(/class\s+(\w+)\s+extends\s+HTMLElement/)
+        const existingElement = customElements.get(elementName)
+        
+        if (newClassMatch && existingElement && existingElement.name !== newClassMatch[1]) {
+          const uniqueName = `${elementName}-${widgetInstanceId.substring(0, 8)}`
+          const modifiedHtml = htmlContent.replace(
+            `customElements.define('${elementName}'`,
+            `customElements.define('${uniqueName}'`
+          )
+          try {
+            eval(modifiedHtml)
+            finalElementName = uniqueName
+          } catch (error) {
+            finalElementName = elementName
+          }
+        } else {
+          finalElementName = elementName
+        }
       }
     }
   }
@@ -378,17 +555,28 @@ const addWidgetToGrid = (widget: DataInsightsWidget, x?: number, y?: number, w?:
   el.className = 'grid-stack-item'
   el.setAttribute('data-widget-id', widget.id)
   el.setAttribute('data-instance-id', widgetInstanceId)
+  el.setAttribute('data-element-name', finalElementName || '')
+  const escapedTitle = widgetTitle.replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+  const escapedSubtitle = widgetSubtitle.replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+  
   el.innerHTML = `
-    <div class="grid-stack-item-content bg-white rounded-lg border border-surface-200 h-full flex flex-col p-4">
-      <!-- Title and Subtitle (Top) -->
+    <div class="grid-stack-item-content bg-white rounded-lg border border-surface-200 h-full flex flex-col p-4 relative">
+      <div class="widget-loading-overlay absolute inset-0 flex items-center justify-center bg-white z-20 rounded-lg">
+          <div class="text-center">
+          <i class="pi pi-spin pi-spinner text-blue-500 text-3xl mb-3"></i>
+          <div class="text-sm font-medium text-gray-700">Loading widget...</div>
+          </div>
+        </div>
       
-      <!-- Chart/Diagram Area (Bottom) -->
-      <div class="widget-chart-area bg-white p-2 flex-1">
-        <div class="widget-body h-full" data-instance-id="${instanceId}"></div>
+      <div class="widget-header mb-2 pb-2">
+        <h4 class="text-base font-semibold text-gray-900 mb-1">${escapedTitle}</h4>
+        ${widgetSubtitle ? `<p class="text-xs text-gray-600 line-clamp-2">${escapedSubtitle}</p>` : ''}
+      </div>
+      <div class="widget-chart-area flex-1 relative">
+        <div class="widget-body h-full w-full" data-instance-id="${widgetInstanceId}"></div>
       </div>
       
-      <!-- Remove Button -->
-      <button class="remove-btn absolute top-2 right-2 text-gray-400 hover:text-red-500 text-sm">
+      <button class="remove-btn fixed-button" style="position: absolute !important; top: 8px !important; right: 8px !important; z-index: 100 !important;">
         <i class="pi pi-trash"></i>
       </button>
     </div>
@@ -399,6 +587,7 @@ const addWidgetToGrid = (widget: DataInsightsWidget, x?: number, y?: number, w?:
     removeBtn.addEventListener('click', async () => {
       gridStack.value?.removeWidget(el)
       addedWidgetIds.delete(widgetInstanceId)
+      renderedWidgetIds.delete(widgetInstanceId) // Clean up render tracking
       
       setTimeout(() => {
         const remainingWidgets = document.querySelectorAll('.grid-stack-item')
@@ -406,141 +595,163 @@ const addWidgetToGrid = (widget: DataInsightsWidget, x?: number, y?: number, w?:
       }, 100)
     })
   }
-  const getWidgetSize = (widget: DataInsightsWidget) => {
-    const config = JSON.parse(widget.config || '{}')
-    const query = config.query || ''
-    
-    if (query.toLowerCase().includes('pie') || query.toLowerCase().includes('donut')) {
-      return { w: 3, h: 3 }
-    } else if (query.toLowerCase().includes('bar') || query.toLowerCase().includes('column')) {
-      return { w: 4, h: 3 }
-    } else if (query.toLowerCase().includes('line') || query.toLowerCase().includes('trend')) {
-      return { w: 5, h: 3 }
-    } else if (query.toLowerCase().includes('scatter') || query.toLowerCase().includes('heatmap')) {
-      return { w: 4, h: 4 }
-    } else {
-      return { w: 4, h: 3 }
-    }
-  }
-  
-  const defaultSize = getWidgetSize(widget)
+  const defaultSize = { w: 4, h: 4 }
   const options: any = { 
     w: w || defaultSize.w, 
     h: h || defaultSize.h,
     minW: 1,
     maxW: 12,
     minH: 1,
-    maxH: 12
+    maxH: 12,
+    autoPosition: x === undefined && y === undefined
   }
-  if (x !== undefined) options.x = Math.max(0, Math.min(x, 11))
-  if (y !== undefined) options.y = Math.max(0, y)
+  
+  if (x !== undefined) {
+    options.x = x
+  }
+  if (y !== undefined) {
+    options.y = y
+  }
   
   gridStack.value.makeWidget(el, options)
+  
+        setTimeout(() => {
+    const actualX = el.getAttribute('gs-x')
+    const actualY = el.getAttribute('gs-y')
+    
+    if (x !== undefined && actualX !== x.toString()) {
+      el.setAttribute('gs-x', x.toString())
+      el.style.left = `${x * (100 / 12)}%`
+    }
+    if (y !== undefined && actualY !== y.toString()) {
+      el.setAttribute('gs-y', y.toString())
+      const cellHeight = 71 + 5
+      el.style.top = `${y * cellHeight}px`
+    }
+  }, 10)
   addedWidgetIds.add(widgetInstanceId)
   hasWidgets.value = true
   
+  // Function to render widget chart (used by both initial load and resize)
+  const renderWidgetChart = (targetEl: HTMLElement) => {
+    const widgetBody = targetEl.querySelector('.widget-body')
+    if (!widgetBody) return
+    
+    const widgetId = targetEl.getAttribute('data-widget-id')
+    const instanceId = targetEl.getAttribute('data-instance-id')
+    if (!widgetId || !instanceId) return
+    
+    if (renderedWidgetIds.has(instanceId)) {
+      return
+    }
+    
+    const widget = savedWidgets.value.find(w => w.id === widgetId)
+    if (!widget) return
+    
+    const htmlContent = widget.dataInsightsComponent?.rawHtml || ''
+    if (!htmlContent || !htmlContent.includes('customElements.define')) return
+    
+    const elementNameMatch = htmlContent.match(/customElements\.define\(['"`]([^'"`]+)['"`]/)
+    const storedElementName = targetEl.getAttribute('data-element-name')
+    const elementName = storedElementName || (elementNameMatch ? elementNameMatch[1] : null)
+    
+    if (!elementName || !customElements.get(elementName)) return
+    
+          widgetBody.innerHTML = ''
+    const element = document.createElement(elementName)
+          widgetBody.appendChild(element)
+    
+    renderedWidgetIds.add(instanceId)
+          
+          setTimeout(() => {
+            if (element.shadowRoot) {
+              const style = document.createElement('style')
+              style.textContent = `
+          h1, h2, h3, h4, h5, h6, p, span:not([class*="apex"]), label, title, desc, 
+          .title, .description, .container h3, .container p { 
+                  display: none !important;
+                  visibility: hidden !important;
+                  height: 0 !important;
+          }
+          :host { 
+                  padding: 0 !important;
+            margin: 0 !important; 
+            border: none !important; 
+            box-shadow: none !important; 
+            background: transparent !important;
+                }
+                .container {
+                  border: none !important;
+            padding: 0 !important;
+                  background: transparent !important;
+                }
+          canvas, svg, .chart-container { 
+            display: block !important; 
+            max-width: 100% !important;
+            max-height: 100% !important;
+                }
+              `
+              element.shadowRoot.appendChild(style)
+              
+              setTimeout(() => {
+          if (element.shadowRoot) {
+            const canvas = element.shadowRoot.querySelector('canvas') as any
+            if (canvas && canvas.__ec_inner__) {
+              canvas.__ec_inner__.resize()
+            }
+          }
+          
+          // Hide loading overlay
+          const loadingOverlay = targetEl.querySelector('.widget-loading-overlay') as HTMLElement
+          if (loadingOverlay) {
+            loadingOverlay.style.opacity = '0'
+            setTimeout(() => {
+              loadingOverlay.style.display = 'none'
+            }, 300)
+          }
+        }, 100)
+      }
+    }, 100)
+  }
+  
   const resizeObserver = new ResizeObserver((entries) => {
     entries.forEach((entry) => {
-      const widgetBody = entry.target.querySelector('.widget-body')
-      if (widgetBody) {
+      const targetEl = entry.target as HTMLElement
+      const instanceId = targetEl.getAttribute('data-instance-id')
+      
+      if (!instanceId) return
+      
+      if (!renderedWidgetIds.has(instanceId)) {
         setTimeout(() => {
-          const widgetId = entry.target.getAttribute('data-widget-id')
-          if (widgetId) {
-            const widget = savedWidgets.value.find(w => w.id === widgetId)
-            if (widget) {
-              
-              const config = JSON.parse(widget.config || '{}')
-              const htmlContent = config.originalRawHtml || widget.src
-              
-              if (htmlContent && htmlContent.includes('customElements.define')) {
-                const elementNameMatch = htmlContent.match(/customElements\.define\(['"`]([^'"`]+)['"`]/)
-                const elementName = elementNameMatch ? elementNameMatch[1] : null
-                
-                if (elementName && customElements.get(elementName)) {
-                  widgetBody.innerHTML = ''
-                  const element = document.createElement(elementName)
-                  widgetBody.appendChild(element)
-                  
-                  setTimeout(() => {
-                    if (element.shadowRoot) {
-                      const style = document.createElement('style')
-                      style.textContent = 'h1, h2, h3, h4, h5, h6, p, span, label, title, desc, .title, .description :host { padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; } canvas, svg, [class*="chart"], [class*="apex"], [class*="visualization"], div[class*="chart"], div[class*="apex"], .chart-container { display: block !important; }'
-                      element.shadowRoot.appendChild(style)
-                      setTimeout(() => {
-                        const chartElement = element.shadowRoot.querySelector('canvas, svg, [class*="chart"], [class*="apex"]') as any
-                        if (chartElement) {
-                          if (chartElement.__apexcharts) {
-                            chartElement.__apexcharts.resize()
-                          }
-                          if (typeof chartElement.resize === 'function') {
-                            chartElement.resize()
-                          }
-                        }
-                      }, 100)
-                      
-                    }
-                  }, 100)
-                }
+          renderWidgetChart(targetEl)
+        }, 100)
+    } else {
+        setTimeout(() => {
+          const widgetBody = targetEl.querySelector('.widget-body')
+          if (widgetBody) {
+            const element = widgetBody.querySelector('*')
+            if (element && (element as any).shadowRoot) {
+              const canvas = (element as any).shadowRoot.querySelector('canvas') as any
+              if (canvas && canvas.__ec_inner__) {
+                canvas.__ec_inner__.resize()
               }
             }
           }
-        }, 100)
+        }, 50)
       }
     })
   })
   
   resizeObserver.observe(el)
   
+  // Trigger initial render
+  setTimeout(() => {
+    renderWidgetChart(el)
+  }, 500)
+  
   setTimeout(() => {
     addResizeIcons()
   }, 300)
-  
-  setTimeout(() => {
-    const elementNameMatch = htmlContent?.match(/customElements\.define\(['"`]([^'"`]+)['"`]/)
-    if (elementNameMatch) {
-      const elementName = elementNameMatch[1]
-      
-      if (customElements.get(elementName)) {
-        const widgetBody = el.querySelector('.widget-body')
-        if (widgetBody) {
-          const element = document.createElement(elementName)
-          widgetBody.innerHTML = ''
-          widgetBody.appendChild(element)
-          
-          setTimeout(() => {
-            if (element.shadowRoot) {
-              const h3Element = element.shadowRoot.querySelector('h3')
-              const pElement = element.shadowRoot.querySelector('p')
-              
-              let extractedTitle = ''
-              let extractedSubtitle = ''
-              
-              if (h3Element) {
-                extractedTitle = h3Element.textContent?.trim() || ''
-              }
-              if (pElement) {
-                extractedSubtitle = pElement.textContent?.trim() || ''
-              }
-              
-                if (extractedTitle || extractedSubtitle) {
-                  try {
-                    updateWidgetConfig(widget, { 
-                      aiTitle: extractedTitle, 
-                      aiSubtitle: extractedSubtitle 
-                    })
-                } catch (error) {
-                }
-              }
-              
-              const style = document.createElement('style')
-              style.textContent = 'h1, h2, h3, h4, h5, h6, p, span, label, title, desc, .title, .description :host { padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; } canvas, svg, [class*="chart"], [class*="apex"], [class*="visualization"], div[class*="chart"], div[class*="apex"], .chart-container { display: block !important; }'
-              element.shadowRoot.appendChild(style)
-            }
-          }, 100)
-        }
-      }
-    }
-  }, 1000)
 }
 
 const createDashboard = async () => {
@@ -550,16 +761,34 @@ const createDashboard = async () => {
   }
   
   try {
+    const gridItems = document.querySelectorAll('.grid-stack .grid-stack-item')
+    const widgetInstances: any[] = []
+    
+    gridItems.forEach(item => {
+      const el = item as HTMLElement
+      const instanceId = el.getAttribute('data-instance-id')
+      const widgetId = el.getAttribute('data-widget-id')
+      const x = parseInt(el.getAttribute('gs-x') || '0')
+      const y = parseInt(el.getAttribute('gs-y') || '0')
+      const w = parseInt(el.getAttribute('gs-w') || '4')
+      const h = parseInt(el.getAttribute('gs-h') || '4')
+      
+      if (widgetId && instanceId) {
+        widgetInstances.push({ instanceId, widgetId, x, y, w, h })
+      }
+    })
+    
+    const layoutJson = JSON.stringify({ widgets: widgetInstances })
+    
     const newDashboard: any = {
       id: null,
       name: dashboardTitle.value.trim(),
       description: 'Dashboard',
       applicationId: props.applicationId,
-      layout: JSON.stringify({ widgets: [] }),
+      layout: layoutJson,
       created: new Date(),
       updated: new Date()
     }
-    
     
     const savedDashboard = await dashboardService.save(newDashboard)
     
@@ -584,6 +813,7 @@ const updateDashboard = async () => {
   try {
     const gridItems = document.querySelectorAll('.grid-stack .grid-stack-item')
     const widgetInstances: any[] = []
+    
     gridItems.forEach(item => {
       const el = item as HTMLElement
       const instanceId = el.getAttribute('data-instance-id')
@@ -591,15 +821,17 @@ const updateDashboard = async () => {
       const x = parseInt(el.getAttribute('gs-x') || '0')
       const y = parseInt(el.getAttribute('gs-y') || '0')
       const w = parseInt(el.getAttribute('gs-w') || '4')
-      const h = parseInt(el.getAttribute('gs-h') || '3')
+      const h = parseInt(el.getAttribute('gs-h') || '4')
       
       if (widgetId && instanceId) {
         widgetInstances.push({ instanceId, widgetId, x, y, w, h })
       }
     })
     
+    const layoutJson = JSON.stringify({ widgets: widgetInstances })
+    
     dashboard.value.name = dashboardTitle.value
-    dashboard.value.layout = JSON.stringify({ widgets: widgetInstances })
+    dashboard.value.layout = layoutJson
     dashboard.value.updated = new Date()
     
     await dashboardService.save(dashboard.value)
@@ -632,6 +864,15 @@ const updateDateRange = () => {
   }
 }
 
+const clearDateRange = () => {
+  dateRange.value = { startDate: null, endDate: null }
+  updateDateRange()
+  
+  setTimeout(() => {
+    window.dispatchEvent(new Event('resize'))
+  }, 100)
+}
+
 const toggleDateRangePicker = () => {
   showDateRangePicker.value = !showDateRangePicker.value
 }
@@ -640,55 +881,108 @@ const enterEditMode = () => {
   router.push(`/application/${props.applicationId}/dashboards/${props.dashboardId}/edit`)
 }
 
-const exitEditMode = () => {
-  router.push(`/application/${props.applicationId}/dashboards/${props.dashboardId}`)
-}
-
 const updateGridMode = () => {
   if (!gridStack.value) return
   
   if (!isEditMode.value) {
+    gridStack.value.float(false)
     gridStack.value.setStatic(true)
     gridStack.value.enableMove(false)
     gridStack.value.enableResize(false)
   } else {
     gridStack.value.setStatic(false)
+    gridStack.value.float(false)
     gridStack.value.enableMove(true)
     gridStack.value.enableResize(true)
   }
 }
-
-const updateWidgetConfig = (widget: DataInsightsWidget, updates: { aiTitle?: string, aiSubtitle?: string }) => {
-  try {
-    const config = JSON.parse(widget.config || '{}')
-    let configUpdated = false
-    
-    if (updates.aiTitle && !config.aiTitle) {
-      config.aiTitle = updates.aiTitle
-      configUpdated = true
-    }
-    if (updates.aiSubtitle && !config.aiSubtitle) {
-      config.aiSubtitle = updates.aiSubtitle
-      configUpdated = true
-    }
-    
-    if (configUpdated) {
-      widget.config = JSON.stringify(config)
-      return true
-    }
-    return false
-  } catch (error) {
-    return false
-  }
-}
-
 
 watch(isEditMode, () => {
   if (gridStack.value) {
     updateGridMode()
     
     if (isEditMode.value) {
+      gridStack.value.enableMove(true)
+      gridStack.value.enableResize(true)
       setTimeout(() => setupDragDrop(), 100)
+    } else {
+      gridStack.value.enableMove(false)
+      gridStack.value.enableResize(false)
+      
+      setTimeout(() => {
+        const gridItems = document.querySelectorAll('.grid-stack-item')
+        gridItems.forEach((item) => {
+          const element = item as HTMLElement
+          const instanceId = element.getAttribute('data-instance-id')
+          const widgetId = element.getAttribute('data-widget-id')
+          
+          if (instanceId && widgetId) {
+            const widget = savedWidgets.value.find(w => w.id === widgetId)
+            if (!widget) return
+            
+            const widgetBody = element.querySelector('.widget-body')
+            if (!widgetBody) return
+            
+            renderedWidgetIds.delete(instanceId)
+            
+            const htmlContent = widget.dataInsightsComponent?.rawHtml || ''
+            if (!htmlContent || !htmlContent.includes('customElements.define')) return
+            
+            const elementNameMatch = htmlContent.match(/customElements\.define\(['"`]([^'"`]+)['"`]/)
+            const storedElementName = element.getAttribute('data-element-name')
+            const elementName = storedElementName || (elementNameMatch ? elementNameMatch[1] : null)
+            
+            if (!elementName || !customElements.get(elementName)) return
+            
+            widgetBody.innerHTML = ''
+            const chartElement = document.createElement(elementName)
+            widgetBody.appendChild(chartElement)
+            
+            renderedWidgetIds.add(instanceId)
+            
+            setTimeout(() => {
+              if (chartElement.shadowRoot) {
+                const style = document.createElement('style')
+                style.textContent = `
+                  h1, h2, h3, h4, h5, h6, p, span:not([class*="apex"]), label, title, desc, 
+                  .title, .description, .container h3, .container p { 
+                    display: none !important; 
+                    visibility: hidden !important;
+                    height: 0 !important;
+                  }
+                  :host { 
+                    padding: 0 !important; 
+                    margin: 0 !important; 
+                    border: none !important; 
+                    box-shadow: none !important; 
+                    background: transparent !important;
+                  }
+                  .container {
+                    border: none !important;
+                    padding: 0 !important;
+                    background: transparent !important;
+                  }
+                  canvas, svg, .chart-container { 
+                    display: block !important; 
+                    max-width: 100% !important;
+                    max-height: 100% !important;
+                  }
+                `
+                chartElement.shadowRoot.appendChild(style)
+                
+                setTimeout(() => {
+                  if (chartElement.shadowRoot) {
+                    const canvas = chartElement.shadowRoot.querySelector('canvas') as any
+                    if (canvas && canvas.__ec_inner__) {
+                      canvas.__ec_inner__.resize()
+                    }
+                  }
+                }, 100)
+              }
+            }, 100)
+          }
+        })
+      }, 500)
     }
   }
 })
@@ -704,7 +998,9 @@ onMounted(async () => {
     initGrid()
     
     if (isEditMode.value) {
-      setTimeout(() => setupDragDrop(), 100)
+      setTimeout(() => {
+        setupDragDrop()
+      }, 500)
     }
   }, 200)
 })
@@ -716,16 +1012,13 @@ onMounted(async () => {
       <div class="flex justify-between items-center p-4 bg-white border-b border-surface-200">
         <div class="flex items-center gap-4">
           <Button @click="goBack" icon="pi pi-arrow-left" class="p-button-text p-button-sm" />
-          <!-- View Mode: Display title and description -->
           <div v-if="!isEditMode">
             <h1 class="text-xl font-semibold text-surface-900">{{ headerTitle }}</h1>
             <p class="text-sm text-surface-500">{{ headerSubtitle }}</p>
           </div>
-          <!-- Edit Mode: Editable title input -->
           <InputText v-if="isEditMode" v-model="dashboardTitle" placeholder="Dashboard Title" class="text-xl font-semibold" />
         </div>
         <div class="flex gap-2 items-center">
-          <!-- View Mode: Date Range Picker -->
           <div v-if="!isEditMode" class="flex items-center gap-2">
             <Button
               @click="toggleDateRangePicker"
@@ -759,7 +1052,7 @@ onMounted(async () => {
               </div>
               
               <Button
-                @click="dateRange = { startDate: null, endDate: null }; updateDateRange()"
+                @click="clearDateRange"
                 icon="pi pi-times"
                 size="small"
                 class="p-button-text"
@@ -768,12 +1061,10 @@ onMounted(async () => {
             </div>
           </div>
           
-          <!-- View Mode: Edit button -->
           <Button v-if="!isEditMode" @click="enterEditMode" label="Edit" icon="pi pi-pencil" 
                   class="!bg-white !border !border-gray-300 !text-gray-700 !hover:bg-gray-50 !hover:border-gray-400 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px] [&_.pi]:!w-[14px] [&_.pi]:!h-[14px]" />
-          <!-- Edit Mode: Cancel and Save buttons -->
           <template v-if="isEditMode">
-            <Button @click="exitEditMode" label="Cancel" 
+            <Button @click="goBack" label="Cancel" 
                     class="!bg-gray-200 !border-gray-200 !text-gray-700 !hover:bg-gray-300 !hover:border-gray-300 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px]" />
             <Button @click="saveDashboard" :label="saveButtonLabel" 
                     class="!bg-blue-600 !border-blue-600 !text-white !hover:bg-blue-700 !hover:border-blue-700 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px]" />
@@ -804,7 +1095,6 @@ onMounted(async () => {
        </div>
     </div>
 
-    <!-- Sidebar: Only visible in edit mode -->
     <div v-if="isEditMode" class="w-80 border-l border-surface-200 flex flex-col h-full overflow-y-auto">
       <div class="p-4 bg-white flex-shrink-0">
         <h3 class="text-lg font-semibold mb-3">Widgets</h3>
@@ -835,6 +1125,9 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.container {
+ border: none !important;
+}
 .grid-stack {
   min-height: 400px;
   height: 100%;
@@ -847,24 +1140,34 @@ onMounted(async () => {
   min-height: calc(100vh - 200px);
 }
 
-.grid-stack.drag-over {
-  background-color: rgba(59, 130, 246, 0.05);
-  border: 2px dashed rgba(59, 130, 246, 0.3);
-  border-radius: 8px;
-  transition: all 0.2s ease;
+/* GridStack placeholder styling - shown when dragging */
+:deep(.grid-stack > .grid-stack-placeholder) {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border: 2px dashed #3b82f6 !important;
+  border-radius: 8px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
 }
 
-.grid-stack.drag-over::before {
-  content: 'Drop widget here';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #6b7280;
-  font-size: 14px;
-  font-weight: 500;
-  pointer-events: none;
-  z-index: 1;
+:deep(.grid-stack > .grid-stack-placeholder > .placeholder-content) {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Custom placeholder content */
+.grid-stack-placeholder::before {
+  content: 'Drop here' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  color: #3b82f6 !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  z-index: 10 !important;
 }
 
 :deep(.grid-stack-item-content) {
@@ -954,7 +1257,6 @@ onMounted(async () => {
   pointer-events: auto !important;
 }
 
-/* Allow page scrolling in view mode */
 .view-mode.grid-stack {
   pointer-events: auto !important;
   overflow: auto !important;
@@ -964,48 +1266,71 @@ onMounted(async () => {
   pointer-events: auto !important;
 }
 
-/* Edit mode only - show resize handles and delete buttons */
 :deep(.edit-mode .grid-stack-item .ui-resizable-handle) {
   display: none;
 }
 
+
+:deep(.grid-stack > .grid-stack-item[gs-w="4"][gs-h="4"]) {
+  width: 414px !important;
+  height: 305px !important;
+}
+
 :deep(.edit-mode .grid-stack-item .ui-resizable-se) {
-  display: block !important;
-  position: absolute;
-  bottom: 6px;
-  right: 22px;
-  width: 16px;
-  height: 16px;
-  background: transparent;
-  transform: rotate(90deg);
-  border: none;
-  cursor: se-resize;
-  z-index: 10;
   display: flex !important;
+  position: absolute !important;
+  bottom: 10px !important;
+  right: 10px !important;
+  width: 24px !important;
+  height: 24px !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  transform: rotate(90deg) !important;
+  cursor: se-resize !important;
+  z-index: 999999 !important;
   align-items: center !important;
   justify-content: center !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+:deep(.edit-mode .grid-stack-item .ui-resizable-se:hover) {
+  background: rgba(59, 130, 246, 0.1) !important;
+  border-color: #3b82f6 !important;
 }
 
 /* Show delete buttons in edit mode */
+.remove-btn.fixed-button {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 4px !important;
+  background: white !important;
+  border: 1px solid #e5e7eb !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.remove-btn.fixed-button:hover {
+  background: #fee2e2 !important;
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+}
+
 :deep(.edit-mode .grid-stack-item .remove-btn),
 :deep(.edit-mode .grid-stack-item button.remove-btn),
 :deep(.edit-mode .remove-btn),
-:deep(.edit-mode .grid-stack-item .grid-stack-item-remove),
-:deep(.edit-mode .grid-stack-item .pi-trash),
-:deep(.edit-mode .grid-stack-item .pi-times),
-:deep(.edit-mode .grid-stack-item [class*="remove"]),
-:deep(.edit-mode .grid-stack-item [class*="delete"]),
-:deep(.edit-mode .grid-stack-item [class*="close"]),
-:deep(.edit-mode .grid-stack-item button[class*="trash"]),
-:deep(.edit-mode .grid-stack-item i[class*="trash"]),
-:deep(.edit-mode .grid-stack-item i[class*="times"]),
-:deep(.edit-mode .grid-stack-item .delete-button),
-:deep(.edit-mode .grid-stack-item .close-button),
-:deep(.edit-mode .grid-stack-item .remove-button) {
-  display: block !important;
+:deep(.edit-mode .grid-stack-item .grid-stack-item-remove) {
+  display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
   pointer-events: auto !important;
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  z-index: 100 !important;
 }
 
 /* View mode - completely hide all resize handles and delete buttons */
@@ -1125,7 +1450,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8f9fa;
+  background: transparent;
+  border: none !important;
 }
 
 .grid-stack-item .widget-body {
@@ -1135,6 +1461,12 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   position: relative;
+  border: none !important;
+  background: transparent !important;
+}
+
+.grid-stack-item .widget-body :deep(*) {
+  border: none !important;
 }
 
 .grid-stack-item .widget-body :deep(canvas),
@@ -1197,14 +1529,38 @@ onMounted(async () => {
 :deep(.widget-html-content h3),
 :deep(.widget-html-content p),
 :deep(.widget-body h3),
-:deep(.widget-body p) {
+:deep(.widget-body p),
+:deep(.widget-body h1),
+:deep(.widget-body h2),
+:deep(.widget-body h4),
+:deep(.widget-body h5),
+:deep(.widget-body h6) {
   display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
 }
 
 :deep(.widget-html-content .chart-container),
-:deep(.widget-body .chart-container) {
+:deep(.widget-body .chart-container),
+:deep(.widget-body .container),
+:deep(.widget-body div) {
   margin: 0 !important;
   padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Loading overlay styling */
+.widget-loading-overlay {
+  background: rgba(255, 255, 255, 0.98);
+  transition: opacity 0.3s ease;
+  backdrop-filter: blur(2px);
+}
+
+.widget-loading-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Hide delete button in sidebar widgets */
