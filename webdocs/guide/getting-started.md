@@ -292,7 +292,51 @@ structures gen -v
 
 For more detailed information about CLI commands and options, see the [npm package readme](https://www.npmjs.com/package/@kinotic/structures-cli).
 
+## Working with Migrations
+
+Migrations allow you to evolve your schema and data over time. After setting up your project, you may need to modify your structures entities or migrate data.
+
+### Creating Migrations
+
+1. **Create a migrations directory** in your project root:
+```bash
+mkdir migrations
+```
+
+2. **Write migration files** using the versioned naming convention `V{number}__{description}.sql`:
+```bash
+# Example: migrations/V1__add_user_status_field.sql
+```
+
+3. **Use Structures SQL syntax** in your migration files:
+```sql
+-- migrations/V1__add_user_status_field.sql
+ALTER TABLE users ADD COLUMN status KEYWORD;
+UPDATE users SET status = 'active' WHERE active == true;
+```
+
+### Applying Migrations
+
+Migrations are automatically applied when you run the sync command:
+```bash
+structures sync -p --server http://localhost:9090
+```
+
+The sync process will:
+1. Sync your entity definitions
+2. Apply any new migration files from the `./migrations` directory
+3. Track which migrations have been applied to avoid re-running them
+
+### Best Practices
+
+- **Test migrations** in development before applying to production
+- **Keep migrations focused** - group related changes together in a single migration
+- **Never modify existing migration files** - create new ones instead
+- **Use descriptive names** for your migration files
+- **Review the [Writing Migrations](/guide/writing-migrations) guide** for detailed syntax and examples
+
 ## Next Steps
 - Explore the [Decorators Reference](/reference/decorators) for available decorators and options
+- Read the [Writing Migrations](/guide/writing-migrations) guide for detailed migration syntax and examples
 
 

@@ -41,11 +41,16 @@ export class BaseDataInsightsWidgetEntityService extends EntityService<DataInsig
       ret = (ret ? ret : {})
       ret.id = entity.id
       ret.applicationId = entity.applicationId
-      ret.name = entity.name
-      ret.description = entity.description
-      ret.src = entity.src
-      ret.widgetType = entity.widgetType
-      ret.config = entity.config
+      if (entity.dataInsightsComponent) {
+        ret.dataInsightsComponent = (ret.dataInsightsComponent ? ret.dataInsightsComponent : {})
+        ret.dataInsightsComponent.id = entity.dataInsightsComponent.id
+        ret.dataInsightsComponent.name = entity.dataInsightsComponent.name
+        ret.dataInsightsComponent.description = entity.dataInsightsComponent.description
+        ret.dataInsightsComponent.modifiedAt = entity.dataInsightsComponent.modifiedAt
+        ret.dataInsightsComponent.rawHtml = entity.dataInsightsComponent.rawHtml
+        ret.dataInsightsComponent.applicationId = entity.dataInsightsComponent.applicationId
+        ret.dataInsightsComponent.supportsDateRangeFiltering = entity.dataInsightsComponent.supportsDateRangeFiltering
+      }
       ret.dashboardId = entity.dashboardId
       ret.created = entity.created
       ret.updated = entity.updated

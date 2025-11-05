@@ -290,7 +290,7 @@ Components that support date filtering will automatically respond to the global 
 
                const insightData: InsightData = {
                  id: component.id,
-                 title: this.generateInsightTitle(userQuery),
+                 title: component.name,
                  description: `AI-generated insight for: "${userQuery}"`,
                  query: userQuery,
                  applicationId: this.currentApplicationId,
@@ -451,7 +451,7 @@ Components that support date filtering will automatically respond to the global 
         saveButton.innerHTML = '<i class="pi pi-spin pi-spinner text-base"></i>'
       }
       
-      await this.saveWidgetAsEntity(visualization.component, visualization.userQuery)
+      await this.saveWidgetAsEntity(visualization.component)
       
       // Mark as saved
       visualization.saved = true
@@ -475,84 +475,18 @@ Components that support date filtering will automatically respond to the global 
     }
   }
 
-  async saveWidgetAsEntity(component: DataInsightsComponent, userQuery: string): Promise<void> {
+  async saveWidgetAsEntity(component: DataInsightsComponent): Promise<void> {
     try {
-      // First, execute the JavaScript code to create the custom element
-      const script = document.createElement('script')
-      script.textContent = component.rawHtml
-      document.head.appendChild(script)
-      
-      // Extract the custom element name
-      const elementNameMatch = component.rawHtml.match(/customElements\.define\(['"`]([^'"`]+)['"`]/)
-      const elementName = elementNameMatch ? elementNameMatch[1] : 'data-insights-dashboard'
-      
-      // Wait for the custom element to be defined
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Create a temporary instance to get the rendered HTML and extract title/subtitle
-      let renderedHTML = ''
-      let aiTitle = ''
-      let aiSubtitle = ''
-      
-      try {
-        if (customElements.get(elementName)) {
-          const tempElement = document.createElement(elementName)
-          // Add to a temporary container
-          const tempContainer = document.createElement('div')
-          tempContainer.style.position = 'absolute'
-          tempContainer.style.left = '-9999px'
-          tempContainer.style.top = '-9999px'
-          document.body.appendChild(tempContainer)
-          tempContainer.appendChild(tempElement)
-          
-          // Wait for the element to render
-          await new Promise(resolve => setTimeout(resolve, 500))
-          
-          // Extract title and subtitle from the rendered element
-          const h3Element = tempElement.shadowRoot?.querySelector('h3')
-          const pElement = tempElement.shadowRoot?.querySelector('p')
-          
-          if (h3Element) {
-            aiTitle = h3Element.textContent?.trim() || ''
-          }
-          if (pElement) {
-            aiSubtitle = pElement.textContent?.trim() || ''
-          }
-          
-          renderedHTML = tempElement.outerHTML
-          
-          document.body.removeChild(tempContainer)
-        } else {
-          renderedHTML = `<${elementName}></${elementName}>`
-        }
-      } catch (error) {
-        renderedHTML = `<${elementName}></${elementName}>`
-      }
-      
-      // Clean up the script
-      document.head.removeChild(script)
-      
       const widget = new DataInsightsWidget()
       widget.applicationId = this.currentApplicationId
-      widget.name = aiTitle || this.generateInsightTitle(userQuery)
-      widget.description = aiSubtitle || `AI-generated widget for: "${userQuery}"`
-      widget.src = renderedHTML // Use the rendered HTML instead of raw JavaScript
-      widget.widgetType = this.detectVisualizationType(component.rawHtml)
-      widget.config = JSON.stringify({
-        query: userQuery,
-        supportsDateRangeFiltering: component.supportsDateRangeFiltering || false,
-        originalComponentId: component.id,
-        originalRawHtml: component.rawHtml, // Keep the original JavaScript for reference
-        aiTitle: aiTitle, // Store the AI-generated title
-        aiSubtitle: aiSubtitle, // Store the AI-generated subtitle
-        width: 4, // Default grid width
-        height: 3  // Default grid height
-      })
+      widget.dataInsightsComponent = component
       widget.created = new Date()
       widget.updated = new Date()
-
-      await this.widgetService.save(widget)
+      console.log('widget', widget)
+      const a = await this.widgetService.save(widget)
+      console.log('dataaaaaaaaaaaaa', a)
     } catch (error) {
+      console.error('Failed to save widget:', error)
     }
   }
 

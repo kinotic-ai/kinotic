@@ -28,38 +28,60 @@
       }
     },
     {
-      "name": "name",
-      "type": {
-        "type": "string"
-      }
-    },
-    {
-      "name": "description",
-      "type": {
-        "type": "string"
-      }
-    },
-    {
-      "name": "src",
+      "name": "dataInsightsComponent",
       "decorators": [
         {
           "type": "NotIndexedDecorator"
         }
       ],
       "type": {
-        "type": "string"
-      }
-    },
-    {
-      "name": "widgetType",
-      "type": {
-        "type": "string"
-      }
-    },
-    {
-      "name": "config",
-      "type": {
-        "type": "string"
+        "type": "object",
+        "name": "DataInsightsComponent",
+        "namespace": "structures__system",
+        "properties": [
+          {
+            "name": "id",
+            "type": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "type": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "description",
+            "type": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "modifiedAt",
+            "type": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "rawHtml",
+            "type": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "applicationId",
+            "type": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "supportsDateRangeFiltering",
+            "type": {
+              "type": "boolean"
+            }
+          }
+        ]
       }
     },
     {
