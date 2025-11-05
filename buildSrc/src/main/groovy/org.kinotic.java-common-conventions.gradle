@@ -53,6 +53,7 @@ dependencyManagement {
         dependency "org.apache.commons:commons-compress:${commonsCompressVersion}"
 
         dependency "org.apache.ignite:ignite-core:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
 
         dependency "org.apache.lucene:lucene-analyzers-common:${luceneVersion}"
         dependency "org.apache.lucene:lucene-backwards-codecs:${luceneVersion}"

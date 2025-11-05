@@ -314,31 +314,53 @@ export default class Login extends Vue {
 
   private _isConfigLoaded = false
   private _isBasicAuthEnabled = true
+  private async isDebugMode(): Promise<boolean> {
+    try {
+      return await this.auth.isDebugEnabled();
+    } catch (error) {
+      return false;
+    }
+  }
 
   get isConfigLoaded() { return this._isConfigLoaded }
   get isBasicAuthEnabled() { return this._isBasicAuthEnabled }
 
   async mounted() {
-    this.$nextTick(() => this.focusEmailInput())
-    this.loadBasicConfig()
-
+    this.$nextTick(() => {
+      this.focusEmailInput();
+    });
+    
+    await this.loadBasicConfig();
+    
     if (this.$route.query.error) {
-      this.handleOidcError()
-      return
+      await this.handleOidcError();
+      return;
     }
 
     if (this.$route.query.code && this.$route.query.state) {
-      this.handleOidcCallback()
+      if (await this.isDebugMode()) {
+        console.log('🚀 [MOUNTED] ===== OIDC CALLBACK DETECTED =====');
+        console.log('🚀 [MOUNTED] Code:', this.$route.query.code);
+        console.log('🚀 [MOUNTED] State:', this.$route.query.state);
+      }
+      await this.handleOidcCallback();
+    } else {
+      if (await this.isDebugMode()) {
+        console.log('🚀 [MOUNTED] No OIDC callback detected');
+        console.log('🚀 [MOUNTED] Code present:', !!this.$route.query.code);
+        console.log('🚀 [MOUNTED] State present:', !!this.$route.query.state);
+      }
     }
   }
 
   private async loadBasicConfig() {
     try {
-      this._isBasicAuthEnabled = await this.auth.checkBasicAuthEnabled()
-      this._isConfigLoaded = true
+      this._isBasicAuthEnabled = await this.auth.checkBasicAuthEnabled();
+      this._isConfigLoaded = true;
     } catch (error) {
-      this._isBasicAuthEnabled = true
-      this._isConfigLoaded = false
+      console.error('Failed to load basic config:', error);
+      this._isBasicAuthEnabled = true;
+      this._isConfigLoaded = false;
     }
   }
 
@@ -356,6 +378,193 @@ export default class Login extends Vue {
         passwordElement.$el?.querySelector('input[type="password"]') ||
         passwordElement.$el?.querySelector('input')
       if (innerInput) innerInput.focus()
+    }
+  }
+
+  get referer(): string | null {
+    const r = this.$route.query.referer;
+    return typeof r === 'string' ? r : null;
+  }
+
+  private async handleOidcError() {
+    this.auth.setLoading(false);
+    this.auth.setOidcCallbackLoading(false);
+    
+    const error = this.$route.query.error as string;
+    const errorDescription = this.$route.query.error_description as string;
+    
+    const { userMessage, isRetryable, error: oidcError } = await this.auth.parseOidcError(error, errorDescription);
+    
+    this.displayAlert(userMessage);
+    
+    if (isRetryable) {
+      this.auth.showRetryOption(oidcError);
+      this.auth.updateState({ 
+        emailEntered: true, 
+        showPassword: false 
+      });
+    } else {
+      this.auth.resetToEmail();
+    }
+  }
+
+  private async handleOidcCallback() {
+    const debugMode = await this.isDebugMode();
+    
+    if (debugMode) {
+      console.log('🔄 [OIDC CALLBACK] ===== METHOD CALLED =====');
+      console.log('🔄 [OIDC CALLBACK] Starting OIDC callback handling...');
+      console.log('🔄 [OIDC CALLBACK] Route query:', this.$route.query);
+    }
+    
+    this.auth.setOidcCallbackLoading(true);
+    
+    try {
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] Step 1: Parsing state from URL...');
+      }
+      const stateString = this.$route.query.state as string;
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] Raw state string:', stateString);
+      }
+      
+      // The oidc-client-ts library manages its own state format
+      // Our custom state is embedded in the url_state parameter
+      let stateInfo = null;
+      
+      // Parse the state string to extract our custom state
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] Step 2: Extracting custom state from URL state...');
+      }
+      const tokens = stateString.split(';') ?? [];
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] State tokens:', tokens);
+      }
+      
+      if (tokens.length < 2) {
+        console.error('🔄 [OIDC CALLBACK] ❌ Invalid state format - expected at least 2 tokens, got:', tokens.length);
+        throw new Error(`Invalid OIDC state: ${stateString}`);
+      }
+      
+      const customState = tokens[1] ?? '';
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] Extracted custom state:', customState);
+      }
+      
+      // Parse our custom state to get the provider and referer
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] Step 3: Parsing custom state from localStorage...');
+      }
+      stateInfo = await this.auth.parseOidcState(customState);
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] ✅ Parsed state info:', stateInfo);
+      }
+      
+      if (!stateInfo) {
+        console.error('🔄 [OIDC CALLBACK] ❌ Failed to parse state info from localStorage');
+        throw new Error('Invalid OIDC state');
+      }
+      
+      const { referer, provider } = stateInfo;
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] Using provider from state:', provider);
+        console.log('🔄 [OIDC CALLBACK] Using referer from state:', referer);
+      }
+      
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] Step 4: Creating user manager for provider:', provider);
+      }
+      const userManager = await createUserManager(provider);
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] ✅ User manager created');
+      }
+      
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] Step 5: Processing signin redirect callback...');
+      }
+      const user = await userManager.signinRedirectCallback();
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] ✅ Callback successful, user:', user);
+        console.log('🔄 [OIDC CALLBACK] User profile:', user.profile);
+        console.log('🔄 [OIDC CALLBACK] User access token:', user.access_token ? 'present' : 'missing');
+      }
+      
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] Step 6: Handling OIDC login...');
+      }
+      await this.userState.handleOidcLogin(user);
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] ✅ OIDC login handled successfully');
+      }
+      
+      const redirectPath = referer || '/applications';
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] Step 7: Redirecting to:', redirectPath);
+      }
+      await CONTINUUM_UI.navigate(redirectPath);
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] ✅ Redirect completed');
+      }
+      
+    } catch (error: unknown) {
+      console.error('🔄 [OIDC CALLBACK] ❌ OIDC callback error:', error);
+      if (debugMode) {
+        console.error('🔄 [OIDC CALLBACK] Error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          routeQuery: this.$route.query
+        });
+      }
+      
+      if (error instanceof Error) {
+        this.displayAlert(`OIDC callback failed: ${error.message}`);
+      } else {
+        this.displayAlert('OIDC callback failed');
+      }
+      
+      this.auth.resetToEmail();
+    } finally {
+      if (debugMode) {
+        console.log('🔄 [OIDC CALLBACK] Cleaning up...');
+      }
+      this.auth.setOidcCallbackLoading(false);
+      this.auth.setLoading(false);
+    }
+  }
+
+  async handleLogin() {
+    if (!this.isLoginValid || !this.isPasswordValid) {
+      this.displayAlert('Login and Password are required');
+      return;
+    }
+
+    this.auth.setLoading(true);
+    try {
+      await this.userState.authenticate(this.login, this.password);
+
+      if (this.referer) {
+        await CONTINUUM_UI.navigate(this.referer);
+      } else {
+        const redirectPath = this.$route.redirectedFrom?.fullPath;
+        if (redirectPath && redirectPath !== "/") {
+          await CONTINUUM_UI.navigate(redirectPath);
+        } else {
+          await CONTINUUM_UI.navigate('/applications');
+        }
+      }
+    } catch (error: unknown) {
+      console.error('Authentication error:', error);
+      if (error instanceof Error) {
+        this.displayAlert(error.message)
+      } else if (typeof error === 'string') {
+        this.displayAlert(error)
+      } else {
+        this.displayAlert('Unknown login error')
+      }
+      
+      this.auth.resetToEmail();
+    } finally {
+      this.auth.setLoading(false);
     }
   }
 
@@ -378,17 +587,34 @@ export default class Login extends Vue {
       return
     }
 
-    this.auth.setLoading(true)
+    this.auth.setLoading(true);
+    
     try {
-      this.auth.updateState({
-        emailEntered: true,
-        showPassword: true,
-        matchedProvider: null,
-        providerDisplayName: '',
-        showRetryOption: false,
-        showErrorDetails: false,
-      })
-      this.$nextTick(() => this.focusPasswordInput())
+      const authMethod = await this.auth.determineAuthMethod(this.login);
+      
+      if (authMethod.shouldUseOidc && authMethod.matchedProvider) {
+        // Automatically redirect to OIDC login when provider is found
+        await this.handleOidcLogin(authMethod.matchedProvider);
+        return; // Exit early to prevent any further UI updates
+      } else {
+        // Either OIDC is disabled, no provider matched, or fallback is needed
+        // Always show password form in these cases
+        this.auth.updateState({
+          emailEntered: true,
+          showPassword: true,
+          matchedProvider: null,
+          providerDisplayName: '',
+          showRetryOption: false,
+          showErrorDetails: false
+        });
+      }
+      
+      this.$nextTick(() => {
+        this.focusPasswordInput();
+      });
+    } catch (error) {
+      console.error('Error in email submit:', error);
+      this.displayAlert('Error processing email. Please try again.');
     } finally {
       this.auth.setLoading(false)
     }
@@ -427,19 +653,25 @@ export default class Login extends Vue {
 
     this.auth.setLoading(true)
     try {
-      await this.userState.authenticate(this.login, this.password)
-      const redirect =
-        this.referer || this.$route.redirectedFrom?.fullPath || '/applications'
-      await CONTINUUM_UI.navigate(redirect)
-    } catch (error: any) {
-      this.displayAlert(
-        error?.message || typeof error === 'string'
-          ? error
-          : 'Unknown login error'
-      )
-      this.auth.resetToEmail()
-    } finally {
-      this.auth.setLoading(false)
+      const userManager = await createUserManager(provider);
+      const state = await this.auth.createOidcState(this.referer, provider);
+      
+      const signinOptions: any = { url_state: state };
+      
+      if (this.login) {
+        signinOptions.login_hint = this.login;
+        
+        const emailDomain = this.login.split('@')[1];
+        if (emailDomain) {
+          signinOptions.domain_hint = emailDomain;
+        }
+      }
+      
+      await userManager.signinRedirect(signinOptions);
+      
+    } catch (error) {
+      this.displayAlert(`OIDC login failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.auth.resetToEmail();
     }
   }
 

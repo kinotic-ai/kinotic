@@ -4,14 +4,18 @@ import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import lombok.extern.slf4j.Slf4j;
+
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
 import org.kinotic.structures.api.domain.EntityContext;
-import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.TenantSpecificId;
 import org.kinotic.structures.api.services.EntitiesService;
 import org.kinotic.structures.internal.api.services.EntityService;
+import org.kinotic.structures.internal.cache.events.CacheEvictionEvent;
+import org.kinotic.structures.internal.cache.events.EvictionSourceType;
 import org.kinotic.structures.api.domain.ParameterHolder;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -21,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Created by Navíd Mitchell 🤪on 5/10/23.
  */
+@Slf4j
 @Component
 public class DefaultEntitiesService implements EntitiesService {
 
@@ -32,6 +37,28 @@ public class DefaultEntitiesService implements EntitiesService {
                           .expireAfterAccess(20, TimeUnit.HOURS)
                           .maximumSize(2000)
                           .buildAsync(entityServiceCacheLoader);;
+    }
+
+    /**
+     * Evicts the caches for a given structure, this is used when a structure is updated on a remote node.
+     * @param event the event containing the structure to evict the caches for
+     */
+    @EventListener
+    public void handleStructureCacheEviction(CacheEvictionEvent event) {
+
+        try {
+                
+            if(event.getEvictionSourceType() == EvictionSourceType.STRUCTURE){
+                this.entityServiceCache.asMap().remove(event.getStructureId());
+
+                log.info("successfully completed cache eviction for structure: {} due to {}", 
+                                 event.getStructureId(), event.getEvictionOperation().getDisplayName());
+            }
+                    
+        } catch (Exception e) {
+            log.error("failed to handle structure cache eviction (source: {})", 
+                     event.getEvictionSource().getDisplayName(), e);
+        }
     }
 
     @WithSpan
@@ -91,11 +118,6 @@ public class DefaultEntitiesService implements EntitiesService {
                                                  EntityContext context) {
         return entityServiceCache.get(structureId)
                 .thenCompose(entityService -> entityService.deleteByQuery(query, context));
-    }
-
-    @Override
-    public void evictCachesFor(Structure structure) {
-        this.entityServiceCache.asMap().remove(structure.getId());
     }
 
     @WithSpan
@@ -204,5 +226,12 @@ public class DefaultEntitiesService implements EntitiesService {
                                            EntityContext context) {
         return entityServiceCache.get(structureId)
                 .thenCompose(entityService -> entityService.update(entity, context));
+    }
+
+    /**
+     * Public accessor for testing cache state
+     */
+    public AsyncLoadingCache<String, EntityService> getEntityServiceCache() {
+        return entityServiceCache;
     }
 }

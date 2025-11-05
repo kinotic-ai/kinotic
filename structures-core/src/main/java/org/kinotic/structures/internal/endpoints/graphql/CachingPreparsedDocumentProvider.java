@@ -27,4 +27,5 @@ public class CachingPreparsedDocumentProvider implements PreparsedDocumentProvid
         Function<String, PreparsedDocumentEntry> mapCompute = key -> parseAndValidateFunction.apply(executionInput);
         return cache.get(executionInput.getQuery(), mapCompute);
     }
+
 }

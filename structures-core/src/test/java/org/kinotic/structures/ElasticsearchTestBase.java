@@ -44,10 +44,16 @@ public abstract class ElasticsearchTestBase {
 
     @DynamicPropertySource
     static void registerElasticProperties(DynamicPropertyRegistry registry) {
-        String[] parts = ELASTICSEARCH_CONTAINER.getHttpHostAddress().split(":");
-        ElasticConnectionInfo connectionInfo = new ElasticConnectionInfo(parts[0], Integer.parseInt(parts[1]), "http");
+        // String[] parts = ELASTICSEARCH_CONTAINER.getHttpHostAddress().split(":");
+        // ElasticConnectionInfo connectionInfo = new ElasticConnectionInfo(parts[0], Integer.parseInt(parts[1]), "http");
         registry.add("spring.data.elasticsearch.cluster-nodes", ELASTICSEARCH_CONTAINER::getHttpHostAddress);
-        registry.add("structures.elastic-connections", () -> List.of(connectionInfo));
+        // registry.add("structures.elastic-connections", () -> List.of(connectionInfo));
+        registry.add("structures.elastic-connections[0].host", () -> ELASTICSEARCH_CONTAINER.getHost());
+        registry.add("structures.elastic-connections[0].port", () -> ELASTICSEARCH_CONTAINER.getMappedPort(9200));
+        registry.add("structures.elastic-connections[0].scheme", () -> "http");
+        registry.add("elasticsearch.test.hostname", () -> ELASTICSEARCH_CONTAINER.getHost());
+        registry.add("elasticsearch.test.port", () -> ELASTICSEARCH_CONTAINER.getMappedPort(9200));
+
     }
 
     protected StructureAndPersonHolder createAndVerify(){

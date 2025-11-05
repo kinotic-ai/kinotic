@@ -25,3 +25,9 @@ structures:
 
 structures-core-test:
   enabled: true
+
+structures-sql-test:
+  enabled: false
+
+oidc-security-service:
+  enabled: false

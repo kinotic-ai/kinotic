@@ -28,6 +28,7 @@ dependencies {
 	implementation "me.escoffier.vertx:vertx-completable-future"
 
 	implementation 'org.apache.ignite:ignite-core'
+	implementation 'org.apache.ignite:ignite-kubernetes'
 
 	implementation "org.kinotic:continuum-core"
 	implementation "org.kinotic:continuum-core-vertx"
@@ -60,4 +61,40 @@ dependencies {
 // Configure Javadoc to exclude non-Java files
 tasks.named('javadoc') {
 	exclude '**/*.interp', '**/*.tokens' // Exclude ANTLR artifacts
+}
+
+test {
+    useJUnitPlatform()
+    systemProperty 'spring.profiles.active', 'test'
+    
+    // Exclude cluster tests by default (they are resource-intensive and slow)
+    // Cluster tests are annotated with @Disabled and can be run explicitly:
+    // ./gradlew :structures-core:test --tests ClusterCacheEvictionTest
+    exclude '**/cluster/**'
+}
+
+// Task to run only cluster tests (requires Docker)
+// Usage: ./gradlew :structures-core:clusterTest
+// Prerequisites: 
+//   1. Docker running
+//   2. Server image built: ./gradlew :structures-server:bootBuildImage
+task clusterTest(type: Test) {
+    description = 'Runs cluster integration tests using Testcontainers (requires Docker)'
+    group = 'verification'
+    
+    useJUnitPlatform()
+    systemProperty 'spring.profiles.active', 'test'
+    
+    // Only include cluster tests
+    include '**/cluster/**'
+    
+    // These tests take longer
+    timeout = Duration.ofMinutes(10)
+    
+    shouldRunAfter test
+    
+    testLogging {
+        events "passed", "skipped", "failed"
+        showStandardStreams = true
+    }
 }

@@ -1,0 +1,31 @@
+{{- if .Values.structures.clusterDiscoveryType | eq "KUBERNETES" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.structures.clusterKubernetesServiceName | default "structures" }}
+  labels:
+    app: {{ include "structures.name" . }}
+    chart: {{ include "structures.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    component: ignite-discovery
+spec:
+  # Headless service (no ClusterIP) for Ignite node discovery
+  clusterIP: None
+  selector:
+    app: {{ include "structures.name" . }}
+    release: {{ .Release.Name }}
+  ports:
+    - name: discovery
+      port: {{ .Values.structures.clusterDiscoveryPort | default 47500 }}
+      targetPort: {{ .Values.structures.clusterDiscoveryPort | default 47500 }}
+      protocol: TCP
+    - name: communication
+      port: {{ .Values.structures.clusterCommunicationPort | default 47100 }}
+      targetPort: {{ .Values.structures.clusterCommunicationPort | default 47100 }}
+      protocol: TCP
+  publishNotReadyAddresses: true  # Important: Allow DNS lookup before pods are ready
+{{- end }}
+
+
+

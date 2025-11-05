@@ -35,6 +35,22 @@ properties:
       socketTimeout: "1M"
       username: "structures"
       password: "asdfsda898u7fsad8sfa@sdfa"
+    
+    # Apache Ignite Cluster Configuration
+    # For multi-node deployments (replicaCount > 1), enable cluster discovery
+    # Discovery types: "local" (single-node), "sharedfs" (Docker/VMs), "kubernetes" (K8s)
+    clusterDiscoveryType: "local"  # Change to "kubernetes" for multi-node K8s clusters
+    
+    # Kubernetes Discovery (used when clusterDiscoveryType = "kubernetes")
+    clusterKubernetesNamespace: "default"  # Should match the namespace of this release
+    clusterKubernetesServiceName: "structures"  # Headless service for discovery
+    # clusterKubernetesMasterUrl: null  # Uses in-cluster config by default
+    # clusterKubernetesAccountToken: null  # Uses mounted service account by default
+    
+    # Network Ports
+    clusterDiscoveryPort: 47500
+    clusterCommunicationPort: 47100
+    clusterJoinTimeoutMs: 60000  # 60 seconds for production
 
 
 nodeSelector: {}
