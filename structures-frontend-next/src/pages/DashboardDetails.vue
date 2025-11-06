@@ -171,12 +171,14 @@ const addResizeIcons = () => {
   const resizeHandles = document.querySelectorAll('.grid-stack-item .ui-resizable-se')
   
   resizeHandles.forEach((handle) => {
-    handle.innerHTML = ''
+    if (handle.querySelector('i')) return
     
     const icon = document.createElement('i')
     icon.className = 'pi pi-arrow-up-right-and-arrow-down-left-from-center'
-    icon.style.fontSize = '12px'
+    icon.style.fontSize = '14px'
     icon.style.color = '#6b7280'
+    icon.style.display = 'block'
+    icon.style.lineHeight = '1'
     
     handle.appendChild(icon)
   })
@@ -751,7 +753,11 @@ const addWidgetToGrid = async (widget: DataInsightsWidget, x?: number, y?: numbe
   
   setTimeout(() => {
     addResizeIcons()
-  }, 300)
+  }, 800)
+  
+  setTimeout(() => {
+    addResizeIcons()
+  }, 1500)
 }
 
 const createDashboard = async () => {
