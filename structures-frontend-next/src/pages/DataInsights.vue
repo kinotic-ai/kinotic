@@ -84,6 +84,7 @@ export default class DataInsights extends Vue {
   userInput: string = ''
   isLoading: boolean = false
   visualizations: VisualizationComponent[] = []
+  renderedVisualizationIds: Set<string> = new Set()
   currentApplicationId: string = ''
   dateRange: DateRange = {
     startDate: null,
@@ -116,7 +117,6 @@ export default class DataInsights extends Vue {
     }
     
     (window as any).setCurrentApp = this.setCurrentApplication
-    
     this.restoreStateFromStoredInsights()
   }
 
@@ -127,6 +127,7 @@ export default class DataInsights extends Vue {
       this.currentApplicationId = app.id
       this.chatMessages = []
       this.visualizations = []
+      this.renderedVisualizationIds = new Set()
       const dashboardContainer = document.getElementById('dashboard-container')
       if (dashboardContainer) {
         dashboardContainer.innerHTML = ''
@@ -136,15 +137,15 @@ export default class DataInsights extends Vue {
   }
 
   restoreStateFromStoredInsights(): void {
-    this.visualizations = []
-    this.chatMessages = []
-    
     const storedInsights = INSIGHTS_STATE.getInsightsByApplication(this.currentApplicationId)
     
     if (storedInsights.length === 0) {
+      this.visualizations = []
+      this.chatMessages = []
       this.addWelcomeMessage()
       return
     }
+    
     this.visualizations = storedInsights
       .filter(insight => insight.htmlContent)
       .map(insight => ({
@@ -164,11 +165,12 @@ export default class DataInsights extends Vue {
       tasks: [],
       isExpanded: false
     })
-     setTimeout(() => {
-       this.visualizations.forEach(viz => {
-         this.executeVisualization(viz.htmlContent, viz.id)
-       })
-     }, 1000)
+    
+    setTimeout(() => {
+      this.visualizations.forEach(viz => {
+        this.executeVisualization(viz.htmlContent, viz.id)
+      })
+    }, 1000)
   }
 
   addWelcomeMessage() {
@@ -194,6 +196,7 @@ Components that support date filtering will automatically respond to the global 
       this.currentApplicationId = APPLICATION_STATE.currentApplication.id
       this.chatMessages = []
       this.visualizations = []
+      this.renderedVisualizationIds = new Set()
       const dashboardContainer = document.getElementById('dashboard-container')
       if (dashboardContainer) {
         dashboardContainer.innerHTML = ''
@@ -211,7 +214,6 @@ Components that support date filtering will automatically respond to the global 
       if (dashboardContainer) {
         dashboardContainer.innerHTML = ''
       }
-      
       this.addWelcomeMessage()
     }
   }
@@ -275,8 +277,10 @@ Components that support date filtering will automatically respond to the global 
             loadingMessage.content = progress.message
           }
           
-           if (progress.type === ProgressType.COMPONENTS_READY && progress.components && progress.components.length > 0) {
+          if (progress.type === ProgressType.COMPONENTS_READY && progress.components && progress.components.length > 0) {
+             console.log('📊 Received components:', progress.components.length)
              progress.components.forEach(async (component: DataInsightsComponent) => {
+               console.log('📊 Processing component:', component.id, component.name)
                this.visualizations.push({
                  id: component.id,
                  htmlContent: component.rawHtml,
@@ -305,8 +309,10 @@ Components that support date filtering will automatically respond to the global 
                }
                INSIGHTS_STATE.addInsight(insightData)
 
+               console.log('📊 Calling executeVisualization for:', component.id)
                this.executeVisualization(component.rawHtml, component.id)
              })
+             console.log('📊 Total visualizations now:', this.visualizations.length, this.visualizations)
            }
           
           if (progress.type === ProgressType.COMPLETED) {
@@ -314,7 +320,7 @@ Components that support date filtering will automatically respond to the global 
             if (loadingMessage) {
               loadingMessage.loading = false
               loadingMessage.content = 'Analysis completed! Your visualizations have been added to the dashboard.'
-              loadingMessage.isExpanded = false 
+              loadingMessage.isExpanded = false
             }
           }
           
@@ -346,26 +352,41 @@ Components that support date filtering will automatically respond to the global 
         loadingMessage.content = `Sorry, I couldn't process your request. Please try again or rephrase your question.`
         loadingMessage.isExpanded = false
       }
-      
       this.isLoading = false
     }
   }
 
   executeVisualization(htmlContent: string, componentId?: string) {
+    console.log('🎨 executeVisualization called for:', componentId)
+    
+    if (componentId && this.renderedVisualizationIds.has(componentId)) {
+      console.log('⏭️ Visualization already rendered, skipping:', componentId)
+      return
+    }
+    
+    if (componentId) {
+      this.renderedVisualizationIds.add(componentId)
+      console.log('✅ Marked as rendering:', componentId)
+    }
+    
     try {
-      
       const script = document.createElement('script')
       script.textContent = htmlContent
       document.head.appendChild(script)
+      console.log('✅ Script added to head')
       
       const elementNameMatch = htmlContent.match(/customElements\.define\(['"`]([^'"`]+)['"`]/)
       const elementName = elementNameMatch ? elementNameMatch[1] : 'data-insights-dashboard'
+      console.log('🔍 Custom element name:', elementName)
       
       setTimeout(() => {
         try {
+          console.log('⏰ Checking if custom element is registered:', elementName)
           if (!customElements.get(elementName)) {
+            console.error('❌ Custom element not registered:', elementName)
             return
           }
+          console.log('✅ Custom element is registered:', elementName)
           
           const wrapper = document.createElement('div')
           wrapper.className = 'visualization-wrapper relative'
@@ -377,20 +398,25 @@ Components that support date filtering will automatically respond to the global 
           saveButton.onclick = () => this.handleSaveWidget(componentId!)
           
           const element = document.createElement(elementName)
+          console.log('✅ Created element:', elementName)
           
           wrapper.appendChild(saveButton)
           wrapper.appendChild(element)
           
           const dashboardContainer = document.getElementById('dashboard-container')
+          console.log('🔍 Dashboard container found:', !!dashboardContainer)
           if (dashboardContainer) {
             dashboardContainer.appendChild(wrapper)
-            
+            console.log('✅ Visualization added to dashboard container')
           } else {
+            console.error('❌ Dashboard container not found!')
           }
         } catch (error) {
+          console.error('❌ Error in setTimeout block:', error)
         }
       }, 1000)
     } catch (error) {
+      console.error('❌ Error in executeVisualization:', error)
     }
   }
 
@@ -402,7 +428,6 @@ Components that support date filtering will automatically respond to the global 
   }
 
   generateInsightTitle(query: string): string {
-    // Generate a meaningful title from the user query
     const words = query.toLowerCase().split(' ')
     const keyWords = words.filter(word => 
       !['show', 'me', 'create', 'display', 'generate', 'make', 'a', 'an', 'the', 'of', 'for', 'with', 'in', 'on', 'at', 'to', 'from'].includes(word)
@@ -443,7 +468,6 @@ Components that support date filtering will automatically respond to the global 
     }
     
     try {
-      // Update button to show saving state
       const wrapper = document.querySelector(`[data-viz-id="${componentId}"]`)
       const saveButton = wrapper?.querySelector('.save-widget-btn') as HTMLButtonElement
       if (saveButton) {
@@ -453,10 +477,8 @@ Components that support date filtering will automatically respond to the global 
       
       await this.saveWidgetAsEntity(visualization.component)
       
-      // Mark as saved
       visualization.saved = true
       
-      // Update button to show saved state
       if (saveButton) {
         saveButton.className = 'save-widget-btn absolute top-2 right-2 bg-gray-200 text-gray-600 rounded p-2 shadow-sm z-10 flex items-center justify-center w-10 h-10 cursor-default'
         saveButton.innerHTML = '<i class="pi pi-bookmark-fill text-base"></i>'
@@ -464,7 +486,6 @@ Components that support date filtering will automatically respond to the global 
       }
       
     } catch (error) {
-      
       const wrapper = document.querySelector(`[data-viz-id="${componentId}"]`)
       const saveButton = wrapper?.querySelector('.save-widget-btn') as HTMLButtonElement
       if (saveButton) {
@@ -482,11 +503,8 @@ Components that support date filtering will automatically respond to the global 
       widget.dataInsightsComponent = component
       widget.created = new Date()
       widget.updated = new Date()
-      console.log('widget', widget)
-      const a = await this.widgetService.save(widget)
-      console.log('dataaaaaaaaaaaaa', a)
+      await this.widgetService.save(widget)
     } catch (error) {
-      console.error('Failed to save widget:', error)
     }
   }
 
