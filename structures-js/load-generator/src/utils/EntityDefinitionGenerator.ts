@@ -27,7 +27,7 @@ export class EntityDefinitionGenerator {
 
         await this.codeGenerationService.generateAllEntities(
             namespaceConfig,
-            false,
+            true,
             async (entityInfo) => {
                 definitions.set(entityInfo.entity.name.toLowerCase(), entityInfo.entity)
                 this.logger.log(`Generated entity definition for ${entityInfo.entity.name}`)
