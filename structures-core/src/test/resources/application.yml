@@ -6,7 +6,6 @@ spring:
 
 # YAML Reference http://www.yaml.org/refcard.html
 continuum:
-  discovery: sharedfs
   debug: true
   maxNumberOfCoresToUse: 4
 

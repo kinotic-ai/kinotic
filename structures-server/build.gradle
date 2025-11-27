@@ -43,10 +43,10 @@ test {
 }
 
 
-tasks.named('processResources') {
-	dependsOn ":structures-frontend-next:copyDist"
-}
+// tasks.named('processResources') {
+// 	dependsOn ":structures-frontend-next:copyDist"
+// }
 
-tasks.named('sourcesJar') {
-	dependsOn ":structures-frontend-next:copyDist"
-}
+// tasks.named('sourcesJar') {
+// 	dependsOn ":structures-frontend-next:copyDist"
+// }

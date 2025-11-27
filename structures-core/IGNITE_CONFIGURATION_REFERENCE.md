@@ -309,3 +309,15 @@ INFO  o.k.s.i.c.IgniteConfiguration - Apache Ignite started successfully - Clust
 **Configuration System**: StructuresProperties-based (Spring Boot ConfigurationProperties)
 
 
+
+
+
+
+
+
+
+
+
+
+
+

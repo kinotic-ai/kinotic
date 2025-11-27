@@ -34,7 +34,7 @@ dependencies {
 //                     https://paketo.io/docs/reference/java-reference/
 bootBuildImage {
     network = "host"
-    publish = true
+    publish = false
     imageName = "kinotic/${project.name}:${project.version}"
     tags = (!version.endsWith('SNAPSHOT') ?
             [

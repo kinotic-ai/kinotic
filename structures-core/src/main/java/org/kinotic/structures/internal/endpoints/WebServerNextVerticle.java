@@ -56,7 +56,7 @@ public class WebServerNextVerticle extends AbstractVerticle {
         Route route = router.route().handler(corsHandler);
 
         HealthCheckHandler healthCheckHandler = HealthCheckHandler.createWithHealthChecks(healthChecks);
-        router.get("/health").handler(healthCheckHandler);
+        router.get(this.properties.getHealthCheckPath()).handler(healthCheckHandler);
 
         // Add frontend configuration endpoint if service is available and enabled
         if (oidcSecurityServiceProperties.isEnabled()) {

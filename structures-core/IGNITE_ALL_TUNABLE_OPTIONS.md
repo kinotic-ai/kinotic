@@ -313,3 +313,15 @@ structures:
 **Configuration System**: StructuresProperties (Spring Boot ConfigurationProperties)
 
 
+
+
+
+
+
+
+
+
+
+
+
+

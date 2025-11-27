@@ -1,15 +1,11 @@
 {
     "npm.packageManager": "pnpm",
-    "spring-boot.ls.java.home": "${userHome}/.sdkman/candidates/java/21.0.7-ms",
+    "spring-boot.ls.java.home": "/Users/nic/.local/share/mise/installs/java/temurin-21.0.9+10.0.LTS",
     "java.configuration.runtimes": [
         {
             "name": "JavaSE-21",
-            "path": "${userHome}/.sdkman/candidates/java/21.0.7-ms",
+            "path": "/Users/nic/.local/share/mise/installs/java/temurin-21.0.9+10.0.LTS",
             "default": true
-        },
-        {
-            "name": "JavaSE-23",
-            "path": "${userHome}/.sdkman/candidates/java/23.0.2-amzn"
         }
     ],
     "gradle.debug": true,
@@ -22,7 +18,7 @@
         "name": "testConfig",
         "testKind": "junit",
         "env": {
-            "JAVA_HOME": "${userHome}/.sdkman/candidates/java/21.0.7-ms",
+            "JAVA_HOME": "/Users/nic/.local/share/mise/installs/java/temurin-21.0.9+10.0.LTS",
             "JAVA_TOOL_OPTIONS": "-Dspring.profiles.active=development,test --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED --add-opens=jdk.internal.jvmstat/sun.jvmstat.monitor=ALL-UNNAMED --add-opens=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.in=ALL-UNNAMED"
         },
         "vmargs": [
