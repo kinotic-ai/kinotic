@@ -31,13 +31,13 @@ description: "Task list for KinD Cluster Developer Tools implementation"
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create dev-tools/kind directory structure per implementation plan
-- [ ] T002 [P] Create config directory at dev-tools/kind/config/
-- [ ] T003 [P] Create lib directory at dev-tools/kind/lib/
-- [ ] T004 [P] Create tests/integration directory for integration tests
-- [ ] T005 Create kind-config.yaml default configuration in dev-tools/kind/config/kind-config.yaml
-- [ ] T006 Create helm-values.yaml default configuration in dev-tools/kind/config/helm-values.yaml
-- [ ] T007 [P] Create .gitignore entry for helm-values.local.yaml in dev-tools/kind/config/
+- [x] T001 Create dev-tools/kind directory structure per implementation plan
+- [x] T002 [P] Create config directory at dev-tools/kind/config/
+- [x] T003 [P] Create lib directory at dev-tools/kind/lib/
+- [x] T004 [P] Create tests/integration directory for integration tests
+- [x] T005 Create kind-config.yaml default configuration in dev-tools/kind/config/kind-config.yaml
+- [x] T006 Create helm-values.yaml default configuration in dev-tools/kind/config/helm-values.yaml
+- [x] T007 [P] Create .gitignore entry for helm-values.local.yaml in dev-tools/kind/config/
 
 ---
 
@@ -47,18 +47,18 @@ description: "Task list for KinD Cluster Developer Tools implementation"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T008 Implement logging functions (info, error, success, verbose) in dev-tools/kind/lib/logging.sh
-- [ ] T009 Implement configuration loading function (reads env vars, CLI flags, config files) in dev-tools/kind/lib/config.sh
-- [ ] T010 Implement prerequisite checking for Docker in dev-tools/kind/lib/prerequisites.sh
-- [ ] T011 Implement prerequisite checking for kind CLI in dev-tools/kind/lib/prerequisites.sh
-- [ ] T012 Implement prerequisite checking for kubectl in dev-tools/kind/lib/prerequisites.sh
-- [ ] T013 Implement prerequisite checking for helm in dev-tools/kind/lib/prerequisites.sh
-- [ ] T014 Implement OS detection (macOS, Linux distributions) in dev-tools/kind/lib/prerequisites.sh
-- [ ] T015 Implement installation guidance messages per OS in dev-tools/kind/lib/prerequisites.sh
-- [ ] T016 Implement Docker daemon status check in dev-tools/kind/lib/prerequisites.sh
-- [ ] T017 Create main script entrypoint with subcommand routing in dev-tools/kind/kind-cluster.sh
-- [ ] T018 Implement global option parsing (--verbose, --dry-run, --help) in dev-tools/kind/kind-cluster.sh
-- [ ] T019 Implement exit code constants and error handling in dev-tools/kind/kind-cluster.sh
+- [x] T008 Implement logging functions (info, error, success, verbose) in dev-tools/kind/lib/logging.sh
+- [x] T009 Implement configuration loading function (reads env vars, CLI flags, config files) in dev-tools/kind/lib/config.sh
+- [x] T010 Implement prerequisite checking for Docker in dev-tools/kind/lib/prerequisites.sh
+- [x] T011 Implement prerequisite checking for kind CLI in dev-tools/kind/lib/prerequisites.sh
+- [x] T012 Implement prerequisite checking for kubectl in dev-tools/kind/lib/prerequisites.sh
+- [x] T013 Implement prerequisite checking for helm in dev-tools/kind/lib/prerequisites.sh
+- [x] T014 Implement OS detection (macOS, Linux distributions) in dev-tools/kind/lib/prerequisites.sh
+- [x] T015 Implement installation guidance messages per OS in dev-tools/kind/lib/prerequisites.sh
+- [x] T016 Implement Docker daemon status check in dev-tools/kind/lib/prerequisites.sh
+- [x] T017 Create main script entrypoint with subcommand routing in dev-tools/kind/kind-cluster.sh
+- [x] T018 Implement global option parsing (--verbose, --dry-run, --help) in dev-tools/kind/kind-cluster.sh
+- [x] T019 Implement exit code constants and error handling in dev-tools/kind/kind-cluster.sh
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -72,17 +72,17 @@ description: "Task list for KinD Cluster Developer Tools implementation"
 
 ### Implementation for User Story 1
 
-- [ ] T020 [US1] Implement cluster existence check function in dev-tools/kind/lib/cluster.sh
-- [ ] T021 [US1] Implement kubectl context safety check function in dev-tools/kind/lib/cluster.sh
-- [ ] T022 [US1] Implement KinD cluster creation function (calls kind create cluster) in dev-tools/kind/lib/cluster.sh
-- [ ] T023 [US1] Implement cluster readiness wait function (polls kubectl get nodes) in dev-tools/kind/lib/cluster.sh
-- [ ] T024 [US1] Implement cluster info display function (shows nodes, API server, context) in dev-tools/kind/lib/cluster.sh
-- [ ] T025 [US1] Implement 'create' subcommand with flag parsing in dev-tools/kind/kind-cluster.sh
-- [ ] T026 [US1] Implement --force flag logic (delete existing cluster if present) in dev-tools/kind/kind-cluster.sh
-- [ ] T027 [US1] Implement --config flag to use custom kind-config.yaml in dev-tools/kind/kind-cluster.sh
-- [ ] T028 [US1] Implement --k8s-version flag to specify Kubernetes version in dev-tools/kind/kind-cluster.sh
-- [ ] T029 [US1] Add error handling for port conflicts during cluster creation in dev-tools/kind/lib/cluster.sh
-- [ ] T030 [US1] Add error handling for insufficient resources in dev-tools/kind/lib/cluster.sh
+- [x] T020 [US1] Implement cluster existence check function in dev-tools/kind/lib/cluster.sh
+- [x] T021 [US1] Implement kubectl context safety check function in dev-tools/kind/lib/cluster.sh
+- [x] T022 [US1] Implement KinD cluster creation function (calls kind create cluster) in dev-tools/kind/lib/cluster.sh
+- [x] T023 [US1] Implement cluster readiness wait function (polls kubectl get nodes) in dev-tools/kind/lib/cluster.sh
+- [x] T024 [US1] Implement cluster info display function (shows nodes, API server, context) in dev-tools/kind/lib/cluster.sh
+- [x] T025 [US1] Implement 'create' subcommand with flag parsing in dev-tools/kind/kind-cluster.sh
+- [x] T026 [US1] Implement --force flag logic (delete existing cluster if present) in dev-tools/kind/kind-cluster.sh
+- [x] T027 [US1] Implement --config flag to use custom kind-config.yaml in dev-tools/kind/kind-cluster.sh
+- [x] T028 [US1] Implement --k8s-version flag to specify Kubernetes version in dev-tools/kind/kind-cluster.sh
+- [x] T029 [US1] Add error handling for port conflicts during cluster creation in dev-tools/kind/lib/cluster.sh
+- [x] T030 [US1] Add error handling for insufficient resources in dev-tools/kind/lib/cluster.sh
 
 ### Integration Tests for User Story 1
 
@@ -103,27 +103,27 @@ description: "Task list for KinD Cluster Developer Tools implementation"
 
 ### Implementation for User Story 2
 
-- [ ] T035 [US2] Implement Helm repository addition function in dev-tools/kind/lib/deploy.sh
-- [ ] T036 [US2] Implement PostgreSQL deployment for Keycloak in dev-tools/kind/lib/deploy.sh
-- [ ] T037 [US2] Implement Keycloak realm ConfigMap creation from docker-compose/keycloak-test-realm.json in dev-tools/kind/lib/deploy.sh
-- [ ] T038 [US2] Implement Keycloak deployment with custom values (matching docker-compose) in dev-tools/kind/lib/deploy.sh
-- [ ] T039 [US2] Implement Elasticsearch deployment via Bitnami chart in dev-tools/kind/lib/deploy.sh
-- [ ] T040 [US2] Implement structures-server Helm deployment with OIDC configuration in dev-tools/kind/lib/deploy.sh
-- [ ] T041 [US2] Implement pod readiness wait function (kubectl wait --for=condition=ready) in dev-tools/kind/lib/deploy.sh
-- [ ] T042 [US2] Implement health check verification for deployed services in dev-tools/kind/lib/deploy.sh
-- [ ] T043 [US2] Implement deployment status display (pods, services, endpoints) in dev-tools/kind/lib/deploy.sh
+- [x] T035 [US2] Implement Helm repository addition function in dev-tools/kind/lib/deploy.sh
+- [x] T036 [US2] Implement PostgreSQL deployment for Keycloak in dev-tools/kind/lib/deploy.sh
+- [x] T037 [US2] Implement Keycloak realm ConfigMap creation from docker-compose/keycloak-test-realm.json in dev-tools/kind/lib/deploy.sh
+- [x] T038 [US2] Implement Keycloak deployment with custom values (matching docker-compose) in dev-tools/kind/lib/deploy.sh
+- [x] T039 [US2] Implement Elasticsearch deployment via Bitnami chart in dev-tools/kind/lib/deploy.sh
+- [x] T040 [US2] Implement structures-server Helm deployment with OIDC configuration in dev-tools/kind/lib/deploy.sh
+- [x] T041 [US2] Implement pod readiness wait function (kubectl wait --for=condition=ready) in dev-tools/kind/lib/deploy.sh
+- [x] T042 [US2] Implement health check verification for deployed services in dev-tools/kind/lib/deploy.sh
+- [x] T043 [US2] Implement deployment status display (pods, services, endpoints) in dev-tools/kind/lib/deploy.sh
 - [ ] T044 [US2] Implement OpenTelemetry Collector deployment (optional) in dev-tools/kind/lib/deploy.sh
 - [ ] T045 [US2] Implement Prometheus deployment (optional) in dev-tools/kind/lib/deploy.sh
 - [ ] T046 [US2] Implement Grafana deployment with dashboards (optional) in dev-tools/kind/lib/deploy.sh
 - [ ] T047 [US2] Implement Jaeger deployment (optional) in dev-tools/kind/lib/deploy.sh
 - [ ] T048 [US2] Implement Loki deployment (optional) in dev-tools/kind/lib/deploy.sh
-- [ ] T049 [US2] Implement 'deploy' subcommand with flag parsing in dev-tools/kind/kind-cluster.sh
-- [ ] T050 [US2] Implement --with-deps flag (default true) to deploy dependencies in dev-tools/kind/kind-cluster.sh
-- [ ] T051 [US2] Implement --with-observability flag to deploy observability stack in dev-tools/kind/kind-cluster.sh
-- [ ] T052 [US2] Implement --values flag to use custom helm-values.yaml in dev-tools/kind/kind-cluster.sh
-- [ ] T053 [US2] Implement --set flag for inline Helm value overrides in dev-tools/kind/kind-cluster.sh
-- [ ] T054 [US2] Add helm upgrade --install --atomic logic for idempotent deployments in dev-tools/kind/lib/deploy.sh
-- [ ] T055 [US2] Add deployment failure diagnostic messages (which pods failed, why) in dev-tools/kind/lib/deploy.sh
+- [x] T049 [US2] Implement 'deploy' subcommand with flag parsing in dev-tools/kind/kind-cluster.sh
+- [x] T050 [US2] Implement --with-deps flag (default true) to deploy dependencies in dev-tools/kind/kind-cluster.sh
+- [x] T051 [US2] Implement --with-observability flag to deploy observability stack in dev-tools/kind/kind-cluster.sh
+- [x] T052 [US2] Implement --values flag to use custom helm-values.yaml in dev-tools/kind/kind-cluster.sh
+- [x] T053 [US2] Implement --set flag for inline Helm value overrides in dev-tools/kind/kind-cluster.sh
+- [x] T054 [US2] Add helm upgrade --install --atomic logic for idempotent deployments in dev-tools/kind/lib/deploy.sh
+- [x] T055 [US2] Add deployment failure diagnostic messages (which pods failed, why) in dev-tools/kind/lib/deploy.sh
 
 ### Integration Tests for User Story 2
 
@@ -146,19 +146,19 @@ description: "Task list for KinD Cluster Developer Tools implementation"
 
 ### Implementation for User Story 3
 
-- [ ] T062 [US3] Implement gradle.properties version reader in dev-tools/kind/lib/images.sh
-- [ ] T063 [US3] Implement bootBuildImage invocation (./gradlew :structures-server:bootBuildImage) in dev-tools/kind/lib/images.sh
-- [ ] T064 [US3] Implement Docker image existence check in dev-tools/kind/lib/images.sh
-- [ ] T065 [US3] Implement kind load docker-image function in dev-tools/kind/lib/images.sh
-- [ ] T066 [US3] Implement crictl images verification on cluster nodes in dev-tools/kind/lib/images.sh
-- [ ] T067 [US3] Implement image info display (name, tag, size) in dev-tools/kind/lib/images.sh
-- [ ] T068 [US3] Implement 'build' subcommand with flag parsing in dev-tools/kind/kind-cluster.sh
-- [ ] T069 [US3] Implement --load flag to automatically load after build in dev-tools/kind/kind-cluster.sh
-- [ ] T070 [US3] Implement --module flag to specify which module to build in dev-tools/kind/kind-cluster.sh
-- [ ] T071 [US3] Implement 'load' subcommand with flag parsing in dev-tools/kind/kind-cluster.sh
-- [ ] T072 [US3] Implement --image flag to specify custom image name in dev-tools/kind/kind-cluster.sh
-- [ ] T073 [US3] Add error handling for bootBuildImage failures in dev-tools/kind/lib/images.sh
-- [ ] T074 [US3] Add error handling for image not found locally in dev-tools/kind/lib/images.sh
+- [x] T062 [US3] Implement gradle.properties version reader in dev-tools/kind/lib/images.sh
+- [x] T063 [US3] Implement bootBuildImage invocation (./gradlew :structures-server:bootBuildImage) in dev-tools/kind/lib/images.sh
+- [x] T064 [US3] Implement Docker image existence check in dev-tools/kind/lib/images.sh
+- [x] T065 [US3] Implement kind load docker-image function in dev-tools/kind/lib/images.sh
+- [x] T066 [US3] Implement crictl images verification on cluster nodes in dev-tools/kind/lib/images.sh
+- [x] T067 [US3] Implement image info display (name, tag, size) in dev-tools/kind/lib/images.sh
+- [x] T068 [US3] Implement 'build' subcommand with flag parsing in dev-tools/kind/kind-cluster.sh
+- [x] T069 [US3] Implement --load flag to automatically load after build in dev-tools/kind/kind-cluster.sh
+- [x] T070 [US3] Implement --module flag to specify which module to build in dev-tools/kind/kind-cluster.sh
+- [x] T071 [US3] Implement 'load' subcommand with flag parsing in dev-tools/kind/kind-cluster.sh
+- [x] T072 [US3] Implement --image flag to specify custom image name in dev-tools/kind/kind-cluster.sh
+- [x] T073 [US3] Add error handling for bootBuildImage failures in dev-tools/kind/lib/images.sh
+- [x] T074 [US3] Add error handling for image not found locally in dev-tools/kind/lib/images.sh
 
 ### Integration Tests for User Story 3
 
@@ -179,14 +179,14 @@ description: "Task list for KinD Cluster Developer Tools implementation"
 
 ### Implementation for User Story 4
 
-- [ ] T079 [US4] Implement cluster deletion function (kind delete cluster) in dev-tools/kind/lib/cluster.sh
-- [ ] T080 [US4] Implement Docker container cleanup verification in dev-tools/kind/lib/cluster.sh
-- [ ] T081 [US4] Implement kubectl context cleanup logic in dev-tools/kind/lib/cluster.sh
-- [ ] T082 [US4] Implement confirmation prompt for destructive operations in dev-tools/kind/lib/cluster.sh
-- [ ] T083 [US4] Implement 'delete' subcommand with flag parsing in dev-tools/kind/kind-cluster.sh
-- [ ] T084 [US4] Implement --force flag to skip confirmation prompt in dev-tools/kind/kind-cluster.sh
-- [ ] T085 [US4] Add kubectl context safety check (ensure pointing at kind cluster) in dev-tools/kind/lib/cluster.sh
-- [ ] T086 [US4] Add graceful handling when cluster doesn't exist in dev-tools/kind/lib/cluster.sh
+- [x] T079 [US4] Implement cluster deletion function (kind delete cluster) in dev-tools/kind/lib/cluster.sh
+- [x] T080 [US4] Implement Docker container cleanup verification in dev-tools/kind/lib/cluster.sh
+- [x] T081 [US4] Implement kubectl context cleanup logic in dev-tools/kind/lib/cluster.sh
+- [x] T082 [US4] Implement confirmation prompt for destructive operations in dev-tools/kind/lib/cluster.sh
+- [x] T083 [US4] Implement 'delete' subcommand with flag parsing in dev-tools/kind/kind-cluster.sh
+- [x] T084 [US4] Implement --force flag to skip confirmation prompt in dev-tools/kind/kind-cluster.sh
+- [x] T085 [US4] Add kubectl context safety check (ensure pointing at kind cluster) in dev-tools/kind/lib/cluster.sh
+- [x] T086 [US4] Add graceful handling when cluster doesn't exist in dev-tools/kind/lib/cluster.sh
 
 ### Integration Tests for User Story 4
 
@@ -203,16 +203,16 @@ description: "Task list for KinD Cluster Developer Tools implementation"
 
 **Purpose**: Features that span multiple user stories
 
-- [ ] T091 [P] Implement cluster status query function in dev-tools/kind/lib/cluster.sh
+- [x] T091 [P] Implement cluster status query function in dev-tools/kind/lib/cluster.sh
 - [ ] T092 [P] Implement Helm releases listing function in dev-tools/kind/lib/deploy.sh
 - [ ] T093 [P] Implement pod status display function in dev-tools/kind/lib/deploy.sh
 - [ ] T094 [P] Implement service endpoints display function in dev-tools/kind/lib/deploy.sh
 - [ ] T095 [P] Implement OIDC configuration display in dev-tools/kind/lib/deploy.sh
 - [ ] T096 [P] Implement observability stack status display in dev-tools/kind/lib/deploy.sh
-- [ ] T097 Implement 'status' subcommand with --watch flag in dev-tools/kind/kind-cluster.sh
-- [ ] T098 [P] Implement log streaming function (kubectl logs) in dev-tools/kind/lib/cluster.sh
-- [ ] T099 [P] Implement log filtering by pod selector in dev-tools/kind/lib/cluster.sh
-- [ ] T100 Implement 'logs' subcommand with --follow and --tail flags in dev-tools/kind/kind-cluster.sh
+- [x] T097 Implement 'status' subcommand with --watch flag in dev-tools/kind/kind-cluster.sh
+- [x] T098 [P] Implement log streaming function (kubectl logs) in dev-tools/kind/lib/cluster.sh
+- [x] T099 [P] Implement log filtering by pod selector in dev-tools/kind/lib/cluster.sh
+- [x] T100 Implement 'logs' subcommand with --follow and --tail flags in dev-tools/kind/kind-cluster.sh
 
 ---
 
@@ -220,12 +220,12 @@ description: "Task list for KinD Cluster Developer Tools implementation"
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T101 [P] Create README.md with usage examples in dev-tools/kind/README.md
-- [ ] T102 [P] Document all subcommands and flags in dev-tools/kind/README.md
-- [ ] T103 [P] Add troubleshooting section to README.md in dev-tools/kind/README.md
-- [ ] T104 [P] Add quickstart workflow examples in dev-tools/kind/README.md
-- [ ] T105 Make kind-cluster.sh executable (chmod +x) at dev-tools/kind/kind-cluster.sh
-- [ ] T106 Add shebang and set -euo pipefail to all shell scripts in dev-tools/kind/
+- [x] T101 [P] Create README.md with usage examples in dev-tools/kind/README.md
+- [x] T102 [P] Document all subcommands and flags in dev-tools/kind/README.md
+- [x] T103 [P] Add troubleshooting section to README.md in dev-tools/kind/README.md
+- [x] T104 [P] Add quickstart workflow examples in dev-tools/kind/README.md
+- [x] T105 Make kind-cluster.sh executable (chmod +x) at dev-tools/kind/kind-cluster.sh
+- [x] T106 Add shebang and set -euo pipefail to all shell scripts in dev-tools/kind/
 - [ ] T107 Add help text for main command in dev-tools/kind/kind-cluster.sh
 - [ ] T108 Add help text for each subcommand in dev-tools/kind/kind-cluster.sh
 - [ ] T109 [P] Run shellcheck on all bash scripts and fix warnings

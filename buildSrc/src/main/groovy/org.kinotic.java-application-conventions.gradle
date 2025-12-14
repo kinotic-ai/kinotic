@@ -52,6 +52,9 @@ bootBuildImage {
         "docker.io/paketobuildpacks/health-checker" // https://github.com/paketo-buildpacks/health-checker/tree/main
     ]
     docker {
+        // Use standard Docker socket to avoid API version issues
+        host = System.getenv("DOCKER_HOST") ?: "unix:///var/run/docker.sock"
+        
         publishRegistry {
             username = System.getenv("DOCKER_HUB_USERNAME")
             password = System.getenv("DOCKER_HUB_PASSWORD")

@@ -95,3 +95,6 @@ structures-server/src/main/resources/webroot/
 structures-server/src/main/resources/webroot2/
 
 .vscode/chrome-debug-profile/
+
+# KinD cluster local overrides (not for source control)
+dev-tools/kind/config/helm-values.local.yaml

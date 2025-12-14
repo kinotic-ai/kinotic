@@ -1,8 +1,8 @@
-{{- if .Values.structures.clusterDiscoveryType | eq "KUBERNETES" }}
+{{- if .Values.continuum.cluster.discoveryType | eq "KUBERNETES" }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.structures.clusterKubernetesServiceName | default "structures" }}
+  name: {{ .Values.continuum.cluster.kubernetesServiceName | default "structures" }}
   labels:
     app: {{ include "structures.name" . }}
     chart: {{ include "structures.chart" . }}
@@ -17,14 +17,14 @@ spec:
     release: {{ .Release.Name }}
   ports:
     - name: discovery
-      port: {{ .Values.structures.clusterDiscoveryPort | default 47500 }}
-      targetPort: {{ .Values.structures.clusterDiscoveryPort | default 47500 }}
+      port: {{ .Values.continuum.cluster.discoveryPort | default 47500 }}
+      targetPort: {{ .Values.continuum.cluster.discoveryPort | default 47500 }}
       protocol: TCP
     - name: communication
-      port: {{ .Values.structures.clusterCommunicationPort | default 47100 }}
-      targetPort: {{ .Values.structures.clusterCommunicationPort | default 47100 }}
+      port: {{ .Values.continuum.cluster.communicationPort | default 47100 }}
+      targetPort: {{ .Values.continuum.cluster.communicationPort | default 47100 }}
       protocol: TCP
-  publishNotReadyAddresses: true  # Important: Allow DNS lookup before pods are ready
+  publishNotReadyAddresses: {{ .Values.continuum.cluster.kubernetesIncludeNotReadyAddresses | default false }}  # Important: Allow DNS lookup before pods are ready
 {{- end }}
 
 

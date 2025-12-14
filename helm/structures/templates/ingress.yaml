@@ -1,0 +1,42 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "structures-server.fullname" . }}
+  labels:
+    app: {{ include "structures-server.name" . }}
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          # API - /api/ forwards to port 8080 (most specific first)
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ include "structures-server.fullname" . }}
+                port:
+                  number: {{ .Values.properties.structures.openApiPort }}
+          
+          # GraphQL - /graphql/ forwards to port 4000
+          - path: /graphql(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ include "structures-server.fullname" . }}
+                port:
+                  number: {{ .Values.properties.structures.graphqlPort }}
+          
+          # UI - root path forwards to port 9090 (catch-all last)
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ include "structures-server.fullname" . }}
+                port:
+                  number: {{ .Values.properties.structures.webServerPort }}
+{{- end }}

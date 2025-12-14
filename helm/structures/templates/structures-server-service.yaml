@@ -3,27 +3,42 @@ kind: Service
 metadata:
   name: {{ include "structures-server.fullname" . }}
 spec:
-  type: LoadBalancer
+  type: {{ .Values.service.type | default "LoadBalancer" }}
   ports:
     - name: "ui"
       protocol: TCP
-      port:  {{ .Values.properties.structures.webServerPort }} # UI PORTs
+      port:  {{ .Values.properties.structures.webServerPort }} # UI PORT
       targetPort: {{ .Values.properties.structures.webServerPort }}
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.ui }}
+      nodePort: {{ .Values.service.nodePorts.ui }}
+      {{- end }}
     - name: "graph-ql"
       protocol: TCP
       port: {{ .Values.properties.structures.graphqlPort }} # GraphQL Port
       targetPort: {{ .Values.properties.structures.graphqlPort }}
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.graphql }}
+      nodePort: {{ .Values.service.nodePorts.graphql }}
+      {{- end }}
     - name: "open-api"
       protocol: TCP
       port: {{ .Values.properties.structures.openApiPort }} # OpenAPI Port
       targetPort: {{ .Values.properties.structures.openApiPort }}
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.openapi }}
+      nodePort: {{ .Values.service.nodePorts.openapi }}
+      {{- end }}
     - name: "stomp"
       protocol: TCP
       port: 58503 # Continuum Stomp Port
       targetPort: 58503
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.stomp }}
+      nodePort: {{ .Values.service.nodePorts.stomp }}
+      {{- end }}
     - name: "rest"
       protocol: TCP
       port: 58504 # Continuum REST Port
       targetPort: 58504
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.rest }}
+      nodePort: {{ .Values.service.nodePorts.rest }}
+      {{- end }}
   selector:
     app: {{ include "structures-server.name" . }}

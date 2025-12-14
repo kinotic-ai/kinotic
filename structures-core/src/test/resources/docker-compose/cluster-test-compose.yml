@@ -47,6 +47,8 @@ services:
       SPRING_AI_OPENAI_API_KEY: "noop"
       SPRING_AI_OPENAI_BASE_URL: "https://api.x.ai"
       SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "grok-4"
+      SPRING_AI_OPENAI_API-KEY: "DUMMY"
+      
       STRUCTURES_TENANT_ID_FIELD_NAME: tenantId
       STRUCTURES_ELASTIC_CONNECTION_TIMEOUT: 5s
       STRUCTURES_ELASTIC_SOCKET_TIMEOUT: 60s
@@ -60,7 +62,6 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_RESOURCE_ATTRIBUTES: service.name=structures-server
-      SPRING_AI_OPENAI_API-KEY: "DUMMY"
 
     volumes:
       - type: bind

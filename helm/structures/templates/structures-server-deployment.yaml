@@ -11,7 +11,9 @@ spec:
     metadata:
       labels:
         app: {{ include "structures-server.name" . }}
+        release: {{ .Release.Name }}
     spec:
+      serviceAccountName: {{ include "structures-server.fullname" . }}
       containers:
         - name: structures-server
           image: {{ if .Values.image.sha }}"{{ .Values.image.repository }}@{{ .Values.image.sha }}"{{ else }}"{{ .Values.image.repository }}:{{ .Values.image.tag }}"{{ end }}
@@ -46,6 +48,8 @@ spec:
             - containerPort: {{ .Values.properties.structures.openApiPort }} # OpenAPI Port
             - containerPort: 58503 # Continuum Stomp Port
             - containerPort: 58504 # Continuum REST Port
+            - containerPort: {{ .Values.continuum.cluster.discoveryPort | default 47500 }} # Ignite Discovery Port
+            - containerPort: {{ .Values.continuum.cluster.communicationPort | default 47100 }} # Ignite Communication Port
           envFrom:
             - configMapRef:
                 name: {{ include "structures-server.fullname" . }}

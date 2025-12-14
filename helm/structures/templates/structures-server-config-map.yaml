@@ -3,10 +3,18 @@ kind: ConfigMap
 metadata:
   name: {{ include "structures-server.fullname" . }}
 data:
+  BPL_JVM_HEAD_ROOM: "{{ .Values.properties.bplJvmHeadRoom }}"
+
   JAVA_TOOL_OPTIONS: "{{ .Values.properties.javaToolOptions }}"
   BPL_JAVA_NMT_ENABLED: "{{ .Values.properties.enableNmt }}"
   BPL_JMX_ENABLED: "{{ .Values.properties.enableJmx }}"
   SPRING_PROFILES_ACTIVE: "{{ .Values.properties.springActiveProfiles }}"
+
+  THC_PORT: "{{ .Values.properties.structures.webServerPort }}"
+  SPRING_AI_OPENAI_BASE_URL: "{{ .Values.properties.structures.ai.baseUrl }}"
+  SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "{{ .Values.properties.structures.ai.model }}"
+  SPRING_AI_OPENAI_API_KEY: "{{ .Values.properties.structures.ai.apiKey }}"
+
   STRUCTURES_CORS_ALLOWED_ORIGIN_PATTERN: "{{ .Values.properties.corsAllowedOriginPattern }}"
   STRUCTURES_INDEX_PREFIX: "{{ .Values.properties.structures.indexPrefix }}"
   {{ range $index,$value:= .Values.properties.structures.elastic.connections }}
@@ -29,3 +37,52 @@ data:
   STRUCTURES_ENABLE_STATIC_FILE_SERVER: "{{ .Values.properties.structures.enableStaticFileServer }}"
   STRUCTURES_INITIALIZE_WITH_SAMPLE_DATA: "{{ .Values.properties.structures.initializeWithSampleData }}"
   STRUCTURES_TENANT_ID_FIELD_NAME: "{{ .Values.properties.structures.tenantIdFieldName }}"
+  {{- if .Values.continuum }}
+  {{- if .Values.continuum.cluster }}
+  # Continuum Cluster Configuration
+  # Used to override application YAML configuration for different environments
+  # Reference: structures-core/src/test/resources/docker-compose/cluster-test-compose.yml
+
+  CONTINUUM_CLUSTER_DISABLE_CLUSTERING: "{{ .Values.continuum.disableClustering | default "false" }}"
+  CONTINUUM_CLUSTER_DISCOVERY_TYPE: "{{ .Values.continuum.cluster.discoveryType | default "LOCAL" | upper }}"
+  CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS: "{{ .Values.continuum.cluster.joinTimeoutMs | default "0" }}"
+  CONTINUUM_CLUSTER_DISCOVERY_PORT: "{{ .Values.continuum.cluster.discoveryPort | default "47500" }}"
+  CONTINUUM_CLUSTER_COMMUNICATION_PORT: "{{ .Values.continuum.cluster.communicationPort | default "47100" }}"
+  # Container local address: bind to 0.0.0.0 (all interfaces) for port mapping
+  CONTINUUM_CLUSTER_LOCAL_ADDRESS: "{{ .Values.continuum.cluster.localAddress | default "" }}"
+
+  {{- if eq (.Values.continuum.cluster.discoveryType | default "LOCAL" | upper) "KUBERNETES" }}
+  # Kubernetes-specific cluster discovery settings
+  CONTINUUM_CLUSTER_KUBERNETES_NAMESPACE: "{{ .Values.continuum.cluster.kubernetesNamespace | default "default" }}"
+  CONTINUUM_CLUSTER_KUBERNETES_SERVICE_NAME: "{{ .Values.continuum.cluster.kubernetesServiceName | default "structures" }}"
+  CONTINUUM_CLUSTER_KUBERNETES_INCLUDE_NOT_READY_ADDRESSES: "{{ .Values.continuum.cluster.kubernetesIncludeNotReadyAddresses | default "false" }}"
+  {{- if .Values.continuum.cluster.kubernetesMasterUrl }}
+  CONTINUUM_CLUSTER_KUBERNETES_MASTER_URL: "{{ .Values.continuum.cluster.kubernetesMasterUrl }}"
+  {{- end }}
+  {{- if .Values.continuum.cluster.kubernetesAccountToken }}
+  CONTINUUM_CLUSTER_KUBERNETES_ACCOUNT_TOKEN: "{{ .Values.continuum.cluster.kubernetesAccountToken }}"
+  {{- end }}
+  {{- end }}
+  {{- if eq (.Values.continuum.cluster.discoveryType | default "LOCAL" | upper) "SHAREDFS" }}
+  # Shared filesystem settings
+  CONTINUUM_CLUSTER_SHARED_FS_PATH: "{{ .Values.continuum.cluster.sharedFsPath | default "/sharedfs" }}"
+  {{- end }}
+  {{- if eq (.Values.continuum.cluster.discoveryType | default "LOCAL" | upper) "LOCAL" }}
+  # Local network only clustering settings
+  # Format: host:port,host:port,...
+  CONTINUUM_CLUSTER_LOCAL_ADDRESSES: "{{ .Values.continuum.cluster.localAddresses | default "" }}"
+  {{- end }}
+  {{- if .Values.continuum.maxOffHeapMemory }}
+  CONTINUUM_MAX_OFF_HEAP_MEMORY: "{{ .Values.continuum.maxOffHeapMemory }}"
+  {{- end }}
+  {{- if .Values.continuum.debug }}
+  CONTINUUM_DEBUG: "{{ .Values.continuum.debug }}"
+  {{- end }}
+  {{- if .Values.continuum.maxNumberOfCoresToUse }}
+  CONTINUUM_MAX_NUMBER_OF_CORES_TO_USE: "{{ .Values.continuum.maxNumberOfCoresToUse }}"
+  {{- end }}
+  {{- if .Values.continuum.disableClustering }}
+  CONTINUUM_DISABLE_CLUSTERING: "{{ .Values.continuum.disableClustering }}"
+  {{- end }}
+  {{- end }}
+  {{- end }}

@@ -12,7 +12,9 @@ properties:
   corsAllowedOriginPattern: "*"
   enableJmx: true
   enableNmt: true
-  javaToolOptions: "-XX:MaxDirectMemorySize=1024M"
+  javaToolOptions: "-Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m" ## -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar 
+
+  bplJvmHeadRoom: 10
   structures:
     tenantIdFieldName: "tenantId"
     indexPrefix: "struct_"
@@ -35,22 +37,48 @@ properties:
       socketTimeout: "1M"
       username: "structures"
       password: "asdfsda898u7fsad8sfa@sdfa"
-    
-    # Apache Ignite Cluster Configuration
-    # For multi-node deployments (replicaCount > 1), enable cluster discovery
-    # Discovery types: "local" (single-node), "sharedfs" (Docker/VMs), "kubernetes" (K8s)
-    clusterDiscoveryType: "local"  # Change to "kubernetes" for multi-node K8s clusters
-    
-    # Kubernetes Discovery (used when clusterDiscoveryType = "kubernetes")
-    clusterKubernetesNamespace: "default"  # Should match the namespace of this release
-    clusterKubernetesServiceName: "structures"  # Headless service for discovery
-    # clusterKubernetesMasterUrl: null  # Uses in-cluster config by default
-    # clusterKubernetesAccountToken: null  # Uses mounted service account by default
-    
-    # Network Ports
-    clusterDiscoveryPort: 47500
-    clusterCommunicationPort: 47100
-    clusterJoinTimeoutMs: 60000  # 60 seconds for production
+    ai:
+      apiKey: "noop"
+      baseUrl: "https://api.x.ai"
+      model: "grok-4"
+
+
+continuum:
+  debug: true
+  disableClustering: false
+  maxNumberOfCoresToUse: 4
+  maxOffHeapMemory: "419430400"
+  cluster:
+    discoveryType: LOCAL ## SHAREDFS or KUBERNETES
+    joinTimeoutMs: 0
+    # Test instance local address: bind to 0.0.0.0 (all interfaces) so containers can reach it
+    # Containers connect via host.docker.internal:47500
+    localAddress: 0.0.0.0
+    # Test instance ports (must be unique from container nodes)
+    discoveryPort: 47500      
+    communicationPort: 47100 
+    # Static IP addresses for all nodes in the cluster
+    # Format: host:port,host:port,...
+    localAddresses: null
+    # Note: sharedFsPath is still used for Structure data sharing, not for Ignite discovery
+    sharedFsPath: /sharedfs  # Shared with containers via bind mount
+    kubernetesNamespace: default
+    kubernetesServiceName: structures
+    kubernetesIncludeNotReadyAddresses: false
+    kubernetesMasterUrl: ""
+    kubernetesAccountToken: ""
 
 
 nodeSelector: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: localhost
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
