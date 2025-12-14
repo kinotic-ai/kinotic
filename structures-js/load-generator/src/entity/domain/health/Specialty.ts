@@ -1,6 +1,7 @@
 import { Text } from '@kinotic/structures-api'
 
 export class Specialty {
+
     public name!: string
 
     @Text

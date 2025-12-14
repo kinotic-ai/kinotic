@@ -98,7 +98,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { InputText, Button, Dialog, IconField, InputIcon } from 'primevue'
-import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { useToast } from 'primevue/usetoast'
 import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEntityService'
 import type { DataInsightsWidget } from '@/domain/DataInsightsWidget'
@@ -181,26 +180,10 @@ const filteredWidgets = computed(() => {
   
   const searchLower = widgetSearchText.value.toLowerCase()
   return savedWidgets.value.filter(widget => {
-    const name = widget.name?.toLowerCase() || ''
-    const description = widget.description?.toLowerCase() || ''
-    const widgetType = widget.widgetType?.toLowerCase() || ''
+    const name = widget.dataInsightsComponent?.name?.toLowerCase() || ''
+    const description = widget.dataInsightsComponent?.description?.toLowerCase() || ''
     
-    // Also check AI-generated title/subtitle from config
-    try {
-      const config = JSON.parse(widget.config || '{}')
-      const aiTitle = config.aiTitle?.toLowerCase() || ''
-      const aiSubtitle = config.aiSubtitle?.toLowerCase() || ''
-      
-      return name.includes(searchLower) || 
-             description.includes(searchLower) || 
-             widgetType.includes(searchLower) ||
-             aiTitle.includes(searchLower) ||
-             aiSubtitle.includes(searchLower)
-    } catch {
-      return name.includes(searchLower) || 
-             description.includes(searchLower) || 
-             widgetType.includes(searchLower)
-    }
+    return name.includes(searchLower) || description.includes(searchLower)
   })
 })
 
