@@ -3,25 +3,25 @@ export const rowColors = [
     background: '#ecfccb',
     border: '#84cc16',
     label: '#65a30d',
-    header: '#d9f99d'  
+    header: '#ECFCCB'  
   },
 {
     background: '#ecfccb',
     border: '#84cc16',
     label: '#65a30d',
-    header: '#d9f99d'  
+    header: '#ECFCCB'  
   },
   {
     background: '#FDF4FF',
     border: '#F5D0FE',
     label: '#D946EF',
-    header: '#FBCFE8'
+    header: '#FAE8FF'
   },
   {
     background: '#F5F3FF',
     border: '#DDD6FE',
     label: '#7C3AED',
-    header: '#C4B5FD'
+    header: '#EDE9FE'
   },
   {
     background: '#EFF8FF',
