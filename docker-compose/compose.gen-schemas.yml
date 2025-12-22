@@ -1,0 +1,27 @@
+services:
+  load-generator:
+    image: kinotic/structures-load-generator:latest
+    pull_policy: always
+    container_name: structures-gen-schemas
+    environment:
+      # Connection settings
+      - STRUCTURES_HOST=structures-server
+      - STRUCTURES_PORT=58503
+      - STRUCTURES_USE_SSL=false
+      
+      # Load test configuration
+      - TEST_NAME=generateComplexStructures
+      - NUMBER_OF_TENANTS=1 # Not used for this test
+      
+      # Concurrency settings
+      - MAX_CONCURRENT_REQUESTS=1
+      - MAX_REQUESTS_PER_SECOND=100 
+      
+      # OpenTelemetry settings
+      - OTEL_EXPORTER_TYPE=OTLP
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      structures-server:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
