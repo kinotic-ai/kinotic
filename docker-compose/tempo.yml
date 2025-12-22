@@ -26,3 +26,23 @@ storage:
     pool:
       max_workers: 100
       queue_depth: 10000
+
+# Metrics generator configuration for generating metrics from traces
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+      datacenter: dc1
+  storage:
+    path: /var/tempo/generator/wal
+    remote_write:
+      - url: http://mimir:9009/api/v1/push
+        send_exemplars: true
+  processor:
+    service_graphs: {}
+    span_metrics:
+      dimensions:
+        - service.name
+        - service.namespace
+        - http.method
+        - http.status_code
