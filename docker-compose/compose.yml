@@ -1,21 +1,24 @@
 include:
   - compose.ek-stack.yml
   - compose-otel.yml
+  - compose.gen-schemas.yml
 services:
   structures-server:
     container_name: structures-server
-    image: kinotic/structures-server:${structuresVersion:-3.3.0-SNAPSHOT}
+    pull_policy: always
+    image: kinotic/structures-server:${structuresVersion:-3.5.0-SNAPSHOT}
     depends_on:
       structures-elasticsearch:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl --silent --fail 127.0.0.1:9090/health || exit 1"]
-      interval: 300s
+      test: ["CMD", "/workspace/health-check"]
+      interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 90s
+      start_period: 120s
     ports:
       - "127.0.0.1:9090:9090" # UI PORT
+      - "127.0.0.1:9091:9091" # UI PORT
       - "127.0.0.1:4000:4000" # GraphQL Port
       - "127.0.0.1:8080:8080" # OpenAPI Port
       - "127.0.0.1:58503:58503" # Continuum Stomp Port
@@ -24,9 +27,12 @@ services:
       BPL_JVM_HEAD_ROOM: 10
       JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
       CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
+      THC_PORT: 9090 # Health check port (should match STRUCTURES_WEB_SERVER_PORT)
       SPRING_PROFILES_ACTIVE: production
-      STRUCTURES_INDEX_PREFIX: struct_
-      STRUCTURES_TENANT_ID_FIELD_NAME: structuresTenantId
+      SPRING_AI_OPENAI_API-KEY: "noop"
+      SPRING_AI_OPENAI_BASE_URL: "https://api.x.ai"
+      SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "grok-4"
+      STRUCTURES_TENANT_ID_FIELD_NAME: tenantId
       STRUCTURES_ELASTICCONNECTIONS_0_SCHEME: http
       STRUCTURES_ELASTICCONNECTIONS_0_HOST: structures-elasticsearch
       STRUCTURES_ELASTICCONNECTIONS_0_PORT: 9200
@@ -34,17 +40,17 @@ services:
       STRUCTURES_ELASTIC_SOCKET_TIMEOUT: 60s
       STRUCTURES_ELASTIC_USERNAME:
       STRUCTURES_ELASTIC_PASSWORD:
+      STRUCTURES_BASE_URL: http://127.0.0.1
       STRUCTURES_OPEN_API_SECURITY_TYPE: BASIC
       STRUCTURES_OPEN_API_PORT: 8080
       STRUCTURES_OPEN_API_PATH: /api/
-      STRUCTURES_OPEN_API_SERVER_URL: http://127.0.0.1:8080
       STRUCTURES_GRAPHQL_PORT: 4000
       STRUCTURES_GRAPHQL_PATH: /graphql/
       STRUCTURES_CORS_ALLOWED_ORIGIN_PATTERN: '*'
       STRUCTURES_WEB_SERVER_PORT: 9090
       STRUCTURES_HEALTH_CHECK_PATH: /health/
-      STRUCTURES_ENABLE_STATIC_FILE_SERVER: true
       STRUCTURES_INITIALIZE_WITH_SAMPLE_DATA: true
+      STRUCTURES_ENABLE_STATIC_FILE_SERVER: true
       OTEL_SERVICE_NAME: structures-server
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
@@ -60,3 +66,5 @@ services:
           memory: 4G
         limits:
           memory: 4G
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

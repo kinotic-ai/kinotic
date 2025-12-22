@@ -38,7 +38,7 @@ services:
       - "9095:9095"  # Mimir gRPC
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:12.3.1
     ports:
       - "3000:3000"  # Grafana UI (logs, metrics, traces)
     depends_on:
