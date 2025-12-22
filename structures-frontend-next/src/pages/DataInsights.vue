@@ -526,7 +526,7 @@ Components that support date filtering will automatically respond to the global 
           </div>
           
           <!-- Global Date Range Picker -->
-          <div class="flex items-center gap-2">image.png
+          <div class="flex items-center gap-2">
             <Button
               @click="toggleDateRangePicker"
               :class="showDateRangePicker ? 'p-button-primary' : 'p-button-outlined'"
