@@ -58,7 +58,7 @@ class EntityList extends Vue {
   structureService: IStructureService = Structures.getStructureService()
 
   options = {
-    rows: 10,
+    rows: 50,
     first: 0,
     sortField: '',
     sortOrder: 1
@@ -176,6 +176,32 @@ if (!id) {
     if (!prop || prop.type?.type !== 'array') return false
     
     const containsType = prop.type.contains?.type
+    return ['string', 'number', 'boolean', 'date'].includes(containsType)
+  }
+
+  // Check if nested property is a primitive array
+  isNestedPrimitiveArray(fieldName: string, nestedPropName: string): boolean {
+    const nestedProps = this.getNestedProperties(fieldName)
+    const nestedProp = nestedProps.find(p => p.name === nestedPropName)
+    if (!nestedProp || nestedProp.type?.type !== 'array') return false
+    
+    const containsType = nestedProp.type.contains?.type
+    return ['string', 'number', 'boolean', 'date'].includes(containsType)
+  }
+
+  // Check if deep nested property is a primitive array
+  isDeepNestedPrimitiveArray(fieldName: string, nestedProp: string, deepProp: string): boolean {
+    const deepProps = this.getDeepNestedProperties(fieldName, nestedProp, deepProp)
+    if (!deepProps || deepProps.length === 0) return false
+    
+    const prop = this.structureProperties.find((p: any) => p.name === fieldName)
+    if (!prop) return false
+
+    const nestedProperties = this.getNestedObjectProperties(fieldName, nestedProp)
+    const deepProperty = nestedProperties.find((p: any) => p.name === deepProp)
+    if (!deepProperty || deepProperty.type?.type !== 'array') return false
+
+    const containsType = deepProperty.type.contains?.type
     return ['string', 'number', 'boolean', 'date'].includes(containsType)
   }
 
@@ -766,10 +792,8 @@ if (!id) {
     
     if (this.wasExpanded) {
       this.resizingColumn.expandedWidth = newWidth
-      this.resizingColumn.width = newWidth
     } else {
       this.resizingColumn.width = newWidth
-      this.resizingColumn.expandedWidth = newWidth
     }
   }
 
@@ -811,7 +835,6 @@ if (!id) {
         totalWidth += this.getNestedPropWidth(parentField, prop)
       }
       header.expandedWidth = totalWidth
-      header.width = totalWidth
     }
   }
 
@@ -974,7 +997,6 @@ if (!id) {
         parentTotalWidth += this.getNestedPropWidth(parentField, prop)
       }
       header.expandedWidth = parentTotalWidth
-      header.width = parentTotalWidth
     }
   }
 
@@ -1022,8 +1044,8 @@ export default EntityList
 </script>
 
 <template>
-  <div class="overflow-y-auto w-full h-full flex flex-col">
-    <Toolbar class="!w-full">
+  <div class="w-full h-full flex flex-col">
+    <Toolbar class="!w-full flex-shrink-0">
       <template #start>
         <InputText
           v-model="searchText" 
@@ -1036,7 +1058,7 @@ export default EntityList
       </template>
     </Toolbar>
 
-    <div class="flex-1 overflow-auto relative">
+    <div class="flex-1 overflow-auto relative" style="min-height: 0;">
       <table class="w-full border-collapse table-fixed" style="box-sizing: border-box;">
         <thead class="sticky top-0 z-10">
           <tr style="background-color: #101010;">
@@ -1050,15 +1072,21 @@ export default EntityList
                 position: 'relative',
                 height: '38px'
               }"
-              class="border border-gray-300 px-0 py-0 text-left text-xs font-medium text-white"
+              class="px-0 py-0 text-left text-xs font-medium text-white"
+              style="border: 1px solid #28282B;"
             >
               <div class="flex items-center gap-1 h-full px-2">
                 <span 
                   v-if="header.isCollapsable && !isPrimitiveArray(header.field)" 
-                  class="text-xs flex-shrink-0 cursor-pointer"
+                  class="flex-shrink-0 cursor-pointer"
                   @click.stop="toggleColumnExpansion(header.field)"
                 >
-                  {{ isColumnExpanded(header.field) ? '▼' : '▶' }}
+                  <svg v-if="isColumnExpanded(header.field)" width="7" height="4" viewBox="0 0 7 4" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 0.5L3.5 3L6 0.5" stroke="#9B87F5" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <svg v-else width="4" height="7" viewBox="0 0 4 7" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0.5 1L3 3.5L0.5 6" stroke="#9B87F5" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
                 </span>
                 <span 
                   class="truncate-text flex-1" 
@@ -1082,7 +1110,8 @@ export default EntityList
                 width: (isColumnExpanded(header.field) ? getExpandedColumnWidth(header.field) : header.width) + 'px',
                 maxWidth: (isColumnExpanded(header.field) ? getExpandedColumnWidth(header.field) : header.width) + 'px'
               , boxSizing: 'border-box', flexShrink: '0', height: '29px' }"
-              class="border border-gray-300 px-0 py-0 text-left text-xs font-medium"
+              class="px-0 py-0 text-left text-xs font-medium"
+              style="border: 1px solid white;"
             >
               <div v-if="isColumnExpanded(header.field)" class="flex w-full h-full">
                 <div
@@ -1099,16 +1128,21 @@ export default EntityList
                 >
                   <div class="flex items-center gap-1">
                     <span 
-                      v-if="nestedProp.isObject || nestedProp.isArray" 
-                      class="text-xs flex-shrink-0 cursor-pointer"
+                      v-if="(nestedProp.isObject || nestedProp.isArray) && !isNestedPrimitiveArray(header.field, nestedProp.name)" 
+                      class="flex-shrink-0 cursor-pointer"
                       @click.stop="toggleNestedObjectExpansion(header.field, nestedProp.name)"
                     >
-                      {{ isNestedObjectExpanded(header.field, nestedProp.name) ? '▼' : '▶' }}
+                      <svg v-if="isNestedObjectExpanded(header.field, nestedProp.name)" width="7" height="4" viewBox="0 0 7 4" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M1 0.5L3.5 3L6 0.5" stroke="#AFB0B8" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                      <svg v-else width="4" height="7" viewBox="0 0 4 7" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0.5 1L3 3.5L0.5 6" stroke="#AFB0B8" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
                     </span>
                     <span 
                       class="truncate-text text-xs flex-1"
-                      :class="{ 'cursor-pointer': nestedProp.isObject || nestedProp.isArray }"
-                      @click.stop="(nestedProp.isObject || nestedProp.isArray) ? toggleNestedObjectExpansion(header.field, nestedProp.name) : null"
+                      :class="{ 'cursor-pointer': (nestedProp.isObject || nestedProp.isArray) && !isNestedPrimitiveArray(header.field, nestedProp.name) }"
+                      @click.stop="((nestedProp.isObject || nestedProp.isArray) && !isNestedPrimitiveArray(header.field, nestedProp.name)) ? toggleNestedObjectExpansion(header.field, nestedProp.name) : null"
                     >{{ nestedProp.name }}</span>
                     <div
                       class="resize-handle"
@@ -1129,7 +1163,8 @@ export default EntityList
                 width: (isColumnExpanded(header.field) ? getExpandedColumnWidth(header.field) : header.width) + 'px',
                 maxWidth: (isColumnExpanded(header.field) ? getExpandedColumnWidth(header.field) : header.width) + 'px'
               , boxSizing: 'border-box', flexShrink: '0', height: '29px' }"
-              class="border border-gray-300 px-0 py-0 text-left text-xs font-medium"
+              class="px-0 py-0 text-left text-xs font-medium"
+              style="border: 1px solid white;"
             >
               <div v-if="isColumnExpanded(header.field)" class="flex w-full h-full">
                 <div
@@ -1171,16 +1206,21 @@ export default EntityList
                     >
                       <div class="flex items-center gap-1 h-full">
                         <span 
-                          v-if="deepProp.type?.type === 'array' || deepProp.type?.type === 'object'" 
-                          class="text-xs flex-shrink-0 text-surface-900 cursor-pointer"
+                          v-if="(deepProp.type?.type === 'array' || deepProp.type?.type === 'object') && !isDeepNestedPrimitiveArray(header.field, nestedProp.name, deepProp.name)" 
+                          class="flex-shrink-0 cursor-pointer"
                           @click.stop="toggleDeepNestedExpansion(header.field, nestedProp.name, deepProp.name)"
                         >
-                          {{ isDeepNestedExpanded(header.field, nestedProp.name, deepProp.name) ? '▼' : '▶' }}
+                          <svg v-if="isDeepNestedExpanded(header.field, nestedProp.name, deepProp.name)" width="7" height="4" viewBox="0 0 7 4" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M1 0.5L3.5 3L6 0.5" stroke="#AFB0B8" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                          <svg v-else width="4" height="7" viewBox="0 0 4 7" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0.5 1L3 3.5L0.5 6" stroke="#AFB0B8" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
                         </span>
                         <span 
                           class="truncate text-xs text-surface-900 flex-1"
-                          :class="{ 'cursor-pointer': deepProp.type?.type === 'array' || deepProp.type?.type === 'object' }"
-                          @click.stop="(deepProp.type?.type === 'array' || deepProp.type?.type === 'object') ? toggleDeepNestedExpansion(header.field, nestedProp.name, deepProp.name) : null"
+                          :class="{ 'cursor-pointer': (deepProp.type?.type === 'array' || deepProp.type?.type === 'object') && !isDeepNestedPrimitiveArray(header.field, nestedProp.name, deepProp.name) }"
+                          @click.stop="((deepProp.type?.type === 'array' || deepProp.type?.type === 'object') && !isDeepNestedPrimitiveArray(header.field, nestedProp.name, deepProp.name)) ? toggleDeepNestedExpansion(header.field, nestedProp.name, deepProp.name) : null"
                         >{{ deepProp.name }}</span>
                         <div
                           class="resize-handle"
@@ -1203,7 +1243,8 @@ export default EntityList
                 width: (isColumnExpanded(header.field) ? getExpandedColumnWidth(header.field) : header.width) + 'px',
                 maxWidth: (isColumnExpanded(header.field) ? getExpandedColumnWidth(header.field) : header.width) + 'px'
               , boxSizing: 'border-box', flexShrink: '0', height: '29px' }"
-              class="border border-gray-300 px-0 py-0 text-left text-xs font-medium"
+              class="px-0 py-0 text-left text-xs font-medium"
+              style="border: 1px solid white;"
             >
               <div v-if="isColumnExpanded(header.field)" class="flex w-full h-full">
                 <div
@@ -1261,16 +1302,21 @@ export default EntityList
                         >
                           <div class="flex items-center gap-1 h-full">
                             <span 
-                              v-if="subProp.type?.type === 'array'" 
-                              class="text-xs flex-shrink-0 text-surface-900 cursor-pointer"
+                              v-if="subProp.type?.type === 'array' && subProp.type?.contains?.type !== 'string' && subProp.type?.contains?.type !== 'number' && subProp.type?.contains?.type !== 'boolean' && subProp.type?.contains?.type !== 'date'" 
+                              class="flex-shrink-0 cursor-pointer"
                               @click.stop="toggleVeryDeepNestedExpansion(header.field, nestedProp.name, deepProp.name, subProp.name)"
                             >
-                              {{ isVeryDeepNestedExpanded(header.field, nestedProp.name, deepProp.name, subProp.name) ? '▼' : '▶' }}
+                              <svg v-if="isVeryDeepNestedExpanded(header.field, nestedProp.name, deepProp.name, subProp.name)" width="7" height="4" viewBox="0 0 7 4" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M1 0.5L3.5 3L6 0.5" stroke="#AFB0B8" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+                              </svg>
+                              <svg v-else width="4" height="7" viewBox="0 0 4 7" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0.5 1L3 3.5L0.5 6" stroke="#AFB0B8" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+                              </svg>
                             </span>
                             <span 
                               class="truncate text-xs text-surface-900 flex-1"
-                              :class="{ 'cursor-pointer': subProp.type?.type === 'array' }"
-                              @click.stop="subProp.type?.type === 'array' ? toggleVeryDeepNestedExpansion(header.field, nestedProp.name, deepProp.name, subProp.name) : null"
+                              :class="{ 'cursor-pointer': subProp.type?.type === 'array' && subProp.type?.contains?.type !== 'string' && subProp.type?.contains?.type !== 'number' && subProp.type?.contains?.type !== 'boolean' && subProp.type?.contains?.type !== 'date' }"
+                              @click.stop="(subProp.type?.type === 'array' && subProp.type?.contains?.type !== 'string' && subProp.type?.contains?.type !== 'number' && subProp.type?.contains?.type !== 'boolean' && subProp.type?.contains?.type !== 'date') ? toggleVeryDeepNestedExpansion(header.field, nestedProp.name, deepProp.name, subProp.name) : null"
                             >{{ subProp.name }}</span>
                             <div
                               class="resize-handle"
@@ -1295,7 +1341,8 @@ export default EntityList
                 width: (isColumnExpanded(header.field) ? getExpandedColumnWidth(header.field) : header.width) + 'px',
                 maxWidth: (isColumnExpanded(header.field) ? getExpandedColumnWidth(header.field) : header.width) + 'px'
               , boxSizing: 'border-box', flexShrink: '0' }"
-              class="border border-gray-300 px-0 py-0 text-left text-xs font-medium"
+              class="px-0 py-0 text-left text-xs font-medium"
+              style="border: 1px solid white;"
             >
               <div v-if="isColumnExpanded(header.field)" class="flex w-full">
                 <div
@@ -1398,30 +1445,32 @@ export default EntityList
                     <template v-if="isColumnExpanded(header.field)">
                   <template v-if="isPrimitiveArray(header.field) && Array.isArray(item[header.field])">
                     <template v-if="isRowCellExpanded(item.id, header.field)">
-                      <div class="px-2 py-2">
+                      <div>
                         <div class="flex flex-col">
                           <div
                             v-for="(arrItem, arrIdx) in item[header.field]"
                             :key="arrIdx"
-                            class="py-1 text-xs cursor-pointer hover:bg-gray-100 rounded px-1 truncate-text"
+                            class="py-1 text-xs cursor-pointer hover:bg-gray-100 border-b last:border-b-0 border-gray-200"
                             :title="String(arrItem)"
                             @click="toggleRowExpansion(item.id, header.field)"
                           >
-                            {{ arrItem }}
-                            <span v-if="arrIdx === 0" class="text-gray-500">^</span>
+                            <div class="px-2 flex items-center justify-between">
+                              <span class="truncate">{{ arrItem }}</span>
+                              <span v-if="arrIdx === 0" class="text-gray-500 ml-2 flex-shrink-0">^</span>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </template>
                     <template v-else>
-                      <div class="px-2 py-2">
+                      <div class="px-3 py-2">
                         <div
-                          class="text-xs cursor-pointer hover:bg-gray-100 rounded px-1 truncate-text"
+                          class="cursor-pointer hover:bg-gray-100 rounded px-1 flex items-center justify-between"
                           :title="String(item[header.field][0])"
                           @click="item[header.field].length > 1 ? toggleRowExpansion(item.id, header.field) : null"
                         >
-                          {{ item[header.field][0] }}
-                          <span v-if="item[header.field].length > 1" class="text-gray-500">
+                          <span class="truncate">{{ item[header.field][0] }}</span>
+                          <span v-if="item[header.field].length > 1" class="text-gray-500 ml-2 flex-shrink-0">
                             +{{ item[header.field].length - 1 }}
                           </span>
                         </div>
@@ -1435,7 +1484,7 @@ export default EntityList
                         <div
                           v-for="nestedProp in getNestedProperties(header.field)"
                           :key="`${header.field}.${nestedProp.name}`"
-                          class="px-2 py-2 border-r last:border-r-0 border-gray-300 text-xs"
+                          class="border-r last:border-r-0 border-gray-300 text-xs"
                           :style="{ 
                             width: getNestedPropWidth(header.field, nestedProp) + 'px',
                             minWidth: '80px',
@@ -1447,23 +1496,23 @@ export default EntityList
                             <div
                               v-for="(arrItem, arrIdx) in item[header.field]"
                               :key="arrIdx"
-                              class="py-1 truncate cursor-pointer hover:bg-gray-100 rounded"
+                              class="px-3 py-2 cursor-pointer hover:bg-gray-100 border-b last:border-b-0 border-gray-200 flex items-center justify-between"
                               :title="String(arrItem[nestedProp.name] || '')"
                               @click="toggleRowExpansion(item.id, header.field)"
                             >
-                              {{ arrItem[nestedProp.name] ?? '-' }}
-                              <span v-if="arrIdx === 0 && nestedProp.name === 'name'" class="text-gray-500">^</span>
+                              <span class="truncate">{{ arrItem[nestedProp.name] ?? '-' }}</span>
+                              <span v-if="arrIdx === 0 && nestedProp.name === 'name'" class="text-gray-500 ml-2 flex-shrink-0">^</span>
                             </div>
                           </div>
                         </div>
                       </div>
                     </template>
                     <template v-else>
-                      <div class="flex w-full">
+                      <div class="flex w-full h-[-webkit-fill-available]">
                         <div
                           v-for="nestedProp in getNestedProperties(header.field)"
                           :key="`${header.field}.${nestedProp.name}`"
-                          class="px-2 py-2 border-r last:border-r-0 border-gray-300 text-xs"
+                          class="px-3 py-2 border-r last:border-r-0 border-gray-300"
                           :style="{ 
                             width: getNestedPropWidth(header.field, nestedProp) + 'px',
                             minWidth: '80px',
@@ -1472,13 +1521,13 @@ export default EntityList
                           }"
                         >
                           <div 
-                            class="truncate" 
+                            class="flex items-center justify-between w-full" 
                             :class="{ 'cursor-pointer hover:bg-gray-100 rounded': nestedProp.name === 'name' && item[header.field].length > 1 }"
                             :title="String(item[header.field][0]?.[nestedProp.name] || '')"
                             @click="(nestedProp.name === 'name' && item[header.field].length > 1) ? toggleRowExpansion(item.id, header.field) : null"
                           >
-                            {{ item[header.field][0]?.[nestedProp.name] ?? '-' }}
-                            <span v-if="nestedProp.name === 'name' && item[header.field].length > 1" class="text-gray-500">
+                            <span class="truncate">{{ item[header.field][0]?.[nestedProp.name] ?? '-' }}</span>
+                            <span v-if="nestedProp.name === 'name' && item[header.field].length > 1" class="text-gray-500 ml-2 flex-shrink-0">
                               +{{ item[header.field].length - 1 }}
                             </span>
                           </div>
@@ -1488,7 +1537,7 @@ export default EntityList
                   </template>
 
                   <template v-else-if="typeof item[header.field] === 'object' && item[header.field] !== null">
-                    <div class="flex w-full">
+                    <div class="flex w-full h-[-webkit-fill-available]">
                       <div
                         v-for="nestedProp in getNestedProperties(header.field)"
                         :key="`${header.field}.${nestedProp.name}`"
@@ -1572,17 +1621,17 @@ export default EntityList
                                                 return isFundingExpanded ? fundingArray : [fundingArray[0]]
                                               })()"
                                               :key="fundingIdx"
-                                              class="py-1 border-b last:border-b-0 border-gray-100"
-                                              style="word-break: break-word; overflow-wrap: break-word;"
+                                              class="py-1 border-b last:border-b-0 border-gray-100 flex items-center justify-between px-2"
+                                              :title="String(fundingItem?.[veryDeepProp.name] ?? '')"
                                             >
-                                              <span>{{ fundingItem?.[veryDeepProp.name] ?? '-' }}</span>
+                                              <span class="truncate">{{ fundingItem?.[veryDeepProp.name] ?? '-' }}</span>
                                               <span 
                                                 v-if="fundingIdx === 0 && veryDeepProp.name === getVeryDeepNestedProperties(header.field, nestedProp.name, arrayProp.name, subProp.name)[0].name && isNestedArrayExpanded(item.id, `${header.field}.${nestedProp.name}.${arrayProp.name}.${arrIdx}`, subProp.name)" 
-                                                class="text-gray-500 ml-1"
+                                                class="text-gray-500 ml-2 flex-shrink-0"
                                               >^</span>
                                               <span 
                                                 v-if="fundingIdx === 0 && veryDeepProp.name === getVeryDeepNestedProperties(header.field, nestedProp.name, arrayProp.name, subProp.name)[0].name && !isNestedArrayExpanded(item.id, `${header.field}.${nestedProp.name}.${arrayProp.name}.${arrIdx}`, subProp.name) && (arrItem?.[subProp.name]?.length ?? 0) > 1" 
-                                                class="text-gray-500 ml-1"
+                                                class="text-gray-500 ml-2 flex-shrink-0"
                                               >+{{ (arrItem?.[subProp.name]?.length ?? 1) - 1 }}</span>
                                             </div>
                                           </div>
@@ -1592,7 +1641,7 @@ export default EntityList
                                     
                                     <div
                                       v-if="!(subProp.type?.type === 'array' && isVeryDeepNestedExpanded(header.field, nestedProp.name, arrayProp.name, subProp.name))"
-                                      class="border-r last:border-r-0 border-gray-300 px-2 py-1"
+                                      class="border-r last:border-r-0 border-gray-300"
                                       :style="{ 
                                         width: getDeepNestedSubColumnWidth(header.field, nestedProp.name, arrayProp.name, subProp.name) + 'px', 
                                         minWidth: '100px',
@@ -1613,69 +1662,99 @@ export default EntityList
                                             return isRowExpanded ? researchArray : [researchArray[0]]
                                           })()"
                                           :key="arrIdx"
-                                          class="px-2 py-2 border-b last:border-b-0 border-gray-200"
+                                          class="border-b last:border-b-0 border-gray-200"
                                         >
                                           <template v-if="Array.isArray(arrItem?.[subProp.name])">
-                                          <div 
-                                            class="cursor-pointer hover:bg-gray-100 rounded"
-                                            @click.stop="toggleNestedArrayExpansion(item.id, `${header.field}.${nestedProp.name}.${arrayProp.name}.${arrIdx}`, subProp.name)"
-                                          >
-                                            <div v-if="isNestedArrayExpanded(item.id, `${header.field}.${nestedProp.name}.${arrayProp.name}.${arrIdx}`, subProp.name)" class="flex flex-col">
-                                              <div
-                                                v-for="(nestedItem, nestedIdx) in arrItem[subProp.name]"
-                                                :key="nestedIdx"
-                                                class="py-1 border-b last:border-b-0 border-gray-100"
-                                              >
-                                                {{ 
-                                                  (() => {
+                                            <div 
+                                              class="cursor-pointer hover:bg-gray-100 rounded"
+                                              @click.stop="toggleNestedArrayExpansion(item.id, `${header.field}.${nestedProp.name}.${arrayProp.name}.${arrIdx}`, subProp.name)"
+                                            >
+                                              <div v-if="isNestedArrayExpanded(item.id, `${header.field}.${nestedProp.name}.${arrayProp.name}.${arrIdx}`, subProp.name)" class="flex flex-col">
+                                                <div
+                                                  v-for="(nestedItem, nestedIdx) in arrItem[subProp.name]"
+                                                  :key="nestedIdx"
+                                                  class="px-3 py-2 border-b last:border-b-0 border-gray-100 flex items-center justify-between"
+                                                  :title="String((() => {
                                                     if (typeof nestedItem === 'object' && nestedItem !== null) {
                                                       const firstValue = Object.values(nestedItem)[0]
                                                       return firstValue ?? '-'
                                                     }
                                                     return nestedItem
-                                                  })()
-                                                }}
-                                                <span v-if="nestedIdx === 0" class="text-gray-500 ml-1">^</span>
+                                                  })())"
+                                                >
+                                                  <span class="truncate">{{ 
+                                                    (() => {
+                                                      if (typeof nestedItem === 'object' && nestedItem !== null) {
+                                                        const firstValue = Object.values(nestedItem)[0]
+                                                        return firstValue ?? '-'
+                                                      }
+                                                      return nestedItem
+                                                    })()
+                                                  }}</span>
+                                                  <span v-if="nestedIdx === 0" class="text-gray-500 ml-2 flex-shrink-0">^</span>
+                                                </div>
                                               </div>
-                                            </div>
-                                            <div v-else style="word-break: break-word; overflow-wrap: break-word;">
-                                              {{ 
-                                                (() => {
+                                              <div 
+                                                v-else 
+                                                class="px-3 py-2 flex items-center justify-between"
+                                                :title="String((() => {
                                                   const firstItem = arrItem[subProp.name][0]
                                                   if (typeof firstItem === 'object' && firstItem !== null) {
                                                     const firstValue = Object.values(firstItem)[0]
                                                     return firstValue ?? '-'
                                                   }
                                                   return firstItem
-                                                })()
-                                              }}
-                                              <span v-if="arrItem[subProp.name].length > 1" class="text-gray-500 ml-1">
-                                                +{{ arrItem[subProp.name].length - 1 }}
+                                                })())"
+                                              >
+                                                <span class="truncate">{{ 
+                                                  (() => {
+                                                    const firstItem = arrItem[subProp.name][0]
+                                                    if (typeof firstItem === 'object' && firstItem !== null) {
+                                                      const firstValue = Object.values(firstItem)[0]
+                                                      return firstValue ?? '-'
+                                                    }
+                                                    return firstItem
+                                                  })()
+                                                }}</span>
+                                                <span v-if="arrItem[subProp.name].length > 1" class="text-gray-500 ml-2 flex-shrink-0">
+                                                  +{{ arrItem[subProp.name].length - 1 }}
+                                                </span>
+                                                <span v-if="arrIdx === 0 && subProp.name === getDeepNestedProperties(header.field, nestedProp.name, arrayProp.name)[0].name" class="text-gray-500 ml-2 flex-shrink-0">
+                                                  {{ 
+                                                    (() => {
+                                                      const parentArray = item[header.field]?.[nestedProp.name]
+                                                      if (!Array.isArray(parentArray) || parentArray.length === 0) return ''
+                                                      const researchArray = parentArray[0]?.[arrayProp.name]
+                                                      if (!Array.isArray(researchArray) || researchArray.length <= 1) return ''
+                                                      const isRowExpanded = isNestedArrayExpanded(item.id, `${header.field}.${nestedProp.name}`, arrayProp.name)
+                                                      return isRowExpanded ? '^' : `+${researchArray.length - 1}`
+                                                    })()
+                                                  }}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          </template>
+                                          <template v-else>
+                                            <div 
+                                              class="px-3 py-2 cursor-pointer hover:bg-gray-100 rounded flex items-center justify-between"
+                                              :title="String(arrItem?.[subProp.name] ?? '')"
+                                              @click.stop="toggleNestedArrayExpansion(item.id, `${header.field}.${nestedProp.name}`, arrayProp.name)"
+                                            >
+                                              <span class="truncate">{{ arrItem?.[subProp.name] ?? '-' }}</span>
+                                              <span v-if="arrIdx === 0 && subProp.name === getDeepNestedProperties(header.field, nestedProp.name, arrayProp.name)[0].name" class="text-gray-500 ml-2 flex-shrink-0">
+                                                {{ 
+                                                  (() => {
+                                                    const parentArray = item[header.field]?.[nestedProp.name]
+                                                    if (!Array.isArray(parentArray) || parentArray.length === 0) return ''
+                                                    const researchArray = parentArray[0]?.[arrayProp.name]
+                                                    if (!Array.isArray(researchArray) || researchArray.length <= 1) return ''
+                                                    const isRowExpanded = isNestedArrayExpanded(item.id, `${header.field}.${nestedProp.name}`, arrayProp.name)
+                                                    return isRowExpanded ? '^' : `+${researchArray.length - 1}`
+                                                  })()
+                                                }}
                                               </span>
                                             </div>
-                                          </div>
-                                        </template>
-                                        <template v-else>
-                                          <div 
-                                            class="cursor-pointer hover:bg-gray-100 rounded"
-                                            style="word-break: break-word; overflow-wrap: break-word;"
-                                            @click.stop="toggleNestedArrayExpansion(item.id, `${header.field}.${nestedProp.name}`, arrayProp.name)"
-                                          >
-                                            {{ arrItem?.[subProp.name] ?? '-' }}
-                                          </div>
-                                        </template>
-                                        <span v-if="arrIdx === 0 && subProp.name === getDeepNestedProperties(header.field, nestedProp.name, arrayProp.name)[0].name" class="text-gray-500 ml-1">
-                                          {{ 
-                                            (() => {
-                                              const parentArray = item[header.field]?.[nestedProp.name]
-                                              if (!Array.isArray(parentArray) || parentArray.length === 0) return ''
-                                              const researchArray = parentArray[0]?.[arrayProp.name]
-                                              if (!Array.isArray(researchArray) || researchArray.length <= 1) return ''
-                                              const isRowExpanded = isNestedArrayExpanded(item.id, `${header.field}.${nestedProp.name}`, arrayProp.name)
-                                              return isRowExpanded ? '' : `+${researchArray.length - 1}`
-                                            })()
-                                          }}
-                                        </span>
+                                          </template>
                                         </div>
                                       </div>
                                     </div>
@@ -1683,22 +1762,20 @@ export default EntityList
                                 </div>
                               </template>
                               <template v-else-if="arrayProp.isUnionArray && isNestedArrayExpanded(item.id, `${header.field}.${nestedProp.name}`, arrayProp.name)">
-                                <div class="px-2 py-2">
-                                  <div class="flex flex-col">
-                                    <div
-                                      v-for="(arrItem, arrIdx) in (() => {
-                                        const parentArray = item[header.field]?.[nestedProp.name]
-                                        if (!Array.isArray(parentArray) || parentArray.length === 0) return []
-                                        const researchArray = parentArray[0]?.[arrayProp.name]
-                                        return Array.isArray(researchArray) ? researchArray : []
-                                      })()"
-                                      :key="arrIdx"
-                                      class="py-1 text-xs cursor-pointer hover:bg-gray-100 rounded px-1"
-                                      @click="toggleNestedArrayExpansion(item.id, `${header.field}.${nestedProp.name}`, arrayProp.name)"
-                                    >
-                                      {{ arrItem?.type || arrItem || '-' }}
-                                      <span v-if="arrIdx === 0" class="text-gray-500">^</span>
-                                    </div>
+                                <div class="flex flex-col">
+                                  <div
+                                    v-for="(arrItem, arrIdx) in (() => {
+                                      const parentArray = item[header.field]?.[nestedProp.name]
+                                      if (!Array.isArray(parentArray) || parentArray.length === 0) return []
+                                      const researchArray = parentArray[0]?.[arrayProp.name]
+                                      return Array.isArray(researchArray) ? researchArray : []
+                                    })()"
+                                    :key="arrIdx"
+                                    class="px-3 py-2 text-xs cursor-pointer hover:bg-gray-100 border-b last:border-b-0 border-gray-200 flex items-center justify-between"
+                                    @click="toggleNestedArrayExpansion(item.id, `${header.field}.${nestedProp.name}`, arrayProp.name)"
+                                  >
+                                    <span class="truncate" :title="String(arrItem?.type || arrItem || '')">{{ arrItem?.type || arrItem || '-' }}</span>
+                                    <span v-if="arrIdx === 0" class="text-gray-500 ml-2 flex-shrink-0">^</span>
                                   </div>
                                 </div>
                               </template>
@@ -1710,7 +1787,18 @@ export default EntityList
                                     class="px-2 py-2 border-r last:border-r-0 border-gray-300"
                                     :style="{ width: getDeepNestedSubColumnWidth(header.field, nestedProp.name, arrayProp.name, subProp.name) + 'px', minWidth: '100px' }"
                                   >
-                                    <div class="truncate">
+                                    <div 
+                                      class="truncate"
+                                      :title="String((() => {
+                                        const parentArr = item[header.field]?.[nestedProp.name]
+                                        if (!parentArr || parentArr.length === 0) return '-'
+                                        const firstParent = parentArr[0]
+                                        const deepArr = firstParent?.[arrayProp.name]
+                                        if (!Array.isArray(deepArr) || deepArr.length === 0) return '-'
+                                        const firstDeep = deepArr[0]
+                                        return firstDeep?.[subProp.name] ?? '-'
+                                      })())"
+                                    >
                                       {{ 
                                         (() => {
                                           const parentArr = item[header.field]?.[nestedProp.name]
@@ -1812,26 +1900,28 @@ export default EntityList
                 <template v-else>
                   <div
                     v-if="isRowCellExpanded(item.id, header.field) && header.isCollapsable"
-                    class="px-2 py-2 bg-gray-50"
+                    class="bg-gray-50"
                   >
                     <div class="flex flex-col">
                       <template v-if="Array.isArray(item[header.field])">
                         <div
                           v-for="(arrItem, arrIdx) in item[header.field]"
                           :key="arrIdx"
-                          class="py-1 text-xs cursor-pointer hover:bg-gray-100 rounded px-1"
+                          class="p-2! text-xs cursor-pointer hover:bg-gray-100 border-b last:border-b-0 border-gray-200"
                           @click="toggleRowExpansion(item.id, header.field)"
                         >
-                          <template v-if="typeof arrItem !== 'object'">
-                            {{ arrItem }}
-                          </template>
-                          <template v-else>
-                            {{ arrItem?.name || arrItem?.title || JSON.stringify(arrItem) }}
-                          </template>
-                          <span v-if="arrIdx === 0" class="text-gray-500">^</span>
+                          <div class="px-2 flex items-center justify-between">
+                            <template v-if="typeof arrItem !== 'object'">
+                              <span class="truncate" :title="String(arrItem)">{{ arrItem }}</span>
+                            </template>
+                            <template v-else>
+                              <span class="truncate" :title="String(arrItem?.name || arrItem?.title || JSON.stringify(arrItem))">{{ arrItem?.name || arrItem?.title || JSON.stringify(arrItem) }}</span>
+                            </template>
+                            <span v-if="arrIdx === 0" class="text-gray-500 ml-2 flex-shrink-0">^</span>
+                          </div>
                         </div>
                       </template>
-                      <div v-else-if="typeof item[header.field] === 'object'" class="text-xs">
+                      <div v-else-if="typeof item[header.field] === 'object'" class="text-xs truncate px-2 py-1" :title="JSON.stringify(item[header.field])">
                         {{ JSON.stringify(item[header.field]) }}
                       </div>
                     </div>
@@ -1872,7 +1962,7 @@ export default EntityList
       </div>
     </div>
 
-    <div class="border-t border-gray-300 p-3 flex items-center justify-between bg-white">
+    <div class="border-t border-gray-300 p-3 flex items-center justify-between bg-white flex-shrink-0">
       <div class="text-sm text-gray-600">
         Showing {{ options.first + 1 }} to {{ Math.min(options.first + options.rows, totalItems) }} of {{ totalItems }} results
       </div>
@@ -1909,6 +1999,12 @@ export default EntityList
   max-width: 100%;
 }
 
+.truncate {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
 .resize-handle {
   position: absolute;
   right: 0;
@@ -1932,7 +2028,13 @@ td > div {
 }
 
 td > div.flex {
-  white-space: normal;
+  overflow: visible;
+}
+
+td > div.flex > div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 th {
