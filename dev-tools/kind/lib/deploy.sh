@@ -789,6 +789,8 @@ deploy_structures_server() {
     ready_pods=$(kubectl get pods --context "${context}" \
         -l app.kubernetes.io/name=structures-server \
         -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null | grep -c "True" || echo "0")
+
+    echo "Ready pods: ${ready_pods}"
     
     if [[ ${ready_pods} -lt 1 ]]; then
         warning "Deployment completed but pods are not ready yet"

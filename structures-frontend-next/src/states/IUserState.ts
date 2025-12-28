@@ -136,17 +136,22 @@ export class UserState implements IUserState {
     }
 
     public createConnectionInfo(): ConnectionInfo {
+        // Use environment variables with fallbacks
+        const envPort = import.meta.env.VITE_CONTINUUM_PORT
+        
         const connectionInfo: ConnectionInfo = {
             host: '127.0.0.1',
-            port: 58503
+            port: envPort ? parseInt(envPort) : 58503
         }
+        
+        // Auto-detect from window location if not localhost
         if (window.location.hostname !== '127.0.0.1'
             && window.location.hostname !== 'localhost') {
             if (window.location.protocol.startsWith('https')) {
                 connectionInfo.useSSL = true
             }
             if (window.location.port !== '') {
-                connectionInfo.port = 58503
+                connectionInfo.port = envPort ? parseInt(envPort) : 58503
             } else {
                 connectionInfo.port = null
             }

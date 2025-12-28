@@ -42,6 +42,10 @@ properties:
       baseUrl: "https://api.x.ai"
       model: "grok-4"
 
+continuum_gateway:
+  stomp:
+    port: 58503
+    websocketPath: /v1
 
 continuum:
   debug: true

@@ -27,7 +27,7 @@ source "${LIB_SCRIPT_DIR}/config.sh"
 build_image() {
     local module="$1"
     
-    info "Building ${module} with Gradle bootBuildImage..."
+    info "Building ${module} with Gradle..."
     
     # Check if Gradle wrapper exists
     if [[ ! -f "./gradlew" ]]; then
@@ -35,14 +35,26 @@ build_image() {
         return 1
     fi
     
+    # Clean the project
+    progress "Running: ./gradlew clean"
+    execute ./gradlew "clean"
+    if [[ $? -ne 0 ]]; then
+        error "Structures Server: Gradle clean failed"
+        return 1
+    fi
+    success "Gradle clean completed"
+    blank_line
+    
     # Run bootBuildImage
     progress "Running: ./gradlew :${module}:bootBuildImage"
     progress "This may take a few minutes..."
     blank_line
-    
+
+    export RUNNING_KIND_CLUSTER="true"
     if ! execute ./gradlew ":${module}:bootBuildImage" 2>&1 | while IFS= read -r line; do
         # Filter out excessive Gradle output, show important lines
         if [[ "${line}" == *"BUILD"* ]] || \
+           [[ "${line}" == *"Running in"* ]] || \
            [[ "${line}" == *"Successfully built"* ]] || \
            [[ "${line}" == *"Paketo"* ]] || \
            [[ "${line}" == *"Error"* ]] || \

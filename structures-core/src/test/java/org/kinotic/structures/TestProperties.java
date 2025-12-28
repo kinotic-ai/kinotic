@@ -22,4 +22,5 @@ public class TestProperties {
 
     @Valid
     private TestClusterProperties cluster = new TestClusterProperties();
+    
 }

@@ -4,11 +4,15 @@ metadata:
   name: {{ include "structures-server.fullname" . }}
 spec:
   type: {{ .Values.service.type | default "LoadBalancer" }}
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800  # 3 hours
   ports:
     - name: "ui"
       protocol: TCP
-      port:  {{ .Values.properties.structures.webServerPort }} # UI PORT
-      targetPort: {{ .Values.properties.structures.webServerPort }}
+      port:  {{ .Values.properties.structures.webServerPort| default 9090 }} # UI PORT
+      targetPort: {{ .Values.properties.structures.webServerPort| default 9090 }}
       {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.ui }}
       nodePort: {{ .Values.service.nodePorts.ui }}
       {{- end }}
@@ -28,8 +32,8 @@ spec:
       {{- end }}
     - name: "stomp"
       protocol: TCP
-      port: 58503 # Continuum Stomp Port
-      targetPort: 58503
+      port: {{ .Values.continuum_gateway.stomp.port| default 58503 }} # Continuum Stomp Port
+      targetPort: {{ .Values.continuum_gateway.stomp.port| default 58503 }}
       {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.stomp }}
       nodePort: {{ .Values.service.nodePorts.stomp }}
       {{- end }}

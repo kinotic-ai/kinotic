@@ -364,3 +364,28 @@ With multiple developers:
 
 **Suggested MVP Scope**: Phase 1 + Phase 2 + Phase 3 (User Story 1 only) = 34 tasks to deliver basic cluster creation capability
 
+---
+
+## Phase 9: Kubernetes Cache Eviction Testing
+
+**Purpose**: Add automated tests for cache eviction in Kubernetes clusters
+
+### Implementation
+
+- [x] T117 [K8s] Create TestKubernetesProperties configuration class in structures-core/src/test/java/org/kinotic/structures/kubernetes/TestKubernetesProperties.java
+- [x] T118 [K8s] Create application-k8s-test.yml configuration in structures-core/src/test/resources/application-k8s-test.yml
+- [x] T119 [K8s] Create K8sTestBase with kubectl utilities and port-forward management in structures-core/src/test/java/org/kinotic/structures/kubernetes/K8sTestBase.java
+- [x] T120 [K8s] Create KubectlPortForwardManager for managing background port-forward processes in structures-core/src/test/java/org/kinotic/structures/kubernetes/KubectlPortForwardManager.java
+- [x] T121 [K8s] Create K8sClusterCacheEvictionTest with cache propagation test in structures-core/src/test/java/org/kinotic/structures/kubernetes/K8sClusterCacheEvictionTest.java
+
+### Documentation
+
+- [x] T122 [K8s] Add Kubernetes testing section to docker-compose/CLUSTER_TESTING.md
+- [x] T123 [K8s] Document manual testing procedures via kubectl port-forward in docker-compose/CLUSTER_TESTING.md
+- [x] T124 [K8s] Document troubleshooting for K8s tests in docker-compose/CLUSTER_TESTING.md
+- [x] T125 [K8s] Update tasks.md with K8s cache eviction test tasks
+
+**Checkpoint**: Kubernetes cache eviction tests are now available alongside Docker Compose tests
+
+---
+

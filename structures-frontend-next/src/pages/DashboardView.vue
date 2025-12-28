@@ -64,7 +64,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { GridStack } from 'gridstack'
+// import { GridStack } from 'gridstack'
 import 'gridstack/dist/gridstack.min.css'
 import { DashboardEntityService } from '@/services/DashboardEntityService'
 import { Dashboard } from '@/domain/Dashboard'
@@ -120,8 +120,8 @@ const loadWidgets = async () => {
 }
 
 const executeWidgetHTML = (widget: DataInsightsWidget, targetContainer?: HTMLElement) => {
-  const config = JSON.parse(widget.config || '{}')
-  const htmlContent = config.originalRawHtml || widget.src
+  const config = JSON.parse((widget as any).config || '{}')
+  const htmlContent = config.originalRawHtml || (widget as any).src
   
   if (!htmlContent) return
   
@@ -276,12 +276,12 @@ const getWidgetStyle = (widgetData: any) => {
 
 const getWidgetTitle = (widget: DataInsightsWidget): string => {
   try {
-    const config = JSON.parse(widget.config || '{}')
+    const config = JSON.parse((widget as any).config || '{}')
     const aiTitle = config.aiTitle
     if (aiTitle && aiTitle !== 'Test' && !aiTitle.includes('AI-generated') && aiTitle.length > 2) {
       return aiTitle
     }
-    const widgetName = widget.name || ''
+    const widgetName = (widget as any).name || ''
     if (widgetName && !widgetName.includes('AI-generated')) {
       return widgetName
     }
@@ -294,12 +294,12 @@ const getWidgetTitle = (widget: DataInsightsWidget): string => {
 
 const getWidgetSubtitle = (widget: DataInsightsWidget): string => {
   try {
-    const config = JSON.parse(widget.config || '{}')
+    const config = JSON.parse((widget as any).config || '{}')
     const aiSubtitle = config.aiSubtitle
     if (aiSubtitle && !aiSubtitle.includes('AI-generated') && !aiSubtitle.includes('widget for:') && aiSubtitle.length > 5) {
       return aiSubtitle
     }
-    const widgetDesc = widget.description || ''
+    const widgetDesc = (widget as any).description || ''
     if (widgetDesc && !widgetDesc.includes('AI-generated')) {
       return widgetDesc
     }

@@ -101,7 +101,7 @@ public abstract class ClusterTestBase extends ElasticsearchTestBase {
         if (!staticUseExternal) {
             System.out.println("[ClusterTestBase] Starting Docker Compose cluster containers...");
             
-            Path composeFile = Paths.get("src", "test", "resources", "docker-compose", "cluster-test-compose.yml").toAbsolutePath();
+            Path composeFile = Paths.get("structures-core","src", "test", "resources", "docker-compose", "cluster-test-compose.yml").toAbsolutePath();
             if (!Files.exists(composeFile)) {
                 throw new IllegalStateException("Cluster compose file not found: " + composeFile);
             }

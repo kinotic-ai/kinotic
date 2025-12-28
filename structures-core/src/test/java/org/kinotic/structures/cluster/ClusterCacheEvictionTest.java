@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Created by Navid Mitchell on 2/13/25
  */
 @Slf4j
-// @Disabled("Cluster tests are resource-intensive - enable manually for testing")
+@Disabled("Cluster tests are resource-intensive - enable manually for testing")
 public class ClusterCacheEvictionTest extends ClusterTestBase {
 
     private static final String DEFAULT_USERNAME = "admin";

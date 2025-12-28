@@ -84,11 +84,17 @@ properties:
       baseUrl: "https://api.x.ai"
       model: "grok-4"
 
+continuum_gateway:
+  stomp:
+    port: 58503
+    websocketPath: /v1
+
 continuum:
   debug: true
   disableClustering: false
   maxNumberOfCoresToUse: 4
   maxOffHeapMemory: "419430400"
+  stompPort: 58503
   cluster:
     discoveryType: KUBERNETES ## SHAREDFS or KUBERNETES
     joinTimeoutMs: 0

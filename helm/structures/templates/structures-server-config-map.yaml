@@ -10,6 +10,9 @@ data:
   BPL_JMX_ENABLED: "{{ .Values.properties.enableJmx }}"
   SPRING_PROFILES_ACTIVE: "{{ .Values.properties.springActiveProfiles }}"
 
+  CONTINUUM_GATEWAY_STOMP_PORT: "{{ .Values.continuum_gateway.stomp.port }}"
+  CONTINUUM_GATEWAY_STOMP_WEBSOCKET_PATH: "{{ .Values.continuum_gateway.stomp.websocketPath }}"
+
   THC_PORT: "{{ .Values.properties.structures.webServerPort }}"
   SPRING_AI_OPENAI_BASE_URL: "{{ .Values.properties.structures.ai.baseUrl }}"
   SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "{{ .Values.properties.structures.ai.model }}"
