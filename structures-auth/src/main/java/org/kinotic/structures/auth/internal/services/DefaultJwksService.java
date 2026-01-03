@@ -6,6 +6,7 @@ import java.security.Key;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 
+import org.kinotic.structures.api.cache.CaffeineCacheFactory;
 import org.kinotic.structures.auth.api.services.JwksService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -13,7 +14,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 
 import io.jsonwebtoken.security.Jwk;
 import io.jsonwebtoken.security.Jwks;
@@ -34,13 +34,15 @@ public class DefaultJwksService implements JwksService {
         this.objectMapper = new ObjectMapper();
         
         // Cache for individual keys, with 1 hour TTL
-        this.keyCache = Caffeine.newBuilder()
+        this.keyCache = CaffeineCacheFactory.<String, Jwk<? extends Key>>newBuilder()
+                .name("jwksKeyCache")
                 .expireAfterWrite(Duration.ofHours(1))
                 .maximumSize(100)
                 .build();
                 
         // Cache for well-known configuration, with 24 hour TTL
-        this.wellKnownCache = Caffeine.newBuilder()
+        this.wellKnownCache = CaffeineCacheFactory.<String, JsonNode>newBuilder()
+                .name("jwksWellKnownCache")
                 .expireAfterWrite(Duration.ofHours(24))
                 .maximumSize(10)
                 .build();

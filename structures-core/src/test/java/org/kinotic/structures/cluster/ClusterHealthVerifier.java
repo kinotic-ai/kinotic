@@ -142,9 +142,11 @@ public class ClusterHealthVerifier {
 
     /**
      * Poll for cache eviction to complete on a specific node.
-     * This is a simplified check - in reality, you'd need to verify via metrics or JMX.
-     * For now, we just wait a reasonable time for propagation.
+     * 
+     * @deprecated Use {@link #waitForCacheEvictionViaClusterInfo(String, long, long)} instead
+     *             for deterministic verification via ClusterInfoService.
      */
+    @Deprecated
     public static boolean waitForCacheEvictionPropagation(long waitTimeMs) {
         log.info("Waiting {}ms for cache eviction to propagate across cluster", waitTimeMs);
         try {
@@ -156,6 +158,65 @@ public class ClusterHealthVerifier {
             log.error("Wait interrupted", e);
             return false;
         }
+    }
+
+    /**
+     * Poll for cache eviction to complete by querying a node's ClusterInfo endpoint.
+     * Uses a before/after timestamp comparison to deterministically verify eviction completion.
+     * 
+     * This is the recommended approach for cluster tests that need to verify cache eviction
+     * has been processed across nodes.
+     * 
+     * @param clusterInfoUrl the URL to the cluster info endpoint (e.g., "http://localhost:9090/cluster/info")
+     * @param beforeTimestamp the lastCacheEvictionSuccessTimestamp captured before triggering eviction
+     * @param timeoutMs maximum time to wait for eviction to complete in milliseconds
+     * @return true if eviction was processed (timestamp advanced), false if timeout occurred
+     */
+    public static boolean waitForCacheEvictionViaClusterInfo(String clusterInfoUrl, long beforeTimestamp, long timeoutMs) {
+        log.info("Polling ClusterInfo at {} for eviction timestamp > {}", clusterInfoUrl, beforeTimestamp);
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(clusterInfoUrl))
+                        .timeout(Duration.ofSeconds(5))
+                        .GET()
+                        .build();
+                
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                
+                if (response.statusCode() == 200) {
+                    JsonNode clusterInfo = objectMapper.readTree(response.body());
+                    long currentTimestamp = clusterInfo.path("lastCacheEvictionSuccessTimestamp").asLong(0);
+                    
+                    if (currentTimestamp > beforeTimestamp) {
+                        log.info("Cache eviction verified - timestamp advanced from {} to {}", 
+                                beforeTimestamp, currentTimestamp);
+                        return true;
+                    }
+                    log.debug("Eviction not yet processed - current: {}, waiting for > {}", 
+                            currentTimestamp, beforeTimestamp);
+                }
+                
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("Wait interrupted", e);
+                return false;
+            } catch (Exception e) {
+                log.debug("Error polling ClusterInfo: {}", e.getMessage());
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+        
+        log.warn("Timeout waiting for cache eviction at {}", clusterInfoUrl);
+        return false;
     }
 
     /**

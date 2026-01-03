@@ -5,20 +5,17 @@ plugins {
 
 dependencies {
 
+	implementation project(':structures-api')
+
 	implementation 'org.springframework.boot:spring-boot-autoconfigure'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
-	implementation "org.kinotic:continuum-core"
 
 	implementation 'io.jsonwebtoken:jjwt-api'
 	implementation 'io.jsonwebtoken:jjwt-impl'
 	implementation 'io.jsonwebtoken:jjwt-jackson'
 
-	implementation 'com.fasterxml.jackson.core:jackson-annotations'
-	implementation 'com.fasterxml.jackson.core:jackson-core'
-	implementation 'com.fasterxml.jackson.core:jackson-databind'
-
-	implementation 'com.github.ben-manes.caffeine:caffeine'
+	implementation "com.github.ben-manes.caffeine:caffeine"
 
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 

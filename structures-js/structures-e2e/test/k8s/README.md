@@ -18,12 +18,6 @@ These tests verify cache eviction propagation across a Kubernetes cluster by con
 cd ../../  # Navigate to project root
 ./dev-tools/kind/kind-cluster.sh create
 
-# 2. Build server image
-./gradlew :structures-server:bootBuildImage
-
-# 3. Load image into KinD
-./dev-tools/kind/kind-cluster.sh load
-
 # 4. Deploy with 3 replicas
 ./dev-tools/kind/kind-cluster.sh deploy
 

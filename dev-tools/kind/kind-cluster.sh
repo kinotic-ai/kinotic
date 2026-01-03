@@ -69,15 +69,19 @@ Environment Variables:
   VERBOSE                  Enable verbose output (0/1)
   DRY_RUN                  Dry run mode (0/1)
   SKIP_CHECKS              Skip prerequisite checks (0/1)
-  DEPLOY_DEPS              Deploy dependencies (0/1, default: 1)
+  DEPLOY_DEPS              Deploy Elasticsearch dependency (0/1, default: 1)
+  DEPLOY_KEYCLOAK          Deploy Keycloak + PostgreSQL (0/1, default: 0)
   DEPLOY_OBSERVABILITY     Deploy observability stack (0/1, default: 0)
 
 Examples:
   # Create a cluster with defaults
   $(basename "$0") create
 
-  # Deploy structures-server with dependencies
-  $(basename "$0") deploy --with-deps
+  # Deploy structures-server with Elasticsearch only
+  $(basename "$0") deploy
+
+  # Deploy with Keycloak for OIDC authentication
+  $(basename "$0") deploy --with-keycloak
 
   # Build and load local image
   $(basename "$0") build --load
@@ -281,6 +285,7 @@ EOF
 
 cmd_deploy() {
     local deploy_deps_override=""
+    local deploy_keycloak_override=""
     local deploy_observability_override=""
     local helm_values_override=""
     local helm_sets=()
@@ -313,6 +318,10 @@ cmd_deploy() {
                 deploy_deps_override="0"
                 shift
                 ;;
+            --with-keycloak|-k)
+                deploy_keycloak_override="1"
+                shift
+                ;;
             --with-observability)
                 deploy_observability_override="1"
                 shift
@@ -332,17 +341,25 @@ Options:
   --chart <path>           Path to Helm chart (default: ./helm/structures)
   --values <path>          Path to values file (default: config/helm-values.yaml)
   --set <key=value>        Override Helm values (can be used multiple times)
-  --with-deps              Deploy dependencies (Elasticsearch, Keycloak) - default
+  --with-deps              Deploy dependencies (Elasticsearch) - default
   --no-deps                Skip dependencies (deploy only structures-server)
+  --with-keycloak, -k      Deploy Keycloak + PostgreSQL and enable OIDC authentication
   --with-observability     Deploy observability stack (OTEL, Prometheus, Grafana)
   --wait-timeout <duration> Deployment timeout (default: 5m)
   --help, -h               Show this help message
 
+Dependency Options:
+  By default, only Elasticsearch is deployed as a dependency.
+  Use --with-keycloak (-k) to also deploy Keycloak for OIDC authentication.
+  
 Examples:
-  # Deploy with all dependencies
+  # Deploy with Elasticsearch only (default)
   $(basename "$0") deploy
 
-  # Deploy without dependencies (assumes already deployed)
+  # Deploy with Keycloak for OIDC authentication
+  $(basename "$0") deploy --with-keycloak
+
+  # Deploy without any dependencies (assumes already deployed)
   $(basename "$0") deploy --no-deps
 
   # Deploy with observability stack
@@ -368,8 +385,17 @@ EOF
     # Apply overrides
     [[ -n "${helm_values_override}" ]] && HELM_VALUES_PATH="${helm_values_override}"
     [[ -n "${deploy_deps_override}" ]] && DEPLOY_DEPS="${deploy_deps_override}"
+    [[ -n "${deploy_keycloak_override}" ]] && DEPLOY_KEYCLOAK="${deploy_keycloak_override}"
     [[ -n "${deploy_observability_override}" ]] && DEPLOY_OBSERVABILITY="${deploy_observability_override}"
     [[ -n "${wait_timeout_override}" ]] && DEPLOY_TIMEOUT="${wait_timeout_override}"
+    
+    # Update OIDC_ENABLED based on DEPLOY_KEYCLOAK
+    if [[ "${DEPLOY_KEYCLOAK}" == "1" ]]; then
+        OIDC_ENABLED="true"
+    else
+        OIDC_ENABLED="false"
+    fi
+    export OIDC_ENABLED
     
     # Verify cluster exists
     if ! cluster_exists "${CLUSTER_NAME}"; then
@@ -415,12 +441,20 @@ EOF
     if [[ "${DEPLOY_DEPS}" == "1" ]]; then
         section "Deploying Dependencies"
         
-        # Deploy Elasticsearch
+        # Deploy Elasticsearch (always needed)
         if ! deploy_elasticsearch "${CLUSTER_NAME}"; then
             return "${EXIT_DEPLOYMENT_FAILED}"
         fi
         
-        # Deploy PostgreSQL
+        blank_line
+    fi
+    
+    # Deploy Keycloak if requested (includes PostgreSQL)
+    if [[ "${DEPLOY_KEYCLOAK}" == "1" ]]; then
+        section "Deploying Keycloak (OIDC Provider)"
+        progress "OIDC authentication will be enabled in structures-server"
+        
+        # Deploy PostgreSQL (required by Keycloak)
         if ! deploy_postgresql "${CLUSTER_NAME}"; then
             return "${EXIT_DEPLOYMENT_FAILED}"
         fi
@@ -451,11 +485,18 @@ EOF
     
     # Build additional sets string
     local additional_sets=""
+    
+    # Add OIDC configuration if Keycloak is deployed
+    if [[ "${DEPLOY_KEYCLOAK}" == "1" ]]; then
+        progress "Enabling OIDC authentication (oidc.enabled=true)"
+        helm_sets+=("--set" "oidc.enabled=true")
+    fi
+    
     if [[ ${#helm_sets[@]} -gt 0 ]]; then
         additional_sets="${helm_sets[*]}"
     fi
 
-    # Build and loadstructures-server 
+    # Build and load structures-server 
     cmd_build "--load"
     
     if ! deploy_structures_server "${CLUSTER_NAME}" "${additional_sets}"; then
@@ -475,7 +516,12 @@ EOF
     
     # Show next steps
     section "Next Steps"
-    progress "Login to Structures: http://localhost:9090/login"
+    if [[ "${DEPLOY_KEYCLOAK}" == "1" ]]; then
+        progress "Login to Structures (OIDC): http://localhost:9090/login"
+        progress "Keycloak Admin Console: http://localhost:8888/auth/admin (admin/admin)"
+    else
+        progress "Access Structures: http://localhost:9090"
+    fi
     progress "Check logs: $(basename "$0") logs --follow"
     progress "Check status: $(basename "$0") status"
     progress "Run integration tests: ./gradlew :structures-core:integrationTest"

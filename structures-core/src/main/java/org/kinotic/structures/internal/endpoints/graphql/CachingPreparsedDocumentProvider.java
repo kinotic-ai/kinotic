@@ -1,13 +1,13 @@
 package org.kinotic.structures.internal.endpoints.graphql;
 
 import com.github.benmanes.caffeine.cache.AsyncCache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import graphql.ExecutionInput;
 import graphql.execution.preparsed.PreparsedDocumentEntry;
 import graphql.execution.preparsed.PreparsedDocumentProvider;
+import org.kinotic.structures.api.cache.CaffeineCacheFactory;
 
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 /**
@@ -16,8 +16,9 @@ import java.util.function.Function;
  */
 public class CachingPreparsedDocumentProvider implements PreparsedDocumentProvider {
 
-    private final AsyncCache<String, PreparsedDocumentEntry> cache  = Caffeine.newBuilder()
-                                                                              .expireAfterWrite(2, TimeUnit.HOURS)
+    private final AsyncCache<String, PreparsedDocumentEntry> cache = CaffeineCacheFactory.<String, PreparsedDocumentEntry>newBuilder()
+                                                                              .name("preparsedDocumentCache")
+                                                                              .expireAfterWrite(Duration.ofHours(2))
                                                                               .maximumSize(1000)
                                                                               .buildAsync();
 

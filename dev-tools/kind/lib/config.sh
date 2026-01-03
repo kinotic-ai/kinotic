@@ -31,8 +31,10 @@ HELM_CHART_PATH=""
 K8S_VERSION=""
 SKIP_CHECKS=""
 DEPLOY_DEPS="1"
+DEPLOY_KEYCLOAK="0"       # Deploy Keycloak + PostgreSQL (default: disabled)
 DEPLOY_OBSERVABILITY="0"
 DEPLOY_TIMEOUT=""
+OIDC_ENABLED="false"      # Enable OIDC in structures-server (set automatically when DEPLOY_KEYCLOAK=1)
 
 #
 # Load configuration from environment variables, files, and defaults
@@ -57,7 +59,16 @@ load_config() {
     # Feature flags
     SKIP_CHECKS="${SKIP_CHECKS:-0}"
     DEPLOY_DEPS="${DEPLOY_DEPS:-1}"
+    DEPLOY_KEYCLOAK="${DEPLOY_KEYCLOAK:-0}"
     DEPLOY_OBSERVABILITY="${DEPLOY_OBSERVABILITY:-0}"
+    
+    # OIDC is enabled when Keycloak is deployed
+    if [[ "${DEPLOY_KEYCLOAK}" == "1" ]]; then
+        OIDC_ENABLED="true"
+    else
+        OIDC_ENABLED="false"
+    fi
+    export OIDC_ENABLED
     
     # Timeouts
     DEPLOY_TIMEOUT="${DEPLOY_TIMEOUT:-${DEFAULT_DEPLOY_TIMEOUT}}"
@@ -70,7 +81,9 @@ load_config() {
     verbose "  K8S_VERSION=${K8S_VERSION}"
     verbose "  SKIP_CHECKS=${SKIP_CHECKS}"
     verbose "  DEPLOY_DEPS=${DEPLOY_DEPS}"
+    verbose "  DEPLOY_KEYCLOAK=${DEPLOY_KEYCLOAK}"
     verbose "  DEPLOY_OBSERVABILITY=${DEPLOY_OBSERVABILITY}"
+    verbose "  OIDC_ENABLED=${OIDC_ENABLED}"
     verbose "  DEPLOY_TIMEOUT=${DEPLOY_TIMEOUT}"
 }
 

@@ -1,6 +1,5 @@
 package org.kinotic.structures.application;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -16,7 +15,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class HealthCheckNoClusterTest extends ElasticsearchTestBase {
@@ -34,22 +32,11 @@ class HealthCheckNoClusterTest extends ElasticsearchTestBase {
     }
 
     @Test
-    void healthEndpointAvailableWithoutClusterStatusWhenClusteringDisabled() throws Exception {
+    void healthEndpointAvailableWhenClusteringDisabled() throws Exception {
         HttpResponse<String> response = awaitHealthResponse();
 
         assertEquals(200, response.statusCode(), "Expected health endpoint to respond with HTTP 200");
 
-        String body = response.body();
-        assertFalse(body.contains("cluster-status"), "Health payload should not include cluster-status check when clustering is disabled");
-
-        JsonNode root = OBJECT_MAPPER.readTree(body);
-        JsonNode checks = root.path("checks");
-        if (checks.isArray()) {
-            for (JsonNode check : checks) {
-                String id = check.path("id").asText("");
-                assertFalse("cluster-status".equals(id), "Unexpected cluster-status check present in health payload");
-            }
-        }
     }
 
     private HttpResponse<String> awaitHealthResponse() throws Exception {

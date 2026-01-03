@@ -2,12 +2,12 @@ package org.kinotic.structures.internal.endpoints.graphql;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import graphql.language.OperationDefinition;
 import graphql.scalars.ExtendedScalars;
 import graphql.schema.GraphQLFieldDefinition;
 import lombok.extern.slf4j.Slf4j;
 
+import org.kinotic.structures.api.cache.CaffeineCacheFactory;
 import org.kinotic.structures.api.domain.EntityOperation;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.idl.decorators.EntityServiceDecorator;
@@ -20,8 +20,8 @@ import org.springframework.context.ApplicationEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static graphql.Scalars.*;
 import static graphql.schema.GraphQLArgument.newArgument;
@@ -44,8 +44,9 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                                 ObjectMapper objectMapper) {
 
         namedQueryOperationDefinitionCache
-                = Caffeine.newBuilder()
-                          .expireAfterAccess(1, TimeUnit.HOURS)
+                = CaffeineCacheFactory.<String, List<GqlOperationDefinition>>newBuilder()
+                          .name("namedQueryOperationDefinitionCache")
+                          .expireAfterAccess(Duration.ofHours(1))
                           .maximumSize(2000)
                           .buildAsync(namedQueryGqlOperationDefinitionCacheLoader);
 

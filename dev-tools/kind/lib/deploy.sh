@@ -452,9 +452,17 @@ deploy_nginx_ingress() {
     
     progress "Deploying NGINX Ingress Controller..."
     
+    # Label the control-plane node for ingress scheduling
+    # This is required because KinD extraPortMappings are only on the control-plane
+    progress "Labeling control-plane node for ingress..."
+    kubectl label node "${cluster_name}-control-plane" ingress-ready=true --overwrite --context "${context}" 2>/dev/null || true
+    
     # Check if already deployed
     if kubectl get deployment ingress-nginx-controller -n ingress-nginx --context "${context}" &>/dev/null; then
         success "NGINX Ingress Controller already deployed"
+        # Ensure it's scheduled on control-plane and snippets are enabled
+        ensure_ingress_on_control_plane "${context}"
+        enable_nginx_snippets "${context}"
         return 0
     fi
     
@@ -465,12 +473,15 @@ deploy_nginx_ingress() {
         return 1
     fi
     
+    # Ensure ingress controller runs on control-plane (where port mappings are)
+    ensure_ingress_on_control_plane "${context}"
+    
     # Wait for ingress-nginx to be ready
-    progress "Waiting for ingress-nginx pods to be ready (up to 90s)..."
+    progress "Waiting for ingress-nginx pods to be ready (up to 300s)..."
     if ! kubectl wait --namespace ingress-nginx \
         --for=condition=ready pod \
         --selector=app.kubernetes.io/component=controller \
-        --timeout=90s \
+        --timeout=300s \
         --context "${context}"; then
         warning "Ingress controller pods did not become ready in time"
         progress "Checking pod status:"
@@ -478,8 +489,265 @@ deploy_nginx_ingress() {
         return 1
     fi
     
+    # Enable snippet annotations for development (required by structures ingress)
+    enable_nginx_snippets "${context}"
+    
     success "NGINX Ingress Controller deployed successfully"
     return 0
+}
+
+#
+# Ensure ingress controller runs on control-plane node
+# This is required for KinD because extraPortMappings (80, 443) are only on control-plane
+# Args:
+#   $1: kubectl context
+# Returns:
+#   0 on success
+# Example:
+#   ensure_ingress_on_control_plane "kind-structures-cluster"
+#
+ensure_ingress_on_control_plane() {
+    local context="$1"
+    
+    progress "Ensuring ingress controller runs on control-plane node..."
+    
+    # Patch deployment to require ingress-ready label (which is on control-plane)
+    kubectl patch deployment ingress-nginx-controller -n ingress-nginx \
+        --context "${context}" \
+        -p '{"spec":{"template":{"spec":{"nodeSelector":{"ingress-ready":"true","kubernetes.io/os":"linux"}}}}}' \
+        2>/dev/null || true
+    
+    return 0
+}
+
+#
+# Enable snippet annotations in NGINX Ingress Controller
+# This is required for structures-server ingress which uses configuration-snippet
+# for WebSocket handling and path rewrites.
+#
+# ⚠️ SECURITY WARNING - DEVELOPMENT ONLY ⚠️
+# This function configures nginx-ingress with relaxed security settings:
+#   - allow-snippet-annotations: true (enables configuration-snippet annotation)
+#   - annotations-risk-level: Critical (allows proxy_set_header, rewrite, if directives)
+#
+# These settings should NOT be used in production environments as they can allow
+# configuration injection attacks. For production, refactor the ingress to avoid
+# configuration-snippet or use more restrictive settings.
+#
+# See: https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/
+#
+# Args:
+#   $1: kubectl context
+# Returns:
+#   0 on success, 1 on failure
+# Example:
+#   enable_nginx_snippets "kind-structures-cluster"
+#
+enable_nginx_snippets() {
+    local context="$1"
+    
+    warning "Configuring nginx-ingress with relaxed security settings (DEVELOPMENT ONLY)"
+    progress "  → allow-snippet-annotations: true"
+    progress "  → annotations-risk-level: Critical"
+    
+    # Patch the ingress-nginx-controller ConfigMap to allow snippet annotations
+    # This is necessary because the structures Helm chart uses configuration-snippet
+    # for WebSocket handling and path rewrites
+    # 
+    # Settings:
+    #   - allow-snippet-annotations: enables configuration-snippet annotation
+    #   - annotations-risk-level: set to Critical to allow "risky" directives like
+    #     proxy_set_header, rewrite, etc. (acceptable for dev, not for production)
+    if ! kubectl patch configmap ingress-nginx-controller \
+        -n ingress-nginx \
+        --context "${context}" \
+        --type merge \
+        -p '{"data":{"allow-snippet-annotations":"true","annotations-risk-level":"Critical"}}' 2>/dev/null; then
+        warning "Could not patch ingress-nginx ConfigMap (may not exist yet)"
+        # Try creating the ConfigMap if it doesn't exist
+        kubectl create configmap ingress-nginx-controller \
+            -n ingress-nginx \
+            --context "${context}" \
+            --from-literal=allow-snippet-annotations=true \
+            --from-literal=annotations-risk-level=Critical 2>/dev/null || true
+    fi
+    
+    # Restart the ingress controller to pick up the configuration change
+    progress "Restarting ingress controller to apply configuration..."
+    kubectl rollout restart deployment ingress-nginx-controller \
+        -n ingress-nginx \
+        --context "${context}" 2>/dev/null || true
+    
+    # Wait for the controller to be ready again
+    progress "Waiting for ingress controller to restart..."
+    kubectl wait --namespace ingress-nginx \
+        --for=condition=ready pod \
+        --selector=app.kubernetes.io/component=controller \
+        --timeout=60s \
+        --context "${context}" 2>/dev/null || true
+    
+    success "NGINX snippet annotations enabled (development mode)"
+    return 0
+}
+
+# =============================================================================
+# TLS Setup with mkcert (for local dev) or cert-manager fallback
+# =============================================================================
+
+#
+# Install cert-manager for TLS certificate management
+# Args:
+#   $1: kubectl context
+# Returns:
+#   0 on success, 1 on failure
+# Example:
+#   install_cert_manager "kind-structures-cluster"
+#
+install_cert_manager() {
+    local context="$1"
+    
+    # Check if cert-manager is already installed
+    if kubectl get namespace cert-manager --context "${context}" &>/dev/null; then
+        verbose "cert-manager already installed"
+        return 0
+    fi
+    
+    progress "Installing cert-manager..."
+    
+    # Apply cert-manager CRDs and components
+    if ! kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.0/cert-manager.yaml \
+        --context "${context}" 2>&1 | grep -v "Warning:"; then
+        error "Failed to apply cert-manager manifest"
+        return 1
+    fi
+    
+    # Wait for cert-manager to be ready
+    progress "Waiting for cert-manager to be ready (up to 120s)..."
+    if ! kubectl wait --for=condition=Available deployment --all \
+        -n cert-manager \
+        --timeout=120s \
+        --context "${context}" 2>&1; then
+        warning "cert-manager deployments did not become ready in time"
+        progress "Checking pod status:"
+        kubectl get pods -n cert-manager --context "${context}"
+        return 1
+    fi
+    
+    # Wait for webhook to be ready (important for Certificate resources)
+    progress "Waiting for cert-manager webhook to be ready..."
+    local retries=30
+    while [[ ${retries} -gt 0 ]]; do
+        if kubectl get validatingwebhookconfigurations cert-manager-webhook --context "${context}" &>/dev/null; then
+            break
+        fi
+        sleep 2
+        retries=$((retries - 1))
+    done
+    
+    success "cert-manager installed"
+    return 0
+}
+
+#
+# Setup TLS certificates using mkcert (if available) or cert-manager fallback
+# Args:
+#   $1: kubectl context
+#   $2: Namespace (default: default)
+# Returns:
+#   0 on success, sets MKCERT_USED=true/false
+# Example:
+#   setup_tls "kind-structures-cluster" "default"
+#
+setup_tls() {
+    local context="$1"
+    local namespace="${2:-default}"
+    local secret_name="structures-tls-secret"
+    
+    section "TLS Certificate Setup"
+    
+    # Always install cert-manager (used as fallback or for other certs)
+    if ! install_cert_manager "${context}"; then
+        warning "cert-manager installation failed, continuing without it"
+    fi
+    
+    # Check if mkcert is available for locally-trusted certificates
+    if command -v mkcert &> /dev/null; then
+        progress "mkcert found - generating locally-trusted certificates"
+        
+        # Ensure mkcert CA is installed (idempotent, may require sudo on first run)
+        progress "Ensuring mkcert CA is installed..."
+        mkcert -install 2>/dev/null || {
+            warning "mkcert -install failed (may need sudo on first run)"
+            warning "Run 'mkcert -install' manually if you see certificate errors"
+        }
+        
+        # Generate certificates in temp directory
+        local cert_dir
+        cert_dir=$(mktemp -d)
+        pushd "${cert_dir}" > /dev/null || return 1
+        
+        progress "Generating certificates for localhost, structures.local, 127.0.0.1, ::1"
+        if ! mkcert localhost structures.local 127.0.0.1 ::1 2>&1; then
+            error "Failed to generate certificates with mkcert"
+            popd > /dev/null || true
+            rm -rf "${cert_dir}"
+            return 1
+        fi
+        
+        # Find the generated files (mkcert names them based on first hostname)
+        local cert_file key_file
+        cert_file=$(ls localhost+*.pem 2>/dev/null | grep -v '\-key' | head -1)
+        key_file=$(ls localhost+*-key.pem 2>/dev/null | head -1)
+        
+        if [[ -z "${cert_file}" || -z "${key_file}" ]]; then
+            error "Could not find generated certificate files"
+            ls -la
+            popd > /dev/null || true
+            rm -rf "${cert_dir}"
+            return 1
+        fi
+        
+        progress "Creating Kubernetes TLS secret from mkcert certificates..."
+        
+        # Delete existing secret if it exists (to update it)
+        kubectl delete secret "${secret_name}" \
+            --namespace="${namespace}" \
+            --context="${context}" 2>/dev/null || true
+        
+        # Create the TLS secret
+        if ! kubectl create secret tls "${secret_name}" \
+            --cert="${cert_file}" \
+            --key="${key_file}" \
+            --namespace="${namespace}" \
+            --context="${context}" 2>&1; then
+            error "Failed to create TLS secret"
+            popd > /dev/null || true
+            rm -rf "${cert_dir}"
+            return 1
+        fi
+        
+        popd > /dev/null || true
+        rm -rf "${cert_dir}"
+        
+        success "mkcert certificates created and loaded into cluster"
+        progress "Browsers will trust https://localhost without warnings"
+        
+        # Export for use in helm values
+        export MKCERT_USED=true
+        return 0
+    else
+        warning "mkcert not found - will use cert-manager self-signed certificates"
+        progress "Browsers will show security warnings for https://localhost"
+        blank_line
+        progress "To enable browser-trusted HTTPS, install mkcert:"
+        progress "  macOS:  brew install mkcert && mkcert -install"
+        progress "  Linux:  See https://github.com/FiloSottile/mkcert#installation"
+        blank_line
+        
+        # Export for use in helm values
+        export MKCERT_USED=false
+        return 0
+    fi
 }
 
 #
@@ -624,8 +892,9 @@ volumeClaimTemplate:
 persistence:
   enabled: false
 
+# Elasticsearch doesn't need ingress - accessed internally or via NodePort
 ingress:
-  enabled: true
+  enabled: false
 
 # Health check
 clusterHealthCheckParams: "wait_for_status=yellow&timeout=1s"
@@ -685,6 +954,9 @@ deploy_structures_server() {
     
     progress "Deploying structures-server..."
     
+    # Setup TLS certificates (mkcert or cert-manager fallback)
+    setup_tls "${context}" "default"
+    
     # Verify Helm chart exists
     if [[ ! -d "${HELM_CHART_PATH}" ]]; then
         error "Helm chart not found at: ${HELM_CHART_PATH}"
@@ -705,6 +977,15 @@ deploy_structures_server() {
         helm upgrade --install structures-server "${HELM_CHART_PATH}"
         --kube-context "${context}"
     )
+    
+    # If mkcert was used, tell helm to use the existing secret
+    if [[ "${MKCERT_USED:-false}" == "true" ]]; then
+        progress "Using mkcert-generated TLS secret"
+        helm_cmd+=(--set "ingress.tls.existingSecret=true")
+    else
+        progress "Using cert-manager for TLS certificate generation"
+        helm_cmd+=(--set "ingress.tls.existingSecret=false")
+    fi
     
     # Add values files
     local values_flags
@@ -921,10 +1202,30 @@ display_deployment_status() {
     
     blank_line
     section "Access URLs"
-    progress "structures-server: http://localhost:9090"
-    progress "structures-server health: http://localhost:9090/health"
-    progress "Keycloak: http://localhost:8888/auth"
-    progress "Keycloak Admin: http://localhost:8888/auth/admin (admin/admin)"
+    
+    # Check if TLS is likely enabled (mkcert was used or cert-manager)
+    progress "Via Ingress (HTTPS):"
+    progress "  https://localhost/         - Static UI (SPA)"
+    progress "  https://localhost/api/     - OpenAPI REST"
+    progress "  https://localhost/graphql/ - GraphQL"
+    progress "  wss://localhost/v1         - STOMP WebSocket"
+    blank_line
+    
+    progress "Via NodePort (direct, no TLS):"
+    progress "  http://localhost:9090      - Static UI"
+    progress "  http://localhost:8080      - OpenAPI REST"
+    progress "  http://localhost:4000      - GraphQL"
+    progress "  ws://localhost:58503       - STOMP WebSocket"
+    blank_line
+    
+    progress "Health check: http://localhost:9090/health"
+
+    if [[ "${OIDC_ENABLED:-false}" == "true" ]]; then
+        blank_line
+        progress "Keycloak:"
+        progress "  http://localhost:8888/auth"
+        progress "  Admin: http://localhost:8888/auth/admin (admin/admin)"
+    fi
     
     blank_line
 }

@@ -1,74 +1,155 @@
 {{- if .Values.ingress.enabled -}}
+# ============================================================================
+# NGINX Ingress Configuration for structures-server
+# ============================================================================
+#
+# This configuration uses TWO separate Ingress resources:
+#   1. WebSocket Ingress - /v1 path for STOMP with sticky sessions
+#   2. HTTP Ingress - /api, /graphql, / paths with standard routing
+#
+# This approach eliminates the need for configuration-snippet annotations
+# and prevents nginx directive conflicts.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# WebSocket Ingress - STOMP endpoint with sticky sessions
+# ----------------------------------------------------------------------------
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "structures-server.fullname" . }}
+  name: {{ include "structures-server.fullname" . }}-ws
+  labels:
+    app: {{ include "structures-server.name" . }}
+  annotations:
+    # Sticky sessions for WebSocket connections
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/affinity-mode: "persistent"
+    nginx.ingress.kubernetes.io/session-cookie-name: "structures-ws-affinity"
+    nginx.ingress.kubernetes.io/session-cookie-path: "{{ .Values.continuum_gateway.stomp.websocketPath }}"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "10800"
+    nginx.ingress.kubernetes.io/session-cookie-change-on-failure: "true"
+    # WebSocket timeout configurations - CRITICAL for persistent connections
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    # WebSocket protocol support - CRITICAL for upgrade
+    # nginx-ingress automatically adds Upgrade/Connection headers when proxy-http-version is 1.1
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$remote_addr"
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        {{- range .Values.ingress.hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          - path: {{ $.Values.continuum_gateway.stomp.websocketPath }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "structures-server.fullname" $ }}
+                port:
+                  number: {{ $.Values.continuum_gateway.stomp.port }}
+    {{- end }}
+---
+# ----------------------------------------------------------------------------
+# HTTP Ingress - API and GraphQL (with path rewriting)
+# ----------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "structures-server.fullname" . }}-api
   labels:
     app: {{ include "structures-server.name" . }}
   annotations:
     nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/affinity: "cookie"
-    nginx.ingress.kubernetes.io/affinity-mode: "persistent"
-    nginx.ingress.kubernetes.io/session-cookie-name: "structures-affinity"
-    nginx.ingress.kubernetes.io/session-cookie-max-age: "10800"
-    nginx.ingress.kubernetes.io/session-cookie-change-on-failure: "true"
-    # WebSocket timeout configurations - CRITICAL for persistent connections
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"      # 1 hour (time nginx waits for backend response)
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"      # 1 hour (time nginx waits to send to backend)
-    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"     # 60 seconds (connection establishment)
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"            # Unlimited body size for streaming
-    nginx.ingress.kubernetes.io/websocket-services: "{{ include "structures-server.fullname" . }}"  # Explicitly enable WebSocket
-    # WebSocket-specific headers (ensure proper upgrade)
-    nginx.ingress.kubernetes.io/upstream-hash-by: "$remote_addr"  # Hash by IP for better affinity
-    # Conditional rewrite: skip /v1 (WebSocket), rewrite others
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      if ($request_uri !~ "^{{ .Values.continuum_gateway.stomp.websocketPath }}") {
-        rewrite ^/api(/|$)(.*) /$2 break;
-        rewrite ^/graphql(/|$)(.*) /$2 break;
-        rewrite ^/()(.*) /$2 break;
-      }
-      # Ensure WebSocket upgrade headers are properly passed
-      proxy_set_header Upgrade $http_upgrade;
-      proxy_set_header Connection "upgrade";
-      proxy_http_version 1.1;
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # Standard HTTP timeouts
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
 spec:
-  ingressClassName: nginx
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        {{- range .Values.ingress.hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
   rules:
-    - http:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ . | quote }}
+      http:
         paths:
-          # STOMP WebSocket - /v1 forwards to port 58503 (no rewrite)
-          - path: {{ .Values.continuum_gateway.stomp.websocketPath }}
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "structures-server.fullname" . }}
-                port:
-                  number: {{ .Values.continuum_gateway.stomp.port }}
-          
-          # API - /api/ forwards to port 8080 (with rewrite)
+          # API - /api/* forwards to OpenAPI port (rewrite removes /api prefix)
           - path: /api(/|$)(.*)
             pathType: ImplementationSpecific
             backend:
               service:
-                name: {{ include "structures-server.fullname" . }}
+                name: {{ include "structures-server.fullname" $ }}
                 port:
-                  number: {{ .Values.properties.structures.openApiPort }}
-          
-          # GraphQL - /graphql/ forwards to port 4000 (with rewrite)
+                  number: {{ $.Values.properties.structures.openApiPort }}
+          # GraphQL - /graphql/* forwards to GraphQL port (rewrite removes /graphql prefix)
           - path: /graphql(/|$)(.*)
             pathType: ImplementationSpecific
             backend:
               service:
-                name: {{ include "structures-server.fullname" . }}
+                name: {{ include "structures-server.fullname" $ }}
                 port:
-                  number: {{ .Values.properties.structures.graphqlPort }}
-          
-          # UI - root path forwards to port 9090 (with rewrite, catch-all last)
-          - path: /()(.*)
-            pathType: ImplementationSpecific
+                  number: {{ $.Values.properties.structures.graphqlPort }}
+    {{- end }}
+---
+# ----------------------------------------------------------------------------
+# Static UI Ingress - Catch-all for SPA (lowest priority)
+# ----------------------------------------------------------------------------
+# NOTE: This is a separate ingress with Prefix pathType so nginx-ingress
+# correctly orders it AFTER more specific paths like /v1, /api, /graphql
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "structures-server.fullname" . }}-ui
+  labels:
+    app: {{ include "structures-server.name" . }}
+  annotations:
+    # Standard HTTP timeouts
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        {{- range .Values.ingress.hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          # Static UI - catch-all for SPA routing (Prefix type = lower priority)
+          - path: /
+            pathType: Prefix
             backend:
               service:
-                name: {{ include "structures-server.fullname" . }}
+                name: {{ include "structures-server.fullname" $ }}
                 port:
-                  number: {{ .Values.properties.structures.webServerPort }}
+                  number: {{ $.Values.properties.structures.webServerPort }}
+    {{- end }}
 {{- end }}

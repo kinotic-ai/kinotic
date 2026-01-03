@@ -1,5 +1,6 @@
 package org.kinotic.structures.api.domain.cluster;
 
+import java.time.Instant;
 import java.util.List;
 
 import lombok.AllArgsConstructor;
@@ -15,6 +16,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClusterInfo {
+
+    /**
+     * Indicates whether clustering is enabled.
+     */
+    private boolean clusteringEnabled = false;
     
     /**
      * The unique identifier of the local node.

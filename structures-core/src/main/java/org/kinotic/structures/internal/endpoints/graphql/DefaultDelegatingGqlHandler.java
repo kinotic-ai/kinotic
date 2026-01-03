@@ -1,18 +1,18 @@
 package org.kinotic.structures.internal.endpoints.graphql;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import io.vertx.core.Future;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.graphql.GraphQLHandler;
 import lombok.extern.slf4j.Slf4j;
 
+import org.kinotic.structures.api.cache.CaffeineCacheFactory;
 import org.kinotic.structures.internal.cache.events.CacheEvictionEvent;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
 /**
  * Created by Navíd Mitchell 🤪 on 11/19/24.
@@ -24,8 +24,9 @@ public class DefaultDelegatingGqlHandler implements DelegatingGqlHandler {
     private final AsyncLoadingCache<String, GraphQLHandler> graphQLHandlerCache;
 
     public DefaultDelegatingGqlHandler(GqlSchemaHandlerCacheLoader gqlSchemaHandlerCacheLoader) {
-        graphQLHandlerCache = Caffeine.newBuilder()
-                .expireAfterAccess(20, TimeUnit.HOURS)
+        graphQLHandlerCache = CaffeineCacheFactory.<String, GraphQLHandler>newBuilder()
+                .name("graphQLHandlerCache")
+                .expireAfterAccess(Duration.ofHours(20))
                 .maximumSize(2000)
                 .buildAsync(gqlSchemaHandlerCacheLoader);
     }

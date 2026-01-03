@@ -1,13 +1,13 @@
 package org.kinotic.structures.internal.api.services.impl;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.extern.slf4j.Slf4j;
 
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
+import org.kinotic.structures.api.cache.CaffeineCacheFactory;
 import org.kinotic.structures.api.domain.EntityContext;
 import org.kinotic.structures.api.domain.TenantSpecificId;
 import org.kinotic.structures.api.services.EntitiesService;
@@ -18,9 +18,9 @@ import org.kinotic.structures.api.domain.ParameterHolder;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Created by Navíd Mitchell 🤪on 5/10/23.
@@ -33,10 +33,11 @@ public class DefaultEntitiesService implements EntitiesService {
 
     public DefaultEntitiesService(EntityServiceCacheLoader entityServiceCacheLoader) {
         this.entityServiceCache
-                = Caffeine.newBuilder()
-                          .expireAfterAccess(20, TimeUnit.HOURS)
+                = CaffeineCacheFactory.<String, EntityService>newBuilder()
+                          .name("entityServiceCache")
+                          .expireAfterAccess(Duration.ofHours(20))
                           .maximumSize(2000)
-                          .buildAsync(entityServiceCacheLoader);;
+                          .buildAsync(entityServiceCacheLoader);
     }
 
     /**

@@ -51,7 +51,7 @@ image:
 
 
 properties:
-  springActiveProfiles: "production"
+  springActiveProfiles: "production,debug"
   corsAllowedOriginPattern: "*"
   enableJmx: true
   enableNmt: true
@@ -119,3 +119,40 @@ continuum:
 ingress:
   enabled: true
   className: nginx
+  hosts:
+    - localhost
+    - structures.local
+  tls:
+    enabled: true
+    secretName: structures-tls-secret
+    # Set to true when mkcert creates the secret before helm install
+    # Set to false to use cert-manager self-signed fallback
+    existingSecret: false
+
+
+# TODO: adjust for this later
+# OIDC security service configuration
+oidc:
+  enabled: false
+  debug: true
+  frontendConfigurationPath: "/app-config.override.json"
+  oidcProviders:
+    - provider: "keycloak"
+      displayName: "Keycloak"
+      enabled: true
+      rolesClaimPath: "realm_access.roles"
+      domains:
+        - "example.com"
+      roles:
+        - "admin"
+      audience: "structures-client"
+      clientId: "structures-client"
+      authority: "http://keycloak:8888/auth/realms/test"
+      redirectUri: "http://localhost:9090/login"
+      postLogoutRedirectUri: "http://localhost:9090"
+      silentRedirectUri: "http://localhost:9090/login/silent-renew"
+    
+
+nodeSelector: {}
+
+

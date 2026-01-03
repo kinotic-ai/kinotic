@@ -89,3 +89,27 @@ data:
   {{- end }}
   {{- end }}
   {{- end }}
+  {{- if .Values.oidc.enabled }}
+  OIDC_SECURITY_SERVICE_ENABLED: "{{ .Values.oidc.enabled }}"
+  OIDC_SECURITY_SERVICE_DEBUG: "{{ .Values.oidc.debug }}"
+  OIDC_SECURITY_SERVICE_FRONTEND_CONFIGURATION_PATH: "{{ .Values.oidc.frontendConfigurationPath }}"
+  {{- range $index,$value:= .Values.oidc.oidcProviders }}
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_PROVIDER: "{{ $value.provider }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_DISPLAY_NAME: "{{ $value.displayName }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_ENABLED: "{{ $value.enabled }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_ROLES_CLAIM_PATH: "{{ $value.rolesClaimPath }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_AUDIENCE: "{{ $value.audience }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_CLIENT_ID: "{{ $value.clientId }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_AUTHORITY: "{{ $value.authority }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_REDIRECT_URI: "{{ $value.redirectUri }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_POST_LOGOUT_REDIRECT_URI: "{{ $value.postLogoutRedirectUri }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_SILENT_REDIRECT_URI: "{{ $value.silentRedirectUri }}"
+  {{- range $domainIndex,$domainValue:= $value.domains }}
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_DOMAINS_{{ $domainIndex }}: "{{ $domainValue }}"
+  {{- end }}
+  {{- range $roleIndex,$roleValue:= $value.roles }}
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_ROLES_{{ $roleIndex }}: "{{ $roleValue }}"
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  

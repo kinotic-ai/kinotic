@@ -9,7 +9,6 @@ import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -26,6 +25,7 @@ import org.kinotic.continuum.core.api.crud.CursorPage;
 import org.kinotic.continuum.core.api.crud.CursorPageable;
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
+import org.kinotic.structures.api.cache.CaffeineCacheFactory;
 import org.kinotic.structures.api.config.StructuresProperties;
 import org.kinotic.structures.api.domain.QueryOptions;
 import org.kinotic.structures.api.domain.RawJson;
@@ -38,12 +38,12 @@ import jakarta.annotation.PreDestroy;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Provides access to ElasticSearch via Vertx.
@@ -58,8 +58,9 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
     private final HttpRequest<Buffer> sqlTranslateRequest;
     private final Vertx vertx;
     private final WebClient webClient;
-    private final Cache<String, List<ElasticColumn>> columnsCache = Caffeine.newBuilder()
-                                                                            .expireAfterAccess(35, TimeUnit.MINUTES)
+    private final Cache<String, List<ElasticColumn>> columnsCache = CaffeineCacheFactory.<String, List<ElasticColumn>>newBuilder()
+                                                                            .name("elasticColumnsCache")
+                                                                            .expireAfterAccess(Duration.ofMinutes(35))
                                                                             .maximumSize(20_000)
                                                                             .build();
 

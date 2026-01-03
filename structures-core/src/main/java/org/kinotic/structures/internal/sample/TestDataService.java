@@ -3,7 +3,6 @@ package org.kinotic.structures.internal.sample;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.CacheLoader;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import org.apache.commons.lang3.tuple.Pair;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.kinotic.continuum.idl.api.schema.ArrayC3Type;
@@ -11,6 +10,7 @@ import org.kinotic.continuum.idl.api.schema.IntC3Type;
 import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
 import org.kinotic.continuum.idl.api.schema.StringC3Type;
 import org.kinotic.continuum.internal.utils.ContinuumUtil;
+import org.kinotic.structures.api.cache.CaffeineCacheFactory;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.idl.decorators.*;
 import org.kinotic.structures.api.services.ApplicationService;
@@ -49,7 +49,8 @@ public class TestDataService {
         this.applicationService = applicationService;
         this.structureService = structureService;
 
-        peopleCache = Caffeine.newBuilder()
+        peopleCache = CaffeineCacheFactory.<String, List<Person>>newBuilder()
+                              .name("peopleCache")
                               .maximumSize(10)
                               .expireAfterAccess(Duration.ofMinutes(5))
                               .buildAsync(new PeopleCacheLoader(resourceLoader, objectMapper));

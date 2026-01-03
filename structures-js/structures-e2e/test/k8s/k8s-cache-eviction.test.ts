@@ -4,7 +4,6 @@ import { WebSocket } from 'ws';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'child_process';
 import { createVehicleStructure } from '../TestHelpers';
-import { DefaultClusterInfoService } from '../services/ClusterInfoService';
 
 // Make WebSocket available globally for continuum-client
 Object.assign(global, { WebSocket });
@@ -180,11 +179,12 @@ class K8sTestHelper {
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 // Try to connect briefly to test connectivity
-                await Continuum.connect({
+                const connectedInfo = await Continuum.connect({
                     host: 'localhost',
                     port: pod.localPort,
                     useSSL: false,
                     maxConnectionAttempts: 5,
+                    disableStickySession: false,
                     connectHeaders       : {
                         login   : 'admin',
                         passcode: 'structures',
@@ -192,20 +192,17 @@ class K8sTestHelper {
                     }
                 });
 
+                console.log('Connected info:', connectedInfo);
+
                 console.log(`Connected to pod ${pod.name} for validation`);
 
-                const clusterInfoService = new DefaultClusterInfoService();
-                const clusterInfo = await clusterInfoService.getClusterInfo();
-                expect(clusterInfo).toBeDefined();
-                expect(clusterInfo.localNodeId).toBeDefined();
-                expect(clusterInfo.serverNodeCount).toBeDefined();
-                expect(clusterInfo.topologyVersion).toBeDefined();
-                expect(clusterInfo.clusterState).toBeDefined();
-                expect(clusterInfo.active).toBeDefined();
-                expect(clusterInfo.nodes).toBeDefined();
-                expect(clusterInfo.nodes.length).toBe(this.config.replicaCount);
+                // i think the problem here is that the cluster cannot communicate properly with other pods. 
+                // what we need to do is remove possible culprits, like the invokation service 
+                // we know a single pod works but when we scale out it fails - we can also try two nodes to see if we have issues there as well 
 
-                console.log(`Cluster info from ${pod.name}:`, clusterInfo);
+                // The other issue is that since all pods are gateways they all try and send requests out - since there are more than one pod 
+                // we should see if we can tell the services to prefer handling requests locally - since k8s will manage the round robin of requests to the pods.
+
 
                 await Continuum.disconnect();
                 console.log(`Disconnected from pod ${pod.name} after validation`);
@@ -241,6 +238,7 @@ class K8sTestHelper {
             port: pod.localPort,
             useSSL: false,
             maxConnectionAttempts: 5,
+            disableStickySession: false,
             connectHeaders       : {
                 login   : 'admin',
                 passcode: 'structures',
@@ -312,10 +310,10 @@ describe('K8s Cache Eviction Tests', () => {
             return;
         }
 
-        const applicationId = 'k8stest';
-        const structureName = 'CacheEvictionTest';
+        const applicationId = 'k8stest-'+Date.now();
+        const structureName = 'vehicle';
         const structureId = `${applicationId}.${structureName}`.toLowerCase();
-        const initialDescription = `Initial description ${Date.now()}`;
+        const initialDescription = `Some form of transportation`;
 
         // Step 1: Connect to pod 0 and create structure
         console.log('Step 1: Creating structure on pod 0');

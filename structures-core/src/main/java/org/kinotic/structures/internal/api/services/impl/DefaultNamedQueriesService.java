@@ -5,10 +5,10 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import lombok.extern.slf4j.Slf4j;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
+import org.kinotic.structures.api.cache.CaffeineCacheFactory;
 import org.kinotic.structures.api.domain.EntityContext;
 import org.kinotic.structures.api.domain.NamedQueriesDefinition;
 import org.kinotic.structures.api.domain.Structure;
@@ -23,11 +23,11 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/23/24.
@@ -51,8 +51,9 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
 
         this.eventPublisher = eventPublisher;
 
-        cache = Caffeine.newBuilder()
-                        .expireAfterAccess(20, TimeUnit.HOURS)
+        cache = CaffeineCacheFactory.<CacheKey, QueryExecutor>newBuilder()
+                        .name("namedQueriesCache")
+                        .expireAfterAccess(Duration.ofHours(20))
                         .maximumSize(10_000) 
                         .buildAsync((key, executor) -> findByApplicationAndStructure(key.structure().getApplicationId(),
                                                                                      key.structure().getName())

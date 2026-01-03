@@ -2,7 +2,39 @@
 
 ## Overview
 
-This update adds NGINX Ingress Controller support to the KinD cluster, enabling unified access to all structures-server services through port 80 (HTTP).
+The KinD cluster uses NGINX Ingress Controller for unified access to all structures-server services with **HTTPS/TLS** support.
+
+### Key Features
+
+- **HTTPS by default** - All services accessible via `https://localhost`
+- **WebSocket support** - Dedicated ingress for STOMP with sticky sessions
+- **Path-based routing** - `/api/`, `/graphql/`, `/v1`, `/`
+- **Automatic TLS** - Uses mkcert (if available) or cert-manager self-signed certificates
+
+## Ingress Architecture
+
+The structures-server uses **two separate Ingress resources** to handle different traffic types:
+
+### 1. WebSocket Ingress (`structures-server-ws`)
+
+Handles STOMP WebSocket connections at `/v1`:
+- **Sticky sessions** via cookie affinity
+- **Long timeouts** for persistent connections (1 hour)
+- **HTTP/1.1** protocol for WebSocket upgrade
+- Path: `/v1` → port 58503
+
+### 2. HTTP Ingress (`structures-server-http`)
+
+Handles standard HTTP traffic with path rewrites:
+- `/api/*` → port 8080 (OpenAPI)
+- `/graphql/*` → port 4000 (GraphQL)
+- `/*` → port 9090 (Static UI)
+
+This split architecture:
+- ✅ Eliminates the need for `configuration-snippet` annotations
+- ✅ Prevents nginx directive conflicts
+- ✅ Allows different timeout/affinity settings per traffic type
+- ✅ Works with default nginx-ingress security settings
 
 ## Changes Made
 
@@ -43,18 +75,76 @@ Integrated ingress controller deployment into the cluster creation workflow.
 
 ## Access URLs
 
-After deploying with the ingress controller, you can access all services through `http://localhost`:
+After deploying with the ingress controller, services are available via **HTTPS**:
 
-- **Web UI**: http://localhost/ or http://127.0.0.1/
-- **OpenAPI**: http://localhost/api/ or http://127.0.0.1/api/
-- **GraphQL**: http://localhost/graphql/ or http://127.0.0.1/graphql/
+### Via Ingress (HTTPS) - Recommended
 
-## Direct Port Access (Still Available)
+| Path | Service | Protocol |
+|------|---------|----------|
+| `https://localhost/` | Static UI (SPA) | HTTPS |
+| `https://localhost/api/` | OpenAPI REST | HTTPS |
+| `https://localhost/graphql/` | GraphQL | HTTPS |
+| `wss://localhost/v1` | STOMP WebSocket | WSS (sticky sessions) |
 
-The NodePort mappings remain available for direct access:
-- Web UI: http://localhost:9090
-- OpenAPI: http://localhost:8080
-- GraphQL: http://localhost:4000
+### Via NodePort (Direct, no TLS)
+
+The NodePort mappings remain available for direct access without TLS:
+
+| Service | URL |
+|---------|-----|
+| Web UI | http://localhost:9090 |
+| OpenAPI | http://localhost:8080 |
+| GraphQL | http://localhost:4000 |
+| STOMP | ws://localhost:58503 |
+
+## TLS Certificate Setup
+
+The deployment automatically configures TLS certificates using one of two methods:
+
+### Option 1: mkcert (Recommended for Local Development)
+
+If [mkcert](https://github.com/FiloSottile/mkcert) is installed, the deploy script generates locally-trusted certificates that browsers accept without warnings.
+
+**Installation:**
+
+```bash
+# macOS
+brew install mkcert
+brew install nss  # Required for Firefox support
+mkcert -install   # Install local CA (one-time, may require sudo)
+
+# Linux (Ubuntu/Debian)
+sudo apt install libnss3-tools  # Required for Firefox/Chrome
+brew install mkcert             # Or use pre-built binary (see below)
+mkcert -install
+
+# Linux (pre-built binary)
+curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+chmod +x mkcert-v*-linux-amd64
+sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+mkcert -install
+```
+
+**Result:** `https://localhost` works with full browser trust (green padlock).
+
+### Option 2: cert-manager Self-Signed (Fallback)
+
+If mkcert is not installed, cert-manager automatically generates self-signed certificates.
+
+**Result:** `https://localhost` works but browsers show "Not Secure" warning. Click "Advanced" → "Proceed to localhost" to continue.
+
+### How It Works
+
+```
+Deploy Script Flow:
+1. Check if mkcert is installed
+2. If yes: Generate certs → Create K8s TLS secret → Set existingSecret=true
+3. Always: Install cert-manager
+4. Deploy Helm chart
+5. If no mkcert secret: cert-manager creates self-signed Certificate
+```
+
+The Helm chart's `certificate.yaml` template only creates cert-manager resources when `ingress.tls.existingSecret=false`.
 
 ## Deployment Instructions
 
@@ -119,19 +209,70 @@ This ensures the port mappings are correct:
 After deployment, verify the ingress is working:
 
 ```bash
-# Check ingress resources
+# Check ingress resources (should show two: structures-server-ws and structures-server-http)
 kubectl get ingress --context kind-structures-cluster
 
 # Check ingress controller status
 kubectl get pods -n ingress-nginx --context kind-structures-cluster
 
-# Test the endpoints
-curl http://localhost/health
-curl http://localhost/api/
-curl http://localhost/graphql/
+# Check TLS secret exists
+kubectl get secret structures-tls-secret --context kind-structures-cluster
+
+# Test HTTPS endpoints (-k to allow self-signed if mkcert not used)
+curl -k https://localhost/
+curl -k https://localhost/api/
+curl -k https://localhost/graphql/
+
+# Test HTTP redirect (should return 308 redirect to HTTPS)
+curl -I http://localhost/
 ```
 
 ## Troubleshooting
+
+### Admission webhook denies configuration-snippet
+
+**Error:**
+```
+Error: admission webhook "validate.nginx.ingress.kubernetes.io" denied the request: 
+nginx.ingress.kubernetes.io/configuration-snippet annotation cannot be used. 
+Snippet directives are disabled by the Ingress administrator
+```
+
+**Cause:** The nginx-ingress controller has `allow-snippet-annotations` disabled by default (security feature).
+
+**Solution:**
+```bash
+kubectl patch configmap ingress-nginx-controller \
+  -n ingress-nginx \
+  --context kind-structures-cluster \
+  --type merge \
+  -p '{"data":{"allow-snippet-annotations":"true"}}'
+
+kubectl rollout restart deployment ingress-nginx-controller -n ingress-nginx --context kind-structures-cluster
+```
+
+### Admission webhook denies "risky annotation"
+
+**Error:**
+```
+Error: admission webhook "validate.nginx.ingress.kubernetes.io" denied the request: 
+annotation group ConfigurationSnippet contains risky annotation based on ingress configuration
+```
+
+**Cause:** The nginx-ingress controller validates snippet content and blocks directives like `proxy_set_header`, `rewrite`, `if` which are considered "risky".
+
+**Solution:**
+```bash
+kubectl patch configmap ingress-nginx-controller \
+  -n ingress-nginx \
+  --context kind-structures-cluster \
+  --type merge \
+  -p '{"data":{"allow-snippet-annotations":"true","annotations-risk-level":"Critical"}}'
+
+kubectl rollout restart deployment ingress-nginx-controller -n ingress-nginx --context kind-structures-cluster
+```
+
+> **⚠️ Warning:** These settings are for development only. See [Security Notice](#️-security-notice---development-only) above.
 
 ### Ingress has no ADDRESS
 

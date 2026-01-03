@@ -109,15 +109,15 @@ create_cluster() {
 # Wait for cluster to be ready
 # Args:
 #   $1: Cluster name
-#   $2: Timeout in seconds (default: 300)
+#   $2: Timeout in seconds (default: 600)
 # Returns:
 #   0 if ready, EXIT_CLUSTER_OPERATION_FAILED otherwise
 # Example:
-#   wait_for_cluster_ready "structures-cluster" 300
+#   wait_for_cluster_ready "structures-cluster" 600
 #
 wait_for_cluster_ready() {
     local cluster_name="$1"
-    local timeout="${2:-300}"
+    local timeout="${2:-600}"
     local elapsed=0
     local interval=5
     

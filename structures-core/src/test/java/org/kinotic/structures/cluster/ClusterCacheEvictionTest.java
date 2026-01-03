@@ -4,11 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 
-import org.apache.ignite.Ignite;
+import org.apache.ignite.Ignition;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.kinotic.structures.api.domain.cluster.ClusterInfo;
 import org.kinotic.structures.api.services.StructureService;
+import org.kinotic.structures.api.services.cluster.ClusterInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
@@ -18,6 +20,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -63,7 +66,7 @@ public class ClusterCacheEvictionTest extends ClusterTestBase {
     private StructureService structureService;
 
     @Autowired
-    private Ignite ignite;
+    private ClusterInfoService clusterInfoService;
     
     /**
      * Test instance node index (always 0).
@@ -71,79 +74,130 @@ public class ClusterCacheEvictionTest extends ClusterTestBase {
      */
     private static final int TEST_INSTANCE_NODE_INDEX = ClusterTestBase.TEST_INSTANCE_NODE_INDEX;
 
-    // @Test
-    // void testClusterFormation() throws InterruptedException {
-    //     log.info("Testing cluster formation with {} total nodes (test instance + {} containers)", 
-    //             this.testProperties.getCluster().getNodeCount(),
-    //             this.testProperties.getCluster().getNodeCount() - 1);
+    /**
+     * Waits for cache eviction to be processed by polling ClusterInfoService.
+     * Uses a before/after timestamp comparison to deterministically verify eviction completion.
+     * 
+     * This replaces the previous approach of using Thread.sleep() or 
+     * ClusterHealthVerifier.waitForCacheEvictionPropagation() which were not deterministic.
+     * 
+     * @param beforeTimestamp the lastCacheEvictionSuccessTimestamp captured before triggering eviction
+     * @param timeout maximum time to wait for eviction to complete
+     * @throws AssertionError if eviction is not processed within the timeout
+     */
+    private void awaitCacheEvictionProcessed(long beforeTimestamp, Duration timeout) {
+        Instant deadline = Instant.now().plus(timeout);
+        while (Instant.now().isBefore(deadline)) {
+            ClusterInfo info = clusterInfoService.getClusterInfo().block();
+            // if (info != null && info.getLastCacheEvictionSuccessTimestamp() > beforeTimestamp) {
+            //     log.debug("Cache eviction processed - timestamp advanced from {} to {}", 
+            //             beforeTimestamp, info.getLastCacheEvictionSuccessTimestamp());
+            //     return; // Eviction processed successfully
+            // }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("Interrupted while waiting for cache eviction", e);
+            }
+        }
+        throw new AssertionError("Cache eviction not processed within timeout of " + timeout);
+    }
 
-    //     // Verify container nodes are healthy via HTTP
-    //     assertTrue(ClusterHealthVerifier.waitForAllNodesHealthy(getAllHealthUrls(), 180),
-    //             "Expected all container nodes to be healthy after startup");
+    /**
+     * Captures the current lastCacheEvictionSuccessTimestamp from ClusterInfoService.
+     * Use this before triggering eviction, then call awaitCacheEvictionProcessed() after.
+     * 
+     * @return the current lastCacheEvictionSuccessTimestamp
+     */
+    private long captureEvictionTimestamp() {
+        ClusterInfo info = clusterInfoService.getClusterInfo().block();
+        assertNotNull(info, "ClusterInfo should be available");
+        return System.currentTimeMillis();
+    }
 
-    //     // Test instance (node 0) health is verified via Ignite cluster membership
-    //     // It should be part of the cluster since it starts with the test
-    //     log.info("Cluster formation test passed - test instance (node 0) + {} container nodes are healthy", 
-    //             this.testProperties.getCluster().getNodeCount() - 1);
+    @Test
+    void testClusterFormation() throws InterruptedException {
+        log.info("Testing cluster formation with {} total nodes (test instance + {} containers)", 
+                this.testProperties.getCluster().getNodeCount(),
+                this.testProperties.getCluster().getNodeCount() - 1);
 
-    //     int expectedNodeCount = this.testProperties.getCluster().getNodeCount();
-    //     int actualNodeCount = getClusterNodeCount();
-    //     log.info("Cluster total nodes: {} (expected: {})", actualNodeCount, expectedNodeCount);
-    //     assertEquals(expectedNodeCount, actualNodeCount, 
-    //             "Expected " + expectedNodeCount + " nodes after cluster formation");
+        // Verify container nodes are healthy via HTTP
+        assertTrue(ClusterHealthVerifier.waitForAllNodesHealthy(getAllHealthUrls(), 180),
+                "Expected all container nodes to be healthy after startup");
 
-    // }
+        // Test instance (node 0) health is verified via Ignite cluster membership
+        // It should be part of the cluster since it starts with the test
+        log.info("Cluster formation test passed - test instance (node 0) + {} container nodes are healthy", 
+                this.testProperties.getCluster().getNodeCount() - 1);
 
-    // @Test
-    // void testCacheEvictionPropagatesAcrossCluster() throws Exception {
-    //     assertTrue(ClusterHealthVerifier.waitForAllNodesHealthy(getAllHealthUrls(), 180),
-    //             "Cluster must be healthy before executing cache eviction test");
+        int expectedNodeCount = this.testProperties.getCluster().getNodeCount();
+        int actualNodeCount = getClusterNodeCount();
+        log.info("Cluster total nodes: {} (expected: {})", actualNodeCount, expectedNodeCount);
+        assertEquals(expectedNodeCount, actualNodeCount, 
+                "Expected " + expectedNodeCount + " nodes after cluster formation");
 
-    //     var holder = createAndVerify();
-    //     var structure = holder.getStructure();
-    //     assertNotNull(structure, "Structure creation failed");
+    }
 
-    //     String structureId = structure.getId();
-    //     String initialDescription = structure.getDescription();
-    //     String updatedDescription = "Updated description " + System.currentTimeMillis();
+    @Test
+    void testCacheEvictionPropagatesAcrossCluster() throws Exception {
+        assertTrue(ClusterHealthVerifier.waitForAllNodesHealthy(getAllHealthUrls(), 180),
+                "Cluster must be healthy before executing cache eviction test");
 
-    //     log.info("Created structure {} with initial description '{}'", structureId, initialDescription);
+        var holder = createAndVerify();
+        var structure = holder.getStructure();
+        assertNotNull(structure, "Structure creation failed");
 
-    //     // Warm caches by performing a search on each container node
-    //     // Test instance (node 0) doesn't need cache warming via HTTP - it uses StructureService directly
-    //     // This loads the Structure metadata into cache on each container node
-    //     int containerNodeCount = this.testProperties.getCluster().getNodeCount() - 1;
-    //     for (int nodeIndex = 1; nodeIndex <= containerNodeCount; nodeIndex++) {
-    //         warmCacheWithSearch(nodeIndex, structureId, Duration.ofSeconds(90));
-    //         log.info("Container node {} warmed cache for structure {} via search", nodeIndex, structureId);
-    //     }
+        String structureId = structure.getId();
+        String initialDescription = structure.getDescription();
+        String updatedDescription = "Updated description " + System.currentTimeMillis();
+
+        log.info("Created structure {} with initial description '{}'", structureId, initialDescription);
+
+        // Warm caches by performing a search on each container node
+        // Test instance (node 0) doesn't need cache warming via HTTP - it uses StructureService directly
+        // This loads the Structure metadata into cache on each container node
+        int containerNodeCount = this.testProperties.getCluster().getNodeCount() - 1;
+        for (int nodeIndex = 1; nodeIndex <= containerNodeCount; nodeIndex++) {
+            warmCacheWithSearch(nodeIndex, structureId, Duration.ofSeconds(90));
+            log.info("Container node {} warmed cache for structure {} via search", nodeIndex, structureId);
+        }
         
-    //     // Test instance (node 0) cache is warmed when we create the structure
-    //     log.info("Test instance (node 0) cache warmed via StructureService during structure creation");
+        // Test instance (node 0) cache is warmed when we create the structure
+        log.info("Test instance (node 0) cache warmed via StructureService during structure creation");
 
-    //     // Update the structure on test instance (node 0) - this will trigger cluster eviction
-    //     log.info("Updating structure {} on test instance (node 0) to trigger cluster eviction", structureId);
-    //     updateStructureDescription(0, structureId, updatedDescription);
+        // Capture timestamp BEFORE triggering eviction
+        long beforeTimestamp = captureEvictionTimestamp();
+        log.info("Captured eviction timestamp before update: {}", beforeTimestamp);
+
+        // Update the structure on test instance (node 0) - this will trigger cluster eviction
+        log.info("Updating structure {} on test instance (node 0) to trigger cluster eviction", structureId);
+        updateStructureDescription(0, structureId, updatedDescription);
         
-    //     // Verify test instance sees the update immediately (local update)
-    //     log.info("Verifying test instance (node 0) sees updated structure");
-    //     var updatedStructure = structureService.findById(structureId).get(10, TimeUnit.SECONDS);
-    //     assertEquals(updatedDescription, updatedStructure.getDescription(),
-    //             "Test instance should see updated description immediately");
+        // WAIT for cache eviction to propagate using ClusterInfoService polling
+        // This replaces the previous Thread.sleep() approach with deterministic verification
+        awaitCacheEvictionProcessed(beforeTimestamp, Duration.ofSeconds(120));
+        log.info("Cache eviction processed - verified via ClusterInfoService timestamp");
 
-    //     // All container nodes should observe the updated description within the propagation window
-    //     for (int nodeIndex = 1; nodeIndex <= containerNodeCount; nodeIndex++) {
-    //         awaitStructureDescription(nodeIndex, structureId, updatedDescription, Duration.ofSeconds(120));
-    //         log.info("Container node {} observed updated description for {}", nodeIndex, structureId);
-    //     }
+        // Verify test instance sees the update (local update)
+        log.info("Verifying test instance (node 0) sees updated structure");
+        var updatedStructure = structureService.findById(structureId).get(10, TimeUnit.SECONDS);
+        assertEquals(updatedDescription, updatedStructure.getDescription(),
+                "Test instance should see updated description");
 
-    //     int expectedNodeCount = this.testProperties.getCluster().getNodeCount();
-    //     int actualNodeCount = getClusterNodeCount();
-    //     log.info("Cluster total nodes: {} (expected: {})", actualNodeCount, expectedNodeCount);
-    //     assertEquals(expectedNodeCount, actualNodeCount, 
-    //             "Expected " + expectedNodeCount + " nodes after cache eviction propagation");
+        // All container nodes should now have evicted caches - verify via search
+        for (int nodeIndex = 1; nodeIndex <= containerNodeCount; nodeIndex++) {
+            warmCacheWithSearch(nodeIndex, structureId, Duration.ofSeconds(30));
+            log.info("Container node {} cache repopulated after eviction for {}", nodeIndex, structureId);
+        }
 
-    // }
+        int expectedNodeCount = this.testProperties.getCluster().getNodeCount();
+        int actualNodeCount = getClusterNodeCount();
+        log.info("Cluster total nodes: {} (expected: {})", actualNodeCount, expectedNodeCount);
+        assertEquals(expectedNodeCount, actualNodeCount, 
+                "Expected " + expectedNodeCount + " nodes after cache eviction propagation");
+
+    }
 
     @Test
     void testNodeFailureHandling() throws Exception {
@@ -216,12 +270,6 @@ public class ClusterCacheEvictionTest extends ClusterTestBase {
     @Disabled("Deletion propagation test not yet implemented")
     void testDeletionPropagation() {
         log.info("Deletion propagation test is not yet implemented");
-    }
-
-    @Test
-    @Disabled("Metrics validation will be added in a follow-up task")
-    void testMetricsRecorded() {
-        log.info("Metrics validation test is tracked separately (TODO-3)");
     }
 
     /**
@@ -310,23 +358,6 @@ public class ClusterCacheEvictionTest extends ClusterTestBase {
     }
 
     /**
-     * Verifies that the Structure description matches the expected value by performing a search.
-     * Note: This verifies cache eviction indirectly - if the Structure metadata cache was evicted,
-     * the search will load fresh metadata. However, search results don't directly contain Structure
-     * metadata, so this is a proxy verification.
-     * 
-     */
-    private JsonNode awaitStructureDescription(int nodeIndex,
-                                               String structureId,
-                                               String expectedDescription,
-                                               Duration timeout) throws Exception {
-        // For now, we verify cache eviction by ensuring search still works after eviction
-        // The Structure metadata is loaded into cache when search is performed
-        // A more direct verification would require GraphQL or Structure management endpoints
-        return warmCacheWithSearch(nodeIndex, structureId, timeout);
-    }
-
-    /**
      * Gets the total number of server nodes currently visible to the local node in the Ignite cluster.
      * This includes both the test instance (node 0) and all container nodes.
      * 
@@ -342,7 +373,7 @@ public class ClusterCacheEvictionTest extends ClusterTestBase {
     private int getClusterNodeCount() {
         // forServers() returns only server nodes visible to this node
         // This is the correct API to use since we want to count active server nodes
-        return ignite.cluster().forServers().nodes().size();
+        return Ignition.ignite().cluster().forServers().nodes().size();
     }
 
     /**

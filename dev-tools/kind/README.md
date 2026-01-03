@@ -11,14 +11,11 @@ cd /path/to/structures
 # Create a KinD cluster
 ./dev-tools/kind/kind-cluster.sh create
 
-# Build structures-server 
-./dev-tools/kind/kind-cluster.sh build
-
-# Load structures-server into kind cluster
-./dev-tools/kind/kind-cluster.sh load
-
-# Deploy structures-server with dependencies
+# Deploy structures-server (Elasticsearch only, no OIDC)
 ./dev-tools/kind/kind-cluster.sh deploy
+
+# OR: Deploy with Keycloak for OIDC authentication
+./dev-tools/kind/kind-cluster.sh deploy --with-keycloak
 
 # Check status
 ./dev-tools/kind/kind-cluster.sh status
@@ -30,23 +27,37 @@ cd /path/to/structures
 ./dev-tools/kind/kind-cluster.sh delete
 ```
 
+> **Note:** The `deploy` command automatically builds and loads the structures-server image.
+
 ## Service Access URLs
 
-Once the cluster is deployed, services are accessible at:
+Once the cluster is deployed, services are accessible via **HTTPS** through the ingress or directly via **NodePort**:
 
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| **Structures UI** | http://localhost:9090 | - |
-| **Structures Health** | http://localhost:9090/health | - |
-| **Structures OpenAPI** | http://localhost:8080/api/ | - |
-| **Structures GraphQL** | http://localhost:4000/graphql/ | - |
-| **Continuum Stomp** | ws://localhost:58503 | - |
-| **Continuum REST** | http://localhost:58504 | - |
-| **Elasticsearch** | http://localhost:9200 | - |
-| **PostgreSQL** | localhost:5555 | keycloak / keycloak |
-| **Keycloak Admin** | http://localhost:8888/auth/admin | admin / admin |
+### Via Ingress (HTTPS) - Recommended
 
-> **Note:** PostgreSQL uses port 5555 to avoid conflicts with locally installed PostgreSQL (default 5432).
+| Service | URL | Notes |
+|---------|-----|-------|
+| **Structures UI** | https://localhost/ | Static SPA |
+| **Structures API** | https://localhost/api/ | OpenAPI REST |
+| **Structures GraphQL** | https://localhost/graphql/ | GraphQL endpoint |
+| **Structures WebSocket** | wss://localhost/v1 | STOMP with sticky sessions |
+
+### Via NodePort (Direct, no TLS)
+
+| Service | URL | Credentials | Notes |
+|---------|-----|-------------|-------|
+| **Structures UI** | http://localhost:9090 | - | Always available |
+| **Structures Health** | http://localhost:9090/health | - | Always available |
+| **Structures OpenAPI** | http://localhost:8080 | - | Always available |
+| **Structures GraphQL** | http://localhost:4000 | - | Always available |
+| **Continuum Stomp** | ws://localhost:58503 | - | Always available |
+| **Continuum REST** | http://localhost:58504 | - | Always available |
+| **Elasticsearch** | http://localhost:9200 | - | With `--with-deps` (default) |
+| **PostgreSQL** | localhost:5555 | keycloak / keycloak | With `--with-keycloak` only |
+| **Keycloak Admin** | http://localhost:8888/auth/admin | admin / admin | With `--with-keycloak` only |
+
+> **Note:** PostgreSQL and Keycloak are only deployed when using `--with-keycloak` (`-k`) flag.
+> PostgreSQL uses port 5555 to avoid conflicts with locally installed PostgreSQL (default 5432).
 
 ## Prerequisites
 
@@ -57,16 +68,25 @@ The following tools must be installed:
 - **kubectl** - Kubernetes command-line tool
 - **helm** - Kubernetes package manager
 
+### Optional (Recommended for Local HTTPS)
+
+- **mkcert** - Generate locally-trusted TLS certificates (no browser warnings)
+
 The script will check for these prerequisites and provide installation instructions if any are missing.
 
 ### macOS Installation
 
 ```bash
-# Install via Homebrew
+# Install required tools via Homebrew
 brew install kind kubectl helm
 
 # Docker Desktop (provides Docker daemon)
 brew install --cask docker
+
+# Optional: mkcert for browser-trusted local HTTPS
+brew install mkcert
+brew install nss  # Required for Firefox support
+mkcert -install   # Install local CA (one-time setup)
 ```
 
 ### Linux Installation
@@ -90,7 +110,33 @@ sudo apt-get update
 sudo apt-get install docker.io
 sudo systemctl start docker
 sudo usermod -aG docker $USER
+
+# Optional: mkcert for browser-trusted local HTTPS
+# First install certutil (required for Firefox/Chrome)
+sudo apt install libnss3-tools    # Ubuntu/Debian
+# or: sudo yum install nss-tools  # Fedora/RHEL
+# or: sudo pacman -S nss          # Arch
+
+# Install mkcert via Homebrew on Linux
+brew install mkcert
+
+# Or install from pre-built binaries
+curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+chmod +x mkcert-v*-linux-amd64
+sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+
+# Install local CA (one-time setup)
+mkcert -install
 ```
+
+### About mkcert
+
+[mkcert](https://github.com/FiloSottile/mkcert) is a simple tool for making locally-trusted development certificates. When installed:
+
+- **With mkcert**: `https://localhost` works with no browser warnings
+- **Without mkcert**: Uses cert-manager self-signed certs (browser shows "Not Secure" warning, but still works)
+
+The deploy script automatically detects mkcert and generates browser-trusted certificates if available.
 
 ## Commands
 
@@ -137,7 +183,7 @@ Create a new KinD cluster with multi-node topology suitable for testing cluster 
 
 ### deploy - Deploy structures-server
 
-Deploy structures-server and its dependencies (Elasticsearch, Keycloak) to the cluster.
+Deploy structures-server and its dependencies to the cluster.
 
 ```bash
 ./kind-cluster.sh deploy [options]
@@ -148,18 +194,24 @@ Deploy structures-server and its dependencies (Elasticsearch, Keycloak) to the c
 - `--chart <path>` - Path to Helm chart (default: ./helm/structures)
 - `--values <path>` - Path to values file (default: config/helm-values.yaml)
 - `--set <key=value>` - Override Helm values (can be used multiple times)
-- `--with-deps` - Deploy dependencies (Elasticsearch, Keycloak) - **default**
+- `--with-deps` - Deploy Elasticsearch dependency - **default**
 - `--no-deps` - Skip dependencies (assumes already deployed)
+- `--with-keycloak`, `-k` - Deploy Keycloak + PostgreSQL and enable OIDC authentication
 - `--with-observability` - Deploy observability stack (OpenTelemetry, Prometheus, Grafana)
 - `--wait-timeout <duration>` - Deployment timeout (default: 5m)
 
 **Examples:**
 
 ```bash
-# Deploy with all dependencies
+# Deploy with Elasticsearch only (default - no OIDC)
 ./kind-cluster.sh deploy
 
-# Deploy without dependencies (if already deployed)
+# Deploy with Keycloak for OIDC authentication
+./kind-cluster.sh deploy --with-keycloak
+# or shorthand:
+./kind-cluster.sh deploy -k
+
+# Deploy without any dependencies (if already deployed)
 ./kind-cluster.sh deploy --no-deps
 
 # Deploy with observability stack
@@ -175,15 +227,19 @@ Deploy structures-server and its dependencies (Elasticsearch, Keycloak) to the c
 **What it does:**
 1. Verifies cluster exists and is accessible
 2. Adds required Helm repositories (Bitnami, etc.)
-3. Deploys Elasticsearch (single-node for dev)
-4. Deploys PostgreSQL (for Keycloak backend)
-5. Creates Keycloak realm ConfigMap from `docker-compose/keycloak-test-realm.json`
-6. Deploys Keycloak with OIDC configuration matching docker-compose
-7. Deploys structures-server with OIDC integration
+3. Deploys NGINX Ingress Controller
+4. Deploys Elasticsearch (always, unless --no-deps)
+5. **If `--with-keycloak` is specified:**
+   - Deploys PostgreSQL (for Keycloak backend)
+   - Creates Keycloak realm ConfigMap from `docker-compose/keycloak-test-realm.json`
+   - Deploys Keycloak with OIDC configuration
+   - Enables OIDC in structures-server (`oidc.enabled=true`)
+6. Builds and loads structures-server image
+7. Deploys structures-server via Helm
 8. Waits for all pods to be ready
 9. Displays access URLs and next steps
 
-**Time:** < 3 minutes
+**Time:** ~3 minutes (without Keycloak), ~5 minutes (with Keycloak)
 
 **Access URLs:** See [Service Access URLs](#service-access-urls) section above.
 
@@ -356,6 +412,25 @@ Delete the KinD cluster and all resources.
 
 ---
 
+## Ingress Architecture
+
+The structures-server uses **two separate Ingress resources** with TLS/HTTPS:
+
+| Ingress | Path | Backend | Features |
+|---------|------|---------|----------|
+| `structures-server-ws` | `/v1` | STOMP (58503) | WebSocket, sticky sessions, long timeouts |
+| `structures-server-http` | `/api/*`, `/graphql/*`, `/*` | REST/GraphQL/UI | Path rewriting, standard timeouts |
+
+This architecture:
+- ✅ Works with default nginx-ingress security settings (no `configuration-snippet` needed)
+- ✅ Provides HTTPS with automatic TLS certificate management
+- ✅ Supports WebSocket connections with proper sticky sessions
+- ✅ Handles path-based routing to multiple backend services
+
+See [INGRESS_SETUP.md](INGRESS_SETUP.md) for detailed configuration information.
+
+---
+
 ## Configuration
 
 ### KinD Cluster Configuration
@@ -392,7 +467,8 @@ export HELM_CHART_PATH=./helm/structures
 export HELM_VALUES_PATH=path/to/helm-values.yaml
 
 # Feature flags
-export DEPLOY_DEPS=1              # Deploy dependencies (default: 1)
+export DEPLOY_DEPS=1              # Deploy Elasticsearch dependency (default: 1)
+export DEPLOY_KEYCLOAK=0          # Deploy Keycloak + PostgreSQL (default: 0)
 export DEPLOY_OBSERVABILITY=0     # Deploy observability stack (default: 0)
 
 # Behavior
@@ -405,15 +481,32 @@ export SKIP_CHECKS=1              # Skip prerequisite checks
 
 ## Workflow Examples
 
-### Fresh Cluster Setup
+### Fresh Cluster Setup (Basic - No OIDC)
 
 ```bash
-# Create cluster and deploy everything
+# Optional: Install mkcert for browser-trusted HTTPS (one-time)
+brew install mkcert nss && mkcert -install
+
+# Create cluster and deploy with Elasticsearch only
 ./kind-cluster.sh create
 ./kind-cluster.sh deploy
 
-# Access structures-server
-open http://localhost:9090
+# Access structures-server via HTTPS
+open https://localhost
+```
+
+### Fresh Cluster Setup (With Keycloak/OIDC)
+
+```bash
+# Create cluster and deploy with Keycloak for OIDC
+./kind-cluster.sh create
+./kind-cluster.sh deploy --with-keycloak
+
+# Access structures-server (OIDC login required)
+open https://localhost/login
+
+# Access Keycloak admin console
+open http://localhost:8888/auth/admin  # admin/admin
 ```
 
 ### Testing Local Changes
@@ -481,6 +574,46 @@ lsof -i :8888
 ```
 
 ### Deployment Fails
+
+**Problem:** Admission webhook denies ingress with "configuration-snippet" or "risky annotation" error
+
+```
+Error: admission webhook "validate.nginx.ingress.kubernetes.io" denied the request: 
+nginx.ingress.kubernetes.io/configuration-snippet annotation cannot be used
+```
+or
+```
+annotation group ConfigurationSnippet contains risky annotation based on ingress configuration
+```
+
+**Solution:**
+```bash
+# Patch nginx-ingress to allow snippets and risky annotations (development only!)
+kubectl patch configmap ingress-nginx-controller \
+  -n ingress-nginx \
+  --context kind-structures-cluster \
+  --type merge \
+  -p '{"data":{"allow-snippet-annotations":"true","annotations-risk-level":"Critical"}}'
+
+# Restart the ingress controller
+kubectl rollout restart deployment ingress-nginx-controller \
+  -n ingress-nginx \
+  --context kind-structures-cluster
+
+# Wait for it to be ready
+kubectl wait --namespace ingress-nginx \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=60s \
+  --context kind-structures-cluster
+
+# Retry deployment
+./kind-cluster.sh deploy
+```
+
+> **Note:** This is automatically handled by the deployment scripts for new clusters. See [Security Considerations](#security-considerations) for details.
+
+---
 
 **Problem:** Pods stuck in `Pending` or `ImagePullBackOff`
 

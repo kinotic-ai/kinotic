@@ -17,6 +17,7 @@ import java.util.function.Supplier;
 
 import org.kinotic.continuum.api.config.ContinuumProperties;
 import org.kinotic.structures.api.config.StructuresProperties;
+import org.kinotic.structures.internal.api.services.impl.cluster.DefaultClusterInfoService;
 import org.kinotic.structures.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.structures.internal.cache.events.CacheEvictionSource;
 import org.springframework.context.ApplicationEvent;
@@ -41,6 +42,12 @@ public class ClusterCacheEvictionService {
 
     private final StructuresProperties structuresProperties;
     private final ContinuumProperties continuumProperties;
+
+    
+    // move into the removal eviction service class 
+    // factory class for caches so that we can have
+    // a signle mode that allows us to add the eviction listener 
+
 
     // Lazy-initialized OpenTelemetry metrics
     private final Lazy<Meter> meter = new Lazy<>(() -> 
@@ -85,8 +92,9 @@ public class ClusterCacheEvictionService {
             // we need to clear on both eviction types
             if (event instanceof CacheEvictionEvent cacheEvictionEvent
                     && cacheEvictionEvent.getEvictionSource() == CacheEvictionSource.LOCAL_MESSAGE) {
+                        long timestamp = System.currentTimeMillis();
                         if(!continuumProperties.isDisableClustering()){
-                            evictCachesClusterWideWithRetry(cacheEvictionEvent);
+                            evictCachesClusterWideWithRetry(cacheEvictionEvent, timestamp);
                         }
             }
 
@@ -103,12 +111,11 @@ public class ClusterCacheEvictionService {
      * 
      * @param event the cache eviction event containing eviction details
      */
-    private void evictCachesClusterWideWithRetry(CacheEvictionEvent event) {
+    private void evictCachesClusterWideWithRetry(CacheEvictionEvent event, long timestamp) {
         Exception lastException = null;
         Ignite ignite = Ignition.ignite();
 
         // Generate timestamp once for all retry attempts to ensure consistent versioning
-        long timestamp = System.currentTimeMillis();
         long startTime = System.currentTimeMillis();
         boolean success = false;
         int totalAttempts = 0;

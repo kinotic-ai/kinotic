@@ -12,8 +12,9 @@ services:
       BPL_JVM_HEAD_ROOM: 10
       JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
       CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
+      CONTINUUM_GATEWAY_STOMP_PORT: 58501
 
-      SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: production,debug
 
       CONTINUUM_CLUSTER_DISCOVERY_TYPE: SHAREDFS
       # CONTINUUM_CLUSTER_DISCOVERY_TYPE: LOCAL
@@ -74,6 +75,7 @@ services:
       - "4001:4001"
       - "47501:47501"
       - "47101:47101"
+      - "58501:58501"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     deploy:
@@ -95,8 +97,9 @@ services:
       BPL_JVM_HEAD_ROOM: 10
       JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
       CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
+      CONTINUUM_GATEWAY_STOMP_PORT: 58502
 
-      SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: production,debug
 
       CONTINUUM_CLUSTER_DISCOVERY_TYPE: SHAREDFS
       # CONTINUUM_CLUSTER_DISCOVERY_TYPE: LOCAL
@@ -156,6 +159,7 @@ services:
       - "4002:4002"
       - "47502:47502"
       - "47102:47102"
+      - "58502:58502"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     deploy:
@@ -177,8 +181,9 @@ services:
       BPL_JVM_HEAD_ROOM: 10
       JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
       CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
+      CONTINUUM_GATEWAY_STOMP_PORT: 58503
 
-      SPRING_PROFILES_ACTIVE: test
+      SPRING_PROFILES_ACTIVE: production,debug
 
       CONTINUUM_CLUSTER_DISCOVERY_TYPE: SHAREDFS
       # CONTINUUM_CLUSTER_DISCOVERY_TYPE: LOCAL
@@ -238,6 +243,7 @@ services:
       - "4003:4003"
       - "47503:47503"
       - "47103:47103"
+      - "58503:58503"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     deploy:

@@ -33,6 +33,10 @@ continuum:
     # Note: sharedFsPath is still used for Structure data sharing, not for Ignite discovery
     sharedFsPath: ${HOME}/structures/sharedfs  # Shared with containers via bind mount
 
+continuum-gateway:
+    stomp:
+      port: 58504
+
 logging:
   level:
     org:
