@@ -16,8 +16,6 @@ dependencies {
     api "org.kinotic:continuum-core"
     api "org.kinotic:continuum-idl"
 
-	api "com.github.ben-manes.caffeine:caffeine"
-
     // Test dependencies
     testImplementation 'org.mockito:mockito-core:5.11.0'
     testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'

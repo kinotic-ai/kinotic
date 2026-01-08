@@ -53,9 +53,9 @@ Local API Call                          Cluster Message
 
 ## Implementation Details
 
-### Current Local Cache Eviction
+### Cache Eviction Service
 
-The `DefaultCacheEvictionService` handles cache eviction with proper ordering:
+The `DefaultCacheEvictionService` handles cache eviction with proper ordering and cluster propagation:
 
 ```java
 @Component
@@ -67,18 +67,18 @@ public class DefaultCacheEvictionService implements CacheEvictionService {
     private final DelegatingGqlHandler delegatingGqlHandler;
     private final StructureDAO structureDAO;
 
-    // Public API for local operations
+    // Public API - performs local eviction + broadcasts to cluster
     public void evictCachesFor(Structure structure) {
-        evictStructure(structure);
-        // TODO: Add Ignite Compute Grid cluster eviction
+        evictStructure(structure);           // Local eviction
+        broadcastToCluster(structure);       // Cluster-wide eviction via Ignite Compute Grid
     }
 
     public void evictCachesFor(NamedQueriesDefinition namedQuery) {
-        evictNamedQuery(namedQuery);
-        // TODO: Add Ignite Compute Grid cluster eviction
+        evictNamedQuery(namedQuery);         // Local eviction
+        broadcastToCluster(namedQuery);      // Cluster-wide eviction via Ignite Compute Grid
     }
 
-    // Event listeners for cluster messages
+    // Event listeners for cluster messages (received from other nodes)
     @EventListener
     public void handleStructureCacheEviction(StructureCacheEvictionEvent event) {
         evictStructure(event.getStructure());
@@ -135,7 +135,7 @@ public void evictCachesFor(Structure structure) {
         ClusterGroup servers = ignite.cluster().forServers();
         
         // Broadcast to all server nodes and collect results
-        IgniteFuture<Void> future = ignite.compute(servers).broadcastAsync(new CacheEvictionComputeTask("STRUCTURE", structure.getId()));
+        IgniteFuture<Void> future = ignite.compute(servers).broadcastAsync(new ClusterCacheEvictionTask("STRUCTURE", structure.getId()));
         future.get(); // Wait for completion and throw exception if any node failed
         
         log.info("Structure cache eviction successfully completed on all {} cluster nodes for: {}", 
@@ -397,27 +397,25 @@ See `docker-compose/CLUSTER_TESTING.md` for detailed testing procedures.
 
 **Docker/Testcontainers** (Static IP Discovery):
 ```yaml
-ignite:
+continuum:
+  disableClustering: false
   cluster:
-    discovery:
-      type: static
-      addresses: node1:47500,node2:47500,node3:47500
-  network:
-    communication-port: 47100
-    discovery-port: 47500
+    discoveryType: SHAREDFS
+    localAddresses: "node1:47500,node2:47500,node3:47500"
+    discoveryPort: 47500
+    communicationPort: 47100
 ```
 
 **Kubernetes** (Kubernetes Discovery):
 ```yaml
-ignite:
+continuum:
+  disableClustering: false
   cluster:
-    discovery:
-      type: kubernetes
-      namespace: structures
-      serviceName: structures-ignite
-  network:
-    communication-port: 47100
-    discovery-port: 47500
+    discoveryType: KUBERNETES
+    kubernetesNamespace: structures
+    kubernetesServiceName: structures-ignite
+    discoveryPort: 47500
+    communicationPort: 47100
 ```
 
 ### Performance Expectations
@@ -438,8 +436,8 @@ ignite:
 
 **Nodes not joining cluster**:
 - Check Docker network connectivity
-- Verify discovery addresses in configuration
-- Increase `IGNITE_JOIN_TIMEOUT` if nodes are slow
+- Verify discovery addresses in configuration (`continuum.cluster.localAddresses`)
+- Increase `continuum.cluster.joinTimeoutMs` if nodes are slow
 - Check logs for "Topology snapshot" messages
 
 **Cache eviction not propagating**:
@@ -462,16 +460,21 @@ See `docker-compose/CLUSTER_TESTING.md` for complete troubleshooting guide.
 
 For production Kubernetes deployments, use Kubernetes discovery instead of static IP:
 
-**Helm Values** (`helm/structures/values.yaml`):
+**Application Configuration** (via environment variables or ConfigMap):
 ```yaml
-ignite:
-  discovery:
-    enabled: true
-    type: kubernetes
-    namespace: structures
-    serviceName: structures-ignite
+continuum:
+  disableClustering: false
+  cluster:
+    discoveryType: KUBERNETES
+    kubernetesNamespace: structures
+    kubernetesServiceName: structures-ignite
+    discoveryPort: 47500
+    communicationPort: 47100
 
-replicaCount: 3  # Recommended minimum for fault tolerance
+# Or as environment variables:
+# CONTINUUM_CLUSTER_DISCOVERY_TYPE: KUBERNETES
+# CONTINUUM_CLUSTER_KUBERNETES_NAMESPACE: structures
+# CONTINUUM_CLUSTER_KUBERNETES_SERVICE_NAME: structures-ignite
 ```
 
 **Headless Service** (for Ignite discovery):
@@ -499,7 +502,7 @@ metadata:
   name: structures
 spec:
   serviceName: structures-ignite
-  replicas: 3
+  replicas: 3  # Recommended minimum for fault tolerance
   selector:
     matchLabels:
       app: structures
@@ -508,8 +511,12 @@ spec:
       containers:
       - name: structures
         env:
-        - name: IGNITE_DISCOVERY_ADDRESSES
-          value: "structures-0.structures-ignite:47500,structures-1.structures-ignite:47500,structures-2.structures-ignite:47500"
+        - name: CONTINUUM_CLUSTER_DISCOVERY_TYPE
+          value: "KUBERNETES"
+        - name: CONTINUUM_CLUSTER_KUBERNETES_NAMESPACE
+          value: "structures"
+        - name: CONTINUUM_CLUSTER_KUBERNETES_SERVICE_NAME
+          value: "structures-ignite"
 ```
 
 ### Production Recommendations
@@ -537,6 +544,6 @@ spec:
 - Set up PodDisruptionBudgets
 
 ---
-**Document Version**: 5.0  
-**Last Updated**: February 2025  
+**Document Version**: 6.0  
+**Last Updated**: January 2026  
 **Status**: ✅ COMPLETE - Local and cluster-wide cache eviction with OpenTelemetry metrics and cluster testing

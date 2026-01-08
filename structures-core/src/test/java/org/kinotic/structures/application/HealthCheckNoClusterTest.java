@@ -1,6 +1,5 @@
 package org.kinotic.structures.application;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.kinotic.structures.ElasticsearchTestBase;
@@ -19,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class HealthCheckNoClusterTest extends ElasticsearchTestBase {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final int HEALTH_PORT = findAvailablePort();
     private static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
 

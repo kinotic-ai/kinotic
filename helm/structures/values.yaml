@@ -95,6 +95,15 @@ oidc:
       silentRedirectUri: "http://localhost:9090/login/silent-renew"
     
 
+# Eviction tracking configuration
+# When enabled, cache evictions are written to CSV files for testing/analysis
+evictionTracking:
+  enabled: false
+  # Mount path inside the container for eviction data
+  mountPath: "/eviction-data"
+  # Host path on the Kubernetes node (for hostPath volume)
+  hostPath: "/tmp/structures-eviction-data"
+
 nodeSelector: {}
 
 # Service configuration

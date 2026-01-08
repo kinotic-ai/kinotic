@@ -6,7 +6,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.graphql.GraphQLHandler;
 import lombok.extern.slf4j.Slf4j;
 
-import org.kinotic.structures.api.cache.CaffeineCacheFactory;
+import org.kinotic.structures.auth.internal.services.DefaultCaffeineCacheFactory;
 import org.kinotic.structures.internal.cache.events.CacheEvictionEvent;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.event.EventListener;
@@ -23,8 +23,9 @@ public class DefaultDelegatingGqlHandler implements DelegatingGqlHandler {
 
     private final AsyncLoadingCache<String, GraphQLHandler> graphQLHandlerCache;
 
-    public DefaultDelegatingGqlHandler(GqlSchemaHandlerCacheLoader gqlSchemaHandlerCacheLoader) {
-        graphQLHandlerCache = CaffeineCacheFactory.<String, GraphQLHandler>newBuilder()
+    public DefaultDelegatingGqlHandler(GqlSchemaHandlerCacheLoader gqlSchemaHandlerCacheLoader,
+                                       DefaultCaffeineCacheFactory cacheFactory) {
+        graphQLHandlerCache = cacheFactory.<String, GraphQLHandler>newBuilder()
                 .name("graphQLHandlerCache")
                 .expireAfterAccess(Duration.ofHours(20))
                 .maximumSize(2000)

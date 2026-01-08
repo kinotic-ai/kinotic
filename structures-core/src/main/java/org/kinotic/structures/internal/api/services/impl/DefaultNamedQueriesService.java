@@ -8,11 +8,11 @@ import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.structures.api.cache.CaffeineCacheFactory;
 import org.kinotic.structures.api.domain.EntityContext;
 import org.kinotic.structures.api.domain.NamedQueriesDefinition;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.services.NamedQueriesService;
+import org.kinotic.structures.auth.internal.services.DefaultCaffeineCacheFactory;
 import org.kinotic.structures.api.domain.ParameterHolder;
 import org.kinotic.structures.internal.api.services.sql.QueryContext;
 import org.kinotic.structures.internal.api.services.sql.QueryExecutorFactory;
@@ -43,7 +43,8 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
     public DefaultNamedQueriesService(CrudServiceTemplate crudServiceTemplate,
                                       ElasticsearchAsyncClient esAsyncClient,
                                       QueryExecutorFactory queryExecutorFactory,
-                                      ApplicationEventPublisher eventPublisher) {
+                                      ApplicationEventPublisher eventPublisher,
+                                      DefaultCaffeineCacheFactory cacheFactory) {
         super("struct_named_query_service_definition",
               NamedQueriesDefinition.class,
               esAsyncClient,
@@ -51,7 +52,7 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
 
         this.eventPublisher = eventPublisher;
 
-        cache = CaffeineCacheFactory.<CacheKey, QueryExecutor>newBuilder()
+        cache = cacheFactory.<CacheKey, QueryExecutor>newBuilder()
                         .name("namedQueriesCache")
                         .expireAfterAccess(Duration.ofHours(20))
                         .maximumSize(10_000) 

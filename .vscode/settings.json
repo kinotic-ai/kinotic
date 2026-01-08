@@ -1,37 +1,11 @@
 {
     "npm.packageManager": "pnpm",
-    "spring-boot.ls.java.home": "/Users/nic/.local/share/mise/installs/java/temurin-21.0.9+10.0.LTS",
-    "java.configuration.runtimes": [
-        {
-            "name": "JavaSE-21",
-            "path": "/Users/nic/.local/share/mise/installs/java/temurin-21.0.9+10.0.LTS",
-            "default": true
-        }
-    ],
     "gradle.debug": true,
     "gradle.autoDetect": "on",
     "gradle.nestedProjects": false,
     "java.compile.nullAnalysis.mode": "automatic",
     "java.configuration.updateBuildConfiguration": "interactive",
     "java.import.gradle.wrapper.enabled": true,
-    "java.test.config": {
-        "name": "testConfig",
-        "testKind": "junit",
-        "env": {
-            "JAVA_HOME": "/Users/nic/.local/share/mise/installs/java/temurin-21.0.9+10.0.LTS",
-            "JAVA_TOOL_OPTIONS": "-Dspring.profiles.active=development,test --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED --add-opens=jdk.internal.jvmstat/sun.jvmstat.monitor=ALL-UNNAMED --add-opens=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.in=ALL-UNNAMED"
-        },
-        "vmargs": [
-            "-XX:MaxDirectMemorySize=1g",
-            "-Xmx4096m",
-            "-XX:+AlwaysPreTouch",
-            "-XX:+UseG1GC",
-            "-XX:+ScavengeBeforeFullGC",
-            "-XX:+DisableExplicitGC"
-        ],
-        "workingDirectory": "${workspaceFolder}"
-    },
-    "java.test.defaultConfig": "testConfig",
     "java.debug.settings.onBuildFailureProceed": true,
     "typescript.preferences.includePackageJsonAutoImports": "on",
     "typescript.suggest.autoImports": true,

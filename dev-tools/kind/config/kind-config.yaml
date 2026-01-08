@@ -8,6 +8,10 @@ apiVersion: kind.x-k8s.io/v1alpha4
 # Provides realistic environment for testing distributed coordination
 nodes:
   - role: control-plane
+    # Mount local directory for eviction tracking data persistence
+    extraMounts:
+      - hostPath: ./dev-tools/kind/eviction-data
+        containerPath: /eviction-data
     extraPortMappings:
       # ============================================================
       # Ingress Controller Ports
@@ -77,7 +81,13 @@ nodes:
         hostPort: 16686
         protocol: TCP
   - role: worker
+    extraMounts:
+      - hostPath: ./dev-tools/kind/eviction-data
+        containerPath: /eviction-data
   - role: worker
+    extraMounts:
+      - hostPath: ./dev-tools/kind/eviction-data
+        containerPath: /eviction-data
 
 # Networking configuration
 networking:

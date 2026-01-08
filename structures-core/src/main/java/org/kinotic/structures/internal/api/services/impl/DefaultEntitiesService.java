@@ -7,10 +7,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.structures.api.cache.CaffeineCacheFactory;
 import org.kinotic.structures.api.domain.EntityContext;
 import org.kinotic.structures.api.domain.TenantSpecificId;
 import org.kinotic.structures.api.services.EntitiesService;
+import org.kinotic.structures.auth.internal.services.DefaultCaffeineCacheFactory;
 import org.kinotic.structures.internal.api.services.EntityService;
 import org.kinotic.structures.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.structures.internal.cache.events.EvictionSourceType;
@@ -31,9 +31,10 @@ public class DefaultEntitiesService implements EntitiesService {
 
     private final AsyncLoadingCache<String, EntityService> entityServiceCache;
 
-    public DefaultEntitiesService(EntityServiceCacheLoader entityServiceCacheLoader) {
+    public DefaultEntitiesService(EntityServiceCacheLoader entityServiceCacheLoader,
+                                  DefaultCaffeineCacheFactory cacheFactory) {
         this.entityServiceCache
-                = CaffeineCacheFactory.<String, EntityService>newBuilder()
+                = cacheFactory.<String, EntityService>newBuilder()
                           .name("entityServiceCache")
                           .expireAfterAccess(Duration.ofHours(20))
                           .maximumSize(2000)

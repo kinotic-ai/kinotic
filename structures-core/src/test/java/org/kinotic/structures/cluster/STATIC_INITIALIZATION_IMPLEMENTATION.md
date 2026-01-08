@@ -1,5 +1,14 @@
 # Static Initialization Implementation Summary
 
+> **⚠️ INTERNAL DOCUMENTATION**
+>
+> This document is for internal development use only. It describes implementation details of the test infrastructure.
+> For user-facing clustering documentation, see:
+> - [IGNITE_KUBERNETES_TUNING.md](../../../../../../IGNITE_KUBERNETES_TUNING.md) - Cluster configuration guide
+> - [CLUSTER_TESTING.md](../../../../../../../docker-compose/CLUSTER_TESTING.md) - Manual testing guide
+
+---
+
 ## Overview
 
 Cluster container startup has been moved from `@BeforeAll` to a static block to ensure proper initialization order:

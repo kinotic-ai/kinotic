@@ -1,5 +1,14 @@
 # Java Initialization Order Plan for Cluster Tests
 
+> **⚠️ INTERNAL DOCUMENTATION**
+>
+> This document is for internal development use only. It describes the design and implementation planning for test infrastructure initialization order.
+> For user-facing clustering documentation, see:
+> - [IGNITE_KUBERNETES_TUNING.md](../../../../../../IGNITE_KUBERNETES_TUNING.md) - Cluster configuration guide
+> - [CLUSTER_TESTING.md](../../../../../../../docker-compose/CLUSTER_TESTING.md) - Manual testing guide
+
+---
+
 ## Problem Statement
 
 We need to ensure proper initialization order:

@@ -621,7 +621,27 @@ oidc-security-service:
 - Nested: `"realm_access.roles"`, `"groups.department"`
 - Deep: `"user.profile.preferences.theme"`
 
-For detailed information about JSON path extraction, see [JSON_PATH_EXTRACTION_EXAMPLE.md](./JSON_PATH_EXTRACTION_EXAMPLE.md).
+**Example JWT Payload and Path Extraction:**
+```json
+{
+  "sub": "user123",
+  "email": "user@example.com",
+  "realm_access": {
+    "roles": ["admin", "user"]
+  },
+  "app_metadata": {
+    "tenant": {
+      "id": "tenant-123"
+    }
+  }
+}
+```
+
+| Path | Extracted Value |
+|------|-----------------|
+| `"email"` | `"user@example.com"` |
+| `"realm_access.roles"` | `["admin", "user"]` |
+| `"app_metadata.tenant.id"` | `"tenant-123"` |
 
 ## Caching Strategy
 

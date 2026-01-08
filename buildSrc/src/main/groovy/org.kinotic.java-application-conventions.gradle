@@ -34,7 +34,7 @@ dependencies {
 //                     https://paketo.io/docs/reference/java-reference/
 bootBuildImage {
     network = "host"
-    publish = false
+    publish = true
     imageName = "kinotic/${project.name}:${project.version}"
     tags = (!version.endsWith('SNAPSHOT') ?
             [
@@ -45,12 +45,13 @@ bootBuildImage {
         "BP_HEALTH_CHECKER_ENABLED": "true",
         "THC_PATH": "/health", // Health check path for https://github.com/dmikusa/tiny-health-checker#usageor which is provided by the health-checker buildpack
         "BPE_DELIM_JAVA_TOOL_OPTIONS" : " ",
-        "BPE_APPEND_JAVA_TOOL_OPTIONS": "-XX:+UseG1GC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED --add-opens=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+        "BPE_APPEND_JAVA_TOOL_OPTIONS": "-XX:+UseG1GC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED",
     ]
     buildpacks = [
         "urn:cnb:builder:paketo-buildpacks/java", 
         "docker.io/paketobuildpacks/health-checker" // https://github.com/paketo-buildpacks/health-checker/tree/main
     ]
+    // builder = "paketobuildpacks/ubuntu-noble-builder"
     docker {
         // Use standard Docker socket to avoid API version issues
         host = System.getenv("DOCKER_HOST") ?: "unix:///var/run/docker.sock"

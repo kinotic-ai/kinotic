@@ -40,6 +40,10 @@ data:
   STRUCTURES_ENABLE_STATIC_FILE_SERVER: "{{ .Values.properties.structures.enableStaticFileServer }}"
   STRUCTURES_INITIALIZE_WITH_SAMPLE_DATA: "{{ .Values.properties.structures.initializeWithSampleData }}"
   STRUCTURES_TENANT_ID_FIELD_NAME: "{{ .Values.properties.structures.tenantIdFieldName }}"
+  {{- if .Values.evictionTracking.enabled }}
+  # Eviction tracking - path includes ${POD_NAME} which Spring resolves from the POD_NAME env var
+  STRUCTURES_CACHE_EVICTION_CSV_PATH: "{{ .Values.evictionTracking.mountPath | default "/eviction-data" }}/evictions-${POD_NAME}.csv"
+  {{- end }}
   {{- if .Values.continuum }}
   {{- if .Values.continuum.cluster }}
   # Continuum Cluster Configuration

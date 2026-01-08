@@ -17,6 +17,8 @@ dependencies {
 
 	implementation "com.github.ben-manes.caffeine:caffeine"
 
+    implementation "javax.annotation:javax.annotation-api"
+
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
@@ -26,5 +28,4 @@ dependencies {
     testImplementation "org.testcontainers:junit-jupiter:${testContainersVersion}"
 	testImplementation "org.testcontainers:elasticsearch:${testContainersVersion}"
 	testImplementation 'com.github.dasniko:testcontainers-keycloak:3.8.0'
-	testImplementation 'junit:junit'
 }

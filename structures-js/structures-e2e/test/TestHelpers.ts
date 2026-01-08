@@ -1,7 +1,6 @@
 import {faker} from '@faker-js/faker/locale/en'
 import {CodeGenerationService} from '@kinotic/structures-cli/dist/internal/CodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic/structures-cli/dist/internal/Logger.js'
-import {NamespaceConfiguration} from '@kinotic/structures-cli/dist/internal/state/StructuresProject.js'
 import {Continuum, Direction, Order, Pageable} from '@kinotic/continuum-client'
 import {
     ObjectC3Type,
@@ -17,7 +16,8 @@ import {
     IAdminEntityService,
     NamedQueriesDefinition,
     QueryDecorator,
-    Project
+    Project,
+    TypescriptProjectConfig
 } from '@kinotic/structures-api'
 import {Alert} from './domain/Alert.js'
 import {Person} from './domain/Person.js'
@@ -79,13 +79,16 @@ export async function createSchema(applicationId: string, projectId: string, ent
         const codeGenerationService = new CodeGenerationService(applicationId,
                                                                 '.js',
                                                                 new ConsoleLogger())
-        const namespaceConfig: NamespaceConfiguration = new NamespaceConfiguration()
-        namespaceConfig.namespaceName = applicationId
-        namespaceConfig.validate = false
-        namespaceConfig.entitiesPaths = [path.resolve(__dirname, './domain')]
-        namespaceConfig.generatedPath = path.resolve(__dirname, './services')
+
+        const config = new TypescriptProjectConfig()
+        config.application = applicationId
+        config.entitiesPaths = [path.resolve(__dirname, './domain')]
+        config.generatedPath = path.resolve(__dirname, './services')
+        config.validate = false
+        config.fileExtensionForImports = ''
+        
         await codeGenerationService
-            .generateAllEntities(namespaceConfig,
+            .generateAllEntities(config,
                                  false,
                                  async (entityInfo, serviceInfos) =>{
                                      // combine named queries from generated services

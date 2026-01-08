@@ -7,12 +7,12 @@ import graphql.scalars.ExtendedScalars;
 import graphql.schema.GraphQLFieldDefinition;
 import lombok.extern.slf4j.Slf4j;
 
-import org.kinotic.structures.api.cache.CaffeineCacheFactory;
 import org.kinotic.structures.api.domain.EntityOperation;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.idl.decorators.EntityServiceDecorator;
 import org.kinotic.structures.api.domain.idl.decorators.PolicyDecorator;
 import org.kinotic.structures.api.services.EntitiesService;
+import org.kinotic.structures.auth.internal.services.DefaultCaffeineCacheFactory;
 import org.kinotic.structures.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.structures.internal.endpoints.graphql.datafetchers.*;
 import org.kinotic.structures.internal.utils.GqlUtils;
@@ -41,10 +41,11 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
 
     public DefaultGqlOperationDefinitionService(EntitiesService entitiesService,
                                                 NamedQueryGqlOperationDefinitionCacheLoader namedQueryGqlOperationDefinitionCacheLoader,
-                                                ObjectMapper objectMapper) {
+                                                ObjectMapper objectMapper,
+                                                DefaultCaffeineCacheFactory cacheFactory) {
 
         namedQueryOperationDefinitionCache
-                = CaffeineCacheFactory.<String, List<GqlOperationDefinition>>newBuilder()
+                = cacheFactory.<String, List<GqlOperationDefinition>>newBuilder()
                           .name("namedQueryOperationDefinitionCache")
                           .expireAfterAccess(Duration.ofHours(1))
                           .maximumSize(2000)

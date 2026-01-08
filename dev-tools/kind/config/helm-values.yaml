@@ -49,9 +49,9 @@ image:
   pullPolicy: Never
   sha: ""
 
-
+## eviction-tracking uses the evictionTracking logic and paths for tracking eviction events
 properties:
-  springActiveProfiles: "production,debug"
+  springActiveProfiles: "production,debug,eviction-tracking"
   corsAllowedOriginPattern: "*"
   enableJmx: true
   enableNmt: true
@@ -152,6 +152,14 @@ oidc:
       postLogoutRedirectUri: "http://localhost:9090"
       silentRedirectUri: "http://localhost:9090/login/silent-renew"
     
+
+# Eviction tracking - writes per-pod CSV files to shared host directory
+evictionTracking:
+  enabled: true
+  # Mount path inside the container
+  mountPath: "/eviction-data"
+  # Host path on KinD nodes (mapped from ./eviction-data on your machine via kind-config.yaml)
+  hostPath: "/eviction-data"
 
 nodeSelector: {}
 

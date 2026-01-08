@@ -31,7 +31,6 @@ dependencies {
     testImplementation "org.testcontainers:junit-jupiter:${testContainersVersion}"
 	testImplementation "org.testcontainers:elasticsearch:${testContainersVersion}"
 	testImplementation 'com.github.dasniko:testcontainers-keycloak:3.8.0'
-	testImplementation 'junit:junit:4.13.1'
 }
 
 test {

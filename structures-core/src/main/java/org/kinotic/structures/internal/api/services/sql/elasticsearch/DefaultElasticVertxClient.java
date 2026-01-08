@@ -25,10 +25,10 @@ import org.kinotic.continuum.core.api.crud.CursorPage;
 import org.kinotic.continuum.core.api.crud.CursorPageable;
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.structures.api.cache.CaffeineCacheFactory;
 import org.kinotic.structures.api.config.StructuresProperties;
 import org.kinotic.structures.api.domain.QueryOptions;
 import org.kinotic.structures.api.domain.RawJson;
+import org.kinotic.structures.auth.internal.services.DefaultCaffeineCacheFactory;
 import org.kinotic.structures.api.config.ElasticConnectionInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,18 +58,20 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
     private final HttpRequest<Buffer> sqlTranslateRequest;
     private final Vertx vertx;
     private final WebClient webClient;
-    private final Cache<String, List<ElasticColumn>> columnsCache = CaffeineCacheFactory.<String, List<ElasticColumn>>newBuilder()
-                                                                            .name("elasticColumnsCache")
-                                                                            .expireAfterAccess(Duration.ofMinutes(35))
-                                                                            .maximumSize(20_000)
-                                                                            .build();
+    private final Cache<String, List<ElasticColumn>> columnsCache;
 
 
     public DefaultElasticVertxClient(ObjectMapper objectMapper,
                                      StructuresProperties structuresProperties,
-                                     Vertx vertx) {
+                                     Vertx vertx,
+                                     DefaultCaffeineCacheFactory cacheFactory) {
         this.objectMapper = objectMapper;
         this.vertx = vertx;
+        this.columnsCache = cacheFactory.<String, List<ElasticColumn>>newBuilder()
+                .name("elasticColumnsCache")
+                .expireAfterAccess(Duration.ofMinutes(35))
+                .maximumSize(20_000)
+                .build();
 
         WebClientOptions options = new WebClientOptions()
                 .setConnectTimeout((int) structuresProperties.getElasticConnectionTimeout().toMillis())

@@ -227,10 +227,10 @@ Example queries:
 
 **Solutions**:
 1. Check Docker network: `docker network inspect docker-compose_default`
-2. Verify discovery addresses: `STRUCTURES_CLUSTER_SHARED_FS_ADDRESSES` environment variable
-3. Ensure discovery type is set: `STRUCTURES_CLUSTER_DISCOVERY_TYPE=sharedfs`
+2. Verify discovery addresses: `CONTINUUM_CLUSTER_LOCAL_ADDRESSES` environment variable
+3. Ensure discovery type is set: `CONTINUUM_CLUSTER_DISCOVERY_TYPE=SHAREDFS`
 4. Check firewall rules for ports 47100 and 47500
-5. Increase `STRUCTURES_CLUSTER_JOIN_TIMEOUT_MS` if nodes are slow to start
+5. Increase `CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS` if nodes are slow to start
 
 ### Cache eviction not propagating
 
@@ -240,8 +240,8 @@ Example queries:
 1. Check cluster topology: logs should show all nodes present
 2. Verify network connectivity between containers
 3. Check logs for "cache eviction failed" messages
-4. Increase `STRUCTURES_MAX_CLUSTER_SYNC_RETRY_ATTEMPTS` for more retries
-5. Increase `STRUCTURES_CLUSTER_SYNC_TIMEOUT_MS` for longer timeout per attempt
+4. Increase `STRUCTURES_CLUSTER_EVICTION_MAX_CACHE_SYNC_RETRY_ATTEMPTS` for more retries
+5. Increase `STRUCTURES_CLUSTER_EVICTION_CACHE_SYNC_TIMEOUT_MS` for longer timeout per attempt
 6. Verify Ignite cluster is actually formed (topology messages)
 
 ### High retry rate
@@ -250,7 +250,7 @@ Example queries:
 
 **Solutions**:
 1. Check network latency between nodes
-2. Increase `STRUCTURES_CLUSTER_SYNC_TIMEOUT_MS`
+2. Increase `STRUCTURES_CLUSTER_EVICTION_CACHE_SYNC_TIMEOUT_MS`
 3. Check node health and resource usage
 4. Look for node restarts or crashes in logs
 

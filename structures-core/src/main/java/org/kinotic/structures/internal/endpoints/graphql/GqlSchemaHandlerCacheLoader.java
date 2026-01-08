@@ -18,6 +18,7 @@ import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.idl.decorators.EntityServiceDecorator;
 import org.kinotic.structures.api.domain.idl.decorators.EntityServiceDecoratorsDecorator;
 import org.kinotic.structures.api.services.EntitiesService;
+import org.kinotic.structures.auth.internal.services.DefaultCaffeineCacheFactory;
 import org.kinotic.structures.internal.api.services.StructureConversionService;
 import org.kinotic.structures.internal.api.services.StructureDAO;
 import org.kinotic.structures.api.domain.EntityOperation;
@@ -79,6 +80,7 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
         
         """;
 
+    private final DefaultCaffeineCacheFactory cacheFactory;
     private final EntitiesService entitiesService;
     private final StructureDAO structureDAO;
     private final StructureConversionService structureConversionService;
@@ -91,7 +93,7 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
                 .thenCompose(schema -> {
 
                     GraphQL.Builder builder = GraphQL.newGraphQL(schema)
-                                                     .preparsedDocumentProvider(new CachingPreparsedDocumentProvider());
+                                                     .preparsedDocumentProvider(new CachingPreparsedDocumentProvider(cacheFactory));
                     GraphQL graphQL = builder.build();
 
                     log.debug("Finished creating GraphQL Schema for application: {} in {}ms",

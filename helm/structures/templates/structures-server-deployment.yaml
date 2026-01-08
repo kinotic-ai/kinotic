@@ -59,12 +59,28 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "structures-server.fullname" . }}
+          env:
+            # Pod name for unique eviction file paths
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           volumeMounts:
             - name: tmp-work
               mountPath: /workspace/ignite/work
+            {{- if .Values.evictionTracking.enabled }}
+            - name: eviction-data
+              mountPath: {{ .Values.evictionTracking.mountPath | default "/eviction-data" }}
+            {{- end }}
       restartPolicy: Always
       nodeSelector: {{ toYaml .Values.nodeSelector | nindent 8 }}
       volumes:
         - name: tmp-work
           emptyDir:
             sizeLimit: 1Gi
+        {{- if .Values.evictionTracking.enabled }}
+        - name: eviction-data
+          hostPath:
+            path: {{ .Values.evictionTracking.hostPath | default "/tmp/structures-eviction-data" }}
+            type: DirectoryOrCreate
+        {{- end }}

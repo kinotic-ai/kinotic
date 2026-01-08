@@ -2,7 +2,8 @@ package org.kinotic.structures.internal.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.structures.api.cache.CaffeineCacheFactory;
+
+import org.kinotic.structures.auth.internal.services.DefaultCaffeineCacheFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -23,8 +24,8 @@ public class ProcessedEvictionsCache {
 
     private final Cache<String, Long> cache;
 
-    public ProcessedEvictionsCache() {
-        this.cache = CaffeineCacheFactory.<String, Long>newBuilder()
+    public ProcessedEvictionsCache(DefaultCaffeineCacheFactory cacheFactory) {
+        this.cache = cacheFactory.<String, Long>newBuilder()
                 .name("processedEvictions")
                 .expireAfterWrite(Duration.ofHours(1))
                 .maximumSize(10000)

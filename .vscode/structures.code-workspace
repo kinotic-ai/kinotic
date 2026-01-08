@@ -8,14 +8,7 @@
 		}
 	],
 	"settings": {
-		"spring-boot.ls.java.home": "/Users/nic/.local/share/mise/installs/java/temurin-21.0.9+10.0.LTS",
-		"java.configuration.runtimes": [
-			{
-				"name": "JavaSE-21",
-				"path": "/Users/nic/.local/share/mise/installs/java/temurin-21.0.9+10.0.LTS",
-				"default": true
-			}
-		],
+		"npm.packageManager": "pnpm",
 		"gradle.debug": true,
 		"gradle.nestedProjects": false,
 		"java.compile.nullAnalysis.mode": "automatic",
@@ -24,6 +17,10 @@
 		"java.debug.settings.onBuildFailureProceed": true,
 		"typescript.preferences.includePackageJsonAutoImports": "on",
 		"debug.javascript.autoAttachFilter": "smart",
+		"typescript.suggest.autoImports": true,
+		"typescript.updateImportsOnFileMove.enabled": "always",
+		"typescript.preferences.importModuleSpecifier": "relative",
+		"typescript.suggest.paths": true,
 		"debug.javascript.terminalOptions": {
 			"skipFiles": [
 				"<node_internals>/**",

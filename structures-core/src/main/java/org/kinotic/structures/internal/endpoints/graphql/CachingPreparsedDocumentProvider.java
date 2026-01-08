@@ -4,11 +4,12 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import graphql.ExecutionInput;
 import graphql.execution.preparsed.PreparsedDocumentEntry;
 import graphql.execution.preparsed.PreparsedDocumentProvider;
-import org.kinotic.structures.api.cache.CaffeineCacheFactory;
 
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+
+import org.kinotic.structures.auth.internal.services.DefaultCaffeineCacheFactory;
 
 /**
  * A PreparsedDocumentProvider that caches the results of parsing and validating a query.
@@ -16,11 +17,15 @@ import java.util.function.Function;
  */
 public class CachingPreparsedDocumentProvider implements PreparsedDocumentProvider {
 
-    private final AsyncCache<String, PreparsedDocumentEntry> cache = CaffeineCacheFactory.<String, PreparsedDocumentEntry>newBuilder()
-                                                                              .name("preparsedDocumentCache")
-                                                                              .expireAfterWrite(Duration.ofHours(2))
-                                                                              .maximumSize(1000)
-                                                                              .buildAsync();
+    private final AsyncCache<String, PreparsedDocumentEntry> cache;
+
+    public CachingPreparsedDocumentProvider(DefaultCaffeineCacheFactory cacheFactory) {
+        this.cache = cacheFactory.<String, PreparsedDocumentEntry>newBuilder()
+                .name("preparsedDocumentCache")
+                .expireAfterWrite(Duration.ofHours(2))
+                .maximumSize(1000)
+                .buildAsync();
+    }
 
     @Override
     public CompletableFuture<PreparsedDocumentEntry> getDocumentAsync(ExecutionInput executionInput,
