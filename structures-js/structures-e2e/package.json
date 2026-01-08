@@ -9,9 +9,11 @@
     "ui-test": "vitest --ui --mode development"
   },
   "dependencies": {
-    "@kinotic/continuum-client": "^2.14.4",
-    "@kinotic/continuum-idl": "^2.0.3",
-    "@kinotic/structures-api": "^3.5.0-beta.15",
+    "@kinotic/continuum-client": "2.14.4",
+    "@kinotic/continuum-idl": "^2.0.4",
+    "@kinotic/structures-api": "^3.5.0-beta.16",
+    "@stomp/rx-stomp": "2.1.0",
+    "@stomp/stompjs": "7.2.1",
     "reflect-metadata": "^0.2.2",
     "vue": "^3.5.18"
   },

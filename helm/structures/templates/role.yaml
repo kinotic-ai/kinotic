@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "structures-server.fullname" . }}
+  labels:
+    app: {{ include "structures-server.name" . }}
+rules:
+  # Required for Ignite Kubernetes IP Finder
+  # See: https://ignite.apache.org/docs/latest/clustering/kubernetes
+  - apiGroups: [""]
+    resources: ["pods", "endpoints", "services"]
+    verbs: ["get", "list", "watch"]
+

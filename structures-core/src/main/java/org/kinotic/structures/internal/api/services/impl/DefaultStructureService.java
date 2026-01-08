@@ -12,11 +12,12 @@ import org.kinotic.structures.api.config.StructuresProperties;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.idl.decorators.MultiTenancyType;
 import org.kinotic.structures.api.services.StructureService;
-import org.kinotic.structures.internal.api.services.CacheEvictionService;
 import org.kinotic.structures.internal.api.services.ElasticConversionResult;
 import org.kinotic.structures.internal.api.services.StructureConversionService;
 import org.kinotic.structures.internal.api.services.StructureDAO;
+import org.kinotic.structures.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.structures.internal.utils.StructuresUtil;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -28,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class DefaultStructureService implements StructureService {
 
-    private final CacheEvictionService cacheEvictionService;
+    private final ApplicationEventPublisher eventPublisher;
     private final CrudServiceTemplate crudServiceTemplate;
     private final ElasticsearchAsyncClient esAsyncClient;
     private final StructureConversionService structureConversionService;
@@ -121,6 +122,8 @@ public class DefaultStructureService implements StructureService {
                                 .failedFuture(new IllegalStateException("Structure must be Un-Published before Deleting"));
                     }
 
+                    this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedStructure(structure.getApplicationId(), structure.getId()));
+
                     return structureDAO.deleteById(structureId);
                 });
     }
@@ -190,7 +193,7 @@ public class DefaultStructureService implements StructureService {
                         structure.setUpdated(structure.getPublishedTimestamp());
                         return structureDAO.save(structure)
                                            .thenApply(structure1 -> {
-                                               cacheEvictionService.evictCachesFor(structure);
+                                               this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedStructure(structure1.getApplicationId(), structure1.getId()));
                                                return null;
                                            });
                     });
@@ -269,7 +272,7 @@ public class DefaultStructureService implements StructureService {
                         return updateFuture.thenCompose(v -> structureDAO
                                 .save(structure)
                                 .thenApply(structure1 -> {
-                                    cacheEvictionService.evictCachesFor(structure1);
+                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedStructure(structure1.getApplicationId(), structure1.getId()));
                                     return structure1;
                                 }));
                     } else {
@@ -319,7 +322,7 @@ public class DefaultStructureService implements StructureService {
                         structure.setUpdated(new Date());
                         return structureDAO.save(structure)
                                            .thenApply(structure1 -> {
-                                               cacheEvictionService.evictCachesFor(structure);
+                                               this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedStructure(structure1.getApplicationId(), structure1.getId()));
                                                return null;
                                            });
                     });

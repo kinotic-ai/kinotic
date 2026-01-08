@@ -22,12 +22,6 @@ import java.util.concurrent.CompletableFuture;
 public interface NamedQueriesService extends IdentifiableCrudService<NamedQueriesDefinition, String> {
 
     /**
-     * Evicts the cache for the given {@link NamedQueriesDefinition}
-     * @param namedQueriesDefinition to evict the cache for
-     */
-    void evictCachesFor(NamedQueriesDefinition namedQueriesDefinition);
-
-    /**
      * Executes a named query.
      *
      * @param structure       the {@link Structure} that this named query is defined for

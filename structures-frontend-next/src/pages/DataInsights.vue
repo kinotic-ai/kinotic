@@ -65,6 +65,7 @@ class DateRangeObservable {
 }
 declare global {
   interface Window {
+    // @ts-ignore
     globalDateRangeObservable: DateRangeObservable
   }
 }
@@ -100,6 +101,7 @@ export default class DataInsights extends Vue {
 
   mounted() {
     if (!window.globalDateRangeObservable) {
+      // @ts-ignore
       window.globalDateRangeObservable = new DateRangeObservable()
     }
     

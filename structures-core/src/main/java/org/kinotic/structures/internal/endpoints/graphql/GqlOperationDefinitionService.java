@@ -10,11 +10,6 @@ import java.util.List;
  */
 public interface GqlOperationDefinitionService {
 
-    /**
-     * Evicts the cache for a given {@link Structure}
-     * @param structure to evict the cache for
-     */
-    void evictCachesFor(Structure structure);
 
     /**
      * Returns the built-in operations that are always available, such as findById, findAll, etc...

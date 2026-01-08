@@ -1,14 +1,15 @@
 package org.kinotic.structures.internal.endpoints.graphql;
 
 import com.github.benmanes.caffeine.cache.AsyncCache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import graphql.ExecutionInput;
 import graphql.execution.preparsed.PreparsedDocumentEntry;
 import graphql.execution.preparsed.PreparsedDocumentProvider;
 
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+
+import org.kinotic.structures.auth.internal.services.DefaultCaffeineCacheFactory;
 
 /**
  * A PreparsedDocumentProvider that caches the results of parsing and validating a query.
@@ -16,10 +17,15 @@ import java.util.function.Function;
  */
 public class CachingPreparsedDocumentProvider implements PreparsedDocumentProvider {
 
-    private final AsyncCache<String, PreparsedDocumentEntry> cache  = Caffeine.newBuilder()
-                                                                              .expireAfterWrite(2, TimeUnit.HOURS)
-                                                                              .maximumSize(1000)
-                                                                              .buildAsync();
+    private final AsyncCache<String, PreparsedDocumentEntry> cache;
+
+    public CachingPreparsedDocumentProvider(DefaultCaffeineCacheFactory cacheFactory) {
+        this.cache = cacheFactory.<String, PreparsedDocumentEntry>newBuilder()
+                .name("preparsedDocumentCache")
+                .expireAfterWrite(Duration.ofHours(2))
+                .maximumSize(1000)
+                .buildAsync();
+    }
 
     @Override
     public CompletableFuture<PreparsedDocumentEntry> getDocumentAsync(ExecutionInput executionInput,
@@ -27,4 +33,5 @@ public class CachingPreparsedDocumentProvider implements PreparsedDocumentProvid
         Function<String, PreparsedDocumentEntry> mapCompute = key -> parseAndValidateFunction.apply(executionInput);
         return cache.get(executionInput.getQuery(), mapCompute);
     }
+
 }

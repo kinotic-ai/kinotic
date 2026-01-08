@@ -3,7 +3,6 @@ package org.kinotic.structures.internal.sample;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.CacheLoader;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import org.apache.commons.lang3.tuple.Pair;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.kinotic.continuum.idl.api.schema.ArrayC3Type;
@@ -15,6 +14,7 @@ import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.idl.decorators.*;
 import org.kinotic.structures.api.services.ApplicationService;
 import org.kinotic.structures.api.services.StructureService;
+import org.kinotic.structures.auth.internal.services.DefaultCaffeineCacheFactory;
 import org.kinotic.structures.internal.utils.StructuresUtil;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
@@ -44,12 +44,14 @@ public class TestDataService {
     public TestDataService(ApplicationService applicationService,
                            StructureService structureService,
                            ResourceLoader resourceLoader,
-                           ObjectMapper objectMapper) {
+                           ObjectMapper objectMapper,
+                           DefaultCaffeineCacheFactory cacheFactory) {
 
         this.applicationService = applicationService;
         this.structureService = structureService;
 
-        peopleCache = Caffeine.newBuilder()
+        peopleCache = cacheFactory.<String, List<Person>>newBuilder()
+                              .name("peopleCache")
                               .maximumSize(10)
                               .expireAfterAccess(Duration.ofMinutes(5))
                               .buildAsync(new PeopleCacheLoader(resourceLoader, objectMapper));

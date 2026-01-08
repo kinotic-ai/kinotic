@@ -84,12 +84,6 @@ public interface EntitiesService {
     CompletableFuture<Void> deleteByQuery(String structureId, String query, EntityContext context);
 
     /**
-     * Evicts the cache for a given structure
-     * @param structure to evict the cache for
-     */
-    void evictCachesFor(Structure structure);
-
-    /**
      * Returns a {@link Page} of entities meeting the paging restriction provided in the {@code Pageable} object.
      *
      * @param structureId the id of the structure to find the entity for. (this is the {@link Structure#getApplicationId()} + "." + {@link Structure#getName()})

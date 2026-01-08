@@ -2,21 +2,26 @@ package org.kinotic.structures.internal.endpoints.graphql;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import graphql.language.OperationDefinition;
 import graphql.scalars.ExtendedScalars;
 import graphql.schema.GraphQLFieldDefinition;
+import lombok.extern.slf4j.Slf4j;
+
 import org.kinotic.structures.api.domain.EntityOperation;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.idl.decorators.EntityServiceDecorator;
 import org.kinotic.structures.api.domain.idl.decorators.PolicyDecorator;
 import org.kinotic.structures.api.services.EntitiesService;
+import org.kinotic.structures.auth.internal.services.DefaultCaffeineCacheFactory;
+import org.kinotic.structures.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.structures.internal.endpoints.graphql.datafetchers.*;
 import org.kinotic.structures.internal.utils.GqlUtils;
+import org.springframework.context.ApplicationEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static graphql.Scalars.*;
 import static graphql.schema.GraphQLArgument.newArgument;
@@ -27,6 +32,7 @@ import static graphql.schema.GraphQLNonNull.nonNull;
 /**
  * Created by Navíd Mitchell 🤪 on 12/14/23.
  */
+@Slf4j
 @Component
 public class DefaultGqlOperationDefinitionService implements GqlOperationDefinitionService {
 
@@ -35,11 +41,13 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
 
     public DefaultGqlOperationDefinitionService(EntitiesService entitiesService,
                                                 NamedQueryGqlOperationDefinitionCacheLoader namedQueryGqlOperationDefinitionCacheLoader,
-                                                ObjectMapper objectMapper) {
+                                                ObjectMapper objectMapper,
+                                                DefaultCaffeineCacheFactory cacheFactory) {
 
         namedQueryOperationDefinitionCache
-                = Caffeine.newBuilder()
-                          .expireAfterAccess(1, TimeUnit.HOURS)
+                = cacheFactory.<String, List<GqlOperationDefinition>>newBuilder()
+                          .name("namedQueryOperationDefinitionCache")
+                          .expireAfterAccess(Duration.ofHours(1))
                           .maximumSize(2000)
                           .buildAsync(namedQueryGqlOperationDefinitionCacheLoader);
 
@@ -254,9 +262,31 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
     }
 
 
-    @Override
-    public void evictCachesFor(Structure structure) {
-        namedQueryOperationDefinitionCache.asMap().remove(structure.getId());
+    /**
+     * Evicts the caches for a application event.  This can be a modification or deletion of a named query or a structure.
+     * @param event the event containing the structure or named query to evict the caches for
+     */
+    @EventListener
+    public void handleCacheEviction(ApplicationEvent event) {
+
+        try {
+            // we need to clear on both eviction types 
+            if(event instanceof CacheEvictionEvent cacheEvictionEvent){
+
+                if(cacheEvictionEvent.getStructureId() != null){
+                    namedQueryOperationDefinitionCache.asMap().remove(cacheEvictionEvent.getStructureId());
+
+                    log.info("Successfully completed ordered cache eviction for structure: {}:{}:{} due to {} {} {}", 
+                                    cacheEvictionEvent.getApplicationId(), cacheEvictionEvent.getStructureId(), cacheEvictionEvent.getNamedQueryId(), 
+                                    cacheEvictionEvent.getEvictionSourceType(), cacheEvictionEvent.getEvictionOperation(), cacheEvictionEvent.getEvictionSource().getDisplayName());
+                }
+
+            }
+            
+        } catch (Exception e) {
+            log.error("Failed to handle cache eviction (source: {})", 
+                     event.getSource(), e);
+        }
     }
 
     @Override

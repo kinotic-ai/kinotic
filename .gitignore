@@ -84,6 +84,8 @@ structures-js/structures-cli/yalc.lock
 
 structures-js/structures-e2e/test/services/generated/
 
+allure-results/
+
 structures-sql/allure-results/
 
 structures-auth/allure-results/
@@ -95,3 +97,11 @@ structures-server/src/main/resources/webroot/
 structures-server/src/main/resources/webroot2/
 
 .vscode/chrome-debug-profile/
+
+# KinD cluster local overrides (not for source control)
+dev-tools/kind/config/helm-values.local.yaml
+
+# Eviction tracking data (generated during testing)
+dev-tools/kind/eviction-data/
+eviction-data/
+**/eviction-events*.csv

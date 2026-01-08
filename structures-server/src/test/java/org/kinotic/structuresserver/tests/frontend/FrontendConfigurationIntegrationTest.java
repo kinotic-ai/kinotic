@@ -7,7 +7,6 @@ import org.kinotic.structures.api.config.StructuresProperties;
 import org.kinotic.structures.auth.api.config.OidcSecurityServiceProperties;
 import org.kinotic.structuresserver.ElasticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
@@ -18,9 +17,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * This test boots up the actual application and tests the real configuration endpoint.
  */
 public class FrontendConfigurationIntegrationTest extends ElasticTestBase {
-
-    @Value("${server.port}")
-    private int port = 8990;
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();

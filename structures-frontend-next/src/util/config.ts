@@ -144,9 +144,15 @@ class ConfigService {
 
   // Helper methods to get specific config values
 
-  async getEnabledOidcProviders() {
+  async getEnabledOidcProviders(): Promise<OidcProvider[]> {
     const config = await this.loadConfig();
-    return config?.oidcProviders.filter(provider => provider.enabled) || [];
+    if(config 
+      && config.oidcProviders 
+      && Array.isArray(config.oidcProviders)
+      && config.oidcProviders.length > 0){
+      return config.oidcProviders.filter(provider => provider.enabled) as OidcProvider[];
+    }
+    return [];
   }
 
   async getOidcProviderByName(providerName: string): Promise<OidcProvider | undefined> {

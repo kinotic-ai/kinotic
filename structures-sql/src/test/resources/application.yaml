@@ -1,3 +1,9 @@
 
 structures-sql-test:
-    enabled: true
+  enabled: true
+
+structures-core-test:
+  enabled: false
+
+oidc-security-service:
+  enabled: false
