@@ -54,7 +54,7 @@ bootBuildImage {
     // builder = "paketobuildpacks/ubuntu-noble-builder"
     docker {
         // Use standard Docker socket to avoid API version issues
-        host = System.getenv("DOCKER_HOST") ?: "unix:///var/run/docker.sock"
+        // host = System.getenv("DOCKER_HOST") ?: "unix:///var/run/docker.sock"
         
         publishRegistry {
             username = System.getenv("DOCKER_HUB_USERNAME")
