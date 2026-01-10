@@ -134,7 +134,8 @@ const deleteDashboard = async () => {
 
   try {
     
-    const result = await dashboardService.deleteById(selectedDashboard.value.id)
+    // const _result = await dashboardService.deleteById(selectedDashboard.value.id)
+    await dashboardService.deleteById(selectedDashboard.value.id)
     
     toast.add({ severity: 'success', summary: 'Success', detail: 'Dashboard deleted successfully', life: 3000 })
     

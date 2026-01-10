@@ -1,6 +1,5 @@
 package org.kinotic.structures.api.config;
 
-
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
@@ -121,6 +120,12 @@ public class StructuresProperties {
      * MCP server configuration
      */
     private Integer mcpPort = 3001;
+
+    /**
+     * Cluster eviction configuration
+     */
+    private ClusterEvictionProperties clusterEviction = new ClusterEvictionProperties();
+
 
     public boolean hasElasticUsernameAndPassword(){
         return elasticUsername != null && !elasticUsername.isBlank() && elasticPassword != null && !elasticPassword.isBlank();

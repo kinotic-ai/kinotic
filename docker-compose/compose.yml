@@ -6,7 +6,7 @@ services:
   structures-server:
     container_name: structures-server
     pull_policy: always
-    image: kinotic/structures-server:${structuresVersion:-3.5.0-SNAPSHOT}
+    image: kinotic/structures-server:${structuresVersion:-3.5.1-SNAPSHOT}
     depends_on:
       structures-elasticsearch:
         condition: service_healthy

@@ -9,14 +9,20 @@ importers:
   .:
     dependencies:
       '@kinotic/continuum-client':
-        specifier: ^2.14.4
+        specifier: 2.14.4
         version: 2.14.4(reflect-metadata@0.2.2)
       '@kinotic/continuum-idl':
-        specifier: ^2.0.3
-        version: 2.0.3
+        specifier: ^2.0.4
+        version: 2.0.4
       '@kinotic/structures-api':
-        specifier: ^3.5.0-beta.15
-        version: 3.5.0-beta.15(@kinotic/continuum-client@2.14.4(reflect-metadata@0.2.2))
+        specifier: ^3.5.0-beta.16
+        version: 3.5.0-beta.16(@kinotic/continuum-client@2.14.4(reflect-metadata@0.2.2))
+      '@stomp/rx-stomp':
+        specifier: 2.1.0
+        version: 2.1.0(@stomp/stompjs@7.2.1)(rxjs@7.8.2)(uuid@11.1.0)
+      '@stomp/stompjs':
+        specifier: 7.2.1
+        version: 7.2.1
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -495,13 +501,13 @@ packages:
     peerDependencies:
       reflect-metadata: ^0.2.2
 
-  '@kinotic/continuum-idl@2.0.3':
-    resolution: {integrity: sha512-aqW9j5hmhrhP2gGBfbdi+4N/IkbmnNsL8u9Jkrdn3g/pSgkDn+BUq8kC8vn1eBjMy70200MQmPPXVVeswfrM1Q==}
+  '@kinotic/continuum-idl@2.0.4':
+    resolution: {integrity: sha512-akXcSw6Pw6hdorPV1lU2RXvMS+kpWZQnzfZv3GysyUrVU8IAZU5N1FmBM8QmthJUz+SXNdHgYzuireaV8aLtAw==}
 
-  '@kinotic/structures-api@3.5.0-beta.15':
-    resolution: {integrity: sha512-/MJfAKW5Gib/mjjVI6+7WmyHJQ8IbKdSlydHT/1WqOEyAxJ/z+/FwoeAmaBqPomsoAfcDFR8Eq4BLNi+pcjt8Q==}
+  '@kinotic/structures-api@3.5.0-beta.16':
+    resolution: {integrity: sha512-k6noklv9NRC3NEwUO/A4439cYFWLcVSiAi88D7hztG1Uh+O80uMHLRkGFSc/qgiMr6xIoN40Xo0zN1t89OzNFA==}
     peerDependencies:
-      '@kinotic/continuum-client': ^2.14.0
+      '@kinotic/continuum-client': ^2.14.5
 
   '@kinotic/structures-cli@3.5.0-beta.6':
     resolution: {integrity: sha512-F+fZcDPyour7IM24UlnCWEQ+1W111IgR+A/IsbvtBkqCGs7NUFedr0R5zQZxkyG1d5y8xhkseB/9riqSYyTElw==}
@@ -716,15 +722,15 @@ packages:
     resolution: {integrity: sha512-TV7t8GKYaJWsn00tFDqBw8+Uqmr8A0fRU1tvTQhyZzGv0sJCGRQL3JGMI3ucuKo3XIZdUP+Lx7/gh2t3lewy7g==}
     engines: {node: '>=14.16'}
 
-  '@stomp/rx-stomp@2.0.1':
-    resolution: {integrity: sha512-wcRrqXqqLOOTWQrUTv9WIzcRmVeoYJM/824PVDjRVLgkP+pCVlp0CO4BsM/uisDWerX02M+Ly6Dzn3HKnj5vyQ==}
+  '@stomp/rx-stomp@2.1.0':
+    resolution: {integrity: sha512-bDdVDHZaJ232gSXqdHLG1ANiZaqbVcPvKVKPTWLMHwkq8oBs9F4KFRmW8n1j66i3vE5sfojsQJz3u3enEUgWwA==}
     peerDependencies:
-      '@stomp/stompjs': ^7.0.0
+      '@stomp/stompjs': ^7.2.0
       rxjs: ^7.2.0
       uuid: '>=9.0.0 <12.0.0'
 
-  '@stomp/stompjs@7.1.1':
-    resolution: {integrity: sha512-chcDs6YkAnKp1FqzwhGvh3i7v0+/ytzqWdKYw6XzINEKAzke/iD00dNgFPWSZEqktHOK+C1gSzXhLkLbARIaZw==}
+  '@stomp/stompjs@7.2.1':
+    resolution: {integrity: sha512-DLd/WeicnHS5SsWWSk3x6/pcivqchNaEvg9UEGVqAcfYEBVmS9D6980ckXjTtfpXLjdLDsd96M7IuX4w7nzq5g==}
 
   '@szmarczak/http-timer@5.0.1':
     resolution: {integrity: sha512-+PmQX0PiAYPMeVYe237LJAYvOMYW1j2rH5YROyS3b4CTVJum34HfRvKvAzozHAQG0TnHNdUfY9nCeUyRAs//cw==}
@@ -3080,8 +3086,8 @@ snapshots:
     dependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/semantic-conventions': 1.34.0
-      '@stomp/rx-stomp': 2.0.1(@stomp/stompjs@7.1.1)(rxjs@7.8.2)(uuid@11.1.0)
-      '@stomp/stompjs': 7.1.1
+      '@stomp/rx-stomp': 2.1.0(@stomp/stompjs@7.2.1)(rxjs@7.8.2)(uuid@11.1.0)
+      '@stomp/stompjs': 7.2.1
       '@types/debug': 4.1.12
       debug: 4.4.1
       elliptic: 6.6.1
@@ -3093,12 +3099,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@kinotic/continuum-idl@2.0.3': {}
+  '@kinotic/continuum-idl@2.0.4': {}
 
-  '@kinotic/structures-api@3.5.0-beta.15(@kinotic/continuum-client@2.14.4(reflect-metadata@0.2.2))':
+  '@kinotic/structures-api@3.5.0-beta.16(@kinotic/continuum-client@2.14.4(reflect-metadata@0.2.2))':
     dependencies:
       '@kinotic/continuum-client': 2.14.4(reflect-metadata@0.2.2)
-      '@kinotic/continuum-idl': 2.0.3
+      '@kinotic/continuum-idl': 2.0.4
       reflect-metadata: 0.2.2
       rxjs: 7.8.2
 
@@ -3106,8 +3112,8 @@ snapshots:
     dependencies:
       '@inquirer/prompts': 7.8.6(@types/node@24.2.0)
       '@kinotic/continuum-client': 2.14.4(reflect-metadata@0.2.2)
-      '@kinotic/continuum-idl': 2.0.3
-      '@kinotic/structures-api': 3.5.0-beta.15(@kinotic/continuum-client@2.14.4(reflect-metadata@0.2.2))
+      '@kinotic/continuum-idl': 2.0.4
+      '@kinotic/structures-api': 3.5.0-beta.16(@kinotic/continuum-client@2.14.4(reflect-metadata@0.2.2))
       '@oclif/core': 4.5.4
       '@oclif/plugin-autocomplete': 3.2.35
       '@oclif/plugin-help': 6.2.24
@@ -3162,7 +3168,7 @@ snapshots:
       is-wsl: 2.2.0
       lilconfig: 3.1.3
       minimatch: 9.0.5
-      semver: 7.7.1
+      semver: 7.7.2
       string-width: 4.2.3
       supports-color: 8.1.1
       tinyglobby: 0.2.14
@@ -3361,13 +3367,13 @@ snapshots:
 
   '@sindresorhus/is@5.6.0': {}
 
-  '@stomp/rx-stomp@2.0.1(@stomp/stompjs@7.1.1)(rxjs@7.8.2)(uuid@11.1.0)':
+  '@stomp/rx-stomp@2.1.0(@stomp/stompjs@7.2.1)(rxjs@7.8.2)(uuid@11.1.0)':
     dependencies:
-      '@stomp/stompjs': 7.1.1
+      '@stomp/stompjs': 7.2.1
       rxjs: 7.8.2
       uuid: 11.1.0
 
-  '@stomp/stompjs@7.1.1': {}
+  '@stomp/stompjs@7.2.1': {}
 
   '@szmarczak/http-timer@5.0.1':
     dependencies:

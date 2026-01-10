@@ -1,0 +1,200 @@
+include:
+  - compose.ek-stack.yml
+  - compose-otel.yml
+
+services:
+  # 3-node Structures cluster for testing cache eviction
+  
+  structures-node1:
+    container_name: structures-node1
+    image: kinotic/structures-server:${structuresVersion:-3.5.0-SNAPSHOT}
+    depends_on:
+      structures-elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/workspace/health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    ports:
+      - "127.0.0.1:9091:9090" # UI PORT
+      - "127.0.0.1:4001:4000" # GraphQL Port
+      - "127.0.0.1:8081:8080" # OpenAPI Port
+    environment:
+      BPL_JVM_HEAD_ROOM: 10
+      JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
+      CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
+      THC_PORT: 9090
+      SPRING_PROFILES_ACTIVE: production
+      
+      # Structures Configuration
+      STRUCTURES_TENANT_ID_FIELD_NAME: tenantId
+      STRUCTURES_ELASTICCONNECTIONS_0_SCHEME: http
+      STRUCTURES_ELASTICCONNECTIONS_0_HOST: structures-elasticsearch
+      STRUCTURES_ELASTICCONNECTIONS_0_PORT: 9200
+      STRUCTURES_BASE_URL: http://127.0.0.1
+      STRUCTURES_OPEN_API_PORT: 8080
+      STRUCTURES_OPEN_API_PATH: /api/
+      STRUCTURES_GRAPHQL_PORT: 4000
+      STRUCTURES_GRAPHQL_PATH: /graphql/
+      STRUCTURES_WEB_SERVER_PORT: 9090
+      STRUCTURES_HEALTH_CHECK_PATH: /health/
+      STRUCTURES_INITIALIZE_WITH_SAMPLE_DATA: true
+      STRUCTURES_ENABLE_STATIC_FILE_SERVER: true
+      
+      # Apache Ignite Cluster Configuration
+      STRUCTURES_CLUSTER_DISCOVERY_TYPE: SHAREDFS
+      STRUCTURES_CLUSTER_SHARED_FS_PATH: /tmp/structures
+      STRUCTURES_CLUSTER_DISCOVERY_PORT: 47500
+      STRUCTURES_CLUSTER_COMMUNICATION_PORT: 47100
+      STRUCTURES_CLUSTER_JOIN_TIMEOUT_MS: 30000
+      
+      # OpenTelemetry Configuration
+      OTEL_SERVICE_NAME: structures-node1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_RESOURCE_ATTRIBUTES: service.name=structures-node1,service.instance.id=node1
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+    stdin_open: true
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          memory: 3G
+        limits:
+          memory: 3G
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  structures-node2:
+    container_name: structures-node2
+    image: kinotic/structures-server:${structuresVersion:-3.5.0-SNAPSHOT}
+    depends_on:
+      structures-elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/workspace/health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    ports:
+      - "127.0.0.1:9092:9090" # UI PORT
+      - "127.0.0.1:4002:4000" # GraphQL Port
+      - "127.0.0.1:8082:8080" # OpenAPI Port
+    environment:
+      BPL_JVM_HEAD_ROOM: 10
+      JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
+      CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
+      THC_PORT: 9090
+      SPRING_PROFILES_ACTIVE: production
+      
+      # Structures Configuration
+      STRUCTURES_TENANT_ID_FIELD_NAME: tenantId
+      STRUCTURES_ELASTICCONNECTIONS_0_SCHEME: http
+      STRUCTURES_ELASTICCONNECTIONS_0_HOST: structures-elasticsearch
+      STRUCTURES_ELASTICCONNECTIONS_0_PORT: 9200
+      STRUCTURES_BASE_URL: http://127.0.0.1
+      STRUCTURES_OPEN_API_PORT: 8080
+      STRUCTURES_OPEN_API_PATH: /api/
+      STRUCTURES_GRAPHQL_PORT: 4000
+      STRUCTURES_GRAPHQL_PATH: /graphql/
+      STRUCTURES_WEB_SERVER_PORT: 9090
+      STRUCTURES_HEALTH_CHECK_PATH: /health/
+      STRUCTURES_INITIALIZE_WITH_SAMPLE_DATA: false  # Only initialize on node1
+      STRUCTURES_ENABLE_STATIC_FILE_SERVER: true
+      
+      # Apache Ignite Cluster Configuration
+      STRUCTURES_CLUSTER_DISCOVERY_TYPE: sharedfs
+      STRUCTURES_CLUSTER_SHARED_FS_PATH: /tmp/structures
+      STRUCTURES_CLUSTER_DISCOVERY_PORT: 47500
+      STRUCTURES_CLUSTER_COMMUNICATION_PORT: 47100
+      STRUCTURES_CLUSTER_JOIN_TIMEOUT_MS: 30000
+      
+      # OpenTelemetry Configuration
+      OTEL_SERVICE_NAME: structures-node2
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_RESOURCE_ATTRIBUTES: service.name=structures-node2,service.instance.id=node2
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+    stdin_open: true
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          memory: 3G
+        limits:
+          memory: 3G
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  structures-node3:
+    container_name: structures-node3
+    image: kinotic/structures-server:${structuresVersion:-3.5.0-SNAPSHOT}
+    depends_on:
+      structures-elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/workspace/health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    ports:
+      - "127.0.0.1:9093:9090" # UI PORT
+      - "127.0.0.1:4003:4000" # GraphQL Port
+      - "127.0.0.1:8083:8080" # OpenAPI Port
+    environment:
+      BPL_JVM_HEAD_ROOM: 10
+      JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
+      CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
+      THC_PORT: 9090
+      SPRING_PROFILES_ACTIVE: production
+      
+      # Structures Configuration
+      STRUCTURES_TENANT_ID_FIELD_NAME: tenantId
+      STRUCTURES_ELASTICCONNECTIONS_0_SCHEME: http
+      STRUCTURES_ELASTICCONNECTIONS_0_HOST: structures-elasticsearch
+      STRUCTURES_ELASTICCONNECTIONS_0_PORT: 9200
+      STRUCTURES_BASE_URL: http://127.0.0.1
+      STRUCTURES_OPEN_API_PORT: 8080
+      STRUCTURES_OPEN_API_PATH: /api/
+      STRUCTURES_GRAPHQL_PORT: 4000
+      STRUCTURES_GRAPHQL_PATH: /graphql/
+      STRUCTURES_WEB_SERVER_PORT: 9090
+      STRUCTURES_HEALTH_CHECK_PATH: /health/
+      STRUCTURES_INITIALIZE_WITH_SAMPLE_DATA: false  # Only initialize on node1
+      STRUCTURES_ENABLE_STATIC_FILE_SERVER: true
+      
+      # Apache Ignite Cluster Configuration
+      STRUCTURES_CLUSTER_DISCOVERY_TYPE: SHAREDFS
+      STRUCTURES_CLUSTER_SHARED_FS_PATH: /tmp/structures
+      STRUCTURES_CLUSTER_DISCOVERY_PORT: 47500
+      STRUCTURES_CLUSTER_COMMUNICATION_PORT: 47100
+      STRUCTURES_CLUSTER_JOIN_TIMEOUT_MS: 30000
+      
+      # OpenTelemetry Configuration
+      OTEL_SERVICE_NAME: structures-node3
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_RESOURCE_ATTRIBUTES: service.name=structures-node3,service.instance.id=node3
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+    stdin_open: true
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          memory: 3G
+        limits:
+          memory: 3G
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+

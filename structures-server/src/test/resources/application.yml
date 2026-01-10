@@ -33,3 +33,8 @@ logging:
 server:
   port: 8989
 
+structures-core-test:
+  enabled: false
+
+structures-sql-test:
+    enabled: false

@@ -1,0 +1,59 @@
+{{- if and .Values.ingress.enabled .Values.ingress.tls.enabled }}
+{{- if not .Values.ingress.tls.existingSecret }}
+# ============================================================================
+# cert-manager TLS Configuration
+# ============================================================================
+#
+# This template creates:
+#   1. A self-signed ClusterIssuer for generating certificates
+#   2. A Certificate resource that creates the TLS secret
+#
+# These resources are only created when:
+#   - ingress.enabled = true
+#   - ingress.tls.enabled = true
+#   - ingress.tls.existingSecret = false (no mkcert or external cert provided)
+#
+# For local development with mkcert, set ingress.tls.existingSecret = true
+# and the deploy script will create the secret before helm install.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Self-signed ClusterIssuer
+# ----------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: structures-selfsigned-issuer
+  labels:
+    app: {{ include "structures-server.name" . }}
+spec:
+  selfSigned: {}
+---
+# ----------------------------------------------------------------------------
+# Certificate for structures ingress
+# ----------------------------------------------------------------------------
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "structures-server.fullname" . }}-tls
+  labels:
+    app: {{ include "structures-server.name" . }}
+spec:
+  secretName: {{ .Values.ingress.tls.secretName }}
+  issuerRef:
+    name: structures-selfsigned-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    {{- range .Values.ingress.hosts }}
+    - {{ . | quote }}
+    {{- end }}
+  # Certificate validity: 1 year
+  duration: 8760h
+  # Renew 30 days before expiry
+  renewBefore: 720h
+  privateKey:
+    algorithm: RSA
+    size: 2048
+{{- end }}
+{{- end }}
+

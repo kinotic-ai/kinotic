@@ -43,6 +43,13 @@ dependencyManagement {
 
         dependency "com.graphql-java:graphql-java:${graphQlJavaVersion}"
 
+        // LOOK: these two below are (at the moment) only required for importing the local 
+        // continuum projects into this project.
+        // dependency "io.vertx:vertx-mqtt:${vertxVersion}"
+        // dependency "org.kinotic:vertx-stomp-lite:${vertxStompLiteVersion}"
+        dependency "javax.annotation:javax.annotation-api:${javaxAnnotationApi}"
+
+
         dependency "io.vertx:vertx-web:${vertxVersion}"
         dependency "io.vertx:vertx-web-graphql:${vertxVersion}"
         dependency "io.vertx:vertx-web-client:${vertxVersion}"
@@ -53,6 +60,7 @@ dependencyManagement {
         dependency "org.apache.commons:commons-compress:${commonsCompressVersion}"
 
         dependency "org.apache.ignite:ignite-core:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
 
         dependency "org.apache.lucene:lucene-analyzers-common:${luceneVersion}"
         dependency "org.apache.lucene:lucene-backwards-codecs:${luceneVersion}"
@@ -104,12 +112,12 @@ dependencies {
     testImplementation "io.qameta.allure:allure-junit5"
     testImplementation 'org.junit.jupiter:junit-jupiter-api'
     testImplementation 'org.junit.jupiter:junit-jupiter-engine'
-
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 test {
     useJUnitPlatform()
-    environment("JAVA_TOOL_OPTIONS", "-javaagent:${configurations.agent.singleFile} --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED --add-opens=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED")
+    environment("JAVA_TOOL_OPTIONS", "-javaagent:${configurations.agent.singleFile} --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED")
 }
 
 java {

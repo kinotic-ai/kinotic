@@ -69,7 +69,4 @@ declare module 'vue' {
     Toolbar: typeof import('primevue/toolbar')['default']
     UnionNode: typeof import('./src/components/nodes/UnionNode.vue')['default']
   }
-  export interface GlobalDirectives {
-    Tooltip: typeof import('primevue/tooltip')['default']
-  }
 }

@@ -43,6 +43,7 @@ jobs:
         continue-on-error: true
         env:
           TESTCONTAINERS_RYUK_DISABLED: true
+          SPRING_PROFILES_ACTIVE: test,ci
         run: ./gradlew build
 
       - name: Publish to Maven Central with JReleaser
@@ -85,7 +86,7 @@ jobs:
           path: gh-pages
 
       - name: Generate Allure report
-        uses: simple-elf/allure-report-action@v1.11
+        uses: simple-elf/allure-report-action@v1.13
         id: allure-report
         with:
           allure_results: allure-results

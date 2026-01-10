@@ -322,4 +322,13 @@ export class AuthenticationService {
       return false;
     }
   }
+
+  async isDebugEnabled(): Promise<boolean> {
+    try {
+      return await configService.isDebugEnabled();
+    } catch (error) {
+      console.error('Failed to check debug mode:', error);
+      return false;
+    }
+  }
 }

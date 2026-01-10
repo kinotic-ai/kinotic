@@ -1,6 +1,5 @@
 {
     "npm.packageManager": "pnpm",
-    "spring-boot.ls.java.home": "${userHome}/.sdkman/candidates/java/21.0.7-ms",
     "gradle.debug": true,
     "gradle.autoDetect": "on",
     "gradle.nestedProjects": false,

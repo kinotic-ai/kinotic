@@ -1,37 +1,66 @@
 package org.kinotic.structures.internal.api.services.impl;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import lombok.extern.slf4j.Slf4j;
+
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
 import org.kinotic.structures.api.domain.EntityContext;
-import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.TenantSpecificId;
 import org.kinotic.structures.api.services.EntitiesService;
+import org.kinotic.structures.auth.internal.services.DefaultCaffeineCacheFactory;
 import org.kinotic.structures.internal.api.services.EntityService;
+import org.kinotic.structures.internal.cache.events.CacheEvictionEvent;
+import org.kinotic.structures.internal.cache.events.EvictionSourceType;
 import org.kinotic.structures.api.domain.ParameterHolder;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Created by Navíd Mitchell 🤪on 5/10/23.
  */
+@Slf4j
 @Component
 public class DefaultEntitiesService implements EntitiesService {
 
     private final AsyncLoadingCache<String, EntityService> entityServiceCache;
 
-    public DefaultEntitiesService(EntityServiceCacheLoader entityServiceCacheLoader) {
+    public DefaultEntitiesService(EntityServiceCacheLoader entityServiceCacheLoader,
+                                  DefaultCaffeineCacheFactory cacheFactory) {
         this.entityServiceCache
-                = Caffeine.newBuilder()
-                          .expireAfterAccess(20, TimeUnit.HOURS)
+                = cacheFactory.<String, EntityService>newBuilder()
+                          .name("entityServiceCache")
+                          .expireAfterAccess(Duration.ofHours(20))
                           .maximumSize(2000)
-                          .buildAsync(entityServiceCacheLoader);;
+                          .buildAsync(entityServiceCacheLoader);
+    }
+
+    /**
+     * Evicts the caches for a given structure, this is used when a structure is updated on a remote node.
+     * @param event the event containing the structure to evict the caches for
+     */
+    @EventListener
+    public void handleStructureCacheEviction(CacheEvictionEvent event) {
+
+        try {
+                
+            if(event.getEvictionSourceType() == EvictionSourceType.STRUCTURE){
+                this.entityServiceCache.asMap().remove(event.getStructureId());
+
+                log.info("successfully completed cache eviction for structure: {} due to {}", 
+                                 event.getStructureId(), event.getEvictionOperation().getDisplayName());
+            }
+                    
+        } catch (Exception e) {
+            log.error("failed to handle structure cache eviction (source: {})", 
+                     event.getEvictionSource().getDisplayName(), e);
+        }
     }
 
     @WithSpan
@@ -91,11 +120,6 @@ public class DefaultEntitiesService implements EntitiesService {
                                                  EntityContext context) {
         return entityServiceCache.get(structureId)
                 .thenCompose(entityService -> entityService.deleteByQuery(query, context));
-    }
-
-    @Override
-    public void evictCachesFor(Structure structure) {
-        this.entityServiceCache.asMap().remove(structure.getId());
     }
 
     @WithSpan
@@ -204,5 +228,12 @@ public class DefaultEntitiesService implements EntitiesService {
                                            EntityContext context) {
         return entityServiceCache.get(structureId)
                 .thenCompose(entityService -> entityService.update(entity, context));
+    }
+
+    /**
+     * Public accessor for testing cache state
+     */
+    public AsyncLoadingCache<String, EntityService> getEntityServiceCache() {
+        return entityServiceCache;
     }
 }

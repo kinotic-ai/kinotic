@@ -168,6 +168,7 @@
 </template>
 
 <script setup lang="ts">
+// @ts-ignore
 import { ref, defineProps, onMounted, watch, computed } from 'vue'
 import { InputText, Textarea, Button, ToggleButton, Tabs, TabList, Tab, TabPanels, TabPanel, Dialog, IconField, InputIcon } from 'primevue'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
@@ -334,12 +335,12 @@ const filteredWidgets = computed(() => {
   
   const searchLower = widgetSearchText.value.toLowerCase()
   return savedWidgets.value.filter(widget => {
-    const name = widget.name?.toLowerCase() || ''
-    const description = widget.description?.toLowerCase() || ''
-    const widgetType = widget.widgetType?.toLowerCase() || ''
-    
+    const name = (widget as any).name?.toLowerCase() || ''
+    const description = (widget as any).description?.toLowerCase() || ''
+    const widgetType = (widget as any).widgetType?.toLowerCase() || ''
+      
     try {
-      const config = JSON.parse(widget.config || '{}')
+      const config = JSON.parse((widget as any).config || '{}')
       const aiTitle = config.aiTitle?.toLowerCase() || ''
       const aiSubtitle = config.aiSubtitle?.toLowerCase() || ''
       
