@@ -9,9 +9,9 @@ dependencies {
 	implementation project(':structures-auth')
 
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-json'
-	implementation 'org.springframework.boot:spring-boot-autoconfigure'
+	implementation 'org.springframework.boot:spring-boot-starter-jackson'
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	implementation 'org.springframework.boot:spring-boot-autoconfigure'
 	implementation 'org.reactivestreams:reactive-streams'
 	implementation 'io.projectreactor:reactor-core'
 
@@ -21,29 +21,41 @@ dependencies {
 	implementation 'org.springframework.ai:spring-ai-mcp'
 	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 	
-	implementation "io.vertx:vertx-web"
-	implementation "io.vertx:vertx-web-graphql"
-	implementation "io.vertx:vertx-web-client"
-	implementation "io.vertx:vertx-health-check"
-	implementation "me.escoffier.vertx:vertx-completable-future"
+	implementation ("io.vertx:vertx-web"){
+		exclude group: 'com.fasterxml.jackson.core'
+	}
+	implementation ("io.vertx:vertx-web-graphql"){
+		exclude group: 'com.fasterxml.jackson.core'
+	}
+	implementation ("io.vertx:vertx-web-client"){
+		exclude group: 'com.fasterxml.jackson.core'
+	}
+	implementation ("io.vertx:vertx-health-check"){
+		exclude group: 'com.fasterxml.jackson.core'
+	}
 
-	implementation 'org.apache.ignite:ignite-core'
-	implementation 'org.apache.ignite:ignite-kubernetes'
+	implementation ('org.apache.ignite:ignite-core'){
+		exclude group: 'com.fasterxml.jackson.core'
+	}
+	implementation ('org.apache.ignite:ignite-kubernetes'){
+		exclude group: 'com.fasterxml.jackson.core'
+	}
 
-	implementation "org.kinotic:continuum-core"
-	implementation "org.kinotic:continuum-core-vertx"
-	implementation "org.kinotic:continuum-gateway"
-	implementation "org.kinotic:continuum-idl"
-
-	implementation 'com.fasterxml.jackson.core:jackson-annotations'
-	implementation 'com.fasterxml.jackson.core:jackson-core'
-	implementation 'com.fasterxml.jackson.core:jackson-databind'
+	implementation "org.mindignited:continuum-core"
+	implementation "org.mindignited:continuum-core-vertx"
+	implementation "org.mindignited:continuum-gateway"
+	implementation "org.mindignited:continuum-idl"
 
 	implementation "com.github.ben-manes.caffeine:caffeine"
 
 	implementation "com.graphql-java:graphql-java"
 	implementation "com.apollographql.federation:federation-graphql-java-support:${graphQlFederationJvmVersion}"
 	implementation "com.graphql-java:graphql-java-extended-scalars:${graphQlJavaExtendedScalarsVersion}"
+
+	// Json
+	api 'com.fasterxml.jackson.core:jackson-annotations'
+	api 'tools.jackson.core:jackson-core'
+	api 'tools.jackson.core:jackson-databind'
 
 	implementation "io.swagger.core.v3:swagger-models:${swaggerCoreVersion}"
 	implementation "io.swagger.core.v3:swagger-core:${swaggerCoreVersion}"

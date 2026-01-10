@@ -4,26 +4,22 @@ plugins {
 }
 
 dependencies {
-
-	implementation project(':structures-api')
-
 	implementation 'org.springframework.boot:spring-boot-autoconfigure'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
 	implementation 'io.jsonwebtoken:jjwt-api'
 	implementation 'io.jsonwebtoken:jjwt-impl'
-	implementation 'io.jsonwebtoken:jjwt-jackson'
+	implementation ('io.jsonwebtoken:jjwt-jackson'){
+		exclude group: 'com.fassterxml.jackson.core'
+	}
 
 	implementation "com.github.ben-manes.caffeine:caffeine"
-
-    implementation "javax.annotation:javax.annotation-api"
 
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'io.projectreactor:reactor-test'
-    testImplementation 'com.fasterxml.jackson.core:jackson-databind'
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
     testImplementation "org.testcontainers:junit-jupiter:${testContainersVersion}"
 	testImplementation "org.testcontainers:elasticsearch:${testContainersVersion}"

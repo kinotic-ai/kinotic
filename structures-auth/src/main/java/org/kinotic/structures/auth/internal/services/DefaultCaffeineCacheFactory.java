@@ -1,24 +1,21 @@
 package org.kinotic.structures.auth.internal.services;
 
 import com.github.benmanes.caffeine.cache.*;
-import com.github.benmanes.caffeine.cache.Caffeine;
-
-import java.time.Duration;
-import java.util.Optional;
-import java.util.concurrent.Executor;
-
+import lombok.extern.slf4j.Slf4j;
 import org.kinotic.structures.auth.api.domain.EvictionEvent;
 import org.kinotic.structures.auth.api.services.CaffeineCacheFactory;
 import org.springframework.stereotype.Component;
 
-import lombok.extern.slf4j.Slf4j;
+import java.time.Duration;
+import java.util.Optional;
+import java.util.concurrent.Executor;
 
 /**
  * Factory class for creating Caffeine caches with a fluent builder API.
  * Centralizes cache creation to allow consistent configuration and optional
  * per-cache removal listeners for tracking evictions.
  * <p>
- * Created by Navíd Mitchell 🤪 on 1/2/26.
+ * Created by Nic Padilla on 1/2/26.
  */
 @Slf4j
 @Component

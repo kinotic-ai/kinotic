@@ -11,18 +11,16 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.cluster.ClusterGroup;
 import org.apache.ignite.lang.IgniteFuture;
-
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
-
 import org.kinotic.continuum.api.config.ContinuumProperties;
 import org.kinotic.structures.api.config.StructuresProperties;
-import org.kinotic.structures.internal.api.services.impl.cluster.DefaultClusterInfoService;
 import org.kinotic.structures.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.structures.internal.cache.events.CacheEvictionSource;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /**
  * Event-driven cache eviction service that uses Spring Application Events
@@ -33,7 +31,7 @@ import org.springframework.stereotype.Component;
  * 
  * Includes OpenTelemetry metrics for monitoring cache eviction health and performance.
  * 
- * Created By Navíd Mitchell 🤪on 2/12/25
+ * Created By Nic Padilla on 2/12/25
  */
 @Slf4j
 @Component
@@ -46,7 +44,7 @@ public class ClusterCacheEvictionService {
     
     // move into the removal eviction service class 
     // factory class for caches so that we can have
-    // a signle mode that allows us to add the eviction listener 
+    // a single mode that allows us to add the eviction listener
 
 
     // Lazy-initialized OpenTelemetry metrics

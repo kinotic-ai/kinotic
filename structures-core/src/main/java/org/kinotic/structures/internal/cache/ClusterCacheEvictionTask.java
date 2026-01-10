@@ -4,12 +4,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.resources.SpringResource;
-import org.kinotic.structures.api.services.StructureService;
 import org.kinotic.structures.api.services.NamedQueriesService;
+import org.kinotic.structures.api.services.StructureService;
 import org.kinotic.structures.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.structures.internal.cache.events.EvictionSourceOperation;
 import org.kinotic.structures.internal.cache.events.EvictionSourceType;
 import org.springframework.context.ApplicationEventPublisher;
+import org.kinotic.structures.internal.config.CacheEvictionConfiguration;
 
 /**
  * Simple Ignite Compute Grid task for cluster-wide cache eviction.

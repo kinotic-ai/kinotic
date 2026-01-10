@@ -30,11 +30,11 @@ dependencies {
     // Elasticsearch dependencies
     api 'co.elastic.clients:elasticsearch-java'
     api 'org.elasticsearch.client:elasticsearch-rest-client'
-    
-    // Jackson dependencies
-    api 'com.fasterxml.jackson.core:jackson-databind'
-    api 'com.fasterxml.jackson.core:jackson-core'
+
+    // Json
     api 'com.fasterxml.jackson.core:jackson-annotations'
+    api 'tools.jackson.core:jackson-core'
+    api 'tools.jackson.core:jackson-databind'
 
     // Parsing dependencies
 	implementation 'org.antlr:antlr4-runtime:4.13.2'
