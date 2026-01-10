@@ -29,7 +29,7 @@ services:
       CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
       THC_PORT: 9090 # Health check port (should match STRUCTURES_WEB_SERVER_PORT)
       SPRING_PROFILES_ACTIVE: production
-      SPRING_AI_OPENAI_API_KEY: "noop"
+      SPRING_AI_OPENAI_API-KEY: "noop"
       SPRING_AI_OPENAI_BASE_URL: "https://api.x.ai"
       SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "grok-4"
       STRUCTURES_TENANT_ID_FIELD_NAME: tenantId
@@ -58,7 +58,6 @@ services:
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: otlp
       OTEL_LOGS_EXPORTER: otlp
-      SPRING_AI_OPENAI_API-KEY: "DUMMY"
     stdin_open: true # docker run -i
     tty: true        # docker run -t
     deploy:
