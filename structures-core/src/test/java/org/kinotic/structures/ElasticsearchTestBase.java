@@ -7,7 +7,6 @@ import org.kinotic.structures.support.StructureAndPersonHolder;
 import org.kinotic.structures.support.TestHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
@@ -15,7 +14,6 @@ import reactor.test.StepVerifier;
 
 
 @SpringBootTest
-@ActiveProfiles("test")
 public abstract class ElasticsearchTestBase {
 
     public static final ElasticsearchContainer ELASTICSEARCH_CONTAINER;

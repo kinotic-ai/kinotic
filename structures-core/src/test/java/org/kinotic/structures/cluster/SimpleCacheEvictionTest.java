@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Integration tests for cluster-wide cache eviction functionality using real services.
  * Follows the project pattern of using TestContainers and real Spring context.
  * 
- * This test enables clustering (via ClusterEnabledTestBase) to verify the full cluster 
+ * This test enables clustering (via ClusterTestBase) to verify the full cluster 
  * eviction flow works correctly. Uses ClusterInfoService to deterministically verify 
  * cache eviction completion by polling lastCacheEvictionSuccessTimestamp instead of 
  * relying on Thread.sleep().

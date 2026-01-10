@@ -7,19 +7,19 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Builder.Default;
 
 /**
  * Contains information about the Ignite cluster.
  */
 @Data
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class ClusterInfo {
 
     /**
      * Indicates whether clustering is enabled.
      */
+    @Builder.Default
     private boolean clusteringEnabled = false;
     
     /**

@@ -21,7 +21,7 @@ continuum:
     joinTimeoutMs: 0
     # Test instance local address: bind to 0.0.0.0 (all interfaces) so containers can reach it
     # Containers connect via host.docker.internal:47500
-    localAddress: 192.168.1.81
+    # localAddress: 192.168.1.81
     # Test instance ports (must be unique from container nodes)
     discoveryPort: 47500      # Container nodes use 47501, 47502, 47503
     communicationPort: 47501  # Container nodes use 47101, 47102, 47103
@@ -29,7 +29,7 @@ continuum:
     # Format: host:port,host:port,...
     # Test instance: host.docker.internal:47500 (containers can reach via host gateway)
     # Containers: localhost:47501-47503 (test instance can reach via port mapping)
-    localAddresses: 192.168.1.81:47500,localhost:47501,localhost:47502,localhost:47503
+    # localAddresses: 192.168.1.81:47500,localhost:47501,localhost:47502,localhost:47503
     # Note: sharedFsPath is still used for Structure data sharing, not for Ignite discovery
     sharedFsPath: ${HOME}/structures/sharedfs  # Shared with containers via bind mount
 

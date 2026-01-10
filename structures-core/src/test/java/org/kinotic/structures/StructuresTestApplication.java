@@ -13,7 +13,6 @@ import org.springframework.boot.autoconfigure.graphql.GraphQlAutoConfiguration;
 import org.springframework.boot.autoconfigure.graphql.reactive.GraphQlWebFluxAutoConfiguration;
 import org.springframework.boot.autoconfigure.hazelcast.HazelcastAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootApplication(exclude = {HazelcastAutoConfiguration.class,
                                   JpaRepositoriesAutoConfiguration.class,
@@ -24,7 +23,6 @@ import org.springframework.test.context.ActiveProfiles;
 @EnableContinuum
 @EnableStructures
 @EnableConfigurationProperties
-@ActiveProfiles("test")
 public class StructuresTestApplication {
     public static void main(String[] args) {
         SpringApplication.run(StructuresTestApplication.class, args);

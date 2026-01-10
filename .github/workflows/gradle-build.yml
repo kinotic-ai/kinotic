@@ -43,8 +43,7 @@ jobs:
         continue-on-error: true
         env:
           TESTCONTAINERS_RYUK_DISABLED: true
-          SPRING_PROFILES_ACTIVE: test,ci
-        run: ./gradlew build
+        run: ./gradlew build --info
 
       - name: Publish to Maven Central with JReleaser
         if: ${{ steps.gradle_build.outcome == 'success' }}
