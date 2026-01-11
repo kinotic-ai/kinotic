@@ -1,6 +1,6 @@
 import dagre from 'dagre';
 import { type Node, type Edge, MarkerType } from "@vue-flow/core";
-import { ArrayC3Type, ObjectC3Type, EnumC3Type, UnionC3Type, PropertyDefinition } from "@kinotic/continuum-idl";
+import { ArrayC3Type, ObjectC3Type, EnumC3Type, UnionC3Type, PropertyDefinition } from "@mindignited/continuum-idl";
 
 export interface FieldData {
     label: string;

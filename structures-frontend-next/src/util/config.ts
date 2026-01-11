@@ -1,4 +1,4 @@
-import { ConnectionInfo } from '@kinotic/continuum-client'
+import { ConnectionInfo } from '@mindignited/continuum-client'
 
 interface OidcProvider {
   enabled: boolean;
