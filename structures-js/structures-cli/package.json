@@ -7,7 +7,7 @@
         "structures": "./bin/run.js"
     },
     "homepage": "https://mindignited.github.io/structures/",
-    "repository": "https://github.com/mindignited-Foundation/structures",
+    "repository": "https://github.com/MindIgnited/structures",
     "license": "MIT",
     "main": "dist/index.js",
     "type": "module",
@@ -91,7 +91,7 @@
     "engines": {
         "node": ">=18.0.0"
     },
-    "bugs": "https://github.com/https://github.com/mindignited-Foundation/structures/structures/issues",
+    "bugs": "https://github.com/https://github.com/MindIgnited/structures/structures/issues",
     "keywords": [
         "oclif"
     ],
