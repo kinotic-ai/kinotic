@@ -1,5 +1,5 @@
 import {Type} from 'ts-morph'
-import {C3Type, EnumC3Type} from '@kinotic/continuum-idl'
+import {C3Type, EnumC3Type} from '@mindignited/continuum-idl'
 import {TypescriptConversionState} from './TypescriptConversionState.js'
 import {IConversionContext} from '../IConversionContext.js'
 import {ITypeConverter} from '../ITypeConverter.js'

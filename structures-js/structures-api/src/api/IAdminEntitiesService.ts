@@ -8,7 +8,7 @@ import {
     IterablePage,
     IServiceRegistry,
     FunctionalIterablePage
-} from '@kinotic/continuum-client'
+} from '@mindignited/continuum-client'
 
 export type TenantSelection = string[]
 
@@ -127,7 +127,7 @@ export class AdminEntitiesService implements IAdminEntitiesService {
     protected serviceProxy: IServiceProxy
 
      constructor(serviceRegistry?: IServiceRegistry) {
-        const service = 'org.kinotic.structures.api.services.AdminJsonEntitiesService'
+        const service = 'org.mindignited.structures.api.services.AdminJsonEntitiesService'
         this.serviceProxy = serviceRegistry?.serviceProxy(service) || Continuum.serviceProxy(service)
     }
 

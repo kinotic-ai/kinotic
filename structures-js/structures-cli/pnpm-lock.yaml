@@ -11,15 +11,15 @@ importers:
       '@inquirer/prompts':
         specifier: ^8.0.2
         version: 8.0.2(@types/node@24.10.1)
-      '@kinotic/continuum-client':
-        specifier: 2.14.5
-        version: 2.14.5(reflect-metadata@0.2.2)
-      '@kinotic/continuum-idl':
+      '@mindignited/continuum-client':
+        specifier: 2.14.6
+        version: 2.14.6(reflect-metadata@0.2.2)
+      '@mindignited/continuum-idl':
         specifier: ^2.0.4
-        version: 2.0.4
-      '@kinotic/structures-api':
-        specifier: ^3.5.0-beta.16
-        version: 3.5.0-beta.16(@kinotic/continuum-client@2.14.5(reflect-metadata@0.2.2))
+        version: 2.0.5
+      '@mindignited/structures-api':
+        specifier: ^3.5.0-beta.17
+        version: 3.5.0-beta.17(@mindignited/continuum-client@2.14.6(reflect-metadata@0.2.2))
       '@oclif/core':
         specifier: ^4.8.0
         version: 4.8.0
@@ -875,18 +875,18 @@ packages:
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
     engines: {node: '>=12'}
 
-  '@kinotic/continuum-client@2.14.5':
-    resolution: {integrity: sha512-JzHvc23df+SxSf5AWlPqiXL6iKEzgj694MfExgejaBCduCIaVkyCvlumJ0VYBrhrK7cznvWlRfcM51IkXdFavQ==}
+  '@mindignited/continuum-client@2.14.6':
+    resolution: {integrity: sha512-i//eveJVdy34YHBu0wPf3m0EW0G2McTkIg3TZBf9bVGTj+WDpslBTKD8YoP0gtcOdUMpILczIWFBRqW5jao8cw==}
     peerDependencies:
       reflect-metadata: ^0.2.2
 
-  '@kinotic/continuum-idl@2.0.4':
-    resolution: {integrity: sha512-akXcSw6Pw6hdorPV1lU2RXvMS+kpWZQnzfZv3GysyUrVU8IAZU5N1FmBM8QmthJUz+SXNdHgYzuireaV8aLtAw==}
+  '@mindignited/continuum-idl@2.0.5':
+    resolution: {integrity: sha512-hyqZxh+R+g4mfHTrtckACT6LmIqI+QoqnNi+3/2oVcjuZesLdDSu5NiaaGVNbGaAOTEYyFU4FCK+3QqLCEZFiQ==}
 
-  '@kinotic/structures-api@3.5.0-beta.16':
-    resolution: {integrity: sha512-k6noklv9NRC3NEwUO/A4439cYFWLcVSiAi88D7hztG1Uh+O80uMHLRkGFSc/qgiMr6xIoN40Xo0zN1t89OzNFA==}
+  '@mindignited/structures-api@3.5.0-beta.17':
+    resolution: {integrity: sha512-CK+91adSzdF/uqspG8guyspbcckAh0X3KQzzpkpU7v1EpTcBy/Z3Re2RsQSaSulTFQER43i/U9Rpa5yr0Tx0aA==}
     peerDependencies:
-      '@kinotic/continuum-client': ^2.14.5
+      '@mindignited/continuum-client': ^2.14.5
 
   '@napi-rs/wasm-runtime@0.2.7':
     resolution: {integrity: sha512-5yximcFK5FNompXfJFoWanu5l8v1hNGqNHh9du1xETp9HWk/B/PzvchX55WYOPaIeNglG8++68AAiauBAtbnzw==}
@@ -957,8 +957,8 @@ packages:
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
     engines: {node: '>=8.0.0'}
 
-  '@opentelemetry/semantic-conventions@1.37.0':
-    resolution: {integrity: sha512-JD6DerIKdJGmRp4jQyX5FlrQjA4tjOw1cvfsPAZXfOOEErMUHjPcPSICS+6WnM0nB0efSFARh0KAZss+bvExOA==}
+  '@opentelemetry/semantic-conventions@1.38.0':
+    resolution: {integrity: sha512-kocjix+/sSggfJhwXqClZ3i9Y/MI0fp7b+g7kCRm6psy2dsf8uApTRclwG18h8Avm7C9+fnt+O36PspJ/OzoWg==}
     engines: {node: '>=14'}
 
   '@pkgjs/parseargs@0.11.0':
@@ -1204,15 +1204,15 @@ packages:
     resolution: {integrity: sha512-4aUIteuyxtBUhVdiQqcDhKFitwfd9hqoSDYY2KRXiWtgoWJ9Bmise+KfEPDiVHWeJepvF8xJO9/9+WDIciMFFw==}
     engines: {node: '>=18.0.0'}
 
-  '@stomp/rx-stomp@2.2.0':
-    resolution: {integrity: sha512-/r6kJYzmJy2BH0nx/7Ygpqf6YAMiMVz7HQvN5BctgvT4/kUsoCntJ/HzDyQi8ZO3nKvCAJLZmrGqyxvsC5aUHw==}
+  '@stomp/rx-stomp@2.3.0':
+    resolution: {integrity: sha512-Vt6CNHm0GuEeDz6iTb+fH1E1Vw8s5hEGqlhFMuqfkFdgoiJMVqsPUpIfF8POSYYjIHd/AJ/P55v6JgPsrFOKhA==}
     peerDependencies:
       '@stomp/stompjs': ^7.2.0
       rxjs: ^7.2.0
       uuid: '>=9.0.0 <12.0.0'
 
-  '@stomp/stompjs@7.2.0':
-    resolution: {integrity: sha512-+Waf/wdSxgRmXHWg7HXUt51YNK/Cp2pMhW+OELwX5fzbO6pd+O2bLrWqGmyFNC/RyeUQIMGESP7oE3L1dXXm0Q==}
+  '@stomp/stompjs@7.2.1':
+    resolution: {integrity: sha512-DLd/WeicnHS5SsWWSk3x6/pcivqchNaEvg9UEGVqAcfYEBVmS9D6980ckXjTtfpXLjdLDsd96M7IuX4w7nzq5g==}
 
   '@stylistic/eslint-plugin@2.13.0':
     resolution: {integrity: sha512-RnO1SaiCFHn666wNz2QfZEFxvmiNRqhzaMXHXxXXKt+MEP7aajlPxUSMIQpKAaJfverpovEYqjBOXDq6dDcaOQ==}
@@ -5027,12 +5027,12 @@ snapshots:
       wrap-ansi: 8.1.0
       wrap-ansi-cjs: wrap-ansi@7.0.0
 
-  '@kinotic/continuum-client@2.14.5(reflect-metadata@0.2.2)':
+  '@mindignited/continuum-client@2.14.6(reflect-metadata@0.2.2)':
     dependencies:
       '@opentelemetry/api': 1.9.0
-      '@opentelemetry/semantic-conventions': 1.37.0
-      '@stomp/rx-stomp': 2.2.0(@stomp/stompjs@7.2.0)(rxjs@7.8.2)(uuid@13.0.0)
-      '@stomp/stompjs': 7.2.0
+      '@opentelemetry/semantic-conventions': 1.38.0
+      '@stomp/rx-stomp': 2.3.0(@stomp/stompjs@7.2.1)(rxjs@7.8.2)(uuid@13.0.0)
+      '@stomp/stompjs': 7.2.1
       '@types/debug': 4.1.12
       debug: 4.4.3(supports-color@8.1.1)
       elliptic: 6.6.1
@@ -5044,12 +5044,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@kinotic/continuum-idl@2.0.4': {}
+  '@mindignited/continuum-idl@2.0.5': {}
 
-  '@kinotic/structures-api@3.5.0-beta.16(@kinotic/continuum-client@2.14.5(reflect-metadata@0.2.2))':
+  '@mindignited/structures-api@3.5.0-beta.17(@mindignited/continuum-client@2.14.6(reflect-metadata@0.2.2))':
     dependencies:
-      '@kinotic/continuum-client': 2.14.5(reflect-metadata@0.2.2)
-      '@kinotic/continuum-idl': 2.0.4
+      '@mindignited/continuum-client': 2.14.6(reflect-metadata@0.2.2)
+      '@mindignited/continuum-idl': 2.0.5
       reflect-metadata: 0.2.2
       rxjs: 7.8.2
 
@@ -5223,7 +5223,7 @@ snapshots:
 
   '@opentelemetry/api@1.9.0': {}
 
-  '@opentelemetry/semantic-conventions@1.37.0': {}
+  '@opentelemetry/semantic-conventions@1.38.0': {}
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
@@ -5584,13 +5584,13 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@stomp/rx-stomp@2.2.0(@stomp/stompjs@7.2.0)(rxjs@7.8.2)(uuid@13.0.0)':
+  '@stomp/rx-stomp@2.3.0(@stomp/stompjs@7.2.1)(rxjs@7.8.2)(uuid@13.0.0)':
     dependencies:
-      '@stomp/stompjs': 7.2.0
+      '@stomp/stompjs': 7.2.1
       rxjs: 7.8.2
       uuid: 13.0.0
 
-  '@stomp/stompjs@7.2.0': {}
+  '@stomp/stompjs@7.2.1': {}
 
   '@stylistic/eslint-plugin@2.13.0(eslint@9.23.0(jiti@2.6.1))(typescript@5.9.3)':
     dependencies:

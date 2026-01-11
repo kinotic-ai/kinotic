@@ -6,9 +6,9 @@ import {
     EventConstants,
     IEvent,
     ParticipantConstants
-} from '@kinotic/continuum-client'
-import {C3Type, FunctionDefinition, ObjectC3Type} from '@kinotic/continuum-idl'
-import {EntityConfiguration, EntityDecorator} from '@kinotic/structures-api'
+} from '@mindignited/continuum-client'
+import {C3Type, FunctionDefinition, ObjectC3Type} from '@mindignited/continuum-idl'
+import {EntityConfiguration, EntityDecorator} from '@mindignited/structures-api'
 import fs from 'fs'
 import fsPromises from 'fs/promises'
 import { confirm } from '@inquirer/prompts'

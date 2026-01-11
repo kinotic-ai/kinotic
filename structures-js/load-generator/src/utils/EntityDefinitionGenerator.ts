@@ -1,7 +1,7 @@
-import { ObjectC3Type } from '@kinotic/continuum-idl'
-import { ConsoleLogger } from '@kinotic/structures-cli/dist/internal/Logger.js'
-import { CodeGenerationService } from '@kinotic/structures-cli/dist/internal/CodeGenerationService.js'
-import { NamespaceConfiguration } from '@kinotic/structures-cli/dist/internal/state/StructuresProject.js'
+import { ObjectC3Type } from '@mindignited/continuum-idl'
+import { ConsoleLogger } from '@mindignited/structures-cli/dist/internal/Logger.js'
+import { CodeGenerationService } from '@mindignited/structures-cli/dist/internal/CodeGenerationService.js'
+import { NamespaceConfiguration } from '@mindignited/structures-cli/dist/internal/state/StructuresProject.js'
 
 export class EntityDefinitionGenerator {
     private readonly codeGenerationService: CodeGenerationService

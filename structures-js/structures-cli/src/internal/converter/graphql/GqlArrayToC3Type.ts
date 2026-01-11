@@ -2,7 +2,7 @@ import {GraphQLType, GraphQLList, GraphQLNonNull} from 'graphql/type/index.js'
 import {ITypeConverter} from '../ITypeConverter.js'
 import {IConversionContext} from '../IConversionContext.js'
 import {GqlConversionState} from './GqlConversionState.js'
-import {ArrayC3Type, C3Type} from '@kinotic/continuum-idl'
+import {ArrayC3Type, C3Type} from '@mindignited/continuum-idl'
 
 export class GqlArrayToC3Type implements ITypeConverter<GraphQLType, C3Type, GqlConversionState> {
 

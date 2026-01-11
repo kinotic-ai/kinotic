@@ -1,4 +1,4 @@
-import {C3Decorator} from '@kinotic/continuum-idl'
+import {C3Decorator} from '@mindignited/continuum-idl'
 
 /**
  * Signals that a property is a text field, and will be full text indexed.

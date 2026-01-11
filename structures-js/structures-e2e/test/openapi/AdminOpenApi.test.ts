@@ -1,4 +1,4 @@
-import {Structure, Structures} from '@kinotic/structures-api'
+import {Structure, Structures} from '@mindignited/structures-api'
 import * as allure from 'allure-js-commons'
 import axios from 'axios'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
@@ -23,7 +23,7 @@ interface LocalTestContext {
 const applicationId = 'openapi.admin'
 const projectName = 'TestProject'
 const BASE_AUTH = 'Basic YWRtaW46c3RydWN0dXJlcw=='
-const DEFAULT_TENANT = 'kinotic'
+const DEFAULT_TENANT = 'mindignited'
 
 const axiosInstance = axios.create({
                                        headers: {
