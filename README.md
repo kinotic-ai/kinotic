@@ -1,4 +1,4 @@
-![CI](https://github.com/mindignited-foundation/structures/actions/workflows/gradle-build.yml/badge.svg?branch=develop)
+![CI](https://github.com/mindignited/structures/actions/workflows/gradle-build.yml/badge.svg?branch=develop)
 
 # Structures
 

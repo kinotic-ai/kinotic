@@ -31,7 +31,7 @@ The tool will automatically download and install required CLIs (kind, kubectl, h
 If you haven't already:
 
 ```bash
-git clone https://github.com/mindignited-foundation/structures.git
+git clone https://github.com/MindIgnited/structures.git
 cd structures
 ```
 
