@@ -46,7 +46,7 @@ public class AccessControlTest extends KeycloakTestBase {
         Participant participant = securityService.authenticate(authInfo).join();
         
         assertNotNull(participant);
-        assertEquals("kinotic", participant.getTenantId());
+        assertEquals("mindignited", participant.getTenantId());
         assertTrue(participant.getRoles().contains("user"));
     }
 
@@ -62,7 +62,7 @@ public class AccessControlTest extends KeycloakTestBase {
         Participant participant = securityService.authenticate(authInfo).join();
         
         assertNotNull(participant);
-        assertEquals("kinotic", participant.getTenantId());
+        assertEquals("mindignited", participant.getTenantId());
         assertTrue(participant.getRoles().contains("admin"));
         assertTrue(participant.getRoles().contains("user"));
     }
@@ -79,7 +79,7 @@ public class AccessControlTest extends KeycloakTestBase {
         Participant participant = securityService.authenticate(authInfo).join();
         
         assertNotNull(participant);
-        assertEquals("kinotic", participant.getTenantId());
+        assertEquals("mindignited", participant.getTenantId());
         assertTrue(participant.getRoles().contains("poweruser"));
     }
 
