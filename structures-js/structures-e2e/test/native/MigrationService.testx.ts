@@ -68,6 +68,7 @@ describe('Migration Service End To End Tests', () => {
         if (context.project.id) {
             await Structures.getProjectService().deleteById(context.project.id)
         }
+        await expect(Structures.getProjectService().syncIndex()).resolves.toBeNull()
         await Structures.getApplicationService().deleteById(context.applicationId)
     })
 

@@ -25,7 +25,7 @@ public class TemporarySecurityService implements SecurityService {
     private static final Logger log = LoggerFactory.getLogger(TemporarySecurityService.class);
 
     private static final String PASSWORD = "structures";
-    private static final Participant participant = new DefaultParticipant("kinotic",
+    private static final Participant participant = new DefaultParticipant("mindignited",
                                                                           "admin",
                                                                           Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
                                                                                  ParticipantConstants.PARTICIPANT_TYPE_USER),
