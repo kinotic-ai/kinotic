@@ -122,7 +122,7 @@ EXAMPLES
   $ structures gen -v
 ```
 
-_See code: [src/commands/generate.ts](https://github.com/mindignited-Foundation/structures/blob/v3.5.0-beta.10/src/commands/generate.ts)_
+_See code: [src/commands/generate.ts](https://github.com/MindIgnited/structures/blob/v3.5.0-beta.10/src/commands/generate.ts)_
 
 ## `structures help [COMMAND]`
 
@@ -198,7 +198,7 @@ EXAMPLES
   $ structures init -a my.app -e path/to/entities -g path/to/services
 ```
 
-_See code: [src/commands/initialize.ts](https://github.com/mindignited-Foundation/structures/blob/v3.5.0-beta.10/src/commands/initialize.ts)_
+_See code: [src/commands/initialize.ts](https://github.com/MindIgnited/structures/blob/v3.5.0-beta.10/src/commands/initialize.ts)_
 
 ## `structures plugins`
 
@@ -550,7 +550,7 @@ EXAMPLES
   $ structures sync -p -v -s http://localhost:9090
 ```
 
-_See code: [src/commands/synchronize.ts](https://github.com/mindignited-Foundation/structures/blob/v3.5.0-beta.10/src/commands/synchronize.ts)_
+_See code: [src/commands/synchronize.ts](https://github.com/MindIgnited/structures/blob/v3.5.0-beta.10/src/commands/synchronize.ts)_
 
 ## `structures update [CHANNEL]`
 
