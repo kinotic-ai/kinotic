@@ -1,6 +1,6 @@
 services:
   load-generator:
-    image: kinotic/structures-load-generator:latest
+    image: mindignited/structures-load-generator:latest
     pull_policy: always
     container_name: structures-gen-schemas
     environment:

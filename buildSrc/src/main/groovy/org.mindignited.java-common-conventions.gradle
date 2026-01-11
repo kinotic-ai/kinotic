@@ -4,7 +4,7 @@ plugins {
     id 'io.spring.dependency-management'
 }
 
-group 'org.kinotic'
+group 'org.mindignited'
 version "${structuresVersion}"
 sourceCompatibility = '21'
 
@@ -80,11 +80,11 @@ dependencyManagement {
         dependency "org.elasticsearch.client:elasticsearch-rest-client:${elasticClientVersion}"
         dependency "org.elasticsearch.client:elasticsearch-rest-high-level-client:${elasticClientVersion}"
 
-        dependency "org.kinotic:continuum-core:${continuumVersion}"
-        dependency "org.kinotic:continuum-core-vertx:${continuumVersion}"
-        dependency "org.kinotic:continuum-gateway:${continuumVersion}"
-        dependency "org.kinotic:continuum-idl:${continuumVersion}"
-        dependency "org.kinotic:continuum-security:${continuumVersion}"
+        dependency "org.mindignited:continuum-core:${continuumVersion}"
+        dependency "org.mindignited:continuum-core-vertx:${continuumVersion}"
+        dependency "org.mindignited:continuum-gateway:${continuumVersion}"
+        dependency "org.mindignited:continuum-idl:${continuumVersion}"
+        dependency "org.mindignited:continuum-security:${continuumVersion}"
 
         // must be overridden for the elastic client
         dependency 'jakarta.json:jakarta.json-api:2.0.1'

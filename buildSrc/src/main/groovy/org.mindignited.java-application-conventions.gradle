@@ -1,6 +1,6 @@
 plugins {
     // Apply the common convention plugin for shared build configuration between library and application projects.
-    id 'org.kinotic.java-common-conventions'
+    id 'org.mindignited.java-common-conventions'
 
     id 'org.springframework.boot'
     id 'application'
@@ -20,8 +20,8 @@ configurations {
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
 
-    implementation "org.kinotic:continuum-core:${continuumVersion}"
-    implementation "org.kinotic:continuum-core-vertx:${continuumVersion}"
+    implementation "org.mindignited:continuum-core:${continuumVersion}"
+    implementation "org.mindignited:continuum-core-vertx:${continuumVersion}"
 
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
@@ -35,10 +35,10 @@ dependencies {
 bootBuildImage {
     network = "host"
     publish = true
-    imageName = "kinotic/${project.name}:${project.version}"
+    imageName = "mindignited/${project.name}:${project.version}"
     tags = (!version.endsWith('SNAPSHOT') ?
             [
-                    "kinotic/${project.name}:latest"
+                    "mindignited/${project.name}:latest"
             ]
             : [])
     environment = [

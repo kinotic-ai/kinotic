@@ -1,13 +1,13 @@
 plugins {
     // Apply the common convention plugin for shared build configuration between library and application projects.
-    id 'org.kinotic.java-common-conventions'
+    id 'org.mindignited.java-common-conventions'
     id 'java-library'
     id 'maven-publish'
     id 'org.jreleaser'
 }
 
 dependencies {
-    api "org.kinotic:continuum-core:${continuumVersion}"
+    api "org.mindignited:continuum-core:${continuumVersion}"
 
     implementation 'org.springframework.boot:spring-boot-autoconfigure'
 }
@@ -47,14 +47,14 @@ publishing {
                 }
                 developers {
                     developer {
-                        name = 'Kinotic Developers'
-                        email = 'develop@kinotic.org'
+                        name = 'Mind Ignited'
+                        email = 'develop@mindignited.com'
                     }
                 }
                 scm {
-                    connection = 'scm:git:https://github.com/Kinotic-Foundation/structures.git'
-                    developerConnection = 'scm:git:https://github.com/Kinotic-Foundation/structures.git'
-                    url = 'https://github.com/Kinotic-Foundation/structures'
+                    connection = 'scm:git:https://github.com/MindIgnited/structures.git'
+                    developerConnection = 'scm:git:https://github.com/MindIgnited/structures.git'
+                    url = 'https://github.com/MindIgnited/structures'
                 }
             }
         }

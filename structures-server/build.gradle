@@ -1,5 +1,5 @@
 plugins {
-	id 'org.kinotic.java-application-conventions'
+	id 'org.mindignited.java-application-conventions'
 }
 
 sourceSets {
@@ -15,8 +15,8 @@ dependencies {
 	implementation project(':structures-auth')
 
 	// Additional Continuum Dependencies
-	implementation "org.kinotic:continuum-core"
-	implementation "org.kinotic:continuum-gateway"
+	implementation "org.mindignited:continuum-core"
+	implementation "org.mindignited:continuum-gateway"
 
 	implementation 'com.github.ben-manes.caffeine:caffeine'
 	
