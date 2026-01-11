@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.continuum.api.security.Participant;
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.structures.api.domain.*;
 import org.mindignited.structures.api.domain.FastestType;
 import org.mindignited.structures.api.domain.QueryParameter;
 import org.mindignited.structures.api.domain.RawJson;

@@ -12,7 +12,6 @@ import org.mindignited.structures.api.domain.Structure;
 import org.mindignited.structures.api.domain.idl.PageableC3Type;
 import org.mindignited.structures.api.domain.idl.QueryOptionsC3Type;
 import org.mindignited.structures.api.domain.idl.TenantSelectionC3Type;
-import org.kinotic.structures.internal.api.services.sql.*;
 import org.mindignited.structures.internal.api.services.sql.ListParameterHolder;
 import org.mindignited.structures.internal.api.services.sql.MapParameterHolder;
 import org.mindignited.structures.internal.api.services.sql.QueryContext;

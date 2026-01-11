@@ -6,7 +6,6 @@ import org.kinotic.continuum.idl.api.converter.C3TypeConverter;
 import org.kinotic.continuum.idl.api.converter.Cacheable;
 import org.kinotic.continuum.idl.api.schema.*;
 import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
-import org.kinotic.structures.api.domain.idl.decorators.*;
 import org.mindignited.structures.api.domain.DecoratedProperty;
 import org.mindignited.structures.api.domain.idl.decorators.*;
 import org.mindignited.structures.internal.utils.StructuresUtil;

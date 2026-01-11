@@ -635,7 +635,7 @@ Examples:
   $(basename "$0") load
 
   # Load specific image
-  $(basename "$0") load --image kinotic/structures-server:0.5.0
+  $(basename "$0") load --image mindignited/structures-server:0.5.0
 
   # Load into specific cluster
   $(basename "$0") load --name test-cluster

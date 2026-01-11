@@ -6,7 +6,6 @@ import org.kinotic.continuum.api.security.Participant;
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
 import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
-import org.kinotic.structures.api.domain.*;
 import org.mindignited.structures.api.domain.*;
 
 import java.util.List;

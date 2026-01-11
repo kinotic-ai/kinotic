@@ -20,7 +20,6 @@ import org.kinotic.continuum.core.api.crud.CursorPage;
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
 import org.mindignited.structures.api.config.StructuresProperties;
-import org.kinotic.structures.api.domain.*;
 import org.mindignited.structures.api.domain.*;
 import org.mindignited.structures.api.domain.idl.decorators.MultiTenancyType;
 import org.mindignited.structures.api.services.NamedQueriesService;

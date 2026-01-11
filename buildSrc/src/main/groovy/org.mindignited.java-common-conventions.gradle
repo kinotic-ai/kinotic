@@ -46,7 +46,7 @@ dependencyManagement {
         // LOOK: these two below are (at the moment) only required for importing the local 
         // continuum projects into this project.
         // dependency "io.vertx:vertx-mqtt:${vertxVersion}"
-        // dependency "org.kinotic:vertx-stomp-lite:${vertxStompLiteVersion}"
+        // dependency "org.mindignited:vertx-stomp-lite:${vertxStompLiteVersion}"
         dependency "javax.annotation:javax.annotation-api:${javaxAnnotationApi}"
 
 

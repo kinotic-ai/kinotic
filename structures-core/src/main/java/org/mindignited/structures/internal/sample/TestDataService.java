@@ -11,7 +11,6 @@ import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
 import org.kinotic.continuum.idl.api.schema.StringC3Type;
 import org.kinotic.continuum.internal.utils.ContinuumUtil;
 import org.mindignited.structures.api.domain.Structure;
-import org.kinotic.structures.api.domain.idl.decorators.*;
 import org.mindignited.structures.api.domain.idl.decorators.*;
 import org.mindignited.structures.api.services.ApplicationService;
 import org.mindignited.structures.api.services.StructureService;

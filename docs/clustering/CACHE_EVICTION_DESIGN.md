@@ -353,7 +353,7 @@ The cache eviction system includes comprehensive cluster testing capabilities to
 
 **1. Automated Testcontainers Tests** (CI/CD)
 
-Located in `structures-core/src/test/java/org/kinotic/structures/cluster/`:
+Located in `structures-core/src/test/java/org/mindignited/structures/cluster/`:
 
 - `ClusterCacheEvictionTest` - Main integration test suite
 - `ClusterTestBase` - Base class for cluster test setup

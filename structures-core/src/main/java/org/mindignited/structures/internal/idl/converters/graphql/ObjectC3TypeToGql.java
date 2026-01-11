@@ -12,7 +12,6 @@ import org.kinotic.continuum.idl.api.schema.C3Type;
 import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
 import org.kinotic.continuum.idl.api.schema.PropertyDefinition;
 import org.kinotic.continuum.idl.api.schema.decorators.NotNullC3Decorator;
-import org.kinotic.structures.api.domain.idl.decorators.*;
 import org.mindignited.structures.api.domain.idl.decorators.*;
 import org.mindignited.structures.internal.endpoints.graphql.DiscriminatorTypeResolver;
 import org.mindignited.structures.internal.utils.GqlUtils;

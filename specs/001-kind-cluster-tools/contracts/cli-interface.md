@@ -255,7 +255,7 @@ kind-cluster.sh build [options]
 **Behavior**:
 1. Run Gradle `bootBuildImage` task using standard build conventions
 2. Image built with Spring Boot Cloud Native Buildpacks (Paketo)
-3. Image name from gradle config: `kinotic/${module}:${version}`
+3. Image name from gradle config: `mindignited/${module}:${version}`
 4. Includes health checker and optimized JVM configuration
 5. If `--load`, call `load` subcommand automatically
 6. Display image information
@@ -270,7 +270,7 @@ kind-cluster.sh build [options]
   
 ✓ Image built successfully!
 
-  Image: kinotic/structures-server:0.5.0-SNAPSHOT
+  Image: mindignited/structures-server:0.5.0-SNAPSHOT
   Builder: paketocommunity/builder-ubi-base:latest
   Buildpacks: 
     - paketo-buildpacks/java
@@ -301,7 +301,7 @@ kind-cluster.sh load [options]
 | Flag | Environment Variable | Description | Default |
 |------|---------------------|-------------|---------|
 | `--name <name>` | `KIND_CLUSTER_NAME` | Cluster name | structures-cluster |
-| `--image <name>` | - | Full image name | kinotic/structures-server:${version} |
+| `--image <name>` | - | Full image name | mindignited/structures-server:${version} |
 
 **Behavior**:
 1. Verify cluster exists
@@ -314,7 +314,7 @@ kind-cluster.sh load [options]
 ```
 ✓ Loading image into cluster...
   - Cluster: structures-cluster
-  - Image: kinotic/structures-server:0.5.0-SNAPSHOT
+  - Image: mindignited/structures-server:0.5.0-SNAPSHOT
   - Nodes: 3
   
 ✓ Image loaded successfully!
@@ -323,7 +323,7 @@ kind-cluster.sh load [options]
   Verified via: docker exec <node> crictl images
   
   To deploy with this image:
-  ./kind-cluster.sh deploy --set image.repository=kinotic/structures-server \
+  ./kind-cluster.sh deploy --set image.repository=mindignited/structures-server \
                            --set image.tag=0.5.0-SNAPSHOT \
                            --set image.pullPolicy=Never
 ```
@@ -547,7 +547,7 @@ All subcommands respect these environment variables:
 | `KIND_CONFIG_PATH` | Default KinD config path | config/kind-config.yaml |
 | `HELM_CHART_PATH` | Default Helm chart path | ./helm/structures |
 | `HELM_VALUES_PATH` | Default Helm values path | config/helm-values.yaml |
-| `IMAGE_NAME` | Full image name | kinotic/structures-server |
+| `IMAGE_NAME` | Full image name | mindignited/structures-server |
 | `IMAGE_VERSION` | Image version | from gradle.properties |
 | `VERBOSE` | Enable verbose output | 0 |
 | `DRY_RUN` | Dry run mode | 0 |

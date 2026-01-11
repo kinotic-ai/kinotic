@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.mindignited.structures.api.domain.SecurityContext;
 import org.mindignited.structures.api.services.security.graphos.PolicyAuthorizationRequest;
 import org.mindignited.structures.api.services.security.graphos.PolicyAuthorizer;
-import org.kinotic.structures.internal.api.services.impl.security.graphos.*;
 import org.mindignited.structures.internal.api.services.impl.security.graphos.*;
 
 import java.util.List;

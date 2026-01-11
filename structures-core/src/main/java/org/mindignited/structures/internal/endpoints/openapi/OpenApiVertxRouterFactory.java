@@ -21,7 +21,6 @@ import org.kinotic.continuum.api.security.SecurityService;
 import org.kinotic.continuum.core.api.crud.Pageable;
 import org.kinotic.continuum.gateway.api.security.AuthenticationHandler;
 import org.mindignited.structures.api.config.StructuresProperties;
-import org.kinotic.structures.api.domain.*;
 import org.mindignited.structures.api.domain.*;
 import org.mindignited.structures.api.services.EntitiesService;
 import org.mindignited.structures.internal.api.services.sql.MapParameterHolder;

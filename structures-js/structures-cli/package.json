@@ -6,7 +6,7 @@
     "bin": {
         "structures": "./bin/run.js"
     },
-    "homepage": "https://kinotic-foundation.github.io/structures/",
+    "homepage": "https://mindignited.github.io/structures/",
     "repository": "https://github.com/Kinotic-Foundation/structures",
     "license": "MIT",
     "main": "dist/index.js",

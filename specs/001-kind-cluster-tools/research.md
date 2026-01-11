@@ -92,7 +92,7 @@ check_prerequisite() {
 **Decision**: Use existing Gradle `bootBuildImage` task from build conventions, with conditional publish for CI/CD
 
 **Rationale**:
-- Standardized build tooling already configured in `buildSrc/src/main/groovy/org.kinotic.java-application-conventions.gradle`
+- Standardized build tooling already configured in `buildSrc/src/main/groovy/org.mindignited.java-application-conventions.gradle`
 - `bootBuildImage` uses Spring Boot's Cloud Native Buildpacks (Paketo) for optimized images
 - Includes health checker buildpack and proper JVM configuration
 - Currently `publish = false` is static (line 37) - should be conditional on CI environment
@@ -110,8 +110,8 @@ check_prerequisite() {
 # Build image using standard tooling
 ./gradlew :structures-server:bootBuildImage
 
-# Image name from gradle config: kinotic/structures-server:${version}
-IMAGE_NAME="kinotic/structures-server:$(grep '^structuresVersion=' gradle.properties | cut -d'=' -f2)"
+# Image name from gradle config: mindignited/structures-server:${version}
+IMAGE_NAME="mindignited/structures-server:$(grep '^structuresVersion=' gradle.properties | cut -d'=' -f2)"
 
 # Load into KinD cluster
 kind load docker-image "$IMAGE_NAME" --name structures-cluster
@@ -125,11 +125,11 @@ docker exec structures-cluster-control-plane crictl images | grep structures-ser
 The `publish` flag in `bootBuildImage` configuration should be conditional on CI environment:
 
 ```groovy
-// In buildSrc/src/main/groovy/org.kinotic.java-application-conventions.gradle
+// In buildSrc/src/main/groovy/org.mindignited.java-application-conventions.gradle
 bootBuildImage {
     network = "host"
     publish = System.getenv("CI") == "true" || System.getenv("GITHUB_ACTIONS") == "true"  // Only publish in CI/CD
-    imageName = "kinotic/${project.name}:${project.version}"
+    imageName = "mindignited/${project.name}:${project.version}"
     // ... rest of configuration
 }
 ```

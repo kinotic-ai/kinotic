@@ -31,7 +31,7 @@ The tool will automatically download and install required CLIs (kind, kubectl, h
 If you haven't already:
 
 ```bash
-git clone https://github.com/kinotic-foundation/structures.git
+git clone https://github.com/mindignited-foundation/structures.git
 cd structures
 ```
 
@@ -145,12 +145,12 @@ When you make code changes to structures-server:
 ./dev-tools/kind/kind-cluster.sh build --load
 
 # This runs: ./gradlew :structures-server:bootBuildImage
-# Image built: kinotic/structures-server:${version}
+# Image built: mindignited/structures-server:${version}
 # Automatically loaded into KinD cluster
 
 # 2. Redeploy with new image
 ./dev-tools/kind/kind-cluster.sh deploy \
-  --set image.repository=kinotic/structures-server \
+  --set image.repository=mindignited/structures-server \
   --set image.tag=0.5.0-SNAPSHOT \
   --set image.pullPolicy=Never
 
@@ -477,7 +477,7 @@ helm version
 - **KinD Documentation**: https://kind.sigs.k8s.io/
 - **Kubectl Reference**: https://kubernetes.io/docs/reference/kubectl/
 - **Helm Documentation**: https://helm.sh/docs/
-- **Structures Project**: https://github.com/kinotic-foundation/structures
+- **Structures Project**: https://github.com/MindIgnited/structures
 
 ## Example Session
 
@@ -513,9 +513,9 @@ vim structures-core/src/main/java/MyClass.java
 
 # 6. Test changes
 ./dev-tools/kind/kind-cluster.sh build --load
-# Uses bootBuildImage task: kinotic/structures-server:0.5.0-SNAPSHOT
+# Uses bootBuildImage task: mindignited/structures-server:0.5.0-SNAPSHOT
 ./dev-tools/kind/kind-cluster.sh deploy \
-  --set image.repository=kinotic/structures-server \
+  --set image.repository=mindignited/structures-server \
   --set image.tag=0.5.0-SNAPSHOT \
   --set image.pullPolicy=Never
 

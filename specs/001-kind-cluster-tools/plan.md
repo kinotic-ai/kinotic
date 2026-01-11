@@ -21,7 +21,7 @@ Create developer tools that automate the creation and management of KinD (Kubern
 **Constraints**: Must work without network for pre-downloaded dependencies, idempotent operations, safe context switching  
 **Scale/Scope**: Single-node or multi-node KinD clusters (1-5 nodes typical), local development only
 
-**Build Integration**: Uses existing Gradle `bootBuildImage` task from `buildSrc/src/main/groovy/org.kinotic.java-application-conventions.gradle` for image builds. **Note**: The `publish` flag (line 37) should be updated to be conditional on CI environment to prevent accidental publishes during local development:
+**Build Integration**: Uses existing Gradle `bootBuildImage` task from `buildSrc/src/main/groovy/org.mindignited.java-application-conventions.gradle` for image builds. **Note**: The `publish` flag (line 37) should be updated to be conditional on CI environment to prevent accidental publishes during local development:
 ```groovy
 publish = System.getenv("CI") == "true" || System.getenv("GITHUB_ACTIONS") == "true"
 ```

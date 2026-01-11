@@ -17,7 +17,6 @@ import org.mindignited.structures.api.domain.idl.PageableC3Type;
 import org.mindignited.structures.api.domain.idl.QueryOptionsC3Type;
 import org.mindignited.structures.api.domain.idl.TenantSelectionC3Type;
 import org.mindignited.structures.api.domain.DefaultTenantSpecificId;
-import org.kinotic.structures.internal.serializer.*;
 import org.mindignited.structures.internal.serializer.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

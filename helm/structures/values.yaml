@@ -2,7 +2,7 @@ replicaCount: 1
 nameOverride: ""
 
 image:
-  repository: kinotic/structures-server
+  repository: mindignited/structures-server
   pullPolicy: Always
   tag: "1.14.0-SNAPSHOT"
   sha: ""
