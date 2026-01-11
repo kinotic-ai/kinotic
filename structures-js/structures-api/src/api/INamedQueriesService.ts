@@ -1,5 +1,5 @@
 import {NamedQueriesDefinition} from '@/api/domain/NamedQueriesDefinition'
-import {Continuum, CrudServiceProxy, ICrudServiceProxy,} from '@kinotic/continuum-client'
+import {Continuum, CrudServiceProxy, ICrudServiceProxy,} from '@mindignited/continuum-client'
 
 export interface INamedQueriesService extends ICrudServiceProxy<NamedQueriesDefinition> {
 
@@ -14,7 +14,7 @@ export interface INamedQueriesService extends ICrudServiceProxy<NamedQueriesDefi
 export class NamedQueriesService extends CrudServiceProxy<NamedQueriesDefinition> implements INamedQueriesService{
 
     constructor() {
-        super(Continuum.serviceProxy('org.kinotic.structures.api.services.NamedQueriesService'))
+        super(Continuum.serviceProxy('org.mindignited.structures.api.services.NamedQueriesService'))
     }
 
     public syncIndex(): Promise<void> {

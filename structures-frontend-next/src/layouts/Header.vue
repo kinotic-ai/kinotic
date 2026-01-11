@@ -96,8 +96,8 @@
 import { Component, Vue, Watch } from 'vue-facing-decorator';
 import { APPLICATION_STATE } from '@/states/IApplicationState';
 import { USER_STATE } from '@/states/IUserState';
-import type { Application, Project } from '@kinotic/structures-api';
-import { Structures } from '@kinotic/structures-api';
+import type { Application, Project } from '@mindignited/structures-api';
+import { Structures } from '@mindignited/structures-api';
 import InputText from 'primevue/inputtext';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';

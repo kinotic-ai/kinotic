@@ -1,4 +1,4 @@
-import {C3Type} from '@kinotic/continuum-idl'
+import {C3Type} from '@mindignited/continuum-idl'
 import {Logger} from '../../Logger.js'
 import {IConverterStrategy} from '../IConverterStrategy.js'
 import {ITypeConverter} from '../ITypeConverter.js'

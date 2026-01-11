@@ -1,4 +1,4 @@
-import {Entity, Id, MultiTenancyType, Text, Version, EntityType} from '@kinotic/structures-api'
+import {Entity, Id, MultiTenancyType, Text, Version, EntityType} from '@mindignited/structures-api'
 
 export class Wheel {
     public brand!: string

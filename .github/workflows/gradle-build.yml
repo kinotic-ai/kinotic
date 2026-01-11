@@ -3,7 +3,7 @@ name: Build and Publish
 on:
   push:
     branches:
-      - develop
+      - preRelease
       - main
       - 2.x
     paths-ignore:
@@ -43,12 +43,11 @@ jobs:
         continue-on-error: true
         env:
           TESTCONTAINERS_RYUK_DISABLED: true
-          SPRING_PROFILES_ACTIVE: test,ci
         run: ./gradlew build
 
       - name: Publish to Maven Central with JReleaser
         if: ${{ steps.gradle_build.outcome == 'success' }}
-        run: ./gradlew publish && ./gradlew jreleaserDeploy
+        run: ./gradlew publish && ./gradlew jreleaserDeploy --info
         env:
           JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.MAVEN_TOKEN_USERNAME }}
           JRELEASER_MAVENCENTRAL_TOKEN: ${{ secrets.MAVEN_TOKEN_PASSWORD }}
@@ -111,7 +110,7 @@ jobs:
           description: 'Passed'
           state: 'success'
           sha: ${{ github.sha }}
-          target_url: https://kinotic-foundation.github.io/structures/allure/${{ github.run_number }}
+          target_url: https://mindignited.github.io/structures/allure/${{ github.run_number }}
 
       - name: Check If Failure
         if: ${{ steps.gradle_build.outcome == 'failure' || steps.run_e2e_tests.outcome == 'failure' }}
@@ -127,4 +126,4 @@ jobs:
           # Optionally mark the job as failed
           exit 1
 
-          https://kinotic-foundation.github.io/structures/webdocs/guide/overview.html
+          https://mindignited.github.io/structures/webdocs/guide/overview.html

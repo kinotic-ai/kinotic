@@ -4,7 +4,7 @@ import {
     isStructuresProject,
     loadStructuresProjectConfig
 } from '../internal/state/StructuresProject.js'
-import { TypescriptExternalProjectConfig, TypescriptProjectConfig } from '@kinotic/structures-api'
+import { TypescriptExternalProjectConfig, TypescriptProjectConfig } from '@mindignited/structures-api'
 
 export class Generate extends Command {
     static aliases = ['gen']

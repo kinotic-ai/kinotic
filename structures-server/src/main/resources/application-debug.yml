@@ -1,7 +1,7 @@
 logging:
   level:
     org:
-      kinotic: TRACE
+      mindignited: TRACE
     io:
       vertx: TRACE
       netty:

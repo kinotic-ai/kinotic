@@ -1,6 +1,6 @@
 import { ITask } from "../ITask"
-import { IEntityService, Project, ProjectType } from '@kinotic/structures-api'
-import { Structures } from '@kinotic/structures-api'
+import { IEntityService, Project, ProjectType } from '@mindignited/structures-api'
+import { Structures } from '@mindignited/structures-api'
 import { Patient } from '../../entity/domain/health/Patient'
 import { Provider } from '../../entity/domain/health/Provider'
 import { Appointment } from '../../entity/domain/health/Appointment'
@@ -9,7 +9,7 @@ import { Treatment } from '../../entity/domain/health/Treatment'
 import { EntityDefinitionLoader } from '../../utils/EntityDefinitionLoader'
 import { CreateStructureTaskBuilder } from './CreateStructureTaskBuilder'
 import { createStructureTaskBuilder } from './CreateStructureTaskBuilder'
-import { ObjectC3Type } from '@kinotic/continuum-idl'
+import { ObjectC3Type } from '@mindignited/continuum-idl'
 import { TestDataGenerator } from '../../entity/domain/health/TestDataGenerator'
 import path from 'path'
 

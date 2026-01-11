@@ -8,12 +8,12 @@ importers:
 
   .:
     dependencies:
-      '@kinotic/continuum-client':
+      '@mindignited/continuum-client':
         specifier: ^2.14.5
-        version: 2.14.5(reflect-metadata@0.2.2)
-      '@kinotic/continuum-idl':
+        version: 2.14.6(reflect-metadata@0.2.2)
+      '@mindignited/continuum-idl':
         specifier: ^2.0.4
-        version: 2.0.4
+        version: 2.0.5
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -264,14 +264,6 @@ packages:
   '@jridgewell/trace-mapping@0.3.25':
     resolution: {integrity: sha512-vNk6aEwybGtawWmy/PzwnGDOjCkLWSD2wqvjGGAgOAwCGWySYXfYoxt00IJkTF+8Lb57DwOb3Aa0o9CApepiYQ==}
 
-  '@kinotic/continuum-client@2.14.5':
-    resolution: {integrity: sha512-JzHvc23df+SxSf5AWlPqiXL6iKEzgj694MfExgejaBCduCIaVkyCvlumJ0VYBrhrK7cznvWlRfcM51IkXdFavQ==}
-    peerDependencies:
-      reflect-metadata: ^0.2.2
-
-  '@kinotic/continuum-idl@2.0.4':
-    resolution: {integrity: sha512-akXcSw6Pw6hdorPV1lU2RXvMS+kpWZQnzfZv3GysyUrVU8IAZU5N1FmBM8QmthJUz+SXNdHgYzuireaV8aLtAw==}
-
   '@microsoft/api-extractor-model@7.30.5':
     resolution: {integrity: sha512-0ic4rcbcDZHz833RaTZWTGu+NpNgrxVNjVaor0ZDUymfDFzjA/Uuk8hYziIUIOEOSTfmIQqyzVwlzxZxPe7tOA==}
 
@@ -285,12 +277,20 @@ packages:
   '@microsoft/tsdoc@0.15.1':
     resolution: {integrity: sha512-4aErSrCR/On/e5G2hDP0wjooqDdauzEbIq8hIkIe5pXV0rtWJZvdCEKL0ykZxex+IxIwBp0eGeV48hQN07dXtw==}
 
+  '@mindignited/continuum-client@2.14.6':
+    resolution: {integrity: sha512-i//eveJVdy34YHBu0wPf3m0EW0G2McTkIg3TZBf9bVGTj+WDpslBTKD8YoP0gtcOdUMpILczIWFBRqW5jao8cw==}
+    peerDependencies:
+      reflect-metadata: ^0.2.2
+
+  '@mindignited/continuum-idl@2.0.5':
+    resolution: {integrity: sha512-hyqZxh+R+g4mfHTrtckACT6LmIqI+QoqnNi+3/2oVcjuZesLdDSu5NiaaGVNbGaAOTEYyFU4FCK+3QqLCEZFiQ==}
+
   '@opentelemetry/api@1.9.0':
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
     engines: {node: '>=8.0.0'}
 
-  '@opentelemetry/semantic-conventions@1.37.0':
-    resolution: {integrity: sha512-JD6DerIKdJGmRp4jQyX5FlrQjA4tjOw1cvfsPAZXfOOEErMUHjPcPSICS+6WnM0nB0efSFARh0KAZss+bvExOA==}
+  '@opentelemetry/semantic-conventions@1.38.0':
+    resolution: {integrity: sha512-kocjix+/sSggfJhwXqClZ3i9Y/MI0fp7b+g7kCRm6psy2dsf8uApTRclwG18h8Avm7C9+fnt+O36PspJ/OzoWg==}
     engines: {node: '>=14'}
 
   '@pkgjs/parseargs@0.11.0':
@@ -441,15 +441,15 @@ packages:
   '@rushstack/ts-command-line@4.23.7':
     resolution: {integrity: sha512-Gr9cB7DGe6uz5vq2wdr89WbVDKz0UeuFEn5H2CfWDe7JvjFFaiV15gi6mqDBTbHhHCWS7w8mF1h3BnIfUndqdA==}
 
-  '@stomp/rx-stomp@2.2.0':
-    resolution: {integrity: sha512-/r6kJYzmJy2BH0nx/7Ygpqf6YAMiMVz7HQvN5BctgvT4/kUsoCntJ/HzDyQi8ZO3nKvCAJLZmrGqyxvsC5aUHw==}
+  '@stomp/rx-stomp@2.3.0':
+    resolution: {integrity: sha512-Vt6CNHm0GuEeDz6iTb+fH1E1Vw8s5hEGqlhFMuqfkFdgoiJMVqsPUpIfF8POSYYjIHd/AJ/P55v6JgPsrFOKhA==}
     peerDependencies:
       '@stomp/stompjs': ^7.2.0
       rxjs: ^7.2.0
       uuid: '>=9.0.0 <12.0.0'
 
-  '@stomp/stompjs@7.2.0':
-    resolution: {integrity: sha512-+Waf/wdSxgRmXHWg7HXUt51YNK/Cp2pMhW+OELwX5fzbO6pd+O2bLrWqGmyFNC/RyeUQIMGESP7oE3L1dXXm0Q==}
+  '@stomp/stompjs@7.2.1':
+    resolution: {integrity: sha512-DLd/WeicnHS5SsWWSk3x6/pcivqchNaEvg9UEGVqAcfYEBVmS9D6980ckXjTtfpXLjdLDsd96M7IuX4w7nzq5g==}
 
   '@types/argparse@1.0.38':
     resolution: {integrity: sha512-ebDJ9b0e702Yr7pWgB0jzm+CX4Srzz8RcXtLJDJB+BSccqMa36uyH/zUsSYao5+BD1ytv3k3rPYCq4mAE1hsXA==}
@@ -1421,25 +1421,6 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.1
       '@jridgewell/sourcemap-codec': 1.5.0
 
-  '@kinotic/continuum-client@2.14.5(reflect-metadata@0.2.2)':
-    dependencies:
-      '@opentelemetry/api': 1.9.0
-      '@opentelemetry/semantic-conventions': 1.37.0
-      '@stomp/rx-stomp': 2.2.0(@stomp/stompjs@7.2.0)(rxjs@7.8.2)(uuid@13.0.0)
-      '@stomp/stompjs': 7.2.0
-      '@types/debug': 4.1.12
-      debug: 4.4.3
-      elliptic: 6.6.1
-      p-tap: 4.0.0
-      reflect-metadata: 0.2.2
-      rxjs: 7.8.2
-      typescript-optional: 3.0.0-alpha.3
-      uuid: 13.0.0
-    transitivePeerDependencies:
-      - supports-color
-
-  '@kinotic/continuum-idl@2.0.4': {}
-
   '@microsoft/api-extractor-model@7.30.5(@types/node@24.5.2)':
     dependencies:
       '@microsoft/tsdoc': 0.15.1
@@ -1475,9 +1456,28 @@ snapshots:
 
   '@microsoft/tsdoc@0.15.1': {}
 
+  '@mindignited/continuum-client@2.14.6(reflect-metadata@0.2.2)':
+    dependencies:
+      '@opentelemetry/api': 1.9.0
+      '@opentelemetry/semantic-conventions': 1.38.0
+      '@stomp/rx-stomp': 2.3.0(@stomp/stompjs@7.2.1)(rxjs@7.8.2)(uuid@13.0.0)
+      '@stomp/stompjs': 7.2.1
+      '@types/debug': 4.1.12
+      debug: 4.4.3
+      elliptic: 6.6.1
+      p-tap: 4.0.0
+      reflect-metadata: 0.2.2
+      rxjs: 7.8.2
+      typescript-optional: 3.0.0-alpha.3
+      uuid: 13.0.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@mindignited/continuum-idl@2.0.5': {}
+
   '@opentelemetry/api@1.9.0': {}
 
-  '@opentelemetry/semantic-conventions@1.37.0': {}
+  '@opentelemetry/semantic-conventions@1.38.0': {}
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
@@ -1592,13 +1592,13 @@ snapshots:
     transitivePeerDependencies:
       - '@types/node'
 
-  '@stomp/rx-stomp@2.2.0(@stomp/stompjs@7.2.0)(rxjs@7.8.2)(uuid@13.0.0)':
+  '@stomp/rx-stomp@2.3.0(@stomp/stompjs@7.2.1)(rxjs@7.8.2)(uuid@13.0.0)':
     dependencies:
-      '@stomp/stompjs': 7.2.0
+      '@stomp/stompjs': 7.2.1
       rxjs: 7.8.2
       uuid: 13.0.0
 
-  '@stomp/stompjs@7.2.0': {}
+  '@stomp/stompjs@7.2.1': {}
 
   '@types/argparse@1.0.38': {}
 

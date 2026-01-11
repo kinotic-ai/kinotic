@@ -38,7 +38,7 @@ function nav() {
     },
     {
       text: 'Test Status',
-      link: 'https://kinotic-foundation.github.io/structures/allure' // Fully qualified URL
+      link: 'https://mindignited.github.io/structures/allure' // Fully qualified URL
     }
   ]
 }

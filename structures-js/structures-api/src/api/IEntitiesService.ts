@@ -7,7 +7,7 @@ import {
     IterablePage,
     IServiceRegistry,
     FunctionalIterablePage
-} from '@kinotic/continuum-client'
+} from '@mindignited/continuum-client'
 
 export interface IEntitiesService {
 
@@ -180,7 +180,7 @@ export class EntitiesService implements IEntitiesService {
     protected serviceProxy: IServiceProxy
 
      constructor(serviceRegistry?: IServiceRegistry) {
-        const service = 'org.kinotic.structures.api.services.JsonEntitiesService'
+        const service = 'org.mindignited.structures.api.services.JsonEntitiesService'
         this.serviceProxy = serviceRegistry?.serviceProxy(service) || Continuum.serviceProxy(service)
     }
 

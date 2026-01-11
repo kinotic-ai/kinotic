@@ -9,7 +9,7 @@ import Button from 'primevue/button'
 import Menu from 'primevue/menu'
 import Dialog from 'primevue/dialog'
 import { useToast } from 'primevue/usetoast'
-import { type IDataSource, type IterablePage, Pageable } from '@kinotic/continuum-client'
+import { type IDataSource, type IterablePage, Pageable } from '@mindignited/continuum-client'
 
 const router = useRouter()
 const toast = useToast()

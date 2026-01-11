@@ -195,8 +195,8 @@ curl -s "https://login.microsoftonline.com/common/discovery/v2.0/keys" | jq
 ```yaml
 logging:
   level:
-    org.kinotic.structures.internal.config: DEBUG
-    org.kinotic.structures.internal.security: DEBUG
+    org.mindignited.structures.internal.config: DEBUG
+    org.mindignited.structures.internal.security: DEBUG
 ```
 
 ## Related Documentation

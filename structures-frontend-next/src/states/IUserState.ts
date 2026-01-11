@@ -1,4 +1,4 @@
-import { ConnectedInfo, ConnectionInfo, Continuum } from '@kinotic/continuum-client'
+import { ConnectedInfo, ConnectionInfo, Continuum } from '@mindignited/continuum-client'
 import { reactive } from 'vue'
 import Cookies from 'js-cookie'
 import { User } from 'oidc-client-ts'

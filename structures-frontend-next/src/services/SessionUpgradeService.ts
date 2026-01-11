@@ -1,4 +1,4 @@
-import {Continuum, type IServiceProxy} from '@kinotic/continuum-client'
+import {Continuum, type IServiceProxy} from '@mindignited/continuum-client'
 
 export interface ISessionUpgradeService {
 

@@ -1,5 +1,5 @@
 plugins {
-	id 'org.kinotic.java-library-conventions'
+	id 'org.mindignited.java-library-conventions'
 	id 'io.freefair.lombok'
 }
 

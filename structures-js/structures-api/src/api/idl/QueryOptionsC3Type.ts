@@ -1,4 +1,4 @@
-import {IntC3Type, ObjectC3Type, StringC3Type} from '@kinotic/continuum-idl'
+import {IntC3Type, ObjectC3Type, StringC3Type} from '@mindignited/continuum-idl'
 
 /**
  * Represents a {@link QueryOptions} type.
@@ -9,7 +9,7 @@ export class QueryOptionsC3Type extends ObjectC3Type {
     public readonly type: string = 'queryOptions'
 
     constructor() {
-        super('QueryOptions', 'org.kinotic.structures.domain')
+        super('QueryOptions', 'org.mindignited.structures.domain')
         this.addProperty('timeZone', new StringC3Type())
         this.addProperty('requestTimeout', new IntC3Type())
         this.addProperty('pageTimeout', new StringC3Type())

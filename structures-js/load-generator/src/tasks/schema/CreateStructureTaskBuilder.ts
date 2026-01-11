@@ -1,6 +1,6 @@
 import { ITask } from "../ITask"
-import { IStructureService, IEntityService, Structures, Structure } from '@kinotic/structures-api'
-import { ObjectC3Type } from '@kinotic/continuum-idl'
+import { IStructureService, IEntityService, Structures, Structure } from '@mindignited/structures-api'
+import { ObjectC3Type } from '@mindignited/continuum-idl'
 
 export interface CreateStructureTaskConfig {
     applicationId: string
