@@ -122,7 +122,7 @@ public class OidcAuthVerifierTest extends KeycloakTestBase {
         Map<String, String> authInfo = Map.of("authorization", "Bearer " + token);
         Participant participant = securityService.authenticate(authInfo).join();
         assertNotNull(participant);
-        assertEquals("", participant.getTenantId());
+        assertEquals("mindignited", participant.getTenantId());
     }
 
     private String fetchKeycloakAccessToken(String username, String password) throws Exception {
