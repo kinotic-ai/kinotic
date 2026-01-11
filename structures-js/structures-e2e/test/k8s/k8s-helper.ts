@@ -1,4 +1,4 @@
-import { Continuum } from '@kinotic/continuum-client';
+import { Continuum } from '@mindignited/continuum-client';
 import { ChildProcess, execSync } from 'child_process';
 
 
@@ -231,7 +231,7 @@ export class K8sTestHelper {
                     connectHeaders       : {
                         login   : 'admin',
                         passcode: 'structures',
-                        // tenantId: 'kinotic'
+                        // tenantId: 'mindignited'
                     }
                 });
 
@@ -286,7 +286,7 @@ export class K8sTestHelper {
             connectHeaders       : {
                 login   : 'admin',
                 passcode: 'structures',
-                // tenantId: 'kinotic'
+                // tenantId: 'mindignited'
             }
         });
 

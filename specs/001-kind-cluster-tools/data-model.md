@@ -82,7 +82,7 @@ Represents structures-server deployment settings.
 ```yaml
 replicaCount: 2
 image:
-  repository: kinotic/structures-server  # Matches bootBuildImage output
+  repository: mindignited/structures-server  # Matches bootBuildImage output
   tag: 0.5.0-SNAPSHOT  # From gradle.properties version
   pullPolicy: Never  # Don't pull, use loaded images from KinD
 service:
@@ -118,8 +118,8 @@ openApi:
   securityType: BEARER  # Use bearer tokens from OIDC
 logging:
   level:
-    org.kinotic.structures.auth: TRACE
-    org.kinotic.structures: TRACE
+    org.mindignited.structures.auth: TRACE
+    org.mindignited.structures: TRACE
     io.vertx: TRACE
 observability:
   otel:

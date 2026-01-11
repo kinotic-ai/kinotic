@@ -1,6 +1,6 @@
 <script lang="ts">
 import { Component, Vue, Prop } from 'vue-facing-decorator'
-import { Structures, type Application } from '@kinotic/structures-api'
+import { Structures, type Application } from '@mindignited/structures-api'
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
 import Button from 'primevue/button';

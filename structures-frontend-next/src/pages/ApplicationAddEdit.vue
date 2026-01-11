@@ -16,7 +16,7 @@
 import { Component, Prop, Vue } from 'vue-facing-decorator'
 import InputText from 'primevue/inputtext'
 import CrudEntityAddEdit from '@/components/CrudEntityAddEdit.vue'
-import { Application } from '@kinotic/structures-api'
+import { Application } from '@mindignited/structures-api'
 import { IndexNameHelper } from '@/util/IndexNameHelper'
 
 type RuleValidator = (value: string) => string | boolean
@@ -31,7 +31,7 @@ export default class ApplicationAddEdit extends Vue {
   @Prop({ type: String, required: false, default: null })
   public id!: string | null
 
-  private crudServiceIdentifier = 'org.kinotic.structures.api.services.ApplicationService'
+  private crudServiceIdentifier = 'org.mindignited.structures.api.services.ApplicationService'
 
   private application: Application = new Application('', '')
 

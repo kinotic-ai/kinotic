@@ -6,7 +6,7 @@ spring:
 logging:
   level:
     com:
-      kinotic: INFO
+      mindignited: INFO
 
 structures:
   openApiSecurityType: BASIC

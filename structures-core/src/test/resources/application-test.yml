@@ -43,7 +43,7 @@ logging:
       springframework:
         web: DEBUG
         ai: DEBUG
-      kinotic: TRACE
+      mindignited: TRACE
     io:
       vertx: DEBUG
 

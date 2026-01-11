@@ -36,7 +36,7 @@
             "type": "java",
             "name": "StructuresServerApplication",
             "request": "launch",
-            "mainClass": "org.kinotic.structuresserver.StructuresServerApplication",
+            "mainClass": "org.mindignited.structuresserver.StructuresServerApplication",
             "projectName": "structures-server",
             "vmArgs": "-XX:MaxDirectMemorySize=1g -Xmx4096m -XX:+AlwaysPreTouch -XX:+UseG1GC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -cp ${workspaceFolder}/structures-core/src/main/resources",
             "env": {

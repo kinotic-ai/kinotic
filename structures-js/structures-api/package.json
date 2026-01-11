@@ -1,10 +1,10 @@
 {
-  "name": "@kinotic/structures-api",
-  "version": "3.5.0-beta.16",
-  "author": "Kinotic Foundation <develop@kinotic.org>",
+  "name": "@mindignited/structures-api",
+  "version": "3.5.0-beta.17",
+  "author": "Kinotic Foundation <develop@mindignited.org>",
   "license": "MIT",
-  "homepage": "https://kinotic-foundation.github.io/structures/",
-  "repository": "https://github.com/Kinotic-Foundation/structures",
+  "homepage": "https://mindignited.github.io/structures/",
+  "repository": "https://github.com/MindIgnited/structures",
   "type": "module",
   "main": "./dist/structures-api.cjs",
   "module": "./dist/structures-api.js",
@@ -26,7 +26,7 @@
     "ui-test": "vitest --ui --coverage.enabled=true --mode development"
   },
   "dependencies": {
-    "@kinotic/continuum-idl": "^2.0.4",
+    "@mindignited/continuum-idl": "^2.0.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
@@ -46,7 +46,7 @@
     "ws": "^8.18.3"
   },
   "peerDependencies": {
-    "@kinotic/continuum-client": "^2.14.5"
+    "@mindignited/continuum-client": "^2.14.5"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

@@ -1,4 +1,4 @@
-import {Continuum, CrudServiceProxy, ICrudServiceProxy,} from '@kinotic/continuum-client'
+import {Continuum, CrudServiceProxy, ICrudServiceProxy,} from '@mindignited/continuum-client'
 import {Application} from '@/api/domain/Application'
 
 
@@ -23,7 +23,7 @@ export interface IApplicationService extends ICrudServiceProxy<Application> {
 export class ApplicationService extends CrudServiceProxy<Application> implements IApplicationService{
 
     constructor() {
-        super(Continuum.serviceProxy('org.kinotic.structures.api.services.ApplicationService'))
+        super(Continuum.serviceProxy('org.mindignited.structures.api.services.ApplicationService'))
     }
 
     public createApplicationIfNotExist(id: string, description: string): Promise<Application> {

@@ -1,4 +1,4 @@
-import { EntityService, type IEntitiesService } from '@kinotic/structures-api'
+import { EntityService, type IEntitiesService } from '@mindignited/structures-api'
 import { Customer } from '../../../domain/ecommerce/Customer.js'
 
 

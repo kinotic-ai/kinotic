@@ -372,10 +372,10 @@ With multiple developers:
 
 ### Implementation
 
-- [x] T117 [K8s] Create TestKubernetesProperties configuration class in structures-core/src/test/java/org/kinotic/structures/kubernetes/TestKubernetesProperties.java
+- [x] T117 [K8s] Create TestKubernetesProperties configuration class in structures-core/src/test/java/org/mindignited/structures/kubernetes/TestKubernetesProperties.java
 - [x] T118 [K8s] Create application-k8s-test.yml configuration in structures-core/src/test/resources/application-k8s-test.yml
-- [x] T119 [K8s] Create K8sTestBase with kubectl utilities and port-forward management in structures-core/src/test/java/org/kinotic/structures/kubernetes/K8sTestBase.java
-- [x] T120 [K8s] Create KubectlPortForwardManager for managing background port-forward processes in structures-core/src/test/java/org/kinotic/structures/kubernetes/KubectlPortForwardManager.java
+- [x] T119 [K8s] Create K8sTestBase with kubectl utilities and port-forward management in structures-core/src/test/java/org/mindignited/structures/kubernetes/K8sTestBase.java
+- [x] T120 [K8s] Create KubectlPortForwardManager for managing background port-forward processes in structures-core/src/test/java/org/mindignited/structures/kubernetes/KubectlPortForwardManager.java
 - [x] T121 [K8s] Create K8sClusterCacheEvictionTest with cache propagation test in structures-core/src/test/java/org/kinotic/structures/kubernetes/K8sClusterCacheEvictionTest.java
 
 ### Documentation

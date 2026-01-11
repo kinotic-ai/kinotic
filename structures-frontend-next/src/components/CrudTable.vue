@@ -27,7 +27,7 @@ import {
   Pageable,
   Direction,
   DataSourceUtils,
-} from "@kinotic/continuum-client";
+} from "@mindignited/continuum-client";
 
 import type { CrudHeader } from "@/types/CrudHeader";
 import type { DescriptiveIdentifiable } from "@/types/DescriptiveIdentifiable";

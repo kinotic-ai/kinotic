@@ -12,7 +12,7 @@
       <env name="OTEL_SERVICE_NAME" value="structures-server" />
     </envs>
     <module name="structures.structures-server.main" />
-    <option name="SPRING_BOOT_MAIN_CLASS" value="org.kinotic.structuresserver.StructuresServerApplication" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="org.mindignited.structuresserver.StructuresServerApplication" />
     <option name="VM_PARAMETERS" value="-XX:MaxDirectMemorySize=1g -Xmx4096m -XX:+AlwaysPreTouch -XX:+UseG1GC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC" />
     <extension name="software.aws.toolkits.jetbrains.core.execution.JavaAwsConnectionExtension">
       <option name="credential" />

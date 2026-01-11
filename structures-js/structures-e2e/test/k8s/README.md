@@ -378,4 +378,4 @@ jobs:
 - [../../KUBERNETES_CACHE_EVICTION_TESTS.md](../../KUBERNETES_CACHE_EVICTION_TESTS.md) - Original requirements
 - [../../docker-compose/CLUSTER_TESTING.md](../../docker-compose/CLUSTER_TESTING.md) - Docker Compose cluster testing
 - [../../dev-tools/kind/README.md](../../dev-tools/kind/README.md) - KinD cluster setup
-- [structures-auth/EvictionEventRecorder.java](../../../structures-auth/src/main/java/org/kinotic/structures/auth/internal/services/EvictionEventRecorder.java) - CSV recorder implementation
+- [structures-auth/EvictionEventRecorder.java](../../../structures-auth/src/main/java/org/mindignited/structures/auth/internal/services/EvictionEventRecorder.java) - CSV recorder implementation

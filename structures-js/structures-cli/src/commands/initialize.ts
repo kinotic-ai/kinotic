@@ -4,7 +4,7 @@ import path from 'path'
 import chalk from 'chalk'
 import { input } from '@inquirer/prompts'
 import { isStructuresProject, saveStructuresProjectConfig } from '../internal/state/StructuresProject.js'
-import { TypescriptProjectConfig } from '@kinotic/structures-api'
+import { TypescriptProjectConfig } from '@mindignited/structures-api'
 
 /**
  * Validates the application name according to server requirements:
@@ -15,17 +15,17 @@ function validateApplicationName(name: string): true | string {
     if (!name || name.length === 0) {
         return 'Application name cannot be empty'
     }
-    
+
     // First character must be a letter
     if (!/^[a-zA-Z]/.test(name)) {
         return 'Application name must start with a letter'
     }
-    
+
     // Can only contain letters, numbers, periods, underscores, or dashes
     if (!/^[a-zA-Z][a-zA-Z0-9._-]*$/.test(name)) {
         return 'Application name can only contain letters, numbers, periods, underscores, or dashes'
     }
-    
+
     return true
 }
 

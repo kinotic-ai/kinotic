@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import {FunctionDeclaration, Project} from 'ts-morph'
-import {TypescriptExternalProjectConfig} from '@kinotic/structures-api'
+import {TypescriptExternalProjectConfig} from '@mindignited/structures-api'
 import {pathToTsGlobPath} from './Utils.js'
 
 export class UtilFunctionLocator {

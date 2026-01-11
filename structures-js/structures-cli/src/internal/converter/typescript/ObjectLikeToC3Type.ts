@@ -1,11 +1,11 @@
 import {Type, Symbol, DecoratableNode} from 'ts-morph'
-import {C3Type, ObjectC3Type, PropertyDefinition} from '@kinotic/continuum-idl'
+import {C3Type, ObjectC3Type, PropertyDefinition} from '@mindignited/continuum-idl'
 import {ConverterConstants} from '../ConverterConstants.js'
 import {TypescriptConversionState} from './TypescriptConversionState.js'
 import {IConversionContext} from '../IConversionContext.js'
 import {ITypeConverter} from '../ITypeConverter.js'
 import {tsDecoratorToC3Decorator, convertPrecisionToC3Type} from './ConverterUtils.js'
-import {TenantIdDecorator} from '@kinotic/structures-api'
+import {TenantIdDecorator} from '@mindignited/structures-api'
 
 /**
  * Converts a typescript Class, Interface, or Type to a C3Type

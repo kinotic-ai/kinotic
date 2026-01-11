@@ -1,0 +1,19 @@
+package org.mindignited.structures.internal.endpoints.openapi;
+
+import io.swagger.v3.oas.models.OpenAPI;
+
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * Created by Navíd Mitchell 🤪on 3/18/23.
+ */
+public interface OpenApiService {
+
+    /**
+     * Gets the OpenAPI spec for all the structures in the given application
+     * @param applicationId the application to get the OpenAPI spec for
+     * @return the OpenAPI spec
+     */
+    CompletableFuture<OpenAPI> getOpenApiSpec(String applicationId);
+
+}

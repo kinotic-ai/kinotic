@@ -6,8 +6,8 @@ This document summarizes the cluster testing infrastructure that has been implem
 
 ### 1. StructuresProperties-based Ignite Configuration ✅
 - **Files**:
-  - `structures-core/src/main/java/org/kinotic/structures/api/config/StructuresProperties.java`
-  - `structures-core/src/main/java/org/kinotic/structures/internal/config/IgniteConfiguration.java`
+  - `structures-core/src/main/java/org/mindignited/structures/api/config/StructuresProperties.java`
+  - `structures-core/src/main/java/org/mindignited/structures/internal/config/IgniteConfiguration.java`
   - `structures-server/src/main/resources/application.yml`
 - Added comprehensive Ignite cluster configuration properties
 - Type-safe constants: `ClusterDiscoveryType.LOCAL`, `.SHAREDFS`, `.KUBERNETES`
@@ -15,7 +15,7 @@ This document summarizes the cluster testing infrastructure that has been implem
 - Supports local (single-node), shared FS (Docker/VMs), and Kubernetes discovery
 
 ### 2. Testcontainers-based Cluster Tests ✅
-- **Location**: `structures-core/src/test/java/org/kinotic/structures/cluster/`
+- **Location**: `structures-core/src/test/java/org/mindignited/structures/cluster/`
 - **Files**:
   - `ClusterTestBase.java` - Base class for 3-node cluster setup
   - `ClusterHealthVerifier.java` - Health check and verification utilities
@@ -166,7 +166,7 @@ See `CACHE_EVICTION_DESIGN.md` for complete Kubernetes setup guide.
 **Port conflicts**: Tests use dynamic ports, but check for orphaned containers
 
 See detailed troubleshooting in:
-- `structures-core/src/test/java/org/kinotic/structures/cluster/README.md`
+- `structures-core/src/test/java/org/mindignited/structures/cluster/README.md`
 - `docker-compose/CLUSTER_TESTING.md`
 
 ## Next Steps
@@ -188,7 +188,7 @@ structures:
 
 **Type-Safe Constants**:
 ```java
-import org.kinotic.structures.api.config.StructuresProperties.ClusterDiscoveryType;
+import org.mindignited.structures.api.config.StructuresProperties.ClusterDiscoveryType;
 
 ClusterDiscoveryType.LOCAL      // Single-node
 ClusterDiscoveryType.SHAREDFS    // Docker/VMs
@@ -207,7 +207,7 @@ See `IGNITE_CONFIGURATION_REFERENCE.md` for complete property list.
 
 - **Configuration Reference**: `structures-core/IGNITE_CONFIGURATION_REFERENCE.md` - Quick reference
 - **Kubernetes Tuning**: `structures-core/IGNITE_KUBERNETES_TUNING.md` - Advanced tuning (22+ options)
-- **Test Documentation**: `structures-core/src/test/java/org/kinotic/structures/cluster/README.md`
+- **Test Documentation**: `structures-core/src/test/java/org/mindignited/structures/cluster/README.md`
 - **Manual Testing Guide**: `docker-compose/CLUSTER_TESTING.md`
 - **Design Document**: `structures-core/CACHE_EVICTION_DESIGN.md`
 - **Helm Values**: `helm/structures/values.yaml`
