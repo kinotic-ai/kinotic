@@ -56,6 +56,7 @@ describe('End To End Tests', () => {
         await expect(deleteStructure(context.structure.id as string)).resolves.toBeUndefined()
         await expect(Structures.getStructureService().syncIndex()).resolves.toBeNull()
         await Structures.getProjectService().deleteById(context.structure.projectId)
+        await expect(Structures.getProjectService().syncIndex()).resolves.toBeNull()
         await Structures.getApplicationService().deleteById(context.structure.applicationId)
 
     })

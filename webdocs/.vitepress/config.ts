@@ -19,11 +19,11 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: ' https://github.com/Kinotic-Foundation/structures' }
+      { icon: 'github', link: ' https://github.com/MindIgnited/structures' }
     ],
     footer: {
       message: 'Released under the Apache License.',
-      copyright: 'Copyright © 2018-present Kinotic Foundation'
+      copyright: 'Copyright © 2018-present Mind Ignited'
     }
   }
 })
