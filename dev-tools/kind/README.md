@@ -509,6 +509,16 @@ open https://localhost/login
 open http://localhost:8888/auth/admin  # admin/admin
 ```
 
+#### Host Configuration for OIDC
+
+Add `structures.local` to your hosts file so your browser can complete OIDC flows:
+
+```bash
+echo "127.0.0.1 structures.local" | sudo tee -a /etc/hosts
+```
+
+> **Note:** Internal cluster DNS is automatically configured by the deploy script.
+
 ### Testing Local Changes
 
 ```bash

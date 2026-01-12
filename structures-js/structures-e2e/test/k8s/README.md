@@ -24,7 +24,7 @@ cd ../../  # Navigate to project root
 
 # 5. Run K8s tests
 cd structures-js/structures-e2e
-K8S_TEST_ENABLED=true npm test -- k8s-cache-eviction.test.ts
+K8S_TEST_ENABLED=true VITE_USE_STRUCTURES_DOCKER=false npm test -- k8s-cache-eviction.test.ts
 ```
 
 ## Configuration

@@ -263,30 +263,38 @@ export default class Login extends Vue {
       this.focusEmailInput();
     });
     
-    await this.loadBasicConfig();
+    await this.loadConfig();
     
-    if (this.$route.query.error) {
+    // Check for OIDC params in window.location.search (not route query)
+    // because hash-mode routing doesn't see params before the #
+    const oidcParams = this.getOidcCallbackParams();
+    
+    if (oidcParams.error) {
       await this.handleOidcError();
       return;
     }
+
+    if (await this.isDebugMode()) {
+      console.log(`🚀 [MOUNTED] oidcParams: ${JSON.stringify(oidcParams)}`);
+    }
     
-    if (this.$route.query.code && this.$route.query.state) {
+    if (oidcParams.code && oidcParams.state) {
       if (await this.isDebugMode()) {
         console.log('🚀 [MOUNTED] ===== OIDC CALLBACK DETECTED =====');
-        console.log('🚀 [MOUNTED] Code:', this.$route.query.code);
-        console.log('🚀 [MOUNTED] State:', this.$route.query.state);
+        console.log('🚀 [MOUNTED] Code:', oidcParams.code);
+        console.log('🚀 [MOUNTED] State:', oidcParams.state);
       }
       await this.handleOidcCallback();
     } else {
       if (await this.isDebugMode()) {
         console.log('🚀 [MOUNTED] No OIDC callback detected');
-        console.log('🚀 [MOUNTED] Code present:', !!this.$route.query.code);
-        console.log('🚀 [MOUNTED] State present:', !!this.$route.query.state);
+        console.log('🚀 [MOUNTED] Code present:', !!oidcParams.code);
+        console.log('🚀 [MOUNTED] State present:', !!oidcParams.state);
       }
     }
   }
 
-  private async loadBasicConfig() {
+  private async loadConfig() {
     try {
       this._isBasicAuthEnabled = await this.auth.checkBasicAuthEnabled();
       this._isConfigLoaded = true;
@@ -320,16 +328,48 @@ export default class Login extends Vue {
     return typeof r === 'string' ? r : null;
   }
 
+  /**
+   * Parse OIDC callback parameters from window.location.search
+   * This is needed because Vue Router hash mode only sees params after the #,
+   * but OIDC providers return params in the main URL query string before the #
+   */
+  private getOidcCallbackParams(): { code: string | null, state: string | null, error: string | null, errorDescription: string | null } {
+    const urlParams = new URLSearchParams(window.location.search);
+    return {
+      code: urlParams.get('code') || this.$route.query.code as string | null,
+      state: urlParams.get('state') || this.$route.query.state as string | null,
+      error: urlParams.get('error') || this.$route.query.error as string | null,
+      errorDescription: urlParams.get('error_description') || this.$route.query.error_description as string | null,
+    };
+  }
+
+  /**
+   * Clean up the URL after OIDC callback processing
+   * Removes the query params from the main URL while preserving the hash
+   */
+  private cleanupOidcUrlParams() {
+    if (window.location.search && window.history.replaceState) {
+      const cleanUrl = window.location.origin + window.location.pathname + window.location.hash;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }
+
   private async handleOidcError() {
     this.auth.setLoading(false);
     this.auth.setOidcCallbackLoading(false);
     
-    const error = this.$route.query.error as string;
-    const errorDescription = this.$route.query.error_description as string;
+    // Get error params from window.location.search (not route query)
+    // because hash-mode routing doesn't see params before the #
+    const oidcParams = this.getOidcCallbackParams();
+    const error = oidcParams.error || '';
+    const errorDescription = oidcParams.errorDescription || '';
     
     const { userMessage, isRetryable, error: oidcError } = await this.auth.parseOidcError(error, errorDescription);
     
     this.displayAlert(userMessage);
+    
+    // Clean up URL after processing error
+    this.cleanupOidcUrlParams();
     
     if (isRetryable) {
       this.auth.showRetryOption(oidcError);
@@ -345,10 +385,15 @@ export default class Login extends Vue {
   private async handleOidcCallback() {
     const debugMode = await this.isDebugMode();
     
+    // Get OIDC params from window.location.search (not route query)
+    // because hash-mode routing doesn't see params before the #
+    const oidcParams = this.getOidcCallbackParams();
+    
     if (debugMode) {
       console.log('🔄 [OIDC CALLBACK] ===== METHOD CALLED =====');
       console.log('🔄 [OIDC CALLBACK] Starting OIDC callback handling...');
-      console.log('🔄 [OIDC CALLBACK] Route query:', this.$route.query);
+      console.log('🔄 [OIDC CALLBACK] window.location.search:', window.location.search);
+      console.log('🔄 [OIDC CALLBACK] OIDC params:', oidcParams);
     }
     
     this.auth.setOidcCallbackLoading(true);
@@ -357,7 +402,7 @@ export default class Login extends Vue {
       if (debugMode) {
         console.log('🔄 [OIDC CALLBACK] Step 1: Parsing state from URL...');
       }
-      const stateString = this.$route.query.state as string;
+      const stateString = oidcParams.state || '';
       if (debugMode) {
         console.log('🔄 [OIDC CALLBACK] Raw state string:', stateString);
       }
@@ -416,7 +461,8 @@ export default class Login extends Vue {
       if (debugMode) {
         console.log('🔄 [OIDC CALLBACK] Step 5: Processing signin redirect callback...');
       }
-      const user = await userManager.signinRedirectCallback();
+      // Pass the full URL to signinRedirectCallback so it can parse the params correctly
+      const user = await userManager.signinRedirectCallback(window.location.href);
       if (debugMode) {
         console.log('🔄 [OIDC CALLBACK] ✅ Callback successful, user:', user);
         console.log('🔄 [OIDC CALLBACK] User profile:', user.profile);
@@ -426,10 +472,13 @@ export default class Login extends Vue {
       if (debugMode) {
         console.log('🔄 [OIDC CALLBACK] Step 6: Handling OIDC login...');
       }
-      await this.userState.handleOidcLogin(user);
+      await this.userState.handleOidcLogin(user, provider);
       if (debugMode) {
         console.log('🔄 [OIDC CALLBACK] ✅ OIDC login handled successfully');
       }
+      
+      // Clean up URL after successful callback processing
+      this.cleanupOidcUrlParams();
       
       const redirectPath = referer || '/applications';
       if (debugMode) {
@@ -446,7 +495,8 @@ export default class Login extends Vue {
         console.error('🔄 [OIDC CALLBACK] Error details:', {
           message: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined,
-          routeQuery: this.$route.query
+          windowLocationSearch: window.location.search,
+          oidcParams: oidcParams
         });
       }
       
@@ -455,6 +505,9 @@ export default class Login extends Vue {
       } else {
         this.displayAlert('OIDC callback failed');
       }
+      
+      // Clean up URL even on error
+      this.cleanupOidcUrlParams();
       
       this.auth.resetToEmail();
     } finally {
