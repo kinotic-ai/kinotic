@@ -1,4 +1,4 @@
-import { ConnectedInfo, ConnectionInfo, Continuum } from '@kinotic/continuum-client'
+import { ConnectedInfo, ConnectionInfo, Continuum } from '@mindignited/continuum-client'
 import { reactive } from 'vue'
 import Cookies from 'js-cookie'
 import { User } from 'oidc-client-ts'
@@ -32,7 +32,7 @@ export class UserState implements IUserState {
             login,
             passcode
         }
-        
+
         const btoaToken = btoa(`${login}:${passcode}`)
 
         try {
@@ -63,14 +63,14 @@ export class UserState implements IUserState {
         }
 
         const connectionInfo: ConnectionInfo = this.createConnectionInfo()
-        
+
         let tokenToUse = user.access_token;
-        
+
         if (user.access_token && !this.isValidJWT(user.access_token)) {
             console.log('Access token is not a valid JWT, using ID token for Microsoft social login');
             tokenToUse = user.id_token || user.access_token;
         }
-        
+
         connectionInfo.connectHeaders = {
             Authorization: `Bearer ${tokenToUse}`
         }
@@ -129,28 +129,38 @@ export class UserState implements IUserState {
     public isAuthenticated(): boolean {
         return this.authenticated && (
             Cookies.get('token') !== undefined ||
-            (this.oidcUser !== null && 
-             this.oidcUser.expires_at !== undefined && 
-             this.oidcUser.expires_at * 1000 > Date.now())
+            (this.oidcUser !== null &&
+                this.oidcUser.expires_at !== undefined &&
+                this.oidcUser.expires_at * 1000 > Date.now())
         )
     }
 
     public createConnectionInfo(): ConnectionInfo {
+        // Use build time variable if available, otherwise use default
+        const envPort = import.meta.env.VITE_CONTINUUM_PORT ? parseInt(import.meta.env.VITE_CONTINUUM_PORT) : 58503
+
         const connectionInfo: ConnectionInfo = {
-            host: '127.0.0.1',
-            port: 58503
+            host: 'localhost',
+            port: envPort 
         }
+
+        if (window.location.protocol.startsWith('https')) {
+            connectionInfo.useSSL = true
+        }
+
+        // Auto-detect from window location if not localhost
         if (window.location.hostname !== '127.0.0.1'
             && window.location.hostname !== 'localhost') {
-            if (window.location.protocol.startsWith('https')) {
-                connectionInfo.useSSL = true
-            }
-            if (window.location.port !== '') {
-                connectionInfo.port = 58503
-            } else {
-                connectionInfo.port = null
-            }
+
             connectionInfo.host = window.location.hostname
+
+        }
+
+        // we are using ssl and no port is in use so we assume a proxy
+        // is in use and we default to 443
+        if (connectionInfo.useSSL
+            && window.location.port === '') {
+            connectionInfo.port = 443
         }
         return connectionInfo
     }
@@ -161,10 +171,10 @@ export class UserState implements IUserState {
             if (parts.length !== 3) {
                 return false;
             }
-            
+
             const header = JSON.parse(atob(parts[0]));
             const payload = JSON.parse(atob(parts[1]));
-            
+
             return !!(header.alg && payload.iss && payload.aud);
         } catch (error) {
             return false;

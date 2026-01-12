@@ -2,7 +2,7 @@ import {GraphQLType} from 'graphql/type/index.js'
 import {SpecificTypesConverter} from '../SpecificTypesConverter.js'
 import {IConversionContext} from '../IConversionContext.js'
 import {GqlConversionState} from './GqlConversionState.js'
-import {BooleanC3Type, StringC3Type, IntC3Type, FloatC3Type, C3Type} from '@kinotic/continuum-idl'
+import {BooleanC3Type, StringC3Type, IntC3Type, FloatC3Type, C3Type} from '@mindignited/continuum-idl'
 
 export class GqlPrimitiveToC3Type extends SpecificTypesConverter<GraphQLType, C3Type, GqlConversionState, string> {
 

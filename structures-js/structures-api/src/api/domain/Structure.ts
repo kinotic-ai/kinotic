@@ -1,5 +1,5 @@
-import {ObjectC3Type} from '@kinotic/continuum-idl'
-import {Identifiable} from '@kinotic/continuum-client'
+import {ObjectC3Type} from '@mindignited/continuum-idl'
+import {Identifiable} from '@mindignited/continuum-client'
 
 export class Structure implements Identifiable<string> {
     public id!: string | null

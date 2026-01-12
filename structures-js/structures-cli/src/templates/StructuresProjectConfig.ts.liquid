@@ -1,10 +1,9 @@
 {% comment %}
   Liquid template for rendering a StructuresProjectConfig as TypeScript code.
-  Only TypeScript projects are supported.
   Usage: Render with context { config, typeName }
 {% endcomment %}
 
-import type { {{ typeName }} } from '@kinotic/structures-api'
+import type { {{ typeName }} } from '@mindignited/structures-api'
 
 const config: {{ typeName }} = {% render_value config %}
 

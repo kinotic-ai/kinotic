@@ -1,5 +1,5 @@
 plugins {
-	id 'org.kinotic.java-application-conventions'
+	id 'org.mindignited.java-application-conventions'
 }
 
 sourceSets {
@@ -15,8 +15,8 @@ dependencies {
 	implementation project(':structures-auth')
 
 	// Additional Continuum Dependencies
-	implementation "org.kinotic:continuum-core"
-	implementation "org.kinotic:continuum-gateway"
+	implementation "org.mindignited:continuum-core"
+	implementation "org.mindignited:continuum-gateway"
 
 	implementation 'com.github.ben-manes.caffeine:caffeine'
 	
@@ -31,7 +31,6 @@ dependencies {
     testImplementation "org.testcontainers:junit-jupiter:${testContainersVersion}"
 	testImplementation "org.testcontainers:elasticsearch:${testContainersVersion}"
 	testImplementation 'com.github.dasniko:testcontainers-keycloak:3.8.0'
-	testImplementation 'junit:junit:4.13.1'
 }
 
 test {
@@ -41,7 +40,6 @@ test {
 	systemProperty 'spring.profiles.active', 'test'
     
 }
-
 
 tasks.named('processResources') {
 	dependsOn ":structures-frontend-next:copyDist"

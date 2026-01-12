@@ -9,7 +9,7 @@ import Button from 'primevue/button'
 import Menu from 'primevue/menu'
 import Dialog from 'primevue/dialog'
 import { useToast } from 'primevue/usetoast'
-import { type IDataSource, type IterablePage, Pageable } from '@kinotic/continuum-client'
+import { type IDataSource, type IterablePage, Pageable } from '@mindignited/continuum-client'
 
 const router = useRouter()
 const toast = useToast()
@@ -134,7 +134,8 @@ const deleteDashboard = async () => {
 
   try {
     
-    const result = await dashboardService.deleteById(selectedDashboard.value.id)
+    // const _result = await dashboardService.deleteById(selectedDashboard.value.id)
+    await dashboardService.deleteById(selectedDashboard.value.id)
     
     toast.add({ severity: 'success', summary: 'Success', detail: 'Dashboard deleted successfully', life: 3000 })
     

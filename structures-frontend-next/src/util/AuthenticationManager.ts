@@ -350,7 +350,17 @@ export class AuthenticationManager {
       referer,
       provider
     };
-    return btoa(JSON.stringify(stateObj));
+    const encodedState = btoa(JSON.stringify(stateObj));
+    
+    // Store the state data in localStorage so it can be retrieved during callback
+    const stateKey = `oidc.${encodedState}`;
+    const stateData = {
+      data: encodedState,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(stateKey, JSON.stringify(stateData));
+    
+    return encodedState;
   }
 
   /**
@@ -363,7 +373,20 @@ export class AuthenticationManager {
       
       if (storedState) {
         const sessionState = JSON.parse(storedState);
+        
+        // Check if state has expired (24 hours)
+        const stateAge = Date.now() - sessionState.timestamp;
+        if (stateAge > 24 * 60 * 60 * 1000) {
+          console.warn('OIDC state has expired');
+          localStorage.removeItem(stateKey);
+          throw new Error("OIDC state has expired")
+        }
+        
         const stateObj = JSON.parse(atob(sessionState.data));
+        
+        // Clean up the state from localStorage after successful parsing
+        localStorage.removeItem(stateKey);
+        
         return {
           referer: stateObj.referer || null,
           provider: stateObj.provider || 'keycloak'

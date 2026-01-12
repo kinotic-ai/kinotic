@@ -6,7 +6,7 @@ import {
     NotNull,
     Precision,
     PrecisionType
-} from '@kinotic/structures-api'
+} from '@mindignited/structures-api'
 
 @Entity(MultiTenancyType.SHARED)
 export class ProductReview {

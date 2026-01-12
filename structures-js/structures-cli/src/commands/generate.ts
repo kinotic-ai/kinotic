@@ -4,7 +4,7 @@ import {
     isStructuresProject,
     loadStructuresProjectConfig
 } from '../internal/state/StructuresProject.js'
-import { TypescriptExternalProjectConfig, TypescriptProjectConfig } from '@kinotic/structures-api'
+import { TypescriptExternalProjectConfig, TypescriptProjectConfig } from '@mindignited/structures-api'
 
 export class Generate extends Command {
     static aliases = ['gen']
@@ -18,7 +18,7 @@ export class Generate extends Command {
     ]
 
     static flags = {
-        verbose:    Flags.boolean({char: 'v', description: 'Enable verbose logging'}),
+        verbose:    Flags.boolean({char: 'v', description: 'Enable verbose logging', default: false}),
     }
 
     public async run(): Promise<void> {
@@ -36,9 +36,10 @@ export class Generate extends Command {
 
             await codeGenerationService.generateAllEntities(structuresProjectConfig as TypescriptProjectConfig | TypescriptExternalProjectConfig, flags.verbose)
 
-        this.log(`Code Generation Complete For applicartion: ${structuresProjectConfig.application}`, flags.verbose)
+        this.log(`Code Generation Complete For application: ${structuresProjectConfig.application}`)
     }
 
+    // This is needed for the CodeGenerationService to log verbose messages
     public logVerbose(message: string | ( () => string ), verbose: boolean): void {
         if (verbose) {
             if (typeof message === 'function') {

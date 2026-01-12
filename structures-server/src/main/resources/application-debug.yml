@@ -1,0 +1,9 @@
+logging:
+  level:
+    org:
+      mindignited: TRACE
+    io:
+      vertx: TRACE
+      netty:
+        util: DEBUG
+        buffer: DEBUG

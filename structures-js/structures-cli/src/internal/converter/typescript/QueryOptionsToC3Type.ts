@@ -1,9 +1,9 @@
-import {C3Type} from '@kinotic/continuum-idl'
+import {C3Type} from '@mindignited/continuum-idl'
 import {ts, Type} from 'ts-morph'
 import {ITypeConverter} from '../ITypeConverter.js'
 import {TypescriptConversionState} from './TypescriptConversionState.js'
 import {IConversionContext} from '../IConversionContext.js'
-import {QueryOptionsC3Type} from '@kinotic/structures-api'
+import {QueryOptionsC3Type} from '@mindignited/structures-api'
 
 export class QueryOptionsToC3Type implements ITypeConverter<Type, C3Type, TypescriptConversionState> {
 

@@ -19,11 +19,11 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: ' https://github.com/Kinotic-Foundation/structures' }
+      { icon: 'github', link: ' https://github.com/MindIgnited/structures' }
     ],
     footer: {
       message: 'Released under the Apache License.',
-      copyright: 'Copyright © 2018-present Kinotic Foundation'
+      copyright: 'Copyright © 2018-present Mind Ignited'
     }
   }
 })
@@ -38,7 +38,7 @@ function nav() {
     },
     {
       text: 'Test Status',
-      link: 'https://kinotic-foundation.github.io/structures/allure' // Fully qualified URL
+      link: 'https://mindignited.github.io/structures/allure' // Fully qualified URL
     }
   ]
 }
@@ -49,13 +49,14 @@ function sidebarGuide() {
       text: 'Introduction',
       items: [
         { text: 'What is Structures?', link: '/guide/overview' },
-        { text: 'Getting Started', link: '/guide/getting-started' },
-        { text: 'Writing Migrations', link: '/guide/writing-migrations' }
+        { text: 'Getting Started', link: '/guide/getting-started' }
       ]
     },
     {
       text: 'Details',
       items: [
+        { text: 'Multi-Tenant Access', link: '/guide/multi-tenant-access' },
+        { text: 'Writing Migrations', link: '/guide/writing-migrations' },
         { text: 'Apollo @policy Support',
           link: '/guide/graphos/overview',
           items: [

@@ -8,7 +8,7 @@ continuum:
 logging:
   level:
     org:
-      kinotic: TRACE
+      mindignited: TRACE
     io:
       vertx: WARN
       netty:
@@ -18,7 +18,7 @@ logging:
 spring:
   ai:
     openai:
-      api-key: "-"
+      api-key: "noop"
       base-url: https://api.x.ai
       chat:
         options:

@@ -1,6 +1,7 @@
-import { Text } from '@kinotic/structures-api'
+import { Text } from '@mindignited/structures-api'
 
 export class Specialty {
+
     public name!: string
 
     @Text

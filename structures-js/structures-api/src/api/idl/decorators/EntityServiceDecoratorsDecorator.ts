@@ -1,5 +1,5 @@
 import {EntityServiceDecoratorsConfig} from '@/api/idl/decorators/EntityServiceDecoratorsConfig'
-import {C3Decorator} from '@kinotic/continuum-idl'
+import {C3Decorator} from '@mindignited/continuum-idl'
 
 /**
  * Provides a way to add decorators to an entity service

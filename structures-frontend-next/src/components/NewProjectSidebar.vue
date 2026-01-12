@@ -1,6 +1,6 @@
 <script lang="ts">
 import { Component, Vue, Prop } from 'vue-facing-decorator';
-import { Structures, Project, ProjectType } from '@kinotic/structures-api';
+import { Structures, Project, ProjectType } from '@mindignited/structures-api';
 import { APPLICATION_STATE } from '@/states/IApplicationState';
 
 import InputText from 'primevue/inputtext';

@@ -8,12 +8,34 @@ spring:
           model: grok-4
   main:
     web-application-type: none
+    # allow-bean-definition-overriding: true
 
 # YAML Reference http://www.yaml.org/refcard.html
 continuum:
-  discovery: sharedfs
   debug: true
+  disableClustering: false
   maxNumberOfCoresToUse: 4
+  cluster:
+    discoveryType: SHAREDFS
+    # discoveryType: LOCAL
+    joinTimeoutMs: 0
+    # Test instance local address: bind to 0.0.0.0 (all interfaces) so containers can reach it
+    # Containers connect via host.docker.internal:47500
+    # localAddress: 192.168.1.81
+    # Test instance ports (must be unique from container nodes)
+    discoveryPort: 47500      # Container nodes use 47501, 47502, 47503
+    communicationPort: 47501  # Container nodes use 47101, 47102, 47103
+    # Static IP addresses for all nodes in the cluster
+    # Format: host:port,host:port,...
+    # Test instance: host.docker.internal:47500 (containers can reach via host gateway)
+    # Containers: localhost:47501-47503 (test instance can reach via port mapping)
+    # localAddresses: 192.168.1.81:47500,localhost:47501,localhost:47502,localhost:47503
+    # Note: sharedFsPath is still used for Structure data sharing, not for Ignite discovery
+    sharedFsPath: ${HOME}/structures/sharedfs  # Shared with containers via bind mount
+
+continuum-gateway:
+    stomp:
+      port: 58504
 
 logging:
   level:
@@ -21,9 +43,13 @@ logging:
       springframework:
         web: DEBUG
         ai: DEBUG
-      kinotic: TRACE
+      mindignited: TRACE
     io:
       vertx: DEBUG
 
 structures:
   elastic-use-ssl: false
+  test:
+    cluster:
+      useExternal: false
+      nodeCount: 4  # Test instance (node 0) + 3 container nodes (nodes 1-3)

@@ -38,7 +38,7 @@ This library provides JWT authentication and authorization functionality for the
 ## Development Guidelines
 
 ### Code Organization
-- Follow the `org.kinotic.structures.auth` package structure
+- Follow the `org.mindignited.structures.auth` package structure
 - Use Spring Boot conventions for configuration
 - Implement proper error handling and logging
 - Follow security best practices

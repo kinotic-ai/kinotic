@@ -1,7 +1,7 @@
 import {QueryParameter} from '@/api/domain/QueryParameter.js'
 import {TenantSpecificId} from '@/api/domain/TenantSpecificId.js'
 import {AdminEntitiesServiceSingleton, IAdminEntitiesService, TenantSelection} from '@/api/IAdminEntitiesService.js'
-import {Page, Pageable, IterablePage} from '@kinotic/continuum-client'
+import {Page, Pageable, IterablePage} from '@mindignited/continuum-client'
 
 /**
  * This is the base interface for all entity services.
@@ -163,7 +163,7 @@ export class AdminEntityService<T> implements IAdminEntityService<T>{
 
     public findById(id: TenantSpecificId): Promise<T>{
         return this.adminEntitiesService.findById(this.structureId, id)
-    } 
+    }
 
     public findByIds(ids: TenantSpecificId[]): Promise<T[]>{
         return this.adminEntitiesService.findByIds(this.structureId, ids)

@@ -1,4 +1,4 @@
-import {Direction, Order, Page, Pageable, Sort} from '@kinotic/continuum-client'
+import {Direction, Order, Page, Pageable, Sort} from '@mindignited/continuum-client'
 import {
     AdminEntityService,
     IAdminEntityService,
@@ -6,7 +6,7 @@ import {
     Structure,
     Structures,
     TenantSpecificId
-} from '@kinotic/structures-api'
+} from '@mindignited/structures-api'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
 import {Person} from '../domain/Person.js'
@@ -56,6 +56,7 @@ describe('End To End Tests', () => {
         await expect(deleteStructure(context.structure.id as string)).resolves.toBeUndefined()
         await expect(Structures.getStructureService().syncIndex()).resolves.toBeNull()
         await Structures.getProjectService().deleteById(context.structure.projectId)
+        await expect(Structures.getProjectService().syncIndex()).resolves.toBeNull()
         await Structures.getApplicationService().deleteById(context.structure.applicationId)
 
     })

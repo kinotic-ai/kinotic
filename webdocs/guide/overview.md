@@ -4,7 +4,7 @@ outline: deep
 
 # What is Structures?
 
-Structures is an open-source framework developed by the Kinotic Foundation that provides developers with a powerful set of tools for data management. The framework is designed to make it easy for developers to manage complex data structures and schemas, while also supporting schema evolution and data manipulation.
+Structures is an open-source framework developed by the Mind Ignited that provides developers with a powerful set of tools for data management. The framework is designed to make it easy for developers to manage complex data structures and schemas, while also supporting schema evolution and data manipulation.
 
 ## Features
 

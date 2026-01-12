@@ -1,4 +1,4 @@
-import {C3Decorator} from '@kinotic/continuum-idl'
+import {C3Decorator} from '@mindignited/continuum-idl'
 
 export class CalculatedPropertyConfiguration {
 

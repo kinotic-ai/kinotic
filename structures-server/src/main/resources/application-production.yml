@@ -6,7 +6,7 @@ continuum:
 logging:
   level:
     org:
-      kinotic: INFO
+      mindignited: INFO
     io:
       vertx: INFO
 

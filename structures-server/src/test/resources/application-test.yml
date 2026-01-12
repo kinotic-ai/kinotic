@@ -1,4 +1,12 @@
 # Test configuration for frontend configuration generation
+spring:
+  ai:
+    openai:
+      api-key: "test-key"
+      base-url: https://api.x.ai
+      chat:
+        options:
+          model: grok-4
 
 # Frontend configuration settings
 structures:

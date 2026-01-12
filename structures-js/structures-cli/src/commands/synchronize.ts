@@ -1,5 +1,5 @@
-import {Continuum} from '@kinotic/continuum-client'
-import {FunctionDefinition, ObjectC3Type} from '@kinotic/continuum-idl'
+import {Continuum} from '@mindignited/continuum-client'
+import {FunctionDefinition, ObjectC3Type} from '@mindignited/continuum-idl'
 import {INamedQueriesService,
         IStructureService,
         NamedQueriesDefinition,
@@ -8,7 +8,7 @@ import {INamedQueriesService,
         Structure,
         Structures,
         TypescriptExternalProjectConfig,
-        TypescriptProjectConfig} from '@kinotic/structures-api'
+        TypescriptProjectConfig} from '@mindignited/structures-api'
 import {Args, Command, Flags} from '@oclif/core'
 import chalk from 'chalk'
 import {WebSocket} from 'ws'
@@ -64,9 +64,9 @@ export class Synchronize extends Command {
                     let project: Project | null = null
                     if(!flags.dryRun) {
                         await Structures.getApplicationService().createApplicationIfNotExist(structuresProjectConfig.application, '')
-                        project = new Project(null, 
-                                              structuresProjectConfig.application, 
-                                              structuresProjectConfig.name as string, 
+                        project = new Project(null,
+                                              structuresProjectConfig.application,
+                                              structuresProjectConfig.name as string,
                                               structuresProjectConfig.description)
                         project.sourceOfTruth = ProjectType.TYPESCRIPT
                         project = await Structures.getProjectService().createProjectIfNotExist(project)

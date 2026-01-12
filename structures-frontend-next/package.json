@@ -5,14 +5,15 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
+    "build:kind": "vue-tsc -b && vite build --mode kind",
     "preview": "vite preview"
   },
   "dependencies": {
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.2.0",
-    "@kinotic/continuum-client": "^2.14.0",
-    "@kinotic/continuum-idl": "^2.0.3",
-    "@kinotic/structures-api": "^3.5.0-beta.14",
+    "@mindignited/continuum-client": "^2.14.0",
+    "@mindignited/continuum-idl": "^2.0.3",
+    "@mindignited/structures-api": "^3.5.0-beta.17",
     "@mdi/js": "^7.4.47",
     "@primeuix/themes": "^1.2.1",
     "@vue-flow/background": "^1.3.2",

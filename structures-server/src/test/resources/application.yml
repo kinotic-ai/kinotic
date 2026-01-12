@@ -26,10 +26,15 @@ logging:
     org:
       springframework:
         web: DEBUG
-      kinotic: TRACE
+      mindignited: TRACE
     io:
       vertx: DEBUG
 
 server:
   port: 8989
 
+structures-core-test:
+  enabled: false
+
+structures-sql-test:
+    enabled: false

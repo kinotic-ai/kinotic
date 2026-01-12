@@ -1,5 +1,5 @@
-import { type IEntitiesService } from '@kinotic/structures-api'
-import { Pageable } from '@kinotic/continuum-client'
+import { type IEntitiesService } from '@mindignited/structures-api'
+import { Pageable } from '@mindignited/continuum-client'
 import { BaseDataInsightsWidgetEntityService } from './generated/BaseDataInsightsWidgetEntityService.js'
 import { DataInsightsWidget } from '@/domain/DataInsightsWidget'
 
