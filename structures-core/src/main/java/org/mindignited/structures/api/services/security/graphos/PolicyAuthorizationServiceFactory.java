@@ -1,7 +1,7 @@
 package org.mindignited.structures.api.services.security.graphos;
 
 import lombok.RequiredArgsConstructor;
-import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
+import org.mindignited.continuum.idl.api.schema.FunctionDefinition;
 import org.mindignited.structures.api.domain.EntityOperation;
 import org.mindignited.structures.api.domain.NamedQueryOperation;
 import org.mindignited.structures.api.domain.Structure;

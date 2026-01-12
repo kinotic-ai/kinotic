@@ -3,8 +3,8 @@ package org.mindignited.structures.internal.api.services.sql.executors;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import org.kinotic.continuum.core.api.crud.Page;
-import org.kinotic.continuum.core.api.crud.Pageable;
+import org.mindignited.continuum.core.api.crud.Page;
+import org.mindignited.continuum.core.api.crud.Pageable;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.api.domain.Structure;
 import org.mindignited.structures.api.domain.idl.decorators.MultiTenancyType;

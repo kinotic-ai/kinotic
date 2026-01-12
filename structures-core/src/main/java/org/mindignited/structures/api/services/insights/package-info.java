@@ -4,4 +4,4 @@
 @Version("1.0.0")
 package org.mindignited.structures.api.services.insights;
 
-import org.kinotic.continuum.api.annotations.Version;
+import org.mindignited.continuum.api.annotations.Version;

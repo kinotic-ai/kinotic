@@ -1,12 +1,12 @@
 package org.mindignited.structures.api.services;
 
 import com.fasterxml.jackson.databind.util.TokenBuffer;
-import org.kinotic.continuum.api.annotations.Proxy;
-import org.kinotic.continuum.api.annotations.Publish;
-import org.kinotic.continuum.api.security.Participant;
-import org.kinotic.continuum.core.api.crud.Page;
-import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
+import org.mindignited.continuum.api.annotations.Proxy;
+import org.mindignited.continuum.api.annotations.Publish;
+import org.mindignited.continuum.api.security.Participant;
+import org.mindignited.continuum.core.api.crud.Page;
+import org.mindignited.continuum.core.api.crud.Pageable;
+import org.mindignited.continuum.idl.api.schema.FunctionDefinition;
 import org.mindignited.structures.api.domain.FastestType;
 import org.mindignited.structures.api.domain.QueryParameter;
 import org.mindignited.structures.api.domain.RawJson;

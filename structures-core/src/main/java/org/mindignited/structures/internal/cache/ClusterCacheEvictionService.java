@@ -11,7 +11,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.cluster.ClusterGroup;
 import org.apache.ignite.lang.IgniteFuture;
-import org.kinotic.continuum.api.config.ContinuumProperties;
+import org.mindignited.continuum.api.config.ContinuumProperties;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.internal.cache.events.CacheEvictionEvent;
 import org.mindignited.structures.internal.cache.events.CacheEvictionSource;

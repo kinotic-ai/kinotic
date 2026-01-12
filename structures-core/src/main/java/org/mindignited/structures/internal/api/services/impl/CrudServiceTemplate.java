@@ -22,7 +22,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.continuum.core.api.crud.*;
+import org.mindignited.continuum.core.api.crud.*;
 import org.mindignited.structures.api.domain.RawJson;
 import org.mindignited.structures.internal.serializer.RawJsonJsonpDeserializer;
 import org.slf4j.Logger;

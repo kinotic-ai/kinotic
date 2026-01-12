@@ -6,7 +6,7 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.healthchecks.Status;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.continuum.api.config.ContinuumProperties;
+import org.mindignited.continuum.api.config.ContinuumProperties;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -4,7 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
+import org.mindignited.continuum.idl.api.schema.decorators.C3Decorator;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.api.domain.Structure;
 import org.mindignited.structures.api.services.NamedQueriesService;

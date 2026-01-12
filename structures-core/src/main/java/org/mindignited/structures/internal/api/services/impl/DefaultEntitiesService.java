@@ -5,8 +5,8 @@ import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.extern.slf4j.Slf4j;
 
-import org.kinotic.continuum.core.api.crud.Page;
-import org.kinotic.continuum.core.api.crud.Pageable;
+import org.mindignited.continuum.core.api.crud.Page;
+import org.mindignited.continuum.core.api.crud.Pageable;
 import org.mindignited.structures.api.domain.EntityContext;
 import org.mindignited.structures.api.domain.TenantSpecificId;
 import org.mindignited.structures.api.services.EntitiesService;

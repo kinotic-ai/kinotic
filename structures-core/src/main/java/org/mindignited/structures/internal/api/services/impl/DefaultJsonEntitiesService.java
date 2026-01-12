@@ -2,9 +2,9 @@ package org.mindignited.structures.internal.api.services.impl;
 
 import com.fasterxml.jackson.databind.util.TokenBuffer;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.continuum.api.security.Participant;
-import org.kinotic.continuum.core.api.crud.Page;
-import org.kinotic.continuum.core.api.crud.Pageable;
+import org.mindignited.continuum.api.security.Participant;
+import org.mindignited.continuum.core.api.crud.Page;
+import org.mindignited.continuum.core.api.crud.Pageable;
 import org.mindignited.structures.internal.api.domain.DefaultEntityContext;
 import org.mindignited.structures.api.domain.FastestType;
 import org.mindignited.structures.api.domain.QueryParameter;

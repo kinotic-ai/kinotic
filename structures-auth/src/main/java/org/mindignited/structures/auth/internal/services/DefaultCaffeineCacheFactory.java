@@ -2,19 +2,13 @@ package org.mindignited.structures.auth.internal.services;
 
 import com.github.benmanes.caffeine.cache.*;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.structures.auth.api.domain.EvictionEvent;
-import org.kinotic.structures.auth.api.services.CaffeineCacheFactory;
+import org.mindignited.structures.auth.api.domain.EvictionEvent;
+import org.mindignited.structures.auth.api.services.CaffeineCacheFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.Executor;
-
-import org.mindignited.structures.auth.api.domain.EvictionEvent;
-import org.mindignited.structures.auth.api.services.CaffeineCacheFactory;
-import org.springframework.stereotype.Component;
-
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Factory class for creating Caffeine caches with a fluent builder API.

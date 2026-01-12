@@ -5,9 +5,9 @@ import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.continuum.api.exceptions.AuthenticationException;
-import org.kinotic.continuum.api.exceptions.AuthorizationException;
-import org.kinotic.continuum.core.api.crud.*;
+import org.mindignited.continuum.api.exceptions.AuthenticationException;
+import org.mindignited.continuum.api.exceptions.AuthorizationException;
+import org.mindignited.continuum.core.api.crud.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

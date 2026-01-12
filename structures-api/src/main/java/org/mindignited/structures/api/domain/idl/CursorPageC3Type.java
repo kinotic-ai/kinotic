@@ -2,7 +2,7 @@ package org.mindignited.structures.api.domain.idl;
 
 import lombok.*;
 import lombok.experimental.Accessors;
-import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
+import org.mindignited.continuum.idl.api.schema.ObjectC3Type;
 
 /**
  * This is a placeholder for the Page type.

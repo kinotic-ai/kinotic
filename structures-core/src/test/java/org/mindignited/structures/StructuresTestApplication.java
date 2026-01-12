@@ -2,7 +2,7 @@
 
 package org.mindignited.structures;
 
-import org.kinotic.continuum.api.annotations.EnableContinuum;
+import org.mindignited.continuum.api.annotations.EnableContinuum;
 import org.mindignited.structures.api.annotations.EnableStructures;
 import org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration;
 import org.springframework.boot.SpringApplication;

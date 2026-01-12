@@ -3,13 +3,13 @@ package org.mindignited.structures.internal.idl.converters.openapi;
 import io.swagger.v3.oas.models.media.Discriminator;
 import io.swagger.v3.oas.models.media.ObjectSchema;
 import io.swagger.v3.oas.models.media.Schema;
-import org.kinotic.continuum.idl.api.converter.C3ConversionContext;
-import org.kinotic.continuum.idl.api.converter.C3TypeConverter;
-import org.kinotic.continuum.idl.api.converter.C3TypeConverterContainer;
-import org.kinotic.continuum.idl.api.converter.Cacheable;
-import org.kinotic.continuum.idl.api.schema.C3Type;
-import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
-import org.kinotic.continuum.idl.api.schema.UnionC3Type;
+import org.mindignited.continuum.idl.api.converter.C3ConversionContext;
+import org.mindignited.continuum.idl.api.converter.C3TypeConverter;
+import org.mindignited.continuum.idl.api.converter.C3TypeConverterContainer;
+import org.mindignited.continuum.idl.api.converter.Cacheable;
+import org.mindignited.continuum.idl.api.schema.C3Type;
+import org.mindignited.continuum.idl.api.schema.ObjectC3Type;
+import org.mindignited.continuum.idl.api.schema.UnionC3Type;
 import org.mindignited.structures.api.domain.idl.decorators.DiscriminatorDecorator;
 
 /**

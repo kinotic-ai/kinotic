@@ -1,8 +1,8 @@
 package org.mindignited.structures.api.services;
 
-import org.kinotic.continuum.core.api.crud.Page;
-import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
+import org.mindignited.continuum.core.api.crud.Page;
+import org.mindignited.continuum.core.api.crud.Pageable;
+import org.mindignited.continuum.idl.api.schema.FunctionDefinition;
 import org.mindignited.structures.api.domain.EntityContext;
 import org.mindignited.structures.api.domain.Structure;
 import org.mindignited.structures.api.domain.TenantSpecificId;

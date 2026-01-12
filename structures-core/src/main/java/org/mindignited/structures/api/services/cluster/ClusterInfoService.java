@@ -1,7 +1,7 @@
 package org.mindignited.structures.api.services.cluster;
 
-// import org.kinotic.continuum.api.annotations.Publish;
-// import org.kinotic.continuum.api.annotations.Version;
+// import org.mindignited.continuum.api.annotations.Publish;
+// import org.mindignited.continuum.api.annotations.Version;
 import org.mindignited.structures.api.domain.cluster.ClusterInfo;
 
 import reactor.core.publisher.Mono;

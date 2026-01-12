@@ -4,12 +4,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import org.kinotic.continuum.core.api.crud.Page;
-import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.continuum.idl.api.schema.ArrayC3Type;
-import org.kinotic.continuum.idl.api.schema.C3Type;
-import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
-import org.kinotic.continuum.idl.api.schema.PropertyDefinition;
+import org.mindignited.continuum.core.api.crud.Page;
+import org.mindignited.continuum.core.api.crud.Pageable;
+import org.mindignited.continuum.idl.api.schema.ArrayC3Type;
+import org.mindignited.continuum.idl.api.schema.C3Type;
+import org.mindignited.continuum.idl.api.schema.ObjectC3Type;
+import org.mindignited.continuum.idl.api.schema.PropertyDefinition;
 import org.mindignited.structures.api.domain.Structure;
 import org.mindignited.structures.api.domain.insights.InsightProgress;
 import org.mindignited.structures.api.services.StructureService;

@@ -7,8 +7,8 @@ import lombok.experimental.Accessors;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.kinotic.continuum.api.Identifiable;
-import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
+import org.mindignited.continuum.api.Identifiable;
+import org.mindignited.continuum.idl.api.schema.FunctionDefinition;
 
 import java.util.List;
 

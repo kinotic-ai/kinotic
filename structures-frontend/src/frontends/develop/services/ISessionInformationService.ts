@@ -29,7 +29,7 @@ export class SessionInformationService implements ISessionInformationService {
     protected serviceProxy: IServiceProxy
 
     constructor(@inject() serviceRegistry: IServiceRegistry) {
-        this.serviceProxy = serviceRegistry.serviceProxy('org.kinotic.continuum.gateway.api.security.SessionInformationService')
+        this.serviceProxy = serviceRegistry.serviceProxy('org.mindignited.continuum.gateway.api.security.SessionInformationService')
     }
 
     public countActiveSessionsContinuous(): Observable<number> {

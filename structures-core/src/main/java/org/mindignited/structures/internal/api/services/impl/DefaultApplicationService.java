@@ -3,8 +3,8 @@ package org.mindignited.structures.internal.api.services.impl;
 import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 
-import org.kinotic.continuum.core.api.crud.Page;
-import org.kinotic.continuum.core.api.crud.Pageable;
+import org.mindignited.continuum.core.api.crud.Page;
+import org.mindignited.continuum.core.api.crud.Pageable;
 import org.mindignited.structures.api.domain.Application;
 import org.mindignited.structures.api.services.ApplicationService;
 import org.mindignited.structures.api.services.ProjectService;

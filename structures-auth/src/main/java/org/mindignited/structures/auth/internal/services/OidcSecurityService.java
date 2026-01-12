@@ -10,10 +10,10 @@ import io.jsonwebtoken.security.Jwk;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.kinotic.continuum.api.security.DefaultParticipant;
-import org.kinotic.continuum.api.security.Participant;
-import org.kinotic.continuum.api.security.ParticipantConstants;
-import org.kinotic.continuum.api.security.SecurityService;
+import org.mindignited.continuum.api.security.DefaultParticipant;
+import org.mindignited.continuum.api.security.Participant;
+import org.mindignited.continuum.api.security.ParticipantConstants;
+import org.mindignited.continuum.api.security.SecurityService;
 import org.mindignited.structures.auth.api.config.OidcSecurityServiceProperties;
 import org.mindignited.structures.auth.api.domain.OidcProvider;
 import org.mindignited.structures.auth.api.services.JwksService;

@@ -28,7 +28,7 @@
     })
     export default class GrindTest extends Vue {
 
-        private serviceIdentifier: string = 'org.kinotic.continuum.substratum.api.ProvisioningService'
+        private serviceIdentifier: string = 'org.mindignited.continuum.substratum.api.ProvisioningService'
         private describeMethodIdentifier: string = 'describeProvisionKafka'
         private executeMethodIdentifier: string = 'provisionKafka'
 

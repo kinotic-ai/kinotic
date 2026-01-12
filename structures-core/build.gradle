@@ -22,23 +22,23 @@ dependencies {
 	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 	
 	implementation ("io.vertx:vertx-web"){
-		exclude group: 'com.fasterxml.jackson.core'
+		exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
 	}
 	implementation ("io.vertx:vertx-web-graphql"){
-		exclude group: 'com.fasterxml.jackson.core'
+		exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
 	}
 	implementation ("io.vertx:vertx-web-client"){
-		exclude group: 'com.fasterxml.jackson.core'
+		exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
 	}
 	implementation ("io.vertx:vertx-health-check"){
-		exclude group: 'com.fasterxml.jackson.core'
+		exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
 	}
 
 	implementation ('org.apache.ignite:ignite-core'){
-		exclude group: 'com.fasterxml.jackson.core'
+		exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
 	}
 	implementation ('org.apache.ignite:ignite-kubernetes'){
-		exclude group: 'com.fasterxml.jackson.core'
+		exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
 	}
 
 	implementation "org.mindignited:continuum-core"

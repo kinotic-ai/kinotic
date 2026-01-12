@@ -1,6 +1,6 @@
 package org.mindignited.structures.api.domain;
 
-import org.kinotic.continuum.api.security.Participant;
+import org.mindignited.continuum.api.security.Participant;
 
 import java.util.List;
 

@@ -1,7 +1,7 @@
 package org.mindignited.structures.internal.api.services.sql.executors;
 
-import org.kinotic.continuum.core.api.crud.Page;
-import org.kinotic.continuum.core.api.crud.Pageable;
+import org.mindignited.continuum.core.api.crud.Page;
+import org.mindignited.continuum.core.api.crud.Pageable;
 import org.mindignited.structures.internal.api.services.sql.QueryContext;
 
 import java.util.ArrayList;

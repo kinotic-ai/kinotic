@@ -4,7 +4,7 @@ import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.kinotic.continuum.core.api.crud.Pageable;
+import org.mindignited.continuum.core.api.crud.Pageable;
 import org.mindignited.structures.api.domain.EntityContext;
 import org.mindignited.structures.api.domain.cluster.ClusterInfo;
 import org.mindignited.structures.api.services.EntitiesService;

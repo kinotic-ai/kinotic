@@ -1,9 +1,9 @@
 package org.mindignited.structuresserver.config;
 
-import org.kinotic.continuum.api.security.DefaultParticipant;
-import org.kinotic.continuum.api.security.ParticipantConstants;
-import org.kinotic.continuum.api.security.Participant;
-import org.kinotic.continuum.api.security.SecurityService;
+import org.mindignited.continuum.api.security.DefaultParticipant;
+import org.mindignited.continuum.api.security.ParticipantConstants;
+import org.mindignited.continuum.api.security.Participant;
+import org.mindignited.continuum.api.security.SecurityService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;

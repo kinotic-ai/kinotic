@@ -1,10 +1,10 @@
 package org.mindignited.structures.internal.api.services.sql.executors;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.continuum.core.api.crud.Page;
-import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
-import org.kinotic.continuum.idl.api.schema.ParameterDefinition;
+import org.mindignited.continuum.core.api.crud.Page;
+import org.mindignited.continuum.core.api.crud.Pageable;
+import org.mindignited.continuum.idl.api.schema.FunctionDefinition;
+import org.mindignited.continuum.idl.api.schema.ParameterDefinition;
 import org.mindignited.structures.api.domain.ParameterHolder;
 import org.mindignited.structures.api.domain.QueryOptions;
 import org.mindignited.structures.api.domain.QueryParameter;

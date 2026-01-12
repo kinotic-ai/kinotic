@@ -1,7 +1,7 @@
 package org.mindignited.structures.api.services.insights;
 
-import org.kinotic.continuum.api.annotations.Publish;
-import org.kinotic.continuum.api.security.Participant;
+import org.mindignited.continuum.api.annotations.Publish;
+import org.mindignited.continuum.api.security.Participant;
 import org.mindignited.structures.api.domain.insights.InsightProgress;
 import org.mindignited.structures.api.domain.insights.InsightRequest;
 

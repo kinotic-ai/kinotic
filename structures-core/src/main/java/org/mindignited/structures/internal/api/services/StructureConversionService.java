@@ -1,8 +1,8 @@
 package org.mindignited.structures.internal.api.services;
 
 import io.swagger.v3.oas.models.media.Schema;
-import org.kinotic.continuum.idl.api.converter.IdlConverter;
-import org.kinotic.continuum.idl.api.schema.C3Type;
+import org.mindignited.continuum.idl.api.converter.IdlConverter;
+import org.mindignited.continuum.idl.api.schema.C3Type;
 import org.mindignited.structures.api.domain.Structure;
 import org.mindignited.structures.internal.idl.converters.graphql.GqlConversionState;
 import org.mindignited.structures.internal.idl.converters.graphql.GqlTypeHolder;

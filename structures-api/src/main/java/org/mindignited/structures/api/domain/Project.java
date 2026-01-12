@@ -1,7 +1,7 @@
 package org.mindignited.structures.api.domain;
 
 import java.util.Date;
-import org.kinotic.continuum.api.Identifiable;
+import org.mindignited.continuum.api.Identifiable;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;

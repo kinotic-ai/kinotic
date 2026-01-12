@@ -1,7 +1,7 @@
 package org.mindignited.structuresserver;
 
-import org.kinotic.continuum.api.annotations.EnableContinuum;
-import org.kinotic.continuum.gateway.api.annotations.EnableContinuumGateway;
+import org.mindignited.continuum.api.annotations.EnableContinuum;
+import org.mindignited.continuum.gateway.api.annotations.EnableContinuumGateway;
 import org.mindignited.structures.api.annotations.EnableStructures;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

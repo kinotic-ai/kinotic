@@ -2,11 +2,11 @@
 
 package org.mindignited.structures;
 
-import org.kinotic.continuum.api.exceptions.AuthenticationException;
-import org.kinotic.continuum.api.security.DefaultParticipant;
-import org.kinotic.continuum.api.security.Participant;
-import org.kinotic.continuum.api.security.ParticipantConstants;
-import org.kinotic.continuum.api.security.SecurityService;
+import org.mindignited.continuum.api.exceptions.AuthenticationException;
+import org.mindignited.continuum.api.security.DefaultParticipant;
+import org.mindignited.continuum.api.security.Participant;
+import org.mindignited.continuum.api.security.ParticipantConstants;
+import org.mindignited.continuum.api.security.SecurityService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;

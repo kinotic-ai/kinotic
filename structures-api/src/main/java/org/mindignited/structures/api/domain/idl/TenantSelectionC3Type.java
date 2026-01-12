@@ -1,7 +1,7 @@
 package org.mindignited.structures.api.domain.idl;
 
-import org.kinotic.continuum.idl.api.schema.ArrayC3Type;
-import org.kinotic.continuum.idl.api.schema.StringC3Type;
+import org.mindignited.continuum.idl.api.schema.ArrayC3Type;
+import org.mindignited.continuum.idl.api.schema.StringC3Type;
 
 /**
  * Represents the TenantSelection Typescript type

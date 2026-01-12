@@ -19,7 +19,7 @@ export class KafkaService implements IKafkaService {
     protected serviceProxy: IServiceProxy
 
     constructor(@inject() serviceRegistry: IServiceRegistry) {
-        this.serviceProxy = serviceRegistry.serviceProxy('org.kinotic.continuum.orbiter.api.KafkaService')
+        this.serviceProxy = serviceRegistry.serviceProxy('org.mindignited.continuum.orbiter.api.KafkaService')
     }
 
     public findAllKafkaConsumers(): Observable<KafkaConsumerGroupInfo> {

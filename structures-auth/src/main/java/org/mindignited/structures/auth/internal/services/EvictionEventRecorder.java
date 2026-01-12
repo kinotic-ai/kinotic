@@ -1,13 +1,12 @@
 package org.mindignited.structures.auth.internal.services;
 
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-
 import org.mindignited.structures.auth.api.domain.EvictionEvent;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PreDestroy;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

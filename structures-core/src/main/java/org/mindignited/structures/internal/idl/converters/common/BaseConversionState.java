@@ -3,7 +3,7 @@ package org.mindignited.structures.internal.idl.converters.common;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
-import org.kinotic.continuum.idl.api.schema.PropertyDefinition;
+import org.mindignited.continuum.idl.api.schema.PropertyDefinition;
 import org.mindignited.structures.api.config.StructuresProperties;
 
 import java.util.ArrayDeque;
