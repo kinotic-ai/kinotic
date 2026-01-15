@@ -9,7 +9,7 @@ import {MultiTenantSearchTaskGenerator} from '@/tasks/MultiTenantSearchTaskGener
 import {MultiTenantTaskGeneratorDelegator, TenantId} from '@/tasks/MultiTenantTaskGeneratorDelegator.js'
 import {SaveTaskGenerator} from '@/tasks/SaveTaskGenerator.js'
 import {SearchPeopleTaskGenerator} from '@/tasks/SearchPeopleTaskGenerator.js'
-import {ConnectionInfo} from '@kinotic/continuum-client'
+import {ConnectionInfo} from '@mindignited/continuum-client'
 
 
 export class LoadTaskGeneratorFactory {
@@ -74,7 +74,7 @@ export class LoadTaskGeneratorFactory {
         }else if(loadTestConfig.testName === 'searchMultiTenantSmall') {
 
             // Tenant used during connection does not matter for this test
-            return new MultiTenantSearchTaskGenerator(this.createConnectionInfo('kinotic', structuresConfig),
+            return new MultiTenantSearchTaskGenerator(this.createConnectionInfo('mindignited', structuresConfig),
                                                       100,
                                                       'firstName: John',
                                                       100,
@@ -83,7 +83,7 @@ export class LoadTaskGeneratorFactory {
         }else if(loadTestConfig.testName === 'searchMultiTenantLarge') {
 
             // Tenant used during connection does not matter for this test
-            return new MultiTenantSearchTaskGenerator(this.createConnectionInfo('kinotic', structuresConfig),
+            return new MultiTenantSearchTaskGenerator(this.createConnectionInfo('mindignited', structuresConfig),
                                                       1000,
                                                       'firstName: John',
                                                       100,
@@ -104,7 +104,7 @@ export class LoadTaskGeneratorFactory {
         }else if(loadTestConfig.testName === 'findAllMultiTenantSmall') {
 
             // Tenant used during connection does not matter for this test
-            return new MultiTenantFindTaskGenerator(this.createConnectionInfo('kinotic', structuresConfig),
+            return new MultiTenantFindTaskGenerator(this.createConnectionInfo('mindignited', structuresConfig),
                                                     100,
                                                     100,
                                                     loadTestConfig.numberOfTenants)
@@ -112,13 +112,13 @@ export class LoadTaskGeneratorFactory {
         }else if(loadTestConfig.testName === 'findAllMultiTenantLarge') {
 
             // Tenant used during connection does not matter for this test
-            return new MultiTenantFindTaskGenerator(this.createConnectionInfo('kinotic', structuresConfig),
+            return new MultiTenantFindTaskGenerator(this.createConnectionInfo('mindignited', structuresConfig),
                                                     1000,
                                                     100,
                                                     loadTestConfig.numberOfTenants)
         } else if(loadTestConfig.testName === 'generateComplexStructures'){
 
-            return new CreateComplexStructuresTaskGenerator(this.createConnectionInfo('kinotic', structuresConfig))
+            return new CreateComplexStructuresTaskGenerator(this.createConnectionInfo('mindignited', structuresConfig))
             
         }else {
             throw new Error(`Unsupported test name: ${loadTestConfig.testName}`)

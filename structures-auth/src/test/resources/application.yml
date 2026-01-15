@@ -22,7 +22,7 @@ logging:
     org:
       springframework:
         web: DEBUG
-      kinotic: TRACE
+      mindignited: TRACE
     io:
       vertx: DEBUG
 
@@ -67,3 +67,8 @@ oidc-security-service:
         - "admin"
         - "poweruser"
 
+structures-sql-test:
+    enabled: false
+
+structures-core-test:
+  enabled: false

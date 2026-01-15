@@ -1,10 +1,10 @@
 {
-  "name": "@kinotic/structures-api",
-  "version": "3.5.0-beta.15",
-  "author": "Kinotic Foundation <develop@kinotic.org>",
+  "name": "@mindignited/structures-api",
+  "version": "3.5.0-beta.17",
+  "author": "Mind Ignited <develop@mindignited.org>",
   "license": "MIT",
-  "homepage": "https://kinotic-foundation.github.io/structures/",
-  "repository": "https://github.com/Kinotic-Foundation/structures",
+  "homepage": "https://mindignited.github.io/structures/",
+  "repository": "https://github.com/MindIgnited/structures",
   "type": "module",
   "main": "./dist/structures-api.cjs",
   "module": "./dist/structures-api.js",
@@ -26,27 +26,27 @@
     "ui-test": "vitest --ui --coverage.enabled=true --mode development"
   },
   "dependencies": {
-    "@kinotic/continuum-idl": "^2.0.3",
+    "@mindignited/continuum-idl": "^2.0.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
-    "@types/node": "^24.0.3",
+    "@types/node": "^24.5.2",
     "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/runner": "^3.2.4",
     "@vitest/ui": "3.2.4",
-    "allure-vitest": "^3.3.0",
+    "allure-vitest": "^3.4.1",
     "delay": "^6.0.0",
-    "typescript": "^5.8.3",
-    "vite": "^6.3.5",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.7",
     "vite-plugin-dts": "^4.5.4",
     "vite-plugin-externalize-deps": "^0.9.0",
     "vitest": "^3.2.4",
-    "ws": "^8.18.2"
+    "ws": "^8.18.3"
   },
   "peerDependencies": {
-    "@kinotic/continuum-client": "^2.14.0"
+    "@mindignited/continuum-client": "^2.14.5"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

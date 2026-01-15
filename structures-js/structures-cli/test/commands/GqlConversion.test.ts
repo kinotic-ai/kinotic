@@ -1,4 +1,4 @@
-import {ObjectC3Type} from '@kinotic/continuum-idl'
+import {ObjectC3Type} from '@mindignited/continuum-idl'
 import { buildSchema, GraphQLSchema, isObjectType } from 'graphql'
 import { glob } from 'glob'
 import * as fs from 'fs'
@@ -6,7 +6,7 @@ import {GqlConversionState} from '../../src/internal/converter/graphql/GqlConver
 import {GqlConverterStrategy} from '../../src/internal/converter/graphql/GqlConverterStrategy.js'
 import {createConversionContext} from '../../src/internal/converter/IConversionContext.js'
 import {ConsoleLogger, Logger} from '../../src/internal/Logger.js'
-import {EntityDecorator, MultiTenancyType} from '@kinotic/structures-api'
+import {EntityDecorator, MultiTenancyType} from '@mindignited/structures-api'
 
 describe('GqlConversionTest', () => {
     it('runs conversion', async () => {

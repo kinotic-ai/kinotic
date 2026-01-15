@@ -6,7 +6,7 @@ import {
     Precision,
     PrecisionType,
     TenantId
-} from '@kinotic/structures-api'
+} from '@mindignited/structures-api'
 import {Address} from './Address.js'
 import {Pet} from './Pet.js'
 

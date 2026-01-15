@@ -1,0 +1,254 @@
+
+services:
+  structures-node1:
+    image: docker.io/mindignited/structures-server:3.5.1-SNAPSHOT
+    healthcheck:
+      test: ["CMD", "/workspace/health-check"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    environment:
+      BPL_JVM_HEAD_ROOM: 10
+      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
+      CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
+      CONTINUUM_GATEWAY_STOMP_PORT: 58501
+
+      SPRING_PROFILES_ACTIVE: production,debug
+
+      CONTINUUM_CLUSTER_DISCOVERY_TYPE: SHAREDFS
+      # CONTINUUM_CLUSTER_DISCOVERY_TYPE: LOCAL
+      CONTINUUM_CLUSTER_DISABLE_CLUSTERING: false
+      CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS: 0
+      CONTINUUM_CLUSTER_DISCOVERY_PORT: 47501
+      CONTINUUM_CLUSTER_COMMUNICATION_PORT: 47101
+      # Container local address: bind to 0.0.0.0 (all interfaces) for port mapping
+      # Test instance connects via localhost:47501 which maps to this container
+      CONTINUUM_CLUSTER_LOCAL_ADDRESS: 0.0.0.0
+      # Static IP addresses for all nodes in the cluster
+      # Format: host:port,host:port,...
+      # Test instance: host.docker.internal:47500 (containers can reach via host gateway)
+      # Containers: localhost:47501-47503 (test instance can reach via port mapping)
+      CONTINUUM_CLUSTER_LOCAL_ADDRESSES: ${STRUCTURES_TEST_INSTANCE_HOST}:47500,structures-node1:47501,structures-node2:47502,structures-node3:47503
+      CONTINUUM_CLUSTER_SHARED_FS_PATH: /sharedfs
+
+      STRUCTURES_ELASTICCONNECTIONS_0_SCHEME: ${STRUCTURES_ELASTIC_SCHEME}
+      STRUCTURES_ELASTICCONNECTIONS_0_HOST: ${STRUCTURES_ELASTIC_HOST}
+      STRUCTURES_ELASTICCONNECTIONS_0_PORT: ${STRUCTURES_ELASTIC_PORT}
+      STRUCTURES_HEALTH_CHECK_PATH: /health
+      STRUCTURES_INITIALIZE_WITH_SAMPLE_DATA: true
+      STRUCTURES_WEB_SERVER_PORT: 9091
+      STRUCTURES_OPEN_API_PORT: 8081
+      STRUCTURES_GRAPHQL_PORT: 4001
+      OTEL_METRICS_EXPORTER: none
+      OTEL_TRACES_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+
+      THC_PORT: 9090 # Health check port (should match STRUCTURES_WEB_SERVER_PORT)
+      SPRING_AI_OPENAI_API_KEY: "noop"
+      SPRING_AI_OPENAI_BASE_URL: "https://api.x.ai"
+      SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "grok-4"
+      SPRING_AI_OPENAI_API-KEY: "DUMMY"
+      
+      STRUCTURES_TENANT_ID_FIELD_NAME: tenantId
+      STRUCTURES_ELASTIC_CONNECTION_TIMEOUT: 5s
+      STRUCTURES_ELASTIC_SOCKET_TIMEOUT: 60s
+      STRUCTURES_BASE_URL: http://127.0.0.1
+      STRUCTURES_OPEN_API_SECURITY_TYPE: BASIC
+      STRUCTURES_OPEN_API_PATH: /api/
+      STRUCTURES_GRAPHQL_PATH: /graphql/
+      STRUCTURES_CORS_ALLOWED_ORIGIN_PATTERN: '*'
+      STRUCTURES_ENABLE_STATIC_FILE_SERVER: true
+      OTEL_SERVICE_NAME: structures-server
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_RESOURCE_ATTRIBUTES: service.name=structures-server
+
+    volumes:
+      - type: bind
+        source: ${HOME}/structures/sharedfs
+        target: /sharedfs
+        read_only: false
+    ports:
+      - "9091:9091"
+      - "8081:8081"
+      - "4001:4001"
+      - "47501:47501"
+      - "47101:47101"
+      - "58501:58501"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        reservations:
+          memory: 4G
+        limits:
+          memory: 4G
+
+  structures-node2:
+    image: docker.io/mindignited/structures-server:3.5.1-SNAPSHOT
+    healthcheck:
+      test: ["CMD", "/workspace/health-check"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    environment:
+      BPL_JVM_HEAD_ROOM: 10
+      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
+      CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
+      CONTINUUM_GATEWAY_STOMP_PORT: 58502
+
+      SPRING_PROFILES_ACTIVE: production,debug
+
+      CONTINUUM_CLUSTER_DISCOVERY_TYPE: SHAREDFS
+      # CONTINUUM_CLUSTER_DISCOVERY_TYPE: LOCAL
+      CONTINUUM_CLUSTER_DISABLE_CLUSTERING: false
+      CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS: 0
+      CONTINUUM_CLUSTER_DISCOVERY_PORT: 47502
+      CONTINUUM_CLUSTER_COMMUNICATION_PORT: 47102
+      # Container local address: bind to 0.0.0.0 (all interfaces) for port mapping
+      # Test instance connects via localhost:47502 which maps to this container
+      CONTINUUM_CLUSTER_LOCAL_ADDRESS: 0.0.0.0
+      # Static IP addresses for all nodes in the cluster
+      # Format: host:port,host:port,...
+      # Test instance: host.docker.internal:47500 (containers can reach via host gateway)
+      # Containers: localhost:47501-47503 (test instance can reach via port mapping)
+      CONTINUUM_CLUSTER_LOCAL_ADDRESSES: ${STRUCTURES_TEST_INSTANCE_HOST}:47500,structures-node1:47501,structures-node2:47502,structures-node3:47503
+      CONTINUUM_CLUSTER_SHARED_FS_PATH: /sharedfs
+
+      STRUCTURES_ELASTICCONNECTIONS_0_SCHEME: ${STRUCTURES_ELASTIC_SCHEME}
+      STRUCTURES_ELASTICCONNECTIONS_0_HOST: ${STRUCTURES_ELASTIC_HOST}
+      STRUCTURES_ELASTICCONNECTIONS_0_PORT: ${STRUCTURES_ELASTIC_PORT}
+      STRUCTURES_HEALTH_CHECK_PATH: /health
+      STRUCTURES_INITIALIZE_WITH_SAMPLE_DATA: false
+      STRUCTURES_WEB_SERVER_PORT: 9092
+      STRUCTURES_OPEN_API_PORT: 8082
+      STRUCTURES_GRAPHQL_PORT: 4002
+      OTEL_METRICS_EXPORTER: none
+      OTEL_TRACES_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+
+      THC_PORT: 9090 # Health check port (should match STRUCTURES_WEB_SERVER_PORT)
+      SPRING_AI_OPENAI_API_KEY: "noop"
+      SPRING_AI_OPENAI_BASE_URL: "https://api.x.ai"
+      SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "grok-4"
+      STRUCTURES_TENANT_ID_FIELD_NAME: tenantId
+      STRUCTURES_ELASTIC_CONNECTION_TIMEOUT: 5s
+      STRUCTURES_ELASTIC_SOCKET_TIMEOUT: 60s
+      STRUCTURES_BASE_URL: http://127.0.0.1
+      STRUCTURES_OPEN_API_SECURITY_TYPE: BASIC
+      STRUCTURES_OPEN_API_PATH: /api/
+      STRUCTURES_GRAPHQL_PATH: /graphql/
+      STRUCTURES_CORS_ALLOWED_ORIGIN_PATTERN: '*'
+      STRUCTURES_ENABLE_STATIC_FILE_SERVER: true
+      OTEL_SERVICE_NAME: structures-server
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_RESOURCE_ATTRIBUTES: service.name=structures-server
+      SPRING_AI_OPENAI_API-KEY: "DUMMY"
+
+    volumes:
+      - type: bind
+        source: ${HOME}/structures/sharedfs
+        target: /sharedfs
+        read_only: false
+    ports:
+      - "9092:9092"
+      - "8082:8082"
+      - "4002:4002"
+      - "47502:47502"
+      - "47102:47102"
+      - "58502:58502"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        reservations:
+          memory: 4G
+        limits:
+          memory: 4G
+
+  structures-node3:
+    image: docker.io/mindignited/structures-server:3.5.1-SNAPSHOT
+    healthcheck:
+      test: ["CMD", "/workspace/health-check"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    environment:
+      BPL_JVM_HEAD_ROOM: 10
+      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
+      CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
+      CONTINUUM_GATEWAY_STOMP_PORT: 58503
+
+      SPRING_PROFILES_ACTIVE: production,debug
+
+      CONTINUUM_CLUSTER_DISCOVERY_TYPE: SHAREDFS
+      # CONTINUUM_CLUSTER_DISCOVERY_TYPE: LOCAL
+      CONTINUUM_CLUSTER_DISABLE_CLUSTERING: false
+      CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS: 0
+      CONTINUUM_CLUSTER_DISCOVERY_PORT: 47503
+      CONTINUUM_CLUSTER_COMMUNICATION_PORT: 47103
+      # Container local address: bind to 0.0.0.0 (all interfaces) for port mapping
+      # Test instance connects via localhost:47503 which maps to this container
+      CONTINUUM_CLUSTER_LOCAL_ADDRESS: 0.0.0.0
+      # Static IP addresses for all nodes in the cluster
+      # Format: host:port,host:port,...
+      # Test instance: host.docker.internal:47500 (containers can reach via host gateway)
+      # Containers: localhost:47501-47503 (test instance can reach via port mapping)
+      CONTINUUM_CLUSTER_LOCAL_ADDRESSES: ${STRUCTURES_TEST_INSTANCE_HOST}:47500,structures-node1:47501,structures-node2:47502,structures-node3:47503
+      CONTINUUM_CLUSTER_SHARED_FS_PATH: /sharedfs
+
+      STRUCTURES_ELASTICCONNECTIONS_0_SCHEME: ${STRUCTURES_ELASTIC_SCHEME}
+      STRUCTURES_ELASTICCONNECTIONS_0_HOST: ${STRUCTURES_ELASTIC_HOST}
+      STRUCTURES_ELASTICCONNECTIONS_0_PORT: ${STRUCTURES_ELASTIC_PORT}
+      STRUCTURES_HEALTH_CHECK_PATH: /health
+      STRUCTURES_INITIALIZE_WITH_SAMPLE_DATA: false
+      STRUCTURES_WEB_SERVER_PORT: 9093
+      STRUCTURES_OPEN_API_PORT: 8083
+      STRUCTURES_GRAPHQL_PORT: 4003
+      OTEL_METRICS_EXPORTER: none
+      OTEL_TRACES_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+
+      THC_PORT: 9090 # Health check port (should match STRUCTURES_WEB_SERVER_PORT)
+      SPRING_AI_OPENAI_API_KEY: "noop"
+      SPRING_AI_OPENAI_BASE_URL: "https://api.x.ai"
+      SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "grok-4"
+      STRUCTURES_TENANT_ID_FIELD_NAME: tenantId
+      STRUCTURES_ELASTIC_CONNECTION_TIMEOUT: 5s
+      STRUCTURES_ELASTIC_SOCKET_TIMEOUT: 60s
+      STRUCTURES_BASE_URL: http://127.0.0.1
+      STRUCTURES_OPEN_API_SECURITY_TYPE: BASIC
+      STRUCTURES_OPEN_API_PATH: /api/
+      STRUCTURES_GRAPHQL_PATH: /graphql/
+      STRUCTURES_CORS_ALLOWED_ORIGIN_PATTERN: '*'
+      STRUCTURES_ENABLE_STATIC_FILE_SERVER: true
+      OTEL_SERVICE_NAME: structures-server
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_RESOURCE_ATTRIBUTES: service.name=structures-server
+      SPRING_AI_OPENAI_API-KEY: "DUMMY"
+
+    volumes:
+      - type: bind
+        source: ${HOME}/structures/sharedfs
+        target: /sharedfs
+        read_only: false
+    ports:
+      - "9093:9093"
+      - "8083:8083"
+      - "4003:4003"
+      - "47503:47503"
+      - "47103:47103"
+      - "58503:58503"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        reservations:
+          memory: 4G
+        limits:
+          memory: 4G

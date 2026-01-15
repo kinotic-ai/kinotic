@@ -116,11 +116,20 @@ pnpm install
 # Start development server
 pnpm dev
 
+# Start development server with kind cluster config
+pnpm dev:kind
+
 # Build for production
 pnpm build
 
+# Build for kind cluster deployment
+pnpm build:kind
+
 # Preview production build
 pnpm preview
+
+# Preview kind cluster build
+pnpm preview:kind
 
 # Run type checking
 pnpm type-check
@@ -183,6 +192,43 @@ CMD ["nginx", "-g", "daemon off;"]
 ```
 
 ### Environment Variables
+
+The application supports environment-specific configuration through Vite's environment variable system.
+
+#### Continuum WebSocket Connection
+
+Configure the WebSocket connection to the Structures server using these environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VITE_CONTINUUM_HOST` | WebSocket server hostname | `127.0.0.1` (auto-detected from window.location if deployed) |
+| `VITE_CONTINUUM_PORT` | WebSocket server port | `58503` |
+| `VITE_CONTINUUM_USE_SSL` | Use secure WebSocket (wss://) | `false` (auto-detected from window.location if deployed) |
+
+#### Environment Files
+
+The application uses multiple `.env` files for different deployment scenarios:
+
+- **`.env`**: Base configuration for production/deployed builds
+- **`.env.development`**: Development overrides (used with `npm run dev`)
+- **`.env.kind`**: Kind cluster overrides (used with `npm run dev:kind`)
+- **`.env.local`**: Local overrides (gitignored, highest precedence)
+
+**Example: Connect to Kind cluster NodePort directly**
+
+Create a `.env.local` file:
+```bash
+VITE_CONTINUUM_HOST=127.0.0.1
+VITE_CONTINUUM_PORT=30503  # Direct NodePort access
+VITE_CONTINUUM_USE_SSL=false
+```
+
+Or use the provided mode:
+```bash
+npm run dev:kind
+```
+
+#### Build-Time Variables
 
 For build-time configuration, you can use environment variables:
 

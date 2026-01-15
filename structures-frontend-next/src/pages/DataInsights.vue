@@ -6,8 +6,8 @@ import Card from 'primevue/card'
 import ScrollPanel from 'primevue/scrollpanel'
 import Divider from 'primevue/divider'
 import Calendar from 'primevue/calendar'
-import { Structures, ProgressType } from '@kinotic/structures-api'
-import type { InsightRequest, DataInsightsComponent, InsightProgress } from '@kinotic/structures-api'
+import { Structures, ProgressType } from '@mindignited/structures-api'
+import type { InsightRequest, DataInsightsComponent, InsightProgress } from '@mindignited/structures-api'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { INSIGHTS_STATE, type InsightData } from '@/states/IInsightsState'
 import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEntityService'
@@ -65,6 +65,7 @@ class DateRangeObservable {
 }
 declare global {
   interface Window {
+    // @ts-ignore
     globalDateRangeObservable: DateRangeObservable
   }
 }
@@ -100,6 +101,7 @@ export default class DataInsights extends Vue {
 
   mounted() {
     if (!window.globalDateRangeObservable) {
+      // @ts-ignore
       window.globalDateRangeObservable = new DateRangeObservable()
     }
     
@@ -526,7 +528,7 @@ Components that support date filtering will automatically respond to the global 
           </div>
           
           <!-- Global Date Range Picker -->
-          <div class="flex items-center gap-2">image.png
+          <div class="flex items-center gap-2">
             <Button
               @click="toggleDateRangePicker"
               :class="showDateRangePicker ? 'p-button-primary' : 'p-button-outlined'"

@@ -5,15 +5,19 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "build:kind": "vue-tsc -b && vite build --mode kind",
+    "preview": "vite preview",
+    "deps:install": "./pnpmw install --reporter=append-only",
+    "pnpm:build": "./pnpmw run build",
+    "pnpm:dev": "./pnpmw run dev"
   },
   "dependencies": {
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.2.0",
-    "@kinotic/continuum-client": "^2.14.0",
-    "@kinotic/continuum-idl": "^2.0.3",
-    "@kinotic/structures-api": "^3.5.0-beta.14",
     "@mdi/js": "^7.4.47",
+    "@mindignited/continuum-client": "^2.14.0",
+    "@mindignited/continuum-idl": "^2.0.3",
+    "@mindignited/structures-api": "^3.5.0-beta.17",
     "@primeuix/themes": "^1.2.1",
     "@vue-flow/background": "^1.3.2",
     "@vue-flow/controls": "^1.1.2",

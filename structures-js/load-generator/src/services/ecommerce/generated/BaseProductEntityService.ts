@@ -1,4 +1,4 @@
-import { EntityService, IEntitiesService } from '@kinotic/structures-api'
+import { EntityService, type IEntitiesService } from '@mindignited/structures-api'
 import { Product } from '../../../entity/domain/ecommerce/Product.js'
 
 
@@ -11,7 +11,7 @@ export class BaseProductEntityService extends EntityService<Product> {
   private readonly shouldValidate: boolean
 
   constructor(shouldValidate: boolean = true, entitiesService?: IEntitiesService) {
-    super('ecommerce', 'Product', entitiesService)
+    super('', 'Product', entitiesService)
     this.shouldValidate = shouldValidate
   }
 

@@ -1,4 +1,4 @@
-import {Continuum, CrudServiceProxy, FunctionalIterablePage, ICrudServiceProxy, IterablePage, Page, Pageable} from '@kinotic/continuum-client'
+import {Continuum, CrudServiceProxy, FunctionalIterablePage, ICrudServiceProxy, IterablePage, Page, Pageable} from '@mindignited/continuum-client'
 import {Structure} from '@/api/domain/Structure'
 
 
@@ -67,7 +67,7 @@ export interface IStructureService extends ICrudServiceProxy<Structure> {
 export class StructureService extends CrudServiceProxy<Structure> implements IStructureService{
 
     constructor() {
-        super(Continuum.serviceProxy('org.kinotic.structures.api.services.StructureService'))
+        super(Continuum.serviceProxy('org.mindignited.structures.api.services.StructureService'))
     }
 
     public countForApplication(applicationId: string): Promise<number> {

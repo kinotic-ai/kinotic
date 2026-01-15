@@ -1,5 +1,5 @@
-import {Page, Pageable} from '@kinotic/continuum-client'
-import {ArrayC3Type, FunctionDefinition, LongC3Type, ObjectC3Type, StringC3Type} from '@kinotic/continuum-idl'
+import {Page, Pageable} from '@mindignited/continuum-client'
+import {ArrayC3Type, FunctionDefinition, LongC3Type, ObjectC3Type, StringC3Type} from '@mindignited/continuum-idl'
 import {
     IEntityService,
     NamedQueriesDefinition,
@@ -8,7 +8,7 @@ import {
     QueryDecorator,
     Structure,
     Structures
-} from '@kinotic/structures-api'
+} from '@mindignited/structures-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
@@ -56,6 +56,7 @@ describe('End To End Tests', () => {
         await expect(deleteStructure(context.structure.id as string)).resolves.toBeUndefined()
         await expect(Structures.getStructureService().syncIndex()).resolves.toBeNull()
         await Structures.getProjectService().deleteById(context.structure.projectId)
+        await expect(Structures.getProjectService().syncIndex()).resolves.toBeNull()
         await Structures.getApplicationService().deleteById(context.structure.applicationId)
     })
 

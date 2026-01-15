@@ -6,7 +6,6 @@ spring:
 
 # YAML Reference http://www.yaml.org/refcard.html
 continuum:
-  discovery: sharedfs
   debug: true
   maxNumberOfCoresToUse: 4
 
@@ -15,7 +14,7 @@ logging:
     org:
       springframework:
         web: DEBUG
-      kinotic: TRACE
+      mindignited: TRACE
     io:
       vertx: DEBUG
 
@@ -25,3 +24,9 @@ structures:
 
 structures-core-test:
   enabled: true
+
+structures-sql-test:
+  enabled: false
+
+oidc-security-service:
+  enabled: false

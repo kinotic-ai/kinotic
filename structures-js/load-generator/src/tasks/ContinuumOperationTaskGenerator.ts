@@ -1,7 +1,7 @@
 import {ITask} from './ITask.js'
 import {ITaskFactory} from './ITaskFactory.js'
 import {ITaskGenerator} from './ITaskGenerator.js'
-import {ConnectionInfo, ContinuumSingleton} from '@kinotic/continuum-client'
+import {ConnectionInfo, ContinuumSingleton} from '@mindignited/continuum-client'
 
 class ContinuumTask implements ITask{
     private delegate: ITask

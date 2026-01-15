@@ -1,4 +1,4 @@
-import {C3Decorator} from '@kinotic/continuum-idl'
+import {C3Decorator} from '@mindignited/continuum-idl'
 
 /**
  * Signifies the ID field of an entity, The value must be a string and provided by the client.

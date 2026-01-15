@@ -51,12 +51,19 @@ task deleteDist(type: Delete){
 task copyDist(type: Copy){
     from "${project.projectDir}/dist"
     into "${project.projectDir.parent}/structures-server/src/main/resources/webroot"
-    mustRunAfter 'pnpmBuild'
+    dependsOn 'pnpmBuild'
 }
 
 task pnpmBuild(type: PnpmTask) {
-    args = ['build']
-    mustRunAfter 'pnpmInstall'
+    boolean runningKindCluster = System.getenv("RUNNING_KIND_CLUSTER") == "true"
+    if(runningKindCluster) {
+        println "Running in kind cluster, using build:kind"
+        args = ["build:kind"]
+    } else {
+        println "Running in non-kind cluster, using build"
+        args = ["build"]
+    }
+    dependsOn 'pnpmInstall'
 }
 
 task cleanFrontend {
@@ -73,7 +80,3 @@ tasks.findByName('build').dependsOn 'buildFrontend'
 
 tasks.findByName('clean').dependsOn 'cleanFrontend'
 
-
-// tasks.named('copyDist') {
-// 	dependsOn ":structures-server:sourcesJar"
-// }

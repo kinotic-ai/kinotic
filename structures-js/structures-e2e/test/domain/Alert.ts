@@ -1,4 +1,4 @@
-import {Entity, MultiTenancyType, EntityType, Id, TimeReference} from '@kinotic/structures-api'
+import {Entity, MultiTenancyType, EntityType, Id, TimeReference} from '@mindignited/structures-api'
 
 @Entity(MultiTenancyType.SHARED, EntityType.STREAM)
 export class Alert {

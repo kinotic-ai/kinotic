@@ -93,14 +93,14 @@ structures:
 ## Key Files and Directories
 
 ### Public API (Consumed by Applications)
-- `src/main/java/org/kinotic/structures/api/`: Public API interfaces
+- `src/main/java/org/mindignited/structures/api/`: Public API interfaces
   - `config/`: Configuration properties and interfaces
   - `services/`: Service interfaces for domain operations
   - `domain/`: Domain objects and entities
   - `annotations/`: Spring Boot annotations
 
 ### Internal Implementation (Library Internals)
-- `src/main/java/org/kinotic/structures/internal/`: Implementation details
+- `src/main/java/org/mindignited/structures/internal/`: Implementation details
   - `config/`: Configuration classes
   - `api/services/`: Service implementations
   - `endpoints/`: GraphQL and REST endpoint handlers

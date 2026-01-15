@@ -1,10 +1,10 @@
-import {CalculatedPropertyConfiguration, 
-        EntityConfiguration, 
+import {CalculatedPropertyConfiguration,
+        EntityConfiguration,
         TransformConfiguration,
         TypescriptExternalProjectConfig,
         TypescriptProjectConfig
-    } from '@kinotic/structures-api'
-import type { StructuresProjectConfig } from '@kinotic/structures-api'
+    } from '@mindignited/structures-api'
+import type { StructuresProjectConfig } from '@mindignited/structures-api'
 import {createStateManager} from './IStateManager.js'
 import { loadConfig } from 'c12'
 import path from 'path'
@@ -135,7 +135,7 @@ async function findStructuresConfigFile(): Promise<string | undefined> {
 function renderValue(value: any, indent: number = 0): string {
     const indentStr = '  '.repeat(indent)
     const nextIndentStr = '  '.repeat(indent + 1)
-    
+
     if (value === null) {
         return 'null'
     }
@@ -146,7 +146,9 @@ function renderValue(value: any, indent: number = 0): string {
         return String(value)
     }
     if (typeof value === 'string') {
-        return `"${value.replace(/"/g, '\\"')}"`
+        // JSON.stringify produces a valid JS/TS string literal with correct escaping
+        // (handles backslashes, quotes, newlines, tabs, etc.)
+        return JSON.stringify(value)
     }
     if (typeof value === 'number') {
         return String(value)
@@ -161,11 +163,11 @@ function renderValue(value: any, indent: number = 0): string {
     if (typeof value === 'object' && value !== null) {
         const entries = Object.entries(value)
             .filter(([key, val]) => val !== undefined) // Only filter out undefined values
-        
+
         if (entries.length === 0) {
             return '{}'
         }
-        
+
         const props = entries
             .map(([key, val]) => `${nextIndentStr}${key}: ${renderValue(val, indent + 1)}`)
             .join(',\n')
@@ -184,7 +186,7 @@ export async function saveStructuresProjectConfig(config: StructuresProjectConfi
         root: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../templates/'),
         extname: '.liquid'
     })
-    
+
     // Register custom tags for rendering config values
     engine.registerTag('render_value', {
         parse: function(tagToken: any) {

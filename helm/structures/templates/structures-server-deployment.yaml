@@ -11,11 +11,19 @@ spec:
     metadata:
       labels:
         app: {{ include "structures-server.name" . }}
+        release: {{ .Release.Name }}
     spec:
+      serviceAccountName: {{ include "structures-server.fullname" . }}
+      terminationGracePeriodSeconds: 60  # Allow time for WebSocket connections to close gracefully
       containers:
         - name: structures-server
           image: {{ if .Values.image.sha }}"{{ .Values.image.repository }}@{{ .Values.image.sha }}"{{ else }}"{{ .Values.image.repository }}:{{ .Values.image.tag }}"{{ end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          lifecycle:
+            preStop:
+              exec:
+                # Give WebSocket connections time to close gracefully before SIGTERM
+                command: ["/bin/sh", "-c", "sleep 15"]
           readinessProbe:
             httpGet:
               path: "{{ .Values.properties.structures.healthCheckPath }}"
@@ -41,20 +49,38 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 7
           ports:
-            - containerPort: {{ .Values.properties.structures.webServerPort }} # UI PORT
-            - containerPort: {{ .Values.properties.structures.graphqlPort }} # GraphQL Port
-            - containerPort: {{ .Values.properties.structures.openApiPort }} # OpenAPI Port
-            - containerPort: 58503 # Continuum Stomp Port
-            - containerPort: 58504 # Continuum REST Port
+            - containerPort: {{ .Values.properties.structures.webServerPort| default 9090 }} # UI PORT
+            - containerPort: {{ .Values.properties.structures.graphqlPort| default 4000 }} # GraphQL Port
+            - containerPort: {{ .Values.properties.structures.openApiPort| default 8080 }} # OpenAPI Port
+            - containerPort: {{ .Values.continuum_gateway.stomp.port| default 58503 }} # Continuum Stomp Port
+            - containerPort: {{ .Values.properties.structures.restPort| default 58504 }} # Continuum REST Port
+            - containerPort: {{ .Values.continuum.cluster.discoveryPort | default 47500 }} # Ignite Discovery Port
+            - containerPort: {{ .Values.continuum.cluster.communicationPort | default 47100 }} # Ignite Communication Port
           envFrom:
             - configMapRef:
                 name: {{ include "structures-server.fullname" . }}
+          env:
+            # Pod name for unique eviction file paths
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           volumeMounts:
             - name: tmp-work
               mountPath: /workspace/ignite/work
+            {{- if .Values.evictionTracking.enabled }}
+            - name: eviction-data
+              mountPath: {{ .Values.evictionTracking.mountPath | default "/eviction-data" }}
+            {{- end }}
       restartPolicy: Always
       nodeSelector: {{ toYaml .Values.nodeSelector | nindent 8 }}
       volumes:
         - name: tmp-work
           emptyDir:
             sizeLimit: 1Gi
+        {{- if .Values.evictionTracking.enabled }}
+        - name: eviction-data
+          hostPath:
+            path: {{ .Values.evictionTracking.hostPath | default "/tmp/structures-eviction-data" }}
+            type: DirectoryOrCreate
+        {{- end }}

@@ -1,80 +1,168 @@
-![CI](https://github.com/kinotic-foundation/structures/actions/workflows/gradle-build.yml/badge.svg?branch=develop)
+![CI](https://github.com/mindignited/structures/actions/workflows/gradle-build.yml/badge.svg?branch=develop)
 
 # Structures
-Structures is an open-source framework for data storage and retrieval, supporting schema evolution, data management, and providing a user-friendly GUI, OpenAPI, and GraphQL interface for data management.
 
-## Documentation
-For comprehensive documentation, including getting started guides, examples, and API reference, visit our documentation site:
-[https://kinotic-foundation.github.io/structures/](https://kinotic-foundation.github.io/structures/)
+**The open-source framework for flexible data management.**
 
-## Quick Start
-1. Clone the repository:
+Structures streamlines your data management with powerful tools for schema evolution, real-time data manipulation, and seamless API generation. Build robust applications faster with TypeScript-first development and enterprise-grade features.
+
+## ✨ Why Structures?
+
+- **🔄 Schema Evolution**: Modify data schemas over time without breaking changes or complex migrations
+- **🚀 TypeScript-First**: Define entities in TypeScript and automatically generate services and APIs  
+- **⚡ Real-time**: Built on Continuum for live data synchronization across clients
+- **🔍 Multiple APIs**: Auto-generated GraphQL, REST, and OpenAPI interfaces
+- **🏢 Multi-tenant**: Built-in tenant isolation and management
+- **🎨 Modern GUI**: User-friendly web interface for data management and exploration
+- **🔧 CLI Tools**: Powerful command-line tools for project setup and synchronization
+
+## 🚀 Quick Start
+
+Get Structures running in under 5 minutes:
+
+### 1. Start the Development Server
+
+**For Mac users (Apple Silicon):**
 ```bash
-git clone https://github.com/kinotic-foundation/structures.git
-cd structures
+git clone https://github.com/MindIgnited/structures.git
+cd structures/docker-compose
+docker-compose -f compose.yml -f compose.ek-m4.override.yml up -d
 ```
 
-2. Start the development server:
+**For other platforms:**
 ```bash
-cd docker-compose
+git clone https://github.com/MindIgnited/structures.git
+cd structures/docker-compose
 docker-compose up -d
 ```
 
-3. Visit [http://localhost:9090](http://localhost:9090) to access the Structures GUI
+### 2. Access the GUI
+Visit [http://localhost:9090](http://localhost:9090) and login with:
+- **Username**: admin
+- **Password**: structures
 
-For detailed setup instructions, see the [Docker Compose documentation](docker-compose/README.md).
-
-## Next Steps
-- [Getting Started Guide](https://kinotic-foundation.github.io/structures/website/guide/getting-started.html) - Complete setup instructions and prerequisites
-
-### Projects
-* [structures-core](structures-core/README.md)
-  * Provides the core library for use in all other projects.
-* [structures-frontend](structures-frontend/README.md)
-  * Provides a GUI for interacting with Structures.
-* [structures-frontend-next](structures-frontend-next/README.md)
-  * Next-generation Vue 3 frontend application.
-* [structures-server](structures-server/README.md)
-  * Provides access to the core library via a REST API and a GUI.
-* [structures-auth](structures-auth/README.md)
-  * Authentication and authorization library with OIDC support.
-
-### Environment Variables 
-These variables are available for custom configuration, presented are the defaults.
-
-```text
-STRUCTURES_INDEX_PREFIX: struct_
-STRUCTURES_TENANT_ID_FIELD_NAME: structuresTenantId
-STRUCTURES_ELASTICCONNECTIONS_0_SCHEME: http
-STRUCTURES_ELASTICCONNECTIONS_0_HOST: elasticsearch
-STRUCTURES_ELASTICCONNECTIONS_0_PORT: 9200
-STRUCTURES_ELASTIC_CONNECTION_TIMEOUT: 5s
-STRUCTURES_ELASTIC_SOCKET_TIMEOUT: 60s
-STRUCTURES_ELASTIC_USERNAME:
-STRUCTURES_ELASTIC_PASSWORD:
-STRUCTURES_OPEN_API_SECURITY_TYPE: BASIC
-STRUCTURES_OPEN_API_PORT: 8080
-STRUCTURES_OPEN_API_PATH: /api/
-STRUCTURES_OPEN_API_SERVER_URL: http://127.0.0.1:8080
-STRUCTURES_GRAPHQL_PORT: 4000
-STRUCTURES_GRAPHQL_PATH: /graphql/
-STRUCTURES_CORS_ALLOWED_ORIGIN_PATTERN: '*'
-STRUCTURES_WEB_SERVER_PORT: 9090
-STRUCTURES_HEALTH_CHECK_PATH: /health/
-STRUCTURES_ENABLE_STATIC_FILE_SERVER: true
-STRUCTURES_INITIALIZE_WITH_SAMPLE_DATA: false
-```
-
-### Testing Requirements
-When running tests locally or in CI/CD environments, the following environment variable is required:
+### 3. Create Your First Project
 
 ```bash
-export TESTCONTAINERS_RYUK_DISABLED=true
+# Install the CLI
+pnpm install -g @mindignited/structures-cli
+
+# Create a new React project
+pnpm create vite@latest my-app --template react-ts
+cd my-app
+
+# Initialize Structures
+structures init --application my.app --entities src/entities --generated src/generated
+pnpm install @mindignited/structures-api
 ```
 
-**Why this is needed:** TestContainers uses a Ryuk container for resource cleanup, which can cause connectivity issues on certain systems (particularly macOS with Docker Desktop). Disabling Ryuk ensures reliable test execution.
+### 4. Define an Entity
 
-**CI/CD Consideration:** Add this environment variable to your CI/CD pipeline configuration to ensure tests run successfully.
+Create `src/entities/Person.ts`:
+```typescript
+import { Entity, AutoGeneratedId, MultiTenancyType } from '@mindignited/structures-api'
 
-**For detailed testing information:** See [TESTING.md](TESTING.md) for comprehensive testing setup, troubleshooting, and CI/CD configuration examples.
+@Entity(MultiTenancyType.SHARED)
+export class Person {
+    @AutoGeneratedId
+    public id: string | null = null
+    public firstName: string = ''
+    public lastName: string = ''
+    public email: string = ''
+}
+```
 
+### 5. Sync and Use
+
+```bash
+# Sync with the server (generates services automatically)
+structures sync -p --server http://localhost:9090
+
+# Your PersonEntityService is now ready to use!
+```
+
+## 💡 What Makes Structures Different?
+
+### Schema Evolution Without Pain
+Traditional databases require complex migrations when schemas change. Structures handles schema evolution automatically:
+
+```typescript
+// Version 1
+@Entity(MultiTenancyType.SHARED)
+export class User {
+    @AutoGeneratedId
+    public id: string | null = null
+    public name: string = ''
+}
+
+// Version 2 - Just add fields, no migration needed!
+@Entity(MultiTenancyType.SHARED)
+export class User {
+    @AutoGeneratedId
+    public id: string | null = null
+    public name: string = ''
+    public email: string = ''        // ✅ New field
+    public createdAt: Date = new Date() // ✅ Another new field
+}
+```
+
+### TypeScript-First Development
+Define your data model once in TypeScript, get everything else automatically:
+- ✅ Type-safe service classes
+- ✅ GraphQL schema and resolvers  
+- ✅ REST API endpoints
+- ✅ OpenAPI documentation
+- ✅ Real-time subscriptions
+
+### Enterprise-Ready Features
+- **Multi-tenancy**: Built-in tenant isolation with `@TenantId` decorator
+- **Security**: Role-based access control and policy decorators
+- **Audit Trail**: Complete audit logging for compliance
+- **Search**: Full-text search powered by Elasticsearch
+- **Observability**: OpenTelemetry integration for monitoring
+
+## 🏗️ Architecture
+
+Structures consists of several key components:
+
+- **[structures-core](structures-core/README.md)**: Core data management engine
+- **[structures-server](structures-server/README.md)**: REST API and web interface
+- **[structures-auth](structures-auth/README.md)**: Authentication with OIDC support
+- **[structures-cli](https://www.npmjs.com/package/@mindignited/structures-cli)**: Command-line tools
+- **[structures-frontend-next](structures-frontend-next/README.md)**: Modern Vue 3 GUI
+
+## 📚 Documentation
+
+Ready to dive deeper? Our comprehensive documentation covers everything:
+
+**[📖 Full Documentation →](https://structuresframework.org/webdocs/)**
+
+### Quick Links
+- **[Getting Started Guide](https://structuresframework.org/webdocs/guide/getting-started)** - Complete setup and first project
+- **[Decorators Reference](https://structuresframework.org/webdocs/reference/decorators)** - All available decorators
+- **[Multi-tenant Guide](https://structuresframework.org/webdocs/guide/multi-tenant-access)** - Multi-tenancy setup
+- **[Docker Compose Setup](docker-compose/README.md)** - Development environment configuration
+
+## 🔧 Development Setup
+
+For detailed development setup including authentication, monitoring, and advanced features:
+
+```bash
+# Full development environment with Keycloak, monitoring, and schema generation
+cd docker-compose
+docker-compose -f compose.yml -f compose.ek-m4.override.yml -f compose.keycloak.yml -f compose.gen-schemas.yml up -d
+```
+
+See the [Docker Compose documentation](docker-compose/README.md) for all available configurations.
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [contribution guidelines](https://structuresframework.org/webdocs/guide/overview#contributing) for details.
+
+## 📄 License
+
+Structures is released under the [Elastic License 2.0](https://www.elastic.co/licensing/elastic-license).
+
+---
+
+**Ready to get started?** Check out our [Getting Started Guide](https://structuresframework.org/webdocs/guide/getting-started) or try the quick start above!

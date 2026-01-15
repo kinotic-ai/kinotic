@@ -1,6 +1,6 @@
 import { ITask } from "../ITask"
-import { IEntityService, Project, ProjectType } from '@kinotic/structures-api'
-import { Structures } from '@kinotic/structures-api'
+import { IEntityService, Project, ProjectType } from '@mindignited/structures-api'
+import { Structures } from '@mindignited/structures-api'
 import path from 'path'
 import { Customer } from '../../entity/domain/ecommerce/Customer'
 import { Product } from '../../entity/domain/ecommerce/Product'
@@ -9,7 +9,7 @@ import { Purchase } from '../../entity/domain/ecommerce/Purchase'
 import { TestDataGenerator } from '../../entity/domain/ecommerce/TestDataGenerator'
 import { EntityDefinitionLoader } from '../../utils/EntityDefinitionLoader'
 import { CreateStructureTaskBuilder } from './CreateStructureTaskBuilder'
-import { ObjectC3Type } from '@kinotic/continuum-idl'
+import { ObjectC3Type } from '@mindignited/continuum-idl'
 import { createStructureTaskBuilder } from './CreateStructureTaskBuilder'
 
 export class EcommerceTaskFactory {

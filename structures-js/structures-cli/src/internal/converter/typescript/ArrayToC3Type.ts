@@ -1,4 +1,4 @@
-import {ArrayC3Type, C3Type} from '@kinotic/continuum-idl'
+import {ArrayC3Type, C3Type} from '@mindignited/continuum-idl'
 import {Type} from 'ts-morph'
 import {TypescriptConversionState} from './TypescriptConversionState.js'
 import {IConversionContext} from '../IConversionContext.js'

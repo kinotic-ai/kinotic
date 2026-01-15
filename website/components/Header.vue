@@ -58,7 +58,7 @@ watch(isMenuOpen, (val) => {
           <NuxtLink to="https://structuresframework.org/webdocs/reference/structures-config.html" class="text-[#EDEEF2] text-sm">Reference</NuxtLink>
           <NuxtLink to="https://structuresframework.org/allure/index.html" class="text-[#EDEEF2] text-sm">Test Status</NuxtLink>
           <NuxtLink
-            to="https://github.com/Kinotic-Foundation/structures"
+            to="https://github.com/MindIgnied/structures"
             class="flex items-center gap-2 rounded-lg px-3 py-2 bg-[#2B2A32] text-sm"
           >
             <img src="/icons/git.svg" alt="GitHub" class="w-5 h-5" />
@@ -112,7 +112,7 @@ watch(isMenuOpen, (val) => {
             <NuxtLink to="https://structuresframework.org/allure/index.html" class="text-[#EDEEF2] text-sm" @click="isMenuOpen = false">Test Status</NuxtLink>
           </div>
           <NuxtLink
-            to="https://github.com/Kinotic-Foundation/structures"
+            to="https://github.com/MindIgnited/structures"
             class="flex items-center justify-center gap-2 rounded-lg px-3 py-2 bg-[#2B2A32] w-full xl:w-fit"
             @click="isMenuOpen = false"
           >
