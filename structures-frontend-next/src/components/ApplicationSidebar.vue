@@ -1,11 +1,12 @@
-<script lang="ts">
-import { Component, Vue, Prop } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { computed, reactive, ref } from 'vue'
 import { Structures, type Application } from '@mindignited/structures-api'
-import InputText from 'primevue/inputtext';
-import Textarea from 'primevue/textarea';
-import Button from 'primevue/button';
-import Select from 'primevue/select';
-import ToggleButton from 'primevue/togglebutton';
+import InputText from 'primevue/inputtext'
+import Textarea from 'primevue/textarea'
+import Button from 'primevue/button'
+import ToggleButton from 'primevue/togglebutton'
+import { useToast } from 'primevue/usetoast'
+
 interface ApplicationForm {
   name: string
   description: string
@@ -13,94 +14,90 @@ interface ApplicationForm {
   openapi: boolean
 }
 
-@Component({
-  components: {
-    InputText,
-    Textarea,
-    Button,
-    Select,
-    ToggleButton
-  }
+const props = defineProps<{ visible: boolean }>()
+
+const emit = defineEmits<{
+  (e: 'submit', createdApplication: Application): void
+  (e: 'close'): void
+}>()
+
+const toast = useToast()
+
+const form = reactive<ApplicationForm>({
+  name: '',
+  description: '',
+  graphql: true,
+  openapi: false
 })
-export default class ApplicationSidebar extends Vue {
-  @Prop({ required: true }) readonly visible!: boolean
 
-  form: ApplicationForm = {
-    name: '',
-    description: '',
-    graphql: true,
-    openapi: false
+const loading = ref(false)
+
+const isSubmitDisabled = computed(() => loading.value || form.name.trim() === '')
+
+function sanitizeId(name: string): string {
+  let sanitized = name
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-zA-Z0-9._-]/g, '')
+
+  if (!/^[a-zA-Z]/.test(sanitized)) {
+    sanitized = 'app-' + sanitized
   }
 
-  loading = false
-  get isSubmitDisabled(): boolean {
-    return this.loading || this.form.name.trim() === '';
-  }
+  return sanitized.toLowerCase()
+}
 
-  private sanitizeId(name: string): string {
-    let sanitized = name.trim()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-zA-Z0-9._-]/g, '')
+function resetForm(): void {
+  form.name = ''
+  form.description = ''
+  form.graphql = true
+  form.openapi = false
+}
 
-    if (!/^[a-zA-Z]/.test(sanitized)) {
-      sanitized = 'app-' + sanitized
+async function handleSubmit(): Promise<void> {
+  loading.value = true
+  try {
+    const applicationData: Application = {
+      id: sanitizeId(form.name),
+      description: form.description,
+      enableGraphQL: form.graphql,
+      enableOpenAPI: form.openapi,
+      updated: null
     }
-    return sanitized.toLowerCase()
+
+    const createdApplication = await Structures.getApplicationService().create(applicationData)
+
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Application successfully added',
+      life: 3000
+    })
+
+    resetForm()
+    emit('submit', createdApplication)
+  } catch (error) {
+    console.error('[ApplicationSidebar] Failed to create application:', error)
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to create application. Please check name validity.',
+      life: 3000
+    })
+  } finally {
+    loading.value = false
   }
+}
 
-  async handleSubmit(): Promise<void> {
-    this.loading = true
-    try {
-      const applicationData: Application = {
-        id: this.sanitizeId(this.form.name),
-        description: this.form.description,
-        enableGraphQL: this.form.graphql,
-        enableOpenAPI: this.form.openapi,
-        updated: null
-      }
-      const createdApplication: Application = await Structures.getApplicationService().create(applicationData)
-
-      this.$toast.add({
-        severity: 'success',
-        summary: 'Success',
-        detail: 'Application successfully added',
-        life: 3000
-      })
-
-      this.resetForm()
-      this.$emit('submit', createdApplication)
-    } catch (error) {
-      console.error('[ApplicationSidebar] Failed to create application:', error)
-      this.$toast.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'Failed to create application. Please check name validity.',
-        life: 3000
-      })
-    } finally {
-      this.loading = false
-    }
-  }
-
-  handleClose(): void {
-    this.resetForm()
-    this.$emit('close')
-  }
-
-  private resetForm(): void {
-    this.form = {
-      name: '',
-      description: '',
-      graphql: true,
-      openapi: false
-    }
-  }
+function handleClose(): void {
+  resetForm()
+  emit('close')
 }
 </script>
 
 <template>
   <transition name="slide">
-    <div v-if="visible" class="fixed inset-y-0 right-0 w-[400px] h-screen bg-white shadow-xl z-50 overflow-y-auto">
+    <div v-if="props.visible" class="fixed inset-y-0 right-0 w-[400px] h-screen bg-white shadow-xl z-50 overflow-y-auto">
       <div class="flex justify-between items-center mb-4 border-b border-b-[#E6E7EB] p-4">
         <div class="flex items-center gap-3">
           <img src="@/assets/action-plus-icon.svg" />

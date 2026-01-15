@@ -10,6 +10,18 @@ import InputText from 'primevue/inputtext'
 import { Pageable, type Page, Order, Direction, type Identifiable } from '@mindignited/continuum-client'
 import { Structure, type IStructureService, Structures, type IEntitiesService } from '@mindignited/structures-api'
 
+type EntityItem = Identifiable<string> & { id: string } & Record<string, any>
+
+interface HeaderDef {
+  header: string
+  field: string
+  sortable: boolean
+  width: number
+  isCollapsable?: boolean
+  expandedWidth?: number | null
+  [key: string]: any
+}
+
 import DatetimeUtil from '@/util/DatetimeUtil'
 import { StructureUtil } from '@/util/StructureUtil'
 import { rowColors } from '@/util/rowColors'
@@ -28,12 +40,12 @@ class EntityList extends Vue {
 
   loading = false
   finishedInitialLoad = false
-  items: Array<Identifiable<string>> = []
+  items: EntityItem[] = []
   totalItems = 0
   searchText: string | null = null
 
   keys: string[] = []
-  headers: any[] = []
+  headers: HeaderDef[] = []
   structureProperties: any = {}
   structure!: Structure
   
@@ -768,9 +780,11 @@ if (!id) {
   }
 
   displayAlert(text: string) {
+    console.error('[EntityList Alert]:', text)
+    window.alert(text)
   }
 
-  startColumnResize(event: MouseEvent, header: any) {
+  startColumnResize(event: MouseEvent, header: HeaderDef) {
     this.resizingColumn = header
     this.startX = event.pageX
     this.wasExpanded = this.isColumnExpanded(header.field)
