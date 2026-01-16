@@ -35,5 +35,8 @@
             "<node_internals>/**",
             "**/node_modules/**"
         ]
-    }
+    },
+    "typescript.tsdk": "structures-frontend-next/node_modules/typescript/lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true,
+    "volar.useWorkspaceTsdk": true
 }
