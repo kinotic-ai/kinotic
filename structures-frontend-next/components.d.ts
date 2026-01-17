@@ -55,7 +55,7 @@ declare module 'vue' {
     StructureItemModal: typeof import('./src/components/modals/StructureItemModal.vue')['default']
     StructureNode: typeof import('./src/components/structures/flow-components/StructureNode.vue')['default']
     StructureSettings: typeof import('./src/components/structures/sidebar-dashboard/StructureSettings.vue')['default']
-    StructureSidebarDashboard: typeof import('./src/components/structures/StructureSidebarDashboard.vue')['default']
+    StructureSidebarDashboard: typeof import('./src/components/structures/sidebar-dashboard/StructureSidebarDashboard.vue')['default']
     StructuresList: typeof import('./src/components/StructuresList.vue')['default']
     Tab: typeof import('primevue/tab')['default']
     TabList: typeof import('primevue/tablist')['default']
@@ -65,7 +65,6 @@ declare module 'vue' {
     Tag: typeof import('primevue/tag')['default']
     Textarea: typeof import('primevue/textarea')['default']
     Toast: typeof import('primevue/toast')['default']
-    ToggleButton: typeof import('primevue/togglebutton')['default']
     Toolbar: typeof import('primevue/toolbar')['default']
     UnionNode: typeof import('./src/components/nodes/UnionNode.vue')['default']
   }

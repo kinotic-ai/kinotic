@@ -162,7 +162,7 @@
         {
             "label": "Frontend: Install Dependencies",
             "type": "shell",
-            "command": "pnpm install",
+            "command": "./pnpmw install --reporter=append-only",
             "options": {
                 "cwd": "${workspaceFolder}/structures-frontend-next"
             },
@@ -180,7 +180,7 @@
         {
             "label": "Frontend: Dev Server",
             "type": "shell",
-            "command": "pnpm dev",
+            "command": "./pnpmw dev",
             "options": {
                 "cwd": "${workspaceFolder}/structures-frontend-next"
             },
