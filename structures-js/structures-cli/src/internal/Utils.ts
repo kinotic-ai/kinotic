@@ -116,6 +116,8 @@ export async function connectAndUpgradeSession(server: string, logger: Logger): 
             connectionInfo.connectHeaders = {
                 session: sessionId
             }
+            // Provide this so the continuum client will use the same replyToId as the session
+            connectionInfo.connectHeaders[EventConstants.REPLY_TO_HEADER] = connectedInfo.replyToId
 
             await Continuum.connect(connectionInfo)
             logger.log('Authenticated successfully\n')
