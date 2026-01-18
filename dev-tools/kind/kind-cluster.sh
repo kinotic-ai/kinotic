@@ -469,6 +469,10 @@ EOF
             return "${EXIT_DEPLOYMENT_FAILED}"
         fi
         
+        # Configure CoreDNS to resolve structures.local to nginx ingress
+        # This allows pods (like Keycloak) to reach services via the ingress hostname
+        configure_coredns_custom_hosts "${CLUSTER_NAME}" "structures.local" || true
+        
         blank_line
     fi
     
@@ -517,10 +521,13 @@ EOF
     # Show next steps
     section "Next Steps"
     if [[ "${DEPLOY_KEYCLOAK}" == "1" ]]; then
-        progress "Login to Structures (OIDC): http://localhost:9090/login"
+        progress "Login to Structures (OIDC): https://localhost/login"
         progress "Keycloak Admin Console: http://localhost:8888/auth/admin (admin/admin)"
+        blank_line
+        warning "For OIDC to work, add structures.local to your hosts file:"
+        progress "  echo '127.0.0.1 structures.local' | sudo tee -a /etc/hosts"
     else
-        progress "Access Structures: http://localhost:9090"
+        progress "Access Structures: https://localhost"
     fi
     progress "Check logs: $(basename "$0") logs --follow"
     progress "Check status: $(basename "$0") status"

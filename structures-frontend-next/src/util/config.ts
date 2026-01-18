@@ -1,4 +1,6 @@
-import { ConnectionInfo } from '@mindignited/continuum-client'
+import type { ConnectionInfo } from "@mindignited/continuum-client";
+import { USER_STATE } from "../states/IUserState";
+import { createConnectionInfo } from "./helpers";
 
 interface OidcProvider {
   enabled: boolean;
@@ -81,38 +83,19 @@ class ConfigService {
   private async loadOverrideConfig(): Promise<Partial<AppConfig> | null> {
     try {
       // This would fetch from the backend's oidc-security-service configuration
-      // TODO: This is a hack to get the override config from the backend
-      // TODO: We should use the Continuum client to get the config
-      const connectionInfo = this.createConnectionInfo();
-      const resp = await fetch(`${connectionInfo.useSSL ? 'https' : 'http'}://${connectionInfo.host}:${connectionInfo.port}/app-config.override.json`);
+      const connectionInfo: ConnectionInfo = createConnectionInfo();
+      const resp = await fetch(`${connectionInfo.useSSL ? 'https' : 'http'}://${connectionInfo.host}/app-config.override.json`);
       if (resp.ok) {
         return await resp.json();
+      } else {
+        console.warn('Failed to load override config:', resp.statusText);
       }
     } catch (error) {
       // Silently ignore if override config is not available
+      console.warn('Failed to load override config:', error);
     }
     return null;
   }
-  
-  private createConnectionInfo(): ConnectionInfo {
-    const connectionInfo: ConnectionInfo = {
-        host: '127.0.0.1',
-        port: 9090
-    }
-    if (window.location.hostname !== '127.0.0.1'
-        && window.location.hostname !== 'localhost') {
-        if (window.location.protocol.startsWith('https')) {
-            connectionInfo.useSSL = true
-        }
-        if (window.location.port !== '') {
-            connectionInfo.port = 9090
-        } else {
-            connectionInfo.port = null
-        }
-        connectionInfo.host = window.location.hostname
-    }
-    return connectionInfo
-}
 
 
   private deepMerge<T>(target: T, source: Partial<T>): T {

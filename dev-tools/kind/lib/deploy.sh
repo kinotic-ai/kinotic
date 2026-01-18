@@ -360,7 +360,9 @@ spec:
         - name: KC_DB_PASSWORD
           value: keycloak
         - name: KC_HOSTNAME
-          value: localhost
+          value: https://structures.local/auth
+        - name: KC_PROXY_HEADERS
+          value: xforwarded
         - name: KC_HOSTNAME_STRICT
           value: "false"
         - name: KC_HTTP_ENABLED
@@ -587,6 +589,116 @@ enable_nginx_snippets() {
         --context "${context}" 2>/dev/null || true
     
     success "NGINX snippet annotations enabled (development mode)"
+    return 0
+}
+
+#
+# Configure CoreDNS to resolve custom hostnames to the nginx ingress
+# This allows pods within the cluster to reach services via ingress hostnames
+# like structures.local without external DNS configuration.
+#
+# Args:
+#   $1: Cluster name
+#   $2: hostname to resolve (e.g., "structures.local")
+# Returns:
+#   0 on success, 1 on failure
+# Example:
+#   configure_coredns_custom_hosts "structures-cluster" "structures.local"
+#
+configure_coredns_custom_hosts() {
+    local cluster_name="$1"
+    local hostname="$2"
+    local context="kind-${cluster_name}"
+    
+    progress "Configuring CoreDNS to resolve ${hostname} to nginx ingress..."
+    
+    # Get the ingress controller's cluster IP
+    local ingress_ip
+    ingress_ip=$(kubectl get svc ingress-nginx-controller -n ingress-nginx \
+        --context "${context}" -o jsonpath='{.spec.clusterIP}' 2>/dev/null)
+    
+    if [[ -z "${ingress_ip}" ]]; then
+        warning "Could not get ingress-nginx-controller ClusterIP, skipping CoreDNS configuration"
+        return 1
+    fi
+    
+    verbose "Ingress controller ClusterIP: ${ingress_ip}"
+    
+    # Check if hosts block already exists in CoreDNS config
+    local current_config
+    current_config=$(kubectl get configmap coredns-custom -n kube-system \
+        --context "${context}" -o jsonpath='{.data.Corefile}' 2>/dev/null)
+    
+    if echo "${current_config}" | grep -q "${hostname}"; then
+        verbose "CoreDNS already configured for ${hostname}"
+        return 0
+    fi
+    
+    # Update CoreDNS ConfigMap by replacing "ready" with hosts block + ready
+    progress "Patching CoreDNS ConfigMap..."
+    
+    # Create a temporary file for the patch
+    local tmpfile
+    tmpfile=$(mktemp)
+    cat > "${tmpfile}" << COREDNS_EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: kube-system
+data:
+  Corefile: |
+    .:53 {
+      errors
+      health {
+          lameduck 5s
+      }
+      ready
+      hosts {
+        ${ingress_ip} ${hostname}
+        fallthrough
+      }
+      kubernetes cluster.local in-addr.arpa ip6.arpa {
+          pods insecure
+          fallthrough in-addr.arpa ip6.arpa
+          ttl 30
+      }
+      prometheus :9153
+      forward . /etc/resolv.conf {
+          max_concurrent 1000
+      }
+      cache 30 {
+          disable success cluster.local
+          disable denial cluster.local
+      }
+      loop
+      reload
+      loadbalance
+    }
+COREDNS_EOF
+    
+    cat "${tmpfile}"
+
+    if ! kubectl apply -f "${tmpfile}" --context "${context}" 2>/dev/null; then
+        rm -f "${tmpfile}"
+        warning "Failed to patch CoreDNS ConfigMap"
+        return 1
+    fi
+    rm -f "${tmpfile}"
+    
+    # Restart CoreDNS to pick up the changes
+    progress "Restarting CoreDNS..."
+    kubectl rollout restart deployment coredns -n kube-system --context "${context}" 2>/dev/null || true
+    
+    # Wait for CoreDNS to be ready
+    kubectl wait --for=condition=ready pod \
+        -l k8s-app=kube-dns \
+        -n kube-system \
+        --timeout=60s \
+        --context "${context}" 2>/dev/null || true
+    
+    success "CoreDNS configured: ${hostname} → ${ingress_ip}"
+    progress "Note: Add '127.0.0.1 ${hostname}' to your /etc/hosts for browser access"
     return 0
 }
 
@@ -1222,7 +1334,8 @@ display_deployment_status() {
 
     if [[ "${OIDC_ENABLED:-false}" == "true" ]]; then
         blank_line
-        progress "Keycloak:"
+        progress "Keycloak: "
+        progress "  Test Structures User: testuser@example.com/password123"
         progress "  http://localhost:8888/auth"
         progress "  Admin: http://localhost:8888/auth/admin (admin/admin)"
     fi

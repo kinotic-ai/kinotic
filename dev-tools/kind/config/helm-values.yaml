@@ -63,7 +63,7 @@ properties:
     openApiSecurityType: "BASIC"
     openApiPort: 8080
     openApiPath: "/api/"
-    openApiServerUrl: "http://127.0.0.1:8080"
+    openApiServerUrl: "https://structures.local/"
     graphqlPort: 4000
     graphqlPath: "/graphql/"
     webServerPort: 9090
@@ -130,10 +130,11 @@ ingress:
     existingSecret: false
 
 
-# TODO: adjust for this later
 # OIDC security service configuration
+# Note: authority uses localhost because OIDC flows happen in the browser,
+# which accesses Keycloak via the ingress at https://localhost/auth
 oidc:
-  enabled: false
+  enabled: true
   debug: true
   frontendConfigurationPath: "/app-config.override.json"
   oidcProviders:
@@ -147,10 +148,10 @@ oidc:
         - "admin"
       audience: "structures-client"
       clientId: "structures-client"
-      authority: "http://keycloak:8888/auth/realms/test"
-      redirectUri: "http://localhost:9090/login"
-      postLogoutRedirectUri: "http://localhost:9090"
-      silentRedirectUri: "http://localhost:9090/login/silent-renew"
+      authority: "https://structures.local/auth/realms/test"
+      redirectUri: "https://structures.local/login"
+      postLogoutRedirectUri: "https://structures.local"
+      silentRedirectUri: "https://structures.local/silent-renew.html"
     
 
 # Eviction tracking - writes per-pod CSV files to shared host directory

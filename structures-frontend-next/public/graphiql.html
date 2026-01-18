@@ -28,24 +28,44 @@
     }
 
     window.addEventListener('message', (event) => {
-      const { token, namespace } = event.data || {}
+      const { token, sessionId, namespace } = event.data || {}
 
-      if (!token || !namespace) {
-        console.error('Missing token or namespace in message')
+      if (!token && !sessionId) {
+        console.error('No authentication provided (neither token nor sessionId)')
+        return
+      }
+
+      if (!namespace) {
+        console.error('Missing namespace in message')
         return
       }
 
       const endpoint = `${getBaseUrl()}/graphql/${namespace}`
 
-      const graphQLFetcher = graphQLParams =>
-        fetch(endpoint, {
+      const graphQLFetcher = graphQLParams => {
+        const headers = {
+          'Content-Type': 'application/json'
+        }
+        
+        if (token) {
+          // OIDC: Use bearer token (JWT) or basic token
+          if (token.includes('.')) {
+            headers['Authorization'] = `Bearer ${token}`
+          } else {
+            headers['Authorization'] = `Basic ${token}`
+          }
+        } else if (sessionId) {
+          // Basic Auth: Use session ID header
+          // Note: Backend needs to support X-Session-ID header
+          headers['X-Session-ID'] = sessionId
+        }
+        
+        return fetch(endpoint, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Basic ${token}`
-          },
+          headers: headers,
           body: JSON.stringify(graphQLParams)
         }).then(res => res.json())
+      }
 
       ReactDOM.render(
         React.createElement(GraphiQL, { fetcher: graphQLFetcher }),

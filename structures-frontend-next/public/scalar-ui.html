@@ -33,10 +33,15 @@
     const namespace = getQueryParam('namespace') || 'default';
     let apiReference = document.getElementById('api-reference')
     window.addEventListener('message', (event) => {
-        const { token, namespace: messageNamespace } = event.data || {}
+        const { token, sessionId, namespace: messageNamespace } = event.data || {}
         
-        if (!token || !messageNamespace) {
-            console.error('Missing token or namespace in message')
+        if (!token && !sessionId) {
+            console.error('No authentication provided (neither token nor sessionId)')
+            return
+        }
+        
+        if (!messageNamespace) {
+            console.error('Missing namespace in message')
             return
         }
         
@@ -56,11 +61,16 @@
             },
             requestInterceptor: (request) => {
                 if (token) {
+                    // OIDC: Use bearer token (JWT) or basic token
                     if (token.includes('.')) {
                         request.headers['Authorization'] = `Bearer ${token}`
                     } else {
                         request.headers['Authorization'] = `Basic ${token}`
                     }
+                } else if (sessionId) {
+                    // Basic Auth: Use session ID header
+                    // Note: Backend needs to support X-Session-ID header
+                    request.headers['X-Session-ID'] = sessionId
                 }
                 return request
             }

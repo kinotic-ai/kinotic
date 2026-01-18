@@ -12,20 +12,3 @@ structures:
   openApiSecurityType: BASIC
   enableStaticFileServer: true
   
-  # Apache Ignite Cluster Configuration
-  # Discovery type: "LOCAL" (single-node), "SHAREDFS" (Docker/static IP), "KUBERNETES" (K8s)
-  clusterDiscoveryType: ${STRUCTURES_CLUSTER_DISCOVERY_TYPE:LOCAL}
-  
-  # Shared FS (file path) Discovery - used for Docker Compose, VMs
-  clusterSharedFsPath: ${STRUCTURES_CLUSTER_SHARED_FS_PATH:/tmp/structures}
-  
-  # Kubernetes Discovery - used for K8s deployments
-  clusterKubernetesNamespace: ${STRUCTURES_CLUSTER_KUBERNETES_NAMESPACE:default}
-  clusterKubernetesServiceName: ${STRUCTURES_CLUSTER_KUBERNETES_SERVICE_NAME:structures}
-  clusterKubernetesMasterUrl: ${STRUCTURES_CLUSTER_KUBERNETES_MASTER_URL:#{null}}
-  clusterKubernetesAccountToken: ${STRUCTURES_CLUSTER_KUBERNETES_ACCOUNT_TOKEN:#{null}}
-  
-  # Network Configuration
-  clusterDiscoveryPort: ${STRUCTURES_CLUSTER_DISCOVERY_PORT:47500}
-  clusterCommunicationPort: ${STRUCTURES_CLUSTER_COMMUNICATION_PORT:47100}
-  clusterJoinTimeoutMs: ${STRUCTURES_CLUSTER_JOIN_TIMEOUT_MS:30000}
