@@ -19,7 +19,7 @@
     ],
     "dependencies": {
         "@inquirer/prompts": "^8.0.2",
-        "@mindignited/continuum-client": "2.14.6",
+        "@mindignited/continuum-client": "2.14.8",
         "@mindignited/continuum-idl": "^2.0.4",
         "@mindignited/structures-api": "^3.5.0-beta.17",
         "@oclif/core": "^4.8.0",
