@@ -1997,7 +1997,7 @@ export default EntityList
     </div>
   </div>
 </template>
-<style>
+<style scoped>
 .p-datatable .p-button {
   margin-top: 1rem;
 }
