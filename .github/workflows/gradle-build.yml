@@ -9,10 +9,7 @@ on:
     paths-ignore:
       - 'helm/**'
       - 'docker-compose/**'
-      - 'structures-js/example/**'
-      - 'structures-js/load-generator/**'
-      - 'structures-js/structures-api/**'
-      - 'structures-js/structures-cli/**'
+      - 'structures-js/**'
       - 'webdocs/**' 
       - 'website/**'
 
