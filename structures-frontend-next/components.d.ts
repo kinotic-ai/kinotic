@@ -24,6 +24,7 @@ declare module 'vue' {
     DataTable: typeof import('primevue/datatable')['default']
     Dialog: typeof import('primevue/dialog')['default']
     EmptyState: typeof import('./src/components/EmptyState.vue')['default']
+    EntityListOld: typeof import('./src/components/EntityListOld.vue')['default']
     EnumNode: typeof import('./src/components/nodes/EnumNode.vue')['default']
     ERTable: typeof import('./src/components/modals/ERTable.vue')['default']
     Glitch: typeof import('./src/components/Glitch.vue')['default']

@@ -85,6 +85,40 @@ The Docker Compose files provide different service configurations for:
 
 ## Quick Start
 
+### 0. One-Liner Install (Easiest)
+
+The fastest way to get started is using our one-liner installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mindignited/structures/main/docker-compose/install.sh | bash
+```
+
+This script will:
+- ✅ Check prerequisites (Docker, Docker Compose)
+- ✅ Download all required compose files to `~/.structures`
+- ✅ Start all services automatically
+- ✅ Display service URLs and helpful commands
+
+**Customization**: You can customize the installation with environment variables:
+```bash
+# Use a different repository
+STRUCTURES_REPO=your-username/your-repo curl -fsSL https://raw.githubusercontent.com/your-username/your-repo/main/docker-compose/install.sh | bash
+
+# Use a different branch
+STRUCTURES_BRANCH=develop curl -fsSL https://raw.githubusercontent.com/mindignited/structures/main/docker-compose/install.sh | bash
+
+# Install to a custom directory
+STRUCTURES_INSTALL=~/my-structures curl -fsSL https://raw.githubusercontent.com/mindignited/structures/main/docker-compose/install.sh | bash
+```
+
+**Note**: After installation, manage services from `~/.structures`:
+```bash
+cd ~/.structures
+docker compose up -d    # Start services
+docker compose down    # Stop services
+docker compose logs -f # View logs
+```
+
 ### 1. Start Basic Development Environment
 
 ```bash

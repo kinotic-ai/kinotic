@@ -38,5 +38,6 @@
     },
     "typescript.tsdk": "structures-frontend-next/node_modules/typescript/lib",
     "typescript.enablePromptUseWorkspaceTsdk": true,
-    "volar.useWorkspaceTsdk": true
+    "volar.useWorkspaceTsdk": true,
+    "workbench.colorTheme": "Darcula (IntelliJ)"
 }
