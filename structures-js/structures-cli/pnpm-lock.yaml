@@ -12,14 +12,14 @@ importers:
         specifier: ^8.0.2
         version: 8.0.2(@types/node@24.10.1)
       '@mindignited/continuum-client':
-        specifier: 2.14.9
-        version: link:../../../continuum-client-js
+        specifier: 2.14.10
+        version: 2.14.10(reflect-metadata@0.2.2)
       '@mindignited/continuum-idl':
         specifier: ^2.0.4
         version: 2.0.5
       '@mindignited/structures-api':
         specifier: ^3.5.0-beta.17
-        version: 3.5.0-beta.17(@mindignited/continuum-client@2.14.9(reflect-metadata@0.2.2))
+        version: 3.5.0-beta.17(@mindignited/continuum-client@2.14.10(reflect-metadata@0.2.2))
       '@oclif/core':
         specifier: ^4.8.0
         version: 4.8.0
@@ -875,8 +875,8 @@ packages:
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
     engines: {node: '>=12'}
 
-  '@mindignited/continuum-client@2.14.9':
-    resolution: {integrity: sha512-9i5e/FRWQavweJf/AmubuKorpHDSDdUNKYJlIhxqliAGYab4r0+XCddkIE4EQkCMmjtxFxgKW6rj2Ema3KGt+Q==}
+  '@mindignited/continuum-client@2.14.10':
+    resolution: {integrity: sha512-PfV5/5voaU5uKykS4DudPiiiePB2KZeH56ICnP1m+ug+h2aMDm6GGtsaDKZKw9ub+0UqL/gmc0sJOf9i/HwVvA==}
     peerDependencies:
       reflect-metadata: ^0.2.2
 
@@ -5006,7 +5006,7 @@ snapshots:
       wrap-ansi: 8.1.0
       wrap-ansi-cjs: wrap-ansi@7.0.0
 
-  '@mindignited/continuum-client@2.14.9(reflect-metadata@0.2.2)':
+  '@mindignited/continuum-client@2.14.10(reflect-metadata@0.2.2)':
     dependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/semantic-conventions': 1.38.0
@@ -5024,9 +5024,9 @@ snapshots:
 
   '@mindignited/continuum-idl@2.0.5': {}
 
-  '@mindignited/structures-api@3.5.0-beta.17(@mindignited/continuum-client@2.14.9(reflect-metadata@0.2.2))':
+  '@mindignited/structures-api@3.5.0-beta.17(@mindignited/continuum-client@2.14.10(reflect-metadata@0.2.2))':
     dependencies:
-      '@mindignited/continuum-client': 2.14.9(reflect-metadata@0.2.2)
+      '@mindignited/continuum-client': 2.14.10(reflect-metadata@0.2.2)
       '@mindignited/continuum-idl': 2.0.5
       reflect-metadata: 0.2.2
       rxjs: 7.8.2
