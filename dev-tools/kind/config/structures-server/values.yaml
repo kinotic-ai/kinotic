@@ -134,7 +134,7 @@ ingress:
 # Note: authority uses localhost because OIDC flows happen in the browser,
 # which accesses Keycloak via the ingress at https://localhost/auth
 oidc:
-  enabled: true
+  enabled: false
   debug: true
   frontendConfigurationPath: "/app-config.override.json"
   oidcProviders:
@@ -163,5 +163,3 @@ evictionTracking:
   hostPath: "/eviction-data"
 
 nodeSelector: {}
-
-

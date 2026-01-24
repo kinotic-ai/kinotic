@@ -15,6 +15,7 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 
 .idea/
+.pnpm-store/
 
 # User-specific stuff
 .idea/**/workspace.xml

@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../../continuum-framework"
+		},
+		{
+			"path": "../../continuum-client-js"
 		}
 	],
 	"settings": {

@@ -17,11 +17,22 @@ source "${LIB_SCRIPT_DIR}/logging.sh"
 readonly DEFAULT_CLUSTER_NAME="structures-cluster"
 readonly DEFAULT_CONFIG_DIR="${LIB_SCRIPT_DIR}/../config"
 readonly DEFAULT_KIND_CONFIG="${DEFAULT_CONFIG_DIR}/kind-config.yaml"
-readonly DEFAULT_HELM_VALUES="${DEFAULT_CONFIG_DIR}/helm-values.yaml"
-readonly DEFAULT_HELM_VALUES_LOCAL="${DEFAULT_CONFIG_DIR}/helm-values.local.yaml"
 readonly DEFAULT_HELM_CHART_PATH="./helm/structures"
 readonly DEFAULT_K8S_VERSION="latest"
 readonly DEFAULT_DEPLOY_TIMEOUT="5m"
+
+# Service-specific config directories (Helm values files)
+readonly CONFIG_ELASTICSEARCH_DIR="${DEFAULT_CONFIG_DIR}/elasticsearch"
+readonly CONFIG_POSTGRESQL_DIR="${DEFAULT_CONFIG_DIR}/postgresql"
+readonly CONFIG_KEYCLOAK_DIR="${DEFAULT_CONFIG_DIR}/keycloak"
+readonly CONFIG_INGRESS_NGINX_DIR="${DEFAULT_CONFIG_DIR}/ingress-nginx"
+readonly CONFIG_CERT_MANAGER_DIR="${DEFAULT_CONFIG_DIR}/cert-manager"
+readonly CONFIG_COREDNS_DIR="${DEFAULT_CONFIG_DIR}/coredns"
+readonly CONFIG_STRUCTURES_SERVER_DIR="${DEFAULT_CONFIG_DIR}/structures-server"
+
+# Structures-server Helm values (moved from helm-values.yaml)
+readonly DEFAULT_HELM_VALUES="${CONFIG_STRUCTURES_SERVER_DIR}/values.yaml"
+readonly DEFAULT_HELM_VALUES_LOCAL="${CONFIG_STRUCTURES_SERVER_DIR}/values.local.yaml"
 
 # Global configuration variables (set by load_config)
 CLUSTER_NAME=""
@@ -136,6 +147,89 @@ get_helm_values_flags() {
     fi
     
     echo "${flags}"
+}
+
+#
+# Get service-specific values file path
+# Args:
+#   $1: Service name (elasticsearch, postgresql, keycloak, ingress-nginx, cert-manager, coredns, structures-server)
+# Returns:
+#   Path to the service's values.yaml file
+# Example:
+#   values_file=$(get_service_values_path "elasticsearch")
+#
+get_service_values_path() {
+    local service_name="$1"
+    local config_dir=""
+    
+    case "${service_name}" in
+        elasticsearch)
+            config_dir="${CONFIG_ELASTICSEARCH_DIR}"
+            ;;
+        postgresql)
+            config_dir="${CONFIG_POSTGRESQL_DIR}"
+            ;;
+        keycloak)
+            config_dir="${CONFIG_KEYCLOAK_DIR}"
+            ;;
+        ingress-nginx)
+            config_dir="${CONFIG_INGRESS_NGINX_DIR}"
+            ;;
+        cert-manager)
+            config_dir="${CONFIG_CERT_MANAGER_DIR}"
+            ;;
+        coredns)
+            config_dir="${CONFIG_COREDNS_DIR}"
+            ;;
+        structures-server)
+            config_dir="${CONFIG_STRUCTURES_SERVER_DIR}"
+            ;;
+        *)
+            error "Unknown service: ${service_name}"
+            return 1
+            ;;
+    esac
+    
+    echo "${config_dir}/values.yaml"
+}
+
+#
+# Get service-specific Helm values flags (with local override if exists)
+# Args:
+#   $1: Service name
+# Returns:
+#   Helm -f flags for the service's values files
+# Example:
+#   helm upgrade --install myrelease mychart $(get_service_helm_flags "elasticsearch")
+#
+get_service_helm_flags() {
+    local service_name="$1"
+    local values_file
+    values_file=$(get_service_values_path "${service_name}") || return 1
+    
+    local config_dir
+    config_dir=$(dirname "${values_file}")
+    local local_values="${config_dir}/values.local.yaml"
+    
+    local flags="-f ${values_file}"
+    
+    # Add local overrides if file exists
+    if [[ -f "${local_values}" ]]; then
+        flags="${flags} -f ${local_values}"
+    fi
+    
+    echo "${flags}"
+}
+
+#
+# Get CoreDNS custom hosts template path
+# Returns:
+#   Path to the CoreDNS custom-hosts.yaml template
+# Example:
+#   template=$(get_coredns_template_path)
+#
+get_coredns_template_path() {
+    echo "${CONFIG_COREDNS_DIR}/custom-hosts.yaml"
 }
 
 #

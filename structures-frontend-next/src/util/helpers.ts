@@ -21,7 +21,7 @@ export function createConnectionInfo(): ConnectionInfo {
     // Use build time variable if available, otherwise use default
     const envPort = import.meta.env.VITE_CONTINUUM_PORT ? parseInt(import.meta.env.VITE_CONTINUUM_PORT) : 58503
     const envHost = import.meta.env.VITE_CONTINUUM_HOST ? import.meta.env.VITE_CONTINUUM_HOST : 'localhost'
-    const envUseSSL = import.meta.env.VITE_CONTINUUM_USE_SSL ? import.meta.env.VITE_CONTINUUM_USE_SSL : false
+    const envUseSSL = import.meta.env.VITE_CONTINUUM_USE_SSL ? import.meta.env.VITE_CONTINUUM_USE_SSL === 'true' : false
 
     const connectionInfo: ConnectionInfo = {
         host: envHost,

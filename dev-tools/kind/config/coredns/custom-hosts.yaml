@@ -1,0 +1,47 @@
+# CoreDNS ConfigMap Template for KinD
+#
+# This ConfigMap configures CoreDNS to resolve custom hostnames (like structures.local)
+# to the nginx ingress controller's ClusterIP, allowing pods within the cluster to
+# reach services via ingress hostnames without external DNS configuration.
+#
+# Template variables (replaced at deployment time):
+#   ${INGRESS_IP} - ClusterIP of the ingress-nginx-controller service
+#   ${HOSTNAME}   - Hostname to resolve (e.g., structures.local)
+#
+# Usage: This template is processed by configure_coredns_custom_hosts() in deploy.sh
+#        which substitutes the variables and applies via kubectl
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: kube-system
+data:
+  Corefile: |
+    .:53 {
+      errors
+      health {
+          lameduck 5s
+      }
+      ready
+      hosts {
+        ${INGRESS_IP} ${HOSTNAME}
+        fallthrough
+      }
+      kubernetes cluster.local in-addr.arpa ip6.arpa {
+          pods insecure
+          fallthrough in-addr.arpa ip6.arpa
+          ttl 30
+      }
+      prometheus :9153
+      forward . /etc/resolv.conf {
+          max_concurrent 1000
+      }
+      cache 30 {
+          disable success cluster.local
+          disable denial cluster.local
+      }
+      loop
+      reload
+      loadbalance
+    }

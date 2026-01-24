@@ -55,7 +55,7 @@ declare module 'vue' {
     StructureItemModal: typeof import('./src/components/modals/StructureItemModal.vue')['default']
     StructureNode: typeof import('./src/components/structures/flow-components/StructureNode.vue')['default']
     StructureSettings: typeof import('./src/components/structures/sidebar-dashboard/StructureSettings.vue')['default']
-    StructureSidebarDashboard: typeof import('./src/components/structures/sidebar-dashboard/StructureSidebarDashboard.vue')['default']
+    StructureSidebarDashboard: typeof import('./src/components/structures/StructureSidebarDashboard.vue')['default']
     StructuresList: typeof import('./src/components/StructuresList.vue')['default']
     Tab: typeof import('primevue/tab')['default']
     TabList: typeof import('primevue/tablist')['default']

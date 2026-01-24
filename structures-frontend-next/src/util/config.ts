@@ -1,5 +1,5 @@
 import type { ConnectionInfo } from "@mindignited/continuum-client";
-import { USER_STATE } from "../states/IUserState";
+// import { USER_STATE } from "../states/IUserState";
 import { createConnectionInfo } from "./helpers";
 
 interface OidcProvider {
@@ -83,10 +83,19 @@ class ConfigService {
   private async loadOverrideConfig(): Promise<Partial<AppConfig> | null> {
     try {
       // This would fetch from the backend's oidc-security-service configuration
+      let staticSitePort = import.meta.env.VITE_STATIC_SITE_PORT ? parseInt(import.meta.env.VITE_STATIC_SITE_PORT) : -1
       const connectionInfo: ConnectionInfo = createConnectionInfo();
-      const resp = await fetch(`${connectionInfo.useSSL ? 'https' : 'http'}://${connectionInfo.host}/app-config.override.json`);
+      if(staticSitePort === -1 && connectionInfo.port){
+        staticSitePort = connectionInfo.port;
+      }
+      const resp = await fetch(`${connectionInfo.useSSL ? 'https' : 'http'}://${connectionInfo.host}${staticSitePort === -1 ? '' : ':' + staticSitePort}/${this.config?.frontendConfigurationPath || 'app-config.override.json'}`);
       if (resp.ok) {
-        return await resp.json();
+        const text = await resp.text();
+        if(text.startsWith('<')){
+          console.info('OIDC Authorization Not Configured, using local authorization');
+        } else {
+          return JSON.parse(text);
+        }
       } else {
         console.warn('Failed to load override config:', resp.statusText);
       }
