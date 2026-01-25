@@ -66,7 +66,7 @@ export function jsonStringifyReplacer(key: any, value: any) {
  * @param logger the logger to use
  * @return true if the session was upgraded successfully
  */
-export async function connectAndUpgradeSession(server: string, logger: Logger): Promise<boolean>{
+export async function connectAndUpgradeSession(server: string, logger: Logger, authHeadersFile?: string): Promise<boolean>{
     try {
         const serverURL: URL = new URL(server)
 
@@ -92,47 +92,68 @@ export async function connectAndUpgradeSession(server: string, logger: Logger): 
             }
         }
 
-        connectionInfo.connectHeaders = {
-            login: ParticipantConstants.CLI_PARTICIPANT_ID
-        }
-        const connectedInfo: ConnectedInfo = await pTimeout(Continuum.connect(connectionInfo), {
-            milliseconds: 60000,
-            message: 'Connection timeout trying to connect to the Structures Server'
-        })
-
-        if (connectedInfo) {
-            // This works because any client can subscribe to a destination that is scoped to the connectedInfo.replyToId
-            const scope = connectedInfo.replyToId + ':' + uuidv4()
-            const url = server + (server.endsWith('/') ? '' : '/') + '#/sessionUpgrade/' + encodeURIComponent(scope)
-            logger.log('Authenticate your account at:')
-            logger.log(url)
-
-            const answer = await confirm({
-                message: 'Open in browser?',
-                default: true,
-            })
-            if(answer) {
-                await open(url)
+        if(authHeadersFile){
+            if(!fs.existsSync(authHeadersFile)){
+                logger.log(`Authentication header file ${authHeadersFile} does not exist. Please provide a valid file.`)
+                return false
             }else{
-                logger.log('Browser will not be opened. You must authenticate your account before continuing.')
+                logger.log(`Authentication header file ${authHeadersFile} loaded successfully. Using authentication headers to connect to the Structures Server.`)
             }
-
-            const sessionMetadata = await receiveSessionId(scope)
-
-            await Continuum.disconnect()
+            const authHeaders = JSON.parse(fs.readFileSync(authHeadersFile, 'utf8'))
+            connectionInfo.connectHeaders = authHeaders
+            const connectedInfo: ConnectedInfo = await pTimeout(Continuum.connect(connectionInfo), {
+                milliseconds: 60000,
+                message: 'Connection timeout trying to connect to the Structures Server'
+            })
+            if(connectedInfo){
+                return true
+            }else{
+                return false
+            }
+        }else{
 
             connectionInfo.connectHeaders = {
-                session: sessionMetadata.sessionId
+                login: ParticipantConstants.CLI_PARTICIPANT_ID
             }
-            // Provide this so the continuum client will use the same replyToId as the session
-            connectionInfo.connectHeaders[EventConstants.REPLY_TO_ID_HEADER] = sessionMetadata.replyToId
+            const connectedInfo: ConnectedInfo = await pTimeout(Continuum.connect(connectionInfo), {
+                milliseconds: 60000,
+                message: 'Connection timeout trying to connect to the Structures Server'
+            })
 
-            await Continuum.connect(connectionInfo)
-            logger.log('Authenticated successfully\n')
-            return true
-        }else{
-            logger.log("Could not connect to the Structures Server. Please check the server is running and the URL is correct.")
-            return false
+            if (connectedInfo) {
+                // This works because any client can subscribe to a destination that is scoped to the connectedInfo.replyToId
+                const scope = connectedInfo.replyToId + ':' + uuidv4()
+                const url = server + (server.endsWith('/') ? '' : '/') + '#/sessionUpgrade/' + encodeURIComponent(scope)
+                logger.log('Authenticate your account at:')
+                logger.log(url)
+
+                const answer = await confirm({
+                    message: 'Open in browser?',
+                    default: true,
+                })
+                if(answer) {
+                    await open(url)
+                }else{
+                    logger.log('Browser will not be opened. You must authenticate your account before continuing.')
+                }
+
+                const sessionMetadata = await receiveSessionId(scope)
+
+                await Continuum.disconnect()
+
+                connectionInfo.connectHeaders = {
+                    session: sessionMetadata.sessionId
+                }
+                // Provide this so the continuum client will use the same replyToId as the session
+                connectionInfo.connectHeaders[EventConstants.REPLY_TO_ID_HEADER] = sessionMetadata.replyToId
+
+                await Continuum.connect(connectionInfo)
+                logger.log('Authenticated successfully\n')
+                return true
+            }else{
+                logger.log("Could not connect to the Structures Server. Please check the server is running and the URL is correct.")
+                return false
+            }
         }
     } catch (e) {
         logger.log("Could not connect to the Structures Server. Please check the server is running and the URL is correct.", e)
