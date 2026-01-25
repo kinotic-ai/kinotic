@@ -27,6 +27,14 @@ export type GeneratedServiceInfo = {
     entityServiceName: string
     namedQueries: FunctionDefinition[]
 }
+export class SessionMetadata {
+    public sessionId!: string
+    public replyToId!: string 
+    constructor(sessionId: string, replyToId: string) {
+        this.sessionId = sessionId
+        this.replyToId = replyToId
+    }
+}
 
 function isEmpty(value: any): boolean {
     if (value === null || value === undefined) {
@@ -109,15 +117,15 @@ export async function connectAndUpgradeSession(server: string, logger: Logger): 
                 logger.log('Browser will not be opened. You must authenticate your account before continuing.')
             }
 
-            const sessionId = await receiveSessionId(scope)
+            const sessionMetadata = await receiveSessionId(scope)
 
             await Continuum.disconnect()
 
             connectionInfo.connectHeaders = {
-                session: sessionId
+                session: sessionMetadata.sessionId
             }
             // Provide this so the continuum client will use the same replyToId as the session
-            connectionInfo.connectHeaders[EventConstants.REPLY_TO_HEADER] = connectedInfo.replyToId
+            connectionInfo.connectHeaders[EventConstants.REPLY_TO_ID_HEADER] = sessionMetadata.replyToId
 
             await Continuum.connect(connectionInfo)
             logger.log('Authenticated successfully\n')
@@ -132,10 +140,10 @@ export async function connectAndUpgradeSession(server: string, logger: Logger): 
     }
 }
 
-function receiveSessionId(scope: string): Promise<string> {
+function receiveSessionId(scope: string): Promise<SessionMetadata> {
     const subscribeCRI = EventConstants.SERVICE_DESTINATION_PREFIX + scope + '@continuum.cli.SessionUpgradeService'
 
-    return new Promise<string>(( resolve, reject) => {
+    return new Promise<SessionMetadata>((resolve, reject) => {
         const subscription = Continuum.eventBus.observe(subscribeCRI).subscribe((value: IEvent) => {
             // send reply to user
             const replyTo = value.getHeader(EventConstants.REPLY_TO_HEADER)
@@ -151,8 +159,9 @@ function receiveSessionId(scope: string): Promise<string> {
 
             subscription.unsubscribe()
 
-            const jsonObj: Array<string> = JSON.parse(value.getDataString())
+            const jsonObj: Array<SessionMetadata> = JSON.parse(value.getDataString())
             if(jsonObj?.length > 0){
+                console.log('jsonObj', JSON.stringify(jsonObj, null, 2))
                 resolve(jsonObj[0])
             }else {
                 reject('No Session Id found in data')

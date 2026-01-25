@@ -4,7 +4,7 @@ logging:
       mindignited: TRACE
       kinotic: TRACE
       apache:
-        ignite: DEBUG
+        ignite: INFO
     io:
       mindignited: TRACE
       vertx: TRACE
