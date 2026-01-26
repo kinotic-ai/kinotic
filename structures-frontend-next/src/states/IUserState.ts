@@ -40,9 +40,11 @@ export class UserState implements IUserState {
             this.authenticated = true
             this.accessDenied = false
 
+            const useSecureCookies = window.location.protocol === 'https:'
+
             Cookies.set('token', btoaToken, {
                 sameSite: 'strict',
-                secure: true,
+                secure: useSecureCookies,
                 expires: 1
             })
         } catch (reason: any) {
@@ -81,16 +83,18 @@ export class UserState implements IUserState {
             this.accessDenied = false
             this.oidcUser = user
 
+            const useSecureCookies = window.location.protocol === 'https:'
+
             Cookies.set('token', tokenToUse, {
                 sameSite: 'strict',
-                secure: true,
+                secure: useSecureCookies,
                 expires: new Date(user.expires_at! * 1000)
             })
 
             if (user.refresh_token) {
                 Cookies.set('oidc_refresh_token', user.refresh_token, {
                     sameSite: 'strict',
-                    secure: true,
+                    secure: useSecureCookies,
                     expires: 30
                 })
             }
