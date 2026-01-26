@@ -65,6 +65,7 @@ class EntityList extends Vue {
   nestedColumnWidths: Map<string, number> = new Map() // Store nested column widths persistently
   deepNestedColumnWidths: Map<string, number> = new Map() // Store 3rd level column widths
   veryDeepNestedColumnWidths: Map<string, number> = new Map() // Store 4th level column widths
+  ultraDeepNestedColumnWidths: Map<string, number> = new Map() // Store 5th level column widths
   
   entitiesService: IEntitiesService = Structures.getEntitiesService()
   structureService: IStructureService = Structures.getStructureService()
@@ -550,7 +551,7 @@ if (!id) {
             if (deepProp.type?.type === 'array' && this.isVeryDeepNestedExpanded(fieldName, nestedProp.name, subProp.name, deepProp.name)) {
               const veryDeepProps = this.getVeryDeepNestedProperties(fieldName, nestedProp.name, subProp.name, deepProp.name)
               for (const vdp of veryDeepProps) {
-                totalWidth += Math.max(vdp.name.length * 9 + 32, 100)
+                totalWidth += this.getUltraDeepNestedSubColumnWidth(fieldName, nestedProp.name, subProp.name, deepProp.name, vdp.name)
               }
             } else {
               totalWidth += this.getDeepNestedSubColumnWidth(fieldName, nestedProp.name, subProp.name, deepProp.name)
@@ -675,6 +676,22 @@ if (!id) {
     return Math.max(Math.min(maxLength * 9 + 40, 300), 100)
   }
 
+  // Get width for ultra deep nested properties (5th level - blue headers)
+  getUltraDeepNestedSubColumnWidth(
+    fieldName: string,
+    nestedProp: string,
+    arrayProp: string,
+    subArrayProp: string,
+    ultraDeepPropName: string
+  ): number {
+    const key = `${fieldName}.${nestedProp}.${arrayProp}.${subArrayProp}.${ultraDeepPropName}`
+    if (this.ultraDeepNestedColumnWidths.has(key)) {
+      return this.ultraDeepNestedColumnWidths.get(key)!
+    }
+
+    return Math.max(Math.min(ultraDeepPropName.length * 9 + 32, 360), 100)
+  }
+
   // Get all columns including expanded nested ones
   get allColumns(): any[] {
     const columns: any[] = []
@@ -713,6 +730,12 @@ if (!id) {
       if (typeof firstItem !== 'object') {
         return value.length > 1 ? `${firstItem} +${value.length - 1}` : String(firstItem)
       }
+
+      if (this.isKeyValueObject(firstItem) && firstItem.key !== undefined) {
+        const firstKey = this.safeToString(firstItem.key)
+        return value.length > 1 ? `${firstKey} +${value.length - 1}` : firstKey
+      }
+
       const itemName = firstItem?.name || firstItem?.title || firstItem?.id
       if (itemName) {
         return value.length > 1 ? `${itemName} +${value.length - 1}` : itemName
@@ -754,6 +777,95 @@ if (!id) {
     }
     
     return String(value)
+  }
+
+  private isKeyValueObject(value: unknown): value is { key: unknown; value: unknown } {
+    return !!value && typeof value === 'object' && 'key' in (value as any) && 'value' in (value as any)
+  }
+
+  private safeToString(value: unknown): string {
+    if (value === null || value === undefined) return ''
+    if (typeof value === 'string') return value
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return String(value)
+    }
+  }
+
+  getArrayPrimaryNestedProp(fieldName: string): string | null {
+    const nestedProps = this.getNestedProperties(fieldName)
+    if (!nestedProps || nestedProps.length === 0) return null
+
+    const preferred = ['name', 'key', 'title', 'type', 'id']
+    for (const pref of preferred) {
+      if (nestedProps.some((p: any) => p?.name === pref)) return pref
+    }
+
+    return nestedProps[0]?.name ?? null
+  }
+
+  getArrayObjectLabel(obj: any, fieldName?: string): string {
+    if (!obj || typeof obj !== 'object') return this.safeToString(obj)
+    if (this.isKeyValueObject(obj)) return this.safeToString(obj.key)
+
+    const primary = fieldName ? this.getArrayPrimaryNestedProp(fieldName) : null
+    if (primary && obj?.[primary] !== undefined) return this.safeToString(obj[primary])
+
+    const byName = obj?.name || obj?.title || obj?.type || obj?.id
+    if (byName !== undefined) return this.safeToString(byName)
+
+    const keys = Object.keys(obj)
+    if (keys.length > 0) return this.safeToString(obj[keys[0]])
+
+    return 'Item'
+  }
+
+  getCellTitleValue(data: any, field: string): string {
+    const value = data?.[field]
+    if (value === null || value === undefined) return ''
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) return '[]'
+      const labels = value
+        .slice(0, 12)
+        .map((v) => (typeof v === 'object' ? this.getArrayObjectLabel(v, field) : this.safeToString(v)))
+        .filter((s) => s.length > 0)
+      const suffix = value.length > 12 ? ` …(+${value.length - 12})` : ''
+      return labels.join(', ') + suffix
+    }
+
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value)
+      } catch {
+        return String(value)
+      }
+    }
+
+    return this.safeToString(value)
+  }
+
+  getNestedPropRenderWidth(fieldName: string, nestedProp: any, nestedPropIndex: number): number {
+    const baseWidth = this.getNestedPropWidth(fieldName, nestedProp)
+    if (!this.isColumnExpanded(fieldName)) return baseWidth
+
+    const nestedProps = this.getNestedProperties(fieldName)
+    if (!nestedProps || nestedProps.length === 0) return baseWidth
+
+    const isLast = nestedPropIndex === nestedProps.length - 1
+    if (!isLast) return baseWidth
+
+    const total = this.getExpandedColumnWidth(fieldName)
+    let used = 0
+    for (let i = 0; i < nestedPropIndex; i++) {
+      used += this.getNestedPropWidth(fieldName, nestedProps[i])
+    }
+
+    const remaining = total - used
+    if (remaining <= 0) return baseWidth
+    return Math.max(baseWidth, remaining)
   }
 
   onPage(event: any) {
@@ -952,7 +1064,7 @@ if (!id) {
   startUltraDeepNestedColumnResize(event: MouseEvent, parentField: string, nestedProp: string, deepProp: string, veryDeepProp: string, ultraDeepProp: any) {
     this.resizingColumn = { parentField, nestedProp, deepProp, veryDeepProp, ultraDeepProp, level: 'ultraDeep' }
     this.startX = event.pageX
-    this.startWidth = Math.max(ultraDeepProp.name.length * 9 + 32, 100)
+    this.startWidth = this.getUltraDeepNestedSubColumnWidth(parentField, nestedProp, deepProp, veryDeepProp, ultraDeepProp.name)
     
     document.addEventListener('mousemove', this.onUltraDeepNestedColumnResize)
     document.addEventListener('mouseup', this.stopUltraDeepNestedColumnResize)
@@ -967,7 +1079,7 @@ if (!id) {
     const newWidth = Math.max(80, this.startWidth + diff)
     
     const key = `${this.resizingColumn.parentField}.${this.resizingColumn.nestedProp}.${this.resizingColumn.deepProp}.${this.resizingColumn.veryDeepProp}.${this.resizingColumn.ultraDeepProp.name}`
-    this.veryDeepNestedColumnWidths.set(key, newWidth)
+    this.ultraDeepNestedColumnWidths.set(key, newWidth)
     
     // Cascade width updates up the hierarchy
     this.updateParentWidthsAfterDeepResize(
@@ -991,7 +1103,15 @@ if (!id) {
     const veryDeepProps = this.getDeepNestedProperties(parentField, nestedProp, deepProp)
     let deepTotalWidth = 0
     for (const prop of veryDeepProps) {
-      deepTotalWidth += this.getDeepNestedSubColumnWidth(parentField, nestedProp, deepProp, prop.name)
+      if (prop.type?.type === 'array' && this.isVeryDeepNestedExpanded(parentField, nestedProp, deepProp, prop.name)) {
+        const ultraProps = this.getVeryDeepNestedProperties(parentField, nestedProp, deepProp, prop.name)
+        deepTotalWidth += ultraProps.reduce(
+          (sum, up) => sum + this.getUltraDeepNestedSubColumnWidth(parentField, nestedProp, deepProp, prop.name, up.name),
+          0
+        )
+      } else {
+        deepTotalWidth += this.getDeepNestedSubColumnWidth(parentField, nestedProp, deepProp, prop.name)
+      }
     }
     this.deepNestedColumnWidths.set(deepKey, deepTotalWidth)
     
@@ -1089,7 +1209,7 @@ export default EntityList
               class="px-0 py-0 text-left text-xs font-medium text-white"
               style="border: 1px solid #28282B;"
             >
-              <div class="flex items-center gap-1 h-full px-2">
+              <div class="flex items-center gap-1 h-full px-2 min-w-0 overflow-hidden">
                 <span 
                   v-if="header.isCollapsable && !isPrimitiveArray(header.field)" 
                   class="flex-shrink-0 cursor-pointer"
@@ -1104,6 +1224,7 @@ export default EntityList
                 </span>
                 <span 
                   class="truncate-text flex-1" 
+                  :title="header.header"
                   :class="{ 'cursor-pointer': header.isCollapsable && !isPrimitiveArray(header.field) }"
                   @click.stop="(header.isCollapsable && !isPrimitiveArray(header.field)) ? toggleColumnExpansion(header.field) : null"
                 >{{ header.header }}</span>
@@ -1129,18 +1250,21 @@ export default EntityList
             >
               <div v-if="isColumnExpanded(header.field)" class="flex w-full h-full">
                 <div
-                  v-for="nestedProp in getNestedProperties(header.field)"
+                  v-for="(nestedProp, nestedPropIdx) in getNestedProperties(header.field)"
                   :key="`${header.field}.${nestedProp.name}`"
-                  class="px-2 py-1 border-r last:border-r-0 border-gray-300 relative"
+                  class="px-2 py-1 border-r last:border-r-0 border-white relative"
                   :style="{ 
-                    width: getNestedPropWidth(header.field, nestedProp) + 'px',
+                    width: getNestedPropRenderWidth(header.field, nestedProp, nestedPropIdx) + 'px',
                     minWidth: '80px',
                     boxSizing: 'border-box',
                     flexShrink: '0',
-                    height: '29px'
+                    height: '29px',
+                    display: 'flex',
+                    alignItems: 'center'
+                    
                   }"
                 >
-                  <div class="flex items-center gap-1">
+                  <div class="flex items-center gap-1 min-w-0 overflow-hidden w-full">
                     <span 
                       v-if="(nestedProp.isObject || nestedProp.isArray) && !isNestedPrimitiveArray(header.field, nestedProp.name)" 
                       class="flex-shrink-0 cursor-pointer"
@@ -1155,6 +1279,7 @@ export default EntityList
                     </span>
                     <span 
                       class="truncate-text text-xs flex-1"
+                      :title="nestedProp.name"
                       :class="{ 'cursor-pointer': (nestedProp.isObject || nestedProp.isArray) && !isNestedPrimitiveArray(header.field, nestedProp.name) }"
                       @click.stop="((nestedProp.isObject || nestedProp.isArray) && !isNestedPrimitiveArray(header.field, nestedProp.name)) ? toggleNestedObjectExpansion(header.field, nestedProp.name) : null"
                     >{{ nestedProp.name }}</span>
@@ -1182,11 +1307,11 @@ export default EntityList
             >
               <div v-if="isColumnExpanded(header.field)" class="flex w-full h-full">
                 <div
-                  v-for="nestedProp in getNestedProperties(header.field)"
+                  v-for="(nestedProp, nestedPropIdx) in getNestedProperties(header.field)"
                   :key="`${header.field}.${nestedProp.name}`"
-                  class="border-r last:border-r-0 border-gray-300"
+                  class="border-r last:border-r-0 border-white"
                   :style="{ 
-                    width: getNestedPropWidth(header.field, nestedProp) + 'px',
+                    width: getNestedPropRenderWidth(header.field, nestedProp, nestedPropIdx) + 'px',
                     minWidth: '80px',
                     boxSizing: 'border-box',
                     flexShrink: '0'
@@ -1196,7 +1321,7 @@ export default EntityList
                     <div
                       v-for="deepProp in getNestedObjectProperties(header.field, nestedProp.name)"
                       :key="`${header.field}.${nestedProp.name}.${deepProp.name}`"
-                      class="px-2 py-1 border-r last:border-r-0 border-gray-300 relative"
+                      class="px-2 py-1 border-r last:border-r-0 border-white relative"
                       :style="{ 
                         width: (() => {
                           // If this deep property is expanded, calculate total width of sub-columns
@@ -1206,7 +1331,7 @@ export default EntityList
                               // If subProp is an array and expanded to 5th level, calculate 5th-level width
                               if (sp.type?.type === 'array' && isVeryDeepNestedExpanded(header.field, nestedProp.name, deepProp.name, sp.name)) {
                                 const veryDeepProps = getVeryDeepNestedProperties(header.field, nestedProp.name, deepProp.name, sp.name)
-                                return total + veryDeepProps.reduce((sum, vdp) => sum + Math.max(vdp.name.length * 9 + 32, 100), 0)
+                                return total + veryDeepProps.reduce((sum, vdp) => sum + getUltraDeepNestedSubColumnWidth(header.field, nestedProp.name, deepProp.name, sp.name, vdp.name), 0)
                               }
                               return total + getDeepNestedSubColumnWidth(header.field, nestedProp.name, deepProp.name, sp.name)
                             }, 0)
@@ -1218,7 +1343,7 @@ export default EntityList
                         flexShrink: '0'
                       }"
                     >
-                      <div class="flex items-center gap-1 h-full">
+                      <div class="flex items-center gap-1 h-full min-w-0 overflow-hidden w-full">
                         <span 
                           v-if="(deepProp.type?.type === 'array' || deepProp.type?.type === 'object') && !isDeepNestedPrimitiveArray(header.field, nestedProp.name, deepProp.name)" 
                           class="flex-shrink-0 cursor-pointer"
@@ -1233,6 +1358,7 @@ export default EntityList
                         </span>
                         <span 
                           class="truncate text-xs text-surface-900 flex-1"
+                          :title="deepProp.name"
                           :class="{ 'cursor-pointer': (deepProp.type?.type === 'array' || deepProp.type?.type === 'object') && !isDeepNestedPrimitiveArray(header.field, nestedProp.name, deepProp.name) }"
                           @click.stop="((deepProp.type?.type === 'array' || deepProp.type?.type === 'object') && !isDeepNestedPrimitiveArray(header.field, nestedProp.name, deepProp.name)) ? toggleDeepNestedExpansion(header.field, nestedProp.name, deepProp.name) : null"
                         >{{ deepProp.name }}</span>
@@ -1262,11 +1388,11 @@ export default EntityList
             >
               <div v-if="isColumnExpanded(header.field)" class="flex w-full h-full">
                 <div
-                  v-for="nestedProp in getNestedProperties(header.field)"
+                  v-for="(nestedProp, nestedPropIdx) in getNestedProperties(header.field)"
                   :key="`${header.field}.${nestedProp.name}`"
-                  class="border-r last:border-r-0 border-gray-300"
+                  class="border-r last:border-r-0 border-white"
                   :style="{ 
-                    width: getNestedPropWidth(header.field, nestedProp) + 'px',
+                    width: getNestedPropRenderWidth(header.field, nestedProp, nestedPropIdx) + 'px',
                     minWidth: '80px',
                     boxSizing: 'border-box',
                     flexShrink: '0'
@@ -1276,7 +1402,7 @@ export default EntityList
                     <div
                       v-for="deepProp in getNestedObjectProperties(header.field, nestedProp.name)"
                       :key="`${header.field}.${nestedProp.name}.${deepProp.name}`"
-                      class="border-r last:border-r-0 border-gray-300"
+                      class="border-r last:border-r-0 border-white"
                       :style="{ 
                         width: (() => {
                           if (isDeepNestedExpanded(header.field, nestedProp.name, deepProp.name)) {
@@ -1284,7 +1410,7 @@ export default EntityList
                             return subProps.reduce((total, sp) => {
                               if (sp.type?.type === 'array' && isVeryDeepNestedExpanded(header.field, nestedProp.name, deepProp.name, sp.name)) {
                                 const veryDeepProps = getVeryDeepNestedProperties(header.field, nestedProp.name, deepProp.name, sp.name)
-                                return total + veryDeepProps.reduce((sum, vdp) => sum + Math.max(vdp.name.length * 9 + 32, 100), 0)
+                                return total + veryDeepProps.reduce((sum, vdp) => sum + getUltraDeepNestedSubColumnWidth(header.field, nestedProp.name, deepProp.name, sp.name, vdp.name), 0)
                               }
                               return total + getDeepNestedSubColumnWidth(header.field, nestedProp.name, deepProp.name, sp.name)
                             }, 0)
@@ -1300,12 +1426,12 @@ export default EntityList
                         <div
                           v-for="subProp in getDeepNestedProperties(header.field, nestedProp.name, deepProp.name)"
                           :key="`${header.field}.${nestedProp.name}.${deepProp.name}.${subProp.name}`"
-                          class="px-2 py-1 border-r last:border-r-0 border-gray-300 relative"
+                          class="px-2 py-1 border-r last:border-r-0 border-white relative"
                           :style="{ 
                             width: (() => {
                               if (subProp.type?.type === 'array' && isVeryDeepNestedExpanded(header.field, nestedProp.name, deepProp.name, subProp.name)) {
                                 const veryDeepProps = getVeryDeepNestedProperties(header.field, nestedProp.name, deepProp.name, subProp.name)
-                                return veryDeepProps.reduce((sum, vdp) => sum + Math.max(vdp.name.length * 9 + 32, 100), 0)
+                                return veryDeepProps.reduce((sum, vdp) => sum + getUltraDeepNestedSubColumnWidth(header.field, nestedProp.name, deepProp.name, subProp.name, vdp.name), 0)
                               }
                               return getDeepNestedSubColumnWidth(header.field, nestedProp.name, deepProp.name, subProp.name)
                             })() + 'px', 
@@ -1314,7 +1440,7 @@ export default EntityList
                             boxSizing: 'border-box'
                           }"
                         >
-                          <div class="flex items-center gap-1 h-full">
+                          <div class="flex items-center gap-1 h-full min-w-0 overflow-hidden w-full">
                             <span 
                               v-if="subProp.type?.type === 'array' && subProp.type?.contains?.type !== 'string' && subProp.type?.contains?.type !== 'number' && subProp.type?.contains?.type !== 'boolean' && subProp.type?.contains?.type !== 'date'" 
                               class="flex-shrink-0 cursor-pointer"
@@ -1329,6 +1455,7 @@ export default EntityList
                             </span>
                             <span 
                               class="truncate text-xs text-surface-900 flex-1"
+                              :title="subProp.name"
                               :class="{ 'cursor-pointer': subProp.type?.type === 'array' && subProp.type?.contains?.type !== 'string' && subProp.type?.contains?.type !== 'number' && subProp.type?.contains?.type !== 'boolean' && subProp.type?.contains?.type !== 'date' }"
                               @click.stop="(subProp.type?.type === 'array' && subProp.type?.contains?.type !== 'string' && subProp.type?.contains?.type !== 'number' && subProp.type?.contains?.type !== 'boolean' && subProp.type?.contains?.type !== 'date') ? toggleVeryDeepNestedExpansion(header.field, nestedProp.name, deepProp.name, subProp.name) : null"
                             >{{ subProp.name }}</span>
@@ -1360,11 +1487,11 @@ export default EntityList
             >
               <div v-if="isColumnExpanded(header.field)" class="flex w-full">
                 <div
-                  v-for="nestedProp in getNestedProperties(header.field)"
+                  v-for="(nestedProp, nestedPropIdx) in getNestedProperties(header.field)"
                   :key="`${header.field}.${nestedProp.name}`"
-                  class="border-r last:border-r-0 border-gray-300"
+                  class="border-r last:border-r-0 border-white"
                   :style="{ 
-                    width: getNestedPropWidth(header.field, nestedProp) + 'px',
+                    width: getNestedPropRenderWidth(header.field, nestedProp, nestedPropIdx) + 'px',
                     minWidth: '80px',
                     boxSizing: 'border-box',
                     flexShrink: '0'
@@ -1374,7 +1501,7 @@ export default EntityList
                     <div
                       v-for="deepProp in getNestedObjectProperties(header.field, nestedProp.name)"
                       :key="`${header.field}.${nestedProp.name}.${deepProp.name}`"
-                      class="border-r last:border-r-0 border-gray-300"
+                      class="border-r last:border-r-0 border-white"
                       :style="{ 
                         width: (() => {
                           if (isDeepNestedExpanded(header.field, nestedProp.name, deepProp.name)) {
@@ -1382,7 +1509,7 @@ export default EntityList
                             return subProps.reduce((total, sp) => {
                               if (sp.type?.type === 'array' && isVeryDeepNestedExpanded(header.field, nestedProp.name, deepProp.name, sp.name)) {
                                 const veryDeepProps = getVeryDeepNestedProperties(header.field, nestedProp.name, deepProp.name, sp.name)
-                                return total + veryDeepProps.reduce((sum, vdp) => sum + Math.max(vdp.name.length * 9 + 32, 100), 0)
+                                return total + veryDeepProps.reduce((sum, vdp) => sum + getUltraDeepNestedSubColumnWidth(header.field, nestedProp.name, deepProp.name, sp.name, vdp.name), 0)
                               }
                               return total + getDeepNestedSubColumnWidth(header.field, nestedProp.name, deepProp.name, sp.name)
                             }, 0)
@@ -1402,15 +1529,16 @@ export default EntityList
                             <div
                               v-for="veryDeepProp in getVeryDeepNestedProperties(header.field, nestedProp.name, deepProp.name, subProp.name)"
                               :key="`${header.field}.${nestedProp.name}.${deepProp.name}.${subProp.name}.${veryDeepProp.name}`"
-                              class="border-r last:border-r-0 border-gray-300 flex items-center px-2 py-1 relative"
+                              class="border-r last:border-r-0 border-white flex items-center px-2 py-1 relative overflow-hidden min-w-0"
                               :style="{ 
-                                width: Math.max(veryDeepProp.name.length * 9 + 32, 100) + 'px',
+                                width: getUltraDeepNestedSubColumnWidth(header.field, nestedProp.name, deepProp.name, subProp.name, veryDeepProp.name) + 'px',
                                 minWidth: '100px',
                                 boxSizing: 'border-box',
-                                flexShrink: '0'
+                                flexShrink: '0',
+                                height: '29px'
                               }"
                             >
-                              <span class="truncate text-xs text-gray-800 flex-1">{{ veryDeepProp.name }}</span>
+                              <span class="truncate text-xs text-gray-800 flex-1" :title="veryDeepProp.name">{{ veryDeepProp.name }}</span>
                               <div
                                 class="resize-handle"
                                 @mousedown.stop.prevent="startUltraDeepNestedColumnResize($event, header.field, nestedProp.name, deepProp.name, subProp.name, veryDeepProp)"
@@ -1441,7 +1569,7 @@ export default EntityList
 
         <tbody>
           <template v-for="item in items" :key="item.id">
-            <tr class="hover:bg-gray-50" style="height: 1px;">
+            <tr class="hover:bg-gray-50">
               <td
                 v-for="header in headers"
                 :key="header.field"
@@ -1452,7 +1580,6 @@ export default EntityList
                   flexShrink: '0'
                 }"
                 class="border border-gray-300 px-0 py-0 text-sm"
-                style="height: inherit;"
               >
                 <div class="h-full flex items-stretch">
                   <div class="flex-1">
@@ -1496,17 +1623,17 @@ export default EntityList
                     <template v-if="isRowCellExpanded(item.id, header.field)">
                       <div class="flex w-full">
                         <div
-                          v-for="nestedProp in getNestedProperties(header.field)"
+                          v-for="(nestedProp, nestedPropIdx) in getNestedProperties(header.field)"
                           :key="`${header.field}.${nestedProp.name}`"
                           class="border-r last:border-r-0 border-gray-300 text-xs"
                           :style="{ 
-                            width: getNestedPropWidth(header.field, nestedProp) + 'px',
+                            width: getNestedPropRenderWidth(header.field, nestedProp, nestedPropIdx) + 'px',
                             minWidth: '80px',
                             boxSizing: 'border-box',
                             flexShrink: '0'
                           }"
                         >
-                          <div class="flex flex-col">
+                          <div class="flex flex-col w-full">
                             <div
                               v-for="(arrItem, arrIdx) in item[header.field]"
                               :key="arrIdx"
@@ -1515,7 +1642,7 @@ export default EntityList
                               @click="toggleRowExpansion(item.id, header.field)"
                             >
                               <span class="truncate">{{ arrItem[nestedProp.name] ?? '-' }}</span>
-                              <span v-if="arrIdx === 0 && nestedProp.name === 'name'" class="text-gray-500 ml-2 flex-shrink-0">^</span>
+                              <span v-if="arrIdx === 0 && nestedProp.name === getArrayPrimaryNestedProp(header.field)" class="text-gray-500 ml-2 flex-shrink-0">^</span>
                             </div>
                           </div>
                         </div>
@@ -1524,11 +1651,11 @@ export default EntityList
                     <template v-else>
                       <div class="flex w-full h-[-webkit-fill-available]">
                         <div
-                          v-for="nestedProp in getNestedProperties(header.field)"
+                          v-for="(nestedProp, nestedPropIdx) in getNestedProperties(header.field)"
                           :key="`${header.field}.${nestedProp.name}`"
                           class="px-3 py-2 border-r last:border-r-0 border-gray-300"
                           :style="{ 
-                            width: getNestedPropWidth(header.field, nestedProp) + 'px',
+                            width: getNestedPropRenderWidth(header.field, nestedProp, nestedPropIdx) + 'px',
                             minWidth: '80px',
                             boxSizing: 'border-box',
                             flexShrink: '0'
@@ -1536,12 +1663,12 @@ export default EntityList
                         >
                           <div 
                             class="flex items-center justify-between w-full" 
-                            :class="{ 'cursor-pointer hover:bg-gray-100 rounded': nestedProp.name === 'name' && item[header.field].length > 1 }"
+                            :class="{ 'cursor-pointer hover:bg-gray-100 rounded': nestedProp.name === getArrayPrimaryNestedProp(header.field) && item[header.field].length > 1 }"
                             :title="String(item[header.field][0]?.[nestedProp.name] || '')"
-                            @click="(nestedProp.name === 'name' && item[header.field].length > 1) ? toggleRowExpansion(item.id, header.field) : null"
+                            @click="(nestedProp.name === getArrayPrimaryNestedProp(header.field) && item[header.field].length > 1) ? toggleRowExpansion(item.id, header.field) : null"
                           >
                             <span class="truncate">{{ item[header.field][0]?.[nestedProp.name] ?? '-' }}</span>
-                            <span v-if="nestedProp.name === 'name' && item[header.field].length > 1" class="text-gray-500 ml-2 flex-shrink-0">
+                            <span v-if="nestedProp.name === getArrayPrimaryNestedProp(header.field) && item[header.field].length > 1" class="text-gray-500 ml-2 flex-shrink-0">
                               +{{ item[header.field].length - 1 }}
                             </span>
                           </div>
@@ -1576,7 +1703,7 @@ export default EntityList
                                     return subProps.reduce((total, sp) => {
                                       if (sp.type?.type === 'array' && isVeryDeepNestedExpanded(header.field, nestedProp.name, arrayProp.name, sp.name)) {
                                         const veryDeepProps = getVeryDeepNestedProperties(header.field, nestedProp.name, arrayProp.name, sp.name)
-                                        return total + veryDeepProps.reduce((sum, vdp) => sum + Math.max(vdp.name.length * 9 + 32, 100), 0)
+                                        return total + veryDeepProps.reduce((sum, vdp) => sum + getUltraDeepNestedSubColumnWidth(header.field, nestedProp.name, arrayProp.name, sp.name, vdp.name), 0)
                                       }
                                       return total + getDeepNestedSubColumnWidth(header.field, nestedProp.name, arrayProp.name, sp.name)
                                     }, 0)
@@ -1597,12 +1724,14 @@ export default EntityList
                                       <div
                                         v-for="veryDeepProp in getVeryDeepNestedProperties(header.field, nestedProp.name, arrayProp.name, subProp.name)"
                                         :key="`${header.field}.${nestedProp.name}.${arrayProp.name}.${subProp.name}.${veryDeepProp.name}`"
-                                        class="border-r last:border-r-0 border-gray-300 cursor-pointer hover:bg-sky-50 px-2 py-1"
+                                        class="border-r last:border-r-0 border-gray-300 cursor-pointer hover:bg-sky-50"
                                         :style="{ 
-                                          width: Math.max(veryDeepProp.name.length * 9 + 32, 100) + 'px', 
+                                          width: getUltraDeepNestedSubColumnWidth(header.field, nestedProp.name, arrayProp.name, subProp.name, veryDeepProp.name) + 'px', 
                                           minWidth: '100px',
                                           boxSizing: 'border-box',
-                                          flexShrink: '0'
+                                          flexShrink: '0',
+                                          display: 'flex',
+                                          alignItems: 'start',
                                         }"
                                         @click.stop="(() => {
                                           const parentArray = item[header.field]?.[nestedProp.name]
@@ -1614,7 +1743,7 @@ export default EntityList
                                           }
                                         })()"
                                       >
-                                        <div class="flex flex-col">
+                                        <div class="flex flex-col w-full">
                                           <div
                                             v-for="(arrItem, arrIdx) in (() => {
                                               const parentArray = item[header.field]?.[nestedProp.name]
@@ -1635,7 +1764,7 @@ export default EntityList
                                                 return isFundingExpanded ? fundingArray : [fundingArray[0]]
                                               })()"
                                               :key="fundingIdx"
-                                              class="py-1 border-b last:border-b-0 border-gray-100 flex items-center justify-between px-2"
+                                              class="py-2 border-b last:border-b-0 border-gray-300 flex items-center justify-between px-3"
                                               :title="String(fundingItem?.[veryDeepProp.name] ?? '')"
                                             >
                                               <span class="truncate">{{ fundingItem?.[veryDeepProp.name] ?? '-' }}</span>
@@ -1687,7 +1816,7 @@ export default EntityList
                                                 <div
                                                   v-for="(nestedItem, nestedIdx) in arrItem[subProp.name]"
                                                   :key="nestedIdx"
-                                                  class="px-3 py-2 border-b last:border-b-0 border-gray-100 flex items-center justify-between"
+                                                  class="px-3 py-2 border-b last:border-b-0 border-gray-300 flex items-center justify-between"
                                                   :title="String((() => {
                                                     if (typeof nestedItem === 'object' && nestedItem !== null) {
                                                       const firstValue = Object.values(nestedItem)[0]
@@ -1929,7 +2058,7 @@ export default EntityList
                               <span class="truncate" :title="String(arrItem)">{{ arrItem }}</span>
                             </template>
                             <template v-else>
-                              <span class="truncate" :title="String(arrItem?.name || arrItem?.title || JSON.stringify(arrItem))">{{ arrItem?.name || arrItem?.title || JSON.stringify(arrItem) }}</span>
+                              <span class="truncate" :title="getArrayObjectLabel(arrItem, header.field)">{{ getArrayObjectLabel(arrItem, header.field) }}</span>
                             </template>
                             <span v-if="arrIdx === 0" class="text-gray-500 ml-2 flex-shrink-0">^</span>
                           </div>
@@ -1948,7 +2077,7 @@ export default EntityList
                     <div
                       :class="{ 'cursor-pointer hover:bg-gray-100 rounded px-1': header.isCollapsable }"
                       class="truncate"
-                      :title="String(item[header.field] || '')"
+                      :title="getCellTitleValue(item, header.field)"
                       @click="header.isCollapsable ? toggleRowExpansion(item.id, header.field) : null"
                     >
                       {{
@@ -2011,12 +2140,18 @@ export default EntityList
   text-overflow: ellipsis;
   display: block;
   max-width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .truncate {
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .resize-handle {
@@ -2042,20 +2177,30 @@ td > div {
 }
 
 td > div.flex {
-  overflow: visible;
+  overflow: hidden;
+  min-width: 0;
 }
 
 td > div.flex > div {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 th {
   overflow: hidden;
+    border-top: none !important;
+    border-bottom: none !important;
+
 }
 
 th > div {
   overflow: hidden;
+    border-top: none !important;
+    border-bottom: none !important;
 }
+/* table {
+  border: none !important;
+} */
 </style>

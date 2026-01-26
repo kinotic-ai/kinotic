@@ -11,7 +11,7 @@ export default class StructureDataViewModal extends Vue {
     @Prop({ default: "Data View" }) readonly title!: string;
     @Prop({ default: () => ({}) }) readonly entityProps!: Record<string, unknown>;
 
-    showNewVersion = false;
+    showNewVersion = true;
 
     get visible(): boolean {
         return this.modelValue;
