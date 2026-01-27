@@ -23,6 +23,53 @@ declare global {
   }
 }
 window.Structures = Structures
+
+// Dev-only: prevent stale assets in browsers (notably Firefox)
+if (import.meta.env.DEV) {
+  try {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.unregister())
+      })
+    }
+    if ('caches' in window) {
+      caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)))
+    }
+  } catch {
+    // ignore
+  }
+
+  // Best-effort: consume horizontal wheel overscroll at edges to reduce
+  // mac trackpad "swipe/refresh/back" style navigation.
+  window.addEventListener(
+    'wheel',
+    (e: WheelEvent) => {
+      // Only care about horizontal intent.
+      if (Math.abs(e.deltaX) < Math.abs(e.deltaY) || Math.abs(e.deltaX) < 8) return
+
+      let el = e.target as HTMLElement | null
+      while (el && el !== document.body) {
+        const style = window.getComputedStyle(el)
+        const overflowX = style.overflowX
+        const canScrollX =
+          (overflowX === 'auto' || overflowX === 'scroll') &&
+          el.scrollWidth > el.clientWidth + 1
+
+        if (canScrollX) {
+          const atLeft = el.scrollLeft <= 0
+          const atRight = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
+          if ((atLeft && e.deltaX < 0) || (atRight && e.deltaX > 0)) {
+            e.preventDefault()
+            e.stopPropagation()
+          }
+          return
+        }
+        el = el.parentElement
+      }
+    },
+    { capture: true, passive: false }
+  )
+}
 const app = createApp(App)
 
 app.use(createPinia())
