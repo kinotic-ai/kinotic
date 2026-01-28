@@ -8,6 +8,8 @@ import org.mindignited.structures.auth.api.config.OidcSecurityServiceProperties;
 import org.mindignited.structuresserver.ElasticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.client.RestTemplate;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,6 +27,11 @@ public class FrontendConfigurationIntegrationTest extends ElasticTestBase {
     private OidcSecurityServiceProperties oidcSecurityServiceProperties;
     @Autowired
     private StructuresProperties structuresProperties;
+
+    @DynamicPropertySource
+    static void registerOidcSecurityServiceProperties(DynamicPropertyRegistry registry) {
+        registry.add("oidc-security-service.enabled", () -> true);
+    }
 
     private String getURL() {
         return String.format("http://localhost:%d/%s", structuresProperties.getWebServerPort(), oidcSecurityServiceProperties.getFrontendConfigurationPath());

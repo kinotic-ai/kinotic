@@ -127,7 +127,7 @@ ingress:
     secretName: structures-tls-secret
     # Set to true when mkcert creates the secret before helm install
     # Set to false to use cert-manager self-signed fallback
-    existingSecret: false
+    existingSecret: true
 
 
 # OIDC security service configuration

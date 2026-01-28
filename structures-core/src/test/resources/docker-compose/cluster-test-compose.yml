@@ -14,22 +14,23 @@ services:
       CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
       CONTINUUM_GATEWAY_STOMP_PORT: 58501
 
-      SPRING_PROFILES_ACTIVE: production,debug
+      SPRING_PROFILES_ACTIVE: production,debug,eviction-tracking
+
+      STRUCTURES_CACHE_EVICTION_CSV_PATH: "/eviction-data/evictions-structures-node1.csv"
 
       CONTINUUM_CLUSTER_DISCOVERY_TYPE: SHAREDFS
-      # CONTINUUM_CLUSTER_DISCOVERY_TYPE: LOCAL
       CONTINUUM_CLUSTER_DISABLE_CLUSTERING: false
       CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS: 0
       CONTINUUM_CLUSTER_DISCOVERY_PORT: 47501
       CONTINUUM_CLUSTER_COMMUNICATION_PORT: 47101
       # Container local address: bind to 0.0.0.0 (all interfaces) for port mapping
       # Test instance connects via localhost:47501 which maps to this container
-      CONTINUUM_CLUSTER_LOCAL_ADDRESS: 0.0.0.0
+      # CONTINUUM_CLUSTER_LOCAL_ADDRESS: 0.0.0.0
       # Static IP addresses for all nodes in the cluster
       # Format: host:port,host:port,...
       # Test instance: host.docker.internal:47500 (containers can reach via host gateway)
       # Containers: localhost:47501-47503 (test instance can reach via port mapping)
-      CONTINUUM_CLUSTER_LOCAL_ADDRESSES: ${STRUCTURES_TEST_INSTANCE_HOST}:47500,structures-node1:47501,structures-node2:47502,structures-node3:47503
+      # CONTINUUM_CLUSTER_LOCAL_ADDRESSES: host.docker.internal:47500,structures-node1:47501,structures-node2:47502,structures-node3:47503
       CONTINUUM_CLUSTER_SHARED_FS_PATH: /sharedfs
 
       STRUCTURES_ELASTICCONNECTIONS_0_SCHEME: ${STRUCTURES_ELASTIC_SCHEME}
@@ -68,6 +69,10 @@ services:
         source: ${HOME}/structures/sharedfs
         target: /sharedfs
         read_only: false
+      - type: bind
+        source: ${HOME}/structures/eviction-data
+        target: /eviction-data
+        read_only: false
     ports:
       - "9091:9091"
       - "8081:8081"
@@ -98,22 +103,23 @@ services:
       CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
       CONTINUUM_GATEWAY_STOMP_PORT: 58502
 
-      SPRING_PROFILES_ACTIVE: production,debug
+      SPRING_PROFILES_ACTIVE: production,debug,eviction-tracking
+
+      STRUCTURES_CACHE_EVICTION_CSV_PATH: "/eviction-data/evictions-structures-node2.csv"
 
       CONTINUUM_CLUSTER_DISCOVERY_TYPE: SHAREDFS
-      # CONTINUUM_CLUSTER_DISCOVERY_TYPE: LOCAL
       CONTINUUM_CLUSTER_DISABLE_CLUSTERING: false
       CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS: 0
       CONTINUUM_CLUSTER_DISCOVERY_PORT: 47502
       CONTINUUM_CLUSTER_COMMUNICATION_PORT: 47102
       # Container local address: bind to 0.0.0.0 (all interfaces) for port mapping
       # Test instance connects via localhost:47502 which maps to this container
-      CONTINUUM_CLUSTER_LOCAL_ADDRESS: 0.0.0.0
+      # CONTINUUM_CLUSTER_LOCAL_ADDRESS: 0.0.0.0
       # Static IP addresses for all nodes in the cluster
       # Format: host:port,host:port,...
       # Test instance: host.docker.internal:47500 (containers can reach via host gateway)
       # Containers: localhost:47501-47503 (test instance can reach via port mapping)
-      CONTINUUM_CLUSTER_LOCAL_ADDRESSES: ${STRUCTURES_TEST_INSTANCE_HOST}:47500,structures-node1:47501,structures-node2:47502,structures-node3:47503
+      # CONTINUUM_CLUSTER_LOCAL_ADDRESSES: host.docker.internal:47500,structures-node1:47501,structures-node2:47502,structures-node3:47503
       CONTINUUM_CLUSTER_SHARED_FS_PATH: /sharedfs
 
       STRUCTURES_ELASTICCONNECTIONS_0_SCHEME: ${STRUCTURES_ELASTIC_SCHEME}
@@ -151,6 +157,10 @@ services:
         source: ${HOME}/structures/sharedfs
         target: /sharedfs
         read_only: false
+      - type: bind
+        source: ${HOME}/structures/eviction-data
+        target: /eviction-data
+        read_only: false
     ports:
       - "9092:9092"
       - "8082:8082"
@@ -181,22 +191,23 @@ services:
       CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
       CONTINUUM_GATEWAY_STOMP_PORT: 58503
 
-      SPRING_PROFILES_ACTIVE: production,debug
+      SPRING_PROFILES_ACTIVE: production,debug,eviction-tracking
+
+      STRUCTURES_CACHE_EVICTION_CSV_PATH: "/eviction-data/evictions-structures-node3.csv"
 
       CONTINUUM_CLUSTER_DISCOVERY_TYPE: SHAREDFS
-      # CONTINUUM_CLUSTER_DISCOVERY_TYPE: LOCAL
       CONTINUUM_CLUSTER_DISABLE_CLUSTERING: false
       CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS: 0
       CONTINUUM_CLUSTER_DISCOVERY_PORT: 47503
       CONTINUUM_CLUSTER_COMMUNICATION_PORT: 47103
       # Container local address: bind to 0.0.0.0 (all interfaces) for port mapping
       # Test instance connects via localhost:47503 which maps to this container
-      CONTINUUM_CLUSTER_LOCAL_ADDRESS: 0.0.0.0
+      # CONTINUUM_CLUSTER_LOCAL_ADDRESS: 0.0.0.0
       # Static IP addresses for all nodes in the cluster
       # Format: host:port,host:port,...
       # Test instance: host.docker.internal:47500 (containers can reach via host gateway)
       # Containers: localhost:47501-47503 (test instance can reach via port mapping)
-      CONTINUUM_CLUSTER_LOCAL_ADDRESSES: ${STRUCTURES_TEST_INSTANCE_HOST}:47500,structures-node1:47501,structures-node2:47502,structures-node3:47503
+      # CONTINUUM_CLUSTER_LOCAL_ADDRESSES: host.docker.internal:47500,structures-node1:47501,structures-node2:47502,structures-node3:47503
       CONTINUUM_CLUSTER_SHARED_FS_PATH: /sharedfs
 
       STRUCTURES_ELASTICCONNECTIONS_0_SCHEME: ${STRUCTURES_ELASTIC_SCHEME}
@@ -233,6 +244,10 @@ services:
       - type: bind
         source: ${HOME}/structures/sharedfs
         target: /sharedfs
+        read_only: false
+      - type: bind
+        source: ${HOME}/structures/eviction-data
+        target: /eviction-data
         read_only: false
     ports:
       - "9093:9093"

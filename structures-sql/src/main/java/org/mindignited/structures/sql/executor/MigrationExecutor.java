@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.mindignited.structures.sql.domain.Migration;
 import org.mindignited.structures.sql.domain.MigrationContent;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch.core.search.TotalHits;
 import co.elastic.clients.elasticsearch.indices.ExistsRequest;
@@ -49,8 +51,15 @@ public class MigrationExecutor {
 
     @PostConstruct
     public void init() throws Exception {
-        ensureMigrationIndexExists().get();
-        log.info("Migration index initialized");
+        try {
+            // HACK: wait a random amount of time to avoid race conditions
+            // FIXME: this should probably be a cluster singleton so that only one service
+            // picks up the migrations. 
+            Thread.sleep(ThreadLocalRandom.current().nextInt(1000, 3000));
+            ensureMigrationIndexExists().get();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to initialize migration index", e);
+        }
     }
 
     /**

@@ -106,3 +106,4 @@ dev-tools/kind/config/helm-values.local.yaml
 dev-tools/kind/eviction-data/
 eviction-data/
 **/eviction-events*.csv
+eviction-events.csv

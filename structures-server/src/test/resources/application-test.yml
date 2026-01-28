@@ -19,7 +19,7 @@ structures:
 
 # OIDC security service configuration
 oidc-security-service:
-  enabled: true
+  enabled: false
   debug: true
   frontend-configuration-path: "/app-config.override.json"
   oidc-providers:

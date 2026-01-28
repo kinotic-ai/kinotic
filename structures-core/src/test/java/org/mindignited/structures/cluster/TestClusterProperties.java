@@ -12,6 +12,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class TestClusterProperties {
     @NotNull
+    private Boolean enabled = false;
+    @NotNull
     private Boolean useExternal = false;
     @Min(1)
     @Max(4)  // Test instance (1) + up to 3 container nodes
