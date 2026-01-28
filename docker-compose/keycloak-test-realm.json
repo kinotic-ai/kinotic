@@ -71,7 +71,7 @@
   "dockerAuthenticationFlow": "docker auth",
   "firstBrokerLoginFlow": "first broker login",
   "attributes": {
-    "frontendUrl": "http://keycloak:8888/auth",
+    "frontendUrl": "",
     "cibaBackchannelTokenDeliveryMode": "poll",
     "cibaExpiresIn": "120",
     "cibaAuthRequestedUserHint": "login_hint",
@@ -119,13 +119,19 @@
         "http://localhost:5173/*",
         "http://localhost:5173/auth/callback",
         "http://localhost:3000/*",
-        "http://localhost:3000/auth/callback"
+        "http://localhost:3000/auth/callback",
+        "https://localhost/*",
+        "https://localhost/silent-renew.html",
+        "https://structures.local/*",
+        "https://structures.local/silent-renew.html"
       ],
       "webOrigins": [
-        "http://localhost:9090/*",
-        "http://localhost:9091/*",
-        "http://localhost:5173/*",
-        "http://localhost:3000/*",
+        "http://localhost:9090",
+        "http://localhost:9091",
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://localhost",
+        "https://structures.local",
         "+"
       ],
       "protocolMappers": [

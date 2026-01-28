@@ -34,6 +34,7 @@ add_helm_repos() {
         "grafana:https://grafana.github.io/helm-charts"
         "open-telemetry:https://open-telemetry.github.io/opentelemetry-helm-charts"
         "ingress-nginx:https://kubernetes.github.io/ingress-nginx"
+        "jetstack:https://charts.jetstack.io"
     )
     
     for repo in "${repos[@]}"; do
@@ -62,7 +63,7 @@ add_helm_repos() {
 }
 
 #
-# Deploy PostgreSQL for Keycloak
+# Deploy PostgreSQL for Keycloak using Bitnami Helm chart
 # Args:
 #   $1: Cluster name
 # Returns:
@@ -76,173 +77,33 @@ deploy_postgresql() {
     
     progress "Deploying PostgreSQL for Keycloak..."
     
-    # PostgreSQL version (using official postgres alpine image)
-    local pg_version="15-alpine"
-    local pg_image="postgres:${pg_version}"
-    local local_tag="localhost/postgres:${pg_version}"
+    # Get PostgreSQL values file from config directory
+    local values_flags
+    values_flags=$(get_service_helm_flags "postgresql") || return 1
     
-    # Detect host platform for image pulling
-    local platform="linux/amd64"
-    if [[ "$(uname -m)" == "arm64" ]] || [[ "$(uname -m)" == "aarch64" ]]; then
-        platform="linux/arm64"
-    fi
+    progress "Using PostgreSQL configuration from: $(get_service_values_path postgresql)"
     
-    # Pre-pull for specific platform
-    progress "Pre-loading PostgreSQL image into cluster..."
-    if ! docker image inspect "${pg_image}" &>/dev/null; then
-        progress "Pulling ${pg_image} for ${platform}..."
-        if ! docker pull --platform "${platform}" "${pg_image}"; then
-            error "Failed to pull PostgreSQL image"
-            return 1
-        fi
-    fi
+    # Deploy using Bitnami Helm chart
+    local helm_output
+    # shellcheck disable=SC2086
+    helm_output=$(helm upgrade --install keycloak-db bitnami/postgresql \
+        --kube-context "${context}" \
+        ${values_flags} \
+        --wait --timeout 5m 2>&1)
     
-    # Use tarball method to avoid multi-platform manifest issues
-    progress "Loading image into KinD cluster (tarball method)..."
-    local temp_tar="/tmp/postgres-${RANDOM}.tar"
+    local exit_code=$?
     
-    # Save image to tarball (this flattens multi-platform references)
-    if ! docker save "${pg_image}" -o "${temp_tar}"; then
-        error "Failed to save PostgreSQL image to tarball"
-        return 1
-    fi
-    
-    # Verify tarball exists
-    if [[ ! -f "${temp_tar}" ]]; then
-        error "Tarball not created: ${temp_tar}"
-        return 1
-    fi
-    
-    progress "Created tarball: ${temp_tar} ($(du -h "${temp_tar}" | cut -f1))"
-    
-    # Import tarball into each KinD node by piping to ctr stdin
-    local all_loaded=true
-    for node in $(kind get nodes --name "${cluster_name}"); do
-        progress "Loading into node ${node}..."
-        
-        # Pipe tarball directly to ctr via docker exec stdin
-        local import_output
-        import_output=$(cat "${temp_tar}" | docker exec -i "${node}" ctr -n k8s.io images import - 2>&1)
-        local import_result=$?
-        
-        if [[ ${import_result} -eq 0 ]]; then
-            success "Loaded into ${node}"
-        else
-            error "Failed to import image on ${node}"
-            echo "Import output: ${import_output}"
-            all_loaded=false
-        fi
-    done
-    
-    # Clean up tarball
-    rm -f "${temp_tar}"
-    
-    if [[ "${all_loaded}" == "false" ]]; then
-        error "Failed to load PostgreSQL image into some cluster nodes"
-        return 1
-    fi
-    
-    # Deploy using plain Kubernetes manifest (avoids Bitnami chart restrictions)
-    progress "Deploying PostgreSQL StatefulSet..."
-    
-    cat <<EOF | kubectl apply --context "${context}" -f - 2>&1
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: keycloak-db-postgresql
-  labels:
-    app: postgresql
-spec:
-  type: NodePort
-  ports:
-  - port: 5432
-    targetPort: 5432
-    nodePort: 30555  # Maps to hostPort 5555 → localhost:5555
-    name: postgres
-  selector:
-    app: postgresql
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: keycloak-db-postgresql
-spec:
-  serviceName: keycloak-db-postgresql
-  replicas: 1
-  selector:
-    matchLabels:
-      app: postgresql
-  template:
-    metadata:
-      labels:
-        app: postgresql
-    spec:
-      containers:
-      - name: postgres
-        image: postgres:${pg_version}
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 5432
-          name: postgres
-        env:
-        - name: POSTGRES_DB
-          value: keycloak
-        - name: POSTGRES_USER
-          value: keycloak
-        - name: POSTGRES_PASSWORD
-          value: keycloak
-        - name: PGDATA
-          value: /var/lib/postgresql/data/pgdata
-        volumeMounts:
-        - name: postgres-storage
-          mountPath: /var/lib/postgresql/data
-        - name: run
-          mountPath: /var/run/postgresql
-        resources:
-          requests:
-            cpu: 100m
-            memory: 256Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
-        readinessProbe:
-          exec:
-            command:
-            - sh
-            - -c
-            - pg_isready -U keycloak
-          initialDelaySeconds: 10
-          periodSeconds: 5
-        livenessProbe:
-          exec:
-            command:
-            - sh
-            - -c
-            - pg_isready -U keycloak
-          initialDelaySeconds: 30
-          periodSeconds: 10
-      volumes:
-      - name: postgres-storage
-        emptyDir: {}
-      - name: run
-        emptyDir: {}
-EOF
-    
-    if [[ $? -ne 0 ]]; then
-        error "Failed to create PostgreSQL StatefulSet"
-        return 1
-    fi
-    
-    # Wait for PostgreSQL to be ready
-    progress "Waiting for PostgreSQL to be ready..."
-    if ! kubectl wait --context "${context}" \
-        --for=condition=ready pod \
-        -l app=postgresql \
-        --timeout=5m 2>&1; then
-        error "PostgreSQL pod did not become ready"
-        kubectl get pods --context "${context}" -l app=postgresql 2>&1 || true
-        kubectl describe pod --context "${context}" -l app=postgresql 2>&1 || true
+    if [[ ${exit_code} -ne 0 ]]; then
+        error "Failed to deploy PostgreSQL"
+        echo ""
+        echo "Helm output:"
+        echo "${helm_output}"
+        echo ""
+        echo "Check pod status:"
+        echo "  kubectl get pods -l app.kubernetes.io/name=postgresql --context ${context}"
+        echo "Check pod logs:"
+        echo "  kubectl logs -l app.kubernetes.io/name=postgresql --context ${context}"
+        echo ""
         return 1
     fi
     
@@ -288,7 +149,10 @@ create_keycloak_realm_configmap() {
 }
 
 #
-# Deploy Keycloak with PostgreSQL backend using custom StatefulSet
+# Deploy Keycloak with PostgreSQL backend using local Helm chart
+# Note: We use a local chart instead of the Bitnami chart because
+# the Bitnami chart has Bitnami-specific components that conflict
+# with the official Keycloak image.
 # Args:
 #   $1: Cluster name
 # Returns:
@@ -302,143 +166,52 @@ deploy_keycloak() {
     
     progress "Deploying Keycloak..."
     
-    # Keycloak version (matching docker-compose/compose.keycloak.yml)
-    local kc_version="26.0.2"
-    local kc_image="quay.io/keycloak/keycloak:${kc_version}"
+    # Local Keycloak chart path
+    local chart_path="${LIB_SCRIPT_DIR}/../charts/keycloak"
     
-    # Deploy using plain Kubernetes manifest
-    progress "Deploying Keycloak StatefulSet..."
-    
-    if ! kubectl apply --context "${context}" -f - <<EOF 2>&1 | grep -v "Warning:"; then
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: keycloak
-  labels:
-    app: keycloak
-spec:
-  type: NodePort
-  ports:
-  - port: 8888
-    targetPort: 8888
-    nodePort: 30888
-    name: http
-  selector:
-    app: keycloak
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: keycloak
-spec:
-  serviceName: keycloak
-  replicas: 1
-  selector:
-    matchLabels:
-      app: keycloak
-  template:
-    metadata:
-      labels:
-        app: keycloak
-    spec:
-      containers:
-      - name: keycloak
-        image: ${kc_image}
-        imagePullPolicy: IfNotPresent
-        command: ["/opt/keycloak/bin/kc.sh"]
-        args:
-        - start-dev
-        - --import-realm
-        env:
-        - name: KC_DB
-          value: postgres
-        - name: KC_DB_URL
-          value: jdbc:postgresql://keycloak-db-postgresql:5432/keycloak
-        - name: KC_DB_USERNAME
-          value: keycloak
-        - name: KC_DB_PASSWORD
-          value: keycloak
-        - name: KC_HOSTNAME
-          value: localhost
-        - name: KC_HOSTNAME_STRICT
-          value: "false"
-        - name: KC_HTTP_ENABLED
-          value: "true"
-        - name: KC_HTTP_PORT
-          value: "8888"
-        - name: KC_HTTP_RELATIVE_PATH
-          value: /auth
-        - name: KC_METRICS_ENABLED
-          value: "true"
-        - name: KC_HEALTH_ENABLED
-          value: "true"
-        - name: KC_LOG_LEVEL
-          value: INFO
-        - name: KEYCLOAK_ADMIN
-          value: admin
-        - name: KEYCLOAK_ADMIN_PASSWORD
-          value: admin
-        ports:
-        - containerPort: 8888
-          name: http
-        volumeMounts:
-        - name: realm-config
-          mountPath: /opt/keycloak/data/import
-          readOnly: true
-        resources:
-          requests:
-            cpu: 500m
-            memory: 512Mi
-          limits:
-            cpu: 1000m
-            memory: 1Gi
-        readinessProbe:
-          httpGet:
-            path: /auth/realms/master
-            port: 8888
-          initialDelaySeconds: 90
-          periodSeconds: 10
-          timeoutSeconds: 10
-          failureThreshold: 10
-        livenessProbe:
-          httpGet:
-            path: /auth/realms/master
-            port: 8888
-          initialDelaySeconds: 180
-          periodSeconds: 10
-          timeoutSeconds: 10
-          failureThreshold: 6
-      volumes:
-      - name: realm-config
-        configMap:
-          name: keycloak-realm
-EOF
-        error "Failed to create Keycloak StatefulSet"
+    if [[ ! -d "${chart_path}" ]]; then
+        error "Keycloak chart not found: ${chart_path}"
         return 1
     fi
     
-    # Wait for Keycloak to be ready
-    progress "Waiting for Keycloak to be ready (this may take 2-3 minutes)..."
-    if ! kubectl wait --context "${context}" \
-        --for=condition=ready pod \
-        -l app=keycloak \
-        --timeout=10m 2>&1; then
-        error "Keycloak pod did not become ready"
-        progress "Pod status:"
-        kubectl get pods --context "${context}" -l app=keycloak 2>&1 || true
-        progress "Pod logs:"
-        kubectl logs --context "${context}" -l app=keycloak --tail=50 2>&1 || true
+    # Get Keycloak values file from config directory
+    local values_flags
+    values_flags=$(get_service_helm_flags "keycloak") || return 1
+    
+    progress "Using Keycloak chart from: ${chart_path}"
+    progress "Using Keycloak values from: $(get_service_values_path keycloak)"
+    
+    # Deploy using local Helm chart
+    local helm_output
+    # shellcheck disable=SC2086
+    helm_output=$(helm upgrade --install keycloak "${chart_path}" \
+        --kube-context "${context}" \
+        ${values_flags} \
+        --wait --timeout 10m 2>&1)
+    
+    local exit_code=$?
+    
+    if [[ ${exit_code} -ne 0 ]]; then
+        error "Failed to deploy Keycloak"
+        echo ""
+        echo "Helm output:"
+        echo "${helm_output}"
+        echo ""
+        echo "Check pod status:"
+        echo "  kubectl get pods -l app=keycloak --context ${context}"
+        echo "Check pod logs:"
+        echo "  kubectl logs -l app=keycloak --context ${context}"
+        echo ""
         return 1
     fi
     
     success "Keycloak deployed (1/1 pods ready)"
-    progress "Keycloak Admin Console: http://localhost:30888/auth/admin (admin/admin)"
+    progress "Keycloak Admin Console: http://localhost:8888/auth/admin (admin/admin)"
     return 0
 }
 
 #
-# Deploy NGINX Ingress Controller for KinD
+# Deploy NGINX Ingress Controller for KinD using Helm chart
 # Args:
 #   $1: Cluster name
 # Returns:
@@ -457,40 +230,35 @@ deploy_nginx_ingress() {
     progress "Labeling control-plane node for ingress..."
     kubectl label node "${cluster_name}-control-plane" ingress-ready=true --overwrite --context "${context}" 2>/dev/null || true
     
-    # Check if already deployed
-    if kubectl get deployment ingress-nginx-controller -n ingress-nginx --context "${context}" &>/dev/null; then
-        success "NGINX Ingress Controller already deployed"
-        # Ensure it's scheduled on control-plane and snippets are enabled
-        ensure_ingress_on_control_plane "${context}"
-        enable_nginx_snippets "${context}"
-        return 0
-    fi
+    # Get ingress-nginx values file from config directory
+    local values_flags
+    values_flags=$(get_service_helm_flags "ingress-nginx") || return 1
     
-    # Apply the official KinD ingress-nginx manifest
-    progress "Applying ingress-nginx manifest..."
-    if ! kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml --context "${context}"; then
-        error "Failed to apply ingress-nginx manifest"
+    progress "Using ingress-nginx configuration from: $(get_service_values_path ingress-nginx)"
+    
+    # Deploy using Helm chart
+    local helm_output
+    # shellcheck disable=SC2086
+    helm_output=$(helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+        --kube-context "${context}" \
+        --namespace ingress-nginx \
+        --create-namespace \
+        ${values_flags} \
+        --wait --timeout 8m 2>&1)
+    
+    local exit_code=$?
+    
+    if [[ ${exit_code} -ne 0 ]]; then
+        error "Failed to deploy NGINX Ingress Controller"
+        echo ""
+        echo "Helm output:"
+        echo "${helm_output}"
+        echo ""
+        echo "Check pod status:"
+        echo "  kubectl get pods -n ingress-nginx --context ${context}"
+        echo ""
         return 1
     fi
-    
-    # Ensure ingress controller runs on control-plane (where port mappings are)
-    ensure_ingress_on_control_plane "${context}"
-    
-    # Wait for ingress-nginx to be ready
-    progress "Waiting for ingress-nginx pods to be ready (up to 300s)..."
-    if ! kubectl wait --namespace ingress-nginx \
-        --for=condition=ready pod \
-        --selector=app.kubernetes.io/component=controller \
-        --timeout=300s \
-        --context "${context}"; then
-        warning "Ingress controller pods did not become ready in time"
-        progress "Checking pod status:"
-        kubectl get pods -n ingress-nginx --context "${context}"
-        return 1
-    fi
-    
-    # Enable snippet annotations for development (required by structures ingress)
-    enable_nginx_snippets "${context}"
     
     success "NGINX Ingress Controller deployed successfully"
     return 0
@@ -590,12 +358,100 @@ enable_nginx_snippets() {
     return 0
 }
 
+#
+# Configure CoreDNS to resolve custom hostnames to the nginx ingress
+# This allows pods within the cluster to reach services via ingress hostnames
+# like structures.local without external DNS configuration.
+#
+# Args:
+#   $1: Cluster name
+#   $2: hostname to resolve (e.g., "structures.local")
+# Returns:
+#   0 on success, 1 on failure
+# Example:
+#   configure_coredns_custom_hosts "structures-cluster" "structures.local"
+#
+configure_coredns_custom_hosts() {
+    local cluster_name="$1"
+    local hostname="$2"
+    local context="kind-${cluster_name}"
+    
+    progress "Configuring CoreDNS to resolve ${hostname} to nginx ingress..."
+    
+    # Get the ingress controller's cluster IP
+    local ingress_ip
+    ingress_ip=$(kubectl get svc ingress-nginx-controller -n ingress-nginx \
+        --context "${context}" -o jsonpath='{.spec.clusterIP}' 2>/dev/null)
+    
+    if [[ -z "${ingress_ip}" ]]; then
+        warning "Could not get ingress-nginx-controller ClusterIP, skipping CoreDNS configuration"
+        return 1
+    fi
+    
+    verbose "Ingress controller ClusterIP: ${ingress_ip}"
+    
+    # Check if hosts block already exists in CoreDNS config
+    local current_config
+    current_config=$(kubectl get configmap coredns-custom -n kube-system \
+        --context "${context}" -o jsonpath='{.data.Corefile}' 2>/dev/null)
+    
+    if echo "${current_config}" | grep -q "${hostname}"; then
+        verbose "CoreDNS already configured for ${hostname}"
+        return 0
+    fi
+    
+    # Get the CoreDNS template file
+    local template_file
+    template_file=$(get_coredns_template_path)
+    
+    if [[ ! -f "${template_file}" ]]; then
+        error "CoreDNS template not found: ${template_file}"
+        return 1
+    fi
+    
+    progress "Using CoreDNS template from: ${template_file}"
+    
+    # Create a temporary file with substituted variables
+    local tmpfile
+    tmpfile=$(mktemp)
+    
+    # Substitute template variables
+    sed -e "s/\${INGRESS_IP}/${ingress_ip}/g" \
+        -e "s/\${HOSTNAME}/${hostname}/g" \
+        "${template_file}" > "${tmpfile}"
+    
+    verbose "Generated CoreDNS ConfigMap:"
+    cat "${tmpfile}"
+
+    if ! kubectl apply -f "${tmpfile}" --context "${context}" 2>/dev/null; then
+        rm -f "${tmpfile}"
+        warning "Failed to patch CoreDNS ConfigMap"
+        return 1
+    fi
+    rm -f "${tmpfile}"
+    
+    # Restart CoreDNS to pick up the changes
+    progress "Restarting CoreDNS..."
+    kubectl rollout restart deployment coredns -n kube-system --context "${context}" 2>/dev/null || true
+    
+    # Wait for CoreDNS to be ready
+    kubectl wait --for=condition=ready pod \
+        -l k8s-app=kube-dns \
+        -n kube-system \
+        --timeout=60s \
+        --context "${context}" 2>/dev/null || true
+    
+    success "CoreDNS configured: ${hostname} → ${ingress_ip}"
+    progress "Note: Add '127.0.0.1 ${hostname}' to your /etc/hosts for browser access"
+    return 0
+}
+
 # =============================================================================
 # TLS Setup with mkcert (for local dev) or cert-manager fallback
 # =============================================================================
 
 #
-# Install cert-manager for TLS certificate management
+# Install cert-manager for TLS certificate management using Helm chart
 # Args:
 #   $1: kubectl context
 # Returns:
@@ -614,35 +470,35 @@ install_cert_manager() {
     
     progress "Installing cert-manager..."
     
-    # Apply cert-manager CRDs and components
-    if ! kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.0/cert-manager.yaml \
-        --context "${context}" 2>&1 | grep -v "Warning:"; then
-        error "Failed to apply cert-manager manifest"
+    # Get cert-manager values file from config directory
+    local values_flags
+    values_flags=$(get_service_helm_flags "cert-manager") || return 1
+    
+    progress "Using cert-manager configuration from: $(get_service_values_path cert-manager)"
+    
+    # Deploy using Helm chart from jetstack repo
+    local helm_output
+    # shellcheck disable=SC2086
+    helm_output=$(helm upgrade --install cert-manager jetstack/cert-manager \
+        --kube-context "${context}" \
+        --namespace cert-manager \
+        --create-namespace \
+        ${values_flags} \
+        --wait --timeout 5m 2>&1)
+    
+    local exit_code=$?
+    
+    if [[ ${exit_code} -ne 0 ]]; then
+        error "Failed to install cert-manager"
+        echo ""
+        echo "Helm output:"
+        echo "${helm_output}"
+        echo ""
+        echo "Check pod status:"
+        echo "  kubectl get pods -n cert-manager --context ${context}"
+        echo ""
         return 1
     fi
-    
-    # Wait for cert-manager to be ready
-    progress "Waiting for cert-manager to be ready (up to 120s)..."
-    if ! kubectl wait --for=condition=Available deployment --all \
-        -n cert-manager \
-        --timeout=120s \
-        --context "${context}" 2>&1; then
-        warning "cert-manager deployments did not become ready in time"
-        progress "Checking pod status:"
-        kubectl get pods -n cert-manager --context "${context}"
-        return 1
-    fi
-    
-    # Wait for webhook to be ready (important for Certificate resources)
-    progress "Waiting for cert-manager webhook to be ready..."
-    local retries=30
-    while [[ ${retries} -gt 0 ]]; do
-        if kubectl get validatingwebhookconfigurations cert-manager-webhook --context "${context}" &>/dev/null; then
-            break
-        fi
-        sleep 2
-        retries=$((retries - 1))
-    done
     
     success "cert-manager installed"
     return 0
@@ -751,6 +607,106 @@ setup_tls() {
 }
 
 #
+# Export CA certificate for CLI tools
+# Creates ~/.structures/kind/ca.crt for use with NODE_EXTRA_CA_CERTS
+# 
+# If mkcert was used: exports the mkcert root CA (required for Node.js)
+# If cert-manager was used: exports the self-signed certificate
+#
+# Args:
+#   $1: Cluster name
+# Returns:
+#   0 on success, 1 on failure (non-fatal, just logs warning)
+# Example:
+#   export_tls_certificate "structures-cluster"
+#
+export_tls_certificate() {
+    local cluster_name="$1"
+    local context="kind-${cluster_name}"
+    local cert_dir="${HOME}/.structures/kind"
+    local cert_file="${cert_dir}/ca.crt"
+    
+    section "Exporting CA Certificate for CLI Tools"
+    
+    # Create directory if it doesn't exist
+    if ! mkdir -p "${cert_dir}" 2>/dev/null; then
+        warning "Could not create certificate directory: ${cert_dir}"
+        return 1
+    fi
+    
+    # Check if mkcert was used (check if the TLS secret contains mkcert-signed cert)
+    if command -v mkcert &>/dev/null; then
+        local mkcert_ca_root
+        mkcert_ca_root="$(mkcert -CAROOT 2>/dev/null)"
+        
+        if [[ -n "${mkcert_ca_root}" && -f "${mkcert_ca_root}/rootCA.pem" ]]; then
+            # Check if the deployed cert was signed by mkcert
+            local server_issuer
+            server_issuer=$(kubectl get secret structures-tls-secret -n default \
+                --context "${context}" \
+                -o jsonpath='{.data.tls\.crt}' 2>/dev/null | base64 -d | \
+                openssl x509 -noout -issuer 2>/dev/null || echo "")
+            
+            if [[ "${server_issuer}" == *"mkcert"* ]]; then
+                progress "Detected mkcert certificates - exporting mkcert root CA..."
+                
+                if cp "${mkcert_ca_root}/rootCA.pem" "${cert_file}" 2>/dev/null; then
+                    success "mkcert root CA exported to: ${cert_file}"
+                    progress "Node.js will now trust certificates signed by your local mkcert CA"
+                    return 0
+                else
+                    warning "Failed to copy mkcert root CA"
+                    # Fall through to try cert-manager approach
+                fi
+            fi
+        fi
+    fi
+    
+    # Fallback: Export the self-signed certificate from cert-manager
+    progress "Exporting self-signed certificate from cluster..."
+    
+    # Wait a moment for the secret to be ready (cert-manager might still be provisioning)
+    local max_attempts=10
+    local attempt=0
+    
+    while [[ ${attempt} -lt ${max_attempts} ]]; do
+        if kubectl get secret structures-tls-secret -n default --context "${context}" &>/dev/null; then
+            break
+        fi
+        ((attempt++))
+        if [[ ${attempt} -lt ${max_attempts} ]]; then
+            verbose "Waiting for TLS secret to be ready (attempt ${attempt}/${max_attempts})..."
+            sleep 2
+        fi
+    done
+    
+    if [[ ${attempt} -ge ${max_attempts} ]]; then
+        warning "TLS secret not ready after ${max_attempts} attempts"
+        progress "Certificate can be exported manually once available"
+        return 1
+    fi
+    
+    # Export the certificate
+    if kubectl get secret structures-tls-secret -n default \
+        --context "${context}" \
+        -o jsonpath='{.data.tls\.crt}' 2>/dev/null | base64 -d > "${cert_file}" 2>/dev/null; then
+        
+        # Verify the file was written and has content
+        if [[ -s "${cert_file}" ]]; then
+            success "Self-signed certificate exported to: ${cert_file}"
+            return 0
+        else
+            warning "Certificate file is empty"
+            rm -f "${cert_file}"
+            return 1
+        fi
+    else
+        warning "Failed to export TLS certificate"
+        return 1
+    fi
+}
+
+#
 # Deploy Elasticsearch using official Elastic image
 # Args:
 #   $1: Cluster name
@@ -807,115 +763,22 @@ deploy_elasticsearch() {
         docker exec "${node}" ctr -n k8s.io images tag "${local_tag}" "${es_image}" || true
     done
     
-    # Create custom values file for single-node Elasticsearch
-    progress "Creating Elasticsearch configuration..."
-    local values_file="/tmp/elasticsearch-values-${RANDOM}.yaml"
-    cat > "${values_file}" <<EOF
-# Single-node Elasticsearch configuration for KinD
-# Matches docker-compose/compose.ek-stack.yml
-
-replicas: 2
-minimumMasterNodes: 1
-
-image: "docker.elastic.co/elasticsearch/elasticsearch"
-imageTag: "${es_version}"
-imagePullPolicy: IfNotPresent
-
-# Disable all security for local dev (matching docker-compose)
-# Disable X-Pack security for local development
-# Must be disabled at protocol AND security level
-protocol: http
-httpPort: 9200
-transportPort: 9300
-
-# Disable security completely
-createCert: false
-secret:
-  enabled: false
-
-# Disable X-Pack security for local development
-# This must be at the top level AND in esConfig
-security:
-  enabled: false
-
-# Set ELASTIC_PASSWORD - required by the readiness probe script even when security is disabled
-extraEnvs:
-  - name: ELASTIC_PASSWORD
-    value: "-"
-
-# Elasticsearch configuration
-esConfig:
-  elasticsearch.yml: |
-    xpack:
-      security:
-        enabled: false
-        http.ssl.enabled: false
-        transport.ssl.enabled: false
-    discovery:
-      # type: single-node
-      # seed_providers: ""
-      seed_hosts: ["elasticsearch-master-headless"]
-    cluster:
-      initial_master_nodes: ["elasticsearch-master-0"]
-    # node:
-    #   roles: ["master", "data", "data_content", "data_hot", "data_warm", "data_cold", "ingest", "ml", "remote_cluster_client", "transform"]
-  # log4j2.properties: |
-  #   logger.discovery.name = org.elasticsearch.discovery
-  #   logger.discovery.level = debug
-
-# Elasticsearch roles that will be applied to this nodeGroup
-# These will be set as environment variables. E.g. node.roles=master
-# https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-node.html#node-roles
-roles: []
-
-# Expose Elasticsearch via NodePort for external access
-service:
-  type: NodePort
-  nodePort: 30920  # Maps to hostPort 9200 → localhost:9200
-
-# Resource limits (matching structures needs)
-esJavaOpts: "-Xms1024m -Xmx1024m"
-resources:
-  requests:
-    cpu: "500m"
-    memory: "2Gi"
-  limits:
-    memory: "2Gi"
-
-# Volume config - use emptyDir for local dev
-volumeClaimTemplate:
-  accessModes: ["ReadWriteOnce"]
-  resources:
-    requests:
-      storage: 15Gi
-
-persistence:
-  enabled: false
-
-# Elasticsearch doesn't need ingress - accessed internally or via NodePort
-ingress:
-  enabled: false
-
-# Health check
-clusterHealthCheckParams: "wait_for_status=yellow&timeout=1s"
-
-# Soft anti-affinity
-antiAffinity: "soft"
-
-# Single-node doesn't need service mesh
-sysctlVmMaxMapCount: 262144
-EOF
+    # Get Elasticsearch values file from config directory
+    local values_flags
+    values_flags=$(get_service_helm_flags "elasticsearch") || return 1
     
-    # Deploy using values file
+    progress "Using Elasticsearch configuration from: $(get_service_values_path elasticsearch)"
+    
+    # Deploy using external values file
     local helm_output
+    # shellcheck disable=SC2086
     helm_output=$(helm upgrade --install elasticsearch elastic/elasticsearch \
         --kube-context "${context}" \
         --version 8.5.1 \
-        --values "${values_file}" \
+        ${values_flags} \
         --wait --timeout 5m 2>&1)
     
     local exit_code=$?
-    rm -f "${values_file}"
     
     if [[ ${exit_code} -ne 0 ]]; then
         error "Failed to deploy Elasticsearch"
@@ -1222,7 +1085,8 @@ display_deployment_status() {
 
     if [[ "${OIDC_ENABLED:-false}" == "true" ]]; then
         blank_line
-        progress "Keycloak:"
+        progress "Keycloak: "
+        progress "  Test Structures User: testuser@example.com/password123"
         progress "  http://localhost:8888/auth"
         progress "  Admin: http://localhost:8888/auth/admin (admin/admin)"
     fi

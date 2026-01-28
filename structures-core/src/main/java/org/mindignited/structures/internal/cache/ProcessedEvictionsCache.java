@@ -30,7 +30,7 @@ public class ProcessedEvictionsCache {
                 .expireAfterWrite(Duration.ofHours(1))
                 .maximumSize(10000)
                 .removalListener((key, value, cause) -> 
-                    log.debug("Eviction tracking entry removed: key={}, cause={}", key, cause))
+                    log.trace("Eviction tracking entry removed: key={}, cause={}", key, cause))
                 .build();
     }
 

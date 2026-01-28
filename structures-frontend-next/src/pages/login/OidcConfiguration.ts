@@ -33,9 +33,11 @@ export interface OidcConfiguration {
 const DEFAULT_SETTINGS: Partial<UserManagerSettings> = {
   response_type: 'code',
   response_mode: 'query',
-  scope: 'openid profile email offline_acces',
+  scope: 'openid profile email offline_access',
   loadUserInfo: true,
   monitorSession: true,
+  automaticSilentRenew: true,
+  accessTokenExpiringNotificationTimeInSeconds: 60,
   userStore: new WebStorageStateStore({ store: window.localStorage }),
   stateStore: new WebStorageStateStore({ store: window.localStorage }),
 };

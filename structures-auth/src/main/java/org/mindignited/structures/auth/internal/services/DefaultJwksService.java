@@ -6,8 +6,11 @@ import java.security.Key;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 
+import javax.net.ssl.SSLException;
+
 import org.mindignited.structures.auth.api.services.JwksService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -16,7 +19,11 @@ import com.github.benmanes.caffeine.cache.Cache;
 
 import io.jsonwebtoken.security.Jwk;
 import io.jsonwebtoken.security.Jwks;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import lombok.extern.slf4j.Slf4j;
+import reactor.netty.http.client.HttpClient;
 
 @Slf4j
 @Service
@@ -24,12 +31,14 @@ import lombok.extern.slf4j.Slf4j;
 public class DefaultJwksService implements JwksService {
 
     private final WebClient webClient;
+    private final WebClient insecureWebClient;
     private final ObjectMapper objectMapper;
     private final Cache<String, Jwk<? extends Key>> keyCache;
     private final Cache<String, JsonNode> wellKnownCache;
 
     public DefaultJwksService(DefaultCaffeineCacheFactory cacheFactory) {
         this.webClient = WebClient.builder().build();
+        this.insecureWebClient = createInsecureWebClient();
         this.objectMapper = new ObjectMapper();
         
         // Cache for individual keys, with 1 hour TTL
@@ -48,6 +57,41 @@ public class DefaultJwksService implements JwksService {
     }
 
     /**
+     * Create a WebClient that trusts all SSL certificates.
+     * WARNING: Only use for development with .local domains!
+     */
+    private WebClient createInsecureWebClient() {
+        try {
+            SslContext sslContext = SslContextBuilder
+                    .forClient()
+                    .trustManager(InsecureTrustManagerFactory.INSTANCE)
+                    .build();
+            
+            HttpClient httpClient = HttpClient.create()
+                    .secure(spec -> spec.sslContext(sslContext));
+            
+            return WebClient.builder()
+                    .clientConnector(new ReactorClientHttpConnector(httpClient))
+                    .build();
+        } catch (SSLException e) {
+            log.warn("Failed to create insecure WebClient, falling back to default", e);
+            return WebClient.builder().build();
+        }
+    }
+
+    /**
+     * Get the appropriate WebClient based on the URL.
+     * Uses insecure client for .local domains (development only).
+     */
+    private WebClient getWebClientForUrl(String url) {
+        if (url != null && url.contains(".local")) {
+            log.debug("Using insecure WebClient for .local domain: {}", url);
+            return insecureWebClient;
+        }
+        return webClient;
+    }
+
+    /**
      * Get the well-known configuration for an OIDC issuer
      */
     public CompletableFuture<JsonNode> getWellKnownConfiguration(String issuer) {
@@ -59,7 +103,7 @@ public class DefaultJwksService implements JwksService {
 
         String wellKnownUrl = issuer + "/.well-known/openid-configuration";
         
-        return webClient.get()
+        return getWebClientForUrl(wellKnownUrl).get()
                 .uri(URI.create(wellKnownUrl))
                 .retrieve()
                 .bodyToMono(String.class)
@@ -101,7 +145,7 @@ public class DefaultJwksService implements JwksService {
         }
 
         return getJwksUrl(issuer)
-                .thenCompose(jwksUrl -> webClient.get()
+                .thenCompose(jwksUrl -> getWebClientForUrl(jwksUrl).get()
                         .uri(URI.create(jwksUrl))
                         .retrieve()
                         .bodyToMono(String.class)

@@ -59,7 +59,8 @@ public class TestConfigurationTest extends KeycloakTestBase {
         // Test that Keycloak health check works
         boolean isHealthy = ContainerHealthChecker.isKeycloakHealthy(
             KeyloakTestConfiguration.KEYCLOAK_CONTAINER.getHost(),
-            KeyloakTestConfiguration.KEYCLOAK_CONTAINER.getMappedPort(8888)
+            // Keycloak 26 serves health on management port (default 9000)
+            KeyloakTestConfiguration.KEYCLOAK_CONTAINER.getMappedPort(9000)
         );
         assertTrue(isHealthy, "Keycloak should be healthy");
     }

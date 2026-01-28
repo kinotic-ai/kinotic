@@ -42,12 +42,6 @@ public class ClusterCacheEvictionService {
     private final StructuresProperties structuresProperties;
     private final ContinuumProperties continuumProperties;
 
-    
-    // move into the removal eviction service class 
-    // factory class for caches so that we can have
-    // a signle mode that allows us to add the eviction listener 
-
-
     // Lazy-initialized OpenTelemetry metrics
     private final Lazy<Meter> meter = new Lazy<>(() -> 
             GlobalOpenTelemetry.get().getMeter("structures.cache.eviction"));

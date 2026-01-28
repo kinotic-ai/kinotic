@@ -148,6 +148,8 @@ export async function waitForEvictions(opts: WaitForEvictionsOptions): Promise<E
         sinceTimestamp 
     } = opts;
     
+    console.log(`Waiting for evictions in ${basePath} with ${minRecords} records, timeout ${timeout}ms, pollInterval ${pollInterval}ms, sinceTimestamp ${sinceTimestamp}`);
+    
     const startTime = Date.now();
     let lastTotalRecords = 0;
     

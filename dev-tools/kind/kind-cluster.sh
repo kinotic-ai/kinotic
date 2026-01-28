@@ -23,6 +23,8 @@ source "${LIB_DIR}/cluster.sh"
 source "${LIB_DIR}/deploy.sh"
 # shellcheck source=dev-tools/kind/lib/images.sh
 source "${LIB_DIR}/images.sh"
+# shellcheck source=dev-tools/kind/lib/node_update.sh
+source "${LIB_DIR}/node_update.sh"
 
 # Exit codes
 readonly EXIT_SUCCESS=0
@@ -52,6 +54,7 @@ Subcommands:
   build     Build structures-server Docker image
   load      Load Docker image into cluster
   status    Display cluster and deployment status
+  node-update  Simulate node update (cordon/drain/restart)
   delete    Delete the KinD cluster
   logs      Display logs from structures-server
   help      Show this help message
@@ -64,7 +67,7 @@ Global Options:
 Environment Variables:
   KIND_CLUSTER_NAME        Cluster name (default: structures-cluster)
   KIND_CONFIG_PATH         Path to kind-config.yaml
-  HELM_VALUES_PATH         Path to helm-values.yaml
+  HELM_VALUES_PATH         Path to structures-server values.yaml
   HELM_CHART_PATH          Path to structures Helm chart
   VERBOSE                  Enable verbose output (0/1)
   DRY_RUN                  Dry run mode (0/1)
@@ -339,7 +342,7 @@ Usage: $(basename "$0") deploy [options]
 Options:
   --name <name>            Cluster name (default: structures-cluster)
   --chart <path>           Path to Helm chart (default: ./helm/structures)
-  --values <path>          Path to values file (default: config/helm-values.yaml)
+  --values <path>          Path to values file (default: config/structures-server/values.yaml)
   --set <key=value>        Override Helm values (can be used multiple times)
   --with-deps              Deploy dependencies (Elasticsearch) - default
   --no-deps                Skip dependencies (deploy only structures-server)
@@ -469,6 +472,10 @@ EOF
             return "${EXIT_DEPLOYMENT_FAILED}"
         fi
         
+        # Configure CoreDNS to resolve structures.local to nginx ingress
+        # This allows pods (like Keycloak) to reach services via the ingress hostname
+        configure_coredns_custom_hosts "${CLUSTER_NAME}" "structures.local" || true
+        
         blank_line
     fi
     
@@ -514,14 +521,49 @@ EOF
     success "Deployment successful!"
     display_deployment_status "${CLUSTER_NAME}"
     
+    # Export TLS certificate for CLI tools
+    export_tls_certificate "${CLUSTER_NAME}"
+    
     # Show next steps
     section "Next Steps"
     if [[ "${DEPLOY_KEYCLOAK}" == "1" ]]; then
-        progress "Login to Structures (OIDC): http://localhost:9090/login"
+        progress "Login to Structures (OIDC): https://structures.local/login"
         progress "Keycloak Admin Console: http://localhost:8888/auth/admin (admin/admin)"
+        blank_line
     else
-        progress "Access Structures: http://localhost:9090"
+        progress "Access Structures: https://localhost"
+        blank_line
     fi
+    
+    warning "Add structures.local to your hosts file (required for OIDC):"
+    progress "   echo '127.0.0.1 structures.local' | sudo tee -a /etc/hosts"
+    blank_line
+    
+    # CLI configuration (applies to all deployments using HTTPS via ingress)
+    section "CLI Configuration (for structures sync, etc.)"
+    local cert_path="${HOME}/.structures/kind/ca.crt"
+    if [[ -f "${cert_path}" ]]; then
+        success "TLS certificate exported to: ${cert_path}"
+        blank_line
+        progress "To use CLI tools with HTTPS, add to your shell profile (.bashrc, .zshrc):"
+        progress "   export NODE_EXTRA_CA_CERTS=${cert_path}"
+        blank_line
+        progress "Or run commands with the environment variable:"
+        progress "   NODE_EXTRA_CA_CERTS=${cert_path} structures sync -s https://localhost"
+    else
+        warning "TLS certificate not yet available (cert-manager may still be provisioning)"
+        progress "Export manually once available:"
+        progress "   mkdir -p ~/.structures/kind"
+        progress "   kubectl get secret structures-tls-secret -n default \\"
+        progress "     --context kind-${CLUSTER_NAME} \\"
+        progress "     -o jsonpath='{.data.tls\\.crt}' | base64 -d > ~/.structures/kind/ca.crt"
+    fi
+    blank_line
+    
+    info "Debugging connection issues:"
+    progress "   DEBUG=continuum:stomp structures sync -s https://localhost"
+    blank_line
+    
     progress "Check logs: $(basename "$0") logs --follow"
     progress "Check status: $(basename "$0") status"
     progress "Run integration tests: ./gradlew :structures-core:integrationTest"
@@ -726,6 +768,187 @@ EOF
     fi
 }
 
+cmd_node_update() {
+    local include_control_plane=false
+    local iterations="1"
+    local sleep_between="0"
+    local drain_timeout="5m"
+    local grace_period="30"
+    local delete_emptydir_data=true
+    local node_ready_timeout="5m"
+    local validate_timeout="5m"
+    local namespace="default"
+
+    local explicit_nodes=()
+
+    # Parse subcommand options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --name)
+                CLUSTER_NAME="$2"
+                shift 2
+                ;;
+            --node)
+                explicit_nodes+=("$2")
+                shift 2
+                ;;
+            --include-control-plane)
+                include_control_plane=true
+                shift
+                ;;
+            --iterations)
+                iterations="$2"
+                shift 2
+                ;;
+            --sleep-between)
+                sleep_between="$2"
+                shift 2
+                ;;
+            --drain-timeout)
+                drain_timeout="$2"
+                shift 2
+                ;;
+            --grace-period)
+                grace_period="$2"
+                shift 2
+                ;;
+            --keep-emptydir-data)
+                delete_emptydir_data=false
+                shift
+                ;;
+            --node-ready-timeout)
+                node_ready_timeout="$2"
+                shift 2
+                ;;
+            --validate-timeout)
+                validate_timeout="$2"
+                shift 2
+                ;;
+            --namespace)
+                namespace="$2"
+                shift 2
+                ;;
+            --help|-h)
+                cat <<EOF
+Simulate KinD node updates (cordon → drain → docker restart → uncordon).
+
+Usage: $(basename "$0") node-update [options]
+
+Options:
+  --name <name>                 Cluster name (default: structures-cluster)
+  --node <nodeName>             Target a specific node (repeatable). If omitted, targets worker nodes.
+  --include-control-plane       Also include control-plane node (NOT recommended by default)
+  --iterations <n>              Number of times to cycle through selected nodes (default: 1)
+  --sleep-between <seconds>     Sleep between iterations (default: 0)
+  --drain-timeout <duration>    kubectl drain timeout (default: 5m)
+  --grace-period <seconds>      kubectl drain grace period (default: 30)
+  --keep-emptydir-data          Do not delete emptyDir data during drain (default: delete)
+  --node-ready-timeout <dur>    Timeout waiting for node Ready after restart (default: 5m)
+  --validate-timeout <dur>      Timeout for post-cycle validation (default: 5m)
+  --namespace <ns>              Namespace for app validation (default: default)
+  --help, -h                    Show this help message
+
+Examples:
+  # Cycle all worker nodes once
+  $(basename "$0") node-update
+
+  # Cycle workers repeatedly
+  $(basename "$0") node-update --iterations 10 --sleep-between 30
+
+  # Target a single node explicitly
+  $(basename "$0") node-update --node structures-cluster-worker
+
+EOF
+                return "${EXIT_SUCCESS}"
+                ;;
+            *)
+                error "Unknown option: $1"
+                echo "Use --help for usage information"
+                return "${EXIT_GENERAL_ERROR}"
+                ;;
+        esac
+    done
+
+    # Verify cluster exists
+    if ! cluster_exists "${CLUSTER_NAME}"; then
+        error "Cluster '${CLUSTER_NAME}' does not exist"
+        echo ""
+        echo "Create cluster first: $(basename "$0") create"
+        echo ""
+        return "${EXIT_CLUSTER_OPERATION_FAILED}"
+    fi
+
+    local context="kind-${CLUSTER_NAME}"
+    if ! kubectl config use-context "${context}" &>/dev/null; then
+        error "Failed to set kubectl context to '${context}'"
+        return "${EXIT_CLUSTER_OPERATION_FAILED}"
+    fi
+
+    if ! kubectl cluster-info --context "${context}" &>/dev/null; then
+        error "Cluster '${CLUSTER_NAME}' is not accessible"
+        return "${EXIT_CLUSTER_OPERATION_FAILED}"
+    fi
+
+    # Safety check: ensure we're operating on the expected kind context
+    if ! verify_safe_context "${CLUSTER_NAME}"; then
+        return "${EXIT_UNSAFE_OPERATION_BLOCKED}"
+    fi
+
+    section "Node Update Simulation"
+    progress "Cluster: ${CLUSTER_NAME}"
+    progress "Context: ${context}"
+    progress "Iterations: ${iterations}"
+    progress "Drain timeout: ${drain_timeout}, grace period: ${grace_period}"
+    progress "Restart: docker restart <node>"
+    blank_line
+
+    # Resolve target nodes
+    local nodes
+    if [[ ${#explicit_nodes[@]} -gt 0 ]]; then
+        nodes="$(get_target_nodes "${context}" "${include_control_plane}" "${explicit_nodes[@]}")"
+    else
+        nodes="$(get_target_nodes "${context}" "${include_control_plane}")"
+    fi
+
+    if [[ -z "${nodes}" ]]; then
+        error "No target nodes found"
+        return "${EXIT_GENERAL_ERROR}"
+    fi
+
+    progress "Target nodes:"
+    while IFS= read -r n; do
+        [[ -z "${n}" ]] && continue
+        progress "  - ${n}"
+    done <<< "${nodes}"
+    blank_line
+
+    local i
+    for ((i=1; i<=iterations; i++)); do
+        section "Iteration ${i}/${iterations}"
+
+        local node
+        while IFS= read -r node; do
+            if [[ -z "${node}" ]]; then
+                continue
+            fi
+
+            if ! simulate_node_update_once "${CLUSTER_NAME}" "${node}" \
+                "${drain_timeout}" "${grace_period}" "${delete_emptydir_data}" \
+                "${node_ready_timeout}" "${validate_timeout}" "${namespace}"; then
+                return "${EXIT_CLUSTER_OPERATION_FAILED}"
+            fi
+        done <<< "${nodes}"
+
+        if [[ "${i}" -lt "${iterations}" && "${sleep_between}" != "0" ]]; then
+            progress "Sleeping ${sleep_between}s before next iteration..."
+            sleep "${sleep_between}"
+        fi
+    done
+
+    success "Node update simulation complete"
+    return "${EXIT_SUCCESS}"
+}
+
 cmd_delete() {
     local force=false
     
@@ -913,6 +1136,9 @@ main() {
             ;;
         status)
             cmd_status "$@"
+            ;;
+        node-update)
+            cmd_node_update "$@"
             ;;
         delete)
             cmd_delete "$@"

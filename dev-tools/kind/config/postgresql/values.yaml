@@ -1,0 +1,60 @@
+# PostgreSQL Helm Values for KinD
+# Chart: bitnami/postgresql
+# Repository: https://charts.bitnami.com/bitnami
+#
+# PostgreSQL configuration for Keycloak backend
+# Matches the inline StatefulSet previously in deploy.sh
+
+# Global settings
+global:
+  postgresql:
+    auth:
+      postgresPassword: "keycloak"
+      username: "keycloak"
+      password: "keycloak"
+      database: "keycloak"
+
+# Let the chart use its default image tag (tested and working)
+# image:
+#   tag: ""  # Uses chart default
+
+# Primary PostgreSQL configuration
+primary:
+  # Resource limits (matching previous StatefulSet)
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Persistence - disabled for local dev (use emptyDir)
+  persistence:
+    enabled: false
+  
+  # Service configuration
+  service:
+    type: NodePort
+    nodePorts:
+      postgresql: 30555  # Maps to hostPort 5555 → localhost:5555
+
+  # Readiness/Liveness probes
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  livenessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+# Disable read replicas for local dev
+readReplicas:
+  replicaCount: 0
+
+# Disable metrics for local dev
+metrics:
+  enabled: false
+
+# Volume permissions - not needed for emptyDir
+volumePermissions:
+  enabled: false

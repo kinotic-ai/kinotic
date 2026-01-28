@@ -192,7 +192,7 @@ Deploy structures-server and its dependencies to the cluster.
 **Options:**
 - `--name <name>` - Cluster name (default: structures-cluster)
 - `--chart <path>` - Path to Helm chart (default: ./helm/structures)
-- `--values <path>` - Path to values file (default: config/helm-values.yaml)
+- `--values <path>` - Path to values file (default: config/structures-server/values.yaml)
 - `--set <key=value>` - Override Helm values (can be used multiple times)
 - `--with-deps` - Deploy Elasticsearch dependency - **default**
 - `--no-deps` - Skip dependencies (assumes already deployed)
@@ -348,6 +348,48 @@ Display cluster and deployment status information.
 
 ---
 
+### node-update - Simulate Node Updates
+
+Simulate applying “node updates” to the underlying KinD nodes by performing:
+**cordon → drain → docker restart → uncordon**, repeatedly.
+
+This is intended to help validate clustering behavior while nodes are disrupted.
+
+```bash
+./kind-cluster.sh node-update [options]
+```
+
+**Defaults (safe):**
+- Cycles **worker nodes only** (control-plane is excluded by default because it hosts the ingress/port mappings in `config/kind-config.yaml`)
+- Performs **`docker restart <node>`** after drain
+- Runs **basic Kubernetes validation** (node Ready + Structures deployment/pods healthy)
+
+**Options:**
+- `--name <name>` - Cluster name (default: structures-cluster)
+- `--node <nodeName>` - Target a specific node (repeatable). If omitted, targets worker nodes.
+- `--include-control-plane` - Also include control-plane node (**not recommended** unless you know you want this)
+- `--iterations <n>` - Number of times to cycle through selected nodes (default: 1)
+- `--sleep-between <seconds>` - Sleep between iterations (default: 0)
+- `--drain-timeout <duration>` - kubectl drain timeout (default: 5m)
+- `--grace-period <seconds>` - kubectl drain grace period (default: 30)
+- `--keep-emptydir-data` - Do not delete emptyDir data during drain (default: delete)
+- `--namespace <ns>` - Namespace for validation (default: default)
+
+**Examples:**
+
+```bash
+# Cycle all worker nodes once
+./kind-cluster.sh node-update
+
+# Cycle workers repeatedly (good for long-running cluster validation)
+./kind-cluster.sh node-update --iterations 10 --sleep-between 30
+
+# Target a specific worker
+./kind-cluster.sh node-update --node structures-cluster-worker
+```
+
+---
+
 ### logs - View Pod Logs
 
 Stream logs from structures-server pods.
@@ -451,9 +493,16 @@ nodes:
 
 ### Helm Values
 
-Edit `dev-tools/kind/config/helm-values.yaml` to customize structures-server deployment.
+Edit `dev-tools/kind/config/structures-server/values.yaml` to customize structures-server deployment.
 
-Create `dev-tools/kind/config/helm-values.local.yaml` for personal overrides (gitignored).
+Create `dev-tools/kind/config/structures-server/values.local.yaml` for personal overrides (gitignored).
+
+Other services have their own values files in `dev-tools/kind/config/<service>/values.yaml`:
+- `elasticsearch/values.yaml` - Elasticsearch configuration
+- `postgresql/values.yaml` - PostgreSQL (Keycloak database)
+- `keycloak/values.yaml` - Keycloak OIDC provider
+- `ingress-nginx/values.yaml` - NGINX Ingress Controller
+- `cert-manager/values.yaml` - TLS certificate management
 
 ### Environment Variables
 
@@ -464,7 +513,7 @@ export KIND_CONFIG_PATH=path/to/kind-config.yaml
 
 # Helm configuration
 export HELM_CHART_PATH=./helm/structures
-export HELM_VALUES_PATH=path/to/helm-values.yaml
+export HELM_VALUES_PATH=path/to/values.yaml
 
 # Feature flags
 export DEPLOY_DEPS=1              # Deploy Elasticsearch dependency (default: 1)
@@ -508,6 +557,63 @@ open https://localhost/login
 # Access Keycloak admin console
 open http://localhost:8888/auth/admin  # admin/admin
 ```
+
+#### Host Configuration for OIDC
+
+Add `structures.local` to your hosts file so your browser can complete OIDC flows:
+
+```bash
+echo "127.0.0.1 structures.local" | sudo tee -a /etc/hosts
+```
+
+> **Note:** Internal cluster DNS is automatically configured by the deploy script.
+
+#### CLI Configuration for Self-Signed Certificates
+
+When using the Structures CLI (`structures sync`, etc.) against the KinD cluster via HTTPS, Node.js will reject the self-signed TLS certificate by default.
+
+**The deploy script automatically exports the certificate to `~/.structures/kind/ca.crt`.**
+
+To enable CLI tools, add to your shell profile (`.bashrc`, `.zshrc`, etc.):
+
+```bash
+export NODE_EXTRA_CA_CERTS=~/.structures/kind/ca.crt
+```
+
+Or run commands with the environment variable:
+
+```bash
+NODE_EXTRA_CA_CERTS=~/.structures/kind/ca.crt structures sync -s https://localhost
+```
+
+**Alternative: Disable certificate verification (Quick testing only)**
+
+```bash
+NODE_TLS_REJECT_UNAUTHORIZED=0 structures sync -s https://localhost
+```
+
+> ⚠️ **Warning:** Never disable certificate verification in production.
+
+**Manual Export (if needed)**
+
+If the automatic export failed or you recreated the cluster:
+
+```bash
+mkdir -p ~/.structures/kind
+kubectl get secret structures-tls-secret -n default \
+  --context kind-structures-cluster \
+  -o jsonpath='{.data.tls\.crt}' | base64 -d > ~/.structures/kind/ca.crt
+```
+
+**Debugging Connection Issues**
+
+If the CLI hangs or fails to connect, enable STOMP debug logging:
+
+```bash
+DEBUG=continuum:stomp structures sync -s https://localhost
+```
+
+This shows the WebSocket/STOMP connection flow and helps identify SSL, network, or authentication issues.
 
 ### Testing Local Changes
 
@@ -630,7 +736,7 @@ kubectl describe pod <pod-name>
 ./kind-cluster.sh load --image mindignited/structures-server:<version>
 
 # 2. If resource constraints:
-# Edit helm-values.yaml to reduce resource requests
+# Edit config/structures-server/values.yaml to reduce resource requests
 ```
 
 **Problem:** Keycloak realm not imported
@@ -747,10 +853,23 @@ dev-tools/kind/
 │   ├── deploy.sh             # Deployment functions
 │   └── images.sh             # Image build/load functions
 ├── config/
-│   ├── kind-config.yaml      # KinD cluster configuration
-│   ├── helm-values.yaml      # Default Helm values
-│   └── helm-values.local.yaml  # Local overrides (gitignored)
-└── README.md                 # This file
+│   ├── kind-config.yaml           # KinD cluster configuration
+│   ├── elasticsearch/             # Elasticsearch Helm values
+│   │   └── values.yaml
+│   ├── postgresql/                # PostgreSQL Helm values
+│   │   └── values.yaml
+│   ├── keycloak/                  # Keycloak Helm values
+│   │   └── values.yaml
+│   ├── ingress-nginx/             # NGINX Ingress values
+│   │   └── values.yaml
+│   ├── cert-manager/              # cert-manager values
+│   │   └── values.yaml
+│   ├── coredns/                   # CoreDNS ConfigMap template
+│   │   └── custom-hosts.yaml
+│   └── structures-server/         # structures-server Helm values
+│       ├── values.yaml
+│       └── values.local.yaml      # Local overrides (gitignored)
+└── README.md                      # This file
 ```
 
 ---

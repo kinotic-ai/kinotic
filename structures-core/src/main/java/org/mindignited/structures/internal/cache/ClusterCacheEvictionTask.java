@@ -101,12 +101,12 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
             // Check if this eviction has already been processed
             Long existingTimestamp = processedEvictionsCache.getIfPresent(evictionKey);
             if (existingTimestamp != null && existingTimestamp.equals(timestamp)) {
-                log.debug("Cache eviction already processed for key: {} (timestamp: {})", evictionKey, timestamp);
+                log.trace("Cache eviction already processed for key: {} (timestamp: {})", evictionKey, timestamp);
                 return; // Skip duplicate processing
             }
             
             if (EvictionSourceType.STRUCTURE == evictionSourceType) {
-                log.debug("Executing Structure cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
+                log.trace("Executing Structure cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
                 
                 if (structureId != null) {
 
@@ -120,14 +120,14 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                     
                     // Mark as processed
                     processedEvictionsCache.put(evictionKey, timestamp);
-                    log.debug("Successfully processed Structure cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
+                    log.trace("Successfully processed Structure cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
                 } else {
                     log.warn("Structure not found for cache eviction: {} {}", applicationId, structureId);
                     throw new RuntimeException("Structure for eviction key: " + evictionKey + " not found");
                 }
                 
             } else if (EvictionSourceType.NAMED_QUERY == evictionSourceType) {
-                log.debug("Executing NamedQuery cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
+                log.trace("Executing NamedQuery cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
                 
                 if (namedQueryId != null) {
 
@@ -141,7 +141,7 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                     
                     // Mark as processed
                     processedEvictionsCache.put(evictionKey, timestamp);
-                    log.debug("Successfully processed NamedQuery cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
+                    log.trace("Successfully processed NamedQuery cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
                 } else {
                     log.warn("NamedQuery not found for cache eviction: {}", evictionKey);
                     throw new RuntimeException("NamedQuery not found for eviction key: " + evictionKey);
