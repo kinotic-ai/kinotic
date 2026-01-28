@@ -17,6 +17,8 @@ dependencies {
 
 	implementation "com.github.ben-manes.caffeine:caffeine"
 
+    // using api directly 
+    implementation "javax.annotation:javax.annotation-api"
 
         // needed if building against continuum-framework locally
     if (file("${rootDir}/../continuum-framework").exists()) {
@@ -26,7 +28,6 @@ dependencies {
         implementation "io.vertx:vertx-ignite"
         implementation "io.vertx:vertx-mqtt"
         // implementation "org.mindignited:vertx-stomp-lite"
-        implementation "javax.annotation:javax.annotation-api"
         // implementation "tools.jackson.core:jackson-core"
         // implementation "tools.jackson.core:jackson-databind"
         // implementation "org.springframework.boot:spring-boot-starter-jackson"
