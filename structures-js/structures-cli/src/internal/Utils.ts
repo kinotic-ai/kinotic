@@ -182,7 +182,6 @@ function receiveSessionId(scope: string): Promise<SessionMetadata> {
 
             const jsonObj: Array<SessionMetadata> = JSON.parse(value.getDataString())
             if(jsonObj?.length > 0){
-                console.log('jsonObj', JSON.stringify(jsonObj, null, 2))
                 resolve(jsonObj[0])
             }else {
                 reject('No Session Id found in data')

@@ -62,11 +62,11 @@ public class DefaultClusterInfoService implements ClusterInfoService {
                                                                 .active(ignite.cluster().state().active());
 
             if (serverNodes.isEmpty()) {
-                log.debug("No server nodes found");
+                log.trace("No server nodes found");
                 clusterInfoBuilder.serverNodeCount(0)
                                   .nodes(Collections.emptyList());
             } else {
-                log.debug("Server nodes found: {}", serverNodes.size());
+                log.trace("Server nodes found: {}", serverNodes.size());
 
                 // Map cluster nodes to NodeInfo objects
                 List<NodeInfo> nodeInfos = serverNodes.stream()
@@ -82,7 +82,7 @@ public class DefaultClusterInfoService implements ClusterInfoService {
             log.trace("Returning cluster info: {}", clusterInfoBuilder.build());
             return Mono.just(clusterInfoBuilder.build());
         } else {
-            log.debug("Clustering disabled, returning static cluster info");
+            log.trace("Clustering disabled, returning static cluster info");
             return Mono.just(ClusterInfo.builder()
                     .clusteringEnabled(false)
                     .localNodeId("")
