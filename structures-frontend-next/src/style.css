@@ -19,3 +19,8 @@
 .custom-flow-controls .vue-flow__controls-button.vue-flow__controls-zoomout {
   transform: rotate(90deg) !important;
 }
+
+html,
+body {
+  overscroll-behavior: none;
+}

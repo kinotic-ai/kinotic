@@ -143,7 +143,7 @@ const loadDashboard = async () => {
             
             setTimeout(() => {
               if (gridStack.value) {
-                gridStack.value.commit()
+                ;(gridStack.value as any).commit?.()
                 
                 setTimeout(() => {
                   if (gridStack.value) {

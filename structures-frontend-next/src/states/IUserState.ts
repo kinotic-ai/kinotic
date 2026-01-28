@@ -77,9 +77,11 @@ export class UserState implements IUserState {
             this.accessDenied = false
             this.oidcUser = user
 
+            const useSecureCookies = window.location.protocol === 'https:'
+
             Cookies.set('token', tokenToUse, {
                 sameSite: 'strict',
-                secure: true,
+                secure: useSecureCookies,
                 expires: new Date(user.expires_at! * 1000)
             })
 

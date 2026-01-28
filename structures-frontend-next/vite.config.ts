@@ -24,7 +24,10 @@ export default defineConfig(
         server: {
             port: 5173,
             host: true,
-            open: false
+            open: false,
+            headers: {
+                'Cache-Control': 'no-store'
+            }
         },
         build: {
             sourcemap: true,
