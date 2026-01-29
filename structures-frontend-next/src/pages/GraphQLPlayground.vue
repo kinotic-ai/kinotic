@@ -11,6 +11,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import Cookies from 'js-cookie'
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('graphql-playground')
 
 const iframeRef = ref(null)
 
@@ -24,7 +27,7 @@ onMounted(() => {
   const token = Cookies.get('token')
 
   if (!token) {
-    console.warn('No token found in cookie')
+    debug('No token found in cookie')
     return
   }
 

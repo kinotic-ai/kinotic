@@ -17,6 +17,9 @@ import type { CrudHeader } from "@/types/CrudHeader";
 import type { Identifiable } from "@mindignited/continuum-client";
 import { shallowRef } from "vue";
 import DatetimeUtil from "@/util/DatetimeUtil";
+import { createDebug } from "@/util/debug";
+
+const debug = createDebug('application-list');
 
 @Component({
   components: {
@@ -62,7 +65,7 @@ export default class NamespaceList extends Vue {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      console.error("[NamespaceList] Initialization error:", message);
+      debug('Initialization error: %s', message);
     }
   }
 
@@ -76,7 +79,6 @@ export default class NamespaceList extends Vue {
   }
   onItemsCount(count: number): void {
     this.itemCount = count;
-    console.log("ITEM COUNT =", count);
   }
 
   updateRouteQuery(search: string) {
@@ -105,7 +107,7 @@ export default class NamespaceList extends Vue {
       APPLICATION_STATE.currentApplication = app;
       this.$router.push(`/application/${encodeURIComponent(appId)}`);
     } catch (e) {
-      console.error("[NamespaceList] Failed to navigate to application:", e);
+      debug('Failed to navigate to application: %O', e);
     }
   }
 

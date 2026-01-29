@@ -6,6 +6,9 @@ import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
 import ToggleButton from 'primevue/togglebutton'
 import { useToast } from 'primevue/usetoast'
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('application-sidebar');
 
 interface ApplicationForm {
   name: string
@@ -77,7 +80,7 @@ async function handleSubmit(): Promise<void> {
     resetForm()
     emit('submit', createdApplication)
   } catch (error) {
-    console.error('[ApplicationSidebar] Failed to create application:', error)
+    debug('Failed to create application: %O', error)
     toast.add({
       severity: 'error',
       summary: 'Error',

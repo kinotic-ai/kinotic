@@ -1,5 +1,8 @@
 import { type UserManagerSettings, WebStorageStateStore, UserManager } from 'oidc-client-ts';
 import { configService } from '@/util/config';
+import { createDebug } from '@/util/debug';
+
+const debug = createDebug('oidc-configuration');
 
 export interface OidcProviderConfig extends Partial<UserManagerSettings> {
   enabled: boolean;
@@ -47,7 +50,7 @@ export async function getOidcConfiguration(): Promise<OidcConfiguration> {
 
   // Debug: Log configuration for troubleshooting
   if (isDebug) {
-    console.log('OIDC Configuration:', oidcConfig);
+    debug('OIDC Configuration: %O', oidcConfig);
   }
 
   // Get all enabled OIDC providers
@@ -138,7 +141,7 @@ export async function createUserManagerSettings(providerName: string): Promise<U
   };
 
   // Log settings for debugging
-  console.log('UserManager settings created:', {
+  debug('UserManager settings created: %O', {
     authority: settings.authority,
     client_id: settings.client_id,
     redirect_uri: settings.redirect_uri,

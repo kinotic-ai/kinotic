@@ -102,6 +102,9 @@ import { useToast } from 'primevue/usetoast'
 import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEntityService'
 import type { DataInsightsWidget } from '@/domain/DataInsightsWidget'
 import SavedWidgetItem from '@/components/SavedWidgetItem.vue'
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('saved-widgets');
 
 const props = defineProps<{
   applicationId: string
@@ -129,7 +132,7 @@ const loadSavedWidgets = async () => {
     const widgets = await widgetService.findByApplicationId(props.applicationId)
     savedWidgets.value = widgets
   } catch (error) {
-    console.error('Failed to load saved widgets:', error)
+    debug('Failed to load saved widgets: %O', error)
     toast.add({
       severity: 'error',
       summary: 'Error',
@@ -161,7 +164,7 @@ const deleteWidget = async () => {
       life: 3000
     })
   } catch (error) {
-    console.error('Failed to delete widget:', error)
+    debug('Failed to delete widget: %O', error)
     toast.add({
       severity: 'error',
       summary: 'Error',

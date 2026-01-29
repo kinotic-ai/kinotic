@@ -1,5 +1,8 @@
 import { AuthenticationManager, type AuthenticationState, type OidcError } from './AuthenticationManager';
 import { configService } from './config';
+import { createDebug } from './debug';
+
+const debug = createDebug('authentication-service');
 
 export class AuthenticationService {
   private authManager: AuthenticationManager | null = null;
@@ -72,7 +75,7 @@ export class AuthenticationService {
       const authManager = await this.getAuthManager();
       return authManager.isConfigLoaded();
     } catch (error) {
-      console.error('Failed to get config status:', error);
+      debug('Failed to get config status: %O', error);
       return false;
     }
   }
@@ -82,7 +85,7 @@ export class AuthenticationService {
       const authManager = await this.getAuthManager();
       return authManager.isBasicAuthEnabled();
     } catch (error) {
-      console.error('Failed to check basic auth:', error);
+      debug('Failed to check basic auth: %O', error);
       return true;
     }
   }
@@ -92,16 +95,14 @@ export class AuthenticationService {
       const authManager = await this.getAuthManager();
       return authManager.hasEnabledOidcProviders();
     } catch (error) {
-      console.error('Failed to check OIDC providers:', error);
+      debug('Failed to check OIDC providers: %O', error);
       return false;
     }
   }
 
   updateState(newState: Partial<AuthenticationState>): void {
-    console.log('updateState called with:', newState);
-    console.log('Previous state:', this._state);
+    debug('updateState: %O', newState);
     this._state = { ...this._state, ...newState };
-    console.log('New state:', this._state);
   }
 
   resetToEmail(): void {
@@ -124,7 +125,7 @@ export class AuthenticationService {
   }
 
   resetToPassword(matchedProvider: string | null, providerDisplayName: string): void {
-    console.log('resetToPassword called with:', { matchedProvider, providerDisplayName });
+    debug('resetToPassword: provider=%s, displayName=%s', matchedProvider, providerDisplayName);
     
     if (this.authManager) {
       const newState = this.authManager.resetToPassword(this._state, matchedProvider, providerDisplayName);
@@ -139,8 +140,6 @@ export class AuthenticationService {
         showErrorDetails: false
       });
     }
-    
-    console.log('State after resetToPassword:', this._state);
   }
 
   showProviderSelection(matchedProvider: string, providerDisplayName: string): void {
@@ -309,7 +308,7 @@ export class AuthenticationService {
     try {
       return await configService.isBasicAuthEnabled();
     } catch (error) {
-      console.error('Failed to check basic auth:', error);
+      debug('Failed to check basic auth: %O', error);
       return true;
     }
   }
@@ -318,7 +317,7 @@ export class AuthenticationService {
     try {
       return await configService.isOidcEnabled();
     } catch (error) {
-      console.error('Failed to check OIDC:', error);
+      debug('Failed to check OIDC: %O', error);
       return false;
     }
   }
@@ -327,7 +326,7 @@ export class AuthenticationService {
     try {
       return await configService.isDebugEnabled();
     } catch (error) {
-      console.error('Failed to check debug mode:', error);
+      debug('Failed to check debug mode: %O', error);
       return false;
     }
   }
