@@ -23,6 +23,26 @@ dependencies {
     implementation "org.mindignited:continuum-core:${continuumVersion}"
     implementation "org.mindignited:continuum-core-vertx:${continuumVersion}"
 
+    implementation "javax.annotation:javax.annotation-api:${javaxAnnotationApi}"
+
+    // needed if building against continuum-framework locally
+    if (file("${rootDir}/../continuum-framework").exists()) {
+        // figure out a clever way to handle this better
+        // implementation "org.mindignited:vertx-stomp-lite:5.0.2"
+        implementation "org.kinotic:vertx-stomp-lite:${vertxStompLiteVersion}"
+        implementation "io.vertx:vertx-ignite:${vertxVersion}"
+        implementation "io.vertx:vertx-mqtt:${vertxVersion}"
+        // implementation "org.mindignited:vertx-stomp-lite:${vertxStompLiteVersion}"
+        // implementation "tools.jackson.core:jackson-core:${toolsJacksonVersion}"
+        // implementation "tools.jackson.core:jackson-databind:${toolsJacksonVersion}"
+        // implementation "org.springframework.boot:spring-boot-starter-jackson:4.0.1"
+        implementation "org.apache.ignite:ignite-calcite:${igniteVersion}"
+        implementation "org.apache.ignite:ignite-spring:${igniteVersion}"
+        implementation "org.apache.ignite:ignite-slf4j:${igniteVersion}"
+    }
+    // end of continuum-framework dependencies
+
+
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'
@@ -34,7 +54,7 @@ dependencies {
 //                     https://paketo.io/docs/reference/java-reference/
 bootBuildImage {
     network = "host"
-    publish = true
+    publish = System.getenv("GITHUB_ACTIONS") == "true"
     imageName = "mindignited/${project.name}:${project.version}"
     tags = (!version.endsWith('SNAPSHOT') ?
             [

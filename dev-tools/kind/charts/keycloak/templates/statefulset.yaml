@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  serviceName: {{ .Release.Name }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+      - name: keycloak
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ["/opt/keycloak/bin/kc.sh"]
+        args:
+        - start-dev
+        {{- if .Values.realmImport.enabled }}
+        - --import-realm
+        {{- end }}
+        env:
+        - name: KC_DB
+          value: postgres
+        - name: KC_DB_URL
+          value: "jdbc:postgresql://{{ .Values.database.host }}:{{ .Values.database.port }}/{{ .Values.database.name }}"
+        - name: KC_DB_USERNAME
+          value: {{ .Values.database.user | quote }}
+        - name: KC_DB_PASSWORD
+          value: {{ .Values.database.password | quote }}
+        - name: KC_HOSTNAME
+          value: {{ .Values.keycloak.hostname | quote }}
+        - name: KC_HOSTNAME_PATH
+          value: {{ .Values.keycloak.relativePath | quote }}
+        - name: KC_PROXY_HEADERS
+          value: xforwarded
+        - name: KC_HOSTNAME_STRICT
+          value: "false"
+        - name: KC_HTTP_ENABLED
+          value: "true"
+        - name: KC_HTTP_PORT
+          value: {{ .Values.keycloak.httpPort | quote }}
+        - name: KC_HTTP_RELATIVE_PATH
+          value: {{ .Values.keycloak.relativePath | quote }}
+        - name: KC_METRICS_ENABLED
+          value: "true"
+        - name: KC_HEALTH_ENABLED
+          value: "true"
+        - name: KC_LOG_LEVEL
+          value: {{ .Values.keycloak.logLevel | quote }}
+        - name: KEYCLOAK_ADMIN
+          value: {{ .Values.auth.adminUser | quote }}
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          value: {{ .Values.auth.adminPassword | quote }}
+        ports:
+        - containerPort: {{ .Values.keycloak.httpPort }}
+          name: http
+        {{- if .Values.realmImport.enabled }}
+        volumeMounts:
+        - name: realm-config
+          mountPath: /opt/keycloak/data/import
+          readOnly: true
+        {{- end }}
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.keycloak.relativePath }}/realms/master
+            port: {{ .Values.keycloak.httpPort }}
+          initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+          timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+          failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.keycloak.relativePath }}/realms/master
+            port: {{ .Values.keycloak.httpPort }}
+          initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+          timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+          failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+      {{- if .Values.realmImport.enabled }}
+      volumes:
+      - name: realm-config
+        configMap:
+          name: {{ .Values.realmImport.configMapName }}
+      {{- end }}

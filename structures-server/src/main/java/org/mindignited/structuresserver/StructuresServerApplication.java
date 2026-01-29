@@ -19,5 +19,4 @@ public class StructuresServerApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(StructuresServerApplication.class, args);
 	}
-
 }

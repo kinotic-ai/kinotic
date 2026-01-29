@@ -18,6 +18,27 @@ dependencies {
 	implementation "org.mindignited:continuum-core"
 	implementation "org.mindignited:continuum-gateway"
 
+
+    // needed if building against continuum-framework locally
+    if (file("${rootDir}/../continuum-framework").exists()) {
+
+        // figure out a clever way to handle this better
+        // implementation "org.mindignited:vertx-stomp-lite"
+        implementation "org.kinotic:vertx-stomp-lite"
+        implementation "io.vertx:vertx-ignite"
+        implementation "io.vertx:vertx-mqtt"
+        // implementation "org.mindignited:vertx-stomp-lite"
+        implementation "javax.annotation:javax.annotation-api"
+        // implementation "tools.jackson.core:jackson-core"
+        // implementation "tools.jackson.core:jackson-databind"
+        // implementation "org.springframework.boot:spring-boot-starter-jackson"
+        implementation "org.apache.ignite:ignite-calcite"
+        implementation "org.apache.ignite:ignite-spring"
+        implementation "org.apache.ignite:ignite-slf4j"
+    }
+    // end of continuum-framework dependencies
+
+
 	implementation 'com.github.ben-manes.caffeine:caffeine'
 	
 	implementation 'io.jsonwebtoken:jjwt-api'

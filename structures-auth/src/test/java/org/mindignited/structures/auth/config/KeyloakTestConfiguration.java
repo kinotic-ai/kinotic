@@ -6,7 +6,9 @@ import java.io.File;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ResourceUtils;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.wait.strategy.Wait;
+
 
 import dasniko.testcontainers.keycloak.KeycloakContainer;
 
@@ -31,10 +33,12 @@ public class KeyloakTestConfiguration {
             log.info("Starting TestContainers...");
 
         // Start Keycloak container with proper wait strategy
-        KEYCLOAK_CONTAINER = new KeycloakContainer("quay.io/keycloak/keycloak:22.0.5")
+        KEYCLOAK_CONTAINER = new KeycloakContainer("quay.io/keycloak/keycloak:26.0.2")
             .withAdminUsername("admin")
             .withAdminPassword("admin")
-            .withExposedPorts(8888) // Expose port 8888 externally
+            // Keycloak serves app traffic on KC_HTTP_PORT, but health endpoints are on the
+            // management interface (default port 9000). Expose both.
+            .withExposedPorts(8888, 9000)
             .withEnv("KEYCLOAK_ADMIN", "admin")
             .withEnv("KEYCLOAK_ADMIN_PASSWORD", "admin")
             .withEnv("KC_HEALTH_ENABLED", "true")
@@ -46,14 +50,24 @@ public class KeyloakTestConfiguration {
         File realmFile = ResourceUtils.getFile("classpath:keycloak-realm-export.json");
         if (realmFile.exists()) {
             log.info("Using existing Keycloak realm configuration: {}", realmFile.getAbsolutePath());
-            KEYCLOAK_CONTAINER.withRealmImportFile("keycloak-realm-export.json");
+            // Keycloak 26+: import-at-startup reads JSON from /opt/keycloak/data/import only when started with --import-realm.
+            // Prefer bind-mount over copy-to-container (tar), which is sensitive to commons-io/commons-compress classpath issues.
+            KEYCLOAK_CONTAINER
+                .withFileSystemBind(
+                    realmFile.getAbsolutePath(),
+                    "/opt/keycloak/data/import/test-realm.json",
+                    BindMode.READ_ONLY
+                );
         } else {
             log.info("No Keycloak realm configuration found, using default configuration");
         }
         
         KEYCLOAK_CONTAINER.waitingFor(
+            // Keycloak 26+ (Quarkus) health endpoint (requires KC_HEALTH_ENABLED=true)
+            // NOTE: Path MUST start with '/' for Testcontainers HttpWaitStrategy.
             Wait.forHttp("/health/ready")
-                .forPort(8888) // Use exposed port 8888 for health check
+                // Health endpoints are served via the management port (default 9000).
+                .forPort(9000)
                 .withStartupTimeout(Duration.ofMinutes(3))
         );
         
@@ -111,7 +125,7 @@ public class KeyloakTestConfiguration {
                 "Keycloak",
                 () -> ContainerHealthChecker.isKeycloakHealthy(
                     KEYCLOAK_CONTAINER.getHost(),
-                    KEYCLOAK_CONTAINER.getMappedPort(8888)
+                    KEYCLOAK_CONTAINER.getMappedPort(9000)
                 ),
                 30, // max attempts
                 2000 // delay between attempts in ms
@@ -186,7 +200,7 @@ public class KeyloakTestConfiguration {
             // Check if Keycloak is healthy
             boolean keycloakHealthy = ContainerHealthChecker.isKeycloakHealthy(
                 KEYCLOAK_CONTAINER.getHost(),
-                KEYCLOAK_CONTAINER.getMappedPort(8888)
+                KEYCLOAK_CONTAINER.getMappedPort(9000)
             );
             
             return keycloakHealthy;

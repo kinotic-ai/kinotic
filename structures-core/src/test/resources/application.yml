@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: test
+    active: test,eviction-tracking
   main:
     web-application-type: none
 

@@ -37,6 +37,7 @@ export class Synchronize extends Command {
         server:     Flags.string({char: 's', description: 'The structures server to connect to'}),
         publish:    Flags.boolean({char: 'p', description: 'Publish each Entity after save/update'}),
         verbose:    Flags.boolean({char: 'v', description: 'Enable verbose logging'}),
+        authHeaderFile: Flags.string({char: 'f', description: 'JSON File containing authentication headers', required: false}),
         dryRun:     Flags.boolean({description: 'Dry run enables verbose logging and does not save any changes to the server'})
     }
 
@@ -58,7 +59,7 @@ export class Synchronize extends Command {
                 serverUrl = serverConfig.url
             }
 
-            if (flags.dryRun || await connectAndUpgradeSession(serverUrl, this)) {
+            if (flags.dryRun || await connectAndUpgradeSession(serverUrl, this, flags.authHeaderFile)) {
                 try {
 
                     let project: Project | null = null

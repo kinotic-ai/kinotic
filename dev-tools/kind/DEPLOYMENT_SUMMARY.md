@@ -52,7 +52,7 @@ Helm values (`dev-tools/kind/config/helm-values.yaml`) now configured with:
 - ✅ Correct image version: `3.5.1-SNAPSHOT`
 - ✅ Kubernetes cluster discovery (not SHAREDFS)
 - ✅ Elasticsearch connection to `elasticsearch-master:9200`
-- ✅ 2 replicas for HA testing
+- ✅ 3 replicas for HA testing
 - ✅ Matching JVM options from cluster-test-compose.yml
 - ✅ Sample data initialization enabled
 
