@@ -72,6 +72,9 @@ import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEn
 import { DataInsightsWidget } from '@/domain/DataInsightsWidget'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('dashboard-view');
 
 const router = useRouter()
 const toast = useToast()
@@ -115,7 +118,7 @@ const loadWidgets = async () => {
     }, 500)
     
   } catch (error) {
-    console.error('Error loading widgets:', error)
+    debug('Error loading widgets: %O', error)
   }
 }
 
@@ -159,7 +162,7 @@ const executeWidgetHTML = (widget: DataInsightsWidget, targetContainer?: HTMLEle
       }
     }, 500)
   } catch (error) {
-    console.error('Error executing widget HTML:', error)
+    debug('Error executing widget HTML: %O', error)
   }
 }
 
@@ -248,11 +251,11 @@ const loadDashboard = async () => {
           }, 1000)
         }
       } catch (error) {
-        console.error('Error parsing dashboard layout:', error)
+        debug('Error parsing dashboard layout: %O', error)
       }
     }
   } catch (error) {
-    console.error('Error loading dashboard:', error)
+    debug('Error loading dashboard: %O', error)
     toast.add({
       severity: 'error',
       summary: 'Error',

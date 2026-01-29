@@ -8,6 +8,9 @@ import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { Project, Structures } from '@mindignited/structures-api'
 import type { CrudHeader } from '@/types/CrudHeader'
 import DatetimeUtil from "@/util/DatetimeUtil"
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('project-list');
 
 @Component({
   components: { CrudTable, NewProjectSidebar, ProjectStructuresTable }
@@ -95,7 +98,7 @@ export default class ProjectList extends Vue {
     try {
       this.refreshTable()
     } catch (error) {
-      console.error('[ProjectList] Refresh after project creation failed:', error)
+      debug('Refresh after project creation failed: %O', error)
       this.$toast.add({
         severity: 'error',
         summary: 'Error',
@@ -118,11 +121,11 @@ export default class ProjectList extends Vue {
       const appId = this.applicationId
       const projectId = item.id
       
-      console.log('ProjectList: Navigating to project:', (item as any).name, 'ID:', projectId, 'App ID:', appId)
+      debug('Navigating to project: %s, ID: %s, App ID: %s', (item as any).name, projectId, appId)
       
       await this.$router.push(`/application/${encodeURIComponent(appId)}/project/${encodeURIComponent(projectId)}/structures`)
     } catch (error) {
-      console.error('[ProjectList] Failed to navigate to project page:', error)
+      debug('Failed to navigate to project page: %O', error)
     }
   }
 

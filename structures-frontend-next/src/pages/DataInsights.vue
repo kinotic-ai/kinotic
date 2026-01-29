@@ -12,6 +12,9 @@ import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { INSIGHTS_STATE, type InsightData } from '@/states/IInsightsState'
 import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEntityService'
 import { DataInsightsWidget } from '@/domain/DataInsightsWidget'
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('data-insights');
 
 interface ChatMessage {
   id: string
@@ -280,9 +283,9 @@ Components that support date filtering will automatically respond to the global 
           }
           
           if (progress.type === ProgressType.COMPONENTS_READY && progress.components && progress.components.length > 0) {
-             console.log('📊 Received components:', progress.components.length)
+             debug('Received %d components', progress.components.length)
              progress.components.forEach(async (component: DataInsightsComponent) => {
-               console.log('📊 Processing component:', component.id, component.name)
+               debug('Processing component: %s (%s)', component.id, component.name)
                this.visualizations.push({
                  id: component.id,
                  htmlContent: component.rawHtml,
@@ -311,10 +314,10 @@ Components that support date filtering will automatically respond to the global 
                }
                INSIGHTS_STATE.addInsight(insightData)
 
-               console.log('📊 Calling executeVisualization for:', component.id)
+               debug('Executing visualization for: %s', component.id)
                this.executeVisualization(component.rawHtml, component.id)
              })
-             console.log('📊 Total visualizations now:', this.visualizations.length, this.visualizations)
+             debug('Total visualizations: %d', this.visualizations.length)
            }
           
           if (progress.type === ProgressType.COMPLETED) {
@@ -359,36 +362,36 @@ Components that support date filtering will automatically respond to the global 
   }
 
   executeVisualization(htmlContent: string, componentId?: string) {
-    console.log('🎨 executeVisualization called for:', componentId)
+    debug('Executing visualization for: %s', componentId)
     
     if (componentId && this.renderedVisualizationIds.has(componentId)) {
-      console.log('⏭️ Visualization already rendered, skipping:', componentId)
+      debug('Visualization already rendered, skipping: %s', componentId)
       return
     }
     
     if (componentId) {
       this.renderedVisualizationIds.add(componentId)
-      console.log('✅ Marked as rendering:', componentId)
+      debug('Marked as rendering: %s', componentId)
     }
     
     try {
       const script = document.createElement('script')
       script.textContent = htmlContent
       document.head.appendChild(script)
-      console.log('✅ Script added to head')
+      debug('Script added to head')
       
       const elementNameMatch = htmlContent.match(/customElements\.define\(['"`]([^'"`]+)['"`]/)
       const elementName = elementNameMatch ? elementNameMatch[1] : 'data-insights-dashboard'
-      console.log('🔍 Custom element name:', elementName)
+      debug('Custom element name: %s', elementName)
       
       setTimeout(() => {
         try {
-          console.log('⏰ Checking if custom element is registered:', elementName)
+          debug('Checking if custom element is registered: %s', elementName)
           if (!customElements.get(elementName)) {
-            console.error('❌ Custom element not registered:', elementName)
+            debug('Custom element not registered: %s', elementName)
             return
           }
-          console.log('✅ Custom element is registered:', elementName)
+          debug('Custom element is registered: %s', elementName)
           
           const wrapper = document.createElement('div')
           wrapper.className = 'visualization-wrapper relative'
@@ -400,25 +403,25 @@ Components that support date filtering will automatically respond to the global 
           saveButton.onclick = () => this.handleSaveWidget(componentId!)
           
           const element = document.createElement(elementName)
-          console.log('✅ Created element:', elementName)
+          debug('Created element: %s', elementName)
           
           wrapper.appendChild(saveButton)
           wrapper.appendChild(element)
           
           const dashboardContainer = document.getElementById('dashboard-container')
-          console.log('🔍 Dashboard container found:', !!dashboardContainer)
+          debug('Dashboard container found: %s', !!dashboardContainer)
           if (dashboardContainer) {
             dashboardContainer.appendChild(wrapper)
-            console.log('✅ Visualization added to dashboard container')
+            debug('Visualization added to dashboard container')
           } else {
-            console.error('❌ Dashboard container not found!')
+            debug('Dashboard container not found!')
           }
         } catch (error) {
-          console.error('❌ Error in setTimeout block:', error)
+          debug('Error in setTimeout block: %O', error)
         }
       }, 1000)
     } catch (error) {
-      console.error('❌ Error in executeVisualization:', error)
+      debug('Error in executeVisualization: %O', error)
     }
   }
 

@@ -3,6 +3,9 @@ import { Pageable } from '@mindignited/continuum-client'
 import { Application, Structures } from '@mindignited/structures-api'
 import { computed, type ComputedRef, markRaw, reactive, type Reactive } from 'vue'
 import type { NavigationGuardNext, RouteLocationNormalized, Router, RouteRecordRaw } from 'vue-router'
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('application-state');
 
 export interface IApplicationState {
     mainNavItems: NavItem[]
@@ -83,7 +86,7 @@ class ApplicationState implements IApplicationState {
                 this.structuresCount = structuresCount
                 this.countsLoaded = true
             }).catch(error => {
-                console.error('[ApplicationState] Failed to load counts:', error)
+                debug('Failed to load counts: %O', error)
                 this.projectsCount = -1
                 this.structuresCount = -1
                 this.countsLoaded = true
@@ -102,7 +105,7 @@ class ApplicationState implements IApplicationState {
             const result = await service.findAll(pageable)
             this.allApplications = result.content ?? []
         } catch (error) {
-            console.error('[ApplicationState] Failed to load all applications:', error)
+            debug('Failed to load all applications: %O', error)
             this.allApplications = []
         }
     }

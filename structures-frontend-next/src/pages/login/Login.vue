@@ -208,6 +208,9 @@ import { AuthenticationService } from '@/util/AuthenticationService';
 import { type IUserState } from "@/states/IUserState"
 import { CONTINUUM_UI } from "@/IContinuumUI"
 import { StructuresStates } from "@/states/index"
+import { createDebug } from '@/util/debug';
+
+const debug = createDebug('login');
 
 @Component({
   components: {
@@ -272,16 +275,12 @@ export default class Login extends Vue {
     
     if (this.$route.query.code && this.$route.query.state) {
       if (await this.isDebugMode()) {
-        console.log('🚀 [MOUNTED] ===== OIDC CALLBACK DETECTED =====');
-        console.log('🚀 [MOUNTED] Code:', this.$route.query.code);
-        console.log('🚀 [MOUNTED] State:', this.$route.query.state);
+        debug('OIDC callback detected - code: %s, state: %s', this.$route.query.code, this.$route.query.state);
       }
       await this.handleOidcCallback();
     } else {
       if (await this.isDebugMode()) {
-        console.log('🚀 [MOUNTED] No OIDC callback detected');
-        console.log('🚀 [MOUNTED] Code present:', !!this.$route.query.code);
-        console.log('🚀 [MOUNTED] State present:', !!this.$route.query.state);
+        debug('No OIDC callback - code: %s, state: %s', !!this.$route.query.code, !!this.$route.query.state);
       }
     }
   }
@@ -291,7 +290,7 @@ export default class Login extends Vue {
       this._isBasicAuthEnabled = await this.auth.checkBasicAuthEnabled();
       this._isConfigLoaded = true;
     } catch (error) {
-      console.error('Failed to load basic config:', error);
+      debug('Failed to load basic config: %O', error);
       this._isBasicAuthEnabled = true;
       this._isConfigLoaded = false;
     }
@@ -346,20 +345,15 @@ export default class Login extends Vue {
     const debugMode = await this.isDebugMode();
     
     if (debugMode) {
-      console.log('🔄 [OIDC CALLBACK] ===== METHOD CALLED =====');
-      console.log('🔄 [OIDC CALLBACK] Starting OIDC callback handling...');
-      console.log('🔄 [OIDC CALLBACK] Route query:', this.$route.query);
+      debug('OIDC callback handling started - route query: %O', this.$route.query);
     }
     
     this.auth.setOidcCallbackLoading(true);
     
     try {
-      if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] Step 1: Parsing state from URL...');
-      }
       const stateString = this.$route.query.state as string;
       if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] Raw state string:', stateString);
+        debug('Parsing state from URL: %s', stateString);
       }
       
       // The oidc-client-ts library manages its own state format
@@ -367,83 +361,59 @@ export default class Login extends Vue {
       let stateInfo = null;
       
       // Parse the state string to extract our custom state
-      if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] Step 2: Extracting custom state from URL state...');
-      }
       const tokens = stateString.split(';') ?? [];
       if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] State tokens:', tokens);
+        debug('State tokens: %O', tokens);
       }
       
       if (tokens.length < 2) {
-        console.error('🔄 [OIDC CALLBACK] ❌ Invalid state format - expected at least 2 tokens, got:', tokens.length);
+        debug('Invalid state format - expected at least 2 tokens, got: %d', tokens.length);
         throw new Error(`Invalid OIDC state: ${stateString}`);
       }
       
       const customState = tokens[1] ?? '';
-      if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] Extracted custom state:', customState);
-      }
       
       // Parse our custom state to get the provider and referer
-      if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] Step 3: Parsing custom state from localStorage...');
-      }
       stateInfo = await this.auth.parseOidcState(customState);
       if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] ✅ Parsed state info:', stateInfo);
+        debug('Parsed state info: %O', stateInfo);
       }
       
       if (!stateInfo) {
-        console.error('🔄 [OIDC CALLBACK] ❌ Failed to parse state info from localStorage');
+        debug('Failed to parse state info from localStorage');
         throw new Error('Invalid OIDC state');
       }
       
       const { referer, provider } = stateInfo;
       if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] Using provider from state:', provider);
-        console.log('🔄 [OIDC CALLBACK] Using referer from state:', referer);
+        debug('Using provider: %s, referer: %s', provider, referer);
       }
       
-      if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] Step 4: Creating user manager for provider:', provider);
-      }
       const userManager = await createUserManager(provider);
       if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] ✅ User manager created');
+        debug('User manager created');
       }
       
-      if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] Step 5: Processing signin redirect callback...');
-      }
       const user = await userManager.signinRedirectCallback();
       if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] ✅ Callback successful, user:', user);
-        console.log('🔄 [OIDC CALLBACK] User profile:', user.profile);
-        console.log('🔄 [OIDC CALLBACK] User access token:', user.access_token ? 'present' : 'missing');
+        debug('Signin callback successful - user: %O, access_token: %s', user.profile, user.access_token ? 'present' : 'missing');
       }
       
-      if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] Step 6: Handling OIDC login...');
-      }
       await this.userState.handleOidcLogin(user);
       if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] ✅ OIDC login handled successfully');
+        debug('OIDC login handled successfully');
       }
       
       const redirectPath = referer || '/applications';
       if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] Step 7: Redirecting to:', redirectPath);
+        debug('Redirecting to: %s', redirectPath);
       }
       await CONTINUUM_UI.navigate(redirectPath);
-      if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] ✅ Redirect completed');
-      }
       
     } catch (error: unknown) {
-      console.error('🔄 [OIDC CALLBACK] ❌ OIDC callback error:', error);
+      debug('OIDC callback error: %O', error);
       if (debugMode) {
-        console.error('🔄 [OIDC CALLBACK] Error details:', {
+        debug('Error details: %O', {
           message: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined,
           routeQuery: this.$route.query
@@ -459,7 +429,7 @@ export default class Login extends Vue {
       this.auth.resetToEmail();
     } finally {
       if (debugMode) {
-        console.log('🔄 [OIDC CALLBACK] Cleaning up...');
+        debug('Cleaning up callback loading state');
       }
       this.auth.setOidcCallbackLoading(false);
       this.auth.setLoading(false);
@@ -487,7 +457,7 @@ export default class Login extends Vue {
         }
       }
     } catch (error: unknown) {
-      console.error('Authentication error:', error);
+      debug('Authentication error: %O', error);
       if (error instanceof Error) {
         this.displayAlert(error.message)
       } else if (typeof error === 'string') {
@@ -547,7 +517,7 @@ export default class Login extends Vue {
         this.focusPasswordInput();
       });
     } catch (error) {
-      console.error('Error in email submit:', error);
+      debug('Error in email submit: %O', error);
       this.displayAlert('Error processing email. Please try again.');
     } finally {
       this.auth.setLoading(false);
