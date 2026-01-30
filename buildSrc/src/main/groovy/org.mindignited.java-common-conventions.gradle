@@ -32,6 +32,18 @@ configurations {
     }
 }
 
+// Exclude all com.fasterxml.jackson transitive dependencies (except jackson-annotations, which some modules use directly).
+// Direct com.fasterxml.jackson.core:jackson-databind / jackson-core are also excluded; use tools.jackson.core for those.
+configurations.all {
+    exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
+    exclude group: 'com.fasterxml.jackson.core', module: 'jackson-core'
+    exclude group: 'com.fasterxml.jackson.datatype'
+    exclude group: 'com.fasterxml.jackson.dataformat'
+    exclude group: 'com.fasterxml.jackson.module'
+    exclude group: 'com.fasterxml.jackson.jaxrs'
+    exclude group: 'com.fasterxml.jackson.jr'
+}
+
 dependencyManagement {
     imports {
         mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
@@ -41,6 +53,7 @@ dependencyManagement {
     }
     dependencies {
         dependency "co.elastic.clients:elasticsearch-java:${elasticClientVersion}"
+        dependency "co.elastic.clients:elasticsearch-rest5-client:${elasticClientVersion}"
 
         dependency "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
 
@@ -59,23 +72,27 @@ dependencyManagement {
         dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
         dependency "org.apache.ignite:ignite-spring:${igniteVersion}"
 
-        dependency "org.apache.lucene:lucene-analyzers-common:${luceneVersion}"
-        dependency "org.apache.lucene:lucene-backwards-codecs:${luceneVersion}"
-        dependency "org.apache.lucene:lucene-core:${luceneVersion}"
-        dependency "org.apache.lucene:lucene-grouping:${luceneVersion}"
-        dependency "org.apache.lucene:lucene-highlighter:${luceneVersion}"
-        dependency "org.apache.lucene:lucene-join:${luceneVersion}"
-        dependency "org.apache.lucene:lucene-memory:${luceneVersion}"
-        dependency "org.apache.lucene:lucene-misc:${luceneVersion}"
-        dependency "org.apache.lucene:lucene-queries:${luceneVersion}"
-        dependency "org.apache.lucene:lucene-queryparser:${luceneVersion}"
-        dependency "org.apache.lucene:lucene-sandbox:${luceneVersion}"
-        dependency "org.apache.lucene:lucene-spatial:${luceneVersion}"
-        dependency "org.apache.lucene:lucene-suggest:${luceneVersion}"
+//        dependency "org.apache.lucene:lucene-analyzers-common:${luceneVersion}"
+//        dependency "org.apache.lucene:lucene-backwards-codecs:${luceneVersion}"
+//        dependency "org.apache.lucene:lucene-core:${luceneVersion}"
+//        dependency "org.apache.lucene:lucene-grouping:${luceneVersion}"
+//        dependency "org.apache.lucene:lucene-highlighter:${luceneVersion}"
+//        dependency "org.apache.lucene:lucene-join:${luceneVersion}"
+//        dependency "org.apache.lucene:lucene-memory:${luceneVersion}"
+//        dependency "org.apache.lucene:lucene-misc:${luceneVersion}"
+//        dependency "org.apache.lucene:lucene-queries:${luceneVersion}"
+//        dependency "org.apache.lucene:lucene-queryparser:${luceneVersion}"
+//        dependency "org.apache.lucene:lucene-sandbox:${luceneVersion}"
+//        dependency "org.apache.lucene:lucene-spatial:${luceneVersion}"
+//        dependency "org.apache.lucene:lucene-suggest:${luceneVersion}"
 
-        dependency "org.elasticsearch:elasticsearch:${elasticClientVersion}"
-        dependency "org.elasticsearch.client:elasticsearch-rest-client:${elasticClientVersion}"
-        dependency "org.elasticsearch.client:elasticsearch-rest-high-level-client:${elasticClientVersion}"
+
+        dependency "co.elastic.clients:elasticsearch-java:${elasticClientVersion}"
+
+        // TODO: check if this is needed now that we are on elastic 9.2.4 client version
+//        dependency "org.elasticsearch:elasticsearch:${elasticClientVersion}"
+//        dependency "org.elasticsearch.client:elasticsearch-rest-client:${elasticClientVersion}"
+//        dependency "org.elasticsearch.client:elasticsearch-rest-high-level-client:${elasticClientVersion}"
 
         dependency "org.mindignited:continuum-core:${continuumVersion}"
         dependency "org.mindignited:continuum-core-vertx:${continuumVersion}"

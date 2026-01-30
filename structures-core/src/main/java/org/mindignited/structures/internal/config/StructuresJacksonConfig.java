@@ -1,11 +1,11 @@
 package org.mindignited.structures.internal.config;
 
 import co.elastic.clients.elasticsearch._types.FieldValue;
-import com.fasterxml.jackson.core.Version;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.jsontype.NamedType;
-import com.fasterxml.jackson.databind.module.SimpleAbstractTypeResolver;
-import com.fasterxml.jackson.databind.module.SimpleModule;
+import tools.jackson.core.Version;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.jsontype.NamedType;
+import tools.jackson.databind.module.SimpleAbstractTypeResolver;
+import tools.jackson.databind.module.SimpleModule;
 import org.apache.commons.lang3.tuple.Pair;
 import org.mindignited.continuum.idl.api.schema.decorators.C3Decorator;
 import org.mindignited.continuum.internal.utils.MetaUtil;

@@ -1,8 +1,7 @@
 package org.mindignited.structures.internal.api.hooks.impl;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.async.ByteArrayFeeder;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.ObjectMapper;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.api.domain.EntityContext;
@@ -11,7 +10,6 @@ import org.mindignited.structures.api.domain.Structure;
 import org.mindignited.structures.internal.api.hooks.DecoratorLogic;
 import org.mindignited.structures.internal.api.services.EntityHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -31,16 +29,8 @@ public class RawJsonUpsertPreProcessor extends AbstractJsonUpsertPreProcessor<Ra
 
     @Override
     protected JsonParser createParser(RawJson input) {
-        try {
-            byte[] bytes = input.data();
-            JsonParser jsonParser = objectMapper.createNonBlockingByteArrayParser();
-            ByteArrayFeeder feeder = (ByteArrayFeeder) jsonParser.getNonBlockingInputFeeder();
-            feeder.feedInput(bytes, 0, bytes.length);
-            feeder.endOfInput();
-            return jsonParser;
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
+        byte[] bytes = input.data();
+        return objectMapper.createParser(bytes);
     }
 
     @WithSpan

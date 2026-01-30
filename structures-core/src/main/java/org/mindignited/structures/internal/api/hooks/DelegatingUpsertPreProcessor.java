@@ -1,7 +1,7 @@
 package org.mindignited.structures.internal.api.hooks;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.util.TokenBuffer;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.util.TokenBuffer;
 import org.apache.commons.lang3.Validate;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.api.domain.EntityContext;

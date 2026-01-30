@@ -2,23 +2,20 @@ package org.mindignited.structures.internal.serializer;
 
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.json.JsonData;
-import com.fasterxml.jackson.core.JacksonException;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.commons.lang3.Validate;
-
-import java.io.IOException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ValueDeserializer;
 
 /**
  * Created by Navíd Mitchell 🤪 on 11/6/23.
  */
-public class FieldValueDeserializer extends JsonDeserializer<FieldValue> {
+public class FieldValueDeserializer extends ValueDeserializer<FieldValue> {
 
     @Override
-    public FieldValue deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JacksonException {
-        JsonNode node = jp.getCodec().readTree(jp);
+    public FieldValue deserialize(JsonParser jp, DeserializationContext ctxt) {
+        JsonNode node = jp.objectReadContext().readTree(jp);
         Validate.isTrue(node.has("kind"), "kind missing from FieldValue");
         Validate.isTrue(node.has("value"), "value missing from FieldValue");
 

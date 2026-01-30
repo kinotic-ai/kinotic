@@ -1,7 +1,7 @@
 package org.mindignited.structures.internal.api.services.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import org.apache.commons.lang3.Validate;
 import org.mindignited.continuum.idl.api.schema.decorators.C3Decorator;

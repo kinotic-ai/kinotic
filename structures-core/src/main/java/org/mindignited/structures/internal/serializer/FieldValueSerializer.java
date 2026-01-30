@@ -1,42 +1,42 @@
 package org.mindignited.structures.internal.serializer;
 
 import co.elastic.clients.elasticsearch._types.FieldValue;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
-
-import java.io.IOException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueSerializer;
 
 /**
  * Created by Navíd Mitchell 🤪 on 11/6/23.
  */
-public class FieldValueSerializer extends JsonSerializer<FieldValue> {
+public class FieldValueSerializer extends ValueSerializer<FieldValue> {
 
     @Override
-    public void serialize(FieldValue field, JsonGenerator jsonGenerator, SerializerProvider serializers) throws IOException {
+    public void serialize(FieldValue field, JsonGenerator jsonGenerator, SerializationContext ctxt) throws JacksonException {
         jsonGenerator.writeStartObject();
-        jsonGenerator.writeStringField("kind", field._kind().name());
+        jsonGenerator.writeStringProperty("kind", field._kind().name());
         switch (field._kind()) {
             case Double :
-                jsonGenerator.writeNumberField("value", field.doubleValue());
+                jsonGenerator.writeNumberProperty("value", field.doubleValue());
                 break;
             case Long :
-                jsonGenerator.writeNumberField("value", field.longValue());
+                jsonGenerator.writeNumberProperty("value", field.longValue());
                 break;
             case Boolean :
-                jsonGenerator.writeBooleanField("value", field.booleanValue());
+                jsonGenerator.writeBooleanProperty("value", field.booleanValue());
                 break;
             case String :
-                jsonGenerator.writeStringField("value", field.stringValue());
+                jsonGenerator.writeStringProperty("value", field.stringValue());
                 break;
             case Null :
-                jsonGenerator.writeNullField("value");
+                jsonGenerator.writeNullProperty("value");
                 break;
             case Any :
-                jsonGenerator.writeObjectField("value", field._get());
+                jsonGenerator.writePOJOProperty("value", field._get());
             default :
                 throw new IllegalStateException("Unknown kind " + field._kind());
         }
         jsonGenerator.writeEndObject();
     }
+
 }

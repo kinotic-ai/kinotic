@@ -9,9 +9,6 @@ import co.elastic.clients.elasticsearch.core.UpdateRequest;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.util.TokenBuffer;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.NotImplementedException;
@@ -31,8 +28,13 @@ import org.mindignited.structures.internal.api.services.EntityHolder;
 import org.mindignited.structures.internal.api.services.EntityService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonPointer;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.util.TokenBuffer;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -719,7 +721,7 @@ public class DefaultEntityService implements EntityService {
             try {
                 Map<?,?> converted = objectMapper.readValue(rawJson.data(), Map.class);
                 return (String) converted.get(tenantIdFieldName);
-            } catch (IOException e) {
+            } catch (JacksonException e) {
                 throw new IllegalStateException("RawJson could not be deserialized for sanity check",e);
             }
 
@@ -762,10 +764,10 @@ public class DefaultEntityService implements EntityService {
                     && entityHolder.entity() instanceof RawJson json){
                 try {
                     ObjectNode node = (ObjectNode) objectMapper.readTree(json.data());
-                    TokenBuffer buffer = new TokenBuffer(objectMapper, false);
+                    TokenBuffer buffer = new TokenBuffer(objectMapper._serializationContext(), false);
                     objectMapper.writeValue(buffer, node);
                     return (T) buffer;
-                } catch (IOException e) {
+                } catch (JacksonException e) {
                     throw new IllegalStateException(e);
                 }
             }else {
@@ -786,12 +788,13 @@ public class DefaultEntityService implements EntityService {
             case TokenBuffer buffer -> {
                 try {
                     // Convert TokenBuffer to JSON tree
-                    ObjectNode node = objectMapper.readTree(buffer.asParser(objectMapper));
+                    JsonNode node = objectMapper.readTree(buffer.asParser(objectMapper._deserializationContext()));
 
-                    node.put(structure.getVersionFieldName(), versionValue);
+                    node.withObject(JsonPointer.empty())
+                        .put(structure.getVersionFieldName(), versionValue);
 
                     // Serialize back to TokenBuffer
-                    TokenBuffer updatedBuffer = new TokenBuffer(objectMapper, false);
+                    TokenBuffer updatedBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
                     objectMapper.writeValue(updatedBuffer, node);
 
                     return (T) updatedBuffer;
@@ -810,7 +813,7 @@ public class DefaultEntityService implements EntityService {
                     // So we convert if need be
                     if (convertRawJsonToTokenBuffer) {
 
-                        TokenBuffer updatedBuffer = new TokenBuffer(objectMapper, false);
+                        TokenBuffer updatedBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
                         objectMapper.writeValue(updatedBuffer, node);
                         return (T) updatedBuffer;
                     } else {

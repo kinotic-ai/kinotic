@@ -1,23 +1,24 @@
 package org.mindignited.structures.internal.config;
 
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
-import org.mindignited.structures.api.config.StructuresProperties;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.json.JsonpMapper;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
-import co.elastic.clients.transport.rest_client.RestClientTransport;
+import co.elastic.clients.transport.rest5_client.Rest5ClientTransport;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.message.BasicHeader;
+import org.apache.hc.core5.util.Timeout;
+import org.mindignited.structures.api.config.StructuresProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import tools.jackson.databind.ObjectMapper;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/26/23.
@@ -35,34 +36,33 @@ public class StructuresElasticsearchConfig {
     public ElasticsearchAsyncClient elasticsearchAsyncClient(JsonpMapper jsonpMapper){
         HttpHost[] hosts = structuresProperties.getElasticConnections()
                                                .stream()
-                                               .map(v -> new HttpHost(v.getHost(), v.getPort(), v.getScheme()))
+                                               .map(v -> new HttpHost(v.getScheme(), v.getHost(), v.getPort()))
                                                .toArray(HttpHost[]::new);
 
-        RestClientBuilder builder = RestClient.builder(hosts);
+        var builder = Rest5Client.builder(hosts);
 
         if(structuresProperties.hasElasticUsernameAndPassword()){
-            builder.setHttpClientConfigCallback(httpClientBuilder -> {
-                CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-                credentialsProvider.setCredentials(AuthScope.ANY,
-                                                   new UsernamePasswordCredentials(structuresProperties.getElasticUsername(),
-                                                                                   structuresProperties.getElasticPassword()));
-
-                return httpClientBuilder
-                        .setDefaultCredentialsProvider(credentialsProvider);
+            String credentials = structuresProperties.getElasticUsername() + ":" + structuresProperties.getElasticPassword();
+            String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
+            builder.setDefaultHeaders(new Header[]{
+                    new BasicHeader("Authorization", "Basic " + encodedCredentials)
             });
         }
 
-        int connectTimeout = Long.valueOf(structuresProperties.getElasticConnectionTimeout().toMillis()).intValue();
-        int socketTimeout = Long.valueOf(structuresProperties.getElasticSocketTimeout().toMillis()).intValue();
+        Timeout connectTimeout = Timeout.of(structuresProperties.getElasticConnectionTimeout().toMillis(), TimeUnit.MILLISECONDS);
+        Timeout socketTimeout = Timeout.of(structuresProperties.getElasticSocketTimeout().toMillis(), TimeUnit.MILLISECONDS);
+        Timeout responseTimeout = Timeout.of(structuresProperties.getElasticSocketTimeout().toMillis(), TimeUnit.MILLISECONDS);
 
-        builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder
+        builder.setConnectionConfigCallback(connectionConfig -> connectionConfig
                 .setConnectTimeout(connectTimeout)
                 .setSocketTimeout(socketTimeout));
+        builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder
+                .setResponseTimeout(responseTimeout));
 
-        RestClient restClient = builder.build();
+        Rest5Client rest5Client = builder.build();
 
         // Create the transport with a Jackson mapper
-        ElasticsearchTransport transport = new RestClientTransport(restClient, jsonpMapper);
+        ElasticsearchTransport transport = new Rest5ClientTransport(rest5Client, jsonpMapper);
 
         return new ElasticsearchAsyncClient(transport);
     }

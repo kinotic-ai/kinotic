@@ -1,18 +1,16 @@
 package org.mindignited.structures.internal.serializer;
 
-import java.io.IOException;
-
 import org.mindignited.structures.api.domain.RawJson;
-
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ValueDeserializer;
 
 /**
  * Created by Navíd Mitchell 🤪 on 5/22/23.
  */
-public class RawJsonDeserializer extends JsonDeserializer<RawJson> {
+public class RawJsonDeserializer extends ValueDeserializer<RawJson> {
 
     private final ObjectMapper objectMapper;
 
@@ -21,7 +19,7 @@ public class RawJsonDeserializer extends JsonDeserializer<RawJson> {
     }
 
     @Override
-    public RawJson deserialize(JsonParser jsonParser, DeserializationContext ctxt) throws IOException {
+    public RawJson deserialize(JsonParser jsonParser, DeserializationContext ctxt) throws JacksonException {
         return RawJson.from(jsonParser, objectMapper);
     }
 

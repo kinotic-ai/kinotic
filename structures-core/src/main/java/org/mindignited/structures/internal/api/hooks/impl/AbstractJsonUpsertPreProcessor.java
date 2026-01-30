@@ -1,11 +1,11 @@
 package org.mindignited.structures.internal.api.hooks.impl;
 
-import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.util.ByteArrayBuilder;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JsonEncoding;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.util.ByteArrayBuilder;
+import tools.jackson.databind.ObjectMapper;
 import org.mindignited.continuum.idl.api.schema.decorators.C3Decorator;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.api.domain.EntityContext;
@@ -69,13 +69,13 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
             String currentTenantId = null;
             String currentVersion = null;
             ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-            JsonGenerator jsonGenerator = objectMapper.getFactory().createGenerator(byteArrayBuilder, JsonEncoding.UTF8);
+            JsonGenerator jsonGenerator = objectMapper.createGenerator(byteArrayBuilder, JsonEncoding.UTF8);
 
             while (jsonParser.nextToken() != null) {
 
-                JsonToken token = jsonParser.getCurrentToken();
+                JsonToken token = jsonParser.currentToken();
 
-                if (token == JsonToken.FIELD_NAME) {
+                if (token == JsonToken.PROPERTY_NAME) {
 
                     String fieldName = jsonParser.currentName();
 
@@ -102,10 +102,10 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         // We exclude the version field from the data to be persisted
                         if(!(decorator instanceof VersionDecorator)) {
                             if (value != null) {
-                                jsonGenerator.writeFieldName(fieldName);
-                                jsonGenerator.writeObject(value);
+                                jsonGenerator.writeName(fieldName);
+                                jsonGenerator.writePOJO(value);
                             } else {
-                                jsonGenerator.writeNullField(fieldName);
+                                jsonGenerator.writeNullProperty(fieldName);
                             }
                         }
 
@@ -148,10 +148,10 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
 
                             // Elasticsearch requires a @timestamp field to contain the time data so we just duplicate the value
                             if(value != null){
-                                jsonGenerator.writeFieldName("@timestamp");
-                                jsonGenerator.writeObject(value);
+                                jsonGenerator.writeName("@timestamp");
+                                jsonGenerator.writePOJO(value);
                             }else{
-                                jsonGenerator.writeNullField("@timestamp");
+                                jsonGenerator.writeNullProperty("@timestamp");
                             }
                         }
                     }else{
@@ -168,8 +168,8 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                                 throw new IllegalArgumentException("Tenant Id invalid for logged in participant");
                             }
 
-                            jsonGenerator.writeFieldName(fieldName);
-                            jsonGenerator.writeObject(currentTenantId);
+                            jsonGenerator.writeName(fieldName);
+                            jsonGenerator.writePOJO(currentTenantId);
 
                         }else{
                             jsonGenerator.copyCurrentEvent(jsonParser);
@@ -198,7 +198,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         if(structure.getMultiTenancyType() == MultiTenancyType.SHARED
                                 && currentTenantId == null){
                             currentTenantId = context.getParticipant().getTenantId();
-                            jsonGenerator.writeFieldName(structuresProperties.getTenantIdFieldName());
+                            jsonGenerator.writeName(structuresProperties.getTenantIdFieldName());
                             jsonGenerator.writeString(currentTenantId);
                         }
 

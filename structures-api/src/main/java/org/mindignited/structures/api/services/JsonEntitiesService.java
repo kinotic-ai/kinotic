@@ -1,6 +1,6 @@
 package org.mindignited.structures.api.services;
 
-import com.fasterxml.jackson.databind.util.TokenBuffer;
+import tools.jackson.databind.util.TokenBuffer;
 import org.mindignited.continuum.api.annotations.Proxy;
 import org.mindignited.continuum.api.annotations.Publish;
 import org.mindignited.continuum.api.security.Participant;

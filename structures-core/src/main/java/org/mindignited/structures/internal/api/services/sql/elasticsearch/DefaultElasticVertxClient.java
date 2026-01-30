@@ -5,9 +5,9 @@ import co.elastic.clients.elasticsearch._types.ErrorResponse;
 import co.elastic.clients.elasticsearch.sql.TranslateResponse;
 import co.elastic.clients.json.JsonpMapper;
 import co.elastic.clients.json.SimpleJsonpMapper;
-import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JsonEncoding;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Vertx;
@@ -292,7 +292,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
         for(List<Object> row : response.getRows()){
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            JsonGenerator jsonGenerator = objectMapper.getFactory().createGenerator(outputStream, JsonEncoding.UTF8);
+            JsonGenerator jsonGenerator = objectMapper.createGenerator(outputStream, JsonEncoding.UTF8);
             jsonGenerator.writeStartObject();
 
             for(int colIdx = 0; colIdx < row.size(); colIdx++){

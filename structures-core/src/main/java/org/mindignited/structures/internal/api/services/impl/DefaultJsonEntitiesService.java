@@ -1,6 +1,6 @@
 package org.mindignited.structures.internal.api.services.impl;
 
-import com.fasterxml.jackson.databind.util.TokenBuffer;
+import tools.jackson.databind.util.TokenBuffer;
 import lombok.RequiredArgsConstructor;
 import org.mindignited.continuum.api.security.Participant;
 import org.mindignited.continuum.core.api.crud.Page;

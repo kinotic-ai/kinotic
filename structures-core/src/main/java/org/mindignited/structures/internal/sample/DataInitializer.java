@@ -1,20 +1,17 @@
 package org.mindignited.structures.internal.sample;
 
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-
+import jakarta.annotation.PostConstruct;
 import org.mindignited.structures.api.config.StructuresProperties;
-import org.mindignited.structures.internal.api.domain.DefaultEntityContext;
 import org.mindignited.structures.api.domain.Structure;
 import org.mindignited.structures.api.services.EntitiesService;
+import org.mindignited.structures.internal.api.domain.DefaultEntityContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.util.TokenBuffer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.util.TokenBuffer;
-
-import jakarta.annotation.PostConstruct;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Created by Navíd Mitchell 🤪 on 6/1/23.
@@ -67,13 +64,8 @@ public class DataInitializer {
                                                  String participantId){
         return testDataService.createRandomTestPeople(numberOfPeopleToCreate)
                               .thenCompose(people -> {
-                                  TokenBuffer tokenBuffer = new TokenBuffer(objectMapper, false);
-                                  try {
-                                      tokenBuffer.writeObject(people);
-                                  } catch (IOException e) {
-                                      return CompletableFuture.failedFuture(e);
-                                  }
-
+                                  TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
+                                  tokenBuffer.writePOJO(people);
                                   return entitiesService.bulkSave(structure.getId(),
                                                                   tokenBuffer,
                                                                   new DefaultEntityContext(new DummyParticipant(tenantId,

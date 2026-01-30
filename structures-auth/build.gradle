@@ -10,9 +10,7 @@ dependencies {
 
 	implementation 'io.jsonwebtoken:jjwt-api'
 	implementation 'io.jsonwebtoken:jjwt-impl'
-	implementation ('io.jsonwebtoken:jjwt-jackson'){
-		exclude group: 'com.fassterxml.jackson.core'
-	}
+	implementation 'io.jsonwebtoken:jjwt-jackson'
 
 	implementation "com.github.ben-manes.caffeine:caffeine"
 

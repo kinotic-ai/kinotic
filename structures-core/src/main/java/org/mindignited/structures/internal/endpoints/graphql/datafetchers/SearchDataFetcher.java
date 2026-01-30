@@ -1,6 +1,6 @@
 package org.mindignited.structures.internal.endpoints.graphql.datafetchers;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.vertx.ext.web.RoutingContext;

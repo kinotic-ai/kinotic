@@ -14,9 +14,9 @@ import org.mindignited.structures.internal.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.util.TokenBuffer;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.util.TokenBuffer;
 
 import reactor.core.publisher.Mono;
 

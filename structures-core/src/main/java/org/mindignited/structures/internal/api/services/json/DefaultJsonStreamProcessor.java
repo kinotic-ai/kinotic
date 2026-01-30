@@ -1,8 +1,8 @@
 package org.mindignited.structures.internal.api.services.json;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -38,9 +38,9 @@ public class DefaultJsonStreamProcessor<T, R, C, S extends JsonStreamProcessorSt
 
             while (jsonParser.nextToken() != null) {
 
-                JsonToken token = jsonParser.getCurrentToken();
+                JsonToken token = jsonParser.currentToken();
 
-                if (token == JsonToken.FIELD_NAME) {
+                if (token == JsonToken.PROPERTY_NAME) {
 
                     String fieldName = jsonParser.currentName();
 

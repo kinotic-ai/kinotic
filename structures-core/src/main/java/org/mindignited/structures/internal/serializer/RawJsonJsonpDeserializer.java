@@ -5,8 +5,8 @@ import java.util.EnumSet;
 
 import org.mindignited.structures.api.domain.RawJson;
 
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JsonToken;
+import tools.jackson.databind.ObjectMapper;
 
 import co.elastic.clients.json.JsonpDeserializerBase;
 import co.elastic.clients.json.JsonpMapper;
@@ -35,7 +35,7 @@ public class RawJsonJsonpDeserializer extends JsonpDeserializerBase<RawJson> {
         }
         try {
 
-            com.fasterxml.jackson.core.JsonParser jacksonParser = jacksonJsonpParser.jacksonParser();
+            tools.jackson.core.JsonParser jacksonParser = jacksonJsonpParser.jacksonParser();
             if (jacksonParser.currentToken() == JsonToken.FIELD_NAME
                     && jacksonParser.currentName().equals("_source")) { // What other cases are there?
                 jacksonParser.nextToken();

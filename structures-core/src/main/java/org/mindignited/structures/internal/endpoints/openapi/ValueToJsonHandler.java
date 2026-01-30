@@ -1,7 +1,5 @@
 package org.mindignited.structures.internal.endpoints.openapi;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +7,8 @@ import org.apache.commons.lang3.Validate;
 import org.mindignited.structures.api.domain.FastestType;
 import org.mindignited.structures.api.domain.RawJson;
 import org.mindignited.structures.internal.utils.VertxWebUtil;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.function.BiFunction;
 
@@ -49,7 +49,7 @@ class ValueToJsonHandler<T> implements BiFunction<T, Throwable, Void> {
                         context.response().setStatusCode(200);
                         byte[] bytes = objectMapper.writeValueAsBytes(value);
                         context.response().end(Buffer.buffer(bytes));
-                    } catch (JsonProcessingException e) {
+                    } catch (JacksonException e) {
                         VertxWebUtil.writeException(context, e);
                     }
                 }

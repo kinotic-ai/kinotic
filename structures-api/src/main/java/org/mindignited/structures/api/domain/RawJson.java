@@ -1,20 +1,17 @@
 package org.mindignited.structures.api.domain;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-
-import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.util.ByteArrayBuilder;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import co.elastic.clients.json.JsonpMapper;
 import co.elastic.clients.json.JsonpSerializable;
 import co.elastic.clients.json.jackson.JacksonJsonpGenerator;
+import org.springframework.boot.json.JsonParseException;
+import tools.jackson.core.*;
+import tools.jackson.core.exc.StreamReadException;
+import tools.jackson.core.util.ByteArrayBuilder;
+import tools.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Class is used to represent raw json data
@@ -71,19 +68,18 @@ public final class RawJson implements JsonpSerializable {
      * @param parser the parser to get the raw json from
      * @param objectMapper the object mapper to use
      * @return a RawJson instance
-     * @throws IOException if there is an error parsing the json
+     * @throws JacksonException if there is an error parsing the json
      */
     public static RawJson from(JsonParser parser,
-                               ObjectMapper objectMapper) throws IOException {
+                               ObjectMapper objectMapper) throws JacksonException {
         if (parser.currentToken() != JsonToken.START_ARRAY
                 && parser.currentToken() != JsonToken.START_OBJECT) {
-            throw new JsonParseException(parser, "The root of a RawJson must be an array or object", parser.currentLocation());
+            throw new StreamReadException(parser, "The root of a RawJson must be an array or object", parser.currentLocation());
         }
 
         // Use an efficient output stream from Jackson to avoid unnecessary allocations
         try (ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder()) {
-            try (JsonGenerator jsonGenerator = objectMapper.getFactory()
-                                                           .createGenerator(byteArrayBuilder,
+            try (JsonGenerator jsonGenerator = objectMapper.createGenerator(byteArrayBuilder,
                                                                             JsonEncoding.UTF8)) {
                 jsonGenerator.copyCurrentStructure(parser);
                 jsonGenerator.flush();

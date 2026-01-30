@@ -1,6 +1,6 @@
 package org.mindignited.structures.internal.sample;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.CacheLoader;
 import org.apache.commons.lang3.tuple.Pair;

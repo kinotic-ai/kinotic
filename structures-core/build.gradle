@@ -21,25 +21,12 @@ dependencies {
 	implementation 'org.springframework.ai:spring-ai-mcp'
 	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 	
-	implementation ("io.vertx:vertx-web"){
-		exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
-	}
-	implementation ("io.vertx:vertx-web-graphql"){
-		exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
-	}
-	implementation ("io.vertx:vertx-web-client"){
-		exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
-	}
-	implementation ("io.vertx:vertx-health-check"){
-		exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
-	}
-
-	implementation ('org.apache.ignite:ignite-core'){
-		exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
-	}
-	implementation ('org.apache.ignite:ignite-kubernetes'){
-		exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
-	}
+	implementation "io.vertx:vertx-web"
+	implementation "io.vertx:vertx-web-graphql"
+	implementation "io.vertx:vertx-web-client"
+	implementation "io.vertx:vertx-health-check"
+	implementation 'org.apache.ignite:ignite-core'
+	implementation 'org.apache.ignite:ignite-kubernetes'
 
 	implementation "org.mindignited:continuum-core"
 	implementation "org.mindignited:continuum-core-vertx"
@@ -61,6 +48,9 @@ dependencies {
 	implementation "io.swagger.core.v3:swagger-core:${swaggerCoreVersion}"
 
 	implementation "com.github.slugify:slugify:${slugifyVersion}"
+
+	// Elasticsearch Java API Client 9.x uses Rest5 transport (Apache Http Client 5)
+	implementation 'co.elastic.clients:elasticsearch-rest5-client'
 
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 

@@ -1,6 +1,6 @@
 package org.mindignited.structures.internal.endpoints.graphql;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import graphql.language.OperationDefinition;
 import graphql.scalars.ExtendedScalars;
