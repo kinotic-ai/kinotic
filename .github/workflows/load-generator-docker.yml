@@ -3,7 +3,7 @@ name: Load Generator Docker Build
 on:
   push:
     branches:
-      - preRelease
+      - develop
     paths:
       - 'structures-js/load-generator/**'
 
