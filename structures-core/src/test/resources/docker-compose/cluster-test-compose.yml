@@ -1,7 +1,7 @@
 
 services:
   structures-node1:
-    image: docker.io/mindignited/structures-server:3.5.1-SNAPSHOT
+    image: docker.io/kinoticai/structures-server:3.5.1-SNAPSHOT
     healthcheck:
       test: ["CMD", "/workspace/health-check"]
       interval: 10s
@@ -90,7 +90,7 @@ services:
           memory: 4G
 
   structures-node2:
-    image: docker.io/mindignited/structures-server:3.5.1-SNAPSHOT
+    image: docker.io/kinoticai/structures-server:3.5.1-SNAPSHOT
     healthcheck:
       test: ["CMD", "/workspace/health-check"]
       interval: 10s
@@ -178,7 +178,7 @@ services:
           memory: 4G
 
   structures-node3:
-    image: docker.io/mindignited/structures-server:3.5.1-SNAPSHOT
+    image: docker.io/kinoticai/structures-server:3.5.1-SNAPSHOT
     healthcheck:
       test: ["CMD", "/workspace/health-check"]
       interval: 10s

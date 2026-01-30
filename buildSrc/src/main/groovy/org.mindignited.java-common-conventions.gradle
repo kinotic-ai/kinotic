@@ -57,6 +57,7 @@ dependencyManagement {
 
         dependency "org.apache.ignite:ignite-core:${igniteVersion}"
         dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-spring:${igniteVersion}"
 
         dependency "org.apache.lucene:lucene-analyzers-common:${luceneVersion}"
         dependency "org.apache.lucene:lucene-backwards-codecs:${luceneVersion}"

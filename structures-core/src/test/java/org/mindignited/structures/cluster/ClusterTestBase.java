@@ -52,8 +52,6 @@ public abstract class ClusterTestBase {
     protected static final String DEFAULT_USERNAME = "admin";
     protected static final String DEFAULT_PASSWORD = "structures";
 
-    protected static final String SAMPLE_STRUCTURE_ID = "org.kinotic.sample.person";
-
     private static final Pattern SERVERS_PATTERN = Pattern.compile("servers=(\\d+)");
     private static final Pattern TOPOLOGY_LINE_PATTERN = Pattern.compile("Topology snapshot.*");
 
