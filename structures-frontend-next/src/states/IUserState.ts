@@ -2,6 +2,9 @@ import { ConnectedInfo, ConnectionInfo, Continuum } from '@kinotic/continuum-cli
 import { reactive } from 'vue'
 import Cookies from 'js-cookie'
 import { User } from 'oidc-client-ts'
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('user-state');
 import { oidcSessionManager } from '@/util/OidcSessionManager'
 import { createConnectionInfo } from '../util/helpers'
 
@@ -26,7 +29,7 @@ export class UserState implements IUserState {
         try {
             await Continuum.disconnect()
         } catch (error) {
-            console.log('No existing connection to disconnect')
+            debug('No existing connection to disconnect')
         }
 
         const connectionInfo: ConnectionInfo = createConnectionInfo()
@@ -55,7 +58,7 @@ export class UserState implements IUserState {
         try {
             await Continuum.disconnect()
         } catch (error) {
-            console.log('No existing connection to disconnect')
+            debug('No existing connection to disconnect')
         }
 
         const connectionInfo: ConnectionInfo = createConnectionInfo()
@@ -63,7 +66,7 @@ export class UserState implements IUserState {
         let tokenToUse = user.access_token;
 
         if (user.access_token && !this.isValidJWT(user.access_token)) {
-            console.log('Access token is not a valid JWT, using ID token for Microsoft social login');
+            debug('Access token is not a valid JWT, using ID token for Microsoft social login');
             tokenToUse = user.id_token || user.access_token;
         }
 
@@ -131,7 +134,7 @@ export class UserState implements IUserState {
             try {
                 await Continuum.disconnect()
             } catch (error) {
-                console.error('Error disconnecting from Continuum:', error)
+                debug('Error disconnecting from Continuum: %O', error)
             }
         }
 

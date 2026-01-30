@@ -31,6 +31,9 @@ import {
 
 import type { CrudHeader } from "@/types/CrudHeader";
 import type { DescriptiveIdentifiable } from "@/types/DescriptiveIdentifiable";
+import { createDebug } from "@/util/debug";
+
+const debug = createDebug('crud-table');
 
 @Component({
   components: {
@@ -248,7 +251,7 @@ class CrudTable extends Vue {
       })
 
       .catch((error: unknown) => {
-        console.error("[CRUD Table Alert]:", error);
+        debug('Error loading data: %O', error);
         this.loading = false;
         this.initialSearchCompleted = true;
       });

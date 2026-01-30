@@ -1,4 +1,7 @@
 import { configService } from './config';
+import { createDebug } from './debug';
+
+const debug = createDebug('authentication-manager');
 
 export interface OidcError {
   error: string;
@@ -49,7 +52,7 @@ export class AuthenticationManager {
       
       this.configLoaded = true;
     } catch (error) {
-      console.error('Failed to load configuration:', error);
+      debug('Failed to load configuration: %O', error);
       this.basicAuthEnabled = true;
       this.configLoaded = true;
     }
@@ -84,7 +87,7 @@ export class AuthenticationManager {
       const provider = await configService.findProviderByEmailDomain(email);
       return provider?.provider || null;
     } catch (error) {
-      console.warn(`Failed to find OIDC config for domain ${email}`, error);
+      debug('Failed to find OIDC config for domain %s: %O', email, error);
       return null;
     }
   }
@@ -97,7 +100,7 @@ export class AuthenticationManager {
       const providerConfig = await configService.getOidcProviderByName(provider);
       return providerConfig?.displayName || provider;
     } catch (error) {
-      console.warn(`Failed to get display name for provider ${provider}:`, error);
+      debug('Failed to get display name for provider %s: %O', provider, error);
       return provider;
     }
   }
@@ -377,7 +380,7 @@ export class AuthenticationManager {
         // Check if state has expired (24 hours)
         const stateAge = Date.now() - sessionState.timestamp;
         if (stateAge > 24 * 60 * 60 * 1000) {
-          console.warn('OIDC state has expired');
+          debug('OIDC state has expired');
           localStorage.removeItem(stateKey);
           throw new Error("OIDC state has expired")
         }
@@ -393,7 +396,7 @@ export class AuthenticationManager {
         };
       }
     } catch (error) {
-      console.warn('Failed to parse OIDC state:', error);
+      debug('Failed to parse OIDC state: %O', error);
     }
     
     return null;

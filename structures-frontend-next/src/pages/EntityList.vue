@@ -7,8 +7,11 @@ import Toolbar from 'primevue/toolbar'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 
-import { Pageable, type Page, Order, Direction, type Identifiable } from '@kinotic/continuum-client'
-import { Structure, type IStructureService, Structures, type IEntitiesService } from '@kinotic/structures-api'
+import { Pageable, type Page, Order, Direction, type Identifiable } from '@mindignited/continuum-client'
+import { Structure, type IStructureService, Structures, type IEntitiesService } from '@mindignited/structures-api'
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('entity-list')
 
 type EntityItem = Identifiable<string> & { id: string } & Record<string, any>
 
@@ -118,7 +121,7 @@ if (!id) {
         this.find()
       })
       .catch((error) => {
-        console.error(`Error during structure retrieval: ${error.message}`)
+        debug('Error during structure retrieval: %O', error)
         this.displayAlert(error.message)
       })
   }
@@ -892,7 +895,7 @@ if (!id) {
   }
 
   displayAlert(text: string) {
-    console.error('[EntityList Alert]:', text)
+    debug('Alert displayed: %s', text)
     window.alert(text)
   }
 

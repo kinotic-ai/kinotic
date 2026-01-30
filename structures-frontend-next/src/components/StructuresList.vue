@@ -14,6 +14,9 @@ import { APPLICATION_STATE } from "@/states/IApplicationState";
 import { Structure, Structures, type IStructureService } from "@kinotic/structures-api";
 import type { CrudHeader } from "@/types/CrudHeader";
 import DatetimeUtil from "@/util/DatetimeUtil";
+import { createDebug } from '@/util/debug';
+
+const debug = createDebug('structures-list');
 
 @Component({
   components: { CrudTable, StructureDataViewModal, StructureItemModal, Dialog, Button },
@@ -209,7 +212,7 @@ export default class StructuresList extends Vue {
       delete item["publishing"];
     } catch (error: any) {
       delete item["publishing"];
-      console.error('Error publishing structure:', error);
+      debug('Error publishing structure: %O', error);
       // You could add a toast notification here if needed
     }
   }
@@ -231,7 +234,7 @@ export default class StructuresList extends Vue {
       delete item["publishing"];
     } catch (error: any) {
       delete item["publishing"];
-      console.error('Error unpublishing structure:', error);
+      debug('Error unpublishing structure: %O', error);
     }
   }
 

@@ -11,6 +11,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import Cookies from 'js-cookie'
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('graphql-playground')
 import { USER_STATE } from '@/states/IUserState'
 
 const iframeRef = ref(null)
@@ -24,12 +27,12 @@ onMounted(() => {
   const namespace = getQueryParam('namespace') || 'default'
   
   // Determine auth method based on whether we have an OIDC user
-  const isOidcAuth = USER_STATE.oidcUser !== null
+  const isOidcAuth = 
   const token = isOidcAuth ? Cookies.get('token') : null
   const sessionId = USER_STATE.connectedInfo?.sessionId
 
-  if (!isOidcAuth && !sessionId) {
-    console.warn('No active session for playground')
+  if (!token) {
+    debug('No token found in cookie')
     return
   }
 

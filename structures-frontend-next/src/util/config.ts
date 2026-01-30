@@ -1,4 +1,8 @@
-import type { ConnectionInfo } from "@kinotic/continuum-client";
+import { ConnectionInfo } from '@mindignited/continuum-client'
+import { createDebug } from './debug'
+
+const debug = createDebug('config');
+import type { ConnectionInfo } from "@mindignited/continuum-client";
 // import { USER_STATE } from "../states/IUserState";
 import { createConnectionInfo } from "./helpers";
 
@@ -52,18 +56,18 @@ class ConfigService {
     // Load base configuration locally
     const baseConfig = await this.loadLocalConfig();
     if (!baseConfig) {
-      console.warn('No base configuration file found, using default configuration');
+      debug('No base configuration file found, using default configuration');
       return this.getDefaultConfig();
     }
 
     // Load override configuration if available (this would be from the backend)
     const overrideConfig = await this.loadOverrideConfig();
     if (overrideConfig) {
-      console.log('Applying configuration override from backend');
+      debug('Applying configuration override from backend');
       return this.deepMerge(baseConfig, overrideConfig);
     }
 
-    console.log('Loaded configuration from local app-config.json');
+    debug('Loaded configuration from local app-config.json');
     return baseConfig;
   }
 
@@ -75,7 +79,7 @@ class ConfigService {
         return await resp.json();
       }
     } catch (error) {
-      console.warn('Failed to load local app-config.json:', error);
+      debug('Failed to load local app-config.json: %O', error);
     }
     return null;
   }

@@ -10,6 +10,9 @@ import type { CrudHeader } from '@/types/CrudHeader'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import type { Identifiable, IterablePage, Pageable } from '@kinotic/continuum-client'
 import DatetimeUtil from "@/util/DatetimeUtil"
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('project-structures-table');
 
 @Component({
   components: { CrudTable, StructureItemModal, StructureDataViewModal, Dialog, Button }
@@ -67,14 +70,14 @@ export default class ProjectStructuresTable extends Vue {
 
   @Watch('applicationId', { immediate: true })
   onApplicationIdChange(newApplicationId: string, oldApplicationId: string) {
-    console.log('ProjectStructuresTable: applicationId changed from', oldApplicationId, 'to', newApplicationId)
+    debug('applicationId changed from %s to %s', oldApplicationId, newApplicationId)
     this.refreshTable()
     this.markProjectAsActive()
   }
 
   @Watch('APPLICATION_STATE.currentApplication', { immediate: true })
   async onGlobalApplicationChange(newApp: any, oldApp: any) {
-    console.log('ProjectStructuresTable: Global APPLICATION_STATE.currentApplication changed from', oldApp?.id, 'to', newApp?.id)
+    debug('APPLICATION_STATE.currentApplication changed from %s to %s', oldApp?.id, newApp?.id)
     
     if (this.isProjectStructuresPage && newApp && newApp.id !== oldApp?.id) {
       await this.handleApplicationChangeForProjectStructures(newApp)
@@ -90,25 +93,25 @@ export default class ProjectStructuresTable extends Vue {
 
   async handleApplicationChangeForProjectStructures(newApp: any) {
     try {
-      console.log('ProjectStructuresTable: Handling application change for ProjectStructures page')
+      debug('Handling application change for ProjectStructures page')
       
       const pageable = { pageNumber: 0, pageSize: 1 } as any
       const result = await Structures.getProjectService().findAllForApplication(newApp.id, pageable)
       const firstProject = result.content?.[0]
       
       if (firstProject) {
-        console.log('ProjectStructuresTable: Found first project:', firstProject.name, 'navigating to it')
+        debug('Found first project: %s, navigating to it', firstProject.name)
         
         const applicationId = newApp.id
         const projectId = firstProject.id ?? ''
         await this.$router.push(`/application/${encodeURIComponent(applicationId)}/project/${encodeURIComponent(projectId)}/structures`)
       } else {
-        console.log('ProjectStructuresTable: No projects found for application:', newApp.id)
+        debug('No projects found for application: %s', newApp.id)
         this.refreshTable()
         this.markProjectAsActive()
       }
     } catch (error) {
-      console.error('ProjectStructuresTable: Error handling application change:', error)
+      debug('Error handling application change: %O', error)
       this.refreshTable()
       this.markProjectAsActive()
     }
@@ -117,13 +120,13 @@ export default class ProjectStructuresTable extends Vue {
   get dataSource() {
     return {
       findAll: async (pageable: Pageable): Promise<IterablePage<Structure>> => {
-        console.log('ProjectStructuresTable: dataSource.findAll called with projectId:', this.projectId, 'and currentApplication:', APPLICATION_STATE.currentApplication?.id)
+        debug('dataSource.findAll called with projectId: %s, currentApplication: %s', this.projectId, APPLICATION_STATE.currentApplication?.id)
         const result = await Structures.getStructureService().findAllForProject(this.projectId, pageable)
         APPLICATION_STATE.structuresCount = result.totalElements ?? 0
         return result
       },
       search: async (_searchText: string, pageable: Pageable): Promise<IterablePage<Structure>> => {
-        console.log('ProjectStructuresTable: dataSource.search called with projectId:', this.projectId, 'and currentApplication:', APPLICATION_STATE.currentApplication?.id)
+        debug('dataSource.search called with projectId: %s, currentApplication: %s', this.projectId, APPLICATION_STATE.currentApplication?.id)
         const search = `projectId:${this.projectId} && ${this.searchText}`
         return Structures.getStructureService().search(search, pageable)
       }
@@ -153,7 +156,7 @@ export default class ProjectStructuresTable extends Vue {
       this.selectedStructure = item
       this.showModal = true
     } catch (e) {
-      console.error('[ProjectStructuresTable] Failed to open modal with structure:', e)
+      debug('Failed to open modal with structure: %O', e)
     }
   }
 
@@ -173,10 +176,9 @@ export default class ProjectStructuresTable extends Vue {
   }
 
   openPublishModal(item: Structure) {
-    console.log('ProjectStructuresTable: openPublishModal called for item:', item.name);
+    debug('openPublishModal called for item: %s', item.name);
     this.selectedStructure = item
     this.showPublishModal = true
-    console.log('ProjectStructuresTable: showPublishModal set to:', this.showPublishModal);
   }
 
   closePublishModal() {
@@ -204,10 +206,10 @@ export default class ProjectStructuresTable extends Vue {
 
   handleRowClick(item: Structure) {
     if (item.published) {
-      console.log('ProjectStructuresTable: Opening data modal for published structure');
+      debug('Opening data modal for published structure');
       this.openModal(item)
     } else {
-      console.log('ProjectStructuresTable: Opening publish modal for unpublished structure');
+      debug('Opening publish modal for unpublished structure');
       this.openPublishModal(item)
     }
   }
@@ -250,7 +252,7 @@ export default class ProjectStructuresTable extends Vue {
       delete item["publishing"];
     } catch (error: any) {
       delete item["publishing"];
-      console.error('Error unpublishing structure:', error);
+      debug('Error unpublishing structure: %O', error);
     }
   }
 
@@ -286,7 +288,7 @@ export default class ProjectStructuresTable extends Vue {
       delete item["publishing"];
     } catch (error: any) {
       delete item["publishing"];
-      console.error('Error publishing structure:', error);
+      debug('Error publishing structure: %O', error);
     }
   }
 
@@ -301,7 +303,7 @@ export default class ProjectStructuresTable extends Vue {
         await header.setActiveProjectById(this.applicationId, this.projectId)
       }
     } catch (e) {
-      console.error('[ProjectStructuresTable] Failed to mark active project:', e)
+      debug('Failed to mark active project: %O', e)
     }
   }
 }

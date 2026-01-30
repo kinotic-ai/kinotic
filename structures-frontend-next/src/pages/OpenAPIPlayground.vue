@@ -11,6 +11,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import Cookies from 'js-cookie'
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('openapi-playground')
 import { USER_STATE } from '@/states/IUserState'
 
 const iframeRef = ref(null)
@@ -28,8 +31,8 @@ onMounted(() => {
   const token = isOidcAuth ? Cookies.get('token') : null
   const sessionId = USER_STATE.connectedInfo?.sessionId
 
-  if (!isOidcAuth && !sessionId) {
-    console.warn('No active session for playground')
+  if (!token) {
+    debug('No token found in cookie')
     return
   }
 

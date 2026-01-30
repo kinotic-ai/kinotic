@@ -11,6 +11,9 @@ import { Structure, type IStructureService, Structures, type IEntitiesService } 
 
 import DatetimeUtil from '@/util/DatetimeUtil'
 import { StructureUtil } from '@/util/StructureUtil'
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('entity-list-old');
 
 @Component({
   components: {
@@ -84,7 +87,7 @@ if (!id) {
         this.find()
       })
       .catch((error) => {
-        console.error(`Error during structure retrieval: ${error.message}`)
+        debug('Error during structure retrieval: %O', error)
         this.displayAlert(error.message)
       })
   }
@@ -121,7 +124,7 @@ if (!id) {
   }
 
   displayAlert(text: string) {
-    console.log(text)
+    debug('Display alert: %s', text)
     // alert(text)
   }
 
