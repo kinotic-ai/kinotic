@@ -443,7 +443,7 @@ export default class Login extends Vue {
         debug('Signin callback successful - user: %O, access_token: %s', user.profile, user.access_token ? 'present' : 'missing');
       }
       
-      await this.userState.handleOidcLogin(user);
+      await this.userState.handleOidcLogin(user, provider);
       if (debugMode) {
         debug('OIDC login handled successfully');
       }
