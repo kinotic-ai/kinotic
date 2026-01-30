@@ -25,19 +25,12 @@ public class SystemMigrator implements Service {
     private transient MigrationExecutor migrationExecutor;
     @SpringResource(resourceClass = MigrationParser.class)
     private transient MigrationParser migrationParser;
-//    @SpringResource(resourceClass = ResourceLoader.class)
-//    private transient ResourceLoader resourceLoader;
 
     @Override
     public void execute() throws Exception {
         log.info("Initializing system migrations...");
         try {
             migrationExecutor.ensureMigrationIndexExists().get();
-
-//            PathMatchingResourcePatternResolver resolver = resourceLoader != null
-//                    && resourceLoader instanceof PathMatchingResourcePatternResolver ?
-//                    (PathMatchingResourcePatternResolver) resourceLoader :
-//                    new PathMatchingResourcePatternResolver(resourceLoader);
 
             PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
 
