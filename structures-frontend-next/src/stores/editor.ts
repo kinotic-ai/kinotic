@@ -1,5 +1,5 @@
 import {defineStore} from 'pinia'
-import {Structure} from '@mindignited/structures-api'
+import {Structure} from '@kinotic/structures-api'
 import {
     ArrayC3Type,
     C3Decorator,
@@ -19,7 +19,7 @@ import {
     ByteC3Type,
     ShortC3Type,
     MapC3Type
-} from '@mindignited/continuum-idl'
+} from '@kinotic/continuum-idl'
 import type {Edge, Node} from "@vue-flow/core"
 import {generateVueFlowGraphFromSchema} from '@/util/graph.ts'
 

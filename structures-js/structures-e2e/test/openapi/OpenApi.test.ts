@@ -1,4 +1,4 @@
-import {Structure,} from '@mindignited/structures-api'
+import {Structure,} from '@kinotic/structures-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
 import {createPersonStructureIfNotExist, initContinuumClient, shutdownContinuumClient} from '../TestHelpers.js'

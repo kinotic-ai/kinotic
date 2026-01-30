@@ -1,5 +1,5 @@
-import {Page, Pageable} from '@mindignited/continuum-client'
-import {IEntityService, Structure, Structures} from '@mindignited/structures-api'
+import {Page, Pageable} from '@kinotic/continuum-client'
+import {IEntityService, Structure, Structures} from '@kinotic/structures-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'

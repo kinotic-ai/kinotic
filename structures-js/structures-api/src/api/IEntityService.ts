@@ -1,5 +1,5 @@
 import {QueryParameter} from '@/api/domain/QueryParameter'
-import {Page, Pageable, IterablePage} from '@mindignited/continuum-client'
+import {Page, Pageable, IterablePage} from '@kinotic/continuum-client'
 import {EntitiesServiceSingleton, IEntitiesService} from '@/api/IEntitiesService'
 
 /**

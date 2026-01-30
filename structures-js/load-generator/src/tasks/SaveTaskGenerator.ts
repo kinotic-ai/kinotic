@@ -3,8 +3,8 @@ import {ContinuumOperationTaskGenerator} from '@/tasks/ContinuumOperationTaskGen
 import {ITaskFactory} from '@/tasks/ITaskFactory.js'
 import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
 import {generatePeople} from '@/utils/DataUtil.js'
-import {ConnectionInfo, ContinuumSingleton} from '@mindignited/continuum-client'
-import {EntitiesService} from '@mindignited/structures-api'
+import {ConnectionInfo, ContinuumSingleton} from '@kinotic/continuum-client'
+import {EntitiesService} from '@kinotic/structures-api'
 import { ITask } from './ITask';
 
 /**

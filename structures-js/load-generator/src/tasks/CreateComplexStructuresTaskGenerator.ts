@@ -1,6 +1,6 @@
 import { ITaskGenerator } from "./ITaskGenerator"
 import { ITask } from "./ITask"
-import { ConnectionInfo, Continuum } from '@mindignited/continuum-client'
+import { ConnectionInfo, Continuum } from '@kinotic/continuum-client'
 import { EcommerceTaskFactory } from './schema/EcommerceTaskFactory'
 import { HealthTaskFactory } from './schema/HealthTaskFactory'
 

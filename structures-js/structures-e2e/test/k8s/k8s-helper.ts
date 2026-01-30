@@ -1,4 +1,4 @@
-import { Continuum } from '@mindignited/continuum-client';
+import { Continuum } from '@kinotic/continuum-client';
 import { ChildProcess, execSync } from 'child_process';
 
 

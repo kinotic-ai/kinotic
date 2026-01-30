@@ -42,8 +42,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-facing-decorator'
 import CrudTable from '@/components/CrudTable.vue'
-import { type Identifiable } from '@mindignited/continuum-client'
-import { Structures, type IApplicationService } from '@mindignited/structures-api'
+import { type Identifiable } from '@kinotic/continuum-client'
+import { Structures, type IApplicationService } from '@kinotic/structures-api'
 import { mdiGraphql, mdiApi } from '@mdi/js'
 import type { CrudHeader } from '@/types/CrudHeader'
 import { createDebug } from '@/util/debug'

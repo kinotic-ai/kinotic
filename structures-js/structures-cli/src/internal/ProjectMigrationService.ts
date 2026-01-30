@@ -1,4 +1,4 @@
-import { IMigrationService, MigrationDefinition, MigrationRequest, Structures } from '@mindignited/structures-api'
+import { IMigrationService, MigrationDefinition, MigrationRequest, Structures } from '@kinotic/structures-api'
 import { readdir, readFile, access } from 'fs/promises'
 import { join } from 'path'
 import { constants } from 'fs'

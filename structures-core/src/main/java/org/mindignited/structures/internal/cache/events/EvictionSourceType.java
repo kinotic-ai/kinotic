@@ -1,5 +1,8 @@
 package org.mindignited.structures.internal.cache.events;
 
+import lombok.Getter;
+
+@Getter
 public enum EvictionSourceType {
     STRUCTURE("Structure"),
     NAMED_QUERY("Named Query");
@@ -10,7 +13,4 @@ public enum EvictionSourceType {
         this.displayName = displayName;
     }
 
-    public String getDisplayName() {
-        return displayName;
-    }
 }

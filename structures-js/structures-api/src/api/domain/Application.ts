@@ -1,4 +1,4 @@
-import { Identifiable } from '@mindignited/continuum-client'
+import { Identifiable } from '@kinotic/continuum-client'
 export class Application implements Identifiable<string> {
     public id: string
     public description: string

@@ -2,8 +2,10 @@ package org.mindignited.structures.internal.config;
 
 import io.vertx.core.Vertx;
 import io.vertx.ext.healthchecks.HealthChecks;
+import org.apache.ignite.Ignite;
 import org.mindignited.structures.api.services.security.AuthorizationServiceFactory;
 import org.mindignited.structures.internal.api.services.impl.security.NoopAuthorizationServiceFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -19,6 +21,9 @@ import org.springframework.context.annotation.Configuration;
 @ComponentScan(basePackages = "org.mindignited.structures")
 public class StructuresConfiguration {
 
+    @Autowired
+    private Ignite ignite;
+
     @Bean
     public HealthChecks healthChecks(Vertx vertx){
         return HealthChecks.create(vertx);
@@ -29,4 +34,6 @@ public class StructuresConfiguration {
     public AuthorizationServiceFactory authorizationServiceFactory(){
         return new NoopAuthorizationServiceFactory();
     }
+
+
 }

@@ -8,15 +8,15 @@ importers:
 
   .:
     dependencies:
-      '@mindignited/continuum-client':
-        specifier: 2.14.6
-        version: 2.14.6(reflect-metadata@0.2.2)
-      '@mindignited/continuum-idl':
-        specifier: ^2.0.5
-        version: 2.0.5
-      '@mindignited/structures-api':
-        specifier: ^3.5.0-beta.17
-        version: 3.5.0-beta.17(@mindignited/continuum-client@2.14.6(reflect-metadata@0.2.2))
+      '@kinotic/continuum-client':
+        specifier: 2.14.10
+        version: 2.14.10(reflect-metadata@0.2.2)
+      '@kinotic/continuum-idl':
+        specifier: ^2.0.4
+        version: 2.0.4
+      '@kinotic/structures-api':
+        specifier: ^3.5.0-beta.18
+        version: 3.5.0-beta.18(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))
       '@stomp/rx-stomp':
         specifier: 2.1.0
         version: 2.1.0(@stomp/stompjs@7.2.1)(rxjs@7.8.2)(uuid@13.0.0)
@@ -33,9 +33,9 @@ importers:
       '@faker-js/faker':
         specifier: ^10.2.0
         version: 10.2.0
-      '@mindignited/structures-cli':
-        specifier: ^3.5.0-beta.10
-        version: 3.5.0-beta.10(@types/node@25.0.6)(magicast@0.5.1)
+      '@kinotic/structures-cli':
+        specifier: ^3.5.0-beta.8
+        version: 3.5.0-beta.8(@types/node@25.0.6)(magicast@0.5.1)
       '@types/node':
         specifier: ^25.0.6
         version: 25.0.6
@@ -420,10 +420,6 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/figures@1.0.13':
-    resolution: {integrity: sha512-lGPVU3yO9ZNqA7vTYz26jny41lE7yoQansmqdMLBEfqaGsmdg7V3W9mK9Pvb5IL4EVZ9GnSDGMO/cJXud5dMaw==}
-    engines: {node: '>=18'}
-
   '@inquirer/figures@1.0.15':
     resolution: {integrity: sha512-t2IEY+unGHOzAaVM5Xx6DEWKeXlDDcNPeDyUpsRc6CUhBfU3VQOEl+Vssh7VNp1dR8MdUJBWhuObjXCsVpjN5g==}
     engines: {node: '>=18'}
@@ -619,21 +615,21 @@ packages:
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
 
-  '@mindignited/continuum-client@2.14.6':
-    resolution: {integrity: sha512-i//eveJVdy34YHBu0wPf3m0EW0G2McTkIg3TZBf9bVGTj+WDpslBTKD8YoP0gtcOdUMpILczIWFBRqW5jao8cw==}
+  '@kinotic/continuum-client@2.14.10':
+    resolution: {integrity: sha512-W+o2karVVqaWwyWwgobHfWR54m5weUivc5+H0JuLrXng71jat4Q/S/TAieCTJlVBMCx+PZ86P+zs7qDyMiplAA==}
     peerDependencies:
       reflect-metadata: ^0.2.2
 
-  '@mindignited/continuum-idl@2.0.5':
-    resolution: {integrity: sha512-hyqZxh+R+g4mfHTrtckACT6LmIqI+QoqnNi+3/2oVcjuZesLdDSu5NiaaGVNbGaAOTEYyFU4FCK+3QqLCEZFiQ==}
+  '@kinotic/continuum-idl@2.0.4':
+    resolution: {integrity: sha512-akXcSw6Pw6hdorPV1lU2RXvMS+kpWZQnzfZv3GysyUrVU8IAZU5N1FmBM8QmthJUz+SXNdHgYzuireaV8aLtAw==}
 
-  '@mindignited/structures-api@3.5.0-beta.17':
-    resolution: {integrity: sha512-CK+91adSzdF/uqspG8guyspbcckAh0X3KQzzpkpU7v1EpTcBy/Z3Re2RsQSaSulTFQER43i/U9Rpa5yr0Tx0aA==}
+  '@kinotic/structures-api@3.5.0-beta.18':
+    resolution: {integrity: sha512-Z0aC9A/GLKcRKqD0565RAjdIaPqI2ueS0LDq1u4OIoL1QHuRtuXUjbOwFFRLqg3hSCUskjmqTNu0ZnWqDtSdDw==}
     peerDependencies:
-      '@mindignited/continuum-client': ^2.14.5
+      '@kinotic/continuum-client': ^2.14.10
 
-  '@mindignited/structures-cli@3.5.0-beta.10':
-    resolution: {integrity: sha512-g47QFBaPFrfeHQSv593n0CI9mw3XA9jE8S1PrixAkYT3aV1xN4P5yCYA//ZcxkFBb6Xwrf3vI/P8Bxs1ZbwCMA==}
+  '@kinotic/structures-cli@3.5.0-beta.8':
+    resolution: {integrity: sha512-2Eibjqf9tbubBCVKyz9er1YctcfsNr5ZKGGCO5Kzq76exd03uE/xwk72xtodxFnDPDFoZCHe0x0JQH0XwyvhkQ==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -1162,17 +1158,11 @@ packages:
   bl@4.1.0:
     resolution: {integrity: sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w==}
 
-  bn.js@4.12.1:
-    resolution: {integrity: sha512-k8TVBiPkPJT9uHLdOKfFpqcfprwBFOAAXXozRubr7R7PfIuKvQlzcI4M0pALeqXN09vdaMbUdUj+pass+uULAg==}
-
   brace-expansion@1.1.11:
     resolution: {integrity: sha512-iCuPHDFgrHX7H2vEI/5xpz07zSHB00TpugqhmYtVmMO6518mCuRMoOYFldEBl0g187ufozdaHgWKcYFb61qGiA==}
 
   brace-expansion@2.0.1:
     resolution: {integrity: sha512-XnAIvQ8eM+kC6aULx6wuQiwVsnzsi9d3WxzV3FpWTGA19F621kwdbsAcFKXgKUHZWsy+mY6iL1sHTxWEFCytDA==}
-
-  brorand@1.1.0:
-    resolution: {integrity: sha512-cKV8tMCEpQs4hK/ik71d6LrPOnpkpGBR0wzxqr68g2m/LB2GxVYQroAjMJZRVM1Y4BCjCKc3vAamxSzOY2RP+w==}
 
   buffer-crc32@1.0.0:
     resolution: {integrity: sha512-Db1SbgBS/fg/392AblrMJk97KggmvYhr4pB5ZIMTWtaivCPMWLkmb7m21cJvpvgK+J3nsU2CmmixNBZx4vFj/w==}
@@ -1345,9 +1335,6 @@ packages:
   crypt@0.0.2:
     resolution: {integrity: sha512-mCxBlsHFYh9C+HVpiEacem8FEBnMXgU9gy4zmNC+SXAZNB/1idgp/aulFJ4FgCi7GPEVbfyng092GqL2k2rmow==}
 
-  csstype@3.1.3:
-    resolution: {integrity: sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw==}
-
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
 
@@ -1425,9 +1412,6 @@ packages:
     resolution: {integrity: sha512-UeJmFfOrAQS8OJWPZ4qtgHyWExa088/MtK5UEyoJGFH67cDEXkZSviOiKRCZ4Xij0zxI3JECgYs3oKx+AizQBA==}
     engines: {node: '>=0.10.0'}
     hasBin: true
-
-  elliptic@6.6.1:
-    resolution: {integrity: sha512-RaddvvMatK2LJHqFJ+YA4WysVN5Ita9E35botqIYspQ4TkRAlCicdzKOjlyv/1Za5RyTNn7di//eEV0uTAfe3g==}
 
   emoji-regex@10.4.0:
     resolution: {integrity: sha512-EC+0oUMY1Rqm4O6LLrgjtYDvcVYTy7chDnM4Q7030tP4Kwj3u/pR6gP9ygnp2CJMK5Gq+9Q2oqmrFJAz01DXjw==}
@@ -1540,14 +1524,6 @@ packages:
   fastest-levenshtein@1.0.16:
     resolution: {integrity: sha512-eRnCtTTtGZFpQCwhJiUOuxPQWRXVKYDn0b2PeHfXL6/Zi53SLAzAHfVhVWK2AryC/WH05kGfxhFIPvTF0SXQzg==}
     engines: {node: '>= 4.9.1'}
-
-  fdir@6.4.6:
-    resolution: {integrity: sha512-hiFoqpyZcfNm1yc4u8oWCf9A2c4D3QjCrks3zmoVKVxpQRzmPNar1hUJcBG2RQHvEVGDN+Jm81ZheVLAQMK6+w==}
-    peerDependencies:
-      picomatch: ^3 || ^4
-    peerDependenciesMeta:
-      picomatch:
-        optional: true
 
   fdir@6.5.0:
     resolution: {integrity: sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==}
@@ -1681,15 +1657,9 @@ packages:
     resolution: {integrity: sha512-NqADB8VjPFLM2V0VvHUewwwsw0ZWBaIdgo+ieHtK3hasLz4qeCRjYcqfB6AQrBggRKppKF8L52/VqdVsO47Dlw==}
     engines: {node: '>= 0.4'}
 
-  hash.js@1.1.7:
-    resolution: {integrity: sha512-taOaskGt4z4SOANNseOviYDvjEJinIkRgmp7LbKP2YTTmVxWBl87s/uzK9r+44BclBSp2X7K1hqeNfz9JbBeXA==}
-
   hasown@2.0.2:
     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
     engines: {node: '>= 0.4'}
-
-  hmac-drbg@1.0.1:
-    resolution: {integrity: sha512-Tti3gMqLdZfhOQY1Mzf/AanLiqh1WTiJgEj26ZuYQ9fbkLomzGchCws4FyrSd4VkpBfiNhaE1On+lOz894jvXg==}
 
   hosted-git-info@7.0.2:
     resolution: {integrity: sha512-puUZAUKT5m8Zzvs72XWy3HtvVbTWljRE66cP60bxJzAqf2DgICo7lYTY2IHUmLnNpjYvw5bvmoHvPc0QO2a62w==}
@@ -1947,16 +1917,6 @@ packages:
     resolution: {integrity: sha512-e5ISH9xMYU0DzrT+jl8q2ze9D6eWBto+I8CNpe+VI+K2J/F/k3PdkdTdz4wvGVH4NTpo+NRYTVIuMQEMMcsLqg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  minimalistic-assert@1.0.1:
-    resolution: {integrity: sha512-UtJcAD4yEaGtjPezWuO9wC4nwUnVH/8/Im3yEHQP4b67cXlD/Qr9hdITCU1xDbSEXg2XKNaP8jsReV7vQd00/A==}
-
-  minimalistic-crypto-utils@1.0.1:
-    resolution: {integrity: sha512-JIYlbt6g8i5jKfJ3xz7rF0LXmv2TkDxBLUkiBeZ7bAx4GnnNMr8xFpGnOxn6GhTEHx3SjRrZEoU+j04prX1ktg==}
-
-  minimatch@10.0.3:
-    resolution: {integrity: sha512-IPZ167aShDZZUMdRk66cyQAW3qr0WzbHkPdMYa8bzZhlHhO3jALbKdxcaak7W9FfT2rZNpQuUu4Od7ILEpXSaw==}
-    engines: {node: 20 || >=22}
-
   minimatch@10.1.1:
     resolution: {integrity: sha512-enIvLvRAFZYXJzkCYG5RKmPfrFArdLv+R+lbQ53BmIMLIry74bjKzX6iHAm8WYamJkhSSEabrWN5D97XnKObjQ==}
     engines: {node: 20 || >=22}
@@ -2203,10 +2163,6 @@ packages:
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
-
-  picomatch@4.0.2:
-    resolution: {integrity: sha512-M7BAV6Rlcy5u+m6oPhAPFgJTzAioX/6B0DxyvDlo9l8+T3nLKbrczg2WLUyzd45L8RqfUMyGPzekbMvX2Ldkwg==}
-    engines: {node: '>=12'}
 
   picomatch@4.0.3:
     resolution: {integrity: sha512-5gTmgEY/sqK6gFXLIsQNH19lWb4ebPDLA4SdLP7dsWkIXHWlG66oPuVvXSGFPppYZz8ZDZq0dYYrbHfBCVUb1Q==}
@@ -2499,16 +2455,9 @@ packages:
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
 
-  tinyexec@1.0.1:
-    resolution: {integrity: sha512-5uC6DDlmeqiOwCPmK9jMSdOuZTh8bU39Ys6yidB+UTt5hfZUPGAypSgFRiEp+jbi9qH40BLDvy85jIU88wKSqw==}
-
   tinyexec@1.0.2:
     resolution: {integrity: sha512-W/KYk+NFhkmsYpuHq5JykngiOCnxeVL8v8dFnqxSD8qEEdRfXk1SDM6JzNqcERbcGYj9tMrDQBYV9cjgnunFIg==}
     engines: {node: '>=18'}
-
-  tinyglobby@0.2.14:
-    resolution: {integrity: sha512-tX5e7OM1HnYr2+a2C/4V0htOcSQcoSTH9KgJnVvNm5zm/cyEWKJ7j7YutsH9CxMdtOkkLFy2AHrMci9IM8IPZQ==}
-    engines: {node: '>=12.0.0'}
 
   tinyglobby@0.2.15:
     resolution: {integrity: sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ==}
@@ -2756,10 +2705,6 @@ packages:
     engines: {node: '>=4.0.0'}
     hasBin: true
 
-  yoctocolors-cjs@2.1.2:
-    resolution: {integrity: sha512-cYVsTjKl8b+FrnidjibDWskAv7UKOfcwaVZdp/it9n1s9fU3IkgDbhdIRKCW4JDsAlECJY0ytoVPT3sK6kideA==}
-    engines: {node: '>=18'}
-
   yoctocolors-cjs@2.1.3:
     resolution: {integrity: sha512-U/PBtDf35ff0D8X8D0jfdzHYEPFxAI7jJlxZXwCSez5M3190m+QobIfh+sWDWSHMCWWJN2AWamkegn6vr6YBTw==}
     engines: {node: '>=18'}
@@ -2962,7 +2907,7 @@ snapshots:
 
   '@inquirer/core@9.2.1':
     dependencies:
-      '@inquirer/figures': 1.0.13
+      '@inquirer/figures': 1.0.15
       '@inquirer/type': 2.0.0
       '@types/mute-stream': 0.0.4
       '@types/node': 22.13.10
@@ -2973,7 +2918,7 @@ snapshots:
       signal-exit: 4.1.0
       strip-ansi: 6.0.1
       wrap-ansi: 6.2.0
-      yoctocolors-cjs: 2.1.2
+      yoctocolors-cjs: 2.1.3
 
   '@inquirer/editor@4.2.23(@types/node@25.0.6)':
     dependencies:
@@ -3019,8 +2964,6 @@ snapshots:
       iconv-lite: 0.7.0
     optionalDependencies:
       '@types/node': 25.0.6
-
-  '@inquirer/figures@1.0.13': {}
 
   '@inquirer/figures@1.0.15': {}
 
@@ -3135,10 +3078,10 @@ snapshots:
   '@inquirer/select@2.5.0':
     dependencies:
       '@inquirer/core': 9.2.1
-      '@inquirer/figures': 1.0.13
+      '@inquirer/figures': 1.0.15
       '@inquirer/type': 1.5.5
       ansi-escapes: 4.3.2
-      yoctocolors-cjs: 2.1.2
+      yoctocolors-cjs: 2.1.3
 
   '@inquirer/select@4.4.2(@types/node@25.0.6)':
     dependencies:
@@ -3208,7 +3151,7 @@ snapshots:
 
   '@js-sdsl/ordered-map@4.4.2': {}
 
-  '@mindignited/continuum-client@2.14.6(reflect-metadata@0.2.2)':
+  '@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2)':
     dependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/semantic-conventions': 1.38.0
@@ -3216,7 +3159,6 @@ snapshots:
       '@stomp/stompjs': 7.2.1
       '@types/debug': 4.1.12
       debug: 4.4.3(supports-color@8.1.1)
-      elliptic: 6.6.1
       p-tap: 4.0.0
       reflect-metadata: 0.2.2
       rxjs: 7.8.2
@@ -3225,21 +3167,21 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@mindignited/continuum-idl@2.0.5': {}
+  '@kinotic/continuum-idl@2.0.4': {}
 
-  '@mindignited/structures-api@3.5.0-beta.17(@mindignited/continuum-client@2.14.6(reflect-metadata@0.2.2))':
+  '@kinotic/structures-api@3.5.0-beta.18(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))':
     dependencies:
-      '@mindignited/continuum-client': 2.14.6(reflect-metadata@0.2.2)
-      '@mindignited/continuum-idl': 2.0.5
+      '@kinotic/continuum-client': 2.14.10(reflect-metadata@0.2.2)
+      '@kinotic/continuum-idl': 2.0.4
       reflect-metadata: 0.2.2
       rxjs: 7.8.2
 
-  '@mindignited/structures-cli@3.5.0-beta.10(@types/node@25.0.6)(magicast@0.5.1)':
+  '@kinotic/structures-cli@3.5.0-beta.8(@types/node@25.0.6)(magicast@0.5.1)':
     dependencies:
       '@inquirer/prompts': 8.1.0(@types/node@25.0.6)
-      '@mindignited/continuum-client': 2.14.6(reflect-metadata@0.2.2)
-      '@mindignited/continuum-idl': 2.0.5
-      '@mindignited/structures-api': 3.5.0-beta.17(@mindignited/continuum-client@2.14.6(reflect-metadata@0.2.2))
+      '@kinotic/continuum-client': 2.14.10(reflect-metadata@0.2.2)
+      '@kinotic/continuum-idl': 2.0.4
+      '@kinotic/structures-api': 3.5.0-beta.18(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))
       '@oclif/core': 4.8.0
       '@oclif/plugin-autocomplete': 3.2.39
       '@oclif/plugin-help': 6.2.24
@@ -3285,7 +3227,7 @@ snapshots:
       semver: 7.7.3
       string-width: 4.2.3
       supports-color: 8.1.1
-      tinyglobby: 0.2.14
+      tinyglobby: 0.2.15
       widest-line: 3.1.0
       wordwrap: 1.0.0
       wrap-ansi: 7.0.0
@@ -3505,9 +3447,9 @@ snapshots:
 
   '@ts-morph/common@0.28.1':
     dependencies:
-      minimatch: 10.0.3
+      minimatch: 10.1.1
       path-browserify: 1.0.1
-      tinyglobby: 0.2.14
+      tinyglobby: 0.2.15
 
   '@types/chai@5.2.2':
     dependencies:
@@ -3557,7 +3499,7 @@ snapshots:
   '@types/react@18.3.18':
     dependencies:
       '@types/prop-types': 15.7.14
-      csstype: 3.1.3
+      csstype: 3.2.3
 
   '@types/ssh2-streams@0.1.12':
     dependencies:
@@ -3882,8 +3824,6 @@ snapshots:
       inherits: 2.0.4
       readable-stream: 3.6.2
 
-  bn.js@4.12.1: {}
-
   brace-expansion@1.1.11:
     dependencies:
       balanced-match: 1.0.2
@@ -3892,8 +3832,6 @@ snapshots:
   brace-expansion@2.0.1:
     dependencies:
       balanced-match: 1.0.2
-
-  brorand@1.1.0: {}
 
   buffer-crc32@1.0.0: {}
 
@@ -4064,8 +4002,6 @@ snapshots:
 
   crypt@0.0.2: {}
 
-  csstype@3.1.3: {}
-
   csstype@3.2.3: {}
 
   data-uri-to-buffer@6.0.2: {}
@@ -4141,16 +4077,6 @@ snapshots:
   ejs@3.1.10:
     dependencies:
       jake: 10.9.2
-
-  elliptic@6.6.1:
-    dependencies:
-      bn.js: 4.12.1
-      brorand: 1.1.0
-      hash.js: 1.1.7
-      hmac-drbg: 1.0.1
-      inherits: 2.0.4
-      minimalistic-assert: 1.0.1
-      minimalistic-crypto-utils: 1.0.1
 
   emoji-regex@10.4.0: {}
 
@@ -4259,10 +4185,6 @@ snapshots:
       fastest-levenshtein: 1.0.16
 
   fastest-levenshtein@1.0.16: {}
-
-  fdir@6.4.6(picomatch@4.0.2):
-    optionalDependencies:
-      picomatch: 4.0.2
 
   fdir@6.5.0(picomatch@4.0.3):
     optionalDependencies:
@@ -4394,20 +4316,9 @@ snapshots:
     dependencies:
       has-symbols: 1.1.0
 
-  hash.js@1.1.7:
-    dependencies:
-      inherits: 2.0.4
-      minimalistic-assert: 1.0.1
-
   hasown@2.0.2:
     dependencies:
       function-bind: 1.1.2
-
-  hmac-drbg@1.0.1:
-    dependencies:
-      hash.js: 1.1.7
-      minimalistic-assert: 1.0.1
-      minimalistic-crypto-utils: 1.0.1
 
   hosted-git-info@7.0.2:
     dependencies:
@@ -4653,14 +4564,6 @@ snapshots:
 
   mimic-response@4.0.0: {}
 
-  minimalistic-assert@1.0.1: {}
-
-  minimalistic-crypto-utils@1.0.1: {}
-
-  minimatch@10.0.3:
-    dependencies:
-      '@isaacs/brace-expansion': 5.0.0
-
   minimatch@10.1.1:
     dependencies:
       '@isaacs/brace-expansion': 5.0.0
@@ -4729,7 +4632,7 @@ snapshots:
       consola: 3.4.2
       pathe: 2.0.3
       pkg-types: 2.3.0
-      tinyexec: 1.0.1
+      tinyexec: 1.0.2
 
   object-hash@3.0.0: {}
 
@@ -4810,8 +4713,6 @@ snapshots:
   perfect-debounce@2.0.0: {}
 
   picocolors@1.1.1: {}
-
-  picomatch@4.0.2: {}
 
   picomatch@4.0.3: {}
 
@@ -5191,14 +5092,7 @@ snapshots:
 
   tinybench@2.9.0: {}
 
-  tinyexec@1.0.1: {}
-
   tinyexec@1.0.2: {}
-
-  tinyglobby@0.2.14:
-    dependencies:
-      fdir: 6.4.6(picomatch@4.0.2)
-      picomatch: 4.0.2
 
   tinyglobby@0.2.15:
     dependencies:
@@ -5392,8 +5286,6 @@ snapshots:
       yargs-parser: 21.1.1
 
   yarn@1.22.22: {}
-
-  yoctocolors-cjs@2.1.2: {}
 
   yoctocolors-cjs@2.1.3: {}
 

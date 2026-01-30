@@ -1,4 +1,4 @@
-import { EntityService, type IEntitiesService } from '@mindignited/structures-api'
+import { EntityService, type IEntitiesService } from '@kinotic/structures-api'
 import { Provider } from '../../../entity/domain/health/Provider.js'
 import {ClinicalResearch,
 GrantFunding,

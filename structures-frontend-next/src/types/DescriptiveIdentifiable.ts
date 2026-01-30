@@ -1,4 +1,4 @@
-import type { Identifiable } from '@mindignited/continuum-client'
+import type { Identifiable } from '@kinotic/continuum-client'
 
 export interface DescriptiveIdentifiable extends Identifiable<string> {
     description?: string

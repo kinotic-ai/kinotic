@@ -1,4 +1,4 @@
-import {Entity, Id, MultiTenancyType, Precision, PrecisionType} from '@mindignited/structures-api'
+import {Entity, Id, MultiTenancyType, Precision, PrecisionType} from '@kinotic/structures-api'
 import {Address} from './Address.js'
 
 

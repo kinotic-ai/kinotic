@@ -1,10 +1,13 @@
 package org.mindignited.structures.internal.cache.events;
 
+import lombok.Getter;
+
 /**
  * Type-safe enum defining the source/trigger of cache eviction events
  * This helps identify what initiated the cache eviction and helps determine
  * the appropriate execution path
  */
+@Getter
 public enum EvictionSourceOperation {
 
     /**
@@ -23,7 +26,4 @@ public enum EvictionSourceOperation {
         this.displayName = displayName;
     }
 
-    public String getDisplayName() {
-        return displayName;
-    }
 }

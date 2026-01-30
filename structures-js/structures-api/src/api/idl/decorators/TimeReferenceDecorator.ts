@@ -1,4 +1,4 @@
-import {C3Decorator} from '@mindignited/continuum-idl'
+import {C3Decorator} from '@kinotic/continuum-idl'
 
 /**
  * This is used for data streams to signify the field that should be used as the time reference.

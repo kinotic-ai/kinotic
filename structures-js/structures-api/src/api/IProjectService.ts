@@ -1,4 +1,4 @@
-import {Continuum, CrudServiceProxy, FunctionalIterablePage, ICrudServiceProxy, IterablePage, Page, Pageable} from '@mindignited/continuum-client'
+import {Continuum, CrudServiceProxy, FunctionalIterablePage, ICrudServiceProxy, IterablePage, Page, Pageable} from '@kinotic/continuum-client'
 import {Project} from '@/api/domain/Project'
 
 export interface IProjectService extends ICrudServiceProxy<Project> {

@@ -1,5 +1,5 @@
 {
-  "name": "@mindignited/load-generator",
+  "name": "@kinotic/load-generator",
   "private": true,
   "version": "0.3.0",
   "type": "module",
@@ -30,10 +30,10 @@
   },
   "dependencies": {
     "@faker-js/faker": "^10.1.0",
-    "@mindignited/continuum-client": "^2.14.5",
-    "@mindignited/continuum-idl": "^2.0.4",
-    "@mindignited/structures-api": "^3.5.0-beta.17",
-    "@mindignited/structures-cli": "^3.5.0-beta.10",
+    "@kinotic/continuum-client": "^2.14.10",
+    "@kinotic/continuum-idl": "^2.0.4",
+    "@kinotic/structures-api": "^3.5.0-beta.18",
+    "@kinotic/structures-cli": "^3.5.0-beta.8",
     "@opentelemetry/api": "1.9.0",
     "@opentelemetry/exporter-trace-otlp-grpc": "0.208.0",
     "@opentelemetry/instrumentation": "0.208.0",

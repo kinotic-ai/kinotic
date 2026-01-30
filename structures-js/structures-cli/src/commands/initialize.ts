@@ -4,7 +4,7 @@ import path from 'path'
 import chalk from 'chalk'
 import { input } from '@inquirer/prompts'
 import { isStructuresProject, saveStructuresProjectConfig } from '../internal/state/StructuresProject.js'
-import { TypescriptProjectConfig } from '@mindignited/structures-api'
+import { TypescriptProjectConfig } from '@kinotic/structures-api'
 
 /**
  * Validates the application name according to server requirements:

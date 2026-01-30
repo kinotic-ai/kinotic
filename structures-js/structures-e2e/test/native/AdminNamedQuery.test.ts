@@ -1,4 +1,4 @@
-import {AdminEntityService, IAdminEntityService, IEntityService, Structure, Structures} from '@mindignited/structures-api'
+import {AdminEntityService, IAdminEntityService, IEntityService, Structure, Structures} from '@kinotic/structures-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'

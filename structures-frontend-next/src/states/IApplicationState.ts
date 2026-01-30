@@ -1,6 +1,6 @@
 import { NavItem } from '@/components/NavItem'
-import { Pageable } from '@mindignited/continuum-client'
-import { Application, Structures } from '@mindignited/structures-api'
+import { Pageable } from '@kinotic/continuum-client'
+import { Application, Structures } from '@kinotic/structures-api'
 import { computed, type ComputedRef, markRaw, reactive, type Reactive } from 'vue'
 import type { NavigationGuardNext, RouteLocationNormalized, Router, RouteRecordRaw } from 'vue-router'
 import { createDebug } from '@/util/debug'

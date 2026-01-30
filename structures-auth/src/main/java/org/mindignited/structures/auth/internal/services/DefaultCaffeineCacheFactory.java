@@ -1,24 +1,19 @@
 package org.mindignited.structures.auth.internal.services;
 
 import com.github.benmanes.caffeine.cache.*;
-import com.github.benmanes.caffeine.cache.Caffeine;
+import lombok.extern.slf4j.Slf4j;
+import org.mindignited.structures.auth.api.domain.EvictionEvent;
+import org.mindignited.structures.auth.api.services.CaffeineCacheFactory;
+import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
-import org.mindignited.structures.auth.api.domain.EvictionEvent;
-import org.mindignited.structures.auth.api.services.CaffeineCacheFactory;
-import org.springframework.stereotype.Component;
-
-import lombok.extern.slf4j.Slf4j;
-
 /**
  * Factory class for creating Caffeine caches with a fluent builder API.
  * Centralizes cache creation to allow consistent configuration and optional
  * per-cache removal listeners for tracking evictions.
- * <p>
- * Created by Navíd Mitchell 🤪 on 1/2/26.
  */
 @Slf4j
 @Component
@@ -171,7 +166,7 @@ public class DefaultCaffeineCacheFactory implements CaffeineCacheFactory {
          * <p>
          * This feature cannot be used in conjunction when {@link #weakKeys()} is combined with
          * {@link #buildAsync}.
-         * @param removalListener the listener to notify when entries are removed
+         * @param evictionListener the listener to notify when entries are removed
          * @return this builder instance
          */
         public CacheBuilder<K, V> evictionListener(RemovalListener<K, V> evictionListener) {

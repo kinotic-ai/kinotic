@@ -1,4 +1,4 @@
-import {Structure, Structures} from '@mindignited/structures-api'
+import {Structure, Structures} from '@kinotic/structures-api'
 import * as allure from 'allure-js-commons'
 import axios from 'axios'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'

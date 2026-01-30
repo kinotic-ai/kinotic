@@ -7,7 +7,7 @@ import {
     IterablePage,
     IServiceRegistry,
     FunctionalIterablePage
-} from '@mindignited/continuum-client'
+} from '@kinotic/continuum-client'
 
 export interface IEntitiesService {
 

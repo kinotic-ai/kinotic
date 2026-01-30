@@ -9,9 +9,9 @@ import type {
   Identifiable,
   IterablePage,
   Pageable,
-} from "@mindignited/continuum-client";
+} from "@kinotic/continuum-client";
 import { APPLICATION_STATE } from "@/states/IApplicationState";
-import { Structure, Structures, type IStructureService } from "@mindignited/structures-api";
+import { Structure, Structures, type IStructureService } from "@kinotic/structures-api";
 import type { CrudHeader } from "@/types/CrudHeader";
 import DatetimeUtil from "@/util/DatetimeUtil";
 import { createDebug } from '@/util/debug';

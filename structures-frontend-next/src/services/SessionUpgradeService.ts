@@ -1,4 +1,4 @@
-import {Continuum, type IServiceProxy} from '@mindignited/continuum-client'
+import {Continuum, type IServiceProxy} from '@kinotic/continuum-client'
 
 export class SessionMetadata {
     public sessionId!: string

@@ -1,5 +1,5 @@
-import { Pageable } from '@mindignited/continuum-client';
-import { Structures, IEntityService, StructureService } from '@mindignited/structures-api';
+import { Pageable } from '@kinotic/continuum-client';
+import { Structures, IEntityService, StructureService } from '@kinotic/structures-api';
 import { WebSocket } from 'ws';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { createVehicleStructure, createTestVehicles } from '../TestHelpers';
