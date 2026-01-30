@@ -1,14 +1,14 @@
 import {faker} from '@faker-js/faker/locale/en'
-import {CodeGenerationService} from '@mindignited/structures-cli/dist/internal/CodeGenerationService.js'
-import {ConsoleLogger} from '@mindignited/structures-cli/dist/internal/Logger.js'
-import {Continuum, Direction, Order, Pageable} from '@mindignited/continuum-client'
+import {CodeGenerationService} from '@kinotic/structures-cli/dist/internal/CodeGenerationService.js'
+import {ConsoleLogger} from '@kinotic/structures-cli/dist/internal/Logger.js'
+import {Continuum, Direction, Order, Pageable} from '@kinotic/continuum-client'
 import {
     ObjectC3Type,
     FunctionDefinition
-} from '@mindignited/continuum-idl'
+} from '@kinotic/continuum-idl'
 import {randomUUID} from 'node:crypto'
 import {expect} from 'vitest'
-import {IterablePage} from '@mindignited/continuum-client'
+import {IterablePage} from '@kinotic/continuum-client'
 import {
     Structures,
     Structure,
@@ -18,7 +18,7 @@ import {
     QueryDecorator,
     Project,
     TypescriptProjectConfig
-} from '@mindignited/structures-api'
+} from '@kinotic/structures-api'
 import {Alert} from './domain/Alert.js'
 import {Person} from './domain/Person.js'
 import {inject} from 'vitest'

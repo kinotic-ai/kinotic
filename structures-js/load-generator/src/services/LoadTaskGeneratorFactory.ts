@@ -9,7 +9,7 @@ import {MultiTenantSearchTaskGenerator} from '@/tasks/MultiTenantSearchTaskGener
 import {MultiTenantTaskGeneratorDelegator, TenantId} from '@/tasks/MultiTenantTaskGeneratorDelegator.js'
 import {SaveTaskGenerator} from '@/tasks/SaveTaskGenerator.js'
 import {SearchPeopleTaskGenerator} from '@/tasks/SearchPeopleTaskGenerator.js'
-import {ConnectionInfo} from '@mindignited/continuum-client'
+import {ConnectionInfo} from '@kinotic/continuum-client'
 
 
 export class LoadTaskGeneratorFactory {

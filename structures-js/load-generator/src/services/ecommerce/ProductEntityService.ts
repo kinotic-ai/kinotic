@@ -1,4 +1,4 @@
-import { IEntitiesService } from '@mindignited/structures-api'
+import { IEntitiesService } from '@kinotic/structures-api'
 import { BaseProductEntityService } from './generated/BaseProductEntityService.js'
 
 /**

@@ -6,7 +6,7 @@ import {
     DateC3Type,
     DoubleC3Type, EnumC3Type, FloatC3Type, IntC3Type, LongC3Type,
     ShortC3Type, StringC3Type
-} from '@mindignited/continuum-idl'
+} from '@kinotic/continuum-idl'
 import {IConversionContext} from '../IConversionContext.js'
 import {ITypeConverter} from '../ITypeConverter.js'
 import {LiteralStatementMapper, StatementMapper} from './StatementMapper.js'

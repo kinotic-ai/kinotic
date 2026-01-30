@@ -1,4 +1,4 @@
-import { Continuum, IServiceProxy } from '@mindignited/continuum-client'
+import { Continuum, IServiceProxy } from '@kinotic/continuum-client'
 import { InsightRequest } from '@/api/domain/insights/InsightRequest'
 import { InsightProgress } from '@/api/domain/insights/InsightProgress'
 import { Observable } from 'rxjs'

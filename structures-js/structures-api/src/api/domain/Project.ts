@@ -1,4 +1,4 @@
-import { Identifiable } from '@mindignited/continuum-client'
+import { Identifiable } from '@kinotic/continuum-client'
 import { ProjectType } from '@/api/domain/ProjectType'
 
 export class Project implements Identifiable<string> {

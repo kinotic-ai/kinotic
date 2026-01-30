@@ -8,11 +8,11 @@ Structures CLI
 # Usage
 <!-- usage -->
 ```sh-session
-$ npm install -g @mindignited/structures-cli
+$ npm install -g @kinotic/structures-cli
 $ structures COMMAND
 running command...
 $ structures (--version)
-@mindignited/structures-cli/3.5.0-beta.10 darwin-arm64 node-v22.13.1
+@kinotic/structures-cli/3.5.0-beta.8 darwin-arm64 node-v22.13.1
 $ structures --help [COMMAND]
 USAGE
   $ structures COMMAND
@@ -122,7 +122,7 @@ EXAMPLES
   $ structures gen -v
 ```
 
-_See code: [src/commands/generate.ts](https://github.com/MindIgnited/structures/blob/v3.5.0-beta.10/src/commands/generate.ts)_
+_See code: [src/commands/generate.ts](https://github.com/MindIgnited/structures/blob/v3.5.0-beta.8/src/commands/generate.ts)_
 
 ## `structures help [COMMAND]`
 
@@ -198,7 +198,7 @@ EXAMPLES
   $ structures init -a my.app -e path/to/entities -g path/to/services
 ```
 
-_See code: [src/commands/initialize.ts](https://github.com/MindIgnited/structures/blob/v3.5.0-beta.10/src/commands/initialize.ts)_
+_See code: [src/commands/initialize.ts](https://github.com/MindIgnited/structures/blob/v3.5.0-beta.8/src/commands/initialize.ts)_
 
 ## `structures plugins`
 
@@ -496,13 +496,14 @@ Synchronize the local Entity definitions with the Structures Server
 
 ```
 USAGE
-  $ structures sync [-s <value>] [-p] [-v] [--dryRun]
+  $ structures sync [-s <value>] [-p] [-v] [-f <value>] [--dryRun]
 
 FLAGS
-  -p, --publish         Publish each Entity after save/update
-  -s, --server=<value>  The structures server to connect to
-  -v, --verbose         Enable verbose logging
-      --dryRun          Dry run enables verbose logging and does not save any changes to the server
+  -f, --authHeaderFile=<value>  JSON File containing authentication headers
+  -p, --publish                 Publish each Entity after save/update
+  -s, --server=<value>          The structures server to connect to
+  -v, --verbose                 Enable verbose logging
+      --dryRun                  Dry run enables verbose logging and does not save any changes to the server
 
 DESCRIPTION
   Synchronize the local Entity definitions with the Structures Server
@@ -526,13 +527,14 @@ Synchronize the local Entity definitions with the Structures Server
 
 ```
 USAGE
-  $ structures synchronize [-s <value>] [-p] [-v] [--dryRun]
+  $ structures synchronize [-s <value>] [-p] [-v] [-f <value>] [--dryRun]
 
 FLAGS
-  -p, --publish         Publish each Entity after save/update
-  -s, --server=<value>  The structures server to connect to
-  -v, --verbose         Enable verbose logging
-      --dryRun          Dry run enables verbose logging and does not save any changes to the server
+  -f, --authHeaderFile=<value>  JSON File containing authentication headers
+  -p, --publish                 Publish each Entity after save/update
+  -s, --server=<value>          The structures server to connect to
+  -v, --verbose                 Enable verbose logging
+      --dryRun                  Dry run enables verbose logging and does not save any changes to the server
 
 DESCRIPTION
   Synchronize the local Entity definitions with the Structures Server
@@ -550,7 +552,7 @@ EXAMPLES
   $ structures sync -p -v -s http://localhost:9090
 ```
 
-_See code: [src/commands/synchronize.ts](https://github.com/MindIgnited/structures/blob/v3.5.0-beta.10/src/commands/synchronize.ts)_
+_See code: [src/commands/synchronize.ts](https://github.com/MindIgnited/structures/blob/v3.5.0-beta.8/src/commands/synchronize.ts)_
 
 ## `structures update [CHANNEL]`
 

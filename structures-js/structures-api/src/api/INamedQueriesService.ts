@@ -1,5 +1,5 @@
 import {NamedQueriesDefinition} from '@/api/domain/NamedQueriesDefinition'
-import {Continuum, CrudServiceProxy, ICrudServiceProxy,} from '@mindignited/continuum-client'
+import {Continuum, CrudServiceProxy, ICrudServiceProxy,} from '@kinotic/continuum-client'
 
 export interface INamedQueriesService extends ICrudServiceProxy<NamedQueriesDefinition> {
 

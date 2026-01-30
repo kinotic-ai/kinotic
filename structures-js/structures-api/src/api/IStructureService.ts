@@ -1,4 +1,4 @@
-import {Continuum, CrudServiceProxy, FunctionalIterablePage, ICrudServiceProxy, IterablePage, Page, Pageable} from '@mindignited/continuum-client'
+import {Continuum, CrudServiceProxy, FunctionalIterablePage, ICrudServiceProxy, IterablePage, Page, Pageable} from '@kinotic/continuum-client'
 import {Structure} from '@/api/domain/Structure'
 
 

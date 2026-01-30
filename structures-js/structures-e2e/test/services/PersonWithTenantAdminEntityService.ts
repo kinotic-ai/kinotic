@@ -1,4 +1,4 @@
-import { IAdminEntitiesService, Query, TenantSelection } from '@mindignited/structures-api'
+import { IAdminEntitiesService, Query, TenantSelection } from '@kinotic/structures-api'
 import { BasePersonWithTenantAdminEntityService } from './generated/BasePersonWithTenantAdminEntityService.js'
 
 export class CountResult {

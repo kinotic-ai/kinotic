@@ -1,5 +1,5 @@
-import {Continuum} from '@mindignited/continuum-client'
-import {FunctionDefinition, ObjectC3Type} from '@mindignited/continuum-idl'
+import {Continuum} from '@kinotic/continuum-client'
+import {FunctionDefinition, ObjectC3Type} from '@kinotic/continuum-idl'
 import {INamedQueriesService,
         IStructureService,
         NamedQueriesDefinition,
@@ -8,7 +8,7 @@ import {INamedQueriesService,
         Structure,
         Structures,
         TypescriptExternalProjectConfig,
-        TypescriptProjectConfig} from '@mindignited/structures-api'
+        TypescriptProjectConfig} from '@kinotic/structures-api'
 import {Args, Command, Flags} from '@oclif/core'
 import chalk from 'chalk'
 import {WebSocket} from 'ws'

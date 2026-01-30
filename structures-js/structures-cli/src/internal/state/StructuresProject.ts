@@ -3,8 +3,8 @@ import {CalculatedPropertyConfiguration,
         TransformConfiguration,
         TypescriptExternalProjectConfig,
         TypescriptProjectConfig
-    } from '@mindignited/structures-api'
-import type { StructuresProjectConfig } from '@mindignited/structures-api'
+    } from '@kinotic/structures-api'
+import type { StructuresProjectConfig } from '@kinotic/structures-api'
 import {createStateManager} from './IStateManager.js'
 import { loadConfig } from 'c12'
 import path from 'path'
