@@ -4,12 +4,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.resources.SpringResource;
-import org.mindignited.structures.api.services.StructureService;
-import org.mindignited.structures.api.services.NamedQueriesService;
 import org.mindignited.structures.internal.cache.events.CacheEvictionEvent;
 import org.mindignited.structures.internal.cache.events.EvictionSourceOperation;
 import org.mindignited.structures.internal.cache.events.EvictionSourceType;
 import org.springframework.context.ApplicationEventPublisher;
+import org.mindignited.structures.internal.config.CacheEvictionConfiguration;
 
 /**
  * Simple Ignite Compute Grid task for cluster-wide cache eviction.
@@ -48,22 +47,6 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
      */
     @SpringResource(resourceName = "applicationEventPublisher")
     private transient ApplicationEventPublisher eventPublisher;
-
-    /**
-     * Spring-managed StructureService injected by Ignite.
-     * Marked as transient to prevent serialization (injection happens on each node).
-     * Available for future use if needed.
-     */
-    @SpringResource(resourceClass = StructureService.class)
-    private transient StructureService structureService;
-
-    /**
-     * Spring-managed NamedQueriesService injected by Ignite.
-     * Marked as transient to prevent serialization (injection happens on each node).
-     * Available for future use if needed.
-     */
-    @SpringResource(resourceClass = NamedQueriesService.class)
-    private transient NamedQueriesService namedQueriesService;
 
 
     /**
@@ -151,7 +134,7 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
             }
 
         } catch (Exception e) {
-            String message = String.format("Cache eviction failed for cluster key for {} (timestamp: {})", evictionKey, timestamp);
+            String message = String.format("Cache eviction failed for cluster key for %s (timestamp: %s)", evictionKey, timestamp);
             log.error(message, e);
             throw new RuntimeException(message, e);
         }

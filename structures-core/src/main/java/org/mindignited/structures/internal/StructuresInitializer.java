@@ -1,4 +1,4 @@
-package org.mindignited.structures.internal.endpoints;
+package org.mindignited.structures.internal;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import io.vertx.core.DeploymentOptions;
@@ -6,8 +6,11 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.healthchecks.Status;
 import lombok.RequiredArgsConstructor;
+import org.apache.ignite.Ignite;
 import org.kinotic.continuum.api.config.ContinuumProperties;
 import org.mindignited.structures.api.config.StructuresProperties;
+import org.mindignited.structures.internal.endpoints.StructuresVerticleFactory;
+import org.mindignited.structures.sql.SystemMigrator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -22,15 +25,16 @@ import jakarta.annotation.PostConstruct;
  */
 @Component
 @RequiredArgsConstructor
-public class StructuresEndpointInitializer {
+public class StructuresInitializer {
 
-    private static final Logger log = LoggerFactory.getLogger(StructuresEndpointInitializer.class);
+    private static final Logger log = LoggerFactory.getLogger(StructuresInitializer.class);
     private final ContinuumProperties continuumProperties;
     private final ElasticsearchAsyncClient esAsyncClient;
     private final HealthChecks healthChecks;
     private final StructuresProperties properties;
     private final StructuresVerticleFactory verticleFactory;
     private final Vertx vertx;
+    private final Ignite ignite;
     private Throwable lastEsError = null;
     private boolean lastEsStatus = true;
 
@@ -77,6 +81,9 @@ public class StructuresEndpointInitializer {
 
     @EventListener
     public void onApplicationReadyEvent(ApplicationReadyEvent event) {
+        // FIXME: add logic to make sure migrations complete before starting to serve requests
+        ignite.services().deployClusterSingleton("SystemMigrator", new SystemMigrator());
+
         log.info("Rest API listening on port {}", properties.getOpenApiPort());
         log.info("OpenApi Json available at http://localhost:{}/api-docs/[STRUCTURE APPLICATION]/openapi.json",
                  properties.getOpenApiPort());

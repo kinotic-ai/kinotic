@@ -4,8 +4,6 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
 
 /**
  * Represents a cache eviction event with full details for tracking and analysis.
- * <p>
- * Created by Navíd Mitchell 🤪 on 1/4/26.
  */
 public record EvictionEvent(
     String cacheName,
