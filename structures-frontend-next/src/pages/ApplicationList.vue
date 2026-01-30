@@ -9,12 +9,12 @@ import {
   Structures,
   type IApplicationService,
   type Application,
-} from "@mindignited/structures-api";
+} from "@kinotic/structures-api";
 import { APPLICATION_STATE } from "@/states/IApplicationState";
 import { mdiGraphql, mdiApi } from "@mdi/js";
 import { onClickOutside } from "@vueuse/core";
 import type { CrudHeader } from "@/types/CrudHeader";
-import type { Identifiable } from "@mindignited/continuum-client";
+import type { Identifiable } from "@kinotic/continuum-client";
 import { shallowRef } from "vue";
 import DatetimeUtil from "@/util/DatetimeUtil";
 

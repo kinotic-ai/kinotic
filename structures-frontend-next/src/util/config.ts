@@ -1,4 +1,4 @@
-import type { ConnectionInfo } from "@mindignited/continuum-client";
+import type { ConnectionInfo } from "@kinotic/continuum-client";
 // import { USER_STATE } from "../states/IUserState";
 import { createConnectionInfo } from "./helpers";
 

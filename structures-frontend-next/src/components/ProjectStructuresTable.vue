@@ -5,10 +5,10 @@ import StructureItemModal from '@/components/modals/StructureItemModal.vue'
 import StructureDataViewModal from '@/components/modals/StructureDataViewModal.vue'
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
-import { Structure, Structures } from '@mindignited/structures-api'
+import { Structure, Structures } from '@kinotic/structures-api'
 import type { CrudHeader } from '@/types/CrudHeader'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
-import type { Identifiable, IterablePage, Pageable } from '@mindignited/continuum-client'
+import type { Identifiable, IterablePage, Pageable } from '@kinotic/continuum-client'
 import DatetimeUtil from "@/util/DatetimeUtil"
 
 @Component({

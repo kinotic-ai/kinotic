@@ -46,7 +46,7 @@
 import { Component, Prop, Vue } from 'vue-facing-decorator'
 import { USER_STATE } from '@/states/IUserState'
 import { SESSION_UPGRADE_SERVICE, SessionMetadata } from '@/services/SessionUpgradeService'
-import { Continuum } from '@mindignited/continuum-client'
+import { Continuum } from '@kinotic/continuum-client'
 
 @Component({
   components: {}

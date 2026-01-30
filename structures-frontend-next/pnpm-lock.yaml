@@ -14,18 +14,18 @@ importers:
       '@heroicons/vue':
         specifier: ^2.2.0
         version: 2.2.0(vue@3.5.16(typescript@5.8.3))
+      '@kinotic/continuum-client':
+        specifier: ^2.14.10
+        version: 2.14.10(reflect-metadata@0.2.2)
+      '@kinotic/continuum-idl':
+        specifier: ^2.0.4
+        version: 2.0.4
+      '@kinotic/structures-api':
+        specifier: ^3.5.0-beta.18
+        version: 3.5.0-beta.18(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))
       '@mdi/js':
         specifier: ^7.4.47
         version: 7.4.47
-      '@mindignited/continuum-client':
-        specifier: ^2.14.10
-        version: 2.14.10(reflect-metadata@0.2.2)
-      '@mindignited/continuum-idl':
-        specifier: ^2.0.3
-        version: 2.0.5
-      '@mindignited/structures-api':
-        specifier: ^3.5.0-beta.17
-        version: 3.5.0-beta.17(@mindignited/continuum-client@2.14.10(reflect-metadata@0.2.2))
       '@primeuix/themes':
         specifier: ^1.2.1
         version: 1.2.1
@@ -346,21 +346,21 @@ packages:
   '@jridgewell/trace-mapping@0.3.25':
     resolution: {integrity: sha512-vNk6aEwybGtawWmy/PzwnGDOjCkLWSD2wqvjGGAgOAwCGWySYXfYoxt00IJkTF+8Lb57DwOb3Aa0o9CApepiYQ==}
 
-  '@mdi/js@7.4.47':
-    resolution: {integrity: sha512-KPnNOtm5i2pMabqZxpUz7iQf+mfrYZyKCZ8QNz85czgEt7cuHcGorWfdzUMWYA0SD+a6Hn4FmJ+YhzzzjkTZrQ==}
-
-  '@mindignited/continuum-client@2.14.10':
-    resolution: {integrity: sha512-PfV5/5voaU5uKykS4DudPiiiePB2KZeH56ICnP1m+ug+h2aMDm6GGtsaDKZKw9ub+0UqL/gmc0sJOf9i/HwVvA==}
+  '@kinotic/continuum-client@2.14.10':
+    resolution: {integrity: sha512-W+o2karVVqaWwyWwgobHfWR54m5weUivc5+H0JuLrXng71jat4Q/S/TAieCTJlVBMCx+PZ86P+zs7qDyMiplAA==}
     peerDependencies:
       reflect-metadata: ^0.2.2
 
-  '@mindignited/continuum-idl@2.0.5':
-    resolution: {integrity: sha512-hyqZxh+R+g4mfHTrtckACT6LmIqI+QoqnNi+3/2oVcjuZesLdDSu5NiaaGVNbGaAOTEYyFU4FCK+3QqLCEZFiQ==}
+  '@kinotic/continuum-idl@2.0.4':
+    resolution: {integrity: sha512-akXcSw6Pw6hdorPV1lU2RXvMS+kpWZQnzfZv3GysyUrVU8IAZU5N1FmBM8QmthJUz+SXNdHgYzuireaV8aLtAw==}
 
-  '@mindignited/structures-api@3.5.0-beta.17':
-    resolution: {integrity: sha512-CK+91adSzdF/uqspG8guyspbcckAh0X3KQzzpkpU7v1EpTcBy/Z3Re2RsQSaSulTFQER43i/U9Rpa5yr0Tx0aA==}
+  '@kinotic/structures-api@3.5.0-beta.18':
+    resolution: {integrity: sha512-Z0aC9A/GLKcRKqD0565RAjdIaPqI2ueS0LDq1u4OIoL1QHuRtuXUjbOwFFRLqg3hSCUskjmqTNu0ZnWqDtSdDw==}
     peerDependencies:
-      '@mindignited/continuum-client': ^2.14.5
+      '@kinotic/continuum-client': ^2.14.10
+
+  '@mdi/js@7.4.47':
+    resolution: {integrity: sha512-KPnNOtm5i2pMabqZxpUz7iQf+mfrYZyKCZ8QNz85czgEt7cuHcGorWfdzUMWYA0SD+a6Hn4FmJ+YhzzzjkTZrQ==}
 
   '@opentelemetry/api@1.9.0':
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
@@ -1703,9 +1703,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
 
-  '@mdi/js@7.4.47': {}
-
-  '@mindignited/continuum-client@2.14.10(reflect-metadata@0.2.2)':
+  '@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2)':
     dependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/semantic-conventions': 1.38.0
@@ -1721,14 +1719,16 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@mindignited/continuum-idl@2.0.5': {}
+  '@kinotic/continuum-idl@2.0.4': {}
 
-  '@mindignited/structures-api@3.5.0-beta.17(@mindignited/continuum-client@2.14.10(reflect-metadata@0.2.2))':
+  '@kinotic/structures-api@3.5.0-beta.18(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))':
     dependencies:
-      '@mindignited/continuum-client': 2.14.10(reflect-metadata@0.2.2)
-      '@mindignited/continuum-idl': 2.0.5
+      '@kinotic/continuum-client': 2.14.10(reflect-metadata@0.2.2)
+      '@kinotic/continuum-idl': 2.0.4
       reflect-metadata: 0.2.2
       rxjs: 7.8.2
+
+  '@mdi/js@7.4.47': {}
 
   '@opentelemetry/api@1.9.0': {}
 

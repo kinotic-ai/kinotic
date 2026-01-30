@@ -7,8 +7,8 @@ import Toolbar from 'primevue/toolbar'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 
-import { Pageable, type Page, Order, Direction, type Identifiable } from '@mindignited/continuum-client'
-import { Structure, type IStructureService, Structures, type IEntitiesService } from '@mindignited/structures-api'
+import { Pageable, type Page, Order, Direction, type Identifiable } from '@kinotic/continuum-client'
+import { Structure, type IStructureService, Structures, type IEntitiesService } from '@kinotic/structures-api'
 
 type EntityItem = Identifiable<string> & { id: string } & Record<string, any>
 
