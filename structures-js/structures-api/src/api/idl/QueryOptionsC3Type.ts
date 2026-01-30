@@ -1,4 +1,4 @@
-import {IntC3Type, ObjectC3Type, StringC3Type} from '@mindignited/continuum-idl'
+import {IntC3Type, ObjectC3Type, StringC3Type} from '@kinotic/continuum-idl'
 
 /**
  * Represents a {@link QueryOptions} type.

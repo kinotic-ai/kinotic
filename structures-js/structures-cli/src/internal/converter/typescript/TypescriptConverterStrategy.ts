@@ -1,4 +1,4 @@
-import {C3Type} from '@mindignited/continuum-idl'
+import {C3Type} from '@kinotic/continuum-idl'
 import {Type} from 'ts-morph'
 import {IConverterStrategy} from '../IConverterStrategy.js'
 import {Logger} from '../../Logger.js'

@@ -45,8 +45,8 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-facing-decorator'
 import { USER_STATE } from '@/states/IUserState'
-import { SESSION_UPGRADE_SERVICE } from '@/services/SessionUpgradeService'
-import { Continuum } from '@mindignited/continuum-client'
+import { SESSION_UPGRADE_SERVICE, SessionMetadata } from '@/services/SessionUpgradeService'
+import { Continuum } from '@kinotic/continuum-client'
 
 @Component({
   components: {}
@@ -68,7 +68,7 @@ export default class CliSessionUpgrade extends Vue {
         this.loading = true
         try {
           const decodedId = decodeURIComponent(id)
-          await SESSION_UPGRADE_SERVICE.upgradeSession(decodedId, USER_STATE.connectedInfo.sessionId)
+          await SESSION_UPGRADE_SERVICE.upgradeSession(decodedId, new SessionMetadata(USER_STATE.connectedInfo.sessionId, USER_STATE.connectedInfo.replyToId))
           
         } catch (e) {
           this.setStatus('Error connecting CLI to Continuum: ' + e, false, false)

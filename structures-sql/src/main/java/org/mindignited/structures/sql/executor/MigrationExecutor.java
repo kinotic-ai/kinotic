@@ -1,12 +1,9 @@
 package org.mindignited.structures.sql.executor;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-
+import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.Refresh;
+import co.elastic.clients.elasticsearch.core.search.TotalHits;
+import co.elastic.clients.elasticsearch.indices.ExistsRequest;
 import org.mindignited.structures.sql.domain.Migration;
 import org.mindignited.structures.sql.domain.MigrationContent;
 import org.mindignited.structures.sql.domain.Statement;
@@ -14,11 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.Refresh;
-import co.elastic.clients.elasticsearch.core.search.TotalHits;
-import co.elastic.clients.elasticsearch.indices.ExistsRequest;
-import jakarta.annotation.PostConstruct;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Executes migrations against Elasticsearch, ensuring idempotency by tracking applied versions.
@@ -47,17 +41,11 @@ public class MigrationExecutor {
         this.executors = executors;
     }
 
-    @PostConstruct
-    public void init() throws Exception {
-        ensureMigrationIndexExists().get();
-        log.info("Migration index initialized");
-    }
-
     /**
      * Ensures that the migration tracking index exists in Elasticsearch
      * @return CompletableFuture<Boolean> that completes with true if index was created, false if it already existed
      */
-    private CompletableFuture<Boolean> ensureMigrationIndexExists() {
+    public CompletableFuture<Boolean> ensureMigrationIndexExists() {
         return client.indices().exists(ExistsRequest.of(r -> r.index(MIGRATION_INDEX)))
             .thenCompose(exists -> {
                 if (!exists.value()) {

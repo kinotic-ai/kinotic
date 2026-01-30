@@ -6,7 +6,7 @@ import {
     NotNull,
     Precision,
     PrecisionType
-} from '@mindignited/structures-api'
+} from '@kinotic/structures-api'
 import { Address } from './Address'
 import { PurchaseItem } from './PurchaseItem'
 import { Payment } from './Payment'

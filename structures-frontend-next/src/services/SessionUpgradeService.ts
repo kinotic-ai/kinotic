@@ -1,8 +1,17 @@
-import {Continuum, type IServiceProxy} from '@mindignited/continuum-client'
+import {Continuum, type IServiceProxy} from '@kinotic/continuum-client'
+
+export class SessionMetadata {
+    public sessionId!: string
+    public replyToId!: string 
+    constructor(sessionId: string, replyToId: string) {
+        this.sessionId = sessionId
+        this.replyToId = replyToId
+    }
+}
 
 export interface ISessionUpgradeService {
 
-    upgradeSession(upgradeId: string, sessionId: string): Promise<void>
+    upgradeSession(upgradeId: string, sessionMetadata: SessionMetadata): Promise<void>
 
 }
 
@@ -14,8 +23,8 @@ export class SessionUpgradeService implements ISessionUpgradeService {
         this.serviceProxy = Continuum.serviceProxy('continuum.cli.SessionUpgradeService')
     }
 
-    public async upgradeSession(upgradeId: string, sessionId: string): Promise<void> {
-        await this.serviceProxy.invoke('upgradeSession', [sessionId], upgradeId)
+    public async upgradeSession(upgradeId: string, sessionMetadata: SessionMetadata): Promise<void> {
+        await this.serviceProxy.invoke('upgradeSession', [sessionMetadata], upgradeId)
     }
 }
 

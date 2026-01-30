@@ -2,7 +2,7 @@ import {GraphQLType, GraphQLObjectType, GraphQLField, GraphQLNonNull} from 'grap
 import {ITypeConverter} from '../ITypeConverter.js'
 import {IConversionContext} from '../IConversionContext.js'
 import {GqlConversionState} from './GqlConversionState.js'
-import {ObjectC3Type, C3Type, NotNullDecorator} from '@mindignited/continuum-idl'
+import {ObjectC3Type, C3Type, NotNullDecorator} from '@kinotic/continuum-idl'
 
 export class GqlObjectToC3Type implements ITypeConverter<GraphQLType, C3Type, GqlConversionState> {
 

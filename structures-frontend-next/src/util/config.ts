@@ -1,4 +1,9 @@
-import { ConnectionInfo } from '@mindignited/continuum-client'
+
+import { createDebug } from './debug'
+const debug = createDebug('config');
+import type { ConnectionInfo } from "@kinotic/continuum-client";
+// import { USER_STATE } from "../states/IUserState";
+import { createConnectionInfo } from "./helpers";
 
 interface OidcProvider {
   enabled: boolean;
@@ -50,18 +55,18 @@ class ConfigService {
     // Load base configuration locally
     const baseConfig = await this.loadLocalConfig();
     if (!baseConfig) {
-      console.warn('No base configuration file found, using default configuration');
+      debug('No base configuration file found, using default configuration');
       return this.getDefaultConfig();
     }
 
     // Load override configuration if available (this would be from the backend)
     const overrideConfig = await this.loadOverrideConfig();
     if (overrideConfig) {
-      console.log('Applying configuration override from backend');
+      debug('Applying configuration override from backend');
       return this.deepMerge(baseConfig, overrideConfig);
     }
 
-    console.log('Loaded configuration from local app-config.json');
+    debug('Loaded configuration from local app-config.json');
     return baseConfig;
   }
 
@@ -73,7 +78,7 @@ class ConfigService {
         return await resp.json();
       }
     } catch (error) {
-      console.warn('Failed to load local app-config.json:', error);
+      debug('Failed to load local app-config.json: %O', error);
     }
     return null;
   }
@@ -81,38 +86,28 @@ class ConfigService {
   private async loadOverrideConfig(): Promise<Partial<AppConfig> | null> {
     try {
       // This would fetch from the backend's oidc-security-service configuration
-      // TODO: This is a hack to get the override config from the backend
-      // TODO: We should use the Continuum client to get the config
-      const connectionInfo = this.createConnectionInfo();
-      const resp = await fetch(`${connectionInfo.useSSL ? 'https' : 'http'}://${connectionInfo.host}:${connectionInfo.port}/app-config.override.json`);
+      let staticSitePort = import.meta.env.VITE_STATIC_SITE_PORT ? parseInt(import.meta.env.VITE_STATIC_SITE_PORT) : -1
+      const connectionInfo: ConnectionInfo = createConnectionInfo();
+      if(staticSitePort === -1 && connectionInfo.port){
+        staticSitePort = connectionInfo.port;
+      }
+      const resp = await fetch(`${connectionInfo.useSSL ? 'https' : 'http'}://${connectionInfo.host}${staticSitePort === -1 ? '' : ':' + staticSitePort}/${this.config?.frontendConfigurationPath || 'app-config.override.json'}`);
       if (resp.ok) {
-        return await resp.json();
+        const text = await resp.text();
+        if(text.startsWith('<')){
+          console.info('OIDC Authorization Not Configured, using local authorization');
+        } else {
+          return JSON.parse(text);
+        }
+      } else {
+        console.warn('Failed to load override config:', resp.statusText);
       }
     } catch (error) {
       // Silently ignore if override config is not available
+      console.warn('Failed to load override config:', error);
     }
     return null;
   }
-  
-  private createConnectionInfo(): ConnectionInfo {
-    const connectionInfo: ConnectionInfo = {
-        host: '127.0.0.1',
-        port: 9090
-    }
-    if (window.location.hostname !== '127.0.0.1'
-        && window.location.hostname !== 'localhost') {
-        if (window.location.protocol.startsWith('https')) {
-            connectionInfo.useSSL = true
-        }
-        if (window.location.port !== '') {
-            connectionInfo.port = 9090
-        } else {
-            connectionInfo.port = null
-        }
-        connectionInfo.host = window.location.hostname
-    }
-    return connectionInfo
-}
 
 
   private deepMerge<T>(target: T, source: Partial<T>): T {

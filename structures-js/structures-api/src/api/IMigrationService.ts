@@ -1,4 +1,4 @@
-import { Continuum, IServiceProxy } from '@mindignited/continuum-client';
+import { Continuum, IServiceProxy } from '@kinotic/continuum-client';
 import { MigrationRequest } from './domain/MigrationRequest';
 import { MigrationResult } from './domain/MigrationResult';
 

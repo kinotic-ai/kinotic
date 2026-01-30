@@ -1,5 +1,8 @@
 import { type Router } from 'vue-router';
 import { reactive } from 'vue';
+import { createDebug } from './util/debug';
+
+const debug = createDebug('continuum-ui');
 
 export interface IContinuumUI {
     initialize(router: Router): void;
@@ -17,7 +20,7 @@ class ContinuumUI implements IContinuumUI {
     }
 
     public navigate(path: string): Promise<any> {
-        console.log('CONTINUUM_UI.navigate called with path:', path);
+        debug('navigate called with path: %s', path);
         return this.router.push(path);
     }
 }

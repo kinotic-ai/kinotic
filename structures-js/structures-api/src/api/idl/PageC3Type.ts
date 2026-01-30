@@ -1,4 +1,4 @@
-import {C3Type, ObjectC3Type} from '@mindignited/continuum-idl'
+import {C3Type, ObjectC3Type} from '@kinotic/continuum-idl'
 
 /**
  * This is a placeholder for the Page type.

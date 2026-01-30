@@ -3,8 +3,8 @@ import {ContinuumOperationTaskGenerator} from '@/tasks/ContinuumOperationTaskGen
 import {ITaskFactory} from '@/tasks/ITaskFactory.js'
 import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
 // import {generateMultipleDeterministicIds} from '@/utils/DataUtil.js'
-import {ConnectionInfo, ContinuumSingleton, Pageable} from '@mindignited/continuum-client'
-import {EntitiesService} from '@mindignited/structures-api'
+import {ConnectionInfo, ContinuumSingleton, Pageable} from '@kinotic/continuum-client'
+import {EntitiesService} from '@kinotic/structures-api'
 import { ITask } from './ITask';
 import opentelemetry, {SpanKind, SpanStatusCode, Tracer} from '@opentelemetry/api'
 import info from '../../package.json' assert {type: 'json'}

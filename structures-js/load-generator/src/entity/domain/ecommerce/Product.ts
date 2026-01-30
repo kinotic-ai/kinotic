@@ -6,7 +6,7 @@ import {
     NotNull,
     Precision,
     PrecisionType
-} from '@mindignited/structures-api'
+} from '@kinotic/structures-api'
 import { ProductImage } from './ProductImage'
 import { ProductAttribute } from './ProductAttribute'
 

@@ -13,6 +13,9 @@ import Calendar from 'primevue/calendar'
 import { useToast } from 'primevue/usetoast'
 import SavedWidgetItem from '@/components/SavedWidgetItem.vue'
 import { DateRangeObservable } from '../observables/DateRangeObservable'
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('dashboard-details');
 
 const router = useRouter()
 const toast = useToast()
@@ -143,7 +146,7 @@ const loadDashboard = async () => {
             
             setTimeout(() => {
               if (gridStack.value) {
-                gridStack.value.commit()
+                ;(gridStack.value as any).commit?.()
                 
                 setTimeout(() => {
                   if (gridStack.value) {
@@ -318,12 +321,12 @@ const initGrid = () => {
 const setupDragDrop = () => {
   if (!gridStack.value) return
   
-  console.log('🔧 Setting up GridStack drag-in...')
+  debug('Setting up GridStack drag-in...')
   
   // First, set widget sizes as GridStack attributes
   const updateWidgetAttributes = () => {
     const widgets = document.querySelectorAll('.sidebar-widgets .widget-card')
-    console.log('📦 Found sidebar widgets:', widgets.length)
+    debug('Found sidebar widgets: %d', widgets.length)
     
     widgets.forEach(card => {
       const widgetId = card.getAttribute('data-widget-id')

@@ -53,7 +53,7 @@
 
 <script lang="ts">
 import { Component, Prop, Vue, Emit } from 'vue-facing-decorator'
-import { Continuum, type ICrudServiceProxy, type Identifiable } from '@mindignited/continuum-client'
+import { Continuum, type ICrudServiceProxy, type Identifiable } from '@kinotic/continuum-client'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'

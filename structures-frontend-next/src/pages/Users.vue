@@ -42,10 +42,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-facing-decorator'
 import CrudTable from '@/components/CrudTable.vue'
-import { type Identifiable } from '@mindignited/continuum-client'
-import { Structures, type IApplicationService } from '@mindignited/structures-api'
+import { type Identifiable } from '@kinotic/continuum-client'
+import { Structures, type IApplicationService } from '@kinotic/structures-api'
 import { mdiGraphql, mdiApi } from '@mdi/js'
 import type { CrudHeader } from '@/types/CrudHeader'
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('users');
 
 @Component({
   components: { CrudTable }
@@ -73,7 +76,7 @@ export default class Users extends Vue {
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
-      console.error('[UsersList] Auth or connection failed:', message)
+      debug('Auth or connection failed: %s', message)
     }
   }
 

@@ -1,4 +1,4 @@
-import {C3Decorator, PropertyDefinition} from '@mindignited/continuum-idl'
+import {C3Decorator, PropertyDefinition} from '@kinotic/continuum-idl'
 
 export class StructureUtil {
     public static hasDecorator(decoratorName: string, decorators: C3Decorator[] | undefined): boolean {

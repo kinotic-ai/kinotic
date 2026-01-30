@@ -15,6 +15,7 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 
 .idea/
+.pnpm-store/
 
 # User-specific stuff
 .idea/**/workspace.xml
@@ -105,3 +106,4 @@ dev-tools/kind/config/helm-values.local.yaml
 dev-tools/kind/eviction-data/
 eviction-data/
 **/eviction-events*.csv
+eviction-events.csv

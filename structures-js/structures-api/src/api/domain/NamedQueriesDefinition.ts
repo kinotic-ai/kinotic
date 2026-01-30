@@ -1,5 +1,5 @@
-import { Identifiable } from '@mindignited/continuum-client'
-import {FunctionDefinition} from '@mindignited/continuum-idl'
+import { Identifiable } from '@kinotic/continuum-client'
+import {FunctionDefinition} from '@kinotic/continuum-idl'
 
 /**
  * Provides Metadata that represents Named Queries for a Application

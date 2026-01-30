@@ -1,4 +1,4 @@
-import {Direction, Order, Page, Pageable, Sort} from '@mindignited/continuum-client'
+import {Direction, Order, Page, Pageable, Sort} from '@kinotic/continuum-client'
 import {
     AdminEntityService,
     IAdminEntityService,
@@ -6,7 +6,7 @@ import {
     Structure,
     Structures,
     TenantSpecificId
-} from '@mindignited/structures-api'
+} from '@kinotic/structures-api'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
 import {Person} from '../domain/Person.js'

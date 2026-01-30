@@ -2,7 +2,7 @@ import {SpecificTypesConverter} from '../SpecificTypesConverter.js'
 import {Type} from 'ts-morph'
 import {TypescriptConversionState} from './TypescriptConversionState.js'
 import {IConversionContext} from '../IConversionContext.js'
-import {BooleanC3Type, C3Type, StringC3Type, IntC3Type, DateC3Type, VoidC3Type} from '@mindignited/continuum-idl'
+import {BooleanC3Type, C3Type, StringC3Type, IntC3Type, DateC3Type, VoidC3Type} from '@kinotic/continuum-idl'
 
 /**
  * Converts typescript primitive types to C3Types

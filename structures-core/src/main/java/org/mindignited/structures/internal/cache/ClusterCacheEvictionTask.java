@@ -4,13 +4,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.resources.SpringResource;
-import org.mindignited.structures.api.services.StructureService;
-import org.mindignited.structures.api.services.NamedQueriesService;
 import org.mindignited.structures.internal.cache.events.CacheEvictionEvent;
 import org.mindignited.structures.internal.cache.events.EvictionSourceOperation;
 import org.mindignited.structures.internal.cache.events.EvictionSourceType;
 import org.springframework.context.ApplicationEventPublisher;
-import org.kinotic.structures.internal.config.CacheEvictionConfiguration;
+import org.mindignited.structures.internal.config.CacheEvictionConfiguration;
 
 /**
  * Simple Ignite Compute Grid task for cluster-wide cache eviction.
@@ -50,22 +48,6 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
     @SpringResource(resourceName = "applicationEventPublisher")
     private transient ApplicationEventPublisher eventPublisher;
 
-    /**
-     * Spring-managed StructureService injected by Ignite.
-     * Marked as transient to prevent serialization (injection happens on each node).
-     * Available for future use if needed.
-     */
-    @SpringResource(resourceClass = StructureService.class)
-    private transient StructureService structureService;
-
-    /**
-     * Spring-managed NamedQueriesService injected by Ignite.
-     * Marked as transient to prevent serialization (injection happens on each node).
-     * Available for future use if needed.
-     */
-    @SpringResource(resourceClass = NamedQueriesService.class)
-    private transient NamedQueriesService namedQueriesService;
-
 
     /**
      * Properties injected by Ignite during construction on external nodes. 
@@ -102,12 +84,12 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
             // Check if this eviction has already been processed
             Long existingTimestamp = processedEvictionsCache.getIfPresent(evictionKey);
             if (existingTimestamp != null && existingTimestamp.equals(timestamp)) {
-                log.debug("Cache eviction already processed for key: {} (timestamp: {})", evictionKey, timestamp);
+                log.trace("Cache eviction already processed for key: {} (timestamp: {})", evictionKey, timestamp);
                 return; // Skip duplicate processing
             }
             
             if (EvictionSourceType.STRUCTURE == evictionSourceType) {
-                log.debug("Executing Structure cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
+                log.trace("Executing Structure cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
                 
                 if (structureId != null) {
 
@@ -121,14 +103,14 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                     
                     // Mark as processed
                     processedEvictionsCache.put(evictionKey, timestamp);
-                    log.debug("Successfully processed Structure cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
+                    log.trace("Successfully processed Structure cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
                 } else {
                     log.warn("Structure not found for cache eviction: {} {}", applicationId, structureId);
                     throw new RuntimeException("Structure for eviction key: " + evictionKey + " not found");
                 }
                 
             } else if (EvictionSourceType.NAMED_QUERY == evictionSourceType) {
-                log.debug("Executing NamedQuery cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
+                log.trace("Executing NamedQuery cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
                 
                 if (namedQueryId != null) {
 
@@ -142,7 +124,7 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                     
                     // Mark as processed
                     processedEvictionsCache.put(evictionKey, timestamp);
-                    log.debug("Successfully processed NamedQuery cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
+                    log.trace("Successfully processed NamedQuery cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
                 } else {
                     log.warn("NamedQuery not found for cache eviction: {}", evictionKey);
                     throw new RuntimeException("NamedQuery not found for eviction key: " + evictionKey);
@@ -152,7 +134,7 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
             }
 
         } catch (Exception e) {
-            String message = String.format("Cache eviction failed for cluster key for {} (timestamp: {})", evictionKey, timestamp);
+            String message = String.format("Cache eviction failed for cluster key for %s (timestamp: %s)", evictionKey, timestamp);
             log.error(message, e);
             throw new RuntimeException(message, e);
         }

@@ -2,7 +2,11 @@ logging:
   level:
     org:
       mindignited: TRACE
+      kinotic: TRACE
+      apache:
+        ignite: INFO
     io:
+      mindignited: TRACE
       vertx: TRACE
       netty:
         util: DEBUG

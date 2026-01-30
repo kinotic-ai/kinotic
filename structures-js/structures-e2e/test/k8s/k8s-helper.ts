@@ -1,4 +1,4 @@
-import { Continuum } from '@mindignited/continuum-client';
+import { Continuum } from '@kinotic/continuum-client';
 import { ChildProcess, execSync } from 'child_process';
 
 
@@ -35,7 +35,7 @@ export class K8sTestHelper {
             replicaCount: parseInt(process.env.K8S_REPLICA_COUNT || '3'),
             stompPort: parseInt(process.env.K8S_STOMP_PORT || '58503'),
             startingLocalPort: parseInt(process.env.K8S_STARTING_LOCAL_PORT || '58511'),
-            evictionDataPath: process.env.K8S_EVICTION_DATA_PATH || '../../dev-tools/kind/eviction-data'
+            evictionDataPath: process.env.K8S_EVICTION_DATA_PATH || '../../../../dev-tools/kind/eviction-data'
         };
     }
 

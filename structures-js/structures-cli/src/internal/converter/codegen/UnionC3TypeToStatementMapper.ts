@@ -1,4 +1,4 @@
-import {C3Type, UnionC3Type} from '@mindignited/continuum-idl'
+import {C3Type, UnionC3Type} from '@kinotic/continuum-idl'
 import {ConverterConstants} from '../ConverterConstants.js'
 import {ITypeConverter} from '../ITypeConverter.js'
 import {IConversionContext} from '../IConversionContext.js'

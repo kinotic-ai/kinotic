@@ -6,7 +6,7 @@ import {
     PropertyDefinition,
     C3Decorator,
     C3Type
-} from '@mindignited/continuum-idl'
+} from '@kinotic/continuum-idl'
 
 /**
  * Recursively reconstructs C3Type objects from plain JSON

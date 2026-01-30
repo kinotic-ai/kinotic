@@ -8,7 +8,7 @@ import {
     IterablePage,
     IServiceRegistry,
     FunctionalIterablePage
-} from '@mindignited/continuum-client'
+} from '@kinotic/continuum-client'
 
 export type TenantSelection = string[]
 

@@ -15,6 +15,24 @@ dependencies {
 	implementation 'org.reactivestreams:reactive-streams'
 	implementation 'io.projectreactor:reactor-core'
 
+    // needed if building against continuum-framework locally
+//    if (file("${rootDir}/../continuum-framework").exists()) {
+//        // figure out a clever way to handle this better
+//        // implementation "org.mindignited:vertx-stomp-lite"
+//		implementation "org.kinotic:vertx-stomp-lite"
+//        implementation "io.vertx:vertx-ignite"
+//        implementation "io.vertx:vertx-mqtt"
+//        // implementation "org.mindignited:vertx-stomp-lite"
+//        implementation "javax.annotation:javax.annotation-api"
+//        // implementation "tools.jackson.core:jackson-core"
+//        // implementation "tools.jackson.core:jackson-databind"
+//        // implementation "org.springframework.boot:spring-boot-starter-jackson"
+//        implementation "org.apache.ignite:ignite-calcite"
+//        implementation "org.apache.ignite:ignite-spring"
+//        implementation "org.apache.ignite:ignite-slf4j"
+//    }
+    // end of continuum-framework dependencies
+
 	// Spring AI
 	implementation 'org.springframework.ai:spring-ai-commons'
 	implementation 'org.springframework.ai:spring-ai-model'
@@ -81,36 +99,8 @@ test {
     systemProperty 'spring.profiles.active', 'test'
 	environment 'JAVA_TOOL_OPTIONS', '-Djava.net.preferIPv4Stack=true --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED --add-opens=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED'
     
-    // Exclude cluster tests by default (they are resource-intensive and slow)
-    // Cluster tests are annotated with @Disabled and can be run explicitly:
-    // ./gradlew :structures-core:test --tests ClusterCacheEvictionTest
-    exclude '**/cluster/**'
-}
-
-// Task to run only cluster tests (requires Docker)
-// Usage: ./gradlew :structures-core:clusterTest
-// Prerequisites: 
-//   1. Docker running
-//   2. Server image built: ./gradlew :structures-server:bootBuildImage
-task clusterTest(type: Test) {
-    description = 'Runs cluster integration tests using Testcontainers (requires Docker)'
-    group = 'verification'
     
-    useJUnitPlatform()
-    systemProperty 'spring.profiles.active', 'test'
-	environment 'JAVA_TOOL_OPTIONS', '-Djava.net.preferIPv4Stack=true --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED --add-opens=jdk.internal.jvmstat/sun.jvmstat.monitor=ALL-UNNAMED --add-opens=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.in=ALL-UNNAMED'
-    // systemProperty "STRUCTURES_TEST_USE_EXTERNAL_ELASTICSEARCH", "true"
-
-    // Only include cluster tests
-    include '**/cluster/**'
-    
-    // These tests take longer
+    // some tests take longer
     timeout = Duration.ofMinutes(10)
-    
-    shouldRunAfter test
-    
-    testLogging {
-        events "passed", "skipped", "failed"
-        showStandardStreams = true
-    }
+
 }

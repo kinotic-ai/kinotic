@@ -2,445 +2,618 @@ package org.mindignited.structures.cluster;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
-import com.github.dockerjava.api.DockerClient;
-import org.mindignited.structures.ElasticsearchTestBase;
-import org.mindignited.structures.TestProperties;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.testcontainers.containers.ContainerState;
 import org.testcontainers.containers.DockerComposeContainer;
+import org.testcontainers.elasticsearch.ElasticsearchContainer;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Base class for cluster testing using Testcontainers.
- * Manages multi-node Structures server cluster with shared Elasticsearch instance.
- * 
- * Cluster Setup:
- * - Node 0: Test instance (runs locally, shares same shared FS with containers)
- * - Nodes 1-3: Container nodes (structures-node1, structures-node2, structures-node3)
- * 
- * All nodes share the same shared FS location (~/structures/sharedfs), allowing
- * the test instance to make Structure updates locally that are visible to all nodes.
- * 
- * Created by Navid Mitchell on 2/13/25
+ * External docker-compose cluster base that does NOT start an Ignite node in the test JVM.
+ *
+ * The cluster is formed only by the docker-compose containers (nodes 1-3). Tests validate:
+ * - Cluster membership via container logs (last "servers=N" from "Topology snapshot" lines)
+ * - Cache eviction deterministically via host-mounted eviction CSV files
+ * - Functional behavior via HTTP APIs
  */
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class ClusterTestBase extends ElasticsearchTestBase {
+public abstract class ClusterTestBase {
 
     protected static final int HEALTH_PORT = 9090;
     protected static final int OPENAPI_PORT = 8080;
     protected static final int GRAPHQL_PORT = 4000;
-    protected static final List<String> STRUCTURES_SERVICES = List.of("structures-node1", "structures-node2", "structures-node3");
-    
-    /**
-     * Test instance node index (always 0)
-     */
-    protected static final int TEST_INSTANCE_NODE_INDEX = 0;
 
-    protected static DockerComposeContainer<?> environment;
-    
-    /**
-     * Flag to track if we're using external cluster (set in static block).
-     * Used by @AfterAll to determine if containers need cleanup.
-     */
-    private static boolean staticUseExternal = false;
-    
-    @Autowired
-    protected TestProperties testProperties;
+    protected static final List<String> STRUCTURES_SERVICES =
+            List.of("structures-node1", "structures-node2", "structures-node3");
 
-    /**
-     * Static block to initialize cluster containers.
-     * 
-     * Execution order:
-     * 1. ElasticsearchTestBase static block runs first (starts Elasticsearch)
-     * 2. This static block runs second (starts cluster containers)
-     * 3. Spring context initialization happens (after static blocks complete)
-     * 4. @BeforeAll methods run (wait for cluster formation)
-     * 
-     * This ensures Elasticsearch is ready before cluster containers start,
-     * and cluster containers are ready before Spring context loads.
-     */
-    static {
-        System.out.println("[ClusterTestBase] Static block - START");
-        
-        // 1. Verify Elasticsearch static block completed
-        // Parent static block runs first, so these variables are guaranteed to be initialized
-        if (!useExternalElasticsearch && ELASTICSEARCH_CONTAINER == null) {
-            throw new IllegalStateException(
-                    "Elasticsearch container not initialized. " +
-                    "ElasticsearchTestBase static block must complete before ClusterTestBase static block.");
-        }
-        
-        // 2. Verify Elasticsearch is running (if using container)
-        if (!useExternalElasticsearch && ELASTICSEARCH_CONTAINER != null && !ELASTICSEARCH_CONTAINER.isRunning()) {
-            throw new IllegalStateException("Elasticsearch container is not running");
-        }
-        
-        // 3. Read cluster configuration from system properties or use defaults
-        // Note: We can't use @Autowired TestProperties in static block, so read from system properties
-        // The actual configuration will be loaded from application-test.yml via Spring later
-        String useExternalProp = System.getProperty("structures.test.cluster.useExternal", "false");
-        staticUseExternal = Boolean.parseBoolean(useExternalProp);
-        
-        String nodeCountProp = System.getProperty("structures.test.cluster.nodeCount", "4");
-        int nodeCount = Integer.parseInt(nodeCountProp);
-        
-        System.out.println("[ClusterTestBase] Cluster configuration - useExternal: " + staticUseExternal + ", nodeCount: " + nodeCount);
-        System.out.println("[ClusterTestBase] Elasticsearch ready at " + elasticsearchHost + ":" + elasticsearchPort);
-        
-        // 4. Start cluster containers if not using external cluster
-        if (!staticUseExternal) {
-            System.out.println("[ClusterTestBase] Starting Docker Compose cluster containers...");
-            
-            Path composeFile = Paths.get("structures-core","src", "test", "resources", "docker-compose", "cluster-test-compose.yml").toAbsolutePath();
-            if (!Files.exists(composeFile)) {
-                throw new IllegalStateException("Cluster compose file not found: " + composeFile);
-            }
+    protected static final String DEFAULT_USERNAME = "admin";
+    protected static final String DEFAULT_PASSWORD = "structures";
 
-            // Testcontainers Elasticsearch is already started by ElasticsearchTestBase static block
-            // Containers will connect via host.docker.internal to reach testcontainers Elasticsearch
-            String containerElasticsearchHost = "host.docker.internal";
-            int containerElasticsearchPort = elasticsearchPort; // Use the mapped port from testcontainers
+    protected static final String SAMPLE_STRUCTURE_ID = "org.kinotic.sample.person";
 
-            String testInstanceHost = "host.docker.internal";
-            
-            System.out.println("[ClusterTestBase] Test instance (node 0) connects to Elasticsearch at " + elasticsearchHost + ":" + elasticsearchPort);
-            System.out.println("[ClusterTestBase] Container nodes will connect to Elasticsearch at " + containerElasticsearchHost + ":" + containerElasticsearchPort);
+    private static final Pattern SERVERS_PATTERN = Pattern.compile("servers=(\\d+)");
+    private static final Pattern TOPOLOGY_LINE_PATTERN = Pattern.compile("Topology snapshot.*");
 
-            try {
-                @SuppressWarnings("resource") // Cleaned up in @AfterAll teardownCluster()
-                DockerComposeContainer<?> newEnvironment = new DockerComposeContainer<>(composeFile.toFile())
-                        .withLocalCompose(true)
-                        .withTailChildContainers(true)
-                        .withEnv("STRUCTURES_TEST_INSTANCE_HOST", testInstanceHost)
-                        .withEnv("STRUCTURES_ELASTIC_SCHEME", "http")
-                        .withEnv("STRUCTURES_ELASTIC_HOST", containerElasticsearchHost)
-                        .withEnv("STRUCTURES_ELASTIC_PORT", String.valueOf(containerElasticsearchPort));
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(15))
+            .build();
 
-                newEnvironment.start();
-                environment = newEnvironment; // Assign after successful start
+    protected final String basicAuthHeader = Base64.getEncoder()
+            .encodeToString((DEFAULT_USERNAME + ":" + DEFAULT_PASSWORD).getBytes(StandardCharsets.UTF_8));
 
-                System.out.println("[ClusterTestBase] Docker compose environment started using " + composeFile);
-                System.out.println("[ClusterTestBase] Cluster containers are starting...");
-                
-                // Register shutdown hook as safety net (containers also cleaned up in @AfterAll)
-                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                    if (environment != null) {
-                        System.out.println("[ClusterTestBase] Shutdown hook: Stopping cluster containers...");
-                        try {
-                            environment.stop();
-                        } catch (Exception e) {
-                            System.err.println("[ClusterTestBase] Error in shutdown hook: " + e.getMessage());
-                        }
-                    }
-                }));
+    protected ElasticsearchContainer elasticsearchContainer;
+    protected DockerComposeContainer<?> environment;
 
-                Thread.sleep(30000); // 30 seconds
-                System.out.println("[ClusterTestBase] Cluster containers started");
-            } catch (Exception e) {
-                System.err.println("[ClusterTestBase] Failed to start cluster containers: " + e.getMessage());
-                e.printStackTrace();
-                throw new RuntimeException("Failed to start cluster containers in static block", e);
-            }
-        } else {
-            System.out.println("[ClusterTestBase] Using external cluster - skipping container startup");
-        }
-        
-        System.out.println("[ClusterTestBase] Static block - END");
-    }
+    protected String elasticsearchHost;
+    protected int elasticsearchPort;
 
     @BeforeAll
-    @Timeout(value = 10, unit = TimeUnit.MINUTES) 
-    // Network and containers are closed in teardownCluster()
-    public void setupCluster() {
-        log.info("Cluster setup - waiting for cluster formation");
-        
-        // Containers are already started in static block
-        // Now we just need to wait for cluster formation
-        waitForClusterFormation();
-        
-        log.info("Cluster setup complete with {} nodes", this.testProperties.getCluster().getNodeCount());
+    @Timeout(value = 15, unit = TimeUnit.MINUTES)
+    public void setupEnvironment() {
+        ensureHostDirectories();
+        startElasticsearch();
+        waitForElasticsearchReady(elasticsearchHost, elasticsearchPort, Duration.ofMinutes(3));
+        startDockerComposeCluster();
+        waitForAllNodesHealthy(Duration.ofMinutes(4));
+        awaitServersCountAllNodesAtLeast(3, Duration.ofMinutes(6));
     }
 
     @AfterAll
-    public void teardownCluster() {
-        log.info("Tearing down cluster");
-
-        // Use static flag if available, otherwise fall back to TestProperties
-        // Static flag is set in static block, TestProperties is available after Spring context loads
-        boolean useExternal = staticUseExternal;
-        if (this.testProperties != null) {
-            useExternal = this.testProperties.getCluster().getUseExternal();
-        }
-
-        if (!useExternal && environment != null) {
+    public void teardownEnvironment() {
+        if (environment != null) {
             try {
-                log.info("Stopping Docker Compose cluster containers...");
                 environment.stop();
-                log.info("Cluster containers stopped");
             } catch (Exception e) {
-                log.warn("Error stopping docker compose environment", e);
+                log.warn("Failed stopping docker-compose environment", e);
             }
-        } else {
-            log.info("Skipping container cleanup - using external cluster or no containers started");
         }
-
-        log.info("Cluster teardown complete");
-    }
-
-    /**
-     * Wait for all nodes to join the Ignite cluster.
-     * 
-     * For container nodes (1-3), checks HTTP health endpoint.
-     * For test instance (node 0), verifies via Ignite cluster membership.
-     */
-    protected void waitForClusterFormation() {
-        log.info("Waiting for cluster formation with {} total nodes (test instance + {} containers)...", 
-                this.testProperties.getCluster().getNodeCount(),
-                this.testProperties.getCluster().getNodeCount() - 1);
-
-        if (!this.testProperties.getCluster().getUseExternal()) {
+        if (elasticsearchContainer != null) {
             try {
-                Thread.sleep(15000); // give Ignite time to elect coordinator
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                elasticsearchContainer.stop();
+            } catch (Exception e) {
+                log.warn("Failed stopping Elasticsearch container", e);
             }
         }
-
-        // Wait for container nodes via HTTP health checks
-        int containerNodeCount = this.testProperties.getCluster().getNodeCount() - 1;
-        for (int i = 1; i <= containerNodeCount; i++) {
-            waitForNodeHealthy(i, Duration.ofMinutes(4));
-        }
-        
-        // Test instance (node 0) is verified via Ignite cluster membership
-        // It should already be part of the cluster since it starts with the test
-        log.info("Test instance (node 0) is part of the cluster via shared FS discovery");
-
-        log.info("Cluster formation wait complete - {} nodes should be in cluster", 
-                this.testProperties.getCluster().getNodeCount());
     }
 
-    /**
-     * Stop a specific container node by index.
-     * 
-     * Note: When stopping containers, you may see errors in container logs related to:
-     * - java.lang.instrument ASSERTION FAILED (OpenTelemetry agent during shutdown)
-     * - NoClassDefFoundError for logback classes (classloader teardown during shutdown)
-     * These are harmless shutdown-time errors that occur AFTER the application logic completes
-     * and do not affect test results. They occur due to a race condition between the Java agent,
-     * Logback, and classloader teardown during Spring Boot shutdown.
-     * 
-     * @param index container node index (1-3). Cannot stop test instance (node 0).
-     */
-    protected void stopNode(int index) {
-        if (index == TEST_INSTANCE_NODE_INDEX) {
-            throw new UnsupportedOperationException(
-                    "Cannot stop test instance (node 0) - it runs in the test JVM. " +
-                    "Use container node indices 1-3.");
-        }
-        if (this.testProperties.getCluster().getUseExternal()) {
-            log.warn("stopNode({}) ignored — external cluster mode does not manage containers", index);
+    @AfterEach
+    void cleanupEvictionFiles() {
+        Path evictionDir = getEvictionDataDir();
+        if (!Files.exists(evictionDir)) {
             return;
         }
+        try (var stream = Files.newDirectoryStream(evictionDir, "evictions-*.csv")) {
+            for (Path p : stream) {
+                try {
+                    Files.deleteIfExists(p);
+                } catch (IOException e) {
+                    log.warn("Failed deleting eviction file {}: {}", p, e.getMessage());
+                }
+            }
+        } catch (IOException e) {
+            log.warn("Failed cleaning eviction directory {}: {}", evictionDir.toAbsolutePath(), e.getMessage());
+        }
+    }
+
+    protected void stopNode(int index) {
         String service = serviceNameFor(index);
-        log.info("Stopping container node {} (service {})", index, service);
         ContainerState container = getContainerState(service);
-        DockerClient dockerClient = container.getDockerClient();
-        
-        // Stop container with a timeout to allow graceful shutdown
-        // The timeout allows Spring Boot shutdown hooks to complete
-        dockerClient.stopContainerCmd(container.getContainerId())
-                .withTimeout(30) // 30 second timeout for graceful shutdown
-                .exec();
-        
-        // Give a brief moment for shutdown to complete and logs to flush
-        // This helps reduce shutdown-time errors in logs (though they're harmless)
+        var docker = container.getDockerClient();
+        String containerId = Objects.requireNonNull(container.getContainerId(), "Container ID must not be null");
+        docker.stopContainerCmd(containerId).withTimeout(30).exec();
         try {
-            Thread.sleep(10000); // 10 second timeout for graceful shutdown
+            Thread.sleep(10_000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
     }
 
-    /**
-     * Restart a container node after it has been stopped.
-     * 
-     * @param index container node index (1-3). Cannot restart test instance (node 0).
-     */
     protected void startNode(int index) {
-        if (index == TEST_INSTANCE_NODE_INDEX) {
-            throw new UnsupportedOperationException(
-                    "Cannot restart test instance (node 0) - it runs in the test JVM. " +
-                    "Use container node indices 1-3.");
-        }
-        if (this.testProperties.getCluster().getUseExternal()) {
-            log.warn("startNode({}) ignored — external cluster mode does not manage containers", index);
-            return;
-        }
         String service = serviceNameFor(index);
-        log.info("Starting container node {} (service {})", index, service);
         ContainerState container = getContainerState(service);
-        DockerClient dockerClient = container.getDockerClient();
-        dockerClient.startContainerCmd(container.getContainerId()).exec();
-    }
-
-    /**
-     * Get the base URL for a node's OpenAPI endpoint.
-     * 
-     * @param nodeIndex 0 = test instance (localhost), 1-3 = container nodes
-     */
-    protected String getOpenApiUrl(int nodeIndex) {
-        if (nodeIndex == TEST_INSTANCE_NODE_INDEX) {
-            // Test instance runs locally - would need to configure port if it exposes HTTP
-            // For now, test instance doesn't expose HTTP endpoints, only uses StructureService directly
-            throw new UnsupportedOperationException(
-                    "Test instance (node 0) does not expose HTTP endpoints. " +
-                    "Use StructureService directly for local operations.");
-        }
-        String service = serviceNameFor(nodeIndex);
-        int servicePort = portFor(nodeIndex, OPENAPI_PORT);
-        return String.format("http://%s:%d/api",
-                resolveServiceHost(service, servicePort),
-                servicePort);
-    }
-
-    /**
-     * Get the base URL for a node's GraphQL endpoint.
-     * 
-     * @param nodeIndex 0 = test instance (localhost), 1-3 = container nodes
-     */
-    protected String getGraphQLUrl(int nodeIndex) {
-        if (nodeIndex == TEST_INSTANCE_NODE_INDEX) {
-            throw new UnsupportedOperationException(
-                    "Test instance (node 0) does not expose HTTP endpoints.");
-        }
-        String service = serviceNameFor(nodeIndex);
-        int servicePort = portFor(nodeIndex, GRAPHQL_PORT);
-        return String.format("http://%s:%d/graphql",
-                resolveServiceHost(service, servicePort),
-                servicePort);
-    }
-
-    /**
-     * Get the base URL for a node's health endpoint.
-     * 
-     * @param nodeIndex 0 = test instance (localhost), 1-3 = container nodes
-     */
-    protected String getHealthUrl(int nodeIndex) {
-        if (nodeIndex == TEST_INSTANCE_NODE_INDEX) {
-            // Test instance doesn't expose HTTP health endpoint
-            // Health can be checked via Ignite cluster status instead
-            throw new UnsupportedOperationException(
-                    "Test instance (node 0) does not expose HTTP health endpoint. " +
-                    "Use Ignite cluster status to verify test instance health.");
-        }
-        String service = serviceNameFor(nodeIndex);
-        int servicePort = portFor(nodeIndex, HEALTH_PORT);
-        return String.format("http://%s:%d/health",
-                resolveServiceHost(service, servicePort),
-                servicePort);
-    }
-
-    /**
-     * Get health URLs for all container nodes (excluding test instance).
-     * Test instance health is verified via Ignite cluster membership.
-     */
-    protected String[] getAllHealthUrls() {
-        // Only return health URLs for container nodes (1-3), not test instance (0)
-        int containerNodeCount = this.testProperties.getCluster().getNodeCount() - 1;
-        String[] healthUrls = new String[containerNodeCount];
-        for (int i = 0; i < containerNodeCount; i++) {
-            healthUrls[i] = getHealthUrl(i + 1); // Skip test instance (node 0)
-        }
-        return healthUrls;
+        var docker = container.getDockerClient();
+        String containerId = Objects.requireNonNull(container.getContainerId(), "Container ID must not be null");
+        docker.startContainerCmd(containerId).exec();
     }
 
     protected void waitForNodeHealthy(int nodeIndex, Duration timeout) {
         long deadline = System.currentTimeMillis() + timeout.toMillis();
         String healthUrl = getHealthUrl(nodeIndex);
-
         while (System.currentTimeMillis() < deadline) {
-            try {
-                Thread.sleep(15000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("Interrupted while waiting for node to become healthy", e);
-            }
             if (ClusterHealthVerifier.isNodeHealthy(healthUrl)) {
                 return;
             }
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while waiting for node health", e);
+            }
         }
-
-        throw new IllegalStateException("Node " + nodeIndex + " did not become healthy within " + timeout);
+        throw new IllegalStateException("Node " + nodeIndex + " did not become healthy within " + timeout + " at " + healthUrl);
     }
 
-    private static ContainerState getContainerState(String service) {
+    protected void waitForAllNodesHealthy(Duration timeout) {
+        for (int i = 1; i <= STRUCTURES_SERVICES.size(); i++) {
+            waitForNodeHealthy(i, timeout);
+        }
+    }
+
+    protected String getOpenApiUrl(int nodeIndex) {
+        String service = serviceNameFor(nodeIndex);
+        int servicePort = portFor(nodeIndex, OPENAPI_PORT);
+        return String.format("http://%s:%d/api", resolveServiceHost(service, servicePort), servicePort);
+    }
+
+    protected String getHealthUrl(int nodeIndex) {
+        String service = serviceNameFor(nodeIndex);
+        int servicePort = portFor(nodeIndex, HEALTH_PORT);
+        return String.format("http://%s:%d/health", resolveServiceHost(service, servicePort), servicePort);
+    }
+
+    protected String getGraphQLUrl(int nodeIndex) {
+        String service = serviceNameFor(nodeIndex);
+        int servicePort = portFor(nodeIndex, GRAPHQL_PORT);
+        return String.format("http://%s:%d/graphql", resolveServiceHost(service, servicePort), servicePort);
+    }
+
+    /**
+     * Structure metadata endpoint used by the cluster docs and existing tests.
+     */
+    protected String getStructureEndpoint(int nodeIndex, String structureId) {
+        return getOpenApiUrl(nodeIndex) + "/structures/" + structureId;
+    }
+
+    protected String getSearchEndpoint(int nodeIndex, String structureId) {
+        int firstDotIndex = structureId.indexOf('.');
+        if (firstDotIndex == -1) {
+            throw new IllegalArgumentException("Invalid structure ID format: " + structureId + ". Expected format: applicationId.structureName");
+        }
+        String applicationId = structureId.substring(0, firstDotIndex);
+        String structureName = structureId.substring(firstDotIndex + 1);
+        return getOpenApiUrl(nodeIndex) + "/" + applicationId + "/" + structureName + "/search";
+    }
+
+    protected HttpResponse<String> httpGet(String url) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(15))
+                .header("Authorization", "Basic " + basicAuthHeader)
+                .header("Accept", "application/json")
+                .GET()
+                .build();
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    protected HttpResponse<String> awaitGetOk(String url, Duration timeout) throws InterruptedException {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        int lastStatus = -1;
+        String lastBody = null;
+        while (System.nanoTime() < deadline) {
+            try {
+                HttpResponse<String> resp = httpGet(url);
+                lastStatus = resp.statusCode();
+                lastBody = resp.body();
+                if (resp.statusCode() == HttpURLConnection.HTTP_OK) {
+                    return resp;
+                }
+            } catch (Exception e) {
+                lastBody = e.getMessage();
+            }
+            Thread.sleep(500);
+        }
+        throw new AssertionError("Timed out waiting for HTTP 200 from " + url +
+                " (lastStatus=" + lastStatus + ", lastBody=" + (lastBody == null ? "null" : lastBody) + ")");
+    }
+
+    protected HttpResponse<String> httpPost(String url, String contentType, String body) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(30))
+                .header("Authorization", "Basic " + basicAuthHeader)
+                .header("Content-Type", contentType)
+                .header("Accept", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    protected HttpResponse<String> httpPut(String url, String contentType, String body) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(30))
+                .header("Authorization", "Basic " + basicAuthHeader)
+                .header("Content-Type", contentType)
+                .header("Accept", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    protected void warmCacheWithSearch(int nodeIndex, String structureId, Duration timeout) throws Exception {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        Exception last = null;
+
+        while (System.nanoTime() < deadline) {
+            try {
+                HttpResponse<String> resp = httpPost(getSearchEndpoint(nodeIndex, structureId), "text/plain", "*");
+                if (resp.statusCode() == HttpURLConnection.HTTP_OK) {
+                    return;
+                }
+                last = new IOException("Unexpected status " + resp.statusCode() + " for search on node " + nodeIndex);
+            } catch (Exception e) {
+                last = e instanceof Exception ? (Exception) e : new Exception(e);
+            }
+            Thread.sleep(500);
+        }
+
+        throw new AssertionError("Timed out warming cache via search on node " + nodeIndex + " for " + structureId, last);
+    }
+
+    /**
+     * Host eviction directory. Matches docker-compose bind mount in `cluster-test-compose.yml`.
+     */
+    protected Path getEvictionDataDir() {
+        return Paths.get(
+                System.getProperty(
+                        "structures.test.evictionDataDir",
+                        System.getProperty("user.home") + "/structures/eviction-data"
+                )
+        );
+    }
+
+    protected void awaitCacheEvictionProcessed(long beforeTimestamp, Duration timeout) {
+        Path evictionDir = getEvictionDataDir();
+        List<String> expectedWriters = new ArrayList<>(STRUCTURES_SERVICES);
+
+        Instant deadline = Instant.now().plus(timeout);
+        while (Instant.now().isBefore(deadline)) {
+            int writersWithNewRecords = 0;
+            for (String writer : expectedWriters) {
+                Path csv = evictionDir.resolve("evictions-" + writer + ".csv");
+                long maxTimestamp = readMaxEvictionTimestamp(csv, beforeTimestamp);
+                if (maxTimestamp > beforeTimestamp) {
+                    writersWithNewRecords++;
+                }
+            }
+
+            if (writersWithNewRecords >= expectedWriters.size()) {
+                return;
+            }
+
+            try {
+                Thread.sleep(250);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("Interrupted while waiting for cache eviction", e);
+            }
+        }
+
+        throw new AssertionError("Cache eviction not observed on all nodes within " + timeout + " (evictionDir=" + evictionDir.toAbsolutePath() + ")");
+    }
+
+    private long readMaxEvictionTimestamp(Path csvFile, long sinceTimestamp) {
+        if (!Files.exists(csvFile)) {
+            return -1;
+        }
+        try {
+            long max = -1;
+            for (String line : Files.readAllLines(csvFile, StandardCharsets.UTF_8)) {
+                if (line == null || line.isBlank()) {
+                    continue;
+                }
+                int firstComma = line.indexOf(',');
+                if (firstComma <= 0) {
+                    continue;
+                }
+                String tsStr = line.substring(0, firstComma).trim();
+                long ts;
+                try {
+                    ts = Long.parseLong(tsStr);
+                } catch (NumberFormatException ignored) {
+                    continue;
+                }
+                if (ts > sinceTimestamp && ts > max) {
+                    max = ts;
+                }
+            }
+            return max;
+        } catch (IOException e) {
+            return -1;
+        }
+    }
+
+    protected int getLastServersCountFromLogs(int nodeIndex) {
+        String service = serviceNameFor(nodeIndex);
+        ContainerState container = getContainerState(service);
+        String logs = container.getLogs();
+        Matcher m = SERVERS_PATTERN.matcher(logs);
+        int last = 0;
+        while (m.find()) {
+            last = Integer.parseInt(m.group(1));
+        }
+        return last;
+    }
+
+    protected void awaitServersCount(int nodeIndex, int expected, Duration timeout) {
+        Instant deadline = Instant.now().plus(timeout);
+        while (Instant.now().isBefore(deadline)) {
+            int last = getLastServersCountFromLogs(nodeIndex);
+            if (last == expected) {
+                return;
+            }
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("Interrupted while waiting for servers count", e);
+            }
+        }
+        throw new AssertionError(buildServersTimeoutMessage(nodeIndex, "servers=" + expected));
+    }
+
+    protected void awaitServersCountAllNodes(int expected, Duration timeout) {
+        for (int i = 1; i <= STRUCTURES_SERVICES.size(); i++) {
+            awaitServersCount(i, expected, timeout);
+        }
+    }
+
+    protected void awaitServersCountAtLeast(int nodeIndex, int expected, Duration timeout) {
+        Instant deadline = Instant.now().plus(timeout);
+        while (Instant.now().isBefore(deadline)) {
+            int last = getLastServersCountFromLogs(nodeIndex);
+            if (last >= expected) {
+                return;
+            }
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("Interrupted while waiting for servers count", e);
+            }
+        }
+        throw new AssertionError(buildServersTimeoutMessage(nodeIndex, "servers>=" + expected));
+    }
+
+    protected void awaitServersCountAllNodesAtLeast(int expected, Duration timeout) {
+        for (int i = 1; i <= STRUCTURES_SERVICES.size(); i++) {
+            awaitServersCountAtLeast(i, expected, timeout);
+        }
+    }
+
+    private String buildServersTimeoutMessage(int nodeIndex, String expectation) {
+        String service = serviceNameFor(nodeIndex);
+        ContainerState container = getContainerState(service);
+        String logs = container.getLogs();
+
+        // Include some helpful log context (last topology line + last few lines).
+        String lastTopology = null;
+        Matcher topo = TOPOLOGY_LINE_PATTERN.matcher(logs);
+        while (topo.find()) {
+            lastTopology = topo.group();
+        }
+
+        int lastServers = 0;
+        Matcher m = SERVERS_PATTERN.matcher(logs);
+        while (m.find()) {
+            lastServers = Integer.parseInt(m.group(1));
+        }
+
+        String tail;
+        int maxTailChars = 8_000;
+        if (logs.length() <= maxTailChars) {
+            tail = logs;
+        } else {
+            tail = logs.substring(logs.length() - maxTailChars);
+        }
+
+        return "Timed out waiting for node " + nodeIndex + " (" + service + ") to satisfy " + expectation +
+                " (lastServers=" + lastServers + ", lastTopologyLine=" + lastTopology + ")\n" +
+                "---- container log tail ----\n" + tail + "\n" +
+                "---- end log tail ----";
+    }
+
+    private void ensureHostDirectories() {
+        try {
+            Path sharedFsDir = Paths.get(System.getProperty("user.home"), "structures", "sharedfs");
+            Path evictionDir = Paths.get(System.getProperty("user.home"), "structures", "eviction-data");
+
+            Files.createDirectories(sharedFsDir);
+            Files.createDirectories(evictionDir);
+
+            // Start from a clean slate:
+            // - SHAREDFS discovery writes files under the shared FS; stale data can prevent clustering
+            // - eviction CSVs should not leak across runs
+            deleteDirectoryContents(sharedFsDir);
+            deleteDirectoryContents(evictionDir);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed creating required host directories under ${HOME}/structures", e);
+        }
+    }
+
+    @SuppressWarnings("resource") // Stopped in @AfterAll teardownEnvironment()
+    private void startElasticsearch() {
+        String osName = System.getProperty("os.name");
+        String osArch = System.getProperty("os.arch");
+
+        elasticsearchContainer = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:8.18.1")
+                .withEnv("discovery.type", "single-node")
+                .withEnv("xpack.security.enabled", "false");
+
+        // Workaround for https://github.com/elastic/elasticsearch/issues/118583 (Mac aarch64)
+        if (osName != null && osName.startsWith("Mac") && "aarch64".equals(osArch)) {
+            elasticsearchContainer.withEnv("_JAVA_OPTIONS", "-XX:UseSVE=0");
+        }
+
+        elasticsearchContainer.start();
+
+        elasticsearchHost = elasticsearchContainer.getHost();
+        elasticsearchPort = elasticsearchContainer.getMappedPort(9200);
+
+        log.info("Elasticsearch started at {}:{}", elasticsearchHost, elasticsearchPort);
+    }
+
+    private static void waitForElasticsearchReady(String host, int port, Duration timeout) {
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(5))
+                .build();
+
+        URI uri = URI.create("http://" + host + ":" + port + "/_cluster/health?wait_for_status=yellow&timeout=1s");
+        long deadline = System.currentTimeMillis() + timeout.toMillis();
+        Exception last = null;
+
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(uri)
+                        .timeout(Duration.ofSeconds(10))
+                        .GET()
+                        .build();
+
+                HttpResponse<String> resp = client.send(request, HttpResponse.BodyHandlers.ofString());
+                if (resp.statusCode() == HttpURLConnection.HTTP_OK) {
+                    return;
+                }
+                last = new IOException("Unexpected status: " + resp.statusCode());
+            } catch (Exception e) {
+                last = e;
+            }
+
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while waiting for Elasticsearch readiness", e);
+            }
+        }
+
+        throw new IllegalStateException(
+                "Elasticsearch did not become ready within " + timeout + " at " + uri + (last != null ? " (last error: " + last + ")" : "")
+        );
+    }
+
+    private void startDockerComposeCluster() {
+        Path composeFile = resolveComposeFile();
+
+        String containerElasticsearchHost = "host.docker.internal";
+        int containerElasticsearchPort = elasticsearchPort;
+
+        try {
+            @SuppressWarnings("resource") // Stopped in @AfterAll teardownEnvironment()
+            DockerComposeContainer<?> env = new DockerComposeContainer<>(composeFile.toFile())
+                    .withLocalCompose(true)
+                    .withTailChildContainers(true)
+                    .withEnv("STRUCTURES_TEST_INSTANCE_HOST", "host.docker.internal")
+                    .withEnv("STRUCTURES_ELASTIC_SCHEME", "http")
+                    .withEnv("STRUCTURES_ELASTIC_HOST", containerElasticsearchHost)
+                    .withEnv("STRUCTURES_ELASTIC_PORT", String.valueOf(containerElasticsearchPort));
+
+            env.start();
+            environment = env;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to start docker-compose environment", e);
+        }
+    }
+
+    private static Path resolveComposeFile() {
+        // Prefer classpath lookup (works regardless of Gradle/IDE working directory).
+        try {
+            var url = ClusterTestBase.class
+                    .getClassLoader()
+                    .getResource("docker-compose/cluster-test-compose.yml");
+            if (url != null) {
+                Path p = Paths.get(url.toURI());
+                if (Files.exists(p)) {
+                    return p;
+                }
+            }
+        } catch (Exception ignored) {
+            // fall through to filesystem fallbacks
+        }
+
+        // Fallbacks for common working directories.
+        Path[] candidates = new Path[] {
+                Paths.get("src", "test", "resources", "docker-compose", "cluster-test-compose.yml").toAbsolutePath(),
+                Paths.get("structures-core", "src", "test", "resources", "docker-compose", "cluster-test-compose.yml").toAbsolutePath()
+        };
+        for (Path candidate : candidates) {
+            if (Files.exists(candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Cluster compose file not found. Tried: " + java.util.Arrays.toString(candidates));
+    }
+
+    private static void deleteDirectoryContents(Path rootDir) throws IOException {
+        if (rootDir == null || !Files.exists(rootDir)) {
+            return;
+        }
+        if (!Files.isDirectory(rootDir)) {
+            Files.deleteIfExists(rootDir);
+            return;
+        }
+
+        // Delete children first, but keep the root directory.
+        try (var walk = java.nio.file.Files.walk(rootDir)) {
+            walk.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                .filter(p -> !p.equals(rootDir))
+                .forEach(p -> {
+                    try {
+                        Files.deleteIfExists(p);
+                    } catch (IOException ignored) {
+                        // best effort
+                    }
+                });
+        }
+    }
+
+    private ContainerState getContainerState(String service) {
         if (environment == null) {
-            throw new IllegalStateException("Docker environment is not managed in external cluster mode");
+            throw new IllegalStateException("Docker compose environment not started");
         }
         return environment.getContainerByServiceName(service + "_1")
                 .orElseThrow(() -> new IllegalArgumentException("No container found for service " + service));
     }
 
-    /**
-     * Calculate port for a container node.
-     * 
-     * @param nodeIndex 1-3 for container nodes (0 is test instance, doesn't use HTTP ports)
-     * @param basePort base port number
-     * @return calculated port
-     */
+    private String resolveServiceHost(String service, int servicePort) {
+        return environment.getServiceHost(service, servicePort);
+    }
+
     private static int portFor(int nodeIndex, int basePort) {
-        if (nodeIndex == TEST_INSTANCE_NODE_INDEX) {
-            throw new IllegalArgumentException(
-                    "Test instance (node 0) does not use HTTP ports. " +
-                    "Use StructureService directly for local operations.");
-        }
         if (nodeIndex < 1 || nodeIndex > STRUCTURES_SERVICES.size()) {
-            throw new IllegalArgumentException(
-                    "Invalid node index: " + nodeIndex + ". " +
-                    "Expected 0 (test instance) or 1-" + STRUCTURES_SERVICES.size() + " (container nodes)");
+            throw new IllegalArgumentException("Invalid node index: " + nodeIndex + ". Expected 1-" + STRUCTURES_SERVICES.size());
         }
-        // Container nodes: node1=basePort+1, node2=basePort+2, node3=basePort+3
         return basePort + nodeIndex;
     }
 
-    /**
-     * Get service name for a container node.
-     * 
-     * @param index 1-3 for container nodes (0 is test instance, has no service name)
-     * @return Docker service name
-     */
     private static String serviceNameFor(int index) {
-        if (index == TEST_INSTANCE_NODE_INDEX) {
-            throw new IllegalArgumentException(
-                    "Test instance (node 0) is not a Docker service. " +
-                    "It runs locally in the test JVM.");
-        }
         if (index < 1 || index > STRUCTURES_SERVICES.size()) {
-            throw new IllegalArgumentException(
-                    "Invalid container node index: " + index + ". " +
-                    "Expected 1-" + STRUCTURES_SERVICES.size());
+            throw new IllegalArgumentException("Invalid container node index: " + index + ". Expected 1-" + STRUCTURES_SERVICES.size());
         }
-        // Container nodes are 1-indexed: node1=index 1, node2=index 2, node3=index 3
         return STRUCTURES_SERVICES.get(index - 1);
     }
-
-    private String resolveServiceHost(String service, int servicePort) {
-        if (!this.testProperties.getCluster().getUseExternal()) {
-            return environment.getServiceHost(service, servicePort);
-        }
-        return "127.0.0.1";
-    }
-
 }
 

@@ -1,4 +1,4 @@
-import {C3Decorator} from '@mindignited/continuum-idl'
+import {C3Decorator} from '@kinotic/continuum-idl'
 
 /**
  * Specifies the discriminator field for polymorphic entities.

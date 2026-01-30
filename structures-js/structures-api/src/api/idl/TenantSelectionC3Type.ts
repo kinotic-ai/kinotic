@@ -1,4 +1,4 @@
-import {ArrayC3Type, StringC3Type} from '@mindignited/continuum-idl'
+import {ArrayC3Type, StringC3Type} from '@kinotic/continuum-idl'
 
 /**
  * Represents a {@link TenantSelection} type.

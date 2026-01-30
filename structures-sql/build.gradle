@@ -22,7 +22,10 @@ tasks.withType(Javadoc) {
 }
 
 dependencies {
-    
+
+    api 'org.apache.ignite:ignite-core'
+    api 'org.apache.ignite:ignite-spring'
+
     // Spring dependencies
     api 'org.springframework.boot:spring-boot-starter'
     api 'org.springframework.boot:spring-boot-autoconfigure'

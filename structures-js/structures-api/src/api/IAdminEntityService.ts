@@ -1,7 +1,7 @@
 import {QueryParameter} from '@/api/domain/QueryParameter.js'
 import {TenantSpecificId} from '@/api/domain/TenantSpecificId.js'
 import {AdminEntitiesServiceSingleton, IAdminEntitiesService, TenantSelection} from '@/api/IAdminEntitiesService.js'
-import {Page, Pageable, IterablePage} from '@mindignited/continuum-client'
+import {Page, Pageable, IterablePage} from '@kinotic/continuum-client'
 
 /**
  * This is the base interface for all entity services.

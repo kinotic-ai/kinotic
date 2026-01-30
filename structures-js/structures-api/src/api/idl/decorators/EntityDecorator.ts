@@ -1,5 +1,5 @@
 import {EntityType} from '@/api/idl/decorators/EntityType.js'
-import {C3Decorator} from '@mindignited/continuum-idl'
+import {C3Decorator} from '@kinotic/continuum-idl'
 import {MultiTenancyType} from '@/api/idl/decorators/MultiTenancyType'
 
 /**

@@ -1,12 +1,15 @@
 <script lang="ts">
 import { Component, Vue, Prop } from 'vue-facing-decorator';
-import { Structures, Project, ProjectType } from '@mindignited/structures-api';
+import { Structures, Project, ProjectType } from '@kinotic/structures-api';
 import { APPLICATION_STATE } from '@/states/IApplicationState';
 
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
 import Button from 'primevue/button';
 import Select from 'primevue/select';
+import { createDebug } from '@/util/debug';
+
+const debug = createDebug('new-project-sidebar');
 
 interface ProjectForm {
     name: string;
@@ -71,7 +74,7 @@ export default class NewProjectSidebar extends Vue {
             this.resetForm();
             this.$emit('submit', createdProject);
         } catch (error) {
-            console.error('[NewProjectSidebar] Failed to create project:', error);
+            debug('Failed to create project: %O', error);
             this.$toast.add({
                 severity: 'error',
                 summary: 'Error',

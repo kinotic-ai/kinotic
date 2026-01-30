@@ -3,16 +3,13 @@ name: Build and Publish
 on:
   push:
     branches:
-      - preRelease
+      - develop
       - main
       - 2.x
     paths-ignore:
       - 'helm/**'
       - 'docker-compose/**'
-      - 'structures-js/example/**'
-      - 'structures-js/load-generator/**'
-      - 'structures-js/structures-api/**'
-      - 'structures-js/structures-cli/**'
+      - 'structures-js/**'
       - 'webdocs/**' 
       - 'website/**'
 

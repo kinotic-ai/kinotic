@@ -3,7 +3,7 @@ name: Load Generator Docker Build
 on:
   push:
     branches:
-      - preRelease
+      - develop
     paths:
       - 'structures-js/load-generator/**'
 
@@ -33,9 +33,9 @@ jobs:
           context: ./structures-js/load-generator
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: mindignited/structures-load-generator:latest
-          cache-from: type=registry,ref=mindignited/structures-load-generator:buildcache
-          cache-to: type=registry,ref=mindignited/structures-load-generator:buildcache,mode=max
+          tags: kinotic/structures-load-generator:latest
+          cache-from: type=registry,ref=kinotic/structures-load-generator:buildcache
+          cache-to: type=registry,ref=kinotic/structures-load-generator:buildcache,mode=max
 
       - name: Add status to Commit
         uses: guibranco/github-status-action-v2@v1.1.13

@@ -1,4 +1,4 @@
-import {Continuum, CrudServiceProxy, ICrudServiceProxy,} from '@mindignited/continuum-client'
+import {Continuum, CrudServiceProxy, ICrudServiceProxy,} from '@kinotic/continuum-client'
 import {Application} from '@/api/domain/Application'
 
 

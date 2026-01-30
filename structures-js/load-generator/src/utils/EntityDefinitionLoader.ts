@@ -1,7 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
-import { ObjectC3Type } from '@mindignited/continuum-idl'
-import { ConsoleLogger } from '@mindignited/structures-cli/dist/internal/Logger.js'
+import { ObjectC3Type } from '@kinotic/continuum-idl'
+import { ConsoleLogger } from '@kinotic/structures-cli/dist/internal/Logger.js'
 import { EntityDefinitionGenerator } from './EntityDefinitionGenerator'
 
 // Use __dirname to ensure we're looking in the right place relative to this file

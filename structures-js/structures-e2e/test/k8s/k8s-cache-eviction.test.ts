@@ -1,5 +1,5 @@
-import { Pageable } from '@mindignited/continuum-client';
-import { Structures, IEntityService, StructureService } from '@mindignited/structures-api';
+import { Pageable } from '@kinotic/continuum-client';
+import { Structures, IEntityService, StructureService } from '@kinotic/structures-api';
 import { WebSocket } from 'ws';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { createVehicleStructure, createTestVehicles } from '../TestHelpers';
@@ -254,23 +254,8 @@ describe('K8s Cache Eviction Tests', () => {
         console.log('\n✓ Test 1: Cache eviction propagated successfully to all pods!');
 
         // Cleanup
-        console.log('\nTest 1: Cleaning up test structure');
-        await k8s.connectToPod(0);
-        const cleanupEntitySvc: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
-        // Delete all test vehicles
-        for (const vehicle of testVehicles) {
-            if (vehicle.id) {
-                try {
-                    await cleanupEntitySvc.deleteById(vehicle.id);
-                } catch (e) {
-                    // Ignore cleanup errors
-                }
-            }
-        }
-        await Structures.getStructureService().unPublish(structureId);
-        await Structures.getStructureService().deleteById(structureId);
-        await Structures.getApplicationService().deleteById(applicationId);
-        await k8s.disconnectFromPod();
+        await cleanup(applicationId, structureName, structureId);
+
     }, 300000); // 5 minute timeout
 
     /**
@@ -284,256 +269,273 @@ describe('K8s Cache Eviction Tests', () => {
      * 
      * Use this as a starting point for more intensive load testing scenarios.
      */
-    // it('should handle concurrent entity operations during cache eviction', async () => {
-    //     if (!k8s.isEnabled()) {
-    //         console.log('Test skipped: K8s tests not enabled');
-    //         return;
-    //     }
+    it('should handle concurrent entity operations during cache eviction', async () => {
+        if (!k8s.isEnabled()) {
+            console.log('Test skipped: K8s tests not enabled');
+            return;
+        }
 
-    //     const applicationId = 'k8sloadtest-' + Date.now();
-    //     const structureName = 'vehicle';
-    //     const structureId = `${applicationId}.${structureName}`.toLowerCase();
-    //     const initialDescription = `Some form of transportation`;
-    //     const evictionDataPath = k8s.getEvictionDataPath();
+        const applicationId = 'k8sloadtest-' + Date.now();
+        const structureName = 'vehicle';
+        const structureId = `${applicationId}.${structureName}`.toLowerCase();
+        const initialDescription = `Some form of transportation`;
+        const evictionDataPath = k8s.getEvictionDataPath();
 
-    //     // Performance tracking
-    //     const timings: { operation: string; durationMs: number }[] = [];
-    //     const trackTiming = (operation: string, startTime: number) => {
-    //         const duration = Date.now() - startTime;
-    //         timings.push({ operation, durationMs: duration });
-    //         console.log(`  [Timing] ${operation}: ${duration}ms`);
-    //     };
+        // Performance tracking
+        const timings: { operation: string; durationMs: number }[] = [];
+        const trackTiming = (operation: string, startTime: number) => {
+            const duration = Date.now() - startTime;
+            timings.push({ operation, durationMs: duration });
+            console.log(`  [Timing] ${operation}: ${duration}ms`);
+        };
 
-    //     // Step 0: Clear eviction files
-    //     console.log('Step 0: Clearing eviction files');
-    //     clearEvictionFiles(evictionDataPath);
+        // Step 0: Clear eviction files
+        console.log('Step 0: Clearing eviction files');
+        clearEvictionFiles(evictionDataPath);
 
-    //     // Step 1: Create structure
-    //     console.log('\nStep 1: Creating structure on pod 0');
-    //     const setupStart = Date.now();
-    //     await k8s.connectToPod(0);
+        // Step 1: Create structure
+        console.log('\nStep 1: Creating structure on pod 0');
+        const setupStart = Date.now();
+        await k8s.connectToPod(0);
 
-    //     const savedStructure = await createVehicleStructure(applicationId, 'TestProject');
-    //     expect(savedStructure).toBeDefined();
-    //     console.log(`Created structure: ${structureId}`);
+        const savedStructure = await createVehicleStructure(applicationId, 'TestProject');
+        expect(savedStructure).toBeDefined();
+        console.log(`Created structure: ${structureId}`);
 
-    //     // Step 2: Create more test entities for load testing (10 vehicles)
-    //     console.log('\nStep 2: Creating test vehicles');
-    //     const entityService: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
-    //     const testVehicles = createTestVehicles(10);
+        // Step 2: Create more test entities for load testing (10 vehicles)
+        console.log('\nStep 2: Creating test vehicles');
+        const entityService: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
+        const testVehicles = createTestVehicles(10);
 
-    //     for (const vehicle of testVehicles) {
-    //         const savedVehicle = await entityService.save(vehicle);
-    //         vehicle.id = savedVehicle.id; // Store ID for cleanup
-    //     }
-    //     await entityService.syncIndex();
-    //     console.log(`Created ${testVehicles.length} test vehicles`);
-    //     trackTiming('setup', setupStart);
+        for (const vehicle of testVehicles) {
+            const savedVehicle = await entityService.save(vehicle);
+            vehicle.id = savedVehicle.id; // Store ID for cleanup
+        }
+        await entityService.syncIndex();
+        console.log(`Created ${testVehicles.length} test vehicles`);
+        trackTiming('setup', setupStart);
 
-    //     await k8s.disconnectFromPod();
+        await k8s.disconnectFromPod();
 
-    //     // Step 3: Warm caches on all pods
-    //     console.log('\nStep 3: Warming caches on all pods');
-    //     const warmStart = Date.now();
-    //     for (let i = 0; i < k8s.getPodCount(); i++) {
-    //         await k8s.connectToPod(i);
+        // Step 3: Warm caches on all pods
+        console.log('\nStep 3: Warming caches on all pods');
+        const warmStart = Date.now();
+        for (let i = 0; i < k8s.getPodCount(); i++) {
+            await k8s.connectToPod(i);
 
-    //         const retrieved = await Structures.getStructureService().findById(structureId);
-    //         expect(retrieved).toBeDefined();
+            const retrieved = await Structures.getStructureService().findById(structureId);
+            expect(retrieved).toBeDefined();
 
-    //         const entitySvc: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
-    //         await entitySvc.findAll(Pageable.create(0, 10));
-    //         await entitySvc.search('*', Pageable.create(0, 10));
+            const entitySvc: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
+            await entitySvc.findAll(Pageable.create(0, 10));
+            await entitySvc.search('*', Pageable.create(0, 10));
 
-    //         await k8s.disconnectFromPod();
-    //     }
-    //     trackTiming('cacheWarm', warmStart);
+            await k8s.disconnectFromPod();
+        }
+        trackTiming('cacheWarm', warmStart);
 
-    //     // Record timestamp before modification
-    //     const beforeModificationTime = Date.now();
+        // Record timestamp before modification
+        const beforeModificationTime = Date.now();
 
-    //     // Step 4: Start concurrent entity reads across pods while modifying structure
-    //     console.log('\nStep 4: Concurrent operations during structure modification');
+        // Step 4: Start concurrent entity reads across pods while modifying structure
+        console.log('\nStep 4: Concurrent operations during structure modification');
 
-    //     // Create promise for concurrent reads from different pods
-    //     const concurrentReads: Promise<{ podIndex: number; success: boolean; description: string | undefined }>[] = [];
+        // Create promise for concurrent reads from different pods
+        const concurrentReads: Promise<{ podIndex: number; success: boolean; description: string | undefined }>[] = [];
 
-    //     // Function to perform reads on a specific pod
-    //     const performReadsOnPod = async (podIndex: number, iterations: number) => {
-    //         const results: { success: boolean; description: string | undefined }[] = [];
+        // Function to perform reads on a specific pod
+        const performReadsOnPod = async (podIndex: number, iterations: number) => {
+            const results: { success: boolean; description: string | undefined }[] = [];
 
-    //         await k8s.connectToPod(podIndex);
-    //         const entitySvc: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
+            await k8s.connectToPod(podIndex);
+            const entitySvc: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
 
-    //         for (let i = 0; i < iterations; i++) {
-    //             try {
-    //                 // Mix of structure and entity reads
-    //                 const structure = await Structures.getStructureService().findById(structureId);
-    //                 await entitySvc.findAll(Pageable.create(0, 5));
-    //                 results.push({ success: true, description: structure?.description ?? undefined });
-    //             } catch (error) {
-    //                 results.push({ success: false, description: undefined });
-    //             }
+            for (let i = 0; i < iterations; i++) {
+                try {
+                    // Mix of structure and entity reads
+                    const structure = await Structures.getStructureService().findById(structureId);
+                    await entitySvc.findAll(Pageable.create(0, 5));
+                    results.push({ success: true, description: structure?.description ?? undefined });
+                } catch (error) {
+                    results.push({ success: false, description: undefined });
+                }
 
-    //             // Small delay between iterations
-    //             await new Promise(resolve => setTimeout(resolve, 100));
-    //         }
+                // Small delay between iterations
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
 
-    //         await k8s.disconnectFromPod();
+            await k8s.disconnectFromPod();
 
-    //         // Return the last result
-    //         const lastResult = results[results.length - 1];
-    //         return { podIndex, ...lastResult };
-    //     };
+            // Return the last result
+            const lastResult = results[results.length - 1];
+            return { podIndex, ...lastResult };
+        };
 
-    //     // Start concurrent reads on pod 1 and 2 (while we modify on pod 0)
-    //     const concurrentStart = Date.now();
+        // Start concurrent reads on pod 1 and 2 (while we modify on pod 0)
+        const concurrentStart = Date.now();
 
-    //     // Note: We can't truly run concurrent connections with the current helper
-    //     // because it uses a single Continuum connection. Instead, we'll simulate
-    //     // sequential rapid operations that would benefit from warm caches.
+        // Note: We can't truly run concurrent connections with the current helper
+        // because it uses a single Continuum connection. Instead, we'll simulate
+        // sequential rapid operations that would benefit from warm caches.
 
-    //     // Modify structure on pod 0
-    //     console.log('  Modifying structure on pod 0...');
-    //     await k8s.connectToPod(0);
+        // Modify structure on pod 0
+        console.log('  Modifying structure on pod 0...');
+        await k8s.connectToPod(0);
 
-    //     const toUpdate = await Structures.getStructureService().findById(structureId);
-    //     expect(toUpdate).toBeDefined();
-    //     const updatedDescription = `Load test update ${Date.now()}`;
-    //     toUpdate!.description = updatedDescription;
+        const toUpdate = await Structures.getStructureService().findById(structureId);
+        expect(toUpdate).toBeDefined();
+        const updatedDescription = `Load test update ${Date.now()}`;
+        toUpdate!.description = updatedDescription;
 
-    //     const modifyStart = Date.now();
-    //     const updated = await Structures.getStructureService().save(toUpdate!);
-    //     trackTiming('structureModify', modifyStart);
+        const modifyStart = Date.now();
+        const updated = await Structures.getStructureService().save(toUpdate!);
+        trackTiming('structureModify', modifyStart);
 
-    //     expect(updated.description).toBe(updatedDescription);
-    //     console.log(`  Structure updated with description: "${updatedDescription}"`);
+        expect(updated.description).toBe(updatedDescription);
+        console.log(`  Structure updated with description: "${updatedDescription}"`);
 
-    //     await k8s.disconnectFromPod();
+        await k8s.disconnectFromPod();
 
-    //     // Step 5: Rapid sequential reads across all pods to test cache consistency
-    //     console.log('\nStep 5: Rapid sequential reads to verify cache consistency');
-    //     const rapidReadsStart = Date.now();
-    //     const readResults: { pod: number; description: string | undefined; readTime: number }[] = [];
+        // Step 5: Rapid sequential reads across all pods to test cache consistency
+        console.log('\nStep 5: Rapid sequential reads to verify cache consistency');
+        const rapidReadsStart = Date.now();
+        const readResults: { pod: number; description: string | undefined; readTime: number }[] = [];
 
-    //     // Do 3 rounds of reads across all pods
-    //     for (let round = 0; round < 3; round++) {
-    //         for (let podIndex = 0; podIndex < k8s.getPodCount(); podIndex++) {
-    //             const readStart = Date.now();
-    //             await k8s.connectToPod(podIndex);
+        // Do 3 rounds of reads across all pods
+        for (let round = 0; round < 3; round++) {
+            for (let podIndex = 0; podIndex < k8s.getPodCount(); podIndex++) {
+                const readStart = Date.now();
+                await k8s.connectToPod(podIndex);
 
-    //             const structure = await Structures.getStructureService().findById(structureId);
-    //             const readTime = Date.now() - readStart;
+                const structure = await Structures.getStructureService().findById(structureId);
+                const readTime = Date.now() - readStart;
 
-    //             readResults.push({
-    //                 pod: podIndex,
-    //                 description: structure?.description ?? undefined,
-    //                 readTime
-    //             });
+                readResults.push({
+                    pod: podIndex,
+                    description: structure?.description ?? undefined,
+                    readTime
+                });
 
-    //             await k8s.disconnectFromPod();
-    //         }
-    //     }
-    //     trackTiming('rapidReads', rapidReadsStart);
+                await k8s.disconnectFromPod();
+            }
+        }
+        trackTiming('rapidReads', rapidReadsStart);
 
-    //     // Analyze read results
-    //     console.log('\nRead results analysis:');
-    //     const staleReads = readResults.filter(r => r.description !== updatedDescription);
-    //     const freshReads = readResults.filter(r => r.description === updatedDescription);
+        // Analyze read results
+        console.log('\nRead results analysis:');
+        const staleReads = readResults.filter(r => r.description !== updatedDescription);
+        const freshReads = readResults.filter(r => r.description === updatedDescription);
 
-    //     console.log(`  Total reads: ${readResults.length}`);
-    //     console.log(`  Fresh reads (updated desc): ${freshReads.length}`);
-    //     console.log(`  Stale reads (old desc): ${staleReads.length}`);
+        console.log(`  Total reads: ${readResults.length}`);
+        console.log(`  Fresh reads (updated desc): ${freshReads.length}`);
+        console.log(`  Stale reads (old desc): ${staleReads.length}`);
 
-    //     if (staleReads.length > 0) {
-    //         console.log('  Stale read details:');
-    //         for (const stale of staleReads) {
-    //             console.log(`    Pod ${stale.pod}: "${stale.description}" (read in ${stale.readTime}ms)`);
-    //         }
-    //     }
+        if (staleReads.length > 0) {
+            console.log('  Stale read details:');
+            for (const stale of staleReads) {
+                console.log(`    Pod ${stale.pod}: "${stale.description}" (read in ${stale.readTime}ms)`);
+            }
+        }
 
-    //     // Calculate average read times per pod
-    //     const avgReadTimeByPod = new Map<number, number>();
-    //     for (let i = 0; i < k8s.getPodCount(); i++) {
-    //         const podReads = readResults.filter(r => r.pod === i);
-    //         const avgTime = podReads.reduce((sum, r) => sum + r.readTime, 0) / podReads.length;
-    //         avgReadTimeByPod.set(i, Math.round(avgTime));
-    //     }
+        // Calculate average read times per pod
+        const avgReadTimeByPod = new Map<number, number>();
+        for (let i = 0; i < k8s.getPodCount(); i++) {
+            const podReads = readResults.filter(r => r.pod === i);
+            const avgTime = podReads.reduce((sum, r) => sum + r.readTime, 0) / podReads.length;
+            avgReadTimeByPod.set(i, Math.round(avgTime));
+        }
 
-    //     console.log('\n  Average read times per pod:');
-    //     for (const [pod, avgTime] of avgReadTimeByPod) {
-    //         console.log(`    Pod ${pod}: ${avgTime}ms`);
-    //     }
+        console.log('\n  Average read times per pod:');
+        for (const [pod, avgTime] of avgReadTimeByPod) {
+            console.log(`    Pod ${pod}: ${avgTime}ms`);
+        }
 
-    //     // Step 6: Verify eviction files
-    //     console.log('\nStep 6: Verifying eviction CSV files');
-    //     let evictions: EvictionsByPod | undefined;
+        // Step 6: Verify eviction files
+        console.log('\nStep 6: Verifying eviction CSV files');
+        let evictions: EvictionsByPod | undefined;
 
-    //     try {
-    //         evictions = await waitForEvictions({
-    //             basePath: evictionDataPath,
-    //             minRecords: 1,
-    //             timeout: 20000,
-    //             pollInterval: 1000,
-    //             sinceTimestamp: beforeModificationTime
-    //         });
+        try {
+            evictions = await waitForEvictions({
+                basePath: evictionDataPath,
+                minRecords: 1,
+                timeout: 20000,
+                pollInterval: 1000,
+                sinceTimestamp: beforeModificationTime
+            });
 
-    //         const summary = summarizeEvictions(evictions);
-    //         console.log('  Eviction summary:', JSON.stringify(summary, null, 2));
+            const summary = summarizeEvictions(evictions);
+            console.log('  Eviction summary:', JSON.stringify(summary, null, 2));
 
-    //         // Track eviction count as a performance metric
-    //         timings.push({ operation: 'evictionCount', durationMs: summary.totalRecords });
+            // Track eviction count as a performance metric
+            timings.push({ operation: 'evictionCount', durationMs: summary.totalRecords });
 
-    //     } catch (error) {
-    //         console.warn('  Could not verify evictions via CSV:', error);
-    //     }
+        } catch (error) {
+            console.warn('  Could not verify evictions via CSV:', error);
+        }
 
-    //     // Step 7: Final consistency check - all pods should see updated structure
-    //     console.log('\nStep 7: Final consistency verification');
-    //     for (let i = 0; i < k8s.getPodCount(); i++) {
-    //         await k8s.connectToPod(i);
+        // Step 7: Final consistency check - all pods should see updated structure
+        console.log('\nStep 7: Final consistency verification');
+        for (let i = 0; i < k8s.getPodCount(); i++) {
+            await k8s.connectToPod(i);
 
-    //         const finalStructure = await Structures.getStructureService().findById(structureId);
-    //         expect(finalStructure).toBeDefined();
-    //         expect(finalStructure?.description).toBe(updatedDescription);
-    //         console.log(`  Pod ${i}: ✓ Sees updated description`);
+            const finalStructure = await Structures.getStructureService().findById(structureId);
+            expect(finalStructure).toBeDefined();
+            expect(finalStructure?.description).toBe(updatedDescription);
+            console.log(`  Pod ${i}: ✓ Sees updated description`);
 
-    //         await k8s.disconnectFromPod();
-    //     }
+            await k8s.disconnectFromPod();
+        }
 
-    //     // Print performance summary
-    //     console.log('\n═══════════════════════════════════════');
-    //     console.log('PERFORMANCE SUMMARY');
-    //     console.log('═══════════════════════════════════════');
-    //     for (const timing of timings) {
-    //         console.log(`  ${timing.operation}: ${timing.durationMs}ms`);
-    //     }
-    //     console.log('═══════════════════════════════════════');
+        // Print performance summary
+        console.log('\n═══════════════════════════════════════');
+        console.log('PERFORMANCE SUMMARY');
+        console.log('═══════════════════════════════════════');
+        for (const timing of timings) {
+            console.log(`  ${timing.operation}: ${timing.durationMs}ms`);
+        }
+        console.log('═══════════════════════════════════════');
 
-    //     // Assert no stale reads after eviction propagation time
-    //     // In the final round of reads, all should be fresh
-    //     const finalRoundReads = readResults.slice(-k8s.getPodCount());
-    //     const finalStaleCount = finalRoundReads.filter(r => r.description !== updatedDescription).length;
-    //     expect(finalStaleCount).toBe(0);
+        // Assert no stale reads after eviction propagation time
+        // In the final round of reads, all should be fresh
+        const finalRoundReads = readResults.slice(-k8s.getPodCount());
+        const finalStaleCount = finalRoundReads.filter(r => r.description !== updatedDescription).length;
+        expect(finalStaleCount).toBe(0);
 
-    //     console.log('\n✓ Load test foundation complete - no stale reads in final verification');
+        console.log('\n✓ Load test foundation complete - no stale reads in final verification');
 
-    //     // Cleanup
-    //     console.log('\nCleaning up test resources');
-    //     await k8s.connectToPod(0);
-    //     const cleanupEntitySvc: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
-    //     for (const vehicle of testVehicles) {
-    //         if (vehicle.id) {
-    //             try {
-    //                 await cleanupEntitySvc.deleteById(vehicle.id);
-    //             } catch (e) {
-    //                 // Ignore cleanup errors
-    //             }
-    //         }
-    //     }
-    //     await Structures.getStructureService().unPublish(structureId);
-    //     await Structures.getStructureService().deleteById(structureId);
-    //     await Structures.getApplicationService().deleteById(applicationId);
-    //     await k8s.disconnectFromPod();
-    // }, 600000); // 10 minute timeout for load test
+        // Cleanup
+        await cleanup(applicationId, structureName, structureId);
+
+    }, 600000); // 10 minute timeout for load test
+
+    async function cleanup(applicationId: string, structureName: string, structureId: string) {
+        console.log('\nCleaning up test resources');
+        await k8s.connectToPod(0);
+
+        const cleanupEntitySvc: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
+        cleanupEntitySvc.deleteByQuery('*');
+        cleanupEntitySvc.syncIndex();
+
+        await Structures.getStructureService().unPublish(structureId);
+        await Structures.getStructureService().deleteById(structureId);
+        await Structures.getStructureService().syncIndex();
+        
+        const pageable = Pageable.create(0, 100);
+        const projectsIterator = await Structures.getProjectService().findAllForApplication(applicationId, pageable);
+        for await (const page of projectsIterator) {
+            const projects = page.content;
+            if(projects && projects.length > 0) {
+                for (const project of projects) {
+                    if(project.id) {
+                        await Structures.getProjectService().deleteById(project.id);
+                    }
+                }
+            }
+        }
+        await Structures.getProjectService().syncIndex();
+
+        await Structures.getApplicationService().deleteById(applicationId);
+
+        await k8s.disconnectFromPod();
+    }
 });

@@ -1,4 +1,4 @@
-import {C3Decorator} from '@mindignited/continuum-idl'
+import {C3Decorator} from '@kinotic/continuum-idl'
 
 /**
  * Signifies that an object should be stored as a flattened json.

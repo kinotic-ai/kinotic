@@ -1,4 +1,4 @@
-import {C3Decorator} from '@mindignited/continuum-idl'
+import {C3Decorator} from '@kinotic/continuum-idl'
 
 /**
  * Denotes the field that will hold the tenant id to use as the Multi Tenant discriminator field

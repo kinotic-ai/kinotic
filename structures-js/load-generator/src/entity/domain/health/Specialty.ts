@@ -1,4 +1,4 @@
-import { Text } from '@mindignited/structures-api'
+import { Text } from '@kinotic/structures-api'
 
 export class Specialty {
 

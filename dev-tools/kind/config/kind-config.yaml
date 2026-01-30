@@ -88,6 +88,10 @@ nodes:
     extraMounts:
       - hostPath: ./dev-tools/kind/eviction-data
         containerPath: /eviction-data
+  - role: worker
+    extraMounts:
+      - hostPath: ./dev-tools/kind/eviction-data
+        containerPath: /eviction-data
 
 # Networking configuration
 networking:

@@ -1,4 +1,4 @@
-import {PropertyDefinition} from '@mindignited/continuum-idl'
+import {PropertyDefinition} from '@kinotic/continuum-idl'
 
 /**
  * The configuration for a property that should be overridden.

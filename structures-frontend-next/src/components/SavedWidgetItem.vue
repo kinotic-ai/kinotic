@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import type { DataInsightsWidget } from '@/domain/DataInsightsWidget'
+import { createDebug } from '@/util/debug'
+
+const debug = createDebug('saved-widget-item');
 
 const props = defineProps<{
   widget: DataInsightsWidget
@@ -89,7 +92,7 @@ const executeWidgetElement = (htmlContent: string) => {
     
     // If element already exists, create unique name for this widget instance
     if (customElements.get(elementName)) {
-      console.log('⚠️ Element already registered, using existing:', elementName)
+      debug('Element already registered, using existing: %s', elementName)
       // Check if it's the same class or different
       const existingElement = customElements.get(elementName)
       const newClassMatch = htmlContent.match(/class\s+(\w+)\s+extends\s+HTMLElement/)
@@ -98,7 +101,7 @@ const executeWidgetElement = (htmlContent: string) => {
       // If different implementation, create unique element name
       if (newClassName && existingElement && existingElement.name !== newClassName) {
         const uniqueName = `${elementName}-${props.widget.id?.substring(0, 8)}`
-        console.log('🔄 Creating unique element name:', uniqueName)
+        debug('Element already registered, creating unique name: %s', uniqueName)
         const modifiedHtml = htmlContent.replace(
           `customElements.define('${elementName}'`,
           `customElements.define('${uniqueName}'`
@@ -111,7 +114,7 @@ const executeWidgetElement = (htmlContent: string) => {
       return
     }
     
-    console.log('🔧 Registering new element:', elementName)
+    debug('Registering new element: %s', elementName)
     eval(htmlContent)
     
     setTimeout(() => {
@@ -120,67 +123,61 @@ const executeWidgetElement = (htmlContent: string) => {
       }
     }, 500)
   } catch (error) {
-    console.error('Error executing widget HTML:', error)
+    debug('Error executing widget HTML: %O', error)
   }
 }
 
 const createWidgetElement = (elementName: string) => {
   const previewContainer = document.querySelector(`[data-widget-id="${props.widget.id}"] .widget-preview-content`)
   
-  console.log('🎨 Creating element for:', props.widget.dataInsightsComponent?.name)
-  console.log('📦 Container found:', !!previewContainer)
-  console.log('🏷️ Element name:', elementName)
-  console.log('✅ Custom element registered?', !!customElements.get(elementName))
+  debug('Creating element for: %s, registered: %s', props.widget.dataInsightsComponent?.name, !!customElements.get(elementName))
   
   if (previewContainer) {
     const element = document.createElement(elementName)
-    console.log('🔧 Element created:', element)
+    debug('Element created: %s', elementName)
     previewContainer.innerHTML = ''
     previewContainer.appendChild(element)
-    console.log('✅ Element appended to container')
+    debug('Element appended to container')
     
     setTimeout(() => {
-      console.log('⏰ Checking shadow root after 300ms...')
-      console.log('🔍 Shadow root exists?', !!element.shadowRoot)
+      debug('Checking shadow root - exists: %s', !!element.shadowRoot)
       
       if (element.shadowRoot) {
-        console.log('✅ Shadow root confirmed!')
+        debug('Shadow root confirmed')
         const style = document.createElement('style')
         element.shadowRoot.appendChild(style)
-        console.log('🎨 Styles appended')
+        debug('Styles appended')
         
         setTimeout(() => {
-          console.log('⏰ Setting preview loaded...')
+          debug('Preview loaded for: %s', props.widget.dataInsightsComponent?.name)
           previewLoaded.value = true
-          console.log('✅ Preview loaded for:', props.widget.dataInsightsComponent?.name)
           
           if (element.shadowRoot) {
             const chartContainer = element.shadowRoot.querySelector('.chart-container, [id="chart"]')
-            console.log('📊 Chart container in shadow:', !!chartContainer)
+            debug('Chart container in shadow: %s', !!chartContainer)
             
             const canvas = element.shadowRoot.querySelector('canvas')
             const svg = element.shadowRoot.querySelector('svg')
-            console.log('🎨 Canvas found:', !!canvas)
-            console.log('🎨 SVG found:', !!svg)
+            debug('Canvas: %s, SVG: %s', !!canvas, !!svg)
             
             const chartElement = element.shadowRoot.querySelector('canvas, svg, [id="chart"]') as any
             if (chartElement && chartElement.__ec_inner__) {
               setTimeout(() => {
-                console.log('📊 Resizing echarts...')
+                debug('Resizing echarts')
                 chartElement.__ec_inner__.resize()
-                console.log('✅ ECharts resized')
+                debug('ECharts resized')
               }, 500)
             } else {
-              console.log('ℹ️ No echarts instance found (might be other chart library)')
+              debug('No echarts instance found (might be other chart library)')
             }
           }
         }, 1000)
       } else {
-        console.error('❌ No shadow root found!')
+        debug('No shadow root found!')
       }
     }, 300)
   } else {
-    console.error('❌ Preview container not found for:', props.widget.id)
+    debug('Preview container not found for: %s', props.widget.id)
   }
 }
 

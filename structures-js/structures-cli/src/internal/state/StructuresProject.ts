@@ -3,8 +3,8 @@ import {CalculatedPropertyConfiguration,
         TransformConfiguration,
         TypescriptExternalProjectConfig,
         TypescriptProjectConfig
-    } from '@mindignited/structures-api'
-import type { StructuresProjectConfig } from '@mindignited/structures-api'
+    } from '@kinotic/structures-api'
+import type { StructuresProjectConfig } from '@kinotic/structures-api'
 import {createStateManager} from './IStateManager.js'
 import { loadConfig } from 'c12'
 import path from 'path'
@@ -146,7 +146,9 @@ function renderValue(value: any, indent: number = 0): string {
         return String(value)
     }
     if (typeof value === 'string') {
-        return `"${value.replace(/"/g, '\\"')}"`
+        // JSON.stringify produces a valid JS/TS string literal with correct escaping
+        // (handles backslashes, quotes, newlines, tabs, etc.)
+        return JSON.stringify(value)
     }
     if (typeof value === 'number') {
         return String(value)

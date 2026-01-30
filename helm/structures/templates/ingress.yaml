@@ -3,13 +3,68 @@
 # NGINX Ingress Configuration for structures-server
 # ============================================================================
 #
-# This configuration uses TWO separate Ingress resources:
+# This configuration uses FOUR separate Ingress resources:
 #   1. WebSocket Ingress - /v1 path for STOMP with sticky sessions
-#   2. HTTP Ingress - /api, /graphql, / paths with standard routing
+#   2. HTTP Ingress - /api, /graphql paths with standard routing
+#   3. Keycloak Ingress - /auth path for OIDC provider (when oidc.enabled)
+#   4. Static UI Ingress - / catch-all for SPA
 #
 # This approach eliminates the need for configuration-snippet annotations
 # and prevents nginx directive conflicts.
 # ============================================================================
+
+{{- if .Values.oidc.enabled }}
+# ----------------------------------------------------------------------------
+# Keycloak Ingress - OIDC authentication provider
+# ----------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "structures-server.fullname" . }}-keycloak
+  labels:
+    app: {{ include "structures-server.name" . }}
+  annotations:
+    # Standard HTTP timeouts
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # Preserve host header for Keycloak
+    nginx.ingress.kubernetes.io/proxy-pass-headers: "Location"
+    # Allow large headers for OIDC tokens
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    # CRITICAL: Forward headers for HTTPS proxy - tells Keycloak the original protocol
+    # This is required when TLS terminates at the ingress and Keycloak runs on HTTP
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header X-Forwarded-Proto https;
+      proxy_set_header X-Forwarded-Port 443;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        {{- range .Values.ingress.hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak
+                port:
+                  number: 8888
+    {{- end }}
+---
+{{- end }}
 
 # ----------------------------------------------------------------------------
 # WebSocket Ingress - STOMP endpoint with sticky sessions

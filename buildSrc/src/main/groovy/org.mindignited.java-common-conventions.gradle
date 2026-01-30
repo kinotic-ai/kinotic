@@ -80,7 +80,6 @@ dependencyManagement {
         dependency "org.mindignited:continuum-core-vertx:${continuumVersion}"
         dependency "org.mindignited:continuum-gateway:${continuumVersion}"
         dependency "org.mindignited:continuum-idl:${continuumVersion}"
-        dependency "org.mindignited:continuum-security:${continuumVersion}"
 
         // Spring no longer uses javax annotations
         dependency "jakarta.annotation:jakarta.annotation-api:${jakartaAnnotationVersion}"
