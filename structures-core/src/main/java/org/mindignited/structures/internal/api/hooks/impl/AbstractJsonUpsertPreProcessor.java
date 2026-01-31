@@ -1,11 +1,5 @@
 package org.mindignited.structures.internal.api.hooks.impl;
 
-import tools.jackson.core.JsonEncoding;
-import tools.jackson.core.JsonGenerator;
-import tools.jackson.core.JsonParser;
-import tools.jackson.core.JsonToken;
-import tools.jackson.core.util.ByteArrayBuilder;
-import tools.jackson.databind.ObjectMapper;
 import org.mindignited.continuum.idl.api.schema.decorators.C3Decorator;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.api.domain.EntityContext;
@@ -17,6 +11,13 @@ import org.mindignited.structures.internal.api.hooks.UpsertFieldPreProcessor;
 import org.mindignited.structures.internal.api.hooks.UpsertPreProcessor;
 import org.mindignited.structures.internal.api.services.EntityHolder;
 import org.mindignited.structures.internal.api.services.json.JsonStreamProcessor;
+import tools.jackson.core.JsonEncoding;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.util.ByteArrayBuilder;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -30,21 +31,40 @@ import java.util.concurrent.CompletableFuture;
  */
 public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProcessor<T, T, RawJson> {
 
-    protected final StructuresProperties structuresProperties;
-    protected final ObjectMapper objectMapper;
+    /** Mapper with FAIL_ON_TRAILING_TOKENS disabled for stream reads (Jackson 3; not needed in Jackson 2). */
+    protected final JsonMapper jsonMapper;
     protected final Structure structure;
+    protected final StructuresProperties structuresProperties;
     // Map of json path to decorator logic
     private final Map<String, DecoratorLogic> fieldPreProcessors;
 
-
     public AbstractJsonUpsertPreProcessor(StructuresProperties structuresProperties,
-                                          ObjectMapper objectMapper,
+                                          JsonMapper jsonMapper,
                                           Structure structure,
                                           Map<String, DecoratorLogic> fieldPreProcessors) {
         this.structuresProperties = structuresProperties;
-        this.objectMapper = objectMapper;
+        // Jackson 3 fails on trailing tokens by default; we stream-parse and readValue() one field at a time,
+        // leaving the parser on the next token (e.g. next property). Disable so partial reads succeed (Jackson 2 allowed this).
+        this.jsonMapper = jsonMapper.rebuild()
+                .disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .build();
         this.structure = structure;
         this.fieldPreProcessors = fieldPreProcessors;
+    }
+
+    @Override
+    public CompletableFuture<EntityHolder<RawJson>> process(T entity, EntityContext context) {
+        return doProcess(entity, context, false).thenApply(list -> {
+            if(list.size() != 1){
+                throw new IllegalStateException("Expected exactly one entity to be returned");
+            }
+            return list.getFirst();
+        });
+    }
+
+    @Override
+    public CompletableFuture<List<EntityHolder<RawJson>>> processArray(T entities, EntityContext context) {
+        return doProcess(entities, context, true);
     }
 
     protected abstract JsonParser createParser(T input);
@@ -69,7 +89,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
             String currentTenantId = null;
             String currentVersion = null;
             ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-            JsonGenerator jsonGenerator = objectMapper.createGenerator(byteArrayBuilder, JsonEncoding.UTF8);
+            JsonGenerator jsonGenerator = jsonMapper.createGenerator(byteArrayBuilder, JsonEncoding.UTF8);
 
             while (jsonParser.nextToken() != null) {
 
@@ -96,7 +116,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
 
                         C3Decorator decorator = preProcessorLogic.getDecorator();
                         UpsertFieldPreProcessor<C3Decorator, Object, Object> preProcessor = preProcessorLogic.getProcessor();
-                        Object input = objectMapper.readValue(jsonParser, preProcessor.supportsFieldType());
+                        Object input = jsonMapper.readValue(jsonParser, preProcessor.supportsFieldType());
                         Object value = preProcessor.process(structure, fieldName, decorator, input, context);
 
                         // We exclude the version field from the data to be persisted
@@ -161,7 +181,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                             // since the tenant id field is already present check its value to make sure it is null
                             // or matches the logged in tenant
                             jsonParser.nextToken(); // move to value token
-                            currentTenantId = objectMapper.readValue(jsonParser, String.class);
+                            currentTenantId = jsonMapper.readValue(jsonParser, String.class);
                             if(currentTenantId != null && !currentTenantId.equals(context.getParticipant().getTenantId())){
                                 throw new IllegalArgumentException("Tenant Id invalid for logged in participant");
                             }
@@ -262,21 +282,6 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
             }
         }
         return ret;
-    }
-
-    @Override
-    public CompletableFuture<EntityHolder<RawJson>> process(T entity, EntityContext context) {
-        return doProcess(entity, context, false).thenApply(list -> {
-            if(list.size() != 1){
-                throw new IllegalStateException("Expected exactly one entity to be returned");
-            }
-            return list.getFirst();
-        });
-    }
-
-    @Override
-    public CompletableFuture<List<EntityHolder<RawJson>>> processArray(T entities, EntityContext context) {
-        return doProcess(entities, context, true);
     }
 
 

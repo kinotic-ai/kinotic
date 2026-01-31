@@ -275,10 +275,6 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
 
                 if(cacheEvictionEvent.getStructureId() != null){
                     namedQueryOperationDefinitionCache.asMap().remove(cacheEvictionEvent.getStructureId());
-
-                    log.info("Successfully completed ordered cache eviction for structure: {}:{}:{} due to {} {} {}", 
-                                    cacheEvictionEvent.getApplicationId(), cacheEvictionEvent.getStructureId(), cacheEvictionEvent.getNamedQueryId(), 
-                                    cacheEvictionEvent.getEvictionSourceType(), cacheEvictionEvent.getEvictionOperation(), cacheEvictionEvent.getEvictionSource().getDisplayName());
                 }
 
             }

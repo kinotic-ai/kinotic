@@ -1,11 +1,11 @@
 package org.mindignited.structures.internal.api.services.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import org.apache.commons.lang3.Validate;
 import org.mindignited.continuum.idl.api.schema.decorators.C3Decorator;
 import org.mindignited.structures.api.config.StructuresProperties;
+import org.mindignited.structures.api.domain.DecoratedProperty;
 import org.mindignited.structures.api.domain.Structure;
 import org.mindignited.structures.api.services.NamedQueriesService;
 import org.mindignited.structures.api.services.security.AuthorizationServiceFactory;
@@ -15,9 +15,9 @@ import org.mindignited.structures.internal.api.hooks.ReadPreProcessor;
 import org.mindignited.structures.internal.api.hooks.UpsertFieldPreProcessor;
 import org.mindignited.structures.internal.api.services.EntityService;
 import org.mindignited.structures.internal.api.services.StructureDAO;
-import org.mindignited.structures.api.domain.DecoratedProperty;
 import org.mindignited.structures.internal.utils.StructuresUtil;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,7 +36,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
     private final CrudServiceTemplate crudServiceTemplate;
     private final ElasticsearchAsyncClient esAsyncClient;
     private final NamedQueriesService namedQueriesService;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
     private final ReadPreProcessor readPreProcessor;
     private final StructureDAO structureDAO;
     private final StructuresProperties structuresProperties;
@@ -47,7 +47,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
                                     CrudServiceTemplate crudServiceTemplate,
                                     ElasticsearchAsyncClient esAsyncClient,
                                     NamedQueriesService namedQueriesService,
-                                    ObjectMapper objectMapper,
+                                    JsonMapper jsonMapper,
                                     ReadPreProcessor readPreProcessor,
                                     StructureDAO structureDAO,
                                     StructuresProperties structuresProperties,
@@ -56,7 +56,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
         this.crudServiceTemplate = crudServiceTemplate;
         this.esAsyncClient = esAsyncClient;
         this.namedQueriesService = namedQueriesService;
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
         this.readPreProcessor = readPreProcessor;
         this.structureDAO = structureDAO;
         this.structuresProperties = structuresProperties;
@@ -105,12 +105,12 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
                                          authService,
                                          crudServiceTemplate,
                                          new DelegatingUpsertPreProcessor(structuresProperties,
-                                                                          objectMapper,
+                                                                          jsonMapper,
                                                                           structure,
                                                                           fieldPreProcessors),
                                          esAsyncClient,
                                          namedQueriesService,
-                                         objectMapper,
+                                         jsonMapper,
                                          readPreProcessor,
                                          structure,
                                          structuresProperties));

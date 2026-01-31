@@ -1,7 +1,5 @@
 package org.mindignited.structures.internal.api.hooks;
 
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.util.TokenBuffer;
 import org.apache.commons.lang3.Validate;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.api.domain.EntityContext;
@@ -12,6 +10,8 @@ import org.mindignited.structures.internal.api.hooks.impl.PojoUpsertPreProcessor
 import org.mindignited.structures.internal.api.hooks.impl.RawJsonUpsertPreProcessor;
 import org.mindignited.structures.internal.api.hooks.impl.TokenBufferUpsertPreProcessor;
 import org.mindignited.structures.internal.api.services.EntityHolder;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,17 +29,17 @@ public class DelegatingUpsertPreProcessor implements UpsertPreProcessor<Object, 
     private final PojoUpsertPreProcessor pojoUpsertPreProcessor;
 
     public DelegatingUpsertPreProcessor(StructuresProperties structuresProperties,
-                                        ObjectMapper objectMapper,
+                                        JsonMapper jsonMapper,
                                         Structure structure,
                                         Map<String, DecoratorLogic> fieldPreProcessors) {
 
         tokenBufferUpsertPreProcessor = new TokenBufferUpsertPreProcessor(structuresProperties,
-                                                                          objectMapper,
+                                                                          jsonMapper,
                                                                           structure,
                                                                           fieldPreProcessors);
 
         rawJsonUpsertPreProcessor = new RawJsonUpsertPreProcessor(structuresProperties,
-                                                                  objectMapper,
+                                                                  jsonMapper,
                                                                   structure,
                                                                   fieldPreProcessors);
 

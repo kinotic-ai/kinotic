@@ -1,8 +1,5 @@
 package org.mindignited.structures.internal.api.hooks.impl;
 
-import tools.jackson.core.JsonParser;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.util.TokenBuffer;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.api.domain.EntityContext;
@@ -10,6 +7,9 @@ import org.mindignited.structures.api.domain.RawJson;
 import org.mindignited.structures.api.domain.Structure;
 import org.mindignited.structures.internal.api.hooks.DecoratorLogic;
 import org.mindignited.structures.internal.api.services.EntityHolder;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.List;
 import java.util.Map;
@@ -22,10 +22,10 @@ public class TokenBufferUpsertPreProcessor extends AbstractJsonUpsertPreProcesso
 
 
     public TokenBufferUpsertPreProcessor(StructuresProperties structuresProperties,
-                                         ObjectMapper objectMapper,
+                                         JsonMapper jsonMapper,
                                          Structure structure,
                                          Map<String, DecoratorLogic> fieldPreProcessors) {
-        super(structuresProperties, objectMapper, structure, fieldPreProcessors);
+        super(structuresProperties, jsonMapper, structure, fieldPreProcessors);
     }
 
     @Override
