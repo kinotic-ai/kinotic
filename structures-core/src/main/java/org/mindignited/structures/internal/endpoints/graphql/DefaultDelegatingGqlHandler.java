@@ -48,14 +48,7 @@ public class DefaultDelegatingGqlHandler implements DelegatingGqlHandler {
 
                 if (cacheEvictionEvent.getApplicationId() != null) {
                     graphQLHandlerCache.asMap().remove(cacheEvictionEvent.getApplicationId());
-
-                    log.info("Successfully completed cache eviction for entity: {}:{}:{} due to {} {} {}",
-                            cacheEvictionEvent.getApplicationId(), cacheEvictionEvent.getStructureId(),
-                            cacheEvictionEvent.getNamedQueryId(),
-                            cacheEvictionEvent.getEvictionSourceType(), cacheEvictionEvent.getEvictionOperation(),
-                            cacheEvictionEvent.getEvictionSource().getDisplayName());
                 }
-
             }
 
         } catch (Exception e) {

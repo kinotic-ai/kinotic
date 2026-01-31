@@ -102,8 +102,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         // We exclude the version field from the data to be persisted
                         if(!(decorator instanceof VersionDecorator)) {
                             if (value != null) {
-                                jsonGenerator.writeName(fieldName);
-                                jsonGenerator.writePOJO(value);
+                                jsonGenerator.writePOJOProperty(fieldName, value);
                             } else {
                                 jsonGenerator.writeNullProperty(fieldName);
                             }
@@ -148,8 +147,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
 
                             // Elasticsearch requires a @timestamp field to contain the time data so we just duplicate the value
                             if(value != null){
-                                jsonGenerator.writeName("@timestamp");
-                                jsonGenerator.writePOJO(value);
+                                jsonGenerator.writePOJOProperty("@timestamp", value);
                             }else{
                                 jsonGenerator.writeNullProperty("@timestamp");
                             }
@@ -168,8 +166,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                                 throw new IllegalArgumentException("Tenant Id invalid for logged in participant");
                             }
 
-                            jsonGenerator.writeName(fieldName);
-                            jsonGenerator.writePOJO(currentTenantId);
+                            jsonGenerator.writeStringProperty(fieldName, currentTenantId);
 
                         }else{
                             jsonGenerator.copyCurrentEvent(jsonParser);
@@ -198,8 +195,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         if(structure.getMultiTenancyType() == MultiTenancyType.SHARED
                                 && currentTenantId == null){
                             currentTenantId = context.getParticipant().getTenantId();
-                            jsonGenerator.writeName(structuresProperties.getTenantIdFieldName());
-                            jsonGenerator.writeString(currentTenantId);
+                            jsonGenerator.writeStringProperty(structuresProperties.getTenantIdFieldName(), currentTenantId);
                         }
 
                         // This is the end of the object, so we store the object

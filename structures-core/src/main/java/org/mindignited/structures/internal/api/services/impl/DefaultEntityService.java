@@ -40,7 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
- * Created by Navíd Mitchell 🤪 on 5/2/23.
+ * Created by Navíd Mitchell 🤪on 5/2/23.
  */
 @RequiredArgsConstructor
 public class DefaultEntityService implements EntityService {

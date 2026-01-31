@@ -52,9 +52,6 @@ public class DefaultEntitiesService implements EntitiesService {
                 
             if(event.getEvictionSourceType() == EvictionSourceType.STRUCTURE){
                 this.entityServiceCache.asMap().remove(event.getStructureId());
-
-                log.info("successfully completed cache eviction for structure: {} due to {}", 
-                                 event.getStructureId(), event.getEvictionOperation().getDisplayName());
             }
                     
         } catch (Exception e) {
@@ -230,10 +227,4 @@ public class DefaultEntitiesService implements EntitiesService {
                 .thenCompose(entityService -> entityService.update(entity, context));
     }
 
-    /**
-     * Public accessor for testing cache state
-     */
-    public AsyncLoadingCache<String, EntityService> getEntityServiceCache() {
-        return entityServiceCache;
-    }
 }

@@ -16,13 +16,6 @@ dependencies {
 
     api "org.mindignited:continuum-core"
     api "org.mindignited:continuum-idl"
-
-    // Test dependencies
-    testImplementation 'org.mockito:mockito-core:5.11.0'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
-	testImplementation "org.testcontainers:elasticsearch:${testContainersVersion}"
 }
 
 test {
