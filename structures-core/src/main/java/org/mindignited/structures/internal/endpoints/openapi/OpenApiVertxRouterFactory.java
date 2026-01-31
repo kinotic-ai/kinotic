@@ -1,5 +1,6 @@
 package org.mindignited.structures.internal.endpoints.openapi;
 
+import io.swagger.v3.core.util.ObjectMapperFactory;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -9,7 +10,6 @@ import io.vertx.ext.web.Route;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
-import io.vertx.ext.web.handler.CorsHandler;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.Nullable;
 import org.mindignited.continuum.api.security.SecurityService;
@@ -27,6 +27,7 @@ import tools.jackson.databind.JavaType;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.type.TypeFactory;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -38,13 +39,12 @@ import java.util.function.Supplier;
 @Component
 public class OpenApiVertxRouterFactory {
 
-    // FIXME: put back to static if swagger implementation
-    private final ObjectMapper openApiMapper = new ObjectMapper();
+    private static final com.fasterxml.jackson.databind.ObjectMapper openApiMapper;
 
-//    static {
-//        // Specific serializers are added to the ObjectMapper by the swagger implementation
-//        openApiMapper = ObjectMapperFactory.createJson();
-//    }
+    static {
+        // Specific serializers are added to the ObjectMapper by the swagger implementation
+        openApiMapper = ObjectMapperFactory.createJson();
+    }
 
     private final String adminApiBasePath;
     private final String apiBasePath;
@@ -93,24 +93,7 @@ public class OpenApiVertxRouterFactory {
     }
 
     public Router createRouter() {
-        Router router = Router.router(vertx);
-
-        router.route().failureHandler(VertxWebUtil.createExceptionConvertingFailureHandler());
-
-        String allowedOriginPattern = properties.getCorsAllowedOriginPattern();
-        if ("*".equals(allowedOriginPattern)) {
-            allowedOriginPattern = ".*";
-        }
-
-        CorsHandler corsHandler = CorsHandler.create()
-                                             .addOriginWithRegex(allowedOriginPattern)
-                                             .allowedHeaders(properties.getCorsAllowedHeaders());
-
-        if(properties.getCorsAllowCredentials() != null){
-            corsHandler.allowCredentials(properties.getCorsAllowCredentials());
-        }
-
-        router.route().handler(corsHandler);
+        Router router = VertxWebUtil.createRouterWithCors(vertx, properties);
 
         BodyHandler bodyHandler = BodyHandler.create(false);
         bodyHandler.setBodyLimit(properties.getMaxHttpBodySize());
@@ -130,7 +113,7 @@ public class OpenApiVertxRouterFactory {
                                     byte[] bytes = openApiMapper.writeValueAsBytes(result);
                                     ctx.response().putHeader("Content-Type", "application/json");
                                     ctx.response().end(Buffer.buffer(bytes));
-                                } catch (JacksonException e) {
+                                } catch (IOException e) {
                                     VertxWebUtil.writeException(ctx, e);
                                 }
                             }else{

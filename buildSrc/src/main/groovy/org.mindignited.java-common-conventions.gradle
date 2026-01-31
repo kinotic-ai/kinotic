@@ -32,18 +32,6 @@ configurations {
     }
 }
 
-// Exclude all com.fasterxml.jackson transitive dependencies (except jackson-annotations, which some modules use directly).
-// Direct com.fasterxml.jackson.core:jackson-databind / jackson-core are also excluded; use tools.jackson.core for those.
-configurations.all {
-    exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
-    exclude group: 'com.fasterxml.jackson.core', module: 'jackson-core'
-    exclude group: 'com.fasterxml.jackson.datatype'
-    exclude group: 'com.fasterxml.jackson.dataformat'
-    exclude group: 'com.fasterxml.jackson.module'
-    exclude group: 'com.fasterxml.jackson.jaxrs'
-    exclude group: 'com.fasterxml.jackson.jr'
-}
-
 dependencyManagement {
     imports {
         mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
