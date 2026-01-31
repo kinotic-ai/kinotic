@@ -14,7 +14,7 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class UpdateQueryExecutor implements QueryExecutor {
 
-    private final String statement;
+    // private final String statement;
 
     @Override
     public <T> CompletableFuture<List<T>> execute(QueryContext context, Class<T> type) {

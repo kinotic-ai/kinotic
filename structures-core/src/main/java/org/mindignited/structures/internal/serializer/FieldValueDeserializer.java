@@ -19,7 +19,7 @@ public class FieldValueDeserializer extends ValueDeserializer<FieldValue> {
         Validate.isTrue(node.has("kind"), "kind missing from FieldValue");
         Validate.isTrue(node.has("value"), "value missing from FieldValue");
 
-        String kindString = node.get("kind").textValue();
+        String kindString = node.get("kind").asString();
         FieldValue.Kind kind = FieldValue.Kind.valueOf(kindString);
         switch (kind){
             case Double:
@@ -29,7 +29,12 @@ public class FieldValueDeserializer extends ValueDeserializer<FieldValue> {
             case Boolean:
                 return FieldValue.of(node.get("value").booleanValue());
             case String:
-                return FieldValue.of(node.get("value").textValue());
+                // FIXME: make sure we want a null string to be represented as FieldValue.NULL
+                if(node.get("value").isNull()){
+                    return FieldValue.NULL;
+                }else{
+                    return FieldValue.of(node.get("value").asString());
+                }
             case Null:
                 return FieldValue.NULL;
             case Any:

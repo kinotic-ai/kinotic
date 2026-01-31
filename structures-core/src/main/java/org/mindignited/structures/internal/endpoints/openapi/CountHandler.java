@@ -1,12 +1,11 @@
 package org.mindignited.structures.internal.endpoints.openapi;
 
+import org.mindignited.structures.internal.utils.VertxWebUtil;
+
 import io.vertx.core.Completable;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
-import org.mindignited.structures.internal.utils.VertxWebUtil;
-
-import java.util.function.BiFunction;
 
 /**
  * Created by Navíd Mitchell 🤪 on 5/2/24.

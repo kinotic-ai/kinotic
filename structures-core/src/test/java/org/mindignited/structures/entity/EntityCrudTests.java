@@ -5,7 +5,6 @@ package org.mindignited.structures.entity;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mindignited.continuum.core.api.crud.CursorPage;
 import org.mindignited.continuum.core.api.crud.Page;
 import org.mindignited.continuum.core.api.crud.Pageable;
@@ -25,7 +24,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import tools.jackson.core.JacksonException;
@@ -38,7 +36,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
-@ExtendWith(SpringExtension.class)
 @SpringBootTest
 public class EntityCrudTests extends ElasticsearchTestBase {
 

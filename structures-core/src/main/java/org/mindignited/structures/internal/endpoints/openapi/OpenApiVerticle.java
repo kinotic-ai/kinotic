@@ -1,15 +1,14 @@
 package org.mindignited.structures.internal.endpoints.openapi;
 
+import org.mindignited.structures.api.config.StructuresProperties;
+import org.mindignited.structures.api.domain.Structure;
+
 import io.vertx.core.Future;
 import io.vertx.core.VerticleBase;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.web.Router;
 import lombok.RequiredArgsConstructor;
-import org.mindignited.structures.api.config.StructuresProperties;
-import org.mindignited.structures.api.domain.Structure;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * We have one OpenApi spec for all {@link Structure}'s in a application. But this handles all applications and all structures.

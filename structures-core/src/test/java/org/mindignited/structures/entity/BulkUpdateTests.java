@@ -3,15 +3,14 @@ package org.mindignited.structures.entity;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mindignited.continuum.core.api.crud.Page;
 import org.mindignited.continuum.core.api.crud.Pageable;
 import org.mindignited.structures.ElasticsearchTestBase;
-import org.mindignited.structures.internal.api.domain.DefaultEntityContext;
 import org.mindignited.structures.api.domain.EntityContext;
 import org.mindignited.structures.api.domain.RawJson;
 import org.mindignited.structures.api.domain.Structure;
 import org.mindignited.structures.api.services.EntitiesService;
+import org.mindignited.structures.internal.api.domain.DefaultEntityContext;
 import org.mindignited.structures.internal.sample.Car;
 import org.mindignited.structures.internal.sample.DummyParticipant;
 import org.mindignited.structures.internal.sample.Person;
@@ -20,7 +19,6 @@ import org.mindignited.structures.support.StructureAndPersonHolder;
 import org.mindignited.structures.support.TestHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -30,7 +28,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 
-@ExtendWith(SpringExtension.class)
 @SpringBootTest
 public class BulkUpdateTests extends ElasticsearchTestBase {
 

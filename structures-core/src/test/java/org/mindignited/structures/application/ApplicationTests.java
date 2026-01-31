@@ -10,9 +10,11 @@ import org.mindignited.structures.api.domain.Application;
 import org.mindignited.structures.api.services.ApplicationService;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import org.springframework.boot.test.context.SpringBootTest;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+@SpringBootTest
 public class ApplicationTests extends ElasticsearchTestBase {
 
 	@Autowired

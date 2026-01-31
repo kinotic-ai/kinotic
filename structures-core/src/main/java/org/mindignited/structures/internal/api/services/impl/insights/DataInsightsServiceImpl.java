@@ -1,19 +1,17 @@
 package org.mindignited.structures.internal.api.services.impl.insights;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.Instant;
+
 import org.mindignited.continuum.api.security.Participant;
 import org.mindignited.structures.api.domain.insights.InsightProgress;
 import org.mindignited.structures.api.domain.insights.InsightRequest;
-import org.mindignited.structures.api.services.EntitiesService;
-import org.mindignited.structures.api.services.StructureService;
 import org.mindignited.structures.api.services.insights.DataInsightsService;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
-import tools.jackson.databind.ObjectMapper;
 
-import java.time.Instant;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
 
 /**
  * Implementation of DataInsightsService that processes user requests through a chain of steps:
@@ -28,10 +26,10 @@ import java.time.Instant;
 public class DataInsightsServiceImpl implements DataInsightsService {
 
   //  private final ChatClient chatClient;
-    private final InsightsContextService contextService;
-    private final EntitiesService entitiesService;
-    private final StructureService structureService;
-    private final ObjectMapper objectMapper;
+    // private final InsightsContextService contextService;
+    // private final EntitiesService entitiesService;
+    // private final StructureService structureService;
+    // private final ObjectMapper objectMapper;
 
     // FIXME: Needs spring ai 2 with spring boot 4 support
 
