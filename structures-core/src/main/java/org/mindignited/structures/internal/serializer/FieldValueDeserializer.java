@@ -29,12 +29,7 @@ public class FieldValueDeserializer extends ValueDeserializer<FieldValue> {
             case Boolean:
                 return FieldValue.of(node.get("value").booleanValue());
             case String:
-                // FIXME: make sure we want a null string to be represented as FieldValue.NULL
-                if(node.get("value").isNull()){
-                    return FieldValue.NULL;
-                }else{
-                    return FieldValue.of(node.get("value").asString());
-                }
+                return FieldValue.of(node.get("value").stringValue());
             case Null:
                 return FieldValue.NULL;
             case Any:
