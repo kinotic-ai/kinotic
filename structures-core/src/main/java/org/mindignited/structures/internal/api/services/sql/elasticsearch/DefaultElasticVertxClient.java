@@ -17,6 +17,7 @@ import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
 import jakarta.annotation.PreDestroy;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.mindignited.continuum.core.api.crud.CursorPage;
@@ -120,7 +121,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
         MutableObject<String> cursorProvided = new MutableObject<>(null);
         if(pageable != null){
             if(pageable instanceof CursorPageable cursorPageable){
-                if(cursorPageable.getCursor() != null) {
+                if(StringUtils.isNotBlank(cursorPageable.getCursor())) {
                     foundCursor = true;
                     cursorProvided.setValue(cursorPageable.getCursor());
                     json.put("cursor", cursorPageable.getCursor());
