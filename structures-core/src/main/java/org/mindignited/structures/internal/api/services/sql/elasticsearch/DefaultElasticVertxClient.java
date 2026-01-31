@@ -5,36 +5,36 @@ import co.elastic.clients.elasticsearch._types.ErrorResponse;
 import co.elastic.clients.elasticsearch.sql.TranslateResponse;
 import co.elastic.clients.json.JsonpMapper;
 import co.elastic.clients.json.SimpleJsonpMapper;
-import tools.jackson.core.JsonEncoding;
-import tools.jackson.core.JsonGenerator;
-import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.PoolOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.tracing.TracingPolicy;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
-import me.escoffier.vertx.completablefuture.VertxCompletableFuture;
+import jakarta.annotation.PreDestroy;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.mutable.MutableObject;
 import org.mindignited.continuum.core.api.crud.CursorPage;
 import org.mindignited.continuum.core.api.crud.CursorPageable;
 import org.mindignited.continuum.core.api.crud.Page;
 import org.mindignited.continuum.core.api.crud.Pageable;
+import org.mindignited.structures.api.config.ElasticConnectionInfo;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.api.domain.QueryOptions;
 import org.mindignited.structures.api.domain.RawJson;
 import org.mindignited.structures.auth.internal.services.DefaultCaffeineCacheFactory;
-import org.mindignited.structures.api.config.ElasticConnectionInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JsonEncoding;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.ObjectMapper;
 
-import jakarta.annotation.PreDestroy;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -56,7 +56,6 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
     private final ObjectMapper objectMapper;
     private final HttpRequest<Buffer> sqlQueryRequest;
     private final HttpRequest<Buffer> sqlTranslateRequest;
-    private final Vertx vertx;
     private final WebClient webClient;
     private final Cache<String, List<ElasticColumn>> columnsCache;
 
@@ -66,21 +65,23 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
                                      Vertx vertx,
                                      DefaultCaffeineCacheFactory cacheFactory) {
         this.objectMapper = objectMapper;
-        this.vertx = vertx;
         this.columnsCache = cacheFactory.<String, List<ElasticColumn>>newBuilder()
-                .name("elasticColumnsCache")
-                .expireAfterAccess(Duration.ofMinutes(35))
-                .maximumSize(20_000)
-                .build();
+                                        .name("elasticColumnsCache")
+                                        .expireAfterAccess(Duration.ofMinutes(35))
+                                        .maximumSize(20_000)
+                                        .build();
 
         WebClientOptions options = new WebClientOptions()
                 .setConnectTimeout((int) structuresProperties.getElasticConnectionTimeout().toMillis())
-                .setMaxPoolSize(500)
                 .setTcpNoDelay(true)
                 .setTcpKeepAlive(true)
                 .setTracingPolicy(TracingPolicy.IGNORE);
 
-        this.webClient = WebClient.create(vertx, options);
+        PoolOptions poolOptions = new PoolOptions()
+                .setHttp1MaxSize(500)
+                .setHttp2MaxSize(500);
+
+        this.webClient = WebClient.create(vertx, options, poolOptions);
 
         Validate.notEmpty(structuresProperties.getElasticConnections(), "No Elastic connections defined");
 
@@ -107,6 +108,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
 
     @WithSpan
     @Override
+    @SuppressWarnings("unchecked")
     public <T> CompletableFuture<Page<T>> querySql(String statement,
                                                    List<?> parameters,
                                                    JsonObject filter,
@@ -158,49 +160,32 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
             }
         }
 
-        VertxCompletableFuture<Page<T>> fut = new VertxCompletableFuture<>(vertx);
-        sqlQueryRequest.sendJsonObject(json, ar -> {
-            if(ar.succeeded()){
-                if(ar.result().statusCode() == 200) {
-                    Buffer buffer = ar.result().body();
-                    if (RawJson.class.isAssignableFrom(type)) {
-                        try {
-                            @SuppressWarnings("unchecked")
-                            Page<T> page = (Page<T>) processBufferToRawJson(buffer, cursorProvided.getValue());
-                            fut.complete(page);
-                        } catch (Exception e) {
-                            fut.completeExceptionally(e);
-                        }
-                    } else if (Map.class.isAssignableFrom(type)) {
-                        try {
-                            @SuppressWarnings("unchecked")
-                            Page<T> page = (Page<T>) processBufferToMap(buffer, cursorProvided.getValue());
-                            fut.complete(page);
-                        } catch (Exception e) {
-                            fut.completeExceptionally(e);
-                        }
-                    } else {
-                        fut.completeExceptionally(new IllegalArgumentException("Type: " + type.getName() + " is not supported at this time"));
-                    }
-                }else{
-                    try {
-                        fut.completeExceptionally(convertErrorResponse(new ByteArrayInputStream(ar.result().body().getBytes())));
-                    } catch (Exception e) {
-                        fut.completeExceptionally(new IllegalStateException("Could not convert error response " + e.getMessage(), e));
-                    }
-                }
-            }else{
-                fut.completeExceptionally(ar.cause());
-            }
-        });
-        return fut;
+        return sqlQueryRequest.sendJsonObject(json)
+                              .map(resp -> {
+                                  if(resp.statusCode() == 200) {
+                                      Buffer buffer = resp.body();
+                                      if (RawJson.class.isAssignableFrom(type)) {
+
+                                          return (Page<T>) processBufferToRawJson(buffer, cursorProvided.get());
+
+                                      } else if (Map.class.isAssignableFrom(type)) {
+
+                                          return (Page<T>) processBufferToMap(buffer, cursorProvided.get());
+
+                                      } else {
+                                          throw new IllegalArgumentException("Type: " + type.getName() + " is not supported at this time");
+                                      }
+                                  }else{
+                                      throw convertErrorResponse(new ByteArrayInputStream(resp.body().getBytes()));
+                                  }
+                              }).toCompletionStage()
+                              .toCompletableFuture();
     }
 
     @WithSpan
     @Override
     public CompletableFuture<TranslateResponse> translateSql(String statement,
                                                              List<?> parameters){
-        VertxCompletableFuture<TranslateResponse> responseFuture = new VertxCompletableFuture<>(vertx);
         JsonObject json = new JsonObject().put("query", statement);
         if(parameters != null) {
             JsonArray paramsJson = new JsonArray();
@@ -209,33 +194,26 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
             }
             json.put("params", paramsJson);
         }
-        sqlTranslateRequest.sendJsonObject(json, ar -> {
-            if(ar.succeeded()){
-                InputStream input = new ByteArrayInputStream(ar.result()
-                                                               .body()
-                                                               .getBytes());
-                if(ar.result().statusCode() == 200) {
-                    try {
-                        TranslateResponse translateResponse = TranslateResponse.of(builder -> {
-                            JsonpMapper mapper = SimpleJsonpMapper.INSTANCE; // We don't want to fail on unknown fields
-                            builder.withJson(mapper.jsonProvider().createParser(input), mapper);
-                            return builder;
-                        });
-                        responseFuture.complete(translateResponse);
-                    } catch (Exception e) {
-                        responseFuture.completeExceptionally(e);
-                    }
-                }else{
-                    responseFuture.completeExceptionally(convertErrorResponse(input));
-                }
-            }else{
-                responseFuture.completeExceptionally(ar.cause());
-            }
-        });
-        return responseFuture;
+        return sqlTranslateRequest.sendJsonObject(json)
+                                  .map(resp -> {
+
+                                      InputStream input = new ByteArrayInputStream(resp.body().getBytes());
+
+                                      if (resp.statusCode() == 200) {
+
+                                          return TranslateResponse.of(builder -> {
+                                              JsonpMapper mapper = SimpleJsonpMapper.INSTANCE; // We don't want to fail on unknown fields
+                                              builder.withJson(mapper.jsonProvider().createParser(input), mapper);
+                                              return builder;
+                                          });
+                                      } else {
+                                          throw convertErrorResponse(input);
+                                      }
+                                  }).toCompletionStage()
+                                  .toCompletableFuture();
     }
 
-    private Exception convertErrorResponse(InputStream input) {
+    private IllegalArgumentException convertErrorResponse(InputStream input) {
         ErrorResponse errorResponse = ErrorResponse.of(builder -> {
             JsonpMapper mapper = SimpleJsonpMapper.INSTANCE; // We don't want to fail on unknown fields
             builder.withJson(mapper.jsonProvider().createParser(input), mapper);
@@ -246,7 +224,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
         return new IllegalArgumentException("SQL " + cause.type() + " " + cause.reason());
     }
 
-    private Page<Map<String, Object>> processBufferToMap(Buffer buffer, String cursorProvided) throws Exception {
+    private Page<Map<String, Object>> processBufferToMap(Buffer buffer, String cursorProvided) {
         ElasticSQLResponse response = objectMapper.readValue(buffer.getBytes(), ElasticSQLResponse.class);
         List<ElasticColumn> elasticColumns = getElasticColumns(response, cursorProvided);
         List<Map<String,Object>> ret = new ArrayList<>(response.getRows().size());
@@ -284,7 +262,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
         return elasticColumns;
     }
 
-    private Page<RawJson> processBufferToRawJson(Buffer buffer, String cursorProvided) throws Exception {
+    private Page<RawJson> processBufferToRawJson(Buffer buffer, String cursorProvided) {
         ElasticSQLResponse response = objectMapper.readValue(buffer.getBytes(), ElasticSQLResponse.class);
         List<ElasticColumn> elasticColumns = getElasticColumns(response, cursorProvided);
         List<RawJson> ret = new ArrayList<>(response.getRows().size());
@@ -296,7 +274,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
             jsonGenerator.writeStartObject();
 
             for(int colIdx = 0; colIdx < row.size(); colIdx++){
-                jsonGenerator.writeFieldName(elasticColumns.get(colIdx).getName());
+                jsonGenerator.writeName(elasticColumns.get(colIdx).getName());
                 jsonGenerator.writePOJO(row.get(colIdx));
             }
             jsonGenerator.writeEndObject();

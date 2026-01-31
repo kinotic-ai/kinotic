@@ -2,7 +2,6 @@
 
 package org.mindignited.structures.entity;
 
-import tools.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -12,11 +11,11 @@ import org.mindignited.continuum.core.api.crud.Page;
 import org.mindignited.continuum.core.api.crud.Pageable;
 import org.mindignited.continuum.core.api.crud.Sort;
 import org.mindignited.structures.ElasticsearchTestBase;
-import org.mindignited.structures.internal.api.domain.DefaultEntityContext;
 import org.mindignited.structures.api.domain.EntityContext;
 import org.mindignited.structures.api.domain.RawJson;
 import org.mindignited.structures.api.domain.Structure;
 import org.mindignited.structures.api.services.EntitiesService;
+import org.mindignited.structures.internal.api.domain.DefaultEntityContext;
 import org.mindignited.structures.internal.sample.Car;
 import org.mindignited.structures.internal.sample.DummyParticipant;
 import org.mindignited.structures.internal.sample.Person;
@@ -29,8 +28,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -113,7 +113,7 @@ public class EntityCrudTests extends ElasticsearchTestBase {
 
                             ret = savedPerson.equals(holder.getFirstPerson());
 
-                        } catch (IOException e) {
+                        } catch (JacksonException e) {
                             throw new RuntimeException(e);
                         }
                         return ret;
@@ -157,7 +157,7 @@ public class EntityCrudTests extends ElasticsearchTestBase {
                                 break;
                             }
                         }
-                    } catch (IOException e) {
+                    } catch (JacksonException e) {
                         throw new RuntimeException(e);
                     }
                     return ret;

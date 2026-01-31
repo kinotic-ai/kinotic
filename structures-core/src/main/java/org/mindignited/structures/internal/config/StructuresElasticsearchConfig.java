@@ -3,7 +3,7 @@ package org.mindignited.structures.internal.config;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.json.JsonpMapper;
-import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.json.jackson.Jackson3JsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.rest5_client.Rest5ClientTransport;
 import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
@@ -14,7 +14,7 @@ import org.apache.hc.core5.util.Timeout;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -68,8 +68,8 @@ public class StructuresElasticsearchConfig {
     }
 
     @Bean
-    public JsonpMapper jsonpMapper(ObjectMapper objectMapper){
-        return new JacksonJsonpMapper(objectMapper);
+    public JsonpMapper jsonpMapper(JsonMapper jsonMapper){
+        return new Jackson3JsonpMapper(jsonMapper);
     }
 
 }

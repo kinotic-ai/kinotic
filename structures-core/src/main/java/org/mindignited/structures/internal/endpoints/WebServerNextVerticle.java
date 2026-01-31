@@ -1,42 +1,41 @@
 package org.mindignited.structures.internal.endpoints;
 
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.SerializationFeature;
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Promise;
+import io.vertx.core.Future;
+import io.vertx.core.VerticleBase;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerResponse;
-import io.vertx.ext.healthchecks.HealthCheckHandler;
 import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.web.Route;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.StaticHandler;
+import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 import lombok.RequiredArgsConstructor;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.auth.api.config.OidcSecurityServiceProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Web server verticle for serving the modern frontend (structures-frontend-next).
  * Integrates with FrontendConfigurationService to provide dynamic configuration.
  */
 @RequiredArgsConstructor
-public class WebServerNextVerticle extends AbstractVerticle {
+public class WebServerNextVerticle extends VerticleBase {
 
     private static final Logger logger = LoggerFactory.getLogger(WebServerNextVerticle.class);
-    private static final ObjectMapper objectMapper = new ObjectMapper()
-            .enable(SerializationFeature.INDENT_OUTPUT);
 
+    private final ObjectMapper objectMapper;
     private final HealthChecks healthChecks;
     private final StructuresProperties properties;
     private final OidcSecurityServiceProperties oidcSecurityServiceProperties;
     private HttpServer server;
 
+
     @Override
-    public void start(Promise<Void> startPromise) {
+    public Future<?> start() throws Exception {
         server = vertx.createHttpServer();
 
         Router router = Router.router(vertx);
@@ -47,7 +46,7 @@ public class WebServerNextVerticle extends AbstractVerticle {
         }
 
         CorsHandler corsHandler = CorsHandler.create()
-                                             .addRelativeOrigin(allowedOriginPattern)
+                                             .addOriginWithRegex(allowedOriginPattern)
                                              .allowedHeaders(properties.getCorsAllowedHeaders());
         if(properties.getCorsAllowCredentials() != null){
             corsHandler.allowCredentials(properties.getCorsAllowCredentials());
@@ -62,14 +61,14 @@ public class WebServerNextVerticle extends AbstractVerticle {
         if (oidcSecurityServiceProperties.isEnabled()) {
             String configPath = oidcSecurityServiceProperties.getFrontendConfigurationPath();
             logger.info("Adding frontend configuration endpoint at: {}", configPath);
-            
+
             router.get(configPath).handler(this::handleFrontendConfiguration);
         }
 
         if(properties.isEnableStaticFileServer()) {
             route.handler(StaticHandler.create("webroot"));
         }
-        
+
         // Add SPA fallback - serve index.html for any unmatched routes
         // This ensures client-side routing works on page refresh
         // Must be placed after all other routes
@@ -80,15 +79,15 @@ public class WebServerNextVerticle extends AbstractVerticle {
         }
 
         // Begin listening for requests
-        server.requestHandler(router)
-              .listen(properties.getWebServerPort(), ar -> {
-                  if (ar.succeeded()) {
-                      startPromise.complete();
-                  } else {
-                      startPromise.fail(ar.cause());
-                  }
-              });
+        return server.requestHandler(router)
+                     .listen(properties.getWebServerPort());
     }
+
+    @Override
+    public Future<?> stop() throws Exception {
+        return server.close();
+    }
+
 
     /**
      * Handle requests for frontend configuration.
@@ -120,8 +119,4 @@ public class WebServerNextVerticle extends AbstractVerticle {
         }
     }
 
-    @Override
-    public void stop(Promise<Void> stopPromise) {
-        server.close(stopPromise);
-    }
 }

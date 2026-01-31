@@ -9,7 +9,7 @@ dependencies {
 	implementation project(':structures-auth')
 
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-jackson'
+    implementation 'org.springframework.boot:spring-boot-starter-jackson'
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	implementation 'org.springframework.boot:spring-boot-autoconfigure'
 	implementation 'org.reactivestreams:reactive-streams'

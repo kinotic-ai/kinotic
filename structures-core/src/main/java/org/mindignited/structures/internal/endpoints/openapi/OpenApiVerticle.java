@@ -1,7 +1,7 @@
 package org.mindignited.structures.internal.endpoints.openapi;
 
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Promise;
+import io.vertx.core.Future;
+import io.vertx.core.VerticleBase;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.web.Router;
@@ -16,34 +16,28 @@ import org.slf4j.LoggerFactory;
  * Created by Navíd Mitchell 🤪 on 5/29/23.
  */
 @RequiredArgsConstructor
-public class OpenApiVerticle extends AbstractVerticle {
-
-    private static final Logger log = LoggerFactory.getLogger(OpenApiVerticle.class);
+public class OpenApiVerticle extends VerticleBase {
 
     private final StructuresProperties properties;
     private final Router router;
     private HttpServer server;
 
-    public void start(Promise<Void> startPromise) {
+
+    @Override
+    public Future<?> start() throws Exception {
         HttpServerOptions options = new HttpServerOptions();
         options.setMaxHeaderSize(properties.getMaxHttpHeaderSize());
         server = vertx.createHttpServer(options);
 
         // Begin listening for requests
-        server.requestHandler(router)
-              .listen(properties.getOpenApiPort(), ar -> {
-            if (ar.succeeded()) {
-                log.info("OpenApi Started Listener on Thread {}", Thread.currentThread().getName());
-                startPromise.complete();
-            } else {
-                startPromise.fail(ar.cause());
-            }
-        });
+        return server.requestHandler(router)
+                     .listen(properties.getOpenApiPort());
     }
 
     @Override
-    public void stop(Promise<Void> stopPromise) throws Exception {
-        server.close(stopPromise);
+    public Future<?> stop() throws Exception {
+        return server.close();
     }
+
 
 }

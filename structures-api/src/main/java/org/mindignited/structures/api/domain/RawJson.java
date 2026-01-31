@@ -1,17 +1,20 @@
 package org.mindignited.structures.api.domain;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+
 import co.elastic.clients.json.JsonpMapper;
 import co.elastic.clients.json.JsonpSerializable;
+import co.elastic.clients.json.jackson.Jackson3JsonpGenerator;
 import co.elastic.clients.json.jackson.JacksonJsonpGenerator;
-import org.springframework.boot.json.JsonParseException;
-import tools.jackson.core.*;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonEncoding;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
 import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.core.util.ByteArrayBuilder;
 import tools.jackson.databind.ObjectMapper;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 
 /**
  * Class is used to represent raw json data
@@ -95,15 +98,15 @@ public final class RawJson implements JsonpSerializable {
 
     @Override
     public void serialize(jakarta.json.stream.JsonGenerator generator, JsonpMapper mapper) {
-        if(generator instanceof JacksonJsonpGenerator){
+        if(generator instanceof Jackson3JsonpGenerator){
             String json = new String(data, StandardCharsets.UTF_8);
             try {
-                ((JacksonJsonpGenerator) generator).jacksonGenerator().writeRawValue(json);
-            } catch (IOException e) {
+                ((Jackson3JsonpGenerator) generator).jacksonGenerator().writeRawValue(json);
+            } catch (JacksonException e) {
                 throw new IllegalStateException("Unable to write raw json", e);
             }
         }else{
-            throw new UnsupportedOperationException("Only JacksonJsonpGenerator is supported");
+            throw new UnsupportedOperationException("Only Jackson3JsonpGenerator is supported");
         }
     }
 }

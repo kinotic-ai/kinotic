@@ -1,5 +1,6 @@
 package org.mindignited.structures.internal.endpoints.openapi;
 
+import io.vertx.core.Completable;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
@@ -10,14 +11,12 @@ import org.mindignited.structures.internal.utils.VertxWebUtil;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
-import java.util.function.BiFunction;
-
 /**
  * Handles any object that can be serialized directly to JSON
  * Created by Navíd Mitchell 🤪 on 6/1/23.
  */
 @RequiredArgsConstructor
-class ValueToJsonHandler<T> implements BiFunction<T, Throwable, Void> {
+class ValueToJsonHandler<T> implements Completable<T> {
 
     private final RoutingContext context;
     private final ObjectMapper objectMapper;
@@ -30,7 +29,7 @@ class ValueToJsonHandler<T> implements BiFunction<T, Throwable, Void> {
     }
 
     @Override
-    public Void apply(T value, Throwable throwable) {
+    public void complete(T value, Throwable throwable) {
         if (throwable == null) {
             Validate.notNull(context, "context must not be null");
             Object data = (value instanceof FastestType ? ((FastestType) value).data() : value);
@@ -57,6 +56,5 @@ class ValueToJsonHandler<T> implements BiFunction<T, Throwable, Void> {
         } else {
             VertxWebUtil.writeException(context, throwable);
         }
-        return null;
     }
 }

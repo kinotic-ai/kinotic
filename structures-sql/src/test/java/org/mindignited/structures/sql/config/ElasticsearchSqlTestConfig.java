@@ -1,23 +1,21 @@
 package org.mindignited.structures.sql.config;
 
-import java.util.List;
-
-import org.apache.http.HttpHost;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
+import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.json.jackson.Jackson3JsonpMapper;
+import co.elastic.clients.transport.ElasticsearchTransport;
+import co.elastic.clients.transport.rest5_client.Rest5ClientTransport;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.util.Timeout;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
-import org.springframework.test.context.ActiveProfiles;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.json.jackson.JacksonJsonpMapper;
-import co.elastic.clients.transport.ElasticsearchTransport;
-import co.elastic.clients.transport.rest_client.RestClientTransport;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/26/23.
@@ -33,16 +31,14 @@ public class ElasticsearchSqlTestConfig {
 
     @Bean
     public ElasticsearchTransport elasticsearchTransport(){
-        RestClientBuilder builder = RestClient.builder(List.of(new HttpHost(hostname, port, "http")).toArray(new HttpHost[0]));
+        Rest5ClientBuilder builder = Rest5Client.builder(List.of(new HttpHost("http", hostname, port)).toArray(new HttpHost[0]));
 
-        builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder
-                .setConnectTimeout(60000)
-                .setSocketTimeout(60000));
-
-        RestClient restClient = builder.build();
+        builder.setConnectionConfigCallback(connectionConfig -> connectionConfig
+                .setConnectTimeout(Timeout.of(60000, TimeUnit.MILLISECONDS))
+                .setSocketTimeout(Timeout.of(60000, TimeUnit.MILLISECONDS)));
 
         // Create the transport with a Jackson mapper
-        return new RestClientTransport(restClient, new JacksonJsonpMapper());
+        return new Rest5ClientTransport(builder.build(), new Jackson3JsonpMapper());
     }
 
     @Bean

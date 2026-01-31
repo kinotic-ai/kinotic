@@ -72,28 +72,6 @@ dependencyManagement {
         dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
         dependency "org.apache.ignite:ignite-spring:${igniteVersion}"
 
-//        dependency "org.apache.lucene:lucene-analyzers-common:${luceneVersion}"
-//        dependency "org.apache.lucene:lucene-backwards-codecs:${luceneVersion}"
-//        dependency "org.apache.lucene:lucene-core:${luceneVersion}"
-//        dependency "org.apache.lucene:lucene-grouping:${luceneVersion}"
-//        dependency "org.apache.lucene:lucene-highlighter:${luceneVersion}"
-//        dependency "org.apache.lucene:lucene-join:${luceneVersion}"
-//        dependency "org.apache.lucene:lucene-memory:${luceneVersion}"
-//        dependency "org.apache.lucene:lucene-misc:${luceneVersion}"
-//        dependency "org.apache.lucene:lucene-queries:${luceneVersion}"
-//        dependency "org.apache.lucene:lucene-queryparser:${luceneVersion}"
-//        dependency "org.apache.lucene:lucene-sandbox:${luceneVersion}"
-//        dependency "org.apache.lucene:lucene-spatial:${luceneVersion}"
-//        dependency "org.apache.lucene:lucene-suggest:${luceneVersion}"
-
-
-        dependency "co.elastic.clients:elasticsearch-java:${elasticClientVersion}"
-
-        // TODO: check if this is needed now that we are on elastic 9.2.4 client version
-//        dependency "org.elasticsearch:elasticsearch:${elasticClientVersion}"
-//        dependency "org.elasticsearch.client:elasticsearch-rest-client:${elasticClientVersion}"
-//        dependency "org.elasticsearch.client:elasticsearch-rest-high-level-client:${elasticClientVersion}"
-
         dependency "org.mindignited:continuum-core:${continuumVersion}"
         dependency "org.mindignited:continuum-core-vertx:${continuumVersion}"
         dependency "org.mindignited:continuum-gateway:${continuumVersion}"

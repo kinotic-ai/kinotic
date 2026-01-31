@@ -32,7 +32,7 @@ dependencies {
     
     // Elasticsearch dependencies
     api 'co.elastic.clients:elasticsearch-java'
-    api 'org.elasticsearch.client:elasticsearch-rest-client'
+    api 'co.elastic.clients:elasticsearch-rest5-client'
 
     // Json
     api 'com.fasterxml.jackson.core:jackson-annotations'
