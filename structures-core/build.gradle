@@ -15,11 +15,11 @@ dependencies {
 	implementation 'org.reactivestreams:reactive-streams'
 	implementation 'io.projectreactor:reactor-core'
 
-	// Spring AI
-	implementation 'org.springframework.ai:spring-ai-commons'
-	implementation 'org.springframework.ai:spring-ai-model'
-	implementation 'org.springframework.ai:spring-ai-mcp'
-	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+	// Spring AI TODO does not support spring boot 4
+//	implementation 'org.springframework.ai:spring-ai-commons'
+//	implementation 'org.springframework.ai:spring-ai-model'
+//	implementation 'org.springframework.ai:spring-ai-mcp'
+//	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 	
 	implementation "io.vertx:vertx-web"
 	implementation "io.vertx:vertx-web-graphql"
@@ -70,7 +70,6 @@ test {
     useJUnitPlatform()
     systemProperty 'spring.profiles.active', 'test'
 	environment 'JAVA_TOOL_OPTIONS', '-Djava.net.preferIPv4Stack=true --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED --add-opens=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED'
-    
     
     // some tests take longer
     timeout = Duration.ofMinutes(10)

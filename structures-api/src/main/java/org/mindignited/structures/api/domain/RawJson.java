@@ -6,7 +6,6 @@ import java.nio.charset.StandardCharsets;
 import co.elastic.clients.json.JsonpMapper;
 import co.elastic.clients.json.JsonpSerializable;
 import co.elastic.clients.json.jackson.Jackson3JsonpGenerator;
-import co.elastic.clients.json.jackson.JacksonJsonpGenerator;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.JsonEncoding;
 import tools.jackson.core.JsonGenerator;
