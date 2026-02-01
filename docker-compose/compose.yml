@@ -10,6 +10,10 @@ services:
     depends_on:
       structures-elasticsearch:
         condition: service_healthy
+    environment:
+      STRUCTURES_MIGRATION_ELASTIC_SCHEME: http
+      STRUCTURES_MIGRATION_ELASTIC_HOST: structures-elasticsearch
+      STRUCTURES_MIGRATION_ELASTIC_PORT: 9200
   structures-server:
     container_name: structures-server
     pull_policy: always
