@@ -56,7 +56,3 @@ structures:
     eviction:
       csv:
         path: ${HOME}/structures/eviction-data/evictions-structures-node4.csv
-  test:
-    cluster:
-      useExternal: false
-      nodeCount: 4  # Test instance (node 0) + 3 container nodes (nodes 1-3)

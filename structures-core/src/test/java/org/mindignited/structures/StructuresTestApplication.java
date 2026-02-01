@@ -3,6 +3,7 @@
 package org.mindignited.structures;
 
 import org.kinotic.continuum.api.annotations.EnableContinuum;
+import org.kinotic.continuum.gateway.api.annotations.EnableContinuumGateway;
 import org.mindignited.structures.api.annotations.EnableStructures;
 import org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration;
 import org.springframework.boot.SpringApplication;
@@ -21,6 +22,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
                                   ReactiveElasticsearchClientAutoConfiguration.class,
                                   OpenAiChatAutoConfiguration.class})
 @EnableContinuum
+@EnableContinuumGateway
 @EnableStructures
 @EnableConfigurationProperties
 public class StructuresTestApplication {
