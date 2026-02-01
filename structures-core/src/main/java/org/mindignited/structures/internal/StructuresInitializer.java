@@ -75,7 +75,6 @@ public class StructuresInitializer {
                                           lastEsError = null;
                                       }
                                   }));
-
     }
 
     @EventListener
