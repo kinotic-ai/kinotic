@@ -1,11 +1,4 @@
 spring:
-  ai:
-    openai:
-      api-key: "test-key"
-      base-url: https://api.x.ai
-      chat:
-        options:
-          model: grok-4
   main:
     web-application-type: none
     # allow-bean-definition-overriding: true
@@ -13,7 +6,7 @@ spring:
 # YAML Reference http://www.yaml.org/refcard.html
 continuum:
   debug: true
-  disableClustering: true
+  disableClustering: false
   maxNumberOfCoresToUse: 4
   cluster:
     # IMPORTANT:
@@ -56,7 +49,3 @@ structures:
     eviction:
       csv:
         path: ${HOME}/structures/eviction-data/evictions-structures-node4.csv
-  test:
-    cluster:
-      useExternal: false
-      nodeCount: 4  # Test instance (node 0) + 3 container nodes (nodes 1-3)

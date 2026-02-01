@@ -53,7 +53,10 @@ dependencies {
 
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
+	// Spring Boot 4: modular test starters - add test starters for each technology used by main code
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-jackson-test'
 	testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
 	testImplementation "org.testcontainers:testcontainers-elasticsearch:${testContainersVersion}"
 	testImplementation 'io.projectreactor:reactor-test'
