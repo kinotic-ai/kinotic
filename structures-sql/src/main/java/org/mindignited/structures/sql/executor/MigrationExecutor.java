@@ -77,6 +77,8 @@ public class MigrationExecutor {
      * These will be executed on request for a specific project
      */
     public CompletableFuture<Void> executeProjectMigrations(List<Migration> migrations, String projectId) {
+        // FIXME: make sure migrations are not currently running for the same project
+        // Was thinking we can use Apache Ignite distributed lock or ACID cache transactions for this
         if (projectId == null || projectId.isEmpty()) {
             return CompletableFuture.failedFuture(new IllegalArgumentException("Project ID cannot be null or empty"));
         }
@@ -102,27 +104,25 @@ public class MigrationExecutor {
             if (!seenVersions.add(version)) {
                 throw new IllegalStateException("Duplicate migration version found: " + version + " (" + migration.getName() + ")");
             }
-            chain = chain.thenCompose(v -> {
-                return isMigrationAppliedAsync(String.valueOf(version), projectId)
-                    .thenCompose(applied -> {
-                        if (!applied) {
-                            log.info("Applying migration {} for project {}", version, projectId);
-                            MigrationContent content = migration.getContent();
-                            long start = System.currentTimeMillis();
-                            CompletableFuture<Void> statementChain = CompletableFuture.completedFuture(null);
-                            for (Statement statement : content.statements()) {
-                                statementChain = statementChain.thenCompose(v2 -> executeStatement(statement));
-                            }
-                            return statementChain.thenCompose(v2 -> {
-                                long duration = System.currentTimeMillis() - start;
-                                return recordMigrationAsync(version, projectId, migration.getName(), duration);
-                            });
-                        } else {
-                            log.debug("Migration {} already applied for project {}", version, projectId);
-                            return CompletableFuture.completedFuture(null);
+            chain = chain.thenCompose(v -> isMigrationAppliedAsync(String.valueOf(version), projectId)
+                .thenCompose(applied -> {
+                    if (!applied) {
+                        log.info("Applying migration {} for project {}", version, projectId);
+                        MigrationContent content = migration.getContent();
+                        long start = System.currentTimeMillis();
+                        CompletableFuture<Void> statementChain = CompletableFuture.completedFuture(null);
+                        for (Statement statement : content.statements()) {
+                            statementChain = statementChain.thenCompose(v2 -> executeStatement(statement));
                         }
-                    });
-            });
+                        return statementChain.thenCompose(v2 -> {
+                            long duration = System.currentTimeMillis() - start;
+                            return recordMigrationAsync(version, projectId, migration.getName(), duration);
+                        });
+                    } else {
+                        log.debug("Migration {} already applied for project {}", version, projectId);
+                        return CompletableFuture.completedFuture(null);
+                    }
+                }));
         }
         return chain;
     }

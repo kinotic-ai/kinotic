@@ -21,7 +21,6 @@ logging:
 structures:
   elastic-use-ssl: false
 
-
 structures-core-test:
   enabled: true
 

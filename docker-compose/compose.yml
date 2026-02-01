@@ -3,20 +3,33 @@ include:
   - compose-otel.yml
   - compose.gen-schemas.yml
 services:
-  structures-server:
-    container_name: structures-server
+  structures-migration:
+    container_name: structures-migration
     pull_policy: always
-    image: mindignited/structures-server:${structuresVersion:-3.5.1-SNAPSHOT}
+    image: kinoticai/structures-migration:${structuresVersion:-3.5.1-SNAPSHOT}
     depends_on:
       structures-elasticsearch:
         condition: service_healthy
+    environment:
+      STRUCTURES_MIGRATION_ELASTIC_SCHEME: http
+      STRUCTURES_MIGRATION_ELASTIC_HOST: structures-elasticsearch
+      STRUCTURES_MIGRATION_ELASTIC_PORT: 9200
+  structures-server:
+    container_name: structures-server
+    pull_policy: always
+    image: kinoticai/structures-server:${structuresVersion:-3.5.1-SNAPSHOT}
+    depends_on:
+      structures-elasticsearch:
+        condition: service_healthy
+      structures-migration:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "/workspace/health-check"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 120s
-    ports:
+    ports: # TODO: Remove this once we have a proper port mapping
       - "127.0.0.1:9090:9090" # UI PORT
       - "127.0.0.1:9091:9091" # UI PORT
       - "127.0.0.1:4000:4000" # GraphQL Port

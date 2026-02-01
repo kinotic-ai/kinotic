@@ -20,6 +20,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+// FIXME: Migrate to E2E tests
 @SpringBootTest
 public class StructureCrudTests extends ElasticsearchTestBase {
 
@@ -32,6 +33,8 @@ public class StructureCrudTests extends ElasticsearchTestBase {
 
 	@Test
 	public void createPublishAndDeleteStructure() throws Exception {
+
+		Thread.sleep(2000);
 
 		Structure structure = new Structure();
 		structure.setName("PersonWat")

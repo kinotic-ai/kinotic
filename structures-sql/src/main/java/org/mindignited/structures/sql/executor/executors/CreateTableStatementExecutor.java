@@ -1,6 +1,8 @@
 package org.mindignited.structures.sql.executor.executors;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.WaitForActiveShardOptions;
+import co.elastic.clients.elasticsearch._types.WaitForActiveShards;
 import co.elastic.clients.elasticsearch._types.mapping.DynamicMapping;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch.indices.StorageType;
@@ -57,12 +59,12 @@ public class CreateTableStatementExecutor implements StatementExecutor<CreateTab
                     .settings(s -> s
                             .numberOfShards("3")
                             .numberOfReplicas("2")
-                            .store(st -> st.type(StorageType.Fs))
                     )
                     .mappings(m -> m
                         .dynamic(DynamicMapping.Strict)
                         .properties(properties)
                     )
+                    .waitForActiveShards(w -> w.count(1))
                 ).thenApply(response -> null);
             });
     }

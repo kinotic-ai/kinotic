@@ -71,7 +71,6 @@ public abstract class ElasticsearchTestBase {
     @DynamicPropertySource
     static void registerElasticProperties(DynamicPropertyRegistry registry) {
 
-
         registry.add("spring.data.elasticsearch.cluster-nodes", () -> elasticsearchClusterNodes);
         registry.add("structures.elastic-connections[0].host", () -> elasticsearchHost);
         registry.add("structures.elastic-connections[0].port", () -> elasticsearchPort);

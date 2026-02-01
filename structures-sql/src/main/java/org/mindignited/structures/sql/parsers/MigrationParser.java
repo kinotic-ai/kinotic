@@ -74,7 +74,7 @@ public class MigrationParser {
 
         private Statement parseStatement(StructuresSQLParser.StatementContext stmtCtx) {
             String statementText = stmtCtx.getText();
-            log.debug("Processing statement: {}", statementText);
+            log.debug("Parsing statement: {}", statementText);
             
             List<StatementParser> supportingParsers = statementParsers.stream()
                     .filter(p -> p.supports(stmtCtx))
