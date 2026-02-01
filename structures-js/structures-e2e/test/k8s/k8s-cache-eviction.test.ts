@@ -33,7 +33,7 @@ Object.assign(global, { WebSocket });
  * 2. Build image: ./gradlew :structures-server:bootBuildImage
  * 3. Load image: ./dev-tools/kind/kind-cluster.sh load
  * 4. Deploy with 3 replicas: ./dev-tools/kind/kind-cluster.sh deploy
- * 5. Run tests: npm test -- k8s-cache-eviction.test.ts
+ * 5. Run tests: pnpm test -- k8s-cache-eviction.test.ts
  * 
  * Environment variables:
  * - K8S_TEST_ENABLED: Enable K8s tests (default: false)
