@@ -2,22 +2,20 @@ package org.mindignited.structures.migration.config;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.json.JsonpMapper;
-import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.json.jackson.Jackson3JsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
-import co.elastic.clients.transport.rest_client.RestClientTransport;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import co.elastic.clients.transport.rest5_client.Rest5ClientTransport;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import lombok.RequiredArgsConstructor;
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.message.BasicHeader;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.time.Duration;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/26/23.
@@ -31,33 +29,30 @@ public class MigrationElasticsearchConfig {
     @Bean
     public ElasticsearchAsyncClient elasticsearchAsyncClient(JsonpMapper jsonpMapper){
 
-        RestClientBuilder builder = RestClient.builder(new HttpHost(properties.getElasticHost(),
-                                                                    properties.getElasticPort(),
-                                                                    properties.getElasticScheme()));
+        var builder = Rest5Client.builder(new HttpHost(properties.getElasticScheme(),
+                                                       properties.getElasticHost(),
+                                                       properties.getElasticPort()
+        ));
 
         if(properties.hasElasticUsernameAndPassword()){
-            builder.setHttpClientConfigCallback(httpClientBuilder -> {
-                CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-                credentialsProvider.setCredentials(AuthScope.ANY,
-                                                   new UsernamePasswordCredentials(properties.getElasticUsername(),
-                                                                                   properties.getElasticPassword()));
-
-                return httpClientBuilder
-                        .setDefaultCredentialsProvider(credentialsProvider);
+            String credentials = properties.getElasticUsername() + ":" + properties.getElasticPassword();
+            String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
+            builder.setDefaultHeaders(new Header[]{
+                    new BasicHeader("Authorization", "Basic " + encodedCredentials)
             });
         }
 
-        RestClient restClient = builder.build();
+        Rest5Client rest5Client = builder.build();
 
         // Create the transport with a Jackson mapper
-        ElasticsearchTransport transport = new RestClientTransport(restClient, jsonpMapper);
+        ElasticsearchTransport transport = new Rest5ClientTransport(rest5Client, jsonpMapper);
 
         return new ElasticsearchAsyncClient(transport);
     }
 
     @Bean
-    public JsonpMapper jsonpMapper(ObjectMapper objectMapper){
-        return new JacksonJsonpMapper(objectMapper);
+    public JsonpMapper jsonpMapper(JsonMapper jsonMapper){
+        return new Jackson3JsonpMapper(jsonMapper);
     }
 
 }
