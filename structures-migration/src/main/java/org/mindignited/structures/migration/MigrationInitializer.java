@@ -5,8 +5,12 @@ import org.mindignited.structures.sql.SystemMigrator;
 import org.mindignited.structures.sql.executor.MigrationExecutor;
 import org.mindignited.structures.sql.parsers.MigrationParser;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+
+import java.io.IOException;
 
 /**
  * Starts the migration process when the application is ready.
@@ -18,12 +22,13 @@ public class MigrationInitializer {
 
     private final MigrationExecutor migrationExecutor;
     private final MigrationParser migrationParser;
+    private final ApplicationContext applicationContext;
 
     @EventListener
-    public void onApplicationReadyEvent(ApplicationReadyEvent event) {
+    public void onApplicationReadyEvent(ApplicationReadyEvent event) throws IOException {
         SystemMigrator systemMigrator = new SystemMigrator(migrationExecutor, migrationParser);
         systemMigrator.execute();
 
-        System.exit(0); // Exit the application after migrations are complete
+        ((ConfigurableApplicationContext) applicationContext).close();
     }
 }

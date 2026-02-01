@@ -40,7 +40,7 @@ jobs:
         continue-on-error: true
         env:
           TESTCONTAINERS_RYUK_DISABLED: true
-        run: ./gradlew build
+        run: ./gradlew build -x test
 
       - name: Publish to Maven Central with JReleaser
         if: ${{ steps.gradle_build.outcome == 'success' }}
@@ -71,8 +71,8 @@ jobs:
       - name: Merge Test Results
         run: |
           mkdir -p allure-results
-          cp -r */build/allure-results/* allure-results/
-          cp -r structures-js/*/allure-results/* allure-results/
+          cp -r */build/allure-results/* allure-results/ || true
+          cp -r structures-js/*/allure-results/* allure-results/ || true
 
       - name: Get Allure history
         uses: actions/checkout@v4

@@ -77,6 +77,8 @@ public class MigrationExecutor {
      * These will be executed on request for a specific project
      */
     public CompletableFuture<Void> executeProjectMigrations(List<Migration> migrations, String projectId) {
+        // FIXME: make sure migrations are not currently running for the same project
+        // Was thinking we can use Apache Ignite distributed lock or ACID cache transactions for this
         if (projectId == null || projectId.isEmpty()) {
             return CompletableFuture.failedFuture(new IllegalArgumentException("Project ID cannot be null or empty"));
         }
