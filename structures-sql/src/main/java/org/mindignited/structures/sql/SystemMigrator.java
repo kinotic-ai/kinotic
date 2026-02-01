@@ -1,7 +1,5 @@
 package org.mindignited.structures.sql;
 
-import org.apache.ignite.resources.SpringResource;
-import org.apache.ignite.services.Service;
 import org.mindignited.structures.sql.domain.Migration;
 import org.mindignited.structures.sql.domain.ResourceMigration;
 import org.mindignited.structures.sql.executor.MigrationExecutor;
@@ -17,17 +15,19 @@ import java.util.List;
  * Loads system migrations from the filesystem and applies them after the Elasticsearch client is configured
  * but before other components are initialized.
  */
-public class SystemMigrator implements Service {
+public class SystemMigrator {
     private static final Logger log = LoggerFactory.getLogger(SystemMigrator.class);
     private static final String MIGRATIONS_PATH = "classpath:migrations/*.sql";
 
-    @SpringResource(resourceClass = MigrationExecutor.class)
-    private transient MigrationExecutor migrationExecutor;
-    @SpringResource(resourceClass = MigrationParser.class)
-    private transient MigrationParser migrationParser;
+    private final MigrationExecutor migrationExecutor;
+    private final MigrationParser migrationParser;
 
-    @Override
-    public void execute() throws Exception {
+    public SystemMigrator(MigrationExecutor migrationExecutor, MigrationParser migrationParser) {
+        this.migrationExecutor = migrationExecutor;
+        this.migrationParser = migrationParser;
+    }
+
+    public void execute() {
         log.info("Initializing system migrations...");
         try {
             migrationExecutor.ensureMigrationIndexExists().get();

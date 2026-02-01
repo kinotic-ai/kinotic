@@ -34,7 +34,6 @@ public class StructuresInitializer {
     private final StructuresProperties properties;
     private final StructuresVerticleFactory verticleFactory;
     private final Vertx vertx;
-    private final Ignite ignite;
     private Throwable lastEsError = null;
     private boolean lastEsStatus = true;
 
@@ -81,9 +80,6 @@ public class StructuresInitializer {
 
     @EventListener
     public void onApplicationReadyEvent(ApplicationReadyEvent event) {
-        // FIXME: add logic to make sure migrations complete before starting to serve requests
-        ignite.services().deployClusterSingleton("SystemMigrator", new SystemMigrator());
-
         log.info("Rest API listening on port {}", properties.getOpenApiPort());
         log.info("OpenApi Json available at http://localhost:{}/api-docs/[STRUCTURE APPLICATION]/openapi.json",
                  properties.getOpenApiPort());

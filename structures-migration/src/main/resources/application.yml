@@ -1,0 +1,7 @@
+# General properties shared by all profiles
+logging:
+  level:
+    com:
+      mindignited: INFO
+
+  
