@@ -1,0 +1,58 @@
+spring:
+  profiles:
+    active: test
+  ai:
+    openai:
+      api-key: "test-key"
+      base-url: https://api.x.ai
+      chat:
+        options:
+          model: grok-4
+  main:
+    allow-circular-references: true
+    web-application-type: none
+    allow-bean-definition-overriding: true
+
+
+continuum:
+  debug: true
+  maxNumberOfCoresToUse: 4
+
+logging:
+  level:
+    org:
+      springframework:
+        web: DEBUG
+      mindignited: TRACE
+    io:
+      vertx: DEBUG
+
+server:
+  port: 8989
+
+structures:
+  initialize-with-sample-data: true
+  enable-static-file-server: true
+  web-server-port: 8989
+  cors-allowed-origin-pattern: "*"
+  cors-allowed-headers: "*"
+  cors-allow-credentials: true
+
+oidc-security-service:
+  enabled: false
+  debug: true
+  frontend-configuration-path: "/app-config.override.json"
+  oidc-providers:
+    - provider: "keycloak"
+      display-name: "Keycloak"
+      enabled: true
+      roles-claim-path: "realm_access.roles"
+      domains:
+        - "example.com"
+      audience: "test-keycloak-client"
+      client-id: "test-keycloak-client"
+      authority: "http://localhost:8888/auth/realms/test"
+      redirect-uri: "http://localhost:8989/login"
+      post-logout-redirect-uri: "http://localhost:8989"
+      silent-redirect-uri: "http://localhost:8989/login/silent-renew"
+

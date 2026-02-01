@@ -1,0 +1,50 @@
+plugins {
+	id 'org.mindignited.java-library-conventions'
+	id 'io.freefair.lombok'
+}
+
+dependencies {
+
+	implementation project(':structures-api')
+	implementation project(':structures-auth')
+	implementation project(':structures-core')
+	implementation project(':structures-sql')
+
+	implementation 'org.springframework.boot:spring-boot-autoconfigure'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+	implementation 'io.jsonwebtoken:jjwt-api'
+	implementation 'io.jsonwebtoken:jjwt-impl'
+	implementation 'io.jsonwebtoken:jjwt-jackson'
+
+	implementation "com.github.ben-manes.caffeine:caffeine"
+
+    // using api directly 
+    implementation "javax.annotation:javax.annotation-api"
+
+	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'io.projectreactor:reactor-test'
+    testImplementation 'com.fasterxml.jackson.core:jackson-databind'
+    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation "org.testcontainers:junit-jupiter:${testContainersVersion}"
+	testImplementation "org.testcontainers:elasticsearch:${testContainersVersion}"
+	testImplementation 'com.github.dasniko:testcontainers-keycloak:3.8.0'
+
+	// Fix runtime linkage error in Testcontainers tar/copy (commons-compress expects newer commons-io).
+	// Without this you can see: NoSuchMethodError FileTimes.toUnixTime(FileTime)
+	testImplementation 'commons-io:commons-io:2.21.0'
+}
+
+test {
+    useJUnitPlatform()
+    systemProperty 'spring.profiles.active', 'test'
+	environment 'JAVA_TOOL_OPTIONS', '-Djava.net.preferIPv4Stack=true --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED --add-opens=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED'
+    
+    
+    // some tests take longer
+    timeout = Duration.ofMinutes(10)
+
+}

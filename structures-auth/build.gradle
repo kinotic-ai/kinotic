@@ -22,15 +22,4 @@ dependencies {
 
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'io.projectreactor:reactor-test'
-    testImplementation 'com.fasterxml.jackson.core:jackson-databind'
-    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
-    testImplementation "org.testcontainers:junit-jupiter:${testContainersVersion}"
-	testImplementation "org.testcontainers:elasticsearch:${testContainersVersion}"
-	testImplementation 'com.github.dasniko:testcontainers-keycloak:3.8.0'
-
-	// Fix runtime linkage error in Testcontainers tar/copy (commons-compress expects newer commons-io).
-	// Without this you can see: NoSuchMethodError FileTimes.toUnixTime(FileTime)
-	testImplementation 'commons-io:commons-io:2.21.0'
 }

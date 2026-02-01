@@ -24,6 +24,3 @@ dependencies {
 	testImplementation "org.testcontainers:elasticsearch:${testContainersVersion}"
 }
 
-test {
-    useJUnitPlatform()
-}
