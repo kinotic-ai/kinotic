@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Map;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mindignited.structures.sql.domain.Migration;
 import org.mindignited.structures.sql.domain.MigrationContent;
@@ -61,6 +62,11 @@ class MigrationExecutorIntegrationTest extends ElasticsearchSqlTestBase {
             }
             return content;
         }
+    }
+
+    @BeforeEach
+    void beforeEach() throws Exception {
+        migrationExecutor.ensureMigrationIndexExists().get();
     }
 
     private Migration migration(Integer version, String name, String sql) {

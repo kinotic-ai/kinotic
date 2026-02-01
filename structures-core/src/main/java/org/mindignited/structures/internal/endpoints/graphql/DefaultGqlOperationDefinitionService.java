@@ -16,7 +16,6 @@ import org.mindignited.structures.auth.internal.services.DefaultCaffeineCacheFac
 import org.mindignited.structures.internal.cache.events.CacheEvictionEvent;
 import org.mindignited.structures.internal.endpoints.graphql.datafetchers.*;
 import org.mindignited.structures.internal.utils.GqlUtils;
-import org.springframework.context.ApplicationEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -267,20 +266,17 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
      * @param event the event containing the structure or named query to evict the caches for
      */
     @EventListener
-    public void handleCacheEviction(ApplicationEvent event) {
+    public void handleCacheEviction(CacheEvictionEvent event) {
 
         try {
-            // we need to clear on both eviction types 
-            if(event instanceof CacheEvictionEvent cacheEvictionEvent){
 
-                if(cacheEvictionEvent.getStructureId() != null){
-                    namedQueryOperationDefinitionCache.asMap().remove(cacheEvictionEvent.getStructureId());
+            if(event.getStructureId() != null){
+                namedQueryOperationDefinitionCache.asMap().remove(event.getStructureId());
 
-                    log.info("Successfully completed ordered cache eviction for structure: {}:{}:{} due to {} {} {}", 
-                                    cacheEvictionEvent.getApplicationId(), cacheEvictionEvent.getStructureId(), cacheEvictionEvent.getNamedQueryId(), 
-                                    cacheEvictionEvent.getEvictionSourceType(), cacheEvictionEvent.getEvictionOperation(), cacheEvictionEvent.getEvictionSource().getDisplayName());
-                }
-
+                log.info("Successfully completed ordered cache eviction for structure: {}:{}:{} due to {} {} {}", 
+                    event.getApplicationId(), event.getStructureId(), event.getNamedQueryId(), 
+                    event.getEvictionSourceType(), event.getEvictionOperation(), event.getEvictionSource().getDisplayName()
+                );
             }
             
         } catch (Exception e) {

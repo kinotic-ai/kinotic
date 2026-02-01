@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.mindignited.structures.auth.internal.services.DefaultCaffeineCacheFactory;
 import org.mindignited.structures.internal.cache.events.CacheEvictionEvent;
-import org.springframework.context.ApplicationEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -40,22 +39,18 @@ public class DefaultDelegatingGqlHandler implements DelegatingGqlHandler {
      *              caches for
      */
     @EventListener
-    public void handleCacheEviction(ApplicationEvent event) {
+    public void handleCacheEviction(CacheEvictionEvent event) {
 
         try {
-            // we need to clear on both eviction types
-            if (event instanceof CacheEvictionEvent cacheEvictionEvent) {
 
-                if (cacheEvictionEvent.getApplicationId() != null) {
-                    graphQLHandlerCache.asMap().remove(cacheEvictionEvent.getApplicationId());
+            if (event.getApplicationId() != null) {
+                graphQLHandlerCache.asMap().remove(event.getApplicationId());
 
-                    log.info("Successfully completed cache eviction for entity: {}:{}:{} due to {} {} {}",
-                            cacheEvictionEvent.getApplicationId(), cacheEvictionEvent.getStructureId(),
-                            cacheEvictionEvent.getNamedQueryId(),
-                            cacheEvictionEvent.getEvictionSourceType(), cacheEvictionEvent.getEvictionOperation(),
-                            cacheEvictionEvent.getEvictionSource().getDisplayName());
-                }
-
+                log.info("Successfully completed cache eviction for entity: {}:{}:{} due to {} {} {}",
+                    event.getApplicationId(), event.getStructureId(),
+                    event.getNamedQueryId(),
+                    event.getEvictionSourceType(), event.getEvictionOperation(),
+                    event.getEvictionSource().getDisplayName());
             }
 
         } catch (Exception e) {

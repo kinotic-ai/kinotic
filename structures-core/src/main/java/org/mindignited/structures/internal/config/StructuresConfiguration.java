@@ -21,9 +21,6 @@ import org.springframework.context.annotation.Configuration;
 @ComponentScan(basePackages = "org.mindignited.structures")
 public class StructuresConfiguration {
 
-    @Autowired
-    private Ignite ignite;
-
     @Bean
     public HealthChecks healthChecks(Vertx vertx){
         return HealthChecks.create(vertx);
