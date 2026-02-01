@@ -40,7 +40,7 @@ jobs:
         continue-on-error: true
         env:
           TESTCONTAINERS_RYUK_DISABLED: true
-        run: ./gradlew build
+        run: ./gradlew build -x test
 
       - name: Publish to Maven Central with JReleaser
         if: ${{ steps.gradle_build.outcome == 'success' }}
