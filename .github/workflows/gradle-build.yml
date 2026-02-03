@@ -107,7 +107,7 @@ jobs:
           description: 'Passed'
           state: 'success'
           sha: ${{ github.sha }}
-          target_url: https://mindignited.github.io/structures/allure/${{ github.run_number }}
+          target_url: https://kinotic-ai.github.io/structures/allure/${{ github.run_number }}
 
       - name: Check If Failure
         if: ${{ steps.gradle_build.outcome == 'failure' || steps.run_e2e_tests.outcome == 'failure' }}
@@ -123,4 +123,4 @@ jobs:
           # Optionally mark the job as failed
           exit 1
 
-          https://mindignited.github.io/structures/webdocs/guide/overview.html
+          https://kinoitc-ai.github.io/structures/webdocs/guide/overview.html
