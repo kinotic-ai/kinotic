@@ -1,6 +1,6 @@
 package org.mindignited.structures;
 
-import org.mindignited.structures.base.keycloak.KeycloakTestContextInitializer;
+import org.mindignited.structures.support.keycloak.KeycloakTestContextInitializer;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration;
