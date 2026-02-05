@@ -66,7 +66,7 @@ This points to the Elasticsearch instance deployed in the KinD cluster.
 
 - [Apache Ignite Kubernetes IP Finder Documentation](https://ignite.apache.org/docs/latest/clustering/kubernetes)
 - [Kubernetes RBAC Documentation](https://kubernetes.io/docs/reference/access-authn-authz/rbac/)
-- Ignite Configuration: `structures-core/src/main/java/org/mindignited/structures/internal/config/CacheEvictionConfiguration.java`
+- Ignite Configuration: `structures-core/src/main/java/org/kinotic/structures/internal/config/CacheEvictionConfiguration.java`
 
 ## Testing
 

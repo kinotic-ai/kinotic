@@ -2,6 +2,6 @@
 logging:
   level:
     com:
-      mindignited: INFO
+      kinotic: INFO
 
   

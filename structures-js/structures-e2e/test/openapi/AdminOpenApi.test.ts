@@ -23,7 +23,7 @@ interface LocalTestContext {
 const applicationId = 'openapi.admin'
 const projectName = 'TestProject'
 const BASE_AUTH = 'Basic YWRtaW46c3RydWN0dXJlcw=='
-const DEFAULT_TENANT = 'mindignited'
+const DEFAULT_TENANT = 'kinotic'
 
 const axiosInstance = axios.create({
                                        headers: {

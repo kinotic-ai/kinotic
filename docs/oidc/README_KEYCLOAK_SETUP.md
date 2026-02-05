@@ -147,7 +147,7 @@ The client includes these protocol mappers:
 4. **Preferred Username**: Maps username to `preferred_username` claim
 5. **Roles**: Maps realm roles to `realm_access.roles` claim
 6. **Client Audience**: Adds `aud` claim with value `structures-client`
-7. **Tenant ID**: Adds `tenantId` claim with value `mindignited`
+7. **Tenant ID**: Adds `tenantId` claim with value `kinotic`
 
 ## Service URLs
 
@@ -320,7 +320,7 @@ Enable debug logging for troubleshooting:
 ```yaml
 logging:
   level:
-    org.mindignited.structures.internal.config: DEBUG
+    org.kinotic.structures.internal.config: DEBUG
     org.keycloak: DEBUG
 ```
 

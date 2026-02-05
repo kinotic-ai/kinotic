@@ -40,7 +40,7 @@ This precedence ensures that specific operation requirements can override the mo
 
 1. **Define General CRUD Policies**: Use fields like `allCreate` or `allRead` to specify policies for all `create` or `read` operations.
 ```typescript
-import { Entity, EntityServiceDecorators, MultiTenancyType, $Policy } from '@mindignited/structures-api';
+import { Entity, EntityServiceDecorators, MultiTenancyType, $Policy } from '@kinotic/structures-api';
 
 @EntityServiceDecorators({
     allCreate: [
@@ -65,7 +65,7 @@ export class Person {
 
 2. **Define Specific Operation Policies**: Add policies for individual operations like `bulkSave` or `findById` to override the general CRUD policies for these specific cases.
 ```typescript
-import { Entity, EntityServiceDecorators, MultiTenancyType, $Policy } from '@mindignited/structures-api';
+import { Entity, EntityServiceDecorators, MultiTenancyType, $Policy } from '@kinotic/structures-api';
 
 @EntityServiceDecorators({
     bulkSave: [
@@ -84,7 +84,7 @@ export class Person {
 
 3. **Combined General and Specific Policies**: You can combine general CRUD policies and specific operation policies
 ```typescript
-import { Entity, EntityServiceDecorators, MultiTenancyType, $Policy } from '@mindignited/structures-api';
+import { Entity, EntityServiceDecorators, MultiTenancyType, $Policy } from '@kinotic/structures-api';
 
 @EntityServiceDecorators({
     allRead: [

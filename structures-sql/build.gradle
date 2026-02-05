@@ -1,16 +1,16 @@
 plugins {
-	id 'org.mindignited.java-library-conventions'
+	id 'org.kinotic.java-library-conventions'
 	id 'io.freefair.lombok'
     id 'antlr'
 }
 
 // Configure ANTLR plugin
 generateGrammarSource {
-	arguments += ['-package', 'org.mindignited.structures.sql.parser']
+	arguments += ['-package', 'org.kinotic.structures.sql.parser']
 	arguments += ['-visitor']
 
 	// Output directly to the parser package
-	outputDirectory = file("${projectDir}/src/main/java/org/mindignited/structures/sql/parser")
+	outputDirectory = file("${projectDir}/src/main/java/org/kinotic/structures/sql/parser")
 	enabled = project.gradle.startParameter.taskNames.contains(':structures-sql:generateGrammarSource')
 }
 

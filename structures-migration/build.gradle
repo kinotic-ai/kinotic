@@ -1,5 +1,5 @@
 plugins {
-	id 'org.mindignited.java-application-conventions'
+	id 'org.kinotic.java-application-conventions'
 }
 
 dependencies {

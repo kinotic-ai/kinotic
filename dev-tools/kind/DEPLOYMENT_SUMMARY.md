@@ -41,7 +41,7 @@ The structures-server image must be built and loaded before deployment:
 ./gradlew :structures-server:bootBuildImage
 
 # Load into KinD cluster
-kind load docker-image mindignited/structures-server:3.5.1-SNAPSHOT --name structures-cluster
+kind load docker-image kinoticai/structures-server:3.5.1-SNAPSHOT --name structures-cluster
 
 # OR use the helper (once implemented)
 ./dev-tools/kind/kind-cluster.sh build --load

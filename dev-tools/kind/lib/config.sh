@@ -261,7 +261,7 @@ get_structures_version() {
 #
 # Get image name for structures-server
 # Returns:
-#   Full image name (e.g., "mindignited/structures-server:0.5.0-SNAPSHOT")
+#   Full image name (e.g., "kinoticai/structures-server:0.5.0-SNAPSHOT")
 # Example:
 #   image=$(get_image_name)
 #
@@ -269,7 +269,7 @@ get_image_name() {
     local version
     version=$(get_structures_version) || return 1
     
-    local image_name="${IMAGE_NAME:-mindignited/structures-server}"
+    local image_name="${IMAGE_NAME:-kinoticai/structures-server}"
     echo "${image_name}:${version}"
 }
 

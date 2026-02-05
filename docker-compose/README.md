@@ -82,7 +82,7 @@ The Docker Compose files provide different service configurations for:
 The fastest way to get started is using our one-liner installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mindignited/structures/main/docker-compose/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kinotic-ai/kinotic/main/docker-compose/install.sh | bash
 ```
 
 This script will:
@@ -97,10 +97,10 @@ This script will:
 STRUCTURES_REPO=your-username/your-repo curl -fsSL https://raw.githubusercontent.com/your-username/your-repo/main/docker-compose/install.sh | bash
 
 # Use a different branch
-STRUCTURES_BRANCH=develop curl -fsSL https://raw.githubusercontent.com/mindignited/structures/main/docker-compose/install.sh | bash
+STRUCTURES_BRANCH=develop curl -fsSL https://raw.githubusercontent.com/kinotic-ai/kinotic/main/docker-compose/install.sh | bash
 
 # Install to a custom directory
-STRUCTURES_INSTALL=~/my-structures curl -fsSL https://raw.githubusercontent.com/mindignited/structures/main/docker-compose/install.sh | bash
+STRUCTURES_INSTALL=~/my-structures curl -fsSL https://raw.githubusercontent.com/kinotic-ai/kinotic/main/docker-compose/install.sh | bash
 ```
 
 **Note**: After installation, manage services from `~/.structures`:

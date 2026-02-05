@@ -235,7 +235,7 @@
             "access.token.claim": "true",
             "userinfo.token.claim": "true",
             "claim.name": "tenantId",
-            "claim.value": "mindignited",
+            "claim.value": "kinotic",
             "jsonType.label": "String"
           }
         }

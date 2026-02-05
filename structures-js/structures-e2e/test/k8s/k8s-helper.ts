@@ -231,7 +231,7 @@ export class K8sTestHelper {
                     connectHeaders       : {
                         login   : 'admin',
                         passcode: 'structures',
-                        // tenantId: 'mindignited'
+                        // tenantId: 'kinotic'
                     }
                 });
 
@@ -286,7 +286,7 @@ export class K8sTestHelper {
             connectHeaders       : {
                 login   : 'admin',
                 passcode: 'structures',
-                // tenantId: 'mindignited'
+                // tenantId: 'kinotic'
             }
         });
 

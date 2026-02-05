@@ -2,7 +2,7 @@ replicaCount: 1
 nameOverride: ""
 
 image:
-  repository: mindignited/structures-server
+  repository: kinoticai/structures-server
   pullPolicy: Always
   tag: "1.14.0-SNAPSHOT"
   sha: ""

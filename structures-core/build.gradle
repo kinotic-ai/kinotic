@@ -1,5 +1,5 @@
 plugins {
-	id 'org.mindignited.java-library-conventions'
+	id 'org.kinotic.java-library-conventions'
 	id 'io.freefair.lombok'
 }
 
@@ -30,10 +30,10 @@ dependencies {
 	implementation 'org.apache.ignite:ignite-core'
 	implementation 'org.apache.ignite:ignite-kubernetes'
 
-	implementation "org.mindignited:continuum-core"
-	implementation "org.mindignited:continuum-core-vertx"
-	implementation "org.mindignited:continuum-gateway"
-	implementation "org.mindignited:continuum-idl"
+	implementation "org.kinotic:continuum-core"
+	implementation "org.kinotic:continuum-core-vertx"
+	implementation "org.kinotic:continuum-gateway"
+	implementation "org.kinotic:continuum-idl"
 
 	implementation 'com.fasterxml.jackson.core:jackson-annotations'
 	implementation 'com.fasterxml.jackson.core:jackson-core'

@@ -31,7 +31,7 @@ export default class ApplicationAddEdit extends Vue {
   @Prop({ type: String, required: false, default: null })
   public id!: string | null
 
-  private crudServiceIdentifier = 'org.mindignited.structures.api.services.ApplicationService'
+  private crudServiceIdentifier = 'org.kinotic.structures.api.services.ApplicationService'
 
   private application: Application = new Application('', '')
 

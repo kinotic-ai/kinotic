@@ -1,6 +1,6 @@
 
 
-import type { TypescriptProjectConfig } from '@mindignited/structures-api'
+import type { TypescriptProjectConfig } from '@kinotic/structures-api'
 
 const config: TypescriptProjectConfig = {
   mdl: "ts",

@@ -1,5 +1,5 @@
 plugins {
-	id 'org.mindignited.java-library-conventions'
+	id 'org.kinotic.java-library-conventions'
 	id 'io.freefair.lombok'
 }
 
@@ -13,8 +13,8 @@ dependencies {
     api 'com.fasterxml.jackson.core:jackson-core'
     api 'com.fasterxml.jackson.core:jackson-databind'
 
-    api "org.mindignited:continuum-core"
-    api "org.mindignited:continuum-idl"
+    api "org.kinotic:continuum-core"
+    api "org.kinotic:continuum-idl"
 
     // Test dependencies
     testImplementation 'org.mockito:mockito-core:5.11.0'

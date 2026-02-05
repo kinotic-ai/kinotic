@@ -118,7 +118,7 @@
           "protocol": "openid-connect",
           "protocolMapper": "oidc-hardcoded-claim-mapper",
           "config": {
-            "claim.value": "mindignited",
+            "claim.value": "kinotic",
             "userinfo.token.claim": "true",
             "id.token.claim": "true",
             "access.token.claim": "true",
@@ -228,7 +228,7 @@
           "protocol": "openid-connect",
           "protocolMapper": "oidc-hardcoded-claim-mapper",
           "config": {
-            "claim.value": "mindignited",
+            "claim.value": "kinotic",
             "userinfo.token.claim": "true",
             "id.token.claim": "true",
             "access.token.claim": "true",

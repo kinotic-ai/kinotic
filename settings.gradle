@@ -1,37 +1,4 @@
-pluginManagement {
-    repositories {
-        gradlePluginPortal()
-        mavenCentral()
-    }
-}
-
-
-// Only include for local development
-//if (file('../continuum-framework').exists()) {
-//    includeBuild('../continuum-framework') {
-//        dependencySubstitution {
-//            substitute module('org.mindignited:continuum-core') using project(':continuum-core')
-//            substitute module('org.mindignited:continuum-core-vertx') using project(':continuum-core-vertx')
-//            substitute module('org.mindignited:continuum-gateway') using project(':continuum-gateway')
-//            substitute module('org.mindignited:continuum-idl') using project(':continuum-idl')
-//            substitute module('org.mindignited:continuum-util') using project(':continuum-util')
-//        }
-//    }
-//}
-
-
-dependencyResolutionManagement {
-    repositories {
-        mavenCentral()
-        maven {
-            url = uri('https://s01.oss.sonatype.org/content/repositories/snapshots/')
-        }
-
-    }
-}
-
-rootProject.name = 'structures'
-
+rootProject.name = 'kinotic'
 
 rootDir.listFiles().each {
     if (it.directory && new File(it, 'settings.gradle').exists()) {

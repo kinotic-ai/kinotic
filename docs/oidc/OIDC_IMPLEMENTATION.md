@@ -841,7 +841,7 @@ Enable debug logging for troubleshooting:
 ```yaml
 logging:
   level:
-    org.mindignited.structures.internal.config: DEBUG
+    org.kinotic.structures.internal.config: DEBUG
 ```
 
 ### Frontend Debugging

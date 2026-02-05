@@ -155,26 +155,26 @@ CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS=60000
 You can use type-safe constants in code:
 
 ```java
-import org.mindignited.continuum.api.config.IgniteClusterDiscoveryType;
+import org.kinotic.continuum.api.config.IgniteClusterDiscoveryType;
 
 // In configuration or logic
-if (properties.getDiscoveryType() == IgniteClusterDiscoveryType.KUBERNETES) {
-    // Kubernetes-specific logic
-}
+if(properties.getDiscoveryType() ==IgniteClusterDiscoveryType.KUBERNETES){
+        // Kubernetes-specific logic
+        }
 
 // Or in conditionals
 IgniteClusterDiscoveryType discoveryType = properties.getDiscoveryType();
-switch (discoveryType) {
-    case LOCAL:
+switch(discoveryType){
+        case LOCAL:
         // Single-node
         break;
-    case SHAREDFS:
+        case SHAREDFS:
         // Docker/VM cluster
         break;
-    case KUBERNETES:
+        case KUBERNETES:
         // K8s cluster
         break;
-}
+        }
 ```
 
 ---
@@ -194,7 +194,7 @@ dependencies {
 
 ### 2. Uncomment code in IgniteConfiguration
 
-File: `continuum-core-vertx/src/main/java/org/mindignited/continuum/internal/config/ContinuumIgniteConfig.java`
+File: `continuum-core-vertx/src/main/java/org/kinotic/continuum/internal/config/ContinuumIgniteConfig.java`
 
 Enable the `TcpDiscoveryKubernetesIpFinder` implementation.
 
@@ -318,7 +318,7 @@ INFO - Apache Ignite started successfully - Cluster size: 3
 - **Comprehensive Kubernetes Tuning**: `IGNITE_KUBERNETES_TUNING.md` - All advanced options
 - **Cluster Testing Guide**: `docker-compose/CLUSTER_TESTING.md` - Testing procedures
 - **Design Document**: `CACHE_EVICTION_DESIGN.md` - Architecture and design
-- **Test Documentation**: `src/test/java/org/mindignited/structures/cluster/README.md`
+- **Test Documentation**: `src/test/java/org/kinotic/structures/cluster/README.md`
 
 ---
 

@@ -6,7 +6,7 @@ spring:
 logging:
   level:
     org:
-      mindignited: TRACE
+      kinotic: TRACE
 
 structures-migration:
   elasticScheme: "http"

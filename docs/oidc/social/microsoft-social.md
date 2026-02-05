@@ -232,8 +232,8 @@ structures:
 
 logging:
   level:
-    org.mindignited.structures.internal.config: DEBUG
-    org.mindignited.structures.internal.security: DEBUG
+    org.kinotic.structures.internal.config: DEBUG
+    org.kinotic.structures.internal.security: DEBUG
 ```
 
 ### Azure Portal App Registration
@@ -259,8 +259,8 @@ logging:
 ```yaml
 logging:
   level:
-    org.mindignited.structures.internal.config: DEBUG
-    org.mindignited.structures.internal.security: DEBUG
+    org.kinotic.structures.internal.config: DEBUG
+    org.kinotic.structures.internal.security: DEBUG
 ```
 
 ### Test JWKS Endpoint

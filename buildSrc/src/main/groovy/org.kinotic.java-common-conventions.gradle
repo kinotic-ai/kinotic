@@ -1,0 +1,125 @@
+plugins {
+    // Apply the java Plugin to add support for Java.
+    id 'java'
+    id 'io.spring.dependency-management'
+}
+
+group 'org.kinotic'
+version "${structuresVersion}"
+sourceCompatibility = '21'
+
+repositories {
+    // Use Maven Central for resolving dependencies.
+    mavenCentral()
+
+    maven { url 'https://repo.spring.io/milestone' }
+    maven { url 'https://repo.spring.io/snapshot' }
+
+    maven {
+        name = 'Central Portal Snapshots'
+        url = uri('https://central.sonatype.com/repository/maven-snapshots/')
+    }
+}
+
+// Define configuration for AspectJ agent
+configurations {
+    agent {
+        canBeResolved = true
+        canBeConsumed = true
+    }
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
+        mavenBom "io.opentelemetry:opentelemetry-bom:${otelBomVersion}"
+        mavenBom "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:${otelInstrumentationBomVersion}"
+        mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+    }
+    dependencies {
+        dependency "co.elastic.clients:elasticsearch-java:${elasticClientVersion}"
+
+        dependency "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
+
+        dependency "com.graphql-java:graphql-java:${graphQlJavaVersion}"
+
+        dependency "javax.annotation:javax.annotation-api:${javaxAnnotationApi}"
+
+        dependency "io.vertx:vertx-web:${vertxVersion}"
+        dependency "io.vertx:vertx-web-graphql:${vertxVersion}"
+        dependency "io.vertx:vertx-web-client:${vertxVersion}"
+        dependency "io.vertx:vertx-health-check:${vertxVersion}"
+
+        dependency "me.escoffier.vertx:vertx-completable-future:${vertxCompletableFutureVersion}"
+
+        dependency "org.apache.commons:commons-compress:${commonsCompressVersion}"
+
+        dependency "org.apache.ignite:ignite-core:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-spring:${igniteVersion}"
+
+        dependency "org.apache.lucene:lucene-analyzers-common:${luceneVersion}"
+        dependency "org.apache.lucene:lucene-backwards-codecs:${luceneVersion}"
+        dependency "org.apache.lucene:lucene-core:${luceneVersion}"
+        dependency "org.apache.lucene:lucene-grouping:${luceneVersion}"
+        dependency "org.apache.lucene:lucene-highlighter:${luceneVersion}"
+        dependency "org.apache.lucene:lucene-join:${luceneVersion}"
+        dependency "org.apache.lucene:lucene-memory:${luceneVersion}"
+        dependency "org.apache.lucene:lucene-misc:${luceneVersion}"
+        dependency "org.apache.lucene:lucene-queries:${luceneVersion}"
+        dependency "org.apache.lucene:lucene-queryparser:${luceneVersion}"
+        dependency "org.apache.lucene:lucene-sandbox:${luceneVersion}"
+        dependency "org.apache.lucene:lucene-spatial:${luceneVersion}"
+        dependency "org.apache.lucene:lucene-suggest:${luceneVersion}"
+
+        dependency "org.elasticsearch:elasticsearch:${elasticClientVersion}"
+        dependency "org.elasticsearch.client:elasticsearch-rest-client:${elasticClientVersion}"
+        dependency "org.elasticsearch.client:elasticsearch-rest-high-level-client:${elasticClientVersion}"
+
+        dependency "org.kinotic:continuum-core:${continuumVersion}"
+        dependency "org.kinotic:continuum-core-vertx:${continuumVersion}"
+        dependency "org.kinotic:continuum-gateway:${continuumVersion}"
+        dependency "org.kinotic:continuum-idl:${continuumVersion}"
+
+
+        // must be overridden for the elastic client
+        dependency 'jakarta.json:jakarta.json-api:2.0.1'
+
+        // JWT and OIDC dependencies
+        dependency "io.jsonwebtoken:jjwt-api:${jsonwebtokenVersion}"
+        dependency "io.jsonwebtoken:jjwt-impl:${jsonwebtokenVersion}"
+        dependency "io.jsonwebtoken:jjwt-jackson:${jsonwebtokenVersion}"
+    }
+}
+
+dependencies {
+    implementation 'org.apache.commons:commons-lang3'
+    implementation "org.apache.commons:commons-text:${apacheCommonsTextVersion}"
+
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations'
+
+    implementation 'ch.qos.logback:logback-core'
+    implementation 'ch.qos.logback:logback-classic'
+
+    // Add aspectj weaver dependency for use during tests
+    agent "org.aspectj:aspectjweaver:$aspectJVersion"
+
+    testImplementation platform("io.qameta.allure:allure-bom:$allureVersion")
+    testImplementation "io.qameta.allure:allure-junit5"
+    testImplementation 'org.junit.jupiter:junit-jupiter-api'
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+    environment("JAVA_TOOL_OPTIONS", "-javaagent:${configurations.agent.singleFile} --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED")
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    withJavadocJar()
+    withSourcesJar()
+}

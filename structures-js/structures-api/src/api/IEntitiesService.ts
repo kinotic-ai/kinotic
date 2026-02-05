@@ -180,7 +180,7 @@ export class EntitiesService implements IEntitiesService {
     protected serviceProxy: IServiceProxy
 
      constructor(serviceRegistry?: IServiceRegistry) {
-        const service = 'org.mindignited.structures.api.services.JsonEntitiesService'
+        const service = 'org.kinotic.structures.api.services.JsonEntitiesService'
         this.serviceProxy = serviceRegistry?.serviceProxy(service) || Continuum.serviceProxy(service)
     }
 
