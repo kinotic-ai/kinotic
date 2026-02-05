@@ -1,0 +1,38 @@
+
+
+# OIDC security service configuration
+oidc-security-service:
+  enabled: true
+  debug: true
+  oidc-providers:
+    - provider: "keycloak"
+      display-name: "Keycloak"
+      enabled: true
+      roles-claim-path: "realm_access.roles"
+      domains:
+        - "example.com"
+      audience: "structures-client"
+      client-id: "structures-client"
+      authority: "${keycloak.test.url:http://localhost:8888/realms/test}"
+      redirect-uri: "http://localhost:8989/login"
+      post-logout-redirect-uri: "http://localhost:8989"
+      silent-redirect-uri: "http://localhost:8989/login/silent-renew"
+      roles:
+        - "user"
+        - "admin"
+        - "poweruser"
+    - provider: "keycloak-admin"
+      display-name: "Keycloak Admin"
+      enabled: true
+      roles-claim-path: "realm_access.roles"
+      domains:
+        - "admin.example.com"
+      audience: "admin-client"
+      client-id: "admin-client"
+      authority: "${keycloak.test.url:http://localhost:8888/realms/test}"
+      redirect-uri: "http://localhost:8989/admin/login"
+      post-logout-redirect-uri: "http://localhost:8989/admin"
+      silent-redirect-uri: "http://localhost:8989/admin/login/silent-renew"
+      roles:
+        - "admin"
+        - "poweruser"

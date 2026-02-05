@@ -18,6 +18,3 @@ dependencies {
     api "org.mindignited:continuum-idl"
 }
 
-test {
-    useJUnitPlatform()
-}

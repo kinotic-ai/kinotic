@@ -39,15 +39,6 @@ dependencies {
 	implementation 'org.antlr:antlr4-runtime:4.13.2'
 	antlr 'org.antlr:antlr4:4.13.2'
 
-    // Test dependencies
-    testImplementation 'org.mockito:mockito-core:5.11.0'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
-	testImplementation "org.testcontainers:testcontainers-elasticsearch:${testContainersVersion}"
 }
 
-test {
-    useJUnitPlatform()
-    systemProperty 'spring.profiles.active', 'test'
-}
+
