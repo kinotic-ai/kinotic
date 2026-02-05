@@ -1,6 +1,6 @@
 package org.mindignited.structures.api;
 
-import org.mindignited.continuum.api.annotations.EnableContinuum;
+import org.kinotic.continuum.api.annotations.EnableContinuum;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 

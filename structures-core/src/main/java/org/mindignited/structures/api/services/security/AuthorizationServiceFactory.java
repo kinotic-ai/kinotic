@@ -1,6 +1,6 @@
 package org.mindignited.structures.api.services.security;
 
-import org.mindignited.continuum.idl.api.schema.FunctionDefinition;
+import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
 import org.mindignited.structures.api.domain.NamedQueryOperation;
 import org.mindignited.structures.api.domain.Structure;
 import org.mindignited.structures.api.domain.EntityOperation;

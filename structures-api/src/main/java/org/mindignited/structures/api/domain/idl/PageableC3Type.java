@@ -2,7 +2,7 @@ package org.mindignited.structures.api.domain.idl;
 
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
-import org.mindignited.continuum.idl.api.schema.C3Type;
+import org.kinotic.continuum.idl.api.schema.C3Type;
 
 /**
  * This is a placeholder for the Pageable type.

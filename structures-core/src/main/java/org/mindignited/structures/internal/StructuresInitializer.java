@@ -7,7 +7,7 @@ import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.healthchecks.Status;
 import lombok.RequiredArgsConstructor;
 import org.apache.ignite.Ignite;
-import org.mindignited.continuum.api.config.ContinuumProperties;
+import org.kinotic.continuum.api.config.ContinuumProperties;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.internal.endpoints.StructuresVerticleFactory;
 import org.mindignited.structures.sql.SystemMigrator;

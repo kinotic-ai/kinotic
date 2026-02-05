@@ -1,9 +1,9 @@
 package org.mindignited.structures.api.domain.idl;
 
-import org.mindignited.continuum.idl.api.schema.FunctionDefinition;
-import org.mindignited.continuum.idl.api.schema.IntC3Type;
-import org.mindignited.continuum.idl.api.schema.ObjectC3Type;
-import org.mindignited.continuum.idl.api.schema.StringC3Type;
+import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
+import org.kinotic.continuum.idl.api.schema.IntC3Type;
+import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
+import org.kinotic.continuum.idl.api.schema.StringC3Type;
 import org.mindignited.structures.api.domain.QueryOptions;
 
 /**

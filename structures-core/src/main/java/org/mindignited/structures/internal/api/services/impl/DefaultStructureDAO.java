@@ -2,8 +2,8 @@ package org.mindignited.structures.internal.api.services.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
-import org.mindignited.continuum.core.api.crud.Page;
-import org.mindignited.continuum.core.api.crud.Pageable;
+import org.kinotic.continuum.core.api.crud.Page;
+import org.kinotic.continuum.core.api.crud.Pageable;
 import org.mindignited.structures.api.domain.Structure;
 import org.mindignited.structures.internal.api.services.StructureDAO;
 import org.springframework.stereotype.Component;

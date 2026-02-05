@@ -1,9 +1,9 @@
 package org.mindignited.structures.internal.api.services.impl.insights;
 
 import lombok.extern.slf4j.Slf4j;
-import org.mindignited.continuum.api.security.Participant;
-import org.mindignited.continuum.core.api.crud.Page;
-import org.mindignited.continuum.core.api.crud.Pageable;
+import org.kinotic.continuum.api.security.Participant;
+import org.kinotic.continuum.core.api.crud.Page;
+import org.kinotic.continuum.core.api.crud.Pageable;
 import org.mindignited.structures.api.domain.EntityContext;
 import org.mindignited.structures.api.domain.insights.InsightProgress;
 import org.mindignited.structures.api.services.EntitiesService;

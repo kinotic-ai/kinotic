@@ -6,8 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import org.apache.commons.lang3.Validate;
-import org.mindignited.continuum.core.api.crud.Page;
-import org.mindignited.continuum.core.api.crud.Pageable;
+import org.kinotic.continuum.core.api.crud.Page;
+import org.kinotic.continuum.core.api.crud.Pageable;
 import org.mindignited.structures.api.domain.EntityContext;
 import org.mindignited.structures.api.domain.NamedQueriesDefinition;
 import org.mindignited.structures.api.domain.Structure;

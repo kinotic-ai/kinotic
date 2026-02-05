@@ -15,7 +15,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @SpringBootTest
-public class ApplicationTests extends ElasticsearchTestBase {
+public class ApplicationTests extends ElasticTestBase {
 
 	@Autowired
 	private ApplicationService applicationService;

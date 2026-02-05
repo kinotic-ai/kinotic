@@ -1,11 +1,11 @@
 package org.mindignited.structures.api.services;
 
-import org.mindignited.continuum.api.annotations.Proxy;
-import org.mindignited.continuum.api.annotations.Publish;
-import org.mindignited.continuum.core.api.crud.IdentifiableCrudService;
-import org.mindignited.continuum.core.api.crud.Page;
-import org.mindignited.continuum.core.api.crud.Pageable;
-import org.mindignited.continuum.idl.api.schema.FunctionDefinition;
+import org.kinotic.continuum.api.annotations.Proxy;
+import org.kinotic.continuum.api.annotations.Publish;
+import org.kinotic.continuum.core.api.crud.IdentifiableCrudService;
+import org.kinotic.continuum.core.api.crud.Page;
+import org.kinotic.continuum.core.api.crud.Pageable;
+import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
 import org.mindignited.structures.api.domain.EntityContext;
 import org.mindignited.structures.api.domain.NamedQueriesDefinition;
 import org.mindignited.structures.api.domain.Structure;

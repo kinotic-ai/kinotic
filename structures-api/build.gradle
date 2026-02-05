@@ -14,7 +14,7 @@ dependencies {
     api 'tools.jackson.core:jackson-core'
     api 'tools.jackson.core:jackson-databind'
 
-    api "org.mindignited:continuum-core"
-    api "org.mindignited:continuum-idl"
+    api "org.kinotic:continuum-core"
+    api "org.kinotic:continuum-idl"
 }
 

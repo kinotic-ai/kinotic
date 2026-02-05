@@ -3,10 +3,10 @@ package org.mindignited.structures.internal.idl.converters.graphql;
 import graphql.scalars.ExtendedScalars;
 import graphql.schema.GraphQLEnumType;
 import lombok.RequiredArgsConstructor;
-import org.mindignited.continuum.idl.api.converter.C3TypeConverter;
-import org.mindignited.continuum.idl.api.converter.C3TypeConverterContainer;
-import org.mindignited.continuum.idl.api.converter.IdlConverterStrategy;
-import org.mindignited.continuum.idl.api.schema.*;
+import org.kinotic.continuum.idl.api.converter.C3TypeConverter;
+import org.kinotic.continuum.idl.api.converter.C3TypeConverterContainer;
+import org.kinotic.continuum.idl.api.converter.IdlConverterStrategy;
+import org.kinotic.continuum.idl.api.schema.*;
 import org.mindignited.structures.api.config.StructuresProperties;
 
 import java.util.LinkedHashSet;

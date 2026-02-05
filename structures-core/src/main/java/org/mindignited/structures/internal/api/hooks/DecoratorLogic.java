@@ -1,6 +1,6 @@
 package org.mindignited.structures.internal.api.hooks;
 
-import org.mindignited.continuum.idl.api.schema.decorators.C3Decorator;
+import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
 
 /**
  * {@link DecoratorLogic} holds a {@link C3Decorator} and its {@link UpsertFieldPreProcessor}

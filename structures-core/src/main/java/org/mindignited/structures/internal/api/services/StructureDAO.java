@@ -1,8 +1,8 @@
 package org.mindignited.structures.internal.api.services;
 
-import org.mindignited.continuum.core.api.crud.IdentifiableCrudService;
-import org.mindignited.continuum.core.api.crud.Page;
-import org.mindignited.continuum.core.api.crud.Pageable;
+import org.kinotic.continuum.core.api.crud.IdentifiableCrudService;
+import org.kinotic.continuum.core.api.crud.Page;
+import org.kinotic.continuum.core.api.crud.Pageable;
 import org.mindignited.structures.api.domain.Structure;
 
 import java.util.concurrent.CompletableFuture;

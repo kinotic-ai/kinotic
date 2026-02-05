@@ -4,8 +4,8 @@ import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.commons.lang3.Validate;
-import org.mindignited.continuum.core.api.crud.Page;
-import org.mindignited.continuum.core.api.crud.Pageable;
+import org.kinotic.continuum.core.api.crud.Page;
+import org.kinotic.continuum.core.api.crud.Pageable;
 import org.mindignited.structures.api.domain.Project;
 import org.mindignited.structures.api.services.ProjectService;
 import org.mindignited.structures.api.services.StructureService;

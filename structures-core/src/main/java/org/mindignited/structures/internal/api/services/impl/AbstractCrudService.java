@@ -2,10 +2,10 @@ package org.mindignited.structures.internal.api.services.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.Refresh;
-import org.mindignited.continuum.api.Identifiable;
-import org.mindignited.continuum.core.api.crud.IdentifiableCrudService;
-import org.mindignited.continuum.core.api.crud.Page;
-import org.mindignited.continuum.core.api.crud.Pageable;
+import org.kinotic.continuum.api.Identifiable;
+import org.kinotic.continuum.core.api.crud.IdentifiableCrudService;
+import org.kinotic.continuum.core.api.crud.Page;
+import org.kinotic.continuum.core.api.crud.Pageable;
 
 import lombok.RequiredArgsConstructor;
 

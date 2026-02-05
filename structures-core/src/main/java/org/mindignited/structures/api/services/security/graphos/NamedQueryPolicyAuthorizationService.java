@@ -1,7 +1,7 @@
 package org.mindignited.structures.api.services.security.graphos;
 
-import org.mindignited.continuum.api.exceptions.AuthorizationException;
-import org.mindignited.continuum.idl.api.schema.FunctionDefinition;
+import org.kinotic.continuum.api.exceptions.AuthorizationException;
+import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
 import org.mindignited.structures.api.domain.NamedQueryOperation;
 import org.mindignited.structures.api.domain.SecurityContext;
 import org.mindignited.structures.api.domain.idl.decorators.PolicyDecorator;

@@ -12,7 +12,7 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.healthchecks.HealthChecks;
 
 /**
- * Enables component scanning for structures classes when {@link org.mindignited.continuum.api.annotations.EnableContinuum} is present
+ * Enables component scanning for structures classes when {@link org.kinotic.continuum.api.annotations.EnableContinuum} is present
  * Created by Navíd Mitchell 🤪 on 5/30/23.
  */
 @Configuration

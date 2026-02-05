@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-import org.mindignited.continuum.api.exceptions.AuthorizationException;
-import org.mindignited.continuum.idl.api.schema.ObjectC3Type;
+import org.kinotic.continuum.api.exceptions.AuthorizationException;
+import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
 import org.mindignited.structures.api.domain.EntityOperation;
 import org.mindignited.structures.api.domain.SecurityContext;
 import org.mindignited.structures.api.domain.Structure;

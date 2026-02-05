@@ -1,6 +1,6 @@
 package org.mindignited.structures.internal.api.hooks;
 
-import org.mindignited.continuum.idl.api.schema.decorators.C3Decorator;
+import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
 import org.mindignited.structures.api.domain.EntityContext;
 import org.mindignited.structures.api.domain.Structure;
 

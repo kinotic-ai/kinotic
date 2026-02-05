@@ -2,8 +2,8 @@ package org.mindignited.structures.internal.api.services.sql.elasticsearch;
 
 import co.elastic.clients.elasticsearch.sql.TranslateResponse;
 import io.vertx.core.json.JsonObject;
-import org.mindignited.continuum.core.api.crud.Page;
-import org.mindignited.continuum.core.api.crud.Pageable;
+import org.kinotic.continuum.core.api.crud.Page;
+import org.kinotic.continuum.core.api.crud.Pageable;
 import org.mindignited.structures.api.domain.QueryOptions;
 
 import java.util.List;

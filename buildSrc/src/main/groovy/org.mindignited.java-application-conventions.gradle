@@ -20,8 +20,8 @@ configurations {
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
 
-    implementation "org.mindignited:continuum-core:${continuumVersion}"
-    implementation "org.mindignited:continuum-core-vertx:${continuumVersion}"
+    implementation "org.kinotic:continuum-core:${continuumVersion}"
+    implementation "org.kinotic:continuum-core-vertx:${continuumVersion}"
 
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

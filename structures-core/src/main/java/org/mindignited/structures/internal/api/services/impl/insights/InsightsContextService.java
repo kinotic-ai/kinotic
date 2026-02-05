@@ -1,6 +1,6 @@
 package org.mindignited.structures.internal.api.services.impl.insights;
 
-import org.mindignited.continuum.api.security.Participant;
+import org.kinotic.continuum.api.security.Participant;
 import org.mindignited.structures.api.domain.insights.InsightRequest;
 import org.springframework.stereotype.Service;
 

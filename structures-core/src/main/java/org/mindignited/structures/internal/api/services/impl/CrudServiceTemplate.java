@@ -22,7 +22,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.type.TypeFactory;
 import org.apache.commons.lang3.Validate;
-import org.mindignited.continuum.core.api.crud.*;
+import org.kinotic.continuum.core.api.crud.*;
 import org.mindignited.structures.api.domain.RawJson;
 import org.mindignited.structures.internal.serializer.RawJsonJsonpDeserializer;
 import org.slf4j.Logger;

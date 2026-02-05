@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.mindignited.continuum.idl.api.schema.decorators.C3Decorator;
+import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
 
 import java.util.List;
 

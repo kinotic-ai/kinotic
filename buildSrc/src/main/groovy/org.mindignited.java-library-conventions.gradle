@@ -7,7 +7,7 @@ plugins {
 }
 
 dependencies {
-    api "org.mindignited:continuum-core:${continuumVersion}"
+    api "org.kinotic:continuum-core:${continuumVersion}"
 
     implementation 'org.springframework.boot:spring-boot-autoconfigure'
 }

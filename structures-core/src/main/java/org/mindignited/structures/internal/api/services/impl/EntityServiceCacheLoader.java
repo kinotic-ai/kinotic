@@ -3,7 +3,7 @@ package org.mindignited.structures.internal.api.services.impl;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import org.apache.commons.lang3.Validate;
-import org.mindignited.continuum.idl.api.schema.decorators.C3Decorator;
+import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.api.domain.DecoratedProperty;
 import org.mindignited.structures.api.domain.Structure;

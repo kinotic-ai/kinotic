@@ -1,13 +1,13 @@
 package org.mindignited.structures.internal.idl.converters.elastic;
 
 import co.elastic.clients.elasticsearch._types.mapping.Property;
-import org.mindignited.continuum.idl.api.converter.C3ConversionContext;
-import org.mindignited.continuum.idl.api.converter.C3TypeConverter;
-import org.mindignited.continuum.idl.api.converter.Cacheable;
-import org.mindignited.continuum.idl.api.schema.C3Type;
-import org.mindignited.continuum.idl.api.schema.ObjectC3Type;
-import org.mindignited.continuum.idl.api.schema.PropertyDefinition;
-import org.mindignited.continuum.idl.api.schema.UnionC3Type;
+import org.kinotic.continuum.idl.api.converter.C3ConversionContext;
+import org.kinotic.continuum.idl.api.converter.C3TypeConverter;
+import org.kinotic.continuum.idl.api.converter.Cacheable;
+import org.kinotic.continuum.idl.api.schema.C3Type;
+import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
+import org.kinotic.continuum.idl.api.schema.PropertyDefinition;
+import org.kinotic.continuum.idl.api.schema.UnionC3Type;
 
 import java.util.HashMap;
 import java.util.Map;

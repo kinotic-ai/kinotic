@@ -1,8 +1,8 @@
 package org.mindignited.structures.internal.endpoints.openapi;
 
 import io.vertx.ext.web.RoutingContext;
-import org.mindignited.continuum.api.security.Participant;
-import org.mindignited.continuum.core.api.event.EventConstants;
+import org.kinotic.continuum.api.security.Participant;
+import org.kinotic.continuum.core.api.event.EventConstants;
 import org.mindignited.structures.api.domain.EntityContext;
 
 import java.util.List;

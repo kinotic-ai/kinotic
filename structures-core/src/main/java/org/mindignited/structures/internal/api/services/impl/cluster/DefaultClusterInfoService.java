@@ -11,7 +11,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.cluster.ClusterGroup;
 import org.apache.ignite.cluster.ClusterNode;
-import org.mindignited.continuum.api.config.ContinuumProperties;
+import org.kinotic.continuum.api.config.ContinuumProperties;
 import org.mindignited.structures.api.domain.cluster.ClusterInfo;
 import org.mindignited.structures.api.domain.cluster.ClusterInfo.ClusterInfoBuilder;
 import org.mindignited.structures.api.domain.cluster.NodeInfo;

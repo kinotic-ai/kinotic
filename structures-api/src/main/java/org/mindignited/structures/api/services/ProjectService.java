@@ -2,12 +2,12 @@ package org.mindignited.structures.api.services;
 
 import java.util.concurrent.CompletableFuture;
 
-import org.mindignited.continuum.api.annotations.Proxy;
-import org.mindignited.continuum.api.annotations.Publish;
-import org.mindignited.continuum.core.api.crud.IdentifiableCrudService;
+import org.kinotic.continuum.api.annotations.Proxy;
+import org.kinotic.continuum.api.annotations.Publish;
+import org.kinotic.continuum.core.api.crud.IdentifiableCrudService;
 import org.mindignited.structures.api.domain.Project;
-import org.mindignited.continuum.core.api.crud.Page;
-import org.mindignited.continuum.core.api.crud.Pageable;
+import org.kinotic.continuum.core.api.crud.Page;
+import org.kinotic.continuum.core.api.crud.Pageable;
 
 @Publish
 @Proxy

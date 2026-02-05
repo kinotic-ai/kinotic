@@ -7,8 +7,8 @@ import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
-import org.mindignited.continuum.api.security.SecurityService;
-import org.mindignited.continuum.gateway.api.security.AuthenticationHandler;
+import org.kinotic.continuum.api.security.SecurityService;
+import org.kinotic.continuum.gateway.api.security.AuthenticationHandler;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.internal.utils.VertxWebUtil;
 

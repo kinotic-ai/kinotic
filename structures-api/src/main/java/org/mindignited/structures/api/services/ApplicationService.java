@@ -1,8 +1,8 @@
 package org.mindignited.structures.api.services;
 
-import org.mindignited.continuum.api.annotations.Proxy;
-import org.mindignited.continuum.api.annotations.Publish;
-import org.mindignited.continuum.core.api.crud.IdentifiableCrudService;
+import org.kinotic.continuum.api.annotations.Proxy;
+import org.kinotic.continuum.api.annotations.Publish;
+import org.kinotic.continuum.core.api.crud.IdentifiableCrudService;
 import org.mindignited.structures.api.domain.Application;
 
 import java.util.concurrent.CompletableFuture;

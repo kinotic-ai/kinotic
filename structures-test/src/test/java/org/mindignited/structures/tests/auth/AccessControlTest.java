@@ -1,7 +1,7 @@
 package org.mindignited.structures.tests.auth;
 
 import org.junit.jupiter.api.Test;
-import org.mindignited.continuum.api.security.Participant;
+import org.kinotic.continuum.api.security.Participant;
 import org.mindignited.structures.auth.internal.services.OidcSecurityService;
 import org.mindignited.structures.support.keycloak.KeycloakTestBase;
 import org.mindignited.structures.support.keycloak.KeyloakTestConfiguration;

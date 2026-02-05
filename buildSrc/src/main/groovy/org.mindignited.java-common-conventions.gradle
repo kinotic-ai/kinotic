@@ -60,10 +60,10 @@ dependencyManagement {
         dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
         dependency "org.apache.ignite:ignite-spring:${igniteVersion}"
 
-        dependency "org.mindignited:continuum-core:${continuumVersion}"
-        dependency "org.mindignited:continuum-core-vertx:${continuumVersion}"
-        dependency "org.mindignited:continuum-gateway:${continuumVersion}"
-        dependency "org.mindignited:continuum-idl:${continuumVersion}"
+        dependency "org.kinotic:continuum-core:${continuumVersion}"
+        dependency "org.kinotic:continuum-core-vertx:${continuumVersion}"
+        dependency "org.kinotic:continuum-gateway:${continuumVersion}"
+        dependency "org.kinotic:continuum-idl:${continuumVersion}"
 
         // Spring no longer uses javax annotations
         dependency "jakarta.annotation:jakarta.annotation-api:${jakartaAnnotationVersion}"

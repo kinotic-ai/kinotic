@@ -2,8 +2,8 @@ package org.mindignited.structures.api.services;
 
 import java.util.concurrent.CompletableFuture;
 
-import org.mindignited.continuum.api.annotations.Proxy;
-import org.mindignited.continuum.api.annotations.Publish;
+import org.kinotic.continuum.api.annotations.Proxy;
+import org.kinotic.continuum.api.annotations.Publish;
 import org.mindignited.structures.api.domain.MigrationRequest;
 import org.mindignited.structures.api.domain.MigrationResult;
 

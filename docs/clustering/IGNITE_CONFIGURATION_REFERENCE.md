@@ -155,7 +155,7 @@ CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS=60000
 You can use type-safe constants in code:
 
 ```java
-import org.mindignited.continuum.api.config.IgniteClusterDiscoveryType;
+import org.kinotic.continuum.api.config.IgniteClusterDiscoveryType;
 
 // In configuration or logic
 if (properties.getDiscoveryType() == IgniteClusterDiscoveryType.KUBERNETES) {

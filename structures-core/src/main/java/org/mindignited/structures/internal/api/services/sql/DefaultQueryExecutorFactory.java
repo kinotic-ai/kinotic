@@ -2,7 +2,7 @@ package org.mindignited.structures.internal.api.services.sql;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.NotImplementedException;
-import org.mindignited.continuum.idl.api.schema.FunctionDefinition;
+import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.api.domain.NamedQueriesDefinition;
 import org.mindignited.structures.api.domain.NamedQueryOperation;

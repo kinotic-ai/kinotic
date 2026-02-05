@@ -2,9 +2,9 @@ package org.mindignited.structures.internal.idl.converters.graphql;
 
 import graphql.schema.GraphQLNamedOutputType;
 import io.swagger.v3.oas.models.media.Schema;
-import org.mindignited.continuum.idl.api.converter.C3ConversionContext;
-import org.mindignited.continuum.idl.api.converter.C3TypeConverter;
-import org.mindignited.continuum.idl.api.schema.C3Type;
+import org.kinotic.continuum.idl.api.converter.C3ConversionContext;
+import org.kinotic.continuum.idl.api.converter.C3TypeConverter;
+import org.kinotic.continuum.idl.api.schema.C3Type;
 import org.mindignited.structures.api.domain.idl.CursorPageC3Type;
 import org.mindignited.structures.api.domain.idl.PageC3Type;
 import org.mindignited.structures.internal.utils.GqlUtils;

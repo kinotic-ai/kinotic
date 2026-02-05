@@ -2,7 +2,7 @@ package org.mindignited.structures.internal.endpoints;
 
 import io.vertx.ext.healthchecks.HealthChecks;
 import lombok.RequiredArgsConstructor;
-import org.mindignited.continuum.api.security.SecurityService;
+import org.kinotic.continuum.api.security.SecurityService;
 import org.mindignited.structures.api.config.StructuresProperties;
 import org.mindignited.structures.auth.api.config.OidcSecurityServiceProperties;
 import org.mindignited.structures.internal.endpoints.graphql.DelegatingGqlHandler;

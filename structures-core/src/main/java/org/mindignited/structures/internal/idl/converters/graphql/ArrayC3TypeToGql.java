@@ -1,10 +1,10 @@
 package org.mindignited.structures.internal.idl.converters.graphql;
 
 import graphql.schema.GraphQLList;
-import org.mindignited.continuum.idl.api.converter.C3ConversionContext;
-import org.mindignited.continuum.idl.api.converter.C3TypeConverter;
-import org.mindignited.continuum.idl.api.schema.ArrayC3Type;
-import org.mindignited.continuum.idl.api.schema.C3Type;
+import org.kinotic.continuum.idl.api.converter.C3ConversionContext;
+import org.kinotic.continuum.idl.api.converter.C3TypeConverter;
+import org.kinotic.continuum.idl.api.schema.ArrayC3Type;
+import org.kinotic.continuum.idl.api.schema.C3Type;
 
 /**
  * Created By Navíd Mitchell 🤪on 2/26/25
