@@ -1,19 +1,19 @@
 package org.kinotic.structures.internal.serializer;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueSerializer;
 import org.kinotic.structures.api.domain.FastestType;
-
-import java.io.IOException;
 
 /**
  * Created By Navíd Mitchell 🤪on 2/3/25
  */
-public class FastestTypeSerializer  extends JsonSerializer<FastestType> {
+public class FastestTypeSerializer  extends ValueSerializer<FastestType> {
 
     @Override
-    public void serialize(FastestType value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-        gen.writeObject(value.data());
+    public void serialize(FastestType value, JsonGenerator gen, SerializationContext ctxt) throws JacksonException {
+        gen.writePOJO(value.data());
     }
+
 }

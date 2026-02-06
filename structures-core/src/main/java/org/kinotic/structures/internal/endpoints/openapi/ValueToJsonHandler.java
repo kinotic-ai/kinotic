@@ -1,7 +1,6 @@
 package org.kinotic.structures.internal.endpoints.openapi;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import io.vertx.core.Completable;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
@@ -9,15 +8,15 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.structures.api.domain.FastestType;
 import org.kinotic.structures.api.domain.RawJson;
 import org.kinotic.structures.internal.utils.VertxWebUtil;
-
-import java.util.function.BiFunction;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Handles any object that can be serialized directly to JSON
  * Created by Navíd Mitchell 🤪 on 6/1/23.
  */
 @RequiredArgsConstructor
-class ValueToJsonHandler<T> implements BiFunction<T, Throwable, Void> {
+class ValueToJsonHandler<T> implements Completable<T> {
 
     private final RoutingContext context;
     private final ObjectMapper objectMapper;
@@ -30,7 +29,7 @@ class ValueToJsonHandler<T> implements BiFunction<T, Throwable, Void> {
     }
 
     @Override
-    public Void apply(T value, Throwable throwable) {
+    public void complete(T value, Throwable throwable) {
         if (throwable == null) {
             Validate.notNull(context, "context must not be null");
             Object data = (value instanceof FastestType ? ((FastestType) value).data() : value);
@@ -49,7 +48,7 @@ class ValueToJsonHandler<T> implements BiFunction<T, Throwable, Void> {
                         context.response().setStatusCode(200);
                         byte[] bytes = objectMapper.writeValueAsBytes(value);
                         context.response().end(Buffer.buffer(bytes));
-                    } catch (JsonProcessingException e) {
+                    } catch (JacksonException e) {
                         VertxWebUtil.writeException(context, e);
                     }
                 }
@@ -57,6 +56,5 @@ class ValueToJsonHandler<T> implements BiFunction<T, Throwable, Void> {
         } else {
             VertxWebUtil.writeException(context, throwable);
         }
-        return null;
     }
 }

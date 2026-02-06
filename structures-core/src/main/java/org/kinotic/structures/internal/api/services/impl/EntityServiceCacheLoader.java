@@ -1,7 +1,6 @@
 package org.kinotic.structures.internal.api.services.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
@@ -18,6 +17,7 @@ import org.kinotic.structures.internal.api.services.StructureDAO;
 import org.kinotic.structures.api.domain.DecoratedProperty;
 import org.kinotic.structures.internal.utils.StructuresUtil;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,7 +36,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
     private final CrudServiceTemplate crudServiceTemplate;
     private final ElasticsearchAsyncClient esAsyncClient;
     private final NamedQueriesService namedQueriesService;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
     private final ReadPreProcessor readPreProcessor;
     private final StructureDAO structureDAO;
     private final StructuresProperties structuresProperties;
@@ -47,7 +47,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
                                     CrudServiceTemplate crudServiceTemplate,
                                     ElasticsearchAsyncClient esAsyncClient,
                                     NamedQueriesService namedQueriesService,
-                                    ObjectMapper objectMapper,
+                                    JsonMapper jsonMapper,
                                     ReadPreProcessor readPreProcessor,
                                     StructureDAO structureDAO,
                                     StructuresProperties structuresProperties,
@@ -56,7 +56,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
         this.crudServiceTemplate = crudServiceTemplate;
         this.esAsyncClient = esAsyncClient;
         this.namedQueriesService = namedQueriesService;
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
         this.readPreProcessor = readPreProcessor;
         this.structureDAO = structureDAO;
         this.structuresProperties = structuresProperties;
@@ -105,12 +105,12 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
                                          authService,
                                          crudServiceTemplate,
                                          new DelegatingUpsertPreProcessor(structuresProperties,
-                                                                          objectMapper,
+                                                                          jsonMapper,
                                                                           structure,
                                                                           fieldPreProcessors),
                                          esAsyncClient,
                                          namedQueriesService,
-                                         objectMapper,
+                                         jsonMapper,
                                          readPreProcessor,
                                          structure,
                                          structuresProperties));

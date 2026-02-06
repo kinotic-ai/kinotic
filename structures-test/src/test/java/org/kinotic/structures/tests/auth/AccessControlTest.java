@@ -148,7 +148,7 @@ public class AccessControlTest extends KeycloakTestBase {
             throw new IllegalStateException("Keycloak token endpoint returned status " + response.statusCode() + " for client " + clientId);
         }
         
-        com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.body());
+        tools.jackson.databind.JsonNode node = new tools.jackson.databind.ObjectMapper().readTree(response.body());
         return node.get("access_token").asText();
     }
 }

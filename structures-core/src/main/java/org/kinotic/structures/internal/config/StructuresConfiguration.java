@@ -10,6 +10,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
+import io.vertx.core.Vertx;
+import io.vertx.ext.healthchecks.HealthChecks;
+
 /**
  * Enables component scanning for structures classes when {@link org.kinotic.continuum.api.annotations.EnableContinuum} is present
  * Created by Navíd Mitchell 🤪 on 5/30/23.

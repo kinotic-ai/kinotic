@@ -2,7 +2,6 @@
 
 package org.kinotic.structures.tests.core.entity;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -28,8 +27,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -113,7 +113,7 @@ public class EntityCrudTests extends ElasticTestBase {
 
                             ret = savedPerson.equals(holder.getFirstPerson());
 
-                        } catch (IOException e) {
+                        } catch (JacksonException e) {
                             throw new RuntimeException(e);
                         }
                         return ret;
@@ -157,7 +157,7 @@ public class EntityCrudTests extends ElasticTestBase {
                                 break;
                             }
                         }
-                    } catch (IOException e) {
+                    } catch (JacksonException e) {
                         throw new RuntimeException(e);
                     }
                     return ret;

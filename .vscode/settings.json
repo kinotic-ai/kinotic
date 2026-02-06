@@ -4,7 +4,7 @@
     "gradle.autoDetect": "on",
     "gradle.nestedProjects": false,
     "java.compile.nullAnalysis.mode": "automatic",
-    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.configuration.updateBuildConfiguration": "automatic",
     "java.import.gradle.wrapper.enabled": true,
     "java.test.config": {
       "name": "testConfig",

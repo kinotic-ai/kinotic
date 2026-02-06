@@ -1,6 +1,7 @@
 package org.kinotic.structures.sql.executor.executors;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.ScriptSource;
 import co.elastic.clients.elasticsearch.core.UpdateByQueryResponse;
 import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
@@ -37,19 +38,19 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
 
     @Override
     public CompletableFuture<Long> executeQuery(UpdateStatement statement, Map<String, Object> parameters) {
-        String script = buildScript(statement.assignments(), parameters);
+        ScriptSource scriptSource = buildScript(statement.assignments(), parameters);
         Map<String, Object> params = buildScriptParams(statement.assignments(), parameters);
         Map<String, JsonData> scriptParams = convertToJsonDataMap(params);
 
         return client.updateByQuery(u -> u
                 .index(statement.tableName())
                 .query(QueryBuilder.buildQuery(statement.whereClause(), parameters))
-                .script(s -> s.source(script).params(scriptParams))
+                .script(s -> s.source(scriptSource).params(scriptParams))
                 .refresh(statement.refresh())
         ).thenApply(UpdateByQueryResponse::updated);
     }
 
-    private String buildScript(Map<String, Expression> assignments, Map<String, Object> parameters) {
+    private ScriptSource buildScript(Map<String, Expression> assignments, Map<String, Object> parameters) {
         StringBuilder script = new StringBuilder();
         assignments.forEach((field, expr) -> {
             if (expr instanceof Expression.Literal literal) {
@@ -75,7 +76,7 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
                       .append(" ").append(operator).append(" ").append(right).append(";");
             }
         });
-        return script.toString();
+        return ScriptSource.of(ssb -> ssb.scriptString(script.toString()));
     }
 
     private Map<String, Object> buildScriptParams(Map<String, Expression> assignments, Map<String, Object> parameters) {

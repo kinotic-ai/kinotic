@@ -1,6 +1,6 @@
 package org.kinotic.structures.internal.endpoints.graphql;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import graphql.language.OperationDefinition;
 import graphql.scalars.ExtendedScalars;
@@ -45,10 +45,10 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
 
         namedQueryOperationDefinitionCache
                 = cacheFactory.<String, List<GqlOperationDefinition>>newBuilder()
-                          .name("namedQueryOperationDefinitionCache")
-                          .expireAfterAccess(Duration.ofHours(1))
-                          .maximumSize(2000)
-                          .buildAsync(namedQueryGqlOperationDefinitionCacheLoader);
+                              .name("namedQueryOperationDefinitionCache")
+                              .expireAfterAccess(Duration.ofHours(1))
+                              .maximumSize(2000)
+                              .buildAsync(namedQueryGqlOperationDefinitionCacheLoader);
 
         this.builtInOperationDefinitions = List.of(
 
@@ -146,8 +146,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                                   .argument(newArgument().name("pageable")
                                                                          .type(nonNull(args.getOffsetPageableReference())));
 
-                                            builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.FIND_ALL));
-                                            return builder.build();
+                                          builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.FIND_ALL));
+                                          return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(structure -> new FindAllDataFetcher(structure.getId(), entitiesService, objectMapper))
                                       .build(),
@@ -163,8 +163,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                                   .argument(newArgument().name("pageable")
                                                                          .type(nonNull(args.getCursorPageableReference())));
 
-                                            builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.FIND_ALL));
-                                            return builder.build();
+                                          builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.FIND_ALL));
+                                          return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(structure -> new FindAllDataFetcher(structure.getId(), entitiesService, objectMapper))
                                       .build(),
@@ -199,8 +199,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                                   .argument(newArgument().name("pageable")
                                                                          .type(nonNull(args.getOffsetPageableReference())));
 
-                                            builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.SEARCH));
-                                            return builder.build();
+                                          builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.SEARCH));
+                                          return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(structure -> new SearchDataFetcher(structure.getId(), entitiesService, objectMapper))
                                       .build(),
@@ -218,8 +218,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                                   .argument(newArgument().name("pageable")
                                                                          .type(nonNull(args.getCursorPageableReference())));
 
-                                            builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.SEARCH));
-                                            return builder.build();
+                                          builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.SEARCH));
+                                          return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(structure -> new SearchDataFetcher(structure.getId(), entitiesService, objectMapper))
                                       .build(),
@@ -262,26 +262,19 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
 
 
     /**
-     * Evicts the caches for a application event.  This can be a modification or deletion of a named query or a structure.
-     * @param event the event containing the structure or named query to evict the caches for
+     * Evicts the caches for an application event.  This can be a modification or deletion of a named query or a structure.
+     * @param cacheEvictionEvent the event containing the structure or named query to evict the caches for
      */
     @EventListener
-    public void handleCacheEviction(CacheEvictionEvent event) {
-
+    public void handleCacheEviction(CacheEvictionEvent cacheEvictionEvent) {
         try {
 
-            if(event.getStructureId() != null){
-                namedQueryOperationDefinitionCache.asMap().remove(event.getStructureId());
-
-                log.info("Successfully completed ordered cache eviction for structure: {}:{}:{} due to {} {} {}", 
-                    event.getApplicationId(), event.getStructureId(), event.getNamedQueryId(), 
-                    event.getEvictionSourceType(), event.getEvictionOperation(), event.getEvictionSource().getDisplayName()
-                );
+            if(cacheEvictionEvent.getStructureId() != null){
+                namedQueryOperationDefinitionCache.asMap().remove(cacheEvictionEvent.getStructureId());
             }
-            
         } catch (Exception e) {
-            log.error("Failed to handle cache eviction (source: {})", 
-                     event.getSource(), e);
+            log.error("Failed to handle cache eviction (source: {})",
+                      cacheEvictionEvent.getSource(), e);
         }
     }
 

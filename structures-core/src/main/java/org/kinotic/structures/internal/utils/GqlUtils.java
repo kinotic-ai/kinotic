@@ -1,6 +1,6 @@
 package org.kinotic.structures.internal.utils;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import graphql.schema.*;
 
 import java.util.List;

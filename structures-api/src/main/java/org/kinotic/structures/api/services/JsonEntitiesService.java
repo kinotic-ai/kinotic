@@ -1,6 +1,6 @@
 package org.kinotic.structures.api.services;
 
-import com.fasterxml.jackson.databind.util.TokenBuffer;
+import tools.jackson.databind.util.TokenBuffer;
 import org.kinotic.continuum.api.annotations.Proxy;
 import org.kinotic.continuum.api.annotations.Publish;
 import org.kinotic.continuum.api.security.Participant;

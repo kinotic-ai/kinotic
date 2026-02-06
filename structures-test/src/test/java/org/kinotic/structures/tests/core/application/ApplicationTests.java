@@ -10,9 +10,11 @@ import org.kinotic.structures.api.services.ApplicationService;
 import org.kinotic.structures.support.elastic.ElasticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import org.springframework.boot.test.context.SpringBootTest;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+@SpringBootTest
 public class ApplicationTests extends ElasticTestBase {
 
 	@Autowired

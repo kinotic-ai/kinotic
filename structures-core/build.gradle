@@ -9,24 +9,21 @@ dependencies {
 	implementation project(':structures-auth')
 
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-json'
+    implementation 'org.springframework.boot:spring-boot-starter-jackson'
 	implementation 'org.springframework.boot:spring-boot-autoconfigure'
-	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	implementation 'org.reactivestreams:reactive-streams'
 	implementation 'io.projectreactor:reactor-core'
 
-	// Spring AI
-	implementation 'org.springframework.ai:spring-ai-commons'
-	implementation 'org.springframework.ai:spring-ai-model'
-	implementation 'org.springframework.ai:spring-ai-mcp'
-	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+	// Spring AI TODO does not support spring boot 4
+//	implementation 'org.springframework.ai:spring-ai-commons'
+//	implementation 'org.springframework.ai:spring-ai-model'
+//	implementation 'org.springframework.ai:spring-ai-mcp'
+//	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 	
 	implementation "io.vertx:vertx-web"
 	implementation "io.vertx:vertx-web-graphql"
 	implementation "io.vertx:vertx-web-client"
 	implementation "io.vertx:vertx-health-check"
-	implementation "me.escoffier.vertx:vertx-completable-future"
-
 	implementation 'org.apache.ignite:ignite-core'
 	implementation 'org.apache.ignite:ignite-kubernetes'
 
@@ -35,20 +32,24 @@ dependencies {
 	implementation "org.kinotic:continuum-gateway"
 	implementation "org.kinotic:continuum-idl"
 
-	implementation 'com.fasterxml.jackson.core:jackson-annotations'
-	implementation 'com.fasterxml.jackson.core:jackson-core'
-	implementation 'com.fasterxml.jackson.core:jackson-databind'
-
 	implementation "com.github.ben-manes.caffeine:caffeine"
 
 	implementation "com.graphql-java:graphql-java"
 	implementation "com.apollographql.federation:federation-graphql-java-support:${graphQlFederationJvmVersion}"
 	implementation "com.graphql-java:graphql-java-extended-scalars:${graphQlJavaExtendedScalarsVersion}"
 
+	// Json
+	api 'com.fasterxml.jackson.core:jackson-annotations'
+	api 'tools.jackson.core:jackson-core'
+	api 'tools.jackson.core:jackson-databind'
+
 	implementation "io.swagger.core.v3:swagger-models:${swaggerCoreVersion}"
 	implementation "io.swagger.core.v3:swagger-core:${swaggerCoreVersion}"
 
 	implementation "com.github.slugify:slugify:${slugifyVersion}"
+
+	// Elasticsearch Java API Client 9.x uses Rest5 transport (Apache Http Client 5)
+	implementation 'co.elastic.clients:elasticsearch-rest5-client'
 
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 

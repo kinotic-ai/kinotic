@@ -1,12 +1,13 @@
 package org.kinotic.structures.internal.api.hooks.impl;
 
-import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.util.ByteArrayBuilder;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
+import tools.jackson.core.JsonEncoding;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.core.util.ByteArrayBuilder;
+import tools.jackson.databind.json.JsonMapper;
 import org.kinotic.structures.api.config.StructuresProperties;
 import org.kinotic.structures.api.domain.EntityContext;
 import org.kinotic.structures.api.domain.RawJson;
@@ -30,21 +31,40 @@ import java.util.concurrent.CompletableFuture;
  */
 public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProcessor<T, T, RawJson> {
 
-    protected final StructuresProperties structuresProperties;
-    protected final ObjectMapper objectMapper;
+    /** Mapper with FAIL_ON_TRAILING_TOKENS disabled for stream reads (Jackson 3; not needed in Jackson 2). */
+    protected final JsonMapper jsonMapper;
     protected final Structure structure;
+    protected final StructuresProperties structuresProperties;
     // Map of json path to decorator logic
     private final Map<String, DecoratorLogic> fieldPreProcessors;
 
-
     public AbstractJsonUpsertPreProcessor(StructuresProperties structuresProperties,
-                                          ObjectMapper objectMapper,
+                                          JsonMapper jsonMapper,
                                           Structure structure,
                                           Map<String, DecoratorLogic> fieldPreProcessors) {
         this.structuresProperties = structuresProperties;
-        this.objectMapper = objectMapper;
+        // Jackson 3 fails on trailing tokens by default; we stream-parse and readValue() one field at a time,
+        // leaving the parser on the next token (e.g. next property). Disable so partial reads succeed (Jackson 2 allowed this).
+        this.jsonMapper = jsonMapper.rebuild()
+                .disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .build();
         this.structure = structure;
         this.fieldPreProcessors = fieldPreProcessors;
+    }
+
+    @Override
+    public CompletableFuture<EntityHolder<RawJson>> process(T entity, EntityContext context) {
+        return doProcess(entity, context, false).thenApply(list -> {
+            if(list.size() != 1){
+                throw new IllegalStateException("Expected exactly one entity to be returned");
+            }
+            return list.getFirst();
+        });
+    }
+
+    @Override
+    public CompletableFuture<List<EntityHolder<RawJson>>> processArray(T entities, EntityContext context) {
+        return doProcess(entities, context, true);
     }
 
     protected abstract JsonParser createParser(T input);
@@ -69,13 +89,13 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
             String currentTenantId = null;
             String currentVersion = null;
             ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-            JsonGenerator jsonGenerator = objectMapper.getFactory().createGenerator(byteArrayBuilder, JsonEncoding.UTF8);
+            JsonGenerator jsonGenerator = jsonMapper.createGenerator(byteArrayBuilder, JsonEncoding.UTF8);
 
             while (jsonParser.nextToken() != null) {
 
-                JsonToken token = jsonParser.getCurrentToken();
+                JsonToken token = jsonParser.currentToken();
 
-                if (token == JsonToken.FIELD_NAME) {
+                if (token == JsonToken.PROPERTY_NAME) {
 
                     String fieldName = jsonParser.currentName();
 
@@ -96,16 +116,15 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
 
                         C3Decorator decorator = preProcessorLogic.getDecorator();
                         UpsertFieldPreProcessor<C3Decorator, Object, Object> preProcessor = preProcessorLogic.getProcessor();
-                        Object input = objectMapper.readValue(jsonParser, preProcessor.supportsFieldType());
+                        Object input = jsonMapper.readValue(jsonParser, preProcessor.supportsFieldType());
                         Object value = preProcessor.process(structure, fieldName, decorator, input, context);
 
                         // We exclude the version field from the data to be persisted
                         if(!(decorator instanceof VersionDecorator)) {
                             if (value != null) {
-                                jsonGenerator.writeFieldName(fieldName);
-                                jsonGenerator.writeObject(value);
+                                jsonGenerator.writePOJOProperty(fieldName, value);
                             } else {
-                                jsonGenerator.writeNullField(fieldName);
+                                jsonGenerator.writeNullProperty(fieldName);
                             }
                         }
 
@@ -148,10 +167,9 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
 
                             // Elasticsearch requires a @timestamp field to contain the time data so we just duplicate the value
                             if(value != null){
-                                jsonGenerator.writeFieldName("@timestamp");
-                                jsonGenerator.writeObject(value);
+                                jsonGenerator.writePOJOProperty("@timestamp", value);
                             }else{
-                                jsonGenerator.writeNullField("@timestamp");
+                                jsonGenerator.writeNullProperty("@timestamp");
                             }
                         }
                     }else{
@@ -163,13 +181,12 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                             // since the tenant id field is already present check its value to make sure it is null
                             // or matches the logged in tenant
                             jsonParser.nextToken(); // move to value token
-                            currentTenantId = objectMapper.readValue(jsonParser, String.class);
+                            currentTenantId = jsonMapper.readValue(jsonParser, String.class);
                             if(currentTenantId != null && !currentTenantId.equals(context.getParticipant().getTenantId())){
                                 throw new IllegalArgumentException("Tenant Id invalid for logged in participant");
                             }
 
-                            jsonGenerator.writeFieldName(fieldName);
-                            jsonGenerator.writeObject(currentTenantId);
+                            jsonGenerator.writeStringProperty(fieldName, currentTenantId);
 
                         }else{
                             jsonGenerator.copyCurrentEvent(jsonParser);
@@ -198,8 +215,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         if(structure.getMultiTenancyType() == MultiTenancyType.SHARED
                                 && currentTenantId == null){
                             currentTenantId = context.getParticipant().getTenantId();
-                            jsonGenerator.writeFieldName(structuresProperties.getTenantIdFieldName());
-                            jsonGenerator.writeString(currentTenantId);
+                            jsonGenerator.writeStringProperty(structuresProperties.getTenantIdFieldName(), currentTenantId);
                         }
 
                         // This is the end of the object, so we store the object
@@ -266,21 +282,6 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
             }
         }
         return ret;
-    }
-
-    @Override
-    public CompletableFuture<EntityHolder<RawJson>> process(T entity, EntityContext context) {
-        return doProcess(entity, context, false).thenApply(list -> {
-            if(list.size() != 1){
-                throw new IllegalStateException("Expected exactly one entity to be returned");
-            }
-            return list.getFirst();
-        });
-    }
-
-    @Override
-    public CompletableFuture<List<EntityHolder<RawJson>>> processArray(T entities, EntityContext context) {
-        return doProcess(entities, context, true);
     }
 
 

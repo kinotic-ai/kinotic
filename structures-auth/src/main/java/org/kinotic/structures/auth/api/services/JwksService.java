@@ -2,7 +2,7 @@ package org.kinotic.structures.auth.api.services;
 
 import java.util.concurrent.CompletableFuture;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import io.jsonwebtoken.security.Jwk;
 import java.security.Key;
 

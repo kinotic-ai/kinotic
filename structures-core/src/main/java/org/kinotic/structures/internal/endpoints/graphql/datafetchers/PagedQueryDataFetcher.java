@@ -1,6 +1,6 @@
 package org.kinotic.structures.internal.endpoints.graphql.datafetchers;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import graphql.ExecutionResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;

@@ -17,7 +17,6 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
-
 /**
  * Event-driven cache eviction service that uses Spring Application Events
  * to decouple cache eviction from direct service dependencies.
@@ -25,9 +24,9 @@ import java.util.concurrent.TimeUnit;
  * This eliminates circular dependencies by allowing services to listen for
  * cache eviction events rather than being directly called.
  *
- * Includes OpenTelemetry metrics for monitoring cache eviction health and
- * performance.
- *
+ * Includes OpenTelemetry metrics for monitoring cache eviction health and performance.
+ * 
+ * Created By Nic Padilla on 2/12/25
  */
 @Slf4j
 @Component

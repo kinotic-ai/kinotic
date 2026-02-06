@@ -1,9 +1,8 @@
 package org.kinotic.structures.internal.api.hooks.impl;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.async.ByteArrayFeeder;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.json.JsonMapper;
 import org.kinotic.structures.api.config.StructuresProperties;
 import org.kinotic.structures.api.domain.EntityContext;
 import org.kinotic.structures.api.domain.RawJson;
@@ -11,7 +10,6 @@ import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.internal.api.hooks.DecoratorLogic;
 import org.kinotic.structures.internal.api.services.EntityHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -23,24 +21,16 @@ public class RawJsonUpsertPreProcessor extends AbstractJsonUpsertPreProcessor<Ra
 
 
     public RawJsonUpsertPreProcessor(StructuresProperties structuresProperties,
-                                     ObjectMapper objectMapper,
+                                     JsonMapper jsonMapper,
                                      Structure structure,
                                      Map<String, DecoratorLogic> fieldPreProcessors) {
-        super(structuresProperties, objectMapper, structure, fieldPreProcessors);
+        super(structuresProperties, jsonMapper, structure, fieldPreProcessors);
     }
 
     @Override
     protected JsonParser createParser(RawJson input) {
-        try {
-            byte[] bytes = input.data();
-            JsonParser jsonParser = objectMapper.createNonBlockingByteArrayParser();
-            ByteArrayFeeder feeder = (ByteArrayFeeder) jsonParser.getNonBlockingInputFeeder();
-            feeder.feedInput(bytes, 0, bytes.length);
-            feeder.endOfInput();
-            return jsonParser;
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
+        byte[] bytes = input.data();
+        return jsonMapper.createParser(bytes);
     }
 
     @WithSpan

@@ -10,6 +10,7 @@ import org.kinotic.structures.internal.endpoints.graphql.GqlVerticle;
 import org.kinotic.structures.internal.endpoints.openapi.OpenApiVerticle;
 import org.kinotic.structures.internal.endpoints.openapi.OpenApiVertxRouterFactory;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Creates all needed verticles at runtime so multiple instances can be used
@@ -30,8 +31,8 @@ public class StructuresVerticleFactory {
     private final DelegatingGqlHandler delegatingGqlHandler;
 
     // Web Server Deps
+    private final ObjectMapper objectMapper;
     private final HealthChecks healthChecks;
-
     private final OidcSecurityServiceProperties oidcSecurityServiceProperties;
 
     
@@ -44,6 +45,6 @@ public class StructuresVerticleFactory {
     }
 
     public WebServerNextVerticle createWebServerNextVerticle(){
-        return new WebServerNextVerticle(healthChecks, properties, oidcSecurityServiceProperties);
+        return new WebServerNextVerticle(objectMapper, healthChecks, properties, oidcSecurityServiceProperties);
     }
 }

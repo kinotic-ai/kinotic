@@ -1,10 +1,5 @@
 package org.kinotic.structures.internal.api.services.impl.insights;
 
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.continuum.api.security.Participant;
 import org.kinotic.continuum.core.api.crud.Page;
@@ -15,6 +10,11 @@ import org.kinotic.structures.api.domain.insights.InsightProgress;
 import org.kinotic.structures.api.services.EntitiesService;
 import org.springframework.ai.tool.annotation.Tool;
 import reactor.core.publisher.FluxSink;
+
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * Spring AI Tools for analyzing actual data from structures using EntitiesService.
@@ -35,6 +35,7 @@ public class DataAnalysisTools {
         this.progressSink = progressSink;
     }
 
+    // FIXME: Needs spring ai 2 with spring boot 4 support
     /**
      * Tool that allows Spring AI to get sample data from any structure.
      * This helps the AI understand the actual content and patterns in the data.
@@ -42,7 +43,7 @@ public class DataAnalysisTools {
      * Note: This is a simplified synchronous wrapper for the async EntitiesService.
      * In production, consider making tools async or using reactive patterns.
      */
-    @Tool
+   // @Tool
     @SuppressWarnings("unchecked")
     public String getSampleData(String structureId, int sampleSize) {
         log.debug("AI requesting {} sample records from structure: {}", sampleSize, structureId);
@@ -103,7 +104,7 @@ public class DataAnalysisTools {
     /**
      * Tool that allows Spring AI to get statistical information about data in a structure.
      */
-    @Tool
+   // @Tool
     public String getDataStatistics(String structureId) {
         log.debug("AI requesting data statistics for structure: {}", structureId);
         
@@ -149,7 +150,7 @@ public class DataAnalysisTools {
     /**
      * Tool that allows Spring AI to search and analyze specific data patterns.
      */
-    @Tool
+  //  @Tool
     @SuppressWarnings("unchecked")
     public String searchAndAnalyze(String structureId, String searchQuery, int limit) {
         log.debug("AI searching structure {} with query: '{}'", structureId, searchQuery);
@@ -196,7 +197,7 @@ public class DataAnalysisTools {
     /**
      * Tool that analyzes field value distributions to help with visualization choices.
      */
-    @Tool
+  //  @Tool
     @SuppressWarnings("unchecked")
     public String analyzeFieldDistribution(String structureId, String fieldName) {
         log.debug("AI analyzing distribution of field '{}' in structure: {}", fieldName, structureId);

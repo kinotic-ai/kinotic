@@ -1,29 +1,27 @@
 
 package org.kinotic.structures.auth.internal.services;
 
-import java.net.URI;
-import java.security.Key;
-import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
-
-import javax.net.ssl.SSLException;
-
-import org.kinotic.structures.auth.api.services.JwksService;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
-import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
-
 import io.jsonwebtoken.security.Jwk;
 import io.jsonwebtoken.security.Jwks;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import lombok.extern.slf4j.Slf4j;
+import org.mindignited.structures.auth.api.services.JwksService;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
+import javax.net.ssl.SSLException;
+import java.net.URI;
+import java.security.Key;
+import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service

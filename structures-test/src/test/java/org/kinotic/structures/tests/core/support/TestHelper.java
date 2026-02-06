@@ -1,10 +1,5 @@
 package org.kinotic.structures.tests.core.support;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-
 import org.kinotic.structures.api.domain.EntityContext;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.services.EntitiesService;
@@ -15,13 +10,16 @@ import org.kinotic.structures.internal.sample.Person;
 import org.kinotic.structures.internal.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.util.TokenBuffer;
-
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.util.TokenBuffer;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class TestHelper {
@@ -50,9 +48,9 @@ public class TestHelper {
         StructureAndPersonHolder ret = new StructureAndPersonHolder();
 
         StepVerifier.create(this.createPersonStructureAndEntities(numberOfPeopleToCreate,
-                                                                        randomPeople,
-                                                                        entityContext,
-                                                                        structureSuffix))
+                                                                  randomPeople,
+                                                                  entityContext,
+                                                                  structureSuffix))
                     .expectNextMatches(structureAndPersonHolder -> {
                         boolean matches = structureAndPersonHolder.getStructure() != null &&
                                 structureAndPersonHolder.getStructure().getId() != null &&
@@ -68,37 +66,37 @@ public class TestHelper {
     }
 
     public CompletableFuture<Void> bulkUpdateCarsAsRawJson(List<Car> cars, Structure structure, EntityContext entityContext){
-        TokenBuffer tokenBuffer = new TokenBuffer(objectMapper, false);
+        TokenBuffer tokenBuffer = TokenBuffer.forGeneration();
         try {
-            tokenBuffer.writeObject(cars);
-        } catch (IOException e) {
+            tokenBuffer.writePOJO(cars);
+        } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
         return entitiesService.bulkUpdate(structure.getId(), tokenBuffer, entityContext);
     }
 
     public CompletableFuture<Void> bulkSaveCarsAsRawJson(List<Car> cars, Structure structure, EntityContext entityContext){
-        TokenBuffer tokenBuffer = new TokenBuffer(objectMapper, false);
+        TokenBuffer tokenBuffer = TokenBuffer.forGeneration();
         try {
-            tokenBuffer.writeObject(cars);
-        } catch (IOException e) {
+            tokenBuffer.writePOJO(cars);
+        } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
         return entitiesService.bulkSave(structure.getId(), tokenBuffer, entityContext);
     }
 
     public CompletableFuture<Car> saveCarAsRawJson(Car car, Structure structure, EntityContext entityContext){
-        TokenBuffer tokenBuffer = new TokenBuffer(objectMapper, false);
+        TokenBuffer tokenBuffer = TokenBuffer.forGeneration();
         try {
-            tokenBuffer.writeObject(car);
-        } catch (IOException e) {
+            tokenBuffer.writePOJO(car);
+        } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
         return entitiesService.save(structure.getId(), tokenBuffer, entityContext)
                               .thenApply(saved -> {
                                   try (JsonParser parser = saved.asParser()) {
                                       return objectMapper.readValue(parser, Car.class);
-                                  } catch (IOException e) {
+                                  } catch (JacksonException e) {
                                       throw new IllegalStateException(e);
                                   }
                               });
@@ -106,10 +104,10 @@ public class TestHelper {
 
 
     public CompletableFuture<Car> updateCarAsRawJson(Car car, Structure structure, EntityContext entityContext){
-        TokenBuffer tokenBuffer = new TokenBuffer(objectMapper, false);
+        TokenBuffer tokenBuffer = TokenBuffer.forGeneration();
         try {
-            tokenBuffer.writeObject(car);
-        } catch (IOException e) {
+            tokenBuffer.writePOJO(car);
+        } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
 
@@ -117,7 +115,7 @@ public class TestHelper {
                               .thenApply(saved -> {
                                   try (JsonParser parser = saved.asParser()) {
                                       return objectMapper.readValue(parser, Car.class);
-                                  } catch (IOException e) {
+                                  } catch (JacksonException e) {
                                       throw new IllegalStateException(e);
                                   }
                               });
@@ -142,8 +140,8 @@ public class TestHelper {
                                                  Structure structure = pair.getLeft();
                                                  List<CompletableFuture<Person>> completableFutures = new ArrayList<>();
                                                  for(Person person : people){
-                                                     try (TokenBuffer tokenBuffer = new TokenBuffer(objectMapper, false)) {
-                                                         tokenBuffer.writeObject(person);
+                                                     try (TokenBuffer tokenBuffer = TokenBuffer.forGeneration()) {
+                                                         tokenBuffer.writePOJO(person);
                                                          completableFutures.add(entitiesService.save(structure.getId(),
                                                                                                      tokenBuffer,
                                                                                                      entityContext)
@@ -152,11 +150,11 @@ public class TestHelper {
                                                                                                        Person deserializedPerson = objectMapper.readValue(parser,
                                                                                                                                                           Person.class);
                                                                                                        return CompletableFuture.completedFuture(deserializedPerson);
-                                                                                                   } catch (IOException e) {
+                                                                                                   } catch (JacksonException e) {
                                                                                                        return CompletableFuture.failedFuture(e);
                                                                                                    }
                                                                                                }));
-                                                     } catch (IOException e) {
+                                                     } catch (JacksonException e) {
                                                          return CompletableFuture.failedFuture(e);
                                                      }
                                                  }
@@ -181,10 +179,10 @@ public class TestHelper {
                 .thenCompose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
                                              .thenCompose(people -> {
                                                  Structure structure = pair.getLeft();
-                                                 TokenBuffer tokenBuffer = new TokenBuffer(objectMapper, false);
+                                                 TokenBuffer tokenBuffer = TokenBuffer.forGeneration();
                                                  try {
-                                                     tokenBuffer.writeObject(people);
-                                                 } catch (IOException e) {
+                                                     tokenBuffer.writePOJO(people);
+                                                 } catch (JacksonException e) {
                                                      return CompletableFuture.failedFuture(e);
                                                  }
 

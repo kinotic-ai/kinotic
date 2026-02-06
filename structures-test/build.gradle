@@ -21,16 +21,18 @@ dependencies {
 	implementation "com.github.ben-manes.caffeine:caffeine"
 
     // using api directly 
-    implementation "javax.annotation:javax.annotation-api"
+    implementation "jakarta.annotation:jakarta.annotation-api"
 
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
+	// Spring Boot 4: modular test starters - add test starters for each technology used by main code
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-jackson-test'
+	testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+	testImplementation "org.testcontainers:testcontainers-elasticsearch:${testContainersVersion}"
 	testImplementation 'io.projectreactor:reactor-test'
-    testImplementation 'com.fasterxml.jackson.core:jackson-databind'
-    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
-    testImplementation "org.testcontainers:junit-jupiter:${testContainersVersion}"
-	testImplementation "org.testcontainers:elasticsearch:${testContainersVersion}"
+	testImplementation 'org.springframework.security:spring-security-oauth2-client'
 	testImplementation 'com.github.dasniko:testcontainers-keycloak:3.8.0'
 
 	// Fix runtime linkage error in Testcontainers tar/copy (commons-compress expects newer commons-io).

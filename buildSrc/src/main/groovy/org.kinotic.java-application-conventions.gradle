@@ -23,8 +23,6 @@ dependencies {
     implementation "org.kinotic:continuum-core:${continuumVersion}"
     implementation "org.kinotic:continuum-core-vertx:${continuumVersion}"
 
-    implementation "javax.annotation:javax.annotation-api:${javaxAnnotationApi}"
-
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'

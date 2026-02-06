@@ -72,7 +72,7 @@ public class ReindexStatementExecutor implements StatementExecutor<ReindexStatem
             .dest(d -> d.index(statement.dest()))
             .conflicts(statement.conflicts() != null && "proceed".equals(statement.conflicts()) ? Conflicts.Proceed : Conflicts.Abort)
             .maxDocs(statement.maxDocs() != null ? statement.maxDocs().longValue() : null)
-            .script(statement.script() != null ? Script.of(sc -> sc.source(statement.script())
+            .script(statement.script() != null ? Script.of(sc -> sc.source(ssb -> ssb.scriptString(statement.script()))
                                                        .lang(ScriptLanguage.Painless)) : null);
             
             // Only set slices if specified

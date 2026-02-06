@@ -1,6 +1,6 @@
 package org.kinotic.structures.internal.api.services.impl;
 
-import com.fasterxml.jackson.databind.util.TokenBuffer;
+import tools.jackson.databind.util.TokenBuffer;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.continuum.api.security.Participant;
 import org.kinotic.continuum.core.api.crud.Page;

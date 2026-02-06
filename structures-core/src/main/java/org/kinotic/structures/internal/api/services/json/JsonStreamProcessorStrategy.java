@@ -1,7 +1,7 @@
 package org.kinotic.structures.internal.api.services.json;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
 
 import java.util.List;
 

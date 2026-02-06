@@ -1,9 +1,6 @@
 package org.kinotic.structures.internal.api.services.impl.insights;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-
+import lombok.extern.slf4j.Slf4j;
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
 import org.kinotic.continuum.idl.api.schema.ArrayC3Type;
@@ -17,6 +14,10 @@ import org.springframework.ai.tool.annotation.Tool;
 
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.FluxSink;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Spring AI Tools for discovering and analyzing structure schemas.
@@ -38,12 +39,14 @@ public class StructureDiscoveryTools {
         return structureService;
     }
 
+    // FIXME: Needs spring ai 2 with spring boot 4 support
+
     /**
      * Tool that allows Spring AI to discover all published structures available in an application.
      * This helps the AI understand what data models the user has access to for analysis.
      * Only published structures have data that can be queried.
      */
-    @Tool
+   // @Tool
     public String getApplicationStructures(String applicationId) {
         log.debug("AI requesting structures for application: {}", applicationId);
         
@@ -96,7 +99,7 @@ public class StructureDiscoveryTools {
      * Tool that allows Spring AI to get detailed schema information for a specific structure.
      * This includes all C3 type definitions, field types, and constraints.
      */
-    @Tool  
+   // @Tool
     public String getStructureSchema(String structureId) {
         log.debug("AI requesting schema for structure: {}", structureId);
         
@@ -150,7 +153,7 @@ public class StructureDiscoveryTools {
      * This helps when users reference structures using natural language.
      * Only published structures have data that can be analyzed.
      */
-    @Tool
+   // @Tool
     public String findStructuresByName(String applicationId, String searchTerm) {
         log.debug("AI searching for structures matching '{}' in application: {}", searchTerm, applicationId);
         

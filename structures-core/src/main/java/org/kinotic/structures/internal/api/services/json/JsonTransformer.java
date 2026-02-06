@@ -1,8 +1,8 @@
 package org.kinotic.structures.internal.api.services.json;
 
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
 
 /**
  * JsonTransformer is a functional interface that defines a transformer that can be applied to a given json path.

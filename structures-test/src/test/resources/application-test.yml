@@ -1,11 +1,4 @@
 spring:
-  ai:
-    openai:
-      api-key: "test-key"
-      base-url: https://api.x.ai
-      chat:
-        options:
-          model: grok-4
   main:
     web-application-type: none
     # allow-bean-definition-overriding: true

@@ -1,8 +1,8 @@
 package org.kinotic.structures.internal.api.hooks;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.util.TokenBuffer;
 import org.apache.commons.lang3.Validate;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.util.TokenBuffer;
 import org.kinotic.structures.api.config.StructuresProperties;
 import org.kinotic.structures.api.domain.EntityContext;
 import org.kinotic.structures.api.domain.RawJson;
@@ -29,17 +29,17 @@ public class DelegatingUpsertPreProcessor implements UpsertPreProcessor<Object, 
     private final PojoUpsertPreProcessor pojoUpsertPreProcessor;
 
     public DelegatingUpsertPreProcessor(StructuresProperties structuresProperties,
-                                        ObjectMapper objectMapper,
+                                        JsonMapper jsonMapper,
                                         Structure structure,
                                         Map<String, DecoratorLogic> fieldPreProcessors) {
 
         tokenBufferUpsertPreProcessor = new TokenBufferUpsertPreProcessor(structuresProperties,
-                                                                          objectMapper,
+                                                                          jsonMapper,
                                                                           structure,
                                                                           fieldPreProcessors);
 
         rawJsonUpsertPreProcessor = new RawJsonUpsertPreProcessor(structuresProperties,
-                                                                  objectMapper,
+                                                                  jsonMapper,
                                                                   structure,
                                                                   fieldPreProcessors);
 

@@ -32,30 +32,22 @@ public class DefaultDelegatingGqlHandler implements DelegatingGqlHandler {
     }
 
     /**
-     * Evicts the caches for a application event. This can be an change to a named
+     * Evicts the caches for an application event. This can be an change to a named
      * query or a structure.
      * 
-     * @param event the event containing the structure or named query to evict the
+     * @param cacheEvictionEvent the event containing the structure or named query to evict the
      *              caches for
      */
     @EventListener
-    public void handleCacheEviction(CacheEvictionEvent event) {
-
+    public void handleCacheEviction(CacheEvictionEvent cacheEvictionEvent) {
         try {
 
-            if (event.getApplicationId() != null) {
-                graphQLHandlerCache.asMap().remove(event.getApplicationId());
-
-                log.info("Successfully completed cache eviction for entity: {}:{}:{} due to {} {} {}",
-                    event.getApplicationId(), event.getStructureId(),
-                    event.getNamedQueryId(),
-                    event.getEvictionSourceType(), event.getEvictionOperation(),
-                    event.getEvictionSource().getDisplayName());
+            if (cacheEvictionEvent.getApplicationId() != null) {
+                graphQLHandlerCache.asMap().remove(cacheEvictionEvent.getApplicationId());
             }
-
         } catch (Exception e) {
             log.error("Failed to handle cache eviction (source: {})",
-                    event.getSource(), e);
+                      cacheEvictionEvent.getSource(), e);
         }
     }
 
