@@ -26,7 +26,7 @@ public class ElasticsearchTestConfiguration {
         String osName = System.getProperty("os.name");
         String osArch = System.getProperty("os.arch");
 
-        ELASTICSEARCH_CONTAINER = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:8.18.1");
+        ELASTICSEARCH_CONTAINER = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:9.2.1");
         ELASTICSEARCH_CONTAINER.withEnv("discovery.type", "single-node")
                                .withEnv("xpack.security.enabled", "false");
 
