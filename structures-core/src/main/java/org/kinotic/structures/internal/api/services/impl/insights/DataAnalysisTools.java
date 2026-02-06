@@ -8,7 +8,6 @@ import org.kinotic.structures.internal.api.domain.DefaultEntityContext;
 import org.kinotic.structures.api.domain.EntityContext;
 import org.kinotic.structures.api.domain.insights.InsightProgress;
 import org.kinotic.structures.api.services.EntitiesService;
-import org.springframework.ai.tool.annotation.Tool;
 import reactor.core.publisher.FluxSink;
 
 import java.time.Instant;

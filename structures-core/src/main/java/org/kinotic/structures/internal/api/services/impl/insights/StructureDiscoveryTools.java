@@ -10,9 +10,6 @@ import org.kinotic.continuum.idl.api.schema.PropertyDefinition;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.insights.InsightProgress;
 import org.kinotic.structures.api.services.StructureService;
-import org.springframework.ai.tool.annotation.Tool;
-
-import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.FluxSink;
 
 import java.time.Instant;

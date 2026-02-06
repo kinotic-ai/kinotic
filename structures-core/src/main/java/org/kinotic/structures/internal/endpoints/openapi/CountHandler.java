@@ -1,7 +1,5 @@
 package org.kinotic.structures.internal.endpoints.openapi;
 
-import org.mindignited.structures.internal.utils.VertxWebUtil;
-
 import io.vertx.core.Completable;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.web.RoutingContext;

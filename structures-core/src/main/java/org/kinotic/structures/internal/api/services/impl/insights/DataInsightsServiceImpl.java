@@ -1,22 +1,16 @@
 package org.kinotic.structures.internal.api.services.impl.insights;
 
-import java.time.Instant;
-
-import org.kinotic.continuum.api.security.Participant;
-import org.kinotic.structures.api.domain.insights.DataInsightsComponent;
-import org.kinotic.structures.api.domain.insights.InsightProgress;
-import org.kinotic.structures.api.domain.insights.InsightRequest;
-import org.kinotic.structures.api.domain.insights.RequestAnalysisResult;
-import org.kinotic.structures.api.services.EntitiesService;
-import org.kinotic.structures.api.services.StructureService;
-import org.kinotic.structures.api.services.insights.DataInsightsService;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Service;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.continuum.api.security.Participant;
+import org.kinotic.structures.api.domain.insights.InsightProgress;
+import org.kinotic.structures.api.domain.insights.InsightRequest;
+import org.kinotic.structures.api.services.insights.DataInsightsService;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+
+import java.time.Instant;
 
 /**
  * Implementation of DataInsightsService that processes user requests through a chain of steps:

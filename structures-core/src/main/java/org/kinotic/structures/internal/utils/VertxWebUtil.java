@@ -12,7 +12,7 @@ import org.jspecify.annotations.NonNull;
 import org.kinotic.continuum.api.exceptions.AuthenticationException;
 import org.kinotic.continuum.api.exceptions.AuthorizationException;
 import org.kinotic.continuum.core.api.crud.*;
-import org.mindignited.structures.api.config.StructuresProperties;
+import org.kinotic.structures.api.config.StructuresProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

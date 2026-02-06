@@ -2,6 +2,8 @@ package org.kinotic.structures.internal.sample;
 
 import jakarta.annotation.PostConstruct;
 import org.kinotic.structures.api.config.StructuresProperties;
+import org.kinotic.structures.api.domain.Structure;
+import org.kinotic.structures.api.services.EntitiesService;
 import org.kinotic.structures.internal.api.domain.DefaultEntityContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
