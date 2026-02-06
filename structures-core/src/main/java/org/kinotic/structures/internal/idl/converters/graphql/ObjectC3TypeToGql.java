@@ -78,9 +78,9 @@ public class ObjectC3TypeToGql implements C3TypeConverter<GqlTypeHolder, ObjectC
                 fieldValue = conversionContext.convert(type);
 
                 // If the field is an object, enum, or union type, we need to replace it with a reference to the object type
-                // TODO: handle cases where the same object name is used across multiple different types in the same namespace
-                //       To handle this we will need to keep track of all "Models" per namespace and check for conflicts
-                //       Or this could be done by keeping the Conversion State around and converting all Structures for a namespace at once
+                // TODO: handle cases where the same object name is used across multiple different types in the same application
+                //       To handle this we will need to keep track of all "Models" per application and check for conflicts
+                //       Or this could be done by keeping the Conversion State around and converting all Structures for a application at once
                 if (fieldValue.outputType() instanceof GraphQLObjectType objectType) {
                     String objectTypeName = objectType.getName();
 

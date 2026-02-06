@@ -1,26 +1,97 @@
-import {createStructuresUI} from '@/plugins/StructuresUI.js'
-import { createApp } from 'vue'
+import { createStructuresUI } from '@/plugins/StructuresUI.js'
 import './style.css'
-import App from './App.vue'
+import './theme.css'
 import PrimeVue from 'primevue/config'
 import StyleClass from 'primevue/styleclass'
-import Aura from '@primevue/themes/aura'
+import { StructuresPreset } from '@/StructuresPreset'
 import router from '@/router'
+import ToastService from 'primevue/toastservice'
+import { CONTINUUM_UI } from '@/IContinuumUI'
+import 'primeicons/primeicons.css'
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import App from './App.vue'
+import { Log } from 'oidc-client-ts'
+Log.setLogger(console)
 
-const app = createApp(App);
+import { Structures } from '@kinotic/structures-api'
+
+// Make Structures globally available for web components
+declare global {
+  interface Window {
+    Structures: typeof Structures
+  }
+}
+window.Structures = Structures
+
+// Dev-only: prevent stale assets in browsers (notably Firefox)
+if (import.meta.env.DEV) {
+  try {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.unregister())
+      })
+    }
+    if ('caches' in window) {
+      caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)))
+    }
+  } catch {
+    // ignore
+  }
+
+  // Best-effort: consume horizontal wheel overscroll at edges to reduce
+  // mac trackpad "swipe/refresh/back" style navigation.
+  window.addEventListener(
+    'wheel',
+    (e: WheelEvent) => {
+      // Only care about horizontal intent.
+      if (Math.abs(e.deltaX) < Math.abs(e.deltaY) || Math.abs(e.deltaX) < 8) return
+
+      let el = e.target as HTMLElement | null
+      while (el && el !== document.body) {
+        const style = window.getComputedStyle(el)
+        const overflowX = style.overflowX
+        const canScrollX =
+          (overflowX === 'auto' || overflowX === 'scroll') &&
+          el.scrollWidth > el.clientWidth + 1
+
+        if (canScrollX) {
+          const atLeft = el.scrollLeft <= 0
+          const atRight = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
+          if ((atLeft && e.deltaX < 0) || (atRight && e.deltaX > 0)) {
+            e.preventDefault()
+            e.stopPropagation()
+          }
+          return
+        }
+        el = el.parentElement
+      }
+    },
+    { capture: true, passive: false }
+  )
+}
+const app = createApp(App)
+
+app.use(createPinia())
+
 app.use(PrimeVue, {
     theme: {
-        preset: Aura,
+        preset: StructuresPreset,
         options: {
             darkModeSelector: '.structures-admin-dark',
+            cssLayer: false,
+            prefix: 'p',
         }
     }
 })
-app.directive('styleclass', StyleClass)
 
-app.use(createStructuresUI(), {router})
+// Initialize CONTINUUM_UI with the existing router instance
+CONTINUUM_UI.initialize(router);
+
+app.directive('styleclass', StyleClass)
+app.use(ToastService)
+app.use(createStructuresUI(), { router })
 
 app.use(router)
 
 app.mount('#app')
-

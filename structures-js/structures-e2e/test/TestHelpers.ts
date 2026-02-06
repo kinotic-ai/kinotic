@@ -1,7 +1,6 @@
 import {faker} from '@faker-js/faker/locale/en'
 import {CodeGenerationService} from '@kinotic/structures-cli/dist/internal/CodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic/structures-cli/dist/internal/Logger.js'
-import {NamespaceConfiguration} from '@kinotic/structures-cli/dist/internal/state/StructuresProject.js'
 import {Continuum, Direction, Order, Pageable} from '@kinotic/continuum-client'
 import {
     ObjectC3Type,
@@ -16,7 +15,9 @@ import {
     IEntityService,
     IAdminEntityService,
     NamedQueriesDefinition,
-    QueryDecorator
+    QueryDecorator,
+    Project,
+    TypescriptProjectConfig
 } from '@kinotic/structures-api'
 import {Alert} from './domain/Alert.js'
 import {Person} from './domain/Person.js'
@@ -65,41 +66,45 @@ export async function shutdownContinuumClient(): Promise<void> {
     }
 }
 
-export async function createPersonSchema(namespace: string, withTenant: boolean = false): Promise<SchemaCreationResult> {
-    return createSchema(namespace, 'Person'+(withTenant ? 'WithTenant' : ''))
+export async function createPersonSchema(applicationId: string, projectId: string, withTenant: boolean = false): Promise<SchemaCreationResult> {
+    return createSchema(applicationId, projectId, 'Person'+(withTenant ? 'WithTenant' : ''))
 }
 
-export async function createVehicleSchema(namespace: string): Promise<SchemaCreationResult> {
-    return createSchema(namespace, 'Vehicle')
+export async function createVehicleSchema(applicationId: string, projectId: string): Promise<SchemaCreationResult> {
+    return createSchema(applicationId, projectId, 'Vehicle')
 }
 
-export async function createSchema(namespace: string, entityName: string): Promise<SchemaCreationResult> {
+export async function createSchema(applicationId: string, projectId: string, entityName: string): Promise<SchemaCreationResult> {
     if(!schemas.has(entityName)){
-        const codeGenerationService = new CodeGenerationService(namespace,
+        const codeGenerationService = new CodeGenerationService(applicationId,
                                                                 '.js',
                                                                 new ConsoleLogger())
-        const namespaceConfig: NamespaceConfiguration = new NamespaceConfiguration()
-        namespaceConfig.namespaceName = namespace
-        namespaceConfig.validate = false
-        namespaceConfig.entitiesPaths = [path.resolve(__dirname, './domain')]
-        namespaceConfig.generatedPath = path.resolve(__dirname, './services')
+
+        const config = new TypescriptProjectConfig()
+        config.application = applicationId
+        config.entitiesPaths = [path.resolve(__dirname, './domain')]
+        config.generatedPath = path.resolve(__dirname, './services')
+        config.validate = false
+        config.fileExtensionForImports = ''
+        
         await codeGenerationService
-            .generateAllEntities(namespaceConfig,
+            .generateAllEntities(config,
                                  false,
                                  async (entityInfo, serviceInfos) =>{
-                                    // combine named queries from generated services
+                                     // combine named queries from generated services
                                      const namedQueries: FunctionDefinition[] = []
                                      for(let serviceInfo of serviceInfos){
                                             namedQueries.push(...serviceInfo.namedQueries)
                                      }
-                                     const id = (namespace + '.' + entityName).toLowerCase()
-                                    const result: SchemaCreationResult = {
+                                     const id = (applicationId + '.' + entityName).toLowerCase()
+                                     const result: SchemaCreationResult = {
                                         entityDefinition: entityInfo.entity,
                                         namedQueriesDefinition: new NamedQueriesDefinition(id,
-                                                                                           namespace,
+                                                                                           applicationId,
+                                                                                           projectId,
                                                                                            entityName,
                                                                                            namedQueries)
-                                    }
+                                     }
                                      schemas.set(entityInfo.entity.name, result)
                                  })
     }
@@ -113,9 +118,9 @@ export async function createSchema(namespace: string, entityName: string): Promi
     }
 
     ret.entityDefinition.name = entityName
-    ret.namedQueriesDefinition.id = (namespace + '.' + entityName).toLowerCase()
+    ret.namedQueriesDefinition.id = (applicationId + '.' + entityName).toLowerCase()
     ret.namedQueriesDefinition.structure = entityName
-    replaceAllQueryPlaceholdersWithId(namespace + '.' + entityName, ret.namedQueriesDefinition.namedQueries)
+    replaceAllQueryPlaceholdersWithId(applicationId + '.' + entityName, ret.namedQueriesDefinition.namedQueries)
     return ret
 }
 
@@ -140,25 +145,30 @@ function replaceAllQueryPlaceholdersWithId(structureId: string, functionDefiniti
 
 // Add these new functions to your existing TestHelpers.ts file
 
-export async function createAlertStructureIfNotExist(namespace: string): Promise<Structure> {
-    const structureId = namespace + '.alert'
+export async function createAlertStructureIfNotExist(applicationId: string, projectName: string): Promise<Structure> {
+    const structureId = applicationId + '.alert'
     let structure = await Structures.getStructureService().findById(structureId)
     if (structure == null) {
-        structure = await createAlertStructure(namespace)
+        structure = await createAlertStructure(applicationId, projectName)
     }
     return structure
 }
 
-export async function createAlertStructure(namespace: string): Promise<Structure> {
-    const {entityDefinition} = await createAlertSchema(namespace)
+export async function createAlertStructure(applicationId: string, projectName: string): Promise<Structure> {
+
+    await Structures.getApplicationService().createApplicationIfNotExist(applicationId, 'Application')
+
+    let project: Project = new Project(null, applicationId, projectName, 'Project')
+    project = await Structures.getProjectService().createProjectIfNotExist(project)
+
+    const {entityDefinition} = await createAlertSchema(applicationId, project.id as string)
     const alertStructure = new Structure(
-        namespace,
+        applicationId,
+        project.id as string,
         'Alert',
         entityDefinition,
         'System alerts and notifications stream'
     )
-
-    await Structures.getNamespaceService().createNamespaceIfNotExist(namespace, 'Sample Data Namespace')
 
     const savedStructure = await Structures.getStructureService().create(alertStructure)
 
@@ -171,8 +181,8 @@ export async function createAlertStructure(namespace: string): Promise<Structure
     return savedStructure
 }
 
-export async function createAlertSchema(namespace: string): Promise<SchemaCreationResult> {
-    return createSchema(namespace, 'Alert')
+export async function createAlertSchema(applicationId: string, projectId: string): Promise<SchemaCreationResult> {
+    return createSchema(applicationId, projectId, 'Alert')
 }
 
 // Add this helper function to create test Alert instances
@@ -197,23 +207,28 @@ export function createTestAlerts(numberToCreate: number): Alert[] {
     return ret
 }
 
-export async function createPersonStructureIfNotExist(namespace: string, withTenant: boolean = false): Promise<Structure>{
-    const structureId = namespace + '.person' + ( withTenant ? 'withtenant' : '')
+export async function createPersonStructureIfNotExist(applicationId: string, projectName: string, withTenant: boolean = false): Promise<Structure>{
+    const structureId = applicationId + '.person' + ( withTenant ? 'withtenant' : '')
     let structure = await Structures.getStructureService().findById(structureId)
     if(structure == null){
-        structure = await createPersonStructure(namespace, withTenant)
+        structure = await createPersonStructure(applicationId, projectName, withTenant)
     }
     return structure
 }
 
-export async function createPersonStructure(namespace: string, withTenant: boolean = false): Promise<Structure>{
-    const {entityDefinition} = await createPersonSchema(namespace, withTenant)
-    const personStructure = new Structure(namespace,
+export async function createPersonStructure(applicationId: string, projectName: string, withTenant: boolean = false): Promise<Structure>{
+
+    await Structures.getApplicationService().createApplicationIfNotExist(applicationId, 'Application')
+
+    let project: Project = new Project(null, applicationId, projectName, 'Project')
+    project = await Structures.getProjectService().createProjectIfNotExist(project)
+
+    const {entityDefinition} = await createPersonSchema(applicationId, project.id as string, withTenant)
+    const personStructure = new Structure(applicationId,
+                                          project.id as string,
                                           'Person' + (withTenant ? 'WithTenant' : ''),
                                           entityDefinition,
                                           'Tracks people that are going to mars')
-
-    await Structures.getNamespaceService().createNamespaceIfNotExist(namespace, 'Sample Data Namespace')
 
     const savedStructure = await Structures.getStructureService().create(personStructure)
 
@@ -226,28 +241,35 @@ export async function createPersonStructure(namespace: string, withTenant: boole
     return savedStructure
 }
 
-export async function createVehicleStructureIfNotExist(namespace: string): Promise<Structure>{
-    const structureId = namespace + '.vehicle'
+export async function createVehicleStructureIfNotExist(applicationId: string, projectName: string): Promise<Structure>{
+    const structureId = applicationId + '.vehicle'
     let structure = await Structures.getStructureService().findById(structureId)
     if(structure == null){
-        structure = await createVehicleStructure(namespace)
+        structure = await createVehicleStructure(applicationId, projectName)
     }
     return structure
 }
 
-export async function createVehicleStructure(namespace: string): Promise<Structure>{
-    const {entityDefinition} = await createVehicleSchema(namespace)
-    const vehicleStructure = new Structure(namespace,
+export async function createVehicleStructure(applicationId: string, projectName: string): Promise<Structure>{
+
+    await Structures.getApplicationService().createApplicationIfNotExist(applicationId, 'Application')
+console.log('Created application', applicationId);
+    let project: Project = new Project(null, applicationId, projectName, 'Project')
+    project = await Structures.getProjectService().createProjectIfNotExist(project)
+console.log('Created project', project.id);
+    const {entityDefinition} = await createVehicleSchema(applicationId, project.id as string)
+    console.log('Created entity definition', entityDefinition);
+    const vehicleStructure = new Structure(applicationId,
+                                           project.id as string,
                                            'Vehicle',
                                            entityDefinition,
                                            'Some form of transportation')
-
-    await Structures.getNamespaceService().createNamespaceIfNotExist(namespace, 'Sample Data Namespace')
-
+    console.log('Created vehicle structure', vehicleStructure);
     const savedStructure = await Structures.getStructureService().create(vehicleStructure)
-
+    console.log('Saved structure', savedStructure);
     if(savedStructure.id) {
         await Structures.getStructureService().publish(savedStructure.id)
+        console.log('Published structure', savedStructure.id);
     }else{
         throw new Error('No Structure id')
     }

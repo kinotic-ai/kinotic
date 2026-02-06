@@ -1,0 +1,330 @@
+# Cursor Rules for Structures Project
+
+## Priority Constraints
+1. **Stop and Ask When Uncertain**: If we don't know exactly how to solve something, we should stop and ask the user for guidance rather than blindly trying different approaches. This prevents wasted time and potential regressions.
+2. **Follow Repository-Specific Guidelines**: Always adhere to the structures project architecture and patterns.
+3. **Test-Driven Development**: Write tests first, then implement functionality.
+4. **Documentation First**: Update documentation before making changes.
+5. **Security-First Approach**: When dealing with authentication, authorization, or access controls, always ask for guidance on the correct approach to avoid creating security vulnerabilities. Never assume cross-provider configurations are safe without explicit confirmation.
+
+## Gradle Build Commands
+**IMPORTANT**: This is a multi-module Gradle project. Always run Gradle commands from the project root directory using the module syntax:
+- ✅ Correct: `./gradlew :structures-server:build` (from project root)
+- ❌ Incorrect: `cd structures-server && ./gradlew build`
+- ✅ Correct: `./gradlew :structures-server:test`
+- ❌ Incorrect: `cd structures-server && ../gradlew test`
+
+## Project Overview
+This is a multi-module Java/TypeScript/JavaScript project implementing a comprehensive data platform with GraphQL federation, OIDC authentication, and Elasticsearch integration.
+
+### Core Architecture
+- **Libraries**: Reusable components providing core functionality
+- **Applications**: End-user applications consuming library functionality
+- **Frontend**: Modern Vue.js applications with OIDC integration
+- **Documentation**: Comprehensive guides and API references
+
+### Library Modules
+- **structures-sql**: SQL parsing and migration library for Elasticsearch operations
+- **structures-core**: Core Java library with OIDC authentication, GraphQL API implementation, and Elasticsearch client configuration
+
+### Application Modules
+- **structures-server**: Spring Boot application server consuming libraries, providing API gateway, and serving static files
+- **structures-frontend-next**: Modern Vue.js 3 frontend application with OIDC authentication
+- **structures-js**: TypeScript/JavaScript modules (API client, CLI tools, E2E testing, load generation)
+
+### Documentation & Marketing
+- **webdocs**: Comprehensive documentation with guides, API references, and examples
+- **website**: Marketing website built with Nuxt.js
+
+### Legacy Modules
+- **structures-frontend**: Legacy Vue.js frontend (being replaced by structures-frontend-next)
+
+## Technology Stack
+
+### Backend Technologies
+- **Java 21+**: Core application language
+- **Spring Boot 3.x**: Application framework with auto-configuration
+- **Vert.x**: Reactive web server and GraphQL support
+- **Elasticsearch**: Search and analytics engine
+- **GraphQL Java**: GraphQL implementation with Apollo Federation
+- **JJWT 0.12.x**: JWT token handling and validation
+- **Caffeine**: High-performance caching
+- **Continuum Framework**: Core framework integration
+- **ANTLR4**: SQL parsing and grammar generation
+
+### Frontend Technologies
+- **Vue.js 3**: Modern frontend framework with Composition API
+- **TypeScript**: Type-safe JavaScript development
+- **Vite**: Fast build tool and development server
+- **Pinia**: State management for Vue.js
+- **shadcn/ui**: Modern UI component library
+- **oidc-client-ts**: OIDC authentication library
+
+### Authentication & Security
+- **OIDC (OpenID Connect)**: Multi-provider authentication
+  - Okta, Keycloak, Google, Microsoft, GitHub, custom providers
+- **JWT Token Validation**: Signature verification and claim validation
+- **JWKS Caching**: Efficient caching of public keys
+- **Multi-tenant Support**: Tenant-aware authentication and authorization
+- **Role-based Access Control**: Automatic role extraction from JWT claims
+
+### Build & Deployment
+- **Gradle**: Java build system with custom conventions in buildSrc/
+- **pnpm/npm**: JavaScript package management
+- **Docker Compose**: Local development services
+- **Helm Charts**: Kubernetes deployment
+- **TestContainers**: Isolated testing environments
+
+## Architecture Overview
+
+### Library-First Architecture
+```
+┌─────────────────┐    ┌─────────────────┐
+│   structures-   │    │   structures-   │
+│      sql        │    │      core       │
+│   (Library)     │    │   (Library)     │
+│                 │───▶│                 │
+│ • SQL Parser    │    │ • OIDC Auth     │
+│ • Migrations    │    │ • GraphQL API   │
+│ • Executors     │    │ • Elasticsearch │
+│ • Type Mapping  │    │ • Domain Svcs   │
+└─────────────────┘    └─────────────────┘
+                                │  |
+                                │  |───────────────────┐
+                                │                      |
+                    ┌─────────────────┐    ┌─────────────────┐
+                    │   structures-   │    │   Elasticsearch │
+                    │     server      │    │                 │
+                    │  (Application)  │    │ • Search Engine │
+                    │                 │    │ • Analytics     │
+                    │ • Spring Boot   │    │ • Data Store    │
+                    │ • API Gateway   │    └─────────────────┘
+                    │ • Static Files  │
+                    │ • Auth Proxy    │
+                    └─────────────────┘
+```
+
+### Frontend Build & Deployment Flow
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ structures-     │    │ Build Process   │    │ structures-     │
+│ frontend-next   │    │                 │    │     server      │
+│ (Development)   │    │ • Vite Build    │    │ (Production)    │
+│                 │    │ • TypeScript    │    │                 │
+│ • Vue.js 3      │───▶│ • Asset Opt     │───▶│ • Static Files  │
+│ • TypeScript    │    │ • Copy to       │    │ • Webroot       │
+│ • OIDC Auth     │    │   webroot/      │    │ • Served via    │
+│ • Pinia State   │    │                 │    │   Spring Boot   │
+│ • shadcn/ui     │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### Data Flow Architecture
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ structures-     │    │ structures-     │    │ structures-     │
+│ frontend-next   │    │     server      │    │      core       │
+│ (Client)        │    │ (API Gateway)   │    │ (GraphQL API +  │
+│                 │    │                 │    │  Elasticsearch  │
+│ • API Calls     │───▶│ • Static Files  │───▶│  Client)        │───▶
+│ • Auth Tokens   │    │ • Auth Proxy    │    │                 │    |
+│ • State Mgmt    │    │ • Request       │    │ • GraphQL API   │    |
+│ • UI Rendering  │    │   Routing       │    │ • Index Mgmt    │    |
+└─────────────────┘    └─────────────────┘    │ • Data Ops      │    |
+                                              │ • Query Exec    │    |
+                                              │ • Migration     │    |
+                                              └─────────────────┘    |
+                                                       │             │
+                                                       │             │
+                                                       ▼             ▼
+                                        ┌─────────────────┐    ┌─────────────────┐
+                                        │   structures-   │    │   Elasticsearch │
+                                        │      sql        │    │                 │
+                                        │ (SQL Parser)    │    │ • Search Engine │
+                                        │                 │    │ • Analytics     │
+                                        │ • SQL Parsing   │    │ • Data Store    │
+                                        │ • Migration     │    │ • Index Storage │
+                                        │ • Type Mapping  │    └─────────────────┘
+                                        └─────────────────┘
+```
+
+## Module-Specific Patterns
+
+### Library Modules (structures-core, structures-sql)
+- **API Stability**: Maintain backward compatibility for public APIs
+- **Spring Boot Auto-Configuration**: Use `@ConfigurationProperties` for externalized config
+- **Dependency Injection**: Leverage Springs DI container
+- **Reactive Programming**: Use Vert.x for non-blocking I/O
+- **Testing**: Unit tests with mocked dependencies, integration tests with TestContainers
+- **Error Handling**: Comprehensive error handling with proper logging
+- **Security**: Never skip token validation or security checks
+
+### Application Modules (structures-server)
+- **Library Consumption**: Use `@EnableStructures` and `@EnableContinuum`
+- **API Gateway**: Routes requests to structures-core GraphQL API
+- **Static File Serving**: Serves built frontend files from webroot
+- **Configuration Profiles**: Environment-specific configuration
+- **Security Implementation**: OIDC with basic auth fallback
+- **Testing**: Integration tests with TestContainers
+
+### Frontend Modules (structures-frontend-next)
+- **Vue 3 Composition API**: Use `<script setup>` syntax
+- **TypeScript**: Strict typing for all components and services
+- **State Management**: Use Pinia stores for global state
+- **OIDC Integration**: Use oidc-client-ts library patterns
+- **Component Structure**: Follow existing patterns in components/
+- **Testing**: Unit tests for components, E2E tests with Playwright
+
+### JavaScript Modules (structures-js)
+- **TypeScript**: Strict typing for all modules
+- **ES Modules**: Use ES module syntax
+- **Testing**: Comprehensive unit and integration tests
+- **Documentation**: JSDoc comments for all public APIs
+- **Error Handling**: Proper error handling with custom error types
+
+## Key Integration Points
+
+### Library Integration
+1. **structures-core** depends on **structures-sql** for SQL parsing and migrations
+2. **structures-server** depends on **structures-core** for all core functionality
+3. **structures-frontend-next** integrates with **structures-server** APIs
+4. **structures-js** provides API client for **structures-server**
+
+### OIDC Authentication Flow
+1. **Frontend**: OIDC login with multiple providers
+2. **Backend**: JWT validation via structures-core library
+3. **Caching**: JWKS caching for performance
+4. **Multi-tenant**: Tenant-aware authentication
+
+### GraphQL API Implementation
+1. **GraphQL API**: Implemented in structures-core library
+2. **DataFetchers**: Custom resolvers for GraphQL operations
+3. **Schema Caching**: Optimized schema loading and caching
+4. **Operation Definitions**: Dynamic query building and execution
+
+### Elasticsearch Integration
+1. **Client Configuration**: Elasticsearch client configured in structures-core library
+2. **Index Management**: Create, update, and manage indices via structures-core
+3. **Data Operations**: CRUD operations with tenant support
+4. **SQL Dialect**: Custom SQL dialect for Elasticsearch operations via structures-sql
+5. **Migration System**: SQL-based migrations executed by structures-core
+
+## Development Guidelines
+
+### Cross-Module Dependencies
+1. **Library Dependencies**: structures-core → structures-sql
+2. **Application Dependencies**: structures-server → structures-core
+3. **Frontend Dependencies**: structures-frontend-next → structures-server APIs
+4. **JavaScript Dependencies**: structures-js → structures-server APIs
+
+### Configuration Management
+- **Environment-specific**: Use profile-based configuration
+- **Externalized**: Use `@ConfigurationProperties` for Java modules
+- **Environment Variables**: Use VITE_* for frontend configuration
+- **Security**: Never hardcode sensitive information
+
+### Testing Strategy
+- **Unit Tests**: Test individual components and services
+- **Integration Tests**: Test with TestContainers for external dependencies
+- **E2E Tests**: Test complete user workflows
+- **Performance Tests**: Load testing with k6
+- **Security Tests**: OIDC flow testing and JWT validation
+
+### Security Best Practices
+- **OIDC First**: Use OIDC authentication when possible
+- **JWT Validation**: Always validate JWT tokens
+- **HTTPS in Production**: Always use HTTPS in production
+- **CORS Configuration**: Proper CORS settings for frontend
+- **Error Handling**: No sensitive information in error messages
+
+### Performance Considerations
+- **JWKS Caching**: Efficient caching of public keys
+- **GraphQL Caching**: Schema and operation definition caching
+- **Elasticsearch Connection Pooling**: Optimized connection management
+- **Reactive Programming**: Non-blocking I/O with Vert.x
+- **Frontend Optimization**: Vite for fast development and building
+
+## Build System
+
+### Java Modules
+- **Gradle**: Custom conventions in buildSrc/
+- **Dependencies**: Managed through dependency management
+- **Testing**: JUnit 5 with TestContainers
+- **Documentation**: Javadoc with custom exclusions
+
+### JavaScript Modules
+- **Package Manager**: pnpm for dependency management
+- **Bundling**: Vite for development, esbuild for production
+- **TypeScript**: Strict configuration with path mapping
+- **Testing**: Vitest for unit tests, Playwright for E2E
+
+### Frontend Integration
+- **Build Process**: Vite builds frontend and copies to server webroot
+- **Development**: Hot reload and development tools
+- **Production**: Optimized static file serving via Spring Boot
+
+## Library Usage Patterns
+
+### structures-core Integration
+```java
+@SpringBootApplication
+@EnableStructures
+@EnableContinuum
+public class MyApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(MyApplication.class, args);
+    }
+}
+```
+
+### structures-sql Integration
+```java
+// Migration system integration
+@Component
+public class SystemMigrator implements ApplicationListener<ContextRefreshedEvent> {
+    private final MigrationExecutor migrationExecutor;
+    private final MigrationParser migrationParser;
+}
+```
+
+### Configuration Examples
+```yaml
+structures:
+  oidc-auth-verifier:
+    enabled: true
+    allowed-issuers:
+      - "https://your-oidc-provider.com"
+    authorization-audiences:
+      - "your-application-client-id"
+  elastic-connections:
+    - host: localhost
+      port: 9200
+      scheme: http
+```
+
+## Deployment
+
+### Local Development
+1. **Docker Compose**: Local services (Elasticsearch, Keycloak)
+2. **OIDC Setup**: Configure authentication providers
+3. **Frontend Development**: Vite dev server with hot reload
+4. **Backend Development**: Spring Boot with auto-reload
+
+### Production Deployment
+1. **Kubernetes**: Helm charts for orchestration
+2. **Elasticsearch**: Production cluster setup
+3. **OIDC Providers**: Production authentication setup
+4. **Monitoring**: Application monitoring and logging
+
+## Documentation
+- **API Documentation**: OpenAPI/Swagger for REST APIs
+- **GraphQL Documentation**: Schema introspection and tools
+- **User Guides**: Step-by-step instructions
+- **Developer Guides**: Architecture and development patterns
+- **Troubleshooting**: Common issues and solutions
+
+## Support and Maintenance
+- **Version Management**: Semantic versioning across modules
+- **Migration Support**: Database and schema migrations
+- **Backward Compatibility**: Maintain API compatibility
+- **Security Updates**: Regular security patches and updates 

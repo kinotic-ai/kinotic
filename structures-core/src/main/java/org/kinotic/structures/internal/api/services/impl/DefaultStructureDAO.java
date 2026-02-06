@@ -6,7 +6,6 @@ import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.internal.api.services.StructureDAO;
-import org.springframework.data.elasticsearch.core.ReactiveElasticsearchOperations;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
@@ -18,32 +17,57 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultStructureDAO extends AbstractCrudService<Structure> implements StructureDAO {
 
     public DefaultStructureDAO(ElasticsearchAsyncClient esAsyncClient,
-                               ReactiveElasticsearchOperations esOperations,
                                CrudServiceTemplate crudServiceTemplate) {
-        super("structure",
+        super("struct_structure",
               Structure.class,
               esAsyncClient,
-              esOperations,
               crudServiceTemplate);
     }
 
     @Override
-    public CompletableFuture<Long> countForNamespace(String namespace) {
+    public CompletableFuture<Long> countForApplication(String applicationId) {
         return crudServiceTemplate.count(indexName, builder -> builder
                 .query(q -> q
                         .bool(b -> b
-                                .filter(TermQuery.of(tq -> tq.field("namespace").value(namespace))._toQuery()
+                                .filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery()
                                 )
                         )));
     }
 
     @Override
-    public CompletableFuture<Page<Structure>> findAllPublishedForNamespace(String namespace, Pageable pageable) {
+    public CompletableFuture<Long> countForProject(String projectId) {
+        return crudServiceTemplate.count(indexName, builder -> builder
+                .query(q -> q
+                        .bool(b -> b
+                                .filter(TermQuery.of(tq -> tq.field("projectId").value(projectId))._toQuery())
+                        )));
+    }
+
+    @Override
+    public CompletableFuture<Page<Structure>> findAllPublishedForApplication(String applicationId, Pageable pageable) {
         return crudServiceTemplate.search(indexName, pageable, type, builder -> builder
                 .query(q -> q
                         .bool(b -> b
-                                .filter(TermQuery.of(tq -> tq.field("namespace").value(namespace))._toQuery(),
+                                .filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery(),
                                         TermQuery.of(tq -> tq.field("published").value(true))._toQuery())
+                        )
+                ));
+    }
+
+    @Override
+    public CompletableFuture<Page<Structure>> findAllForApplication(String applicationId, Pageable pageable) {
+        return crudServiceTemplate.search(indexName, pageable, type, builder -> builder
+                .query(q -> q
+                        .bool(b -> b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery())
+                        )
+                ));
+    }
+
+    @Override
+    public CompletableFuture<Page<Structure>> findAllForProject(String projectId, Pageable pageable) {
+        return crudServiceTemplate.search(indexName, pageable, type, builder -> builder
+                .query(q -> q
+                        .bool(b -> b.filter(TermQuery.of(tq -> tq.field("projectId").value(projectId))._toQuery())
                         )
                 ));
     }

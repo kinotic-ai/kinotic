@@ -12,14 +12,17 @@ export default defineConfig({
             fileName: 'structures-api',
             formats: ["es", "cjs"],
         },
-        sourcemap: true,
+        outDir: 'dist'
     },
     resolve:{
         alias:{
             '@' : resolve(__dirname, 'src')
         },
     },
-    plugins: [externalizeDeps(), dts()],
+    plugins: [
+        externalizeDeps(),
+        dts()
+    ],
     test: {
         globalSetup: './test/setup.ts',
         setupFiles: ["allure-vitest/setup"],

@@ -1,0 +1,56 @@
+# Structures Frontend Next Module
+
+## Overview
+Modern Vue.js 3 frontend with OIDC authentication, TypeScript, and Vite build system.
+
+## Key Components
+- **OIDC Integration**: Multi-provider authentication (Okta, Keycloak, Google, Microsoft, GitHub)
+- **Vue.js 3**: Composition API, TypeScript, Vite
+- **UI Framework**: Custom theme with shadcn/ui components
+- **State Management**: Pinia for application state
+- **Routing**: Vue Router with navigation guards
+
+## Development Patterns
+1. **Vue 3 Composition API**: Use `<script setup>` syntax
+2. **TypeScript**: Strict typing for all components and services
+3. **Component Structure**: Follow existing patterns in components/
+4. **State Management**: Use Pinia stores for global state
+5. **OIDC Integration**: Use oidc-client-ts library patterns
+
+## Key Directories
+- `src/pages/`: Page components with routing
+- `src/components/`: Reusable UI components
+- `src/states/`: Pinia stores for state management
+- `src/services/`: API and OIDC services
+- `src/theme/`: UI theme configuration
+- `src/layouts/`: Layout components
+
+## OIDC Configuration
+- Multiple provider support with conditional rendering
+- Environment variable configuration
+- Automatic token refresh and handling
+- State management with localStorage persistence
+
+## Build System
+- Vite for fast development and building
+- TypeScript compilation
+- CSS preprocessing
+- Asset optimization
+
+## Testing
+- Unit tests for components
+- E2E tests with Playwright
+- OIDC flow testing
+- Component testing with Vue Test Utils
+
+## Environment Variables
+- VITE_OIDC_*_ENABLED: Enable/disable providers
+- VITE_*_CLIENT_ID: Provider client IDs
+- VITE_*_AUTHORITY: Provider authority URLs
+- VITE_*_REDIRECT_URI: Redirect URIs
+
+## Styling
+- Custom theme with shadcn/ui components
+- CSS variables for theming
+- Responsive design patterns
+- Accessibility considerations 

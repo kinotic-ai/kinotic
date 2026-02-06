@@ -51,7 +51,7 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
                                return structure;
                            })
                            .thenComposeAsync(structure -> {
-                               NamedQueriesDefinition namedQueriesDefinition = namedQueriesService.findByNamespaceAndStructure(structure.getNamespace(),
+                               NamedQueriesDefinition namedQueriesDefinition = namedQueriesService.findByApplicationAndStructure(structure.getApplicationId(),
                                                                                                                                structure.getName())
                                                                                                   .join();
                                List<GqlOperationDefinition> ret;

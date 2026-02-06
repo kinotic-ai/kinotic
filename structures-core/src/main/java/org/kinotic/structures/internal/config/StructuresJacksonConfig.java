@@ -16,7 +16,7 @@ import org.kinotic.structures.api.domain.idl.PageC3Type;
 import org.kinotic.structures.api.domain.idl.PageableC3Type;
 import org.kinotic.structures.api.domain.idl.QueryOptionsC3Type;
 import org.kinotic.structures.api.domain.idl.TenantSelectionC3Type;
-import org.kinotic.structures.internal.api.services.DefaultTenantSpecificId;
+import org.kinotic.structures.api.domain.DefaultTenantSpecificId;
 import org.kinotic.structures.internal.serializer.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

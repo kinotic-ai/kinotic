@@ -9,11 +9,8 @@ on:
     paths-ignore:
       - 'helm/**'
       - 'docker-compose/**'
-      - 'structures-js/example/**'
-      - 'structures-js/load-generator/**'
-      - 'structures-js/structures-api/**'
-      - 'structures-js/structures-cli/**'
-      - 'webdocs/**'
+      - 'structures-js/**'
+      - 'webdocs/**' 
       - 'website/**'
 
 jobs:
@@ -43,11 +40,11 @@ jobs:
         continue-on-error: true
         env:
           TESTCONTAINERS_RYUK_DISABLED: true
-        run: ./gradlew build
+        run: ./gradlew build 
 
       - name: Publish to Maven Central with JReleaser
         if: ${{ steps.gradle_build.outcome == 'success' }}
-        run: ./gradlew publish && ./gradlew jreleaserDeploy
+        run: ./gradlew publish && ./gradlew jreleaserDeploy --info
         env:
           JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.MAVEN_TOKEN_USERNAME }}
           JRELEASER_MAVENCENTRAL_TOKEN: ${{ secrets.MAVEN_TOKEN_PASSWORD }}
@@ -68,14 +65,14 @@ jobs:
         continue-on-error: true
         run: |
           cd structures-js/structures-e2e
-          ./gradlew pnpmInstall
-          ./gradlew pnpmTest
+          gradle pnpmInstall
+          gradle pnpmTest
 
       - name: Merge Test Results
         run: |
           mkdir -p allure-results
-          cp -r */build/allure-results/* allure-results/
-          cp -r structures-js/*/allure-results/* allure-results/
+          cp -r */build/allure-results/* allure-results/ || true
+          cp -r structures-js/*/allure-results/* allure-results/ || true
 
       - name: Get Allure history
         uses: actions/checkout@v4
@@ -85,7 +82,7 @@ jobs:
           path: gh-pages
 
       - name: Generate Allure report
-        uses: simple-elf/allure-report-action@v1.11
+        uses: simple-elf/allure-report-action@v1.13
         id: allure-report
         with:
           allure_results: allure-results
@@ -110,7 +107,7 @@ jobs:
           description: 'Passed'
           state: 'success'
           sha: ${{ github.sha }}
-          target_url: https://kinotic-foundation.github.io/structures/allure/${{ github.run_number }}
+          target_url: https://kinotic-ai.github.io/kinotic/allure/${{ github.run_number }}
 
       - name: Check If Failure
         if: ${{ steps.gradle_build.outcome == 'failure' || steps.run_e2e_tests.outcome == 'failure' }}
@@ -126,4 +123,4 @@ jobs:
           # Optionally mark the job as failed
           exit 1
 
-          https://kinotic-foundation.github.io/structures/webdocs/guide/overview.html
+          https://kinoitc-ai.github.io/kinotic/webdocs/guide/overview.html

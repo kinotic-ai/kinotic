@@ -1,5 +1,5 @@
 <template>
-    <Glitch style="font-size: 10em" message="404" />
+    <Glitch style="font-size: 10em" message="Not Found" />
 </template>
 
 <script lang="ts">

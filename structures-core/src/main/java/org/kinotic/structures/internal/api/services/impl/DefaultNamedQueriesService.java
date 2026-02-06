@@ -2,8 +2,9 @@ package org.kinotic.structures.internal.api.services.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
+import lombok.extern.slf4j.Slf4j;
+
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
@@ -11,45 +12,54 @@ import org.kinotic.structures.api.domain.EntityContext;
 import org.kinotic.structures.api.domain.NamedQueriesDefinition;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.services.NamedQueriesService;
-import org.kinotic.structures.internal.api.services.sql.ParameterHolder;
+import org.kinotic.structures.auth.internal.services.DefaultCaffeineCacheFactory;
+import org.kinotic.structures.api.domain.ParameterHolder;
 import org.kinotic.structures.internal.api.services.sql.QueryContext;
 import org.kinotic.structures.internal.api.services.sql.QueryExecutorFactory;
 import org.kinotic.structures.internal.api.services.sql.executors.QueryExecutor;
-import org.springframework.data.elasticsearch.core.ReactiveElasticsearchOperations;
+import org.kinotic.structures.internal.cache.events.CacheEvictionEvent;
+import org.kinotic.structures.internal.cache.events.EvictionSourceType;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/23/24.
  */
+@Slf4j
 @Component
 public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueriesDefinition> implements NamedQueriesService {
 
     private final AsyncLoadingCache<CacheKey, QueryExecutor> cache;
     private final ConcurrentHashMap<String, List<CacheKey>> cacheKeyTracker = new ConcurrentHashMap<>();
+    private final ApplicationEventPublisher eventPublisher;
 
     public DefaultNamedQueriesService(CrudServiceTemplate crudServiceTemplate,
                                       ElasticsearchAsyncClient esAsyncClient,
-                                      ReactiveElasticsearchOperations esOperations,
-                                      QueryExecutorFactory queryExecutorFactory) {
-        super("named_query_service_definition",
+                                      QueryExecutorFactory queryExecutorFactory,
+                                      ApplicationEventPublisher eventPublisher,
+                                      DefaultCaffeineCacheFactory cacheFactory) {
+        super("struct_named_query_service_definition",
               NamedQueriesDefinition.class,
               esAsyncClient,
-              esOperations,
               crudServiceTemplate);
 
-        cache = Caffeine.newBuilder()
-                        .expireAfterAccess(20, TimeUnit.HOURS)
-                        .maximumSize(10_000)
-                        .buildAsync((key, executor) -> findByNamespaceAndStructure(key.structure().getNamespace(),
-                                                                                   key.structure().getName())
-                                .thenApplyAsync(namedQueriesDefinition -> {
+        this.eventPublisher = eventPublisher;
 
+        cache = cacheFactory.<CacheKey, QueryExecutor>newBuilder()
+                        .name("namedQueriesCache")
+                        .expireAfterAccess(Duration.ofHours(20))
+                        .maximumSize(10_000) 
+                        .buildAsync((key, executor) -> findByApplicationAndStructure(key.structure().getApplicationId(),
+                                                                                     key.structure().getName())
+                                .thenApplyAsync(namedQueriesDefinition -> {
+ 
                                     Validate.notNull(namedQueriesDefinition, "No Named Query found for Structure: "
                                             + key.structure()
                                             + " and Query: "
@@ -72,14 +82,32 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
 
     }
 
-    @Override
-    public void evictCachesFor(NamedQueriesDefinition namedQueriesDefinition) {
-        cacheKeyTracker.computeIfPresent(namedQueriesDefinition.getId(), (s, cacheKeys) -> {
-            for (CacheKey cacheKey : cacheKeys) {
-                cache.synchronous().invalidate(cacheKey);
+
+    /**
+     * Evicts the caches for a given named query, this is used when a named query is updated on a remote node.
+     * @param event the event containing the named query to evict the caches for
+     */
+    @EventListener
+    public void handleNamedQueryCacheEviction(CacheEvictionEvent event) {
+        
+        try {
+
+            if(event.getEvictionSourceType() == EvictionSourceType.NAMED_QUERY){
+                cacheKeyTracker.computeIfPresent(event.getNamedQueryId(), (s, cacheKeys) -> {
+                    for (CacheKey cacheKey : cacheKeys) {
+                        cache.synchronous().invalidate(cacheKey);
+                    }
+                    return null;
+                });
+                        
+                log.info("successfully completed cache eviction for named query: {} due to {}", 
+                                event.getNamedQueryId(), event.getEvictionSource().getDisplayName());
             }
-            return null;
-        });
+
+        } catch (Exception e) {
+            log.error("failed to handle named query cache eviction (source: {})", 
+                     event.getEvictionSource().getDisplayName(), e);
+        }
     }
 
     @Override
@@ -106,11 +134,11 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
     }
 
     @Override
-    public CompletableFuture<NamedQueriesDefinition> findByNamespaceAndStructure(String namespace, String structure) {
+    public CompletableFuture<NamedQueriesDefinition> findByApplicationAndStructure(String applicationId, String structure) {
         return crudServiceTemplate.search(indexName, Pageable.ofSize(1), type, builder -> builder
                 .query(q -> q
                         .bool(b -> b
-                                .filter(TermQuery.of(tq -> tq.field("namespace").value(namespace))._toQuery(),
+                                .filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery(),
                                         TermQuery.of(tq -> tq.field("structure").value(structure))._toQuery())
                         )
                 )).thenApply(page -> page.getContent() != null && !page.getContent().isEmpty()
@@ -124,10 +152,30 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
         //       The Query type information will speed up other areas the need this as well
         return super.save(entity)
                     .thenApply(namedQueriesDefinition -> {
-                        evictCachesFor(namedQueriesDefinition);
-                        //cacheEvictionService.evictCachesFor(namedQueriesDefinition);
+                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedNamedQuery(entity.getApplicationId(), entity.getStructure(), entity.getId()));
                         return namedQueriesDefinition;
                     });
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteById(String id) {
+        return findById(id)
+                .thenCompose(namedQuery -> {
+                    if (namedQuery == null) {
+                        return CompletableFuture.failedFuture(
+                                new IllegalArgumentException("NamedQuery cannot be found for id: " + id));
+                    }
+                    
+                    return super.deleteById(id)
+                            .thenApply(v -> {
+                                this.eventPublisher.publishEvent(
+                                        CacheEvictionEvent.localDeletedNamedQuery(
+                                                namedQuery.getApplicationId(), 
+                                                namedQuery.getStructure(), 
+                                                namedQuery.getId()));
+                                return null;
+                            });
+                });
     }
 
     @Override

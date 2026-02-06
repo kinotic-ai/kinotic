@@ -2,6 +2,7 @@ package org.kinotic.structures.internal.api.services.sql;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.structures.api.domain.ParameterHolder;
 import org.kinotic.structures.api.domain.QueryParameter;
 
 import java.util.List;

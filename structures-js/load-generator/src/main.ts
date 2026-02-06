@@ -48,6 +48,10 @@ try {
 
     try {
         const start = performance.now()
+        
+        console.log('Waiting 1 minute before starting tasks...')
+        await new Promise(resolve => setTimeout(resolve, 60000)) // 1 minute delay
+        
         await taskExecutor.start()
         console.log('Load Generator Started')
 

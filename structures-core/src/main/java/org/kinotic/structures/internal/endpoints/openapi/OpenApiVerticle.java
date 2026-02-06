@@ -12,7 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * We have one OpenApi spec for all {@link Structure}'s in a namespace. But this handles all namespaces and all structures.
+ * We have one OpenApi spec for all {@link Structure}'s in a application. But this handles all applications and all structures.
  * Created by Navíd Mitchell 🤪 on 5/29/23.
  */
 @RequiredArgsConstructor

@@ -1,0 +1,51 @@
+# cert-manager Helm Values for KinD
+# Chart: jetstack/cert-manager
+# Repository: https://charts.jetstack.io
+#
+# TLS certificate management for local development
+# Used as fallback when mkcert is not available
+
+# Install CRDs with Helm
+installCRDs: true
+
+# Replica count - single replica for local dev
+replicaCount: 1
+
+# Resource limits for local dev
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+# Webhook configuration
+webhook:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# CA Injector configuration
+cainjector:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Prometheus monitoring disabled for local dev
+prometheus:
+  enabled: false
+
+# Startupapicheck - disable for faster startup
+startupapicheck:
+  enabled: false

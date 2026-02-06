@@ -29,7 +29,6 @@ import org.kinotic.structures.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.structures.internal.api.services.ElasticVersion;
 import org.kinotic.structures.internal.api.services.EntityHolder;
 import org.kinotic.structures.internal.api.services.EntityService;
-import org.kinotic.structures.internal.api.services.sql.ParameterHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -201,24 +200,22 @@ public class DefaultEntityService implements EntityService {
                     if(FastestType.class.isAssignableFrom(type)){
 
                         if(structure.isOptimisticLockingEnabled()){
-                            //noinspection unchecked
                             return crudServiceTemplate
                                     .search(structure.getItemIndex(),
                                             pageable,
                                             Map.class,
                                             builder -> readPreProcessor.beforeFindAll(structure, builder, context),
-                                            hit -> (T) new FastestType(updateVersionForEntity(hit.source(),
+                                            hit -> type.cast(new FastestType(updateVersionForEntity(hit.source(),
                                                                                               hit.primaryTerm(),
                                                                                               hit.seqNo()
-                                            )));
+                                            ))));
                         }else{
-                            //noinspection unchecked
                             return crudServiceTemplate
                                     .search(structure.getItemIndex(),
                                             pageable,
                                             RawJson.class,
                                             builder -> readPreProcessor.beforeFindAll(structure, builder, context),
-                                            hit -> (T) new FastestType(hit.source()));
+                                            hit -> type.cast(new FastestType(hit.source())));
                         }
                     }else{
 
@@ -362,7 +359,6 @@ public class DefaultEntityService implements EntityService {
                     if(FastestType.class.isAssignableFrom(type)){
 
                         if(structure.isOptimisticLockingEnabled()){
-                            //noinspection unchecked
                             return crudServiceTemplate
                                     .search(structure.getItemIndex(),
                                             pageable,
@@ -371,12 +367,11 @@ public class DefaultEntityService implements EntityService {
                                                                                      searchText,
                                                                                      builder,
                                                                                      context),
-                                            hit -> (T) new FastestType(updateVersionForEntity(hit.source(),
+                                            hit -> type.cast(new FastestType(updateVersionForEntity(hit.source(),
                                                                                               hit.primaryTerm(),
                                                                                               hit.seqNo()
-                                            )));
+                                            ))));
                         }else{
-                            //noinspection unchecked
                             return crudServiceTemplate
                                     .search(structure.getItemIndex(),
                                             pageable,
@@ -385,7 +380,7 @@ public class DefaultEntityService implements EntityService {
                                                                                      searchText,
                                                                                      builder,
                                                                                      context),
-                                            hit -> (T) new FastestType(hit.source()));
+                                            hit -> type.cast(new FastestType(hit.source())));
                         }
                     }else{
 
@@ -544,13 +539,14 @@ public class DefaultEntityService implements EntityService {
                 }
 
                 if(page instanceof CursorPage){
-                    //noinspection unchecked
-                    return (Page<T>) new CursorPage<>(result, ((CursorPage<?>) page).getCursor(), page.getTotalElements());
+                    @SuppressWarnings("unchecked")
+                    Page<T> newPage = (Page<T>) new CursorPage<>(result, ((CursorPage<?>) page).getCursor(), page.getTotalElements());
+                    return newPage;
                 }else{
-                    //noinspection unchecked
-                    return (Page<T>) new Page<>(result, page.getTotalElements());
+                    @SuppressWarnings("unchecked")
+                    Page<T> newPage = (Page<T>) new Page<>(result, page.getTotalElements());
+                    return newPage;
                 }
-
             }else{
                 return page;
             }
@@ -559,26 +555,23 @@ public class DefaultEntityService implements EntityService {
 
     private <T> CompletableFuture<T> doFindById(String id, Class<T> type, EntityContext context) {
         if(FastestType.class.isAssignableFrom(type)){
-
             if(structure.isOptimisticLockingEnabled()){
-                //noinspection unchecked
                 return crudServiceTemplate
                         .findById(structure.getItemIndex(),
                                   id,
                                   Map.class,
                                   builder -> readPreProcessor.beforeFindById(structure, builder, context),
-                                  result -> (T) new FastestType(updateVersionForEntity(result.source(),
-                                                                                       result.primaryTerm(),
-                                                                                       result.seqNo()
-                                  )));
+                                  result -> type.cast(new FastestType(updateVersionForEntity(result.source(),
+                                                                                     result.primaryTerm(),
+                                                                                     result.seqNo()
+                                  ))));
             }else{
-                //noinspection unchecked
                 return crudServiceTemplate
                         .findById(structure.getItemIndex(),
                                   id,
                                   RawJson.class,
                                   builder -> readPreProcessor.beforeFindById(structure, builder, context),
-                                  result -> (T) new FastestType(result.source()));
+                                  result -> type.cast(new FastestType(result.source())));
             }
         }else{
 
@@ -607,22 +600,20 @@ public class DefaultEntityService implements EntityService {
                                                        EntityContext context) {
         if(FastestType.class.isAssignableFrom(type)){
             if(structure.isOptimisticLockingEnabled()){
-                //noinspection unchecked
                 return crudServiceTemplate
                         .multiGet(composedIds,
                                   Map.class,
                                   builder -> readPreProcessor.beforeFindByIds(structure, builder, context),
-                                  result -> (T) new FastestType(updateVersionForEntity(result.source(),
-                                                                                       result.primaryTerm(),
-                                                                                       result.seqNo()
-                                  )));
+                                  result -> type.cast(new FastestType(updateVersionForEntity(result.source(),
+                                                                                     result.primaryTerm(),
+                                                                                     result.seqNo()
+                                  ))));
             }else{
-                //noinspection unchecked
                 return crudServiceTemplate
                         .multiGet(composedIds,
                                   RawJson.class,
                                   builder -> readPreProcessor.beforeFindByIds(structure, builder, context),
-                                  result -> (T) new FastestType(result.source()));
+                                  result -> type.cast(new FastestType(result.source())));
             }
         }else{
 
@@ -709,13 +700,13 @@ public class DefaultEntityService implements EntityService {
             if (bulkResponse.errors()) {
                 StringBuilder builder = new StringBuilder();
                 for (BulkResponseItem item : bulkResponse.items()) {
-                    if (item.error() != null) {
-                        if (builder.indexOf(item.error().reason()) == -1) {
-                            builder.append(item.error().reason()).append("\n");
-                        }
+                    var error = item.error();
+                    if (error != null && error.reason() != null && builder.indexOf(error.reason()) == -1) {
+                        builder.append(error.reason()).append("\n");
                     }
                 }
-                return CompletableFuture.failedFuture(new IllegalArgumentException("Bulk save failed with errors:\n" + builder));
+                String errorMessage = !builder.isEmpty() ? builder.toString() : "Unknown error occurred during bulk operation";
+                return CompletableFuture.failedFuture(new IllegalArgumentException("Bulk save failed with errors:\n" + errorMessage));
             } else {
                 return CompletableFuture.completedFuture(bulkResponse);
             }

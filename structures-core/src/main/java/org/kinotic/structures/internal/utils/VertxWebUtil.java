@@ -22,13 +22,13 @@ public class VertxWebUtil {
     private static final Logger log = LoggerFactory.getLogger(VertxWebUtil.class);
 
     public static String validateAndReturnStructureId(RoutingContext ctx){
-        String structureNamespace = ctx.pathParam("structureNamespace");
+        String structureApplication = ctx.pathParam("structureApplication");
         String structureName = ctx.pathParam("structureName");
 
-        Validate.notNull(structureNamespace, "structureNamespace must not be null");
+        Validate.notNull(structureApplication, "structureApplication must not be null");
         Validate.notNull(structureName, "structureName must not be null");
 
-        return StructuresUtil.structureNameToId(structureNamespace, structureName);
+        return StructuresUtil.structureNameToId(structureApplication, structureName);
     }
 
     public static String validateAndReturnPathParam(String pathParamName, RoutingContext ctx){

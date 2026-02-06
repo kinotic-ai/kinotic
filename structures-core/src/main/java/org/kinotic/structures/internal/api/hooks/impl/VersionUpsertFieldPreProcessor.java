@@ -2,7 +2,6 @@ package org.kinotic.structures.internal.api.hooks.impl;
 
 import org.kinotic.structures.api.domain.EntityContext;
 import org.kinotic.structures.api.domain.Structure;
-import org.kinotic.structures.api.domain.idl.decorators.IdDecorator;
 import org.kinotic.structures.api.domain.idl.decorators.VersionDecorator;
 import org.kinotic.structures.internal.api.hooks.UpsertFieldPreProcessor;
 import org.kinotic.structures.internal.api.hooks.UpsertPreProcessor;

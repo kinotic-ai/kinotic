@@ -3,7 +3,6 @@ package org.kinotic.structures.internal.sample;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.CacheLoader;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import org.apache.commons.lang3.tuple.Pair;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.kinotic.continuum.idl.api.schema.ArrayC3Type;
@@ -13,10 +12,12 @@ import org.kinotic.continuum.idl.api.schema.StringC3Type;
 import org.kinotic.continuum.internal.utils.ContinuumUtil;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.idl.decorators.*;
-import org.kinotic.structures.api.services.NamespaceService;
+import org.kinotic.structures.api.services.ApplicationService;
 import org.kinotic.structures.api.services.StructureService;
+import org.kinotic.structures.auth.internal.services.DefaultCaffeineCacheFactory;
 import org.kinotic.structures.internal.utils.StructuresUtil;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -35,20 +36,22 @@ public class TestDataService {
     private static final String PEOPLE_KEY = "people";
     private static final String PEOPLE_WITH_ID_KEY = "people-with-id";
 
-    private final NamespaceService namespaceService;
+    private final ApplicationService applicationService;
     private final StructureService structureService;
 
     private final AsyncLoadingCache<String, List<Person>> peopleCache;
 
-    public TestDataService(NamespaceService namespaceService,
+    public TestDataService(ApplicationService applicationService,
                            StructureService structureService,
                            ResourceLoader resourceLoader,
-                           ObjectMapper objectMapper) {
+                           ObjectMapper objectMapper,
+                           DefaultCaffeineCacheFactory cacheFactory) {
 
-        this.namespaceService = namespaceService;
+        this.applicationService = applicationService;
         this.structureService = structureService;
 
-        peopleCache = Caffeine.newBuilder()
+        peopleCache = cacheFactory.<String, List<Person>>newBuilder()
+                              .name("peopleCache")
                               .maximumSize(10)
                               .expireAfterAccess(Duration.ofMinutes(5))
                               .buildAsync(new PeopleCacheLoader(resourceLoader, objectMapper));
@@ -94,14 +97,15 @@ public class TestDataService {
     public CompletableFuture<Structure> createCarStructure(String structureNameSuffix) {
         Structure structure = new Structure();
         structure.setName("Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
-        structure.setNamespace("org.kinotic.sample");
+        structure.setApplicationId("org.kinotic.sample");
+        structure.setProjectId("org.kinotic.sample_default");
         structure.setDescription("Defines a Car");
 
         ObjectC3Type carType = createCarSchema(MultiTenancyType.SHARED);
 
         structure.setEntityDefinition(carType);
 
-        return namespaceService.createNamespaceIfNotExist("org.kinotic.sample", "Sample namespace")
+        return applicationService.createApplicationIfNotExist("org.kinotic.sample", "Sample application")
                                .thenCompose(v -> structureService.create(structure)
                                                                  .thenCompose(saved -> structureService.publish(saved.getId())
                                                                                                        .thenApply(published -> saved)));
@@ -177,14 +181,15 @@ public class TestDataService {
     public CompletableFuture<Structure> createPersonStructure(String structureNameSuffix) {
         Structure structure = new Structure();
         structure.setName("Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
-        structure.setNamespace("org.kinotic.sample");
+        structure.setApplicationId("org.kinotic.sample");
+        structure.setProjectId("org.kinotic.sample_default");
         structure.setDescription("Defines a Person");
 
         ObjectC3Type personType = createPersonSchema(MultiTenancyType.SHARED);
 
         structure.setEntityDefinition(personType);
 
-        return namespaceService.createNamespaceIfNotExist("org.kinotic.sample", "Sample namespace")
+        return applicationService.createApplicationIfNotExist("org.kinotic.sample", "Sample application")
                                .thenCompose(v -> structureService.create(structure)
                                                                  .thenCompose(saved -> structureService.publish(saved.getId())
                                                                                                        .thenApply(published -> saved)));
@@ -265,7 +270,9 @@ public class TestDataService {
 
         public PeopleCacheLoader(ResourceLoader resourceLoader,
                                  ObjectMapper objectMapper) {
-            this.resourceLoader = resourceLoader;
+
+            this.resourceLoader = resourceLoader instanceof PathMatchingResourcePatternResolver 
+            ? (PathMatchingResourcePatternResolver) resourceLoader : new PathMatchingResourcePatternResolver(resourceLoader);
             this.objectMapper = objectMapper;
         }
 

@@ -7,7 +7,7 @@ import org.kinotic.structures.api.config.StructuresProperties;
 import org.kinotic.structures.api.domain.idl.decorators.EntityDecorator;
 import org.kinotic.structures.api.domain.idl.decorators.EsIndexConfigurationDecorator;
 import org.kinotic.structures.internal.idl.converters.common.BaseConversionState;
-import org.kinotic.structures.internal.idl.converters.common.DecoratedProperty;
+import org.kinotic.structures.api.domain.DecoratedProperty;
 
 import java.util.LinkedList;
 import java.util.List;

@@ -25,9 +25,9 @@ export class TypescriptConversionState extends BaseConversionState{
      */
     public multiTenantSelectionEnabled: boolean = false
 
-    constructor(namespace: string,
+    constructor(application: string,
                 utilFunctionLocator: UtilFunctionLocator | null) {
-        super(namespace, utilFunctionLocator)
+        super(application, utilFunctionLocator)
     }
 
 }

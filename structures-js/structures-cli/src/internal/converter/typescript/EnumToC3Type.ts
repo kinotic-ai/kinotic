@@ -13,7 +13,7 @@ export class EnumToC3Type implements ITypeConverter<Type, C3Type, TypescriptConv
         let ret: EnumC3Type
 
         const name = value.getSymbolOrThrow("No Symbol could be found for object: "+value.getText()).getName()
-        const namespace = conversionContext.state().namespace
+        const namespace = conversionContext.state().application
         ret = new EnumC3Type(name, namespace)
 
         // this is a little strange, but it is the easiest way to get the name of the enum

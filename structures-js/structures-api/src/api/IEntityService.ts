@@ -9,9 +9,9 @@ import {EntitiesServiceSingleton, IEntitiesService} from '@/api/IEntitiesService
 export interface IEntityService<T> {
 
     /**
-     * The namespace of the structure this service is for
+     * The applicationId of the structure this service is for
      */
-    structureNamespace: string
+    structureApplicationId: string
 
     /**
      * The name of the structure this service is for
@@ -20,7 +20,7 @@ export interface IEntityService<T> {
 
     /**
      * The id of the structure this service is for
-     * Which is the namespace + '.' + name
+     * Which is the applicationId + '.' + name
      */
     structureId: string
 
@@ -139,6 +139,15 @@ export interface IEntityService<T> {
      */
     syncIndex(): Promise<void>
 
+    // /**
+    //  * Executes a SQL query.
+    //  * You can not execute any queries that will modify data.
+    //  * @param query the SQL query to execute
+    //  * @param parameters the parameters to pass to the query
+    //  * @returns Promise with the result of the query
+    //  */
+    // sqlQuery<U>(query: string, parameters: any[]): Promise<U>
+
     /**
      * Updates a given entity. This will only override the fields that are present in the given entity.
      * If any fields are not present in the given entity data they will not be changed.
@@ -159,18 +168,18 @@ export interface IEntityService<T> {
  */
 export class EntityService<T> implements IEntityService<T>{
 
-    public structureNamespace: string
+    public structureApplicationId: string
     public structureName: string
     public structureId: string
 
     private readonly entitiesService: IEntitiesService
 
-    public constructor(structureNamespace: string,
+    public constructor(structureApplicationId: string,
                        structureName: string,
                        entitiesService?: IEntitiesService) {
-        this.structureNamespace = structureNamespace
+        this.structureApplicationId = structureApplicationId
         this.structureName = structureName
-        this.structureId = (structureNamespace + '.' + structureName).toLowerCase()
+        this.structureId = (structureApplicationId + '.' + structureName).toLowerCase()
         this.entitiesService = entitiesService || EntitiesServiceSingleton
     }
 

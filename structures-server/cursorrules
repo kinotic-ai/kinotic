@@ -1,0 +1,263 @@
+# Structures Server Module
+
+## Overview
+Spring Boot application that serves as the main server for the Structures platform, integrating the core library with web services, GraphQL endpoints, and static file serving.
+
+## Key Components
+- **Spring Boot Application**: Main application entry point with auto-configuration
+- **Continuum Integration**: Core framework integration with gateway support
+- **OIDC Authentication**: JWT-based authentication with fallback to basic auth
+- **GraphQL Server**: Apollo Federation-compatible GraphQL endpoint
+- **REST API**: OpenAPI/Swagger REST endpoints
+- **Static File Server**: Serves frontend applications and documentation
+- **Elasticsearch Integration**: Search and analytics engine backend
+
+## Architecture
+- **Application Layer**: Spring Boot application with auto-configuration
+- **Security Layer**: OIDC authentication with fallback mechanisms
+- **API Layer**: GraphQL and REST API endpoints
+- **Static Layer**: File serving for frontend applications
+- **Integration Layer**: Continuum framework and Elasticsearch integration
+
+## Core Dependencies
+- **Spring Boot**: Application framework and auto-configuration
+- **Continuum Framework**: Core framework integration (`continuum-core`, `continuum-gateway`)
+- **Structures Core**: Core library integration (`structures-core`)
+- **Elasticsearch**: Search and analytics backend
+- **GraphQL**: Apollo Federation support
+- **Caffeine**: High-performance caching
+
+## Application Structure
+
+### Main Application
+- `StructuresServerApplication.java`: Main Spring Boot application class
+- **Auto-Configuration Exclusions**: JPA, Reactive Elasticsearch, Hazelcast
+- **Framework Annotations**: `@EnableContinuum`, `@EnableStructures`, `@EnableContinuumGateway`
+
+### Security Configuration
+- `TemporarySecurityService.java`: Fallback authentication service
+- **Basic Auth Support**: Username/password authentication
+- **OIDC Integration**: JWT token validation via structures-core
+- **Conditional Loading**: OIDC enabled/disabled via configuration
+
+## Configuration Profiles
+
+### Development Profile (`application-development.yml`)
+```yaml
+continuum:
+  discovery: sharedfs
+  debug: true
+  maxNumberOfCoresToUse: 4
+
+structures:
+  oidc-auth-verifier:
+    enabled: true
+    allowedIssuers:
+      - "https://dev-39125344.okta.com/oauth2/default"
+      - "http://localhost:8888/auth/realms/master"
+    authorizationAudiences:
+      - "api://default"
+      - "structures-client"
+  initializeWithSampleData: true
+  corsAllowedOriginPattern: "https:\\/\\/studio.apollographql.com|http:\\/\\/localhost:\\d+|http:\\/\\/121.0.0.1:\\d+"
+  elastic-connections:
+    - scheme: "http"
+      host: "localhost"
+      port: "9200"
+```
+
+### Production Profile (`application-production.yml`)
+```yaml
+continuum:
+  discovery: sharedfs
+  debug: false
+
+logging:
+  level:
+    org:
+      kinotic: INFO
+    io:
+      vertx: INFO
+```
+
+### Test Profile (`application.yml` in test resources)
+```yaml
+spring:
+  main:
+    allow-circular-references: true
+
+continuum:
+  discovery: sharedfs
+  debug: true
+
+continuum-gateway:
+  disableIam: true
+
+structures:
+  elastic-use-ssl: false
+
+server:
+  port: 8989
+```
+
+## Static File Serving
+
+### Webroot Structure
+- `webroot/`: Legacy frontend files (structures-frontend)
+- `webroot2/`: Modern frontend files (structures-frontend-next)
+- **UI Tools**: GraphQL UI, OpenAPI UI, Scalar UI
+- **Assets**: CSS, JavaScript, images, fonts
+
+### Frontend Integration
+- **Build Integration**: Frontend files copied during build process
+- **Development Support**: Hot reload and development tools
+- **Production Ready**: Optimized static file serving
+
+## Testing Infrastructure
+
+### Test Configuration
+- `TestConfiguration.java`: Test-specific configuration
+- `ElasticsearchTestContainer.java`: TestContainers Elasticsearch setup
+- `TestBase.java`: Base test class with common setup
+
+### Test Features
+- **TestContainers**: Isolated Elasticsearch for testing
+- **Profile-based Configuration**: Test-specific properties
+- **Integration Testing**: Full application context testing
+- **Isolated Environment**: Separate test database and services
+
+## Security Implementation
+
+### Authentication Flow
+1. **OIDC Primary**: JWT token validation via structures-core
+2. **Basic Auth Fallback**: Username/password authentication
+3. **Conditional Loading**: OIDC enabled/disabled via configuration
+4. **Tenant Support**: Multi-tenant authentication
+
+### Security Service
+```java
+@Component
+@ConditionalOnProperty(prefix = "structures.oidc-auth-verifier", name = "enabled", havingValue = "false", matchIfMissing = true)
+public class TemporarySecurityService implements SecurityService {
+    // Basic auth implementation
+    // Username: admin
+    // Password: structures
+}
+```
+
+## API Endpoints
+
+### GraphQL
+- **Path**: `/graphql/` (configurable)
+- **Port**: 4000 (configurable)
+- **Features**: Apollo Federation, schema introspection
+- **Tools**: GraphQL UI, GraphiQL interface
+
+### REST API
+- **Path**: `/api/` (configurable)
+- **Admin Path**: `/admin/api/` (configurable)
+- **Port**: 8080 (configurable)
+- **Features**: OpenAPI/Swagger documentation
+- **Security**: Basic auth or OIDC authentication
+
+### Static Files
+- **Path**: Root path (`/`)
+- **Port**: 9090 (configurable)
+- **Features**: Frontend applications, documentation, UI tools
+
+## Build Integration
+
+### Frontend Integration
+```gradle
+tasks.named('processResources') {
+    dependsOn ":structures-frontend-next:copyDist"
+}
+
+tasks.named('sourcesJar') {
+    dependsOn ":structures-frontend-next:copyDist"
+}
+```
+
+### Dependencies
+- **structures-core**: Core library integration
+- **continuum-gateway**: Gateway framework
+- **continuum-core**: Core framework
+- **caffeine**: Caching support
+
+## Development Workflow
+
+### Local Development
+1. **Start Elasticsearch**: Local or Docker container
+2. **Configure OIDC**: Set up authentication providers
+3. **Run Application**: Spring Boot application
+4. **Access Endpoints**: GraphQL, REST API, static files
+
+### Testing
+1. **TestContainers**: Automatic Elasticsearch setup
+2. **Integration Tests**: Full application context
+3. **Security Tests**: Authentication and authorization
+4. **API Tests**: GraphQL and REST endpoint testing
+
+## Configuration Properties
+
+### Core Configuration
+```yaml
+structures:
+  openApiSecurityType: BASIC
+  enableStaticFileServer: true
+  graphql-port: 4000
+  graphql-path: "/graphql/"
+  webServerPort: 9090
+  openApiPort: 8080
+  openApiPath: "/api/"
+  openApiAdminPath: "/admin/api/"
+```
+
+### Elasticsearch Configuration
+```yaml
+structures:
+  elastic-connections:
+    - scheme: "http"
+      host: "localhost"
+      port: "9200"
+  elastic-connection-timeout: 5s
+  elastic-socket-timeout: 1m
+```
+
+### CORS Configuration
+```yaml
+structures:
+  corsAllowedOriginPattern: "http://localhost.*"
+  corsAllowedHeaders:
+    - "Accept"
+    - "Authorization"
+    - "Content-Type"
+  corsAllowCredentials: true
+```
+
+## Best Practices
+
+### Security
+- **OIDC First**: Use OIDC authentication when possible
+- **Fallback Auth**: Basic auth for development/testing
+- **CORS Configuration**: Proper CORS settings for frontend
+- **HTTPS in Production**: Always use HTTPS in production
+
+### Development
+- **Profile-based Config**: Use different profiles for environments
+- **TestContainers**: Isolated testing environment
+- **Frontend Integration**: Proper build integration
+- **Logging**: Appropriate log levels for environments
+
+### Performance
+- **Caching**: Use Caffeine for performance
+- **Static Files**: Optimized static file serving
+- **Connection Pooling**: Elasticsearch connection management
+- **Reactive Programming**: Non-blocking I/O with Vert.x
+
+## Integration Points
+- **Structures Core**: Core library integration
+- **Continuum Framework**: Core framework integration
+- **Elasticsearch**: Search and analytics backend
+- **Frontend Applications**: Vue.js applications
+- **OIDC Providers**: Authentication providers 

@@ -10,10 +10,10 @@ import java.util.concurrent.CompletableFuture;
 public interface OpenApiService {
 
     /**
-     * Gets the OpenAPI spec for all the structures in the given namespace
-     * @param namespace the namespace to get the OpenAPI spec for
+     * Gets the OpenAPI spec for all the structures in the given application
+     * @param applicationId the application to get the OpenAPI spec for
      * @return the OpenAPI spec
      */
-    CompletableFuture<OpenAPI> getOpenApiSpec(String namespace);
+    CompletableFuture<OpenAPI> getOpenApiSpec(String applicationId);
 
 }

@@ -1,21 +1,20 @@
 package org.kinotic.structures.internal.sample;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.util.TokenBuffer;
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+
 import org.kinotic.structures.api.config.StructuresProperties;
-import org.kinotic.structures.api.domain.DefaultEntityContext;
-import org.kinotic.structures.api.domain.RawJson;
+import org.kinotic.structures.internal.api.domain.DefaultEntityContext;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.services.EntitiesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import jakarta.annotation.PostConstruct;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.util.TokenBuffer;
 
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
+import jakarta.annotation.PostConstruct;
 
 /**
  * Created by Navíd Mitchell 🤪 on 6/1/23.

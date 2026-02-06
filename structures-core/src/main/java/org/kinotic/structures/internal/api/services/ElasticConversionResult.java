@@ -2,7 +2,7 @@ package org.kinotic.structures.internal.api.services;
 
 import co.elastic.clients.elasticsearch._types.mapping.ObjectProperty;
 import org.kinotic.structures.api.domain.idl.decorators.EntityDecorator;
-import org.kinotic.structures.internal.idl.converters.common.DecoratedProperty;
+import org.kinotic.structures.api.domain.DecoratedProperty;
 
 import java.util.List;
 

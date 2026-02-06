@@ -1,22 +1,22 @@
-import {PersonEntityService} from '@/entity/services/PersonEntityService.js'
+import {PersonEntityService} from '@/services/PersonEntityService.js'
 import {ContinuumOperationTaskGenerator} from '@/tasks/ContinuumOperationTaskGenerator.js'
 import {ITaskFactory} from '@/tasks/ITaskFactory.js'
 import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
-import {generateMultipleDeterministicIds} from '@/utils/DataUtil.js'
+// import {generateMultipleDeterministicIds} from '@/utils/DataUtil.js'
 import {ConnectionInfo, ContinuumSingleton, Pageable} from '@kinotic/continuum-client'
-import {EntitiesService, EntityContext} from '@kinotic/structures-api'
+import {EntitiesService} from '@kinotic/structures-api'
 import { ITask } from './ITask';
 import opentelemetry, {SpanKind, SpanStatusCode, Tracer} from '@opentelemetry/api'
 import info from '../../package.json' assert {type: 'json'}
 
 /**
  * This class will generate tasks to find fake people
+ * TODO: update to use admin services
  */
 export class MultiTenantSearchTaskGenerator implements ITaskGenerator {
 
     private continuumTaskGenerator: ContinuumOperationTaskGenerator
     private personEntityService: PersonEntityService
-    private entityContext: EntityContext
     private tracer: Tracer
 
     constructor(connectionInfoSupplier: () => Promise<ConnectionInfo>,
@@ -33,10 +33,9 @@ export class MultiTenantSearchTaskGenerator implements ITaskGenerator {
                                                                           totalToExecute,
                                                                           this.createTaskFactory(searchText,
                                                                                                  pageSize))
-        const ids = generateMultipleDeterministicIds(totalTenants)
-        this.entityContext = {
-            multiTenantSelection: ids
-        }
+        console.log('totalTenants', totalTenants)
+        // const ids = generateMultipleDeterministicIds(totalTenants)
+
         this.tracer = opentelemetry.trace.getTracer(
             'structures.load-generator',
             info.version
@@ -65,8 +64,7 @@ export class MultiTenantSearchTaskGenerator implements ITaskGenerator {
                             async(span) => {
 
                                 return this.personEntityService.search(searchText,
-                                                                       Pageable.create(0, pageSize),
-                                                                       this.entityContext)
+                                                                       Pageable.create(0, pageSize))
                                            .then(
                                                async (value) => {
                                                    span.end()

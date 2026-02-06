@@ -1,7 +1,14 @@
 package org.kinotic.structures.api.services.security.graphos;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
 import org.kinotic.continuum.api.exceptions.AuthorizationException;
 import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
+import org.kinotic.structures.api.domain.EntityOperation;
 import org.kinotic.structures.api.domain.SecurityContext;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.idl.decorators.EntityServiceDecorator;
@@ -9,21 +16,12 @@ import org.kinotic.structures.api.domain.idl.decorators.EntityServiceDecoratorsC
 import org.kinotic.structures.api.domain.idl.decorators.EntityServiceDecoratorsDecorator;
 import org.kinotic.structures.api.domain.idl.decorators.PolicyDecorator;
 import org.kinotic.structures.api.services.security.AuthorizationService;
-import org.kinotic.structures.api.domain.EntityOperation;
 import org.kinotic.structures.internal.api.services.impl.security.graphos.PolicyEvaluator;
 import org.kinotic.structures.internal.api.services.impl.security.graphos.PolicyEvaluatorWithOperation;
 import org.kinotic.structures.internal.api.services.impl.security.graphos.PolicyEvaluatorWithoutOperation;
 import org.kinotic.structures.internal.api.services.impl.security.graphos.SharedPolicyManager;
-import org.kinotic.structures.internal.idl.converters.common.DecoratedProperty;
+import org.kinotic.structures.api.domain.DecoratedProperty;
 import org.kinotic.structures.internal.utils.StructuresUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 public class StructurePolicyAuthorizationService implements AuthorizationService<EntityOperation> {
 
@@ -34,7 +32,7 @@ public class StructurePolicyAuthorizationService implements AuthorizationService
     public StructurePolicyAuthorizationService(Structure structure,
                                                PolicyAuthorizer policyAuthorizer) {
 
-        this.structureId = StructuresUtil.structureNameToId(structure.getNamespace(), structure.getName());
+        this.structureId = StructuresUtil.structureNameToId(structure.getApplicationId(), structure.getName());
         ObjectC3Type entityDefinition = structure.getEntityDefinition();
 
         // Get any Policies to apply to the Entity and its fields

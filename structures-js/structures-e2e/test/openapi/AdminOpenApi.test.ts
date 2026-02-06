@@ -20,7 +20,8 @@ interface LocalTestContext {
     personWithTenantStructure: Structure
 }
 
-const namespace = 'openapi.admin'
+const applicationId = 'openapi.admin'
+const projectName = 'TestProject'
 const BASE_AUTH = 'Basic YWRtaW46c3RydWN0dXJlcw=='
 const DEFAULT_TENANT = 'kinotic'
 
@@ -38,10 +39,10 @@ describe('End To End Tests', () => {
     beforeAll(async () => {
         await initContinuumClient()
 
-        context.personWithTenantStructure = await createPersonStructureIfNotExist(namespace, true)
+        context.personWithTenantStructure = await createPersonStructureIfNotExist(applicationId, projectName, true)
         expect(context.personWithTenantStructure).toBeDefined()
 
-        const { namedQueriesDefinition } = await createSchema(namespace, 'PersonWithTenant')
+        const { namedQueriesDefinition } = await createSchema(applicationId, context.personWithTenantStructure.projectId, 'PersonWithTenant')
         const namedQueriesService = Structures.getNamedQueriesService()
         await namedQueriesService.save(namedQueriesDefinition)
 

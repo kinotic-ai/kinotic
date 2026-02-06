@@ -11,7 +11,8 @@ interface LocalTestContext {
     vehicleStructure: Structure
 }
 
-const namespace = 'openapi.versioned'
+const applicationId = 'openapi.versioned'
+const projectName = 'TestProject'
 
 describe('Versioned OpenApi Tests', () => {
 
@@ -21,7 +22,7 @@ describe('Versioned OpenApi Tests', () => {
         await allure.parentSuite('End To End Tests')
         await initContinuumClient()
 
-        context.vehicleStructure = await createVehicleStructureIfNotExist(namespace)
+        context.vehicleStructure = await createVehicleStructureIfNotExist(applicationId, projectName)
         expect(context.vehicleStructure).toBeDefined()
 
     }, 300000)

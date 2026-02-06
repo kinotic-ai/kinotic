@@ -18,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Created by Navíd Mitchell 🤪 on 4/17/23.
  */
+@SuppressWarnings("rawtypes")
 public class FindAllDataFetcher implements DataFetcher<CompletableFuture<Page<Map>>> {
 
     private final String structureId;
@@ -31,7 +32,7 @@ public class FindAllDataFetcher implements DataFetcher<CompletableFuture<Page<Ma
         this.entitiesService = entitiesService;
         this.objectMapper = objectMapper;
     }
-
+    
     @Override
     public CompletableFuture<Page<Map>> get(DataFetchingEnvironment environment) throws Exception {
         RoutingContext rc = environment.getGraphQlContext().get(RoutingContext.class);

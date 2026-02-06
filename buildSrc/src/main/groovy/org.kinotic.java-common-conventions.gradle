@@ -12,6 +12,9 @@ repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
 
+    maven { url 'https://repo.spring.io/milestone' }
+    maven { url 'https://repo.spring.io/snapshot' }
+
     maven {
         name = 'Central Portal Snapshots'
         url = uri('https://central.sonatype.com/repository/maven-snapshots/')
@@ -31,6 +34,7 @@ dependencyManagement {
         mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
         mavenBom "io.opentelemetry:opentelemetry-bom:${otelBomVersion}"
         mavenBom "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:${otelInstrumentationBomVersion}"
+        mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
     }
     dependencies {
         dependency "co.elastic.clients:elasticsearch-java:${elasticClientVersion}"
@@ -38,6 +42,8 @@ dependencyManagement {
         dependency "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
 
         dependency "com.graphql-java:graphql-java:${graphQlJavaVersion}"
+
+        dependency "javax.annotation:javax.annotation-api:${javaxAnnotationApi}"
 
         dependency "io.vertx:vertx-web:${vertxVersion}"
         dependency "io.vertx:vertx-web-graphql:${vertxVersion}"
@@ -49,6 +55,8 @@ dependencyManagement {
         dependency "org.apache.commons:commons-compress:${commonsCompressVersion}"
 
         dependency "org.apache.ignite:ignite-core:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-spring:${igniteVersion}"
 
         dependency "org.apache.lucene:lucene-analyzers-common:${luceneVersion}"
         dependency "org.apache.lucene:lucene-backwards-codecs:${luceneVersion}"
@@ -73,8 +81,14 @@ dependencyManagement {
         dependency "org.kinotic:continuum-gateway:${continuumVersion}"
         dependency "org.kinotic:continuum-idl:${continuumVersion}"
 
+
         // must be overridden for the elastic client
         dependency 'jakarta.json:jakarta.json-api:2.0.1'
+
+        // JWT and OIDC dependencies
+        dependency "io.jsonwebtoken:jjwt-api:${jsonwebtokenVersion}"
+        dependency "io.jsonwebtoken:jjwt-impl:${jsonwebtokenVersion}"
+        dependency "io.jsonwebtoken:jjwt-jackson:${jsonwebtokenVersion}"
     }
 }
 
@@ -94,10 +108,18 @@ dependencies {
     testImplementation "io.qameta.allure:allure-junit5"
     testImplementation 'org.junit.jupiter:junit-jupiter-api'
     testImplementation 'org.junit.jupiter:junit-jupiter-engine'
-
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 test {
     useJUnitPlatform()
-    environment("JAVA_TOOL_OPTIONS", "-javaagent:${configurations.agent.singleFile} --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED --add-opens=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED")
+    environment("JAVA_TOOL_OPTIONS", "-javaagent:${configurations.agent.singleFile} --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED")
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    withJavadocJar()
+    withSourcesJar()
 }

@@ -1,8 +1,8 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import {createRouter, createWebHashHistory, type RouteRecordRaw} from 'vue-router'
 import pagesRoutes from '@/pages/routes'
 
-const routes =  [
-    { // This is where we have to configure the default route
+const routes: RouteRecordRaw[] = [
+    {
         path: '/',
         redirect: '/applications'
     },
@@ -11,12 +11,12 @@ const routes =  [
         meta:{
             authenticationRequired: false
         },
-        component: () => import(/* webpackChunkName: "main" */'@/pages/FourOFour.vue')
+        component: () => import('@/pages/FourOFour.vue')
     },
 
     ...pagesRoutes,
 
-    { // Not found must be at end
+    {
         path: '/:catchAll(.*)',
         redirect: '/404'
     }
@@ -24,7 +24,7 @@ const routes =  [
 
 
 const router = createRouter({
-    history: createWebHistory(),
+    history: createWebHashHistory(),
     routes,
 })
 

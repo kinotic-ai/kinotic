@@ -1,0 +1,45 @@
+plugins {
+	id 'org.kinotic.java-library-conventions'
+	id 'io.freefair.lombok'
+}
+
+dependencies {
+
+	implementation project(':structures-api')
+	implementation project(':structures-auth')
+	implementation project(':structures-core')
+	implementation project(':structures-sql')
+
+	implementation 'org.springframework.boot:spring-boot-autoconfigure'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+	implementation 'io.jsonwebtoken:jjwt-api'
+	implementation 'io.jsonwebtoken:jjwt-impl'
+	implementation 'io.jsonwebtoken:jjwt-jackson'
+
+	implementation "com.github.ben-manes.caffeine:caffeine"
+
+    // using api directly 
+    implementation "javax.annotation:javax.annotation-api"
+
+	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'io.projectreactor:reactor-test'
+    testImplementation 'com.fasterxml.jackson.core:jackson-databind'
+    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation "org.testcontainers:junit-jupiter:${testContainersVersion}"
+	testImplementation "org.testcontainers:elasticsearch:${testContainersVersion}"
+	testImplementation 'com.github.dasniko:testcontainers-keycloak:3.8.0'
+
+	// Fix runtime linkage error in Testcontainers tar/copy (commons-compress expects newer commons-io).
+	// Without this you can see: NoSuchMethodError FileTimes.toUnixTime(FileTime)
+	testImplementation 'commons-io:commons-io:2.21.0'
+}
+
+test {
+    systemProperty 'spring.profiles.active', 'test'
+    // some tests take longer
+    timeout = Duration.ofMinutes(10)
+}

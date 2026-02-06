@@ -1,8 +1,0 @@
-spring:
-  main:
-    allow-circular-references: true
-
-logging:
-  level:
-    org:
-      kinotic: INFO

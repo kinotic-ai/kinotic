@@ -12,7 +12,7 @@ $ npm install -g @kinotic/structures-cli
 $ structures COMMAND
 running command...
 $ structures (--version)
-@kinotic/structures-cli/3.4.0 darwin-arm64 node-v22.13.1
+@kinotic/structures-cli/3.5.0 darwin-arm64 node-v22.13.1
 $ structures --help [COMMAND]
 USAGE
   $ structures COMMAND
@@ -22,8 +22,8 @@ USAGE
 # Commands
 <!-- commands -->
 * [`structures autocomplete [SHELL]`](#structures-autocomplete-shell)
-* [`structures gen [NAMESPACE]`](#structures-gen-namespace)
-* [`structures generate [NAMESPACE]`](#structures-generate-namespace)
+* [`structures gen`](#structures-gen)
+* [`structures generate`](#structures-generate)
 * [`structures help [COMMAND]`](#structures-help-command)
 * [`structures init`](#structures-init)
 * [`structures initialize`](#structures-initialize)
@@ -37,8 +37,8 @@ USAGE
 * [`structures plugins uninstall [PLUGIN]`](#structures-plugins-uninstall-plugin)
 * [`structures plugins unlink [PLUGIN]`](#structures-plugins-unlink-plugin)
 * [`structures plugins update`](#structures-plugins-update)
-* [`structures sync [NAMESPACE]`](#structures-sync-namespace)
-* [`structures synchronize [NAMESPACE]`](#structures-synchronize-namespace)
+* [`structures sync`](#structures-sync)
+* [`structures synchronize`](#structures-synchronize)
 * [`structures update [CHANNEL]`](#structures-update-channel)
 
 ## `structures autocomplete [SHELL]`
@@ -50,7 +50,7 @@ USAGE
   $ structures autocomplete [SHELL] [-r]
 
 ARGUMENTS
-  SHELL  (zsh|bash|powershell) Shell type
+  [SHELL]  (zsh|bash|powershell) Shell type
 
 FLAGS
   -r, --refresh-cache  Refresh cache (ignores displaying instructions)
@@ -70,18 +70,15 @@ EXAMPLES
   $ structures autocomplete --refresh-cache
 ```
 
-_See code: [@oclif/plugin-autocomplete](https://github.com/oclif/plugin-autocomplete/blob/v3.2.26/src/commands/autocomplete/index.ts)_
+_See code: [@oclif/plugin-autocomplete](https://github.com/oclif/plugin-autocomplete/blob/v3.2.39/src/commands/autocomplete/index.ts)_
 
-## `structures gen [NAMESPACE]`
+## `structures gen`
 
 This will generate all Entity Service classes.
 
 ```
 USAGE
-  $ structures gen [NAMESPACE] [-v]
-
-ARGUMENTS
-  NAMESPACE  The namespace that you want to generate service classes for
+  $ structures gen [-v]
 
 FLAGS
   -v, --verbose  Enable verbose logging
@@ -97,19 +94,16 @@ EXAMPLES
 
   $ structures gen
 
-  $ structures gen my.namespace -v
+  $ structures gen -v
 ```
 
-## `structures generate [NAMESPACE]`
+## `structures generate`
 
 This will generate all Entity Service classes.
 
 ```
 USAGE
-  $ structures generate [NAMESPACE] [-v]
-
-ARGUMENTS
-  NAMESPACE  The namespace that you want to generate service classes for
+  $ structures generate [-v]
 
 FLAGS
   -v, --verbose  Enable verbose logging
@@ -125,10 +119,10 @@ EXAMPLES
 
   $ structures gen
 
-  $ structures gen my.namespace -v
+  $ structures gen -v
 ```
 
-_See code: [src/commands/generate.ts](https://github.com/Kinotic-Foundation/structures/blob/v3.4.0/src/commands/generate.ts)_
+_See code: [src/commands/generate.ts](https://github.com/kinotic-ai/kinotic/blob/v3.5.0/src/commands/generate.ts)_
 
 ## `structures help [COMMAND]`
 
@@ -139,7 +133,7 @@ USAGE
   $ structures help [COMMAND...] [-n]
 
 ARGUMENTS
-  COMMAND...  Command to show help for.
+  [COMMAND...]  Command to show help for.
 
 FLAGS
   -n, --nested-commands  Include all nested commands in the output.
@@ -156,12 +150,12 @@ This will initialize a new Structures Project for use with the Structures CLI.
 
 ```
 USAGE
-  $ structures init -n <value> -e <value> -g <value>
+  $ structures init [-a <value>] [-e <value>] [-g <value>]
 
 FLAGS
-  -e, --entities=<value>   (required) Path to the directory containing the Entity definitions
-  -g, --generated=<value>  (required) Path to the directory to write generated Services
-  -n, --namespace=<value>  (required) The name of the namespace you want to use
+  -a, --application=<value>  The name of the application you want to use
+  -e, --entities=<value>     Path to the directory containing the Entity definitions
+  -g, --generated=<value>    Path to the directory to write generated Services
 
 DESCRIPTION
   This will initialize a new Structures Project for use with the Structures CLI.
@@ -170,11 +164,11 @@ ALIASES
   $ structures init
 
 EXAMPLES
-  $ structures initialize --namespace my.namespace --entities path/to/entities --generated path/to/services
+  $ structures initialize --application my.app --entities path/to/entities --generated path/to/services
 
-  $ structures init --namespace my.namespace --entities path/to/entities --generated path/to/services
+  $ structures init --application my.app --entities path/to/entities --generated path/to/services
 
-  $ structures init -n my.namespace -e path/to/entities -g path/to/services
+  $ structures init -a my.app -e path/to/entities -g path/to/services
 ```
 
 ## `structures initialize`
@@ -183,12 +177,12 @@ This will initialize a new Structures Project for use with the Structures CLI.
 
 ```
 USAGE
-  $ structures initialize -n <value> -e <value> -g <value>
+  $ structures initialize [-a <value>] [-e <value>] [-g <value>]
 
 FLAGS
-  -e, --entities=<value>   (required) Path to the directory containing the Entity definitions
-  -g, --generated=<value>  (required) Path to the directory to write generated Services
-  -n, --namespace=<value>  (required) The name of the namespace you want to use
+  -a, --application=<value>  The name of the application you want to use
+  -e, --entities=<value>     Path to the directory containing the Entity definitions
+  -g, --generated=<value>    Path to the directory to write generated Services
 
 DESCRIPTION
   This will initialize a new Structures Project for use with the Structures CLI.
@@ -197,14 +191,14 @@ ALIASES
   $ structures init
 
 EXAMPLES
-  $ structures initialize --namespace my.namespace --entities path/to/entities --generated path/to/services
+  $ structures initialize --application my.app --entities path/to/entities --generated path/to/services
 
-  $ structures init --namespace my.namespace --entities path/to/entities --generated path/to/services
+  $ structures init --application my.app --entities path/to/entities --generated path/to/services
 
-  $ structures init -n my.namespace -e path/to/entities -g path/to/services
+  $ structures init -a my.app -e path/to/entities -g path/to/services
 ```
 
-_See code: [src/commands/initialize.ts](https://github.com/Kinotic-Foundation/structures/blob/v3.4.0/src/commands/initialize.ts)_
+_See code: [src/commands/initialize.ts](https://github.com/kinotic-ai/kinotic/blob/v3.5.0/src/commands/initialize.ts)_
 
 ## `structures plugins`
 
@@ -227,7 +221,7 @@ EXAMPLES
   $ structures plugins
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.36/src/commands/plugins/index.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.54/src/commands/plugins/index.ts)_
 
 ## `structures plugins add PLUGIN`
 
@@ -301,7 +295,7 @@ EXAMPLES
   $ structures plugins inspect myplugin
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.36/src/commands/plugins/inspect.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.54/src/commands/plugins/inspect.ts)_
 
 ## `structures plugins install PLUGIN`
 
@@ -350,7 +344,7 @@ EXAMPLES
     $ structures plugins install someuser/someplugin
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.36/src/commands/plugins/install.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.54/src/commands/plugins/install.ts)_
 
 ## `structures plugins link PATH`
 
@@ -381,7 +375,7 @@ EXAMPLES
   $ structures plugins link myplugin
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.36/src/commands/plugins/link.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.54/src/commands/plugins/link.ts)_
 
 ## `structures plugins remove [PLUGIN]`
 
@@ -392,7 +386,7 @@ USAGE
   $ structures plugins remove [PLUGIN...] [-h] [-v]
 
 ARGUMENTS
-  PLUGIN...  plugin to uninstall
+  [PLUGIN...]  plugin to uninstall
 
 FLAGS
   -h, --help     Show CLI help.
@@ -422,7 +416,7 @@ FLAGS
   --reinstall  Reinstall all plugins after uninstalling.
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.36/src/commands/plugins/reset.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.54/src/commands/plugins/reset.ts)_
 
 ## `structures plugins uninstall [PLUGIN]`
 
@@ -433,7 +427,7 @@ USAGE
   $ structures plugins uninstall [PLUGIN...] [-h] [-v]
 
 ARGUMENTS
-  PLUGIN...  plugin to uninstall
+  [PLUGIN...]  plugin to uninstall
 
 FLAGS
   -h, --help     Show CLI help.
@@ -450,7 +444,7 @@ EXAMPLES
   $ structures plugins uninstall myplugin
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.36/src/commands/plugins/uninstall.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.54/src/commands/plugins/uninstall.ts)_
 
 ## `structures plugins unlink [PLUGIN]`
 
@@ -461,7 +455,7 @@ USAGE
   $ structures plugins unlink [PLUGIN...] [-h] [-v]
 
 ARGUMENTS
-  PLUGIN...  plugin to uninstall
+  [PLUGIN...]  plugin to uninstall
 
 FLAGS
   -h, --help     Show CLI help.
@@ -494,24 +488,22 @@ DESCRIPTION
   Update installed plugins.
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.36/src/commands/plugins/update.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.54/src/commands/plugins/update.ts)_
 
-## `structures sync [NAMESPACE]`
+## `structures sync`
 
 Synchronize the local Entity definitions with the Structures Server
 
 ```
 USAGE
-  $ structures sync [NAMESPACE] [-s <value>] [-p] [-v] [--dryRun]
-
-ARGUMENTS
-  NAMESPACE  The namespace the Entities belong to
+  $ structures sync [-s <value>] [-p] [-v] [-f <value>] [--dryRun]
 
 FLAGS
-  -p, --publish         Publish each Entity after save/update
-  -s, --server=<value>  The structures server to connect to
-  -v, --verbose         Enable verbose logging
-      --dryRun          Dry run enables verbose logging and does not save any changes to the server
+  -f, --authHeaderFile=<value>  JSON File containing authentication headers
+  -p, --publish                 Publish each Entity after save/update
+  -s, --server=<value>          The structures server to connect to
+  -v, --verbose                 Enable verbose logging
+      --dryRun                  Dry run enables verbose logging and does not save any changes to the server
 
 DESCRIPTION
   Synchronize the local Entity definitions with the Structures Server
@@ -524,27 +516,25 @@ EXAMPLES
 
   $ structures sync
 
-  $ structures synchronize my.namespace --server http://localhost:9090 --publish --verbose
+  $ structures synchronize --server http://localhost:9090 --publish --verbose
 
-  $ structures sync my.namespace -p -v -s http://localhost:9090
+  $ structures sync -p -v -s http://localhost:9090
 ```
 
-## `structures synchronize [NAMESPACE]`
+## `structures synchronize`
 
 Synchronize the local Entity definitions with the Structures Server
 
 ```
 USAGE
-  $ structures synchronize [NAMESPACE] [-s <value>] [-p] [-v] [--dryRun]
-
-ARGUMENTS
-  NAMESPACE  The namespace the Entities belong to
+  $ structures synchronize [-s <value>] [-p] [-v] [-f <value>] [--dryRun]
 
 FLAGS
-  -p, --publish         Publish each Entity after save/update
-  -s, --server=<value>  The structures server to connect to
-  -v, --verbose         Enable verbose logging
-      --dryRun          Dry run enables verbose logging and does not save any changes to the server
+  -f, --authHeaderFile=<value>  JSON File containing authentication headers
+  -p, --publish                 Publish each Entity after save/update
+  -s, --server=<value>          The structures server to connect to
+  -v, --verbose                 Enable verbose logging
+      --dryRun                  Dry run enables verbose logging and does not save any changes to the server
 
 DESCRIPTION
   Synchronize the local Entity definitions with the Structures Server
@@ -557,12 +547,12 @@ EXAMPLES
 
   $ structures sync
 
-  $ structures synchronize my.namespace --server http://localhost:9090 --publish --verbose
+  $ structures synchronize --server http://localhost:9090 --publish --verbose
 
-  $ structures sync my.namespace -p -v -s http://localhost:9090
+  $ structures sync -p -v -s http://localhost:9090
 ```
 
-_See code: [src/commands/synchronize.ts](https://github.com/Kinotic-Foundation/structures/blob/v3.4.0/src/commands/synchronize.ts)_
+_See code: [src/commands/synchronize.ts](https://github.com/kinotic-ai/kinotic/blob/v3.5.0/src/commands/synchronize.ts)_
 
 ## `structures update [CHANNEL]`
 
@@ -600,5 +590,5 @@ EXAMPLES
     $ structures update --available
 ```
 
-_See code: [@oclif/plugin-update](https://github.com/oclif/plugin-update/blob/v4.6.36/src/commands/update.ts)_
+_See code: [@oclif/plugin-update](https://github.com/oclif/plugin-update/blob/v4.7.16/src/commands/update.ts)_
 <!-- commandsstop -->

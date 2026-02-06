@@ -1,0 +1,21 @@
+
+# OIDC security service configuration for admin provider testing
+oidc-security-service:
+  enabled: true
+  debug: true
+  oidc-providers:
+    - provider: "keycloak-admin"
+      display-name: "Keycloak Admin"
+      enabled: true
+      roles-claim-path: "realm_access.roles"
+      domains:
+        - "example.com"
+      audience: "admin-client"
+      client-id: "admin-client"
+      authority: "${keycloak.test.url:http://localhost:8888/realms/test}"
+      redirect-uri: "http://localhost:8989/admin/login"
+      post-logout-redirect-uri: "http://localhost:8989/admin"
+      silent-redirect-uri: "http://localhost:8989/admin/login/silent-renew"
+      roles:
+        - "admin"
+        - "poweruser"

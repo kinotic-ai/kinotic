@@ -25,7 +25,7 @@ import org.kinotic.structures.api.domain.idl.decorators.QueryDecorator;
 import org.kinotic.structures.api.services.NamedQueriesService;
 import org.kinotic.structures.api.services.StructureService;
 import org.kinotic.structures.internal.api.services.StructureConversionService;
-import org.kinotic.structures.internal.config.OpenApiSecurityType;
+import org.kinotic.structures.api.config.OpenApiSecurityType;
 import org.kinotic.structures.internal.idl.converters.openapi.OpenApiConversionState;
 import org.kinotic.structures.internal.utils.OpenApiUtils;
 import org.kinotic.structures.internal.utils.QueryUtils;
@@ -64,21 +64,19 @@ public class DefaultOpenApiService implements OpenApiService {
 
     @WithSpan
     @Override
-    public CompletableFuture<OpenAPI> getOpenApiSpec(@SpanAttribute("namespace") String namespace) {
+    public CompletableFuture<OpenAPI> getOpenApiSpec(@SpanAttribute("applicationId") String applicationId) {
         return structureService
-                .findAllPublishedForNamespace(namespace, Pageable.ofSize(100))
+                .findAllPublishedForApplication(applicationId, Pageable.ofSize(100))
                 .thenComposeAsync(structures -> {
                     OpenAPI openAPI = new OpenAPI(SpecVersion.V30);
 
                     Info info = new Info()
-                            .title(namespace + " Structures API")
+                            .title(applicationId + " Structures API")
                             .version("1.0")
-                            .description("Provides access to Structures Items for the " + namespace + " namespace");
+                            .description("Provides access to Structures Items for the " + applicationId + " application");
                     openAPI.setInfo(info);
 
-                    if(structuresProperties.getOpenApiServerUrl() != null){
-                        openAPI.addServersItem(new Server().url(structuresProperties.getOpenApiServerUrl()));
-                    }
+                    openAPI.addServersItem(new Server().url(structuresProperties.getStructuresBaseUrl() + ":"  + structuresProperties.getOpenApiPort()));
 
                     Components components = new Components();
 
@@ -163,7 +161,7 @@ public class DefaultOpenApiService implements OpenApiService {
     private void addAdminPathItems(Paths paths, Structure structure){
 
         String basePath = structuresProperties.getOpenApiAdminPath();
-        String lowercaseNamespace = structure.getNamespace().toLowerCase();
+        String lowercaseApplication = structure.getApplicationId().toLowerCase();
         String lowercaseName = structure.getName().toLowerCase();
         String structureName = WordUtils.capitalize(structure.getName());
 
@@ -172,7 +170,7 @@ public class DefaultOpenApiService implements OpenApiService {
 
         Schema<?> tenantSpecificIdRef = new Schema<>().$ref(Components.COMPONENTS_SCHEMAS_REF + "TenantSpecificId");
 
-        // Create a path item for all the operations with basePath/structureNamespace/structureName/:tenantId/:id"
+        // Create a path item for all the operations with basePath/structureApplication/structureName/:tenantId/:id"
         PathItem byTenantAndIdPathItem = new PathItem();
 
         // Operation for get by id
@@ -198,7 +196,7 @@ public class DefaultOpenApiService implements OpenApiService {
         byTenantAndIdPathItem.delete(deleteOperation);
 
         // add the path item to the paths
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/{tenantId}/{id}", byTenantAndIdPathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/{tenantId}/{id}", byTenantAndIdPathItem);
 
 
         // Operation for delete by query
@@ -211,7 +209,7 @@ public class DefaultOpenApiService implements OpenApiService {
                 .requestBody(querySelectionRequest);
 
         deleteByQueryPathItem.post(deleteByQueryOperation);
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/delete/by-query", deleteByQueryPathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/delete/by-query", deleteByQueryPathItem);
 
         // Find by Ids Operation
         PathItem findByIdsPathItem = new PathItem();
@@ -223,9 +221,9 @@ public class DefaultOpenApiService implements OpenApiService {
                 .requestBody(OpenApiUtils.createArrayRequest(tenantSpecificIdRef,"The array of TenantSpecificId's"));
 
         findByIdsPathItem.post(findByIdsOperation);
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/find/by-ids", findByIdsPathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/find/by-ids", findByIdsPathItem);
 
-        // Create a path item for all the operations with basePath/structureNamespace/structureName/
+        // Create a path item for all the operations with basePath/structureApplication/structureName/
         // This will not conflict with save since the admin base prefix
         PathItem adminFindAllPathItem = new PathItem();
 
@@ -241,8 +239,8 @@ public class DefaultOpenApiService implements OpenApiService {
 
         adminFindAllPathItem.post(findAllOperation);
 
-        // add the path item for all paths like basePath/structureNamespace/structureName/
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName, adminFindAllPathItem);
+        // add the path item for all paths like basePath/structureApplication/structureName/
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName, adminFindAllPathItem);
 
 
         // total count Operation
@@ -255,7 +253,7 @@ public class DefaultOpenApiService implements OpenApiService {
                 .requestBody(OpenApiUtils.createStringArrayRequest("The list of tenants to count all entities for"));
         countPathItem.post(countOperation);
 
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/count/all", countPathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/count/all", countPathItem);
 
 
         // total count for query Operation
@@ -268,10 +266,10 @@ public class DefaultOpenApiService implements OpenApiService {
                 .requestBody(querySelectionRequest);
 
         countByQueryPathItem.post(countByQueryOperation);
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/count/by-query", countByQueryPathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/count/by-query", countByQueryPathItem);
 
 
-        // Create a path item for all the operations with basePath/structureNamespace/structureName/search
+        // Create a path item for all the operations with basePath/structureApplication/structureName/search
         PathItem searchPathItem = new PathItem();
         Operation searchOperation = createOperation("Admin Search for "+structureName +" entities",
                                                     "Searches for " + structureName + " entities matching the search query and tenant selection list. Supports paging and sorting.",
@@ -285,7 +283,7 @@ public class DefaultOpenApiService implements OpenApiService {
         searchPathItem.post(searchOperation);
 
         // add the path item for search to the paths
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/search", searchPathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/search", searchPathItem);
     }
 
 
@@ -293,11 +291,11 @@ public class DefaultOpenApiService implements OpenApiService {
     private void addDefaultPathItems(Paths paths, Structure structure){
 
         String basePath = structuresProperties.getOpenApiPath();
-        String lowercaseNamespace = structure.getNamespace().toLowerCase();
+        String lowercaseApplication = structure.getApplicationId().toLowerCase();
         String lowercaseName = structure.getName().toLowerCase();
         String structureName = WordUtils.capitalize(structure.getName());
 
-        // Create a path item for all the operations with basePath/structureNamespace/structureName/:id"
+        // Create a path item for all the operations with basePath/structureApplication/structureName/:id"
         PathItem byIdPathItem = new PathItem();
 
         // Operation for get by id
@@ -318,7 +316,7 @@ public class DefaultOpenApiService implements OpenApiService {
                 .addParametersItem(OpenApiUtils.createPathParameter("id", "The id of the "+structureName+" to delete."));
         byIdPathItem.delete(deleteOperation);
 
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/{id}", byIdPathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/{id}", byIdPathItem);
 
 
         // Operation for delete by query
@@ -330,7 +328,7 @@ public class DefaultOpenApiService implements OpenApiService {
                                                            -1)
                 .requestBody(OpenApiUtils.createTextRequest("The query filter for delete operation"));
         deleteByQueryPathItem.post(deleteByQueryOperation);
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/delete/by-query", deleteByQueryPathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/delete/by-query", deleteByQueryPathItem);
 
 
         // Find by Ids Operation
@@ -342,10 +340,10 @@ public class DefaultOpenApiService implements OpenApiService {
                                                        3)
                 .requestBody(OpenApiUtils.createStringArrayRequest("The array of id's"));
         findByIdsPathItem.post(findByIdsOperation);
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/find/by-ids", findByIdsPathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/find/by-ids", findByIdsPathItem);
 
 
-        // Create a path item for all the operations with basePath/structureNamespace/structureName/
+        // Create a path item for all the operations with basePath/structureApplication/structureName/
         PathItem structurePathItem = new PathItem();
 
         // Request body for save operations
@@ -371,8 +369,8 @@ public class DefaultOpenApiService implements OpenApiService {
                 .requestBody(structureRequestBody);
         structurePathItem.post(saveOperation);
 
-        // add the path item for all paths like basePath/structureNamespace/structureName/
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName, structurePathItem);
+        // add the path item for all paths like basePath/structureApplication/structureName/
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName, structurePathItem);
 
         // Sync Index operation
         PathItem syncPathItem = new PathItem();
@@ -382,7 +380,7 @@ public class DefaultOpenApiService implements OpenApiService {
                                                   structure,
                                                   -1);
         syncPathItem.get(syncOperation);
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/util/sync", syncPathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/util/sync", syncPathItem);
 
 
         // Update Operation
@@ -394,7 +392,7 @@ public class DefaultOpenApiService implements OpenApiService {
                                                     1)
                 .requestBody(structureRequestBody);
         updatePathItem.post(updateOperation);
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/update", updatePathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/update", updatePathItem);
 
 
         // Bulk Save Operation
@@ -406,7 +404,7 @@ public class DefaultOpenApiService implements OpenApiService {
                                                       -1)
                 .requestBody(OpenApiUtils.createArrayRequest(structureRefSchema, "List of entities to save"));
         bulkSavePathItem.post(bulkSaveOperation);
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/bulk", bulkSavePathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/bulk", bulkSavePathItem);
 
 
         // Bulk Update Operation
@@ -418,7 +416,7 @@ public class DefaultOpenApiService implements OpenApiService {
                                                         -1)
                 .requestBody(OpenApiUtils.createArrayRequest(structureRefSchema, "List of entities to update"));
         bulkUpdatePathItem.post(bulkUpdateOperation);
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/bulk-update", bulkUpdatePathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/bulk-update", bulkUpdatePathItem);
 
 
         // total count Operation
@@ -429,7 +427,7 @@ public class DefaultOpenApiService implements OpenApiService {
                                                    structure,
                                                    0);
         countPathItem.get(countOperation);
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/count/all", countPathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/count/all", countPathItem);
 
 
         // total count for query Operation
@@ -441,10 +439,10 @@ public class DefaultOpenApiService implements OpenApiService {
                                                           0)
                 .requestBody(OpenApiUtils.createTextRequest("The query to get counts for"));
         countByQueryPathItem.post(countByQueryOperation);
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/count/by-query", countByQueryPathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/count/by-query", countByQueryPathItem);
 
 
-        // Create a path item for all the operations with basePath/structureNamespace/structureName/search
+        // Create a path item for all the operations with basePath/structureApplication/structureName/search
         PathItem searchPathItem = new PathItem();
         Operation searchOperation = createOperation("Search for "+structureName +" entities",
                                                     "Searches for " + structureName + " entities matching the search criteria. Supports paging and sorting.",
@@ -458,7 +456,7 @@ public class DefaultOpenApiService implements OpenApiService {
         searchPathItem.post(searchOperation);
 
         // add the path item for search to the paths
-        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/search", searchPathItem);
+        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/search", searchPathItem);
     }
 
     @WithSpan
@@ -468,9 +466,9 @@ public class DefaultOpenApiService implements OpenApiService {
                                         IdlConverter<Schema<?>, OpenApiConversionState> converter,
                                         Components components){
 
-        String lowercaseNamespace = structure.getNamespace().toLowerCase();
+        String lowercaseApplication = structure.getApplicationId().toLowerCase();
         String lowercaseName = structure.getName().toLowerCase();
-        NamedQueriesDefinition namedQueriesDefinition = namedQueriesService.findByNamespaceAndStructure(structure.getNamespace(),
+        NamedQueriesDefinition namedQueriesDefinition = namedQueriesService.findByApplicationAndStructure(structure.getApplicationId(),
                                                                                                         structure.getName())
                                                                            .join();
         if(namedQueriesDefinition != null){
@@ -506,7 +504,7 @@ public class DefaultOpenApiService implements OpenApiService {
                     queryPathItem.post(queryOperation);
 
                     // vertx route is
-                    // :structureNamespace/:structureName/named-query/:queryName
+                    // :structureApplication/:structureName/named-query/:queryName
                     // TODO: should we also check if a Pageable parameter is defined in the FunctionDefinition
                     if (query.getReturnType() instanceof PageC3Type) {
                         SqlQueryType queryType = QueryUtils.determineQueryType(queryDecorator.getStatements());
@@ -524,10 +522,10 @@ public class DefaultOpenApiService implements OpenApiService {
                                          queryType);
                                 break;
                         }
-                        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/named-query-page/" + queryName,
+                        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/named-query-page/" + queryName,
                                   queryPathItem);
                     } else {
-                        paths.put(basePath + lowercaseNamespace + "/" + lowercaseName + "/named-query/" + queryName,
+                        paths.put(basePath + lowercaseApplication + "/" + lowercaseName + "/named-query/" + queryName,
                                   queryPathItem);
                     }
                 }else{

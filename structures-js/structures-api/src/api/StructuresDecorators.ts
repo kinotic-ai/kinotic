@@ -1,8 +1,9 @@
 import 'reflect-metadata'
-import {EntityType} from '@/api/idl/decorators/EntityType.js'
-import {EsIndexConfigurationData} from '@/api/idl/decorators/EsIndexConfigurationData.js'
+import {EntityType} from '@/api/idl/decorators/EntityType'
+import {EsIndexConfigurationData} from '@/api/idl/decorators/EsIndexConfigurationData'
 import {MultiTenancyType} from '@/api/idl/decorators/MultiTenancyType'
 import {PrecisionType} from '@/api/idl/decorators/PrecisionType'
+import {EntityServiceDecoratorsConfig} from '@/api/idl/decorators/EntityServiceDecoratorsConfig'
 
 export enum StructuresDecorator {
     Entity = '__structures-entity__',
@@ -14,7 +15,8 @@ export enum StructuresDecorator {
     NotNull = '__structures-notnull__',
     Precision = '__structures-precision__',
     Discriminator = '__structures-discriminator__',
-    Query = '__structures-query__'
+    Query = '__structures-query__',
+    EntityServiceDecorators = '__structures-entity-service-decorators__'
 }
 
 /**
@@ -71,11 +73,8 @@ export function Entity(multiTenancyType: MultiTenancyType = MultiTenancyType.NON
  * A class Decorator when applied to an Entity will configure Decorators to be applied to the EntityService
  * @param config the {@link EntityServiceDecoratorsConfig} to use
  */
-// @ts-ignore
-export function EntityServiceDecorators(config: EntityServiceDecoratorsConfig) {
-    // @ts-ignore
-    return function (constructor: Function) {
-
+export function EntityServiceDecorators(_config: EntityServiceDecoratorsConfig) {
+    return function (_constructor: Function) {
     }
 }
 
@@ -83,11 +82,8 @@ export function EntityServiceDecorators(config: EntityServiceDecoratorsConfig) {
  * Provides configuration for the Elasticsearch index.
  * This can be used to override the default index settings and mappings used by Structures.
  */
-// @ts-ignore
-export function EsIndexConfiguration(value: EsIndexConfigurationData) {
-    // @ts-ignore
-    return function (constructor: Function) {
-
+export function EsIndexConfiguration(_value: EsIndexConfigurationData) {
+    return function (_constructor: Function) {
     }
 }
 
@@ -109,20 +105,15 @@ export function Nested(target: any, propertyKey: string) {
 /**
  * Signifies that a property is not indexed in Elasticsearch.
  */
-// @ts-ignore
-export function NotIndexed(target: any, propertyKey: string) {
-
+export function NotIndexed(_target: any, _propertyKey: string) {
 }
 
 export function NotNull(target: any, propertyKey: string) {
     Reflect.defineMetadata(StructuresDecorator.NotNull, {}, target, propertyKey)
 }
 
-// @ts-ignore
-export function Policy(policies: string[][]) {
-    // Definition below allows decorator to be used for class, method, or properties
-    // @ts-ignore
-    return function (target: any, propertyKey?: string, descriptor?: PropertyDescriptor) {
+export function Policy(_policies: string[][]) {
+    return function (_target: any, _propertyKey?: string, _descriptor?: PropertyDescriptor) {
         // if (descriptor) {
         //     // Method Decorator
         // } else if (propertyKey) {
@@ -149,33 +140,13 @@ export function Precision(precisionType: PrecisionType = PrecisionType.INT){
 
 export function Query(statements: string) {
     return function (target: any, key: string, descriptor: PropertyDescriptor) {
-
         Reflect.defineMetadata(StructuresDecorator.Query, statements, target, key)
-
-        /** Code below will be needed if we want the auto generated invocation logic to live in the base service class for the entity service **/
-        // const originalMethod = descriptor.value;
-        //
-        // // Access the super class and its method
-        // const superClass = Object.getPrototypeOf(target.constructor.prototype);
-        // const superMethod = superClass[key];
-        //
-        // descriptor.value = function (...args: any[]) {
-        //     // Check if the super method exists
-        //     if (typeof superMethod === 'function') {
-        //         return superMethod.apply(this, args);
-        //     } else {
-        //         return originalMethod.apply(this, args);
-        //     }
-        // };
-
         return descriptor;
     }
 }
 
-// @ts-ignore
-export function Role(roles: string[]) {
-    // @ts-ignore
-    return function (target: any, propertyKey?: string, descriptor?: PropertyDescriptor) {
+export function Role(_roles: string[]) {
+    return function (_target: any, _propertyKey?: string, _descriptor?: PropertyDescriptor) {
     }
 }
 
@@ -186,16 +157,11 @@ export function Text(target: any, propertyKey: string) {
 /**
  * This is used for data streams to signify the field that should be used as the time reference.
  */
-// @ts-ignore
-export function TimeReference(target: any, propertyKey: string) {
+export function TimeReference(_target: any, _propertyKey: string) {
 }
 
-// @ts-ignore
-export function Version(target: any, propertyKey: string) {
-
+export function Version(_target: any, _propertyKey: string) {
 }
 
-// @ts-ignore
-export function TenantId(target: any, propertyKey: string) {
-
+export function TenantId(_target: any, _propertyKey: string) {
 }

@@ -1,4 +1,4 @@
-import {PersonEntityService} from '@/entity/services/PersonEntityService.js'
+import {PersonEntityService} from '@/services/PersonEntityService.js'
 import {ContinuumOperationTaskGenerator} from '@/tasks/ContinuumOperationTaskGenerator.js'
 import {ITaskFactory} from '@/tasks/ITaskFactory.js'
 import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
@@ -34,8 +34,8 @@ export class SaveTaskGenerator implements ITaskGenerator {
 
         this.continuumTaskGenerator = new ContinuumOperationTaskGenerator(connectionInfoSupplier,
                                                                           continuum,
-                                                                         numberOfPeopleToCreate / batchSize,
-                                                                         this.createTaskFactory(batchSize))
+                                                                          numberOfPeopleToCreate / batchSize,
+                                                                          this.createTaskFactory(batchSize))
     }
 
     getNextTask(): ITask {

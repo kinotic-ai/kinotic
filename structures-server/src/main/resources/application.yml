@@ -11,3 +11,4 @@ logging:
 structures:
   openApiSecurityType: BASIC
   enableStaticFileServer: true
+  

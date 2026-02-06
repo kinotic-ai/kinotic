@@ -15,7 +15,7 @@ import org.kinotic.structures.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.structures.internal.api.hooks.UpsertFieldPreProcessor;
 import org.kinotic.structures.internal.api.services.EntityService;
 import org.kinotic.structures.internal.api.services.StructureDAO;
-import org.kinotic.structures.internal.idl.converters.common.DecoratedProperty;
+import org.kinotic.structures.api.domain.DecoratedProperty;
 import org.kinotic.structures.internal.utils.StructuresUtil;
 import org.springframework.stereotype.Component;
 

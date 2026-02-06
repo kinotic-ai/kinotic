@@ -15,6 +15,14 @@ logging:
         util: DEBUG
         buffer: DEBUG
 
+spring:
+  ai:
+    openai:
+      api-key: "noop"
+      base-url: https://api.x.ai
+      chat:
+        options:
+          model: grok-4
 
 structures:
   initializeWithSampleData: true
@@ -22,12 +30,13 @@ structures:
   corsAllowedHeaders:
     - "*"
   corsAllowCredentials: true
-#  elastic-connections:
-#    - scheme: "https"
-#      host: "test.com"
-#      port: "443"
-#    - scheme: "http"
-#      host: "host2.com"
-#      port: "9200"
-#  elastic-password: "test"
-#  elastic-username: "bob"
+  elastic-connections:
+   - scheme: "http"
+     host: "localhost"
+     port: "9200"
+
+
+# OIDC security service configuration
+# oidc-security-service:
+#   enabled: false
+#   debug: false

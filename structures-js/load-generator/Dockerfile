@@ -14,6 +14,10 @@ RUN corepack enable
 RUN groupmod -g 999 node && usermod -u 999 -g 999 node
 USER node
 WORKDIR /app
-COPY --from=builder /app .
-ENV NODE_ENV production
+# Copy only what we need, maintaining the same structure as dev
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/pnpm-lock.yaml ./
+RUN pnpm install --prod
+ENV NODE_ENV=production
 CMD ["node", "./dist/main.mjs"]

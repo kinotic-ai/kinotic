@@ -35,9 +35,9 @@ publishing {
             }
 
             pom {
-                name = 'Structures Framework'
-                description = 'Framework for data storage and retrieval, supporting schema evolution!'
-                url = 'https://structuresframework.org'
+                name = 'Kinotic'
+                description = 'Rapid development platform for AI powered applications'
+                url = 'https://kinotic.ai'
 
                 licenses {
                     license {
@@ -47,14 +47,14 @@ publishing {
                 }
                 developers {
                     developer {
-                        name = 'Kinotic Developers'
-                        email = 'develop@kinotic.org'
+                        name = 'Kinotic AI Development Team'
+                        email = 'develop@kinotic.ai'
                     }
                 }
                 scm {
-                    connection = 'scm:git:https://github.com/Kinotic-Foundation/structures.git'
-                    developerConnection = 'scm:git:https://github.com/Kinotic-Foundation/structures.git'
-                    url = 'https://github.com/Kinotic-Foundation/structures'
+                    connection = 'scm:git:https://github.com/kinotic-ai/kinotic.git'
+                    developerConnection = 'scm:git:https://github.com/kinotic-ai/kinotic.git'
+                    url = 'https://github.com/kinotic-ai/kinotic'
                 }
             }
         }

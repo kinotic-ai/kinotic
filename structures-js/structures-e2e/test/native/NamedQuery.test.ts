@@ -26,6 +26,8 @@ Object.assign(global, { WebSocket})
 
 interface LocalTestContext {
     structure: Structure
+    applicationIdUsed: string
+    projectIdUsed: string
     entityService: IEntityService<Person>
 }
 
@@ -42,22 +44,26 @@ describe('End To End Tests', () => {
     }, 60000)
 
     beforeEach<LocalTestContext>(async (context) => {
-        context.structure = await createPersonStructureIfNotExist(generateRandomString(5))
+        context.applicationIdUsed = generateRandomString(10)
+        context.projectIdUsed = generateRandomString(5)
+        context.structure = await createPersonStructureIfNotExist(context.applicationIdUsed, context.projectIdUsed)
         expect(context.structure).toBeDefined()
-        context.entityService = Structures.createEntityService(context.structure.namespace, context.structure.name)
+        context.entityService = Structures.createEntityService(context.structure.applicationId, context.structure.name)
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
         await expect(deleteStructure(context.structure.id as string)).resolves.toBeUndefined()
         await expect(Structures.getStructureService().syncIndex()).resolves.toBeNull()
-        await Structures.getNamespaceService().deleteById(context.structure.namespace)
+        await Structures.getProjectService().deleteById(context.structure.projectId)
+        await expect(Structures.getProjectService().syncIndex()).resolves.toBeNull()
+        await Structures.getApplicationService().deleteById(context.structure.applicationId)
     })
 
 
     it<LocalTestContext>(
         'Aggregate Test',
-        async ({entityService}) => {
+        async ({entityService, applicationIdUsed, projectIdUsed}) => {
             // Create people
             await createTestPeopleAndVerify(entityService, 100)
 
@@ -65,11 +71,12 @@ describe('End To End Tests', () => {
 
             const query = new QueryDecorator(`SELECT COUNT(firstName) as count FROM "struct_${structureId}"`)
             const namedQuery = new FunctionDefinition('countAllPeople', [query])
-            namedQuery.returnType = new ArrayC3Type(new ObjectC3Type('PeopleCount', entityService.structureNamespace)
+            namedQuery.returnType = new ArrayC3Type(new ObjectC3Type('PeopleCount', applicationIdUsed)
                                                         .addProperty("count", new LongC3Type()))
 
             const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
-                                                                      entityService.structureNamespace,
+                                                                      applicationIdUsed,
+                                                                      projectIdUsed,
                                                                       entityService.structureName,
                                                                       [namedQuery])
 
@@ -87,7 +94,7 @@ describe('End To End Tests', () => {
 
     it<LocalTestContext>(
         'Aggregate With Parameter Test',
-        async ({entityService}) => {
+        async ({entityService, applicationIdUsed, projectIdUsed}) => {
             // Create people
             await createTestPeopleAndVerify(entityService, 100)
 
@@ -96,13 +103,14 @@ describe('End To End Tests', () => {
             const query = new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "struct_${structureId}" WHERE lastName = ? GROUP BY lastName`)
             const namedQuery = new FunctionDefinition('countPeopleByLastNameWithLastName', [query])
             namedQuery.addParameter('lastName', new StringC3Type())
-            const contentType = new ObjectC3Type('CountByLastName', entityService.structureNamespace)
+            const contentType = new ObjectC3Type('CountByLastName', applicationIdUsed)
                 .addProperty("count", new LongC3Type())
                 .addProperty("lastName", new StringC3Type())
             namedQuery.returnType = new ArrayC3Type(contentType)
 
             const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
-                                                                      entityService.structureNamespace,
+                                                                      applicationIdUsed,
+                                                                      projectIdUsed,
                                                                       entityService.structureName,
                                                                       [namedQuery])
 
@@ -122,7 +130,7 @@ describe('End To End Tests', () => {
 
     it<LocalTestContext>(
         'Aggregate Pageable Test',
-        async ({entityService}) => {
+        async ({entityService, applicationIdUsed, projectIdUsed}) => {
             // Create people
             await createTestPeopleAndVerify(entityService, 100)
 
@@ -130,13 +138,14 @@ describe('End To End Tests', () => {
             const query = new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "struct_${structureId}" GROUP BY lastName`)
             const namedQuery = new FunctionDefinition('countPeopleByLastNamePage', [query])
             namedQuery.addParameter('pageable', new PageableC3Type())
-            const contentType = new ObjectC3Type('CountByLastName', entityService.structureNamespace)
+            const contentType = new ObjectC3Type('CountByLastName', applicationIdUsed)
                 .addProperty("count", new LongC3Type())
                 .addProperty("lastName", new StringC3Type())
             namedQuery.returnType = new PageC3Type(contentType)
 
             const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
-                                                                      entityService.structureNamespace,
+                                                                      applicationIdUsed,
+                                                                      projectIdUsed,
                                                                       entityService.structureName,
                                                                       [namedQuery])
 
@@ -167,20 +176,20 @@ describe('End To End Tests', () => {
 
     it<LocalTestContext>(
         'Test Save Multiple',
-        async ({entityService}) => {
+        async ({entityService, applicationIdUsed, projectIdUsed}) => {
             const structureId = entityService.structureId
             const namedQueriesService = Structures.getNamedQueriesService()
 
             const query = new QueryDecorator(`SELECT COUNT(firstName) as count FROM "struct_${structureId}"`)
             const namedQuery = new FunctionDefinition('countAllPeople', [query])
-            namedQuery.returnType = new ArrayC3Type(new ObjectC3Type('PeopleCount', entityService.structureNamespace)
+            namedQuery.returnType = new ArrayC3Type(new ObjectC3Type('PeopleCount', applicationIdUsed)
                                                         .addProperty("count", new LongC3Type()))
 
 
             const query2 = new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "struct_${structureId}" WHERE lastName = ? GROUP BY lastName`)
             const namedQuery2 = new FunctionDefinition('countPeopleByLastNameWithLastName', [query2])
             namedQuery2.addParameter('lastName', new StringC3Type())
-            const contentType2 = new ObjectC3Type('CountByLastName', entityService.structureNamespace)
+            const contentType2 = new ObjectC3Type('CountByLastName', applicationIdUsed)
                 .addProperty("count", new LongC3Type())
                 .addProperty("lastName", new StringC3Type())
             namedQuery2.returnType = new ArrayC3Type(contentType2)
@@ -189,14 +198,15 @@ describe('End To End Tests', () => {
             const query3 = new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "struct_${structureId}" GROUP BY lastName`)
             const namedQuery3 = new FunctionDefinition('countPeopleByLastNamePage', [query3])
             namedQuery3.addParameter('pageable', new PageableC3Type())
-            const contentType3 = new ObjectC3Type('CountByLastName', entityService.structureNamespace)
+            const contentType3 = new ObjectC3Type('CountByLastName', applicationIdUsed)
                 .addProperty("count", new LongC3Type())
                 .addProperty("lastName", new StringC3Type())
             namedQuery3.returnType = new PageC3Type(contentType3)
 
             // Save the named queries
             const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
-                                                                      entityService.structureNamespace,
+                                                                      applicationIdUsed,
+                                                                      projectIdUsed,
                                                                       entityService.structureName,
                                                                       [namedQuery, namedQuery2, namedQuery3])
             await namedQueriesService.save(namedQueriesDefinition)

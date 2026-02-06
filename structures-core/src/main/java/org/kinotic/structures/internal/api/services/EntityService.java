@@ -7,7 +7,7 @@ import org.kinotic.structures.api.domain.EntityContext;
 import org.kinotic.structures.api.domain.RawJson;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.TenantSpecificId;
-import org.kinotic.structures.internal.api.services.sql.ParameterHolder;
+import org.kinotic.structures.api.domain.ParameterHolder;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

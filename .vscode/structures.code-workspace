@@ -1,0 +1,31 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../continuum-client-js"
+		}
+	],
+	"settings": {
+		"npm.packageManager": "pnpm",
+		"gradle.debug": true,
+		"gradle.nestedProjects": false,
+		"java.compile.nullAnalysis.mode": "automatic",
+		"java.configuration.updateBuildConfiguration": "interactive",
+		"java.import.gradle.wrapper.enabled": true,
+		"java.debug.settings.onBuildFailureProceed": true,
+		"typescript.preferences.includePackageJsonAutoImports": "on",
+		"debug.javascript.autoAttachFilter": "smart",
+		"typescript.suggest.autoImports": true,
+		"typescript.updateImportsOnFileMove.enabled": "always",
+		"typescript.preferences.importModuleSpecifier": "relative",
+		"typescript.suggest.paths": true,
+		"debug.javascript.terminalOptions": {
+			"skipFiles": [
+				"<node_internals>/**",
+				"**/node_modules/**"
+			]
+		}
+	}
+}

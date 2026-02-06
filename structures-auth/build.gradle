@@ -1,0 +1,25 @@
+plugins {
+	id 'org.kinotic.java-library-conventions'
+	id 'io.freefair.lombok'
+}
+
+dependencies {
+
+	implementation project(':structures-api')
+
+	implementation 'org.springframework.boot:spring-boot-autoconfigure'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+	implementation 'io.jsonwebtoken:jjwt-api'
+	implementation 'io.jsonwebtoken:jjwt-impl'
+	implementation 'io.jsonwebtoken:jjwt-jackson'
+
+	implementation "com.github.ben-manes.caffeine:caffeine"
+
+    // using api directly 
+    implementation "javax.annotation:javax.annotation-api"
+
+	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+}

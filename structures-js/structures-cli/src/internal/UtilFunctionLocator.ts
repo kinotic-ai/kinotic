@@ -1,17 +1,17 @@
 import fs from 'fs'
 import path from 'path'
 import {FunctionDeclaration, Project} from 'ts-morph'
-import {NamespaceConfiguration} from './state/StructuresProject.js'
+import {TypescriptExternalProjectConfig} from '@kinotic/structures-api'
 import {pathToTsGlobPath} from './Utils.js'
 
 export class UtilFunctionLocator {
 
-    private namespaceConfig: NamespaceConfiguration
+    private config: TypescriptExternalProjectConfig
     private project: Project
     private functionCache = new Map<string, FunctionDeclaration>()
 
-    constructor(namespaceConfig: NamespaceConfiguration, verbose: boolean) {
-        this.namespaceConfig = namespaceConfig
+    constructor(config: TypescriptExternalProjectConfig, verbose: boolean) {
+        this.config = config
 
         const tsConfigFilePath = path.resolve('tsconfig.json')
         if(!fs.existsSync(tsConfigFilePath)){
@@ -25,8 +25,8 @@ export class UtilFunctionLocator {
             this.project.enableLogging(true)
         }
 
-        if(namespaceConfig.utilFunctionsPaths) {
-            for (const utilFunctionsPath of namespaceConfig.utilFunctionsPaths) {
+        if(config.utilFunctionsPaths) {
+            for (const utilFunctionsPath of config.utilFunctionsPaths) {
                 this.project.addSourceFilesAtPaths(pathToTsGlobPath(utilFunctionsPath))
             }
         }
@@ -57,11 +57,11 @@ export class UtilFunctionLocator {
 
     private isInFunctionPaths(pathToCheck: string){
         let ret = false
-        if(this.namespaceConfig.utilFunctionsPaths) {
+        if(this.config.utilFunctionsPaths) {
 
             const absPathToCheck = path.resolve(pathToCheck)
 
-            for (const utilFunctionsPath of this.namespaceConfig.utilFunctionsPaths) {
+            for (const utilFunctionsPath of this.config.utilFunctionsPaths) {
 
                 let absFuncPath = path.resolve(utilFunctionsPath)
                 if(!absFuncPath.endsWith('.ts') && !absFuncPath.endsWith(path.sep)){

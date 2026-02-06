@@ -1,0 +1,43 @@
+{
+    "npm.packageManager": "pnpm",
+    "gradle.debug": true,
+    "gradle.autoDetect": "on",
+    "gradle.nestedProjects": false,
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.import.gradle.wrapper.enabled": true,
+    "java.test.config": {
+      "name": "testConfig",
+      "testKind": "junit",
+      "env": {
+        "JAVA_TOOL_OPTIONS": "-Dspring.profiles.active=test,debug,eviction-tracking --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED",
+      },
+      "vmargs": [
+        "-XX:MaxDirectMemorySize=1g",
+        "-Xmx4096m",
+        "-XX:+AlwaysPreTouch",
+        "-XX:+UseG1GC",
+        "-XX:+ScavengeBeforeFullGC",
+        "-XX:+DisableExplicitGC",
+      ],
+      "workingDirectory": "${workspaceFolder}"
+    },
+    "java.test.defaultConfig": "testConfig",
+    "java.debug.settings.onBuildFailureProceed": true,
+    "typescript.preferences.includePackageJsonAutoImports": "on",
+    "typescript.suggest.autoImports": true,
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    "typescript.preferences.importModuleSpecifier": "relative",
+    "typescript.suggest.paths": true,
+    "debug.javascript.autoAttachFilter": "smart",
+    "debug.javascript.terminalOptions": {
+        "skipFiles": [
+            "<node_internals>/**",
+            "**/node_modules/**"
+        ]
+    },
+    "typescript.tsdk": "structures-frontend-next/node_modules/typescript/lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true,
+    "volar.useWorkspaceTsdk": true,
+    "workbench.colorTheme": "Darcula (IntelliJ)"
+}

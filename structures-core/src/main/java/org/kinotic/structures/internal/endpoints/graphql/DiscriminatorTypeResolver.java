@@ -17,18 +17,19 @@ public class DiscriminatorTypeResolver implements TypeResolver {
 
     @Override
     public GraphQLObjectType getType(TypeResolutionEnvironment env) {
-        if(env.getObject() instanceof Map){
-            //noinspection unchecked
-            Object discriminatorValue = ((Map<String, Object>) env.getObject()).get(discriminatorField);
-            if(discriminatorValue instanceof String){
-                String typeName = discriminatorValue.toString();
-                return env.getSchema().getObjectType(typeName);
-
-            }else {
-                throw new IllegalStateException("Discriminator field must be a string");
-            }
-        }else{
+        Object obj = env.getObject();
+        if (!(obj instanceof Map)) {
             throw new IllegalStateException("DiscriminatorTypeResolver can only be used with Map objects");
+        }
+        
+        @SuppressWarnings("unchecked")
+        Map<String, Object> map = (Map<String, Object>) obj;
+        Object discriminatorValue = map.get(discriminatorField);
+        if(discriminatorValue instanceof String){
+            String typeName = discriminatorValue.toString();
+            return env.getSchema().getObjectType(typeName);
+        } else {
+            throw new IllegalStateException("Discriminator field must be a string");
         }
     }
 }

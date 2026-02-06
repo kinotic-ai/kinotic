@@ -8,7 +8,7 @@ export class GqlUnionToC3Type implements ITypeConverter<GraphQLType, C3Type, Gql
 
     convert(value: GraphQLType, conversionContext: IConversionContext<GraphQLType, C3Type, GqlConversionState>): C3Type {
         if (value instanceof GraphQLUnionType) {
-            const unionC3Type = new UnionC3Type(value.name, conversionContext.state().namespace)
+            const unionC3Type = new UnionC3Type(value.name, conversionContext.state().application)
 
             const types = value.getTypes()
             unionC3Type.types = types.map(type => {

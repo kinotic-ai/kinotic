@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 @RequiredArgsConstructor
 public class GqlVerticle extends AbstractVerticle {
 
-    public static final String NAMESPACE_PATH_PARAMETER = "structureNamespace";
+    public static final String APPLICATION_PATH_PARAMETER = "structureApplication";
 
     private static final Logger log = LoggerFactory.getLogger(GqlVerticle.class);
     private final DelegatingGqlHandler gqlHandler;
@@ -40,7 +40,13 @@ public class GqlVerticle extends AbstractVerticle {
 
         router.route().failureHandler(VertxWebUtil.createExceptionConvertingFailureHandler());
 
-        CorsHandler corsHandler = CorsHandler.create(properties.getCorsAllowedOriginPattern())
+        String allowedOriginPattern = properties.getCorsAllowedOriginPattern();
+        if ("*".equals(allowedOriginPattern)) {
+            allowedOriginPattern = ".*";
+          }
+
+        CorsHandler corsHandler = CorsHandler.create()
+                                             .addRelativeOrigin(allowedOriginPattern)
                                              .allowedHeaders(properties.getCorsAllowedHeaders());
 
         if(properties.getCorsAllowCredentials() != null){
@@ -53,7 +59,7 @@ public class GqlVerticle extends AbstractVerticle {
             router.route().handler(new AuthenticationHandler(securityService, vertx));
         }
 
-        router.post(properties.getGraphqlPath()+":"+NAMESPACE_PATH_PARAMETER)
+        router.post(properties.getGraphqlPath()+":"+APPLICATION_PATH_PARAMETER)
               .consumes("application/json")
               .consumes("application/graphql")
               .produces("application/json")

@@ -10,9 +10,9 @@ import {Page, Pageable, IterablePage} from '@kinotic/continuum-client'
 export interface IAdminEntityService<T> {
 
     /**
-     * The namespace of the structure this service is for
+     * The application id of the structure this service is for
      */
-    structureNamespace: string
+    structureApplicationId: string
 
     /**
      * The name of the structure this service is for
@@ -21,7 +21,7 @@ export interface IAdminEntityService<T> {
 
     /**
      * The id of the structure this service is for
-     * Which is the namespace + '.' + name
+     * Which is the applicationId + '.' + name
      */
     structureId: string
 
@@ -126,18 +126,18 @@ export interface IAdminEntityService<T> {
  */
 export class AdminEntityService<T> implements IAdminEntityService<T>{
 
-    public structureNamespace: string
+    public structureApplicationId: string
     public structureName: string
     public structureId: string
 
     private readonly adminEntitiesService: IAdminEntitiesService
 
-    public constructor(structureNamespace: string,
+    public constructor(structureApplicationId: string,
                        structureName: string,
                        adminEntitiesService?: IAdminEntitiesService) {
-        this.structureNamespace = structureNamespace
+        this.structureApplicationId = structureApplicationId
         this.structureName = structureName
-        this.structureId = (structureNamespace + '.' + structureName).toLowerCase()
+        this.structureId = (structureApplicationId + '.' + structureName).toLowerCase()
         this.adminEntitiesService = adminEntitiesService || AdminEntitiesServiceSingleton
     }
 

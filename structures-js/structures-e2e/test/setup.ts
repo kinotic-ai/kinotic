@@ -21,7 +21,7 @@ export async function setup(project: TestProject) {
         console.log('Starting Structures...')
 
         const resolvedPath = path.resolve('../../docker-compose/')
-        const files = ['compose.yml', 'compose.ek-transient.override.yml']
+        const files = ['compose.yml', 'compose.ek-transient.override.yml', 'compose.test.override.yml']
         if (isOSX_M1()) {
             files.push('compose.ek-m4.override.yml')
         }

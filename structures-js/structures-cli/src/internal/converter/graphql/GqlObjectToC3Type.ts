@@ -9,7 +9,7 @@ export class GqlObjectToC3Type implements ITypeConverter<GraphQLType, C3Type, Gq
     convert(value: GraphQLType, conversionContext: IConversionContext<GraphQLType, C3Type, GqlConversionState>): C3Type {
         if (value instanceof GraphQLObjectType) {
             const name = value.name
-            const namespace = conversionContext.state().namespace
+            const namespace = conversionContext.state().application
             const objectC3Type = new ObjectC3Type(name, namespace)
 
             const fields = value.getFields()

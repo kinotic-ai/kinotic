@@ -1,0 +1,19 @@
+Keycloak has been deployed!
+
+1. Get the application URL:
+{{- if eq .Values.service.type "NodePort" }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ .Release.Name }})
+  echo "Keycloak URL: http://localhost:$NODE_PORT{{ .Values.keycloak.relativePath }}"
+{{- else if eq .Values.service.type "ClusterIP" }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }} {{ .Values.service.port }}:{{ .Values.service.port }}
+  echo "Keycloak URL: http://localhost:{{ .Values.service.port }}{{ .Values.keycloak.relativePath }}"
+{{- end }}
+
+2. Access the Admin Console:
+   URL: http://localhost:{{ .Values.service.nodePort }}{{ .Values.keycloak.relativePath }}/admin
+   Username: {{ .Values.auth.adminUser }}
+   Password: {{ .Values.auth.adminPassword }}
+
+3. Default Test User (if realm imported):
+   Username: testuser@example.com
+   Password: password123

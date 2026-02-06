@@ -2,25 +2,34 @@ plugins {
 	id 'org.kinotic.java-application-conventions'
 }
 
+sourceSets {
+    main {
+        java {
+            exclude '**/test/**'
+        }
+    }
+}
+
 dependencies {
 	implementation project(':structures-core')
+	implementation project(':structures-auth')
 
 	// Additional Continuum Dependencies
+	implementation "org.kinotic:continuum-core"
 	implementation "org.kinotic:continuum-gateway"
 
 	implementation 'com.github.ben-manes.caffeine:caffeine'
+	
+	implementation 'io.jsonwebtoken:jjwt-api'
+	implementation 'io.jsonwebtoken:jjwt-impl'
+	implementation 'io.jsonwebtoken:jjwt-jackson'
 
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
-	testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
-	testImplementation "org.testcontainers:elasticsearch:${testContainersVersion}"
-	testImplementation 'junit:junit:4.13.1'
 }
 
-test {
-	useJUnitPlatform()
+tasks.named('processResources') {
+	dependsOn ":structures-frontend-next:copyDist"
 }
 
-tasks.named('processResources'){
-	dependsOn ":structures-frontend:copyDist"
+tasks.named('sourcesJar') {
+	dependsOn ":structures-frontend-next:copyDist"
 }

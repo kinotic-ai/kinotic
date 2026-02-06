@@ -1,0 +1,195 @@
+# Structures Core Library
+
+## Overview
+Core Java library providing OIDC authentication, GraphQL federation, Elasticsearch integration, and domain services. This library is consumed by `structures-server` and other applications to provide authentication, data access, and business logic capabilities.
+
+## Library Purpose
+- **Reusable Components**: Provides authentication, data access, and domain services
+- **Framework Integration**: Integrates with Spring Boot, Continuum, and Elasticsearch
+- **API Contracts**: Defines interfaces and domain objects for external consumption
+- **Auto-Configuration**: Spring Boot auto-configuration for easy integration
+
+## Key Components
+- **OIDC Authentication**: JWT validation, JWKS caching, multi-provider support (Okta, Keycloak, Google, Microsoft, GitHub)
+- **GraphQL Federation**: Apollo Federation implementation with schema composition
+- **Elasticsearch Integration**: Index management, data operations, and query building
+- **Domain Services**: Core business logic for applications, projects, structures, and entities
+- **Vert.x Web Server**: Reactive web server with GraphQL and REST endpoints
+- **Migration System**: SQL-based migrations for Elasticsearch schema management
+
+## Library Architecture
+- **API Layer**: Public interfaces and domain objects (`api/`) - consumed by applications
+- **Internal Layer**: Implementation details and configuration (`internal/`) - library internals
+- **Configuration Layer**: Spring Boot auto-configuration and properties
+- **Service Layer**: Business logic and data access services
+- **Endpoint Layer**: GraphQL and REST endpoint handlers
+
+## Core Dependencies
+- **Spring Boot**: Auto-configuration, dependency injection, validation
+- **Vert.x**: Reactive web server, GraphQL support, health checks
+- **Elasticsearch**: Java client for search and analytics
+- **GraphQL Java**: GraphQL implementation with federation
+- **JJWT**: JWT token handling and validation
+- **Caffeine**: High-performance caching
+- **Continuum**: Core framework integration
+- **Structures SQL**: SQL parsing and migration capabilities
+
+## Library Integration Points
+
+### Spring Boot Auto-Configuration
+```java
+@EnableStructures  // Enables all Structures functionality
+@EnableContinuum   // Enables Continuum framework
+```
+
+### Configuration Properties
+```yaml
+structures:
+  oidc-auth-verifier:
+    enabled: true
+    allowed-issuers:
+      - "https://your-oidc-provider.com"
+    authorization-audiences:
+      - "your-application-client-id"
+  elastic-connections:
+    - host: localhost
+      port: 9200
+      scheme: http
+```
+
+### Service Interfaces
+- **EntityService**: Core entity management and operations
+- **StructureService**: Structure definition and management
+- **ApplicationService**: Application lifecycle management
+- **ProjectService**: Project organization and management
+- **SecurityService**: Authentication and authorization
+
+## Development Patterns
+
+### 1. OIDC Authentication (Library Component)
+- **JwksService**: JWKS caching and key management
+- **OidcAuthVerifier**: JWT validation and participant creation
+- **OidcAuthVerifierProperties**: Configuration properties
+- **Multi-Provider Support**: Okta, Keycloak, Google, Microsoft, GitHub
+
+### 2. GraphQL Federation (Library Component)
+- **Apollo Federation**: Schema composition and service integration
+- **DataFetchers**: Custom resolvers for GraphQL operations
+- **Schema Caching**: Optimized schema loading and caching
+- **Operation Definitions**: Dynamic query building and execution
+
+### 3. Elasticsearch Integration (Library Component)
+- **Index Management**: Create, update, and manage Elasticsearch indices
+- **Data Operations**: CRUD operations with tenant support
+- **Query Building**: Dynamic query construction
+- **Type Mapping**: SQL to Elasticsearch field type mapping
+
+### 4. Domain Services (Library Component)
+- **EntityService**: Core entity management and operations
+- **StructureService**: Structure definition and management
+- **ApplicationService**: Application lifecycle management
+- **ProjectService**: Project organization and management
+
+## Key Files and Directories
+
+### Public API (Consumed by Applications)
+- `src/main/java/org/kinotic/structures/api/`: Public API interfaces
+  - `config/`: Configuration properties and interfaces
+  - `services/`: Service interfaces for domain operations
+  - `domain/`: Domain objects and entities
+  - `annotations/`: Spring Boot annotations
+
+### Internal Implementation (Library Internals)
+- `src/main/java/org/kinotic/structures/internal/`: Implementation details
+  - `config/`: Configuration classes
+  - `api/services/`: Service implementations
+  - `endpoints/`: GraphQL and REST endpoint handlers
+  - `utils/`: Utility classes and helpers
+  - `serializer/`: Custom serialization logic
+
+### Resources (Library Resources)
+- `src/main/resources/`: Configuration and static resources
+  - `federation_base.graphql`: Apollo Federation base schema
+  - `migrations/`: SQL migration files for Elasticsearch
+  - `application.yml`: Default application configuration
+
+## Library Usage Examples
+
+### Basic Integration
+```java
+@SpringBootApplication
+@EnableStructures
+public class MyApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(MyApplication.class, args);
+    }
+}
+```
+
+### Custom Configuration
+```yaml
+structures:
+  oidc-auth-verifier:
+    enabled: true
+    allowed-issuers:
+      - "https://my-provider.com"
+  elastic-connections:
+    - host: my-elasticsearch
+      port: 9200
+```
+
+### Service Injection
+```java
+@Service
+public class MyService {
+    private final EntityService entityService;
+    private final StructureService structureService;
+    
+    public MyService(EntityService entityService, StructureService structureService) {
+        this.entityService = entityService;
+        this.structureService = structureService;
+    }
+}
+```
+
+## Testing Strategy
+- **Unit Tests**: Test individual components and services
+- **Integration Tests**: Test with TestContainers Elasticsearch
+- **OIDC Testing**: Mock JWKS responses and JWT tokens
+- **GraphQL Testing**: Test federation and schema composition
+- **Migration Testing**: Test SQL migration execution
+
+## Migration System
+- **SQL Migrations**: Custom SQL dialect for Elasticsearch operations
+- **Automatic Execution**: Migrations run during application startup
+- **Version Management**: Migration versioning and rollback support
+- **Schema Evolution**: Safe schema changes with data migration
+
+## Security Features
+- **JWT Validation**: Signature verification and claim validation
+- **Issuer Validation**: Strict issuer validation against allowed list
+- **Audience Validation**: Multi-audience support
+- **Role Extraction**: Automatic role extraction from JWT claims
+- **Tenant Support**: Multi-tenant authentication and authorization
+
+## Performance Optimizations
+- **JWKS Caching**: Efficient caching of public keys
+- **GraphQL Caching**: Schema and operation definition caching
+- **Elasticsearch Connection Pooling**: Optimized connection management
+- **Reactive Programming**: Non-blocking I/O with Vert.x
+
+## Best Practices for Library Development
+- **API Stability**: Maintain backward compatibility for public APIs
+- **Configuration**: Use `@ConfigurationProperties` for externalized config
+- **Error Handling**: Comprehensive error handling with proper logging
+- **Security**: Never skip token validation or security checks
+- **Testing**: Write comprehensive tests for all components
+- **Documentation**: Keep OIDC_IMPLEMENTATION.md updated
+
+## Integration Points
+- **Spring Boot**: Auto-configuration and dependency injection
+- **Continuum Framework**: Core framework integration
+- **Elasticsearch**: Search and analytics engine
+- **GraphQL Federation**: Multi-service schema composition
+- **OIDC Providers**: Multiple authentication providers
+- **Structures SQL**: SQL parsing and migration capabilities 

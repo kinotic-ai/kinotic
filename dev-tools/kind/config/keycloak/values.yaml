@@ -1,0 +1,67 @@
+# Keycloak Helm Values for KinD
+# Chart: local dev-tools/kind/charts/keycloak
+#
+# Keycloak configuration for OIDC authentication
+# Uses official Keycloak image
+
+# Image configuration
+image:
+  repository: quay.io/keycloak/keycloak
+  tag: "26.0.2"
+  pullPolicy: IfNotPresent
+
+# Admin credentials
+auth:
+  adminUser: admin
+  adminPassword: admin
+
+# Keycloak configuration
+keycloak:
+  hostname: structures.local
+  httpPort: 8888
+  relativePath: /auth
+  logLevel: INFO
+
+# Database configuration (PostgreSQL deployed separately)
+database:
+  host: keycloak-db-postgresql
+  port: 5432
+  name: keycloak
+  user: keycloak
+  password: keycloak
+
+# Service configuration
+service:
+  type: NodePort
+  port: 8888
+  nodePort: 30888  # Maps to hostPort 8888 → localhost:8888
+
+# Resource limits
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# Realm import configuration
+realmImport:
+  enabled: true
+  configMapName: keycloak-realm
+
+# Probes configuration
+probes:
+  readiness:
+    initialDelaySeconds: 90
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 10
+  liveness:
+    initialDelaySeconds: 180
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 6
+
+# Single replica for local dev
+replicaCount: 1

@@ -3,6 +3,7 @@
 
 <template>
     <main>
+        <Toast />
         <router-view />
     </main>
 </template>

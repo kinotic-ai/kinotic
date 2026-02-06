@@ -1,18 +1,18 @@
 package org.kinotic.structures.internal.api.services.sql.executors;
 
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
 import org.kinotic.structures.api.config.StructuresProperties;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.idl.decorators.MultiTenancyType;
-import org.kinotic.structures.internal.api.services.sql.elasticsearch.ElasticVertxClient;
 import org.kinotic.structures.internal.api.services.sql.QueryContext;
+import org.kinotic.structures.internal.api.services.sql.elasticsearch.ElasticVertxClient;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/28/24.
@@ -20,7 +20,6 @@ import java.util.concurrent.CompletableFuture;
 public class AggregateQueryExecutor extends AbstractQueryExecutor {
 
     private final ElasticVertxClient elasticVertxClient;
-    private final List<String> parameterNames = new ArrayList<>();
     private final String statement;
     private final StructuresProperties structuresProperties;
 

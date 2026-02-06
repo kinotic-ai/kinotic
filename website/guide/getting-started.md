@@ -1,6 +1,0 @@
----
-outline: deep
----
-
-# Getting Started
-

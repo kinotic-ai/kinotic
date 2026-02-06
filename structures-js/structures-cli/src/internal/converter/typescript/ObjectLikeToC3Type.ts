@@ -16,7 +16,7 @@ export class ObjectLikeToC3Type implements ITypeConverter<Type, C3Type, Typescri
         let ret: ObjectC3Type
 
         const name = value.getSymbolOrThrow("No Symbol could be found for object: "+value.getText()).getName()
-        const namespace = conversionContext.state().namespace
+        const namespace = conversionContext.state().application
         ret = new ObjectC3Type(name, namespace)
 
         // Object stack name is used to help name properties that are not defined such as with union literals

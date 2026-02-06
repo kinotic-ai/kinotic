@@ -13,11 +13,10 @@ import org.springframework.boot.autoconfigure.hazelcast.HazelcastAutoConfigurati
 								  JpaRepositoriesAutoConfiguration.class,
 								  ReactiveElasticsearchClientAutoConfiguration.class})
 @EnableContinuum
-@EnableStructures
 @EnableContinuumGateway
+@EnableStructures
 public class StructuresServerApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(StructuresServerApplication.class, args);
 	}
-
 }

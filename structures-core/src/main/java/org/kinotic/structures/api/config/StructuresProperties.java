@@ -1,21 +1,18 @@
 package org.kinotic.structures.api.config;
 
+import java.time.Duration;
+import java.util.List;
+import java.util.Set;
 
+import org.apache.commons.lang3.Validate;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.apache.commons.lang3.Validate;
-import org.kinotic.structures.internal.config.OpenApiSecurityType;
-import org.kinotic.structures.internal.utils.StructuresUtil;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
-
-import jakarta.annotation.PostConstruct;
-import jakarta.validation.constraints.NotNull;
-import java.time.Duration;
-import java.util.List;
-import java.util.Set;
 
 @Getter
 @Setter
@@ -25,8 +22,9 @@ import java.util.Set;
 @ConfigurationProperties(prefix = "structures")
 public class StructuresProperties {
 
-    @NotNull
-    private String indexPrefix = "struct_";
+    private String structuresBaseUrl = "http://localhost";
+
+    private final String indexPrefix = "struct_";
 
     @NotNull
     private String tenantIdFieldName = "tenantId";
@@ -88,8 +86,6 @@ public class StructuresProperties {
 
     private String openApiAdminPath = "/admin/api/";
 
-    private String openApiServerUrl = "http://localhost:8080";
-
     private int graphqlPort = 4000;
 
     private String graphqlPath = "/graphql/";
@@ -114,15 +110,22 @@ public class StructuresProperties {
      */
     private boolean initializeWithSampleData = false;
 
-    @PostConstruct
-    public void validate(){
-        // validate index prefix
-        if(indexPrefix.length() > 16){
-            throw new IllegalArgumentException("indexPrefix cannot be longer than 16 characters");
-        }
-        // The prefix must be a valid namespace name
-        StructuresUtil.validateStructureNamespaceName(indexPrefix);
-    }
+    /**
+     * Root path for blob storage of insights data.
+     * Defaults to /tmp/blobs
+     */
+    private String blobStoreRoot = "/tmp/blobs";
+
+    /**
+     * MCP server configuration
+     */
+    private Integer mcpPort = 3001;
+
+    /**
+     * Cluster eviction configuration
+     */
+    private ClusterEvictionProperties clusterEviction = new ClusterEvictionProperties();
+
 
     public boolean hasElasticUsernameAndPassword(){
         return elasticUsername != null && !elasticUsername.isBlank() && elasticPassword != null && !elasticPassword.isBlank();

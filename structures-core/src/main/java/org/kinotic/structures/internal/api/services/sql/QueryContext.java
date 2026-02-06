@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.kinotic.structures.api.domain.EntityContext;
+import org.kinotic.structures.api.domain.ParameterHolder;
 import org.kinotic.structures.api.domain.QueryOptions;
 
 import java.util.ArrayList;

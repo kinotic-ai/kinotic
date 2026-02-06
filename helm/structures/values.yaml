@@ -2,17 +2,19 @@ replicaCount: 1
 nameOverride: ""
 
 image:
-  repository: kinotic/structures-server
+  repository: kinoticai/structures-server
   pullPolicy: Always
   tag: "1.14.0-SNAPSHOT"
   sha: ""
 
 properties:
-  springActiveProfiles: "production"
+  springActiveProfiles: "production,debug"
   corsAllowedOriginPattern: "*"
   enableJmx: true
   enableNmt: true
-  javaToolOptions: "-XX:MaxDirectMemorySize=1024M"
+  javaToolOptions: "-Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m" ## -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar 
+
+  bplJvmHeadRoom: 10
   structures:
     tenantIdFieldName: "tenantId"
     indexPrefix: "struct_"
@@ -35,6 +37,100 @@ properties:
       socketTimeout: "1M"
       username: "structures"
       password: "asdfsda898u7fsad8sfa@sdfa"
+    ai:
+      apiKey: "noop"
+      baseUrl: "https://api.x.ai"
+      model: "grok-4"
 
+continuum_gateway:
+  stomp:
+    port: 58503
+    websocketPath: /v1
+
+continuum:
+  debug: true
+  disableClustering: false
+  maxNumberOfCoresToUse: 4
+  maxOffHeapMemory: "419430400"
+  cluster:
+    discoveryType: LOCAL ## SHAREDFS or KUBERNETES
+    joinTimeoutMs: 0
+    # Test instance local address: bind to 0.0.0.0 (all interfaces) so containers can reach it
+    # Containers connect via host.docker.internal:47500
+    localAddress: 0.0.0.0
+    # Test instance ports (must be unique from container nodes)
+    discoveryPort: 47500      
+    communicationPort: 47100 
+    # Static IP addresses for all nodes in the cluster
+    # Format: host:port,host:port,...
+    localAddresses: null
+    # Note: sharedFsPath is still used for Structure data sharing, not for Ignite discovery
+    sharedFsPath: /sharedfs  # Shared with containers via bind mount
+    kubernetesNamespace: default
+    kubernetesServiceName: structures
+    kubernetesIncludeNotReadyAddresses: false
+    kubernetesMasterUrl: ""
+    kubernetesAccountToken: ""
+
+# TODO: adjust for this later
+# OIDC security service configuration
+oidc:
+  enabled: false
+  debug: true
+  frontendConfigurationPath: "/app-config.override.json"
+  oidcProviders:
+    - provider: "keycloak"
+      displayName: "Keycloak"
+      enabled: true
+      rolesClaimPath: "realm_access.roles"
+      domains:
+        - "example.com"
+      roles:
+        - "admin"
+      audience: "structures-client"
+      clientId: "structures-client"
+      authority: "http://keycloak:8888/auth/realms/test"
+      redirectUri: "http://localhost:9090/login"
+      postLogoutRedirectUri: "http://localhost:9090"
+      silentRedirectUri: "http://localhost:9090/login/silent-renew"
+    
+
+# Eviction tracking configuration
+# When enabled, cache evictions are written to CSV files for testing/analysis
+evictionTracking:
+  enabled: false
+  # Mount path inside the container for eviction data
+  mountPath: "/eviction-data"
+  # Host path on the Kubernetes node (for hostPath volume)
+  hostPath: "/tmp/structures-eviction-data"
 
 nodeSelector: {}
+
+# Service configuration
+service:
+  # Service type: ClusterIP (default), NodePort, or LoadBalancer
+  type: ClusterIP
+  # NodePort values (only used when type: NodePort)
+  # Set to specific ports or leave as null for auto-assignment
+  nodePorts:
+    ui: null        # Static UI server (9090)
+    openapi: null   # OpenAPI REST (8080)
+    graphql: null   # GraphQL (4000)
+    stomp: null     # STOMP WebSocket (58503)
+    rest: null      # Continuum REST (58504)
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: nginx
+  # Hostnames for ingress rules and TLS certificate
+  hosts:
+    - localhost
+  # TLS configuration
+  tls:
+    enabled: false
+    # Secret name for TLS certificate
+    secretName: structures-tls-secret
+    # Set to true if TLS secret is created externally (e.g., by mkcert)
+    # When false, cert-manager will create a self-signed certificate
+    existingSecret: false

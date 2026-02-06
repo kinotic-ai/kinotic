@@ -1,0 +1,43 @@
+# Webdocs Documentation Module
+
+## Overview
+Comprehensive documentation for the Structures project including guides, API references, and examples.
+
+## Documentation Structure
+- **guide/**: Getting started and feature guides
+- **reference/**: API documentation and technical references
+- **examples/**: Code examples and tutorials
+- **graphos/**: GraphQL federation documentation
+
+## Documentation Standards
+1. **Markdown**: Use consistent markdown formatting
+2. **Code Examples**: Include working code examples
+3. **Cross-References**: Link between related documentation
+4. **Versioning**: Keep documentation in sync with code
+5. **Screenshots**: Include relevant screenshots for UI features
+
+## Key Topics
+- **OIDC Authentication**: Complete implementation guide
+- **GraphQL Federation**: Schema composition and decorators
+- **API Reference**: REST and GraphQL API documentation
+- **Deployment**: Docker, Kubernetes, and Helm charts
+- **Development**: Setup and contribution guidelines
+
+## Writing Guidelines
+- Use clear, concise language
+- Include step-by-step instructions
+- Provide configuration examples
+- Document troubleshooting steps
+- Keep examples up-to-date with code
+
+## Code Examples
+- Include syntax highlighting
+- Provide complete, runnable examples
+- Show both success and error cases
+- Include environment-specific configurations
+
+## Maintenance
+- Update documentation with code changes
+- Review and update examples regularly
+- Validate links and references
+- Ensure accuracy of configuration examples 

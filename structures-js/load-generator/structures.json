@@ -3,9 +3,9 @@
     {
       "namespaceName": "load-testing",
       "entitiesPaths": [
-        "src/entity/domain"
+        "src/entity/domain/ecommerce"
       ],
-      "generatedPath": "src/entity/services",
+      "generatedPath": "src/entity/services/ecommerce",
       "validate": false
     }
   ],

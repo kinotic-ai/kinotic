@@ -1,0 +1,49 @@
+# Structures JavaScript Modules
+
+## Overview
+Collection of TypeScript/JavaScript modules including API client, CLI, E2E testing, and load generation.
+
+## Module Structure
+- **structures-api**: TypeScript API client library
+- **structures-cli**: Command-line interface tools
+- **structures-e2e**: End-to-end testing framework
+- **load-generator**: Performance testing and load generation
+
+## Development Patterns
+1. **TypeScript**: Strict typing for all modules
+2. **ES Modules**: Use ES module syntax
+3. **Testing**: Comprehensive unit and integration tests
+4. **Documentation**: JSDoc comments for all public APIs
+5. **Error Handling**: Proper error handling with custom error types
+
+## Build System
+- **Package Manager**: pnpm for dependency management
+- **Bundling**: Vite for development, esbuild for production
+- **TypeScript**: Strict configuration with path mapping
+- **Testing**: Vitest for unit tests, Playwright for E2E
+
+## Key Patterns
+- **API Client**: Follow patterns in structures-api/
+- **CLI Tools**: Use Commander.js patterns in structures-cli/
+- **E2E Testing**: Use Playwright patterns in structures-e2e/
+- **Load Testing**: Use k6 patterns in load-generator/
+
+## Dependencies
+- TypeScript 5.x
+- pnpm for package management
+- Vitest for testing
+- Playwright for E2E testing
+- k6 for load testing
+- Commander.js for CLI tools
+
+## Testing Strategy
+- Unit tests for all modules
+- Integration tests for API client
+- E2E tests for user workflows
+- Performance tests with load generators
+
+## Configuration
+- TypeScript configuration per module
+- Environment-specific settings
+- API endpoint configuration
+- Test environment setup 

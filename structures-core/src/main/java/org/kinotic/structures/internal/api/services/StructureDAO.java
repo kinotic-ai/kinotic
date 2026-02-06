@@ -14,19 +14,42 @@ import java.util.concurrent.CompletableFuture;
 public interface StructureDAO extends IdentifiableCrudService<Structure, String> {
 
     /**
-     * Counts all structures for the given namespace.
-     * @param namespace the namespace to find structures for
+     * Counts all structures for the given application.
+     * @param applicationId the application to find structures for
      * @return a future that will complete with a page of structures
      */
-    CompletableFuture<Long> countForNamespace(String namespace);
+    CompletableFuture<Long> countForApplication(String applicationId);
 
     /**
-     * Finds all published structures for the given namespace.
-     * @param namespace the namespace to find structures for
+     * Counts all structures for the given project.
+     * @param projectId the project to find structures for
+     * @return a future that will complete with a page of structures
+     */
+    CompletableFuture<Long> countForProject(String projectId);
+
+    /**
+     * Finds all published structures for the given application.
+     * @param applicationId the application to find structures for
      * @param pageable the page to return
      * @return a future that will complete with a page of structures
      */
-    CompletableFuture<Page<Structure>> findAllPublishedForNamespace(String namespace, Pageable pageable);
+    CompletableFuture<Page<Structure>> findAllPublishedForApplication(String applicationId, Pageable pageable);
+
+    /**
+     * Finds all structures for the given application.
+     * @param applicationId the application to find structures for
+     * @param pageable the page to return«
+     * @return a future that will complete with a page of structures
+     */
+    CompletableFuture<Page<Structure>> findAllForApplication(String applicationId, Pageable pageable);
+
+    /**
+     * Finds all structures for the given project.
+     * @param projectId the project to find structures for
+     * @param pageable the page to return
+     * @return a future that will complete with a page of structures
+     */
+    CompletableFuture<Page<Structure>> findAllForProject(String projectId, Pageable pageable);
 
     /**
      * This operation makes all the recent writes immediately available for search.

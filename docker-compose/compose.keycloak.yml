@@ -1,0 +1,73 @@
+services:
+  structures-server:
+    environment:
+      - LOGGING_LEVEL_ORG_KINOTIC_STRUCTURES_AUTH=TRACE
+      - LOGGING_LEVEL_ORG_KINOTIC_STRUCTURES=TRACE
+      - LOGGING_LEVEL_IO_VERTX=TRACE
+      - STRUCTURES_OPEN_API_SECURITY_TYPE=BEARER
+      - OIDC_SECURITY_SERVICE_ENABLED=true 
+      - OIDC_SECURITY_SERVICE_DEBUG=true
+      - OIDC_SECURITY_SERVICE_FRONTEND_CONFIGURATION_PATH=/app-config.override.json
+      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_PROVIDER=keycloak
+      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_DISPLAY_NAME=Keycloak
+      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_ENABLED=true
+      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_ROLES_CLAIM_PATH=realm_access.roles
+      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_DOMAINS_0=example.com
+      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_ROLES_0=admin
+      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_AUDIENCE=structures-client
+      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_CLIENT_ID=structures-client
+      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_AUTHORITY=http://keycloak:8888/auth/realms/test
+      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_REDIRECT_URI=http://localhost:9090/login
+      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_POST_LOGOUT_REDIRECT_URI=http://localhost:9090
+      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_SILENT_REDIRECT_URI=http://localhost:9090/login/silent-renew
+
+  keycloak-db:
+    container_name: keycloak-db
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    volumes: []
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    container_name: keycloak
+    image: quay.io/keycloak/keycloak:26.3.3
+    command: start-dev --import-realm 
+    environment: 
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_STRICT: false
+      KC_HTTP_ENABLED: true
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_METRICS_ENABLED: true
+      KC_HEALTH_ENABLED: true
+      KC_HTTP_PORT: 8888
+    ports:
+      - "127.0.0.1:8888:8888"
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 10 bash -c '</dev/tcp/127.0.0.1/8888'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - ./keycloak-test-realm.json:/opt/keycloak/data/import/test-realm.json:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+
+

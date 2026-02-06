@@ -1,0 +1,13 @@
+logging:
+  level:
+    org:
+      kinotic: TRACE
+      kinotic: TRACE
+      apache:
+        ignite: INFO
+    io:
+      kinotic: TRACE
+      vertx: TRACE
+      netty:
+        util: DEBUG
+        buffer: DEBUG

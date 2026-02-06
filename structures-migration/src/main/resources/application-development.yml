@@ -1,0 +1,14 @@
+# YAML Reference http://www.yaml.org/refcard.html
+spring:
+  main:
+    web-application-type: none
+
+logging:
+  level:
+    org:
+      kinotic: TRACE
+
+structures-migration:
+  elasticScheme: "http"
+  elasticHost: "localhost"
+  elasticPort: "9200"

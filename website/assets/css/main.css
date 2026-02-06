@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+body {
+  @apply bg-white text-black;
+}
+
+.dark body {
+  @apply bg-[#101010] text-white;
+}
+@font-face {  
+  font-family: BauhausNanoDisplayBlack; 
+  src: url("/fonts/BauhausNanoDisplay-Black.woff2") format("woff2");
+}
+@font-face {  
+  font-family: BauhausNanoDisplayBold; 
+  src: url("/fonts/BauhausNanoDisplay-Bold.woff2") format("woff2");
+}
+@font-face {  
+  font-family: BauhausNanoDisplayExtraBold; 
+  src: url("/fonts/BauhausNanoDisplay-ExtraBold.woff2") format("woff2");
+}
+@font-face {  
+  font-family: BauhausNanoDisplayExtraLight; 
+  src: url("/fonts/BauhausNanoDisplay-ExtraLight.woff2") format("woff2");
+}
+@font-face {  
+  font-family: BauhausNanoDisplayLight; 
+  src: url("/fonts/BauhausNanoDisplay-Light.woff2") format("woff2");
+}
+@font-face {  
+  font-family: BauhausNanoDisplayMedium; 
+  src: url("/fonts/BauhausNanoDisplay-Medium.woff2") format("woff2");
+  font-weight: 500;
+}
+@font-face {  
+  font-family: BauhausNanoDisplayRegular;
+  src: url("/fonts/BauhausNanoDisplay-Regular.woff2") format("woff2");
+  font-weight: 400;
+}
+@font-face {  
+  font-family: BauhausNanoDisplaySemiBold; 
+  src: url("/fonts/BauhausNanoDisplay-SemiBold.woff2") format("woff2");
+}
+@font-face {  
+  font-family: BauhausNanoDisplayThin; 
+  src: url("/fonts/BauhausNanoDisplay-Thin.woff2") format("woff2");
+}
+@font-face {
+  font-family: 'InterRegular';
+  src: url('/fonts/Inter-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'InterMedium';
+  src: url('/fonts/Inter-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-Black.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-Italic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+}

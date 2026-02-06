@@ -5,13 +5,17 @@ import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
 import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
 import org.kinotic.continuum.idl.api.schema.ParameterDefinition;
+import org.kinotic.structures.api.domain.ParameterHolder;
 import org.kinotic.structures.api.domain.QueryOptions;
 import org.kinotic.structures.api.domain.QueryParameter;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.idl.PageableC3Type;
 import org.kinotic.structures.api.domain.idl.QueryOptionsC3Type;
 import org.kinotic.structures.api.domain.idl.TenantSelectionC3Type;
-import org.kinotic.structures.internal.api.services.sql.*;
+import org.kinotic.structures.internal.api.services.sql.ListParameterHolder;
+import org.kinotic.structures.internal.api.services.sql.MapParameterHolder;
+import org.kinotic.structures.internal.api.services.sql.QueryContext;
+import org.kinotic.structures.internal.api.services.sql.QueryMetadata;
 
 import java.util.List;
 import java.util.Map;
@@ -90,8 +94,12 @@ public class ParameterProcessorExecutor extends AbstractQueryExecutor {
                                       Object value,
                                       QueryContext context) {
         if(property.equals(queryMetadata.getTenantSelectionParameterName())) {
-            //noinspection unchecked
-            context.getEntityContext().setTenantSelection((List<String>) value);
+            if (!(value instanceof List<?> list)) {
+                throw new IllegalArgumentException("Tenant selection must be a List");
+            }
+            @SuppressWarnings("unchecked")
+            List<String> tenantList = (List<String>) list;
+            context.getEntityContext().setTenantSelection(tenantList);
         }else if(property.equals(queryMetadata.getQueryOptionsParameterName())) {
             context.setQueryOptions((QueryOptions) value);
         }else if(property.toLowerCase().equals(timeZoneOptionName)){

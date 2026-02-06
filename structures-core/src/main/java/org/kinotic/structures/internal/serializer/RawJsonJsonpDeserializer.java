@@ -1,22 +1,22 @@
 package org.kinotic.structures.internal.serializer;
 
-import co.elastic.clients.json.JsonpDeserializer;
+import java.io.IOException;
+import java.util.EnumSet;
+
+import org.kinotic.structures.api.domain.RawJson;
+
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import co.elastic.clients.json.JsonpDeserializerBase;
 import co.elastic.clients.json.JsonpMapper;
 import co.elastic.clients.json.jackson.JacksonJsonpParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.util.TokenBuffer;
 import jakarta.json.stream.JsonParser;
-import org.kinotic.structures.api.domain.RawJson;
-
-import java.io.IOException;
-import java.util.EnumSet;
 
 /**
  * Created by Navíd Mitchell 🤪 on 5/22/23.
  */
-public class RawJsonJsonpDeserializer extends JsonpDeserializerBase<RawJson> implements JsonpDeserializer<RawJson> {
+public class RawJsonJsonpDeserializer extends JsonpDeserializerBase<RawJson> {
 
     private final ObjectMapper objectMapper;
 

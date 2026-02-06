@@ -1,0 +1,16 @@
+apiVersion: v2
+name: keycloak
+description: Keycloak OIDC Provider for KinD development clusters
+type: application
+version: 1.0.0
+appVersion: "26.0.2"
+keywords:
+  - keycloak
+  - oidc
+  - authentication
+  - identity
+home: https://www.keycloak.org/
+sources:
+  - https://github.com/keycloak/keycloak
+maintainers:
+  - name: structures-team

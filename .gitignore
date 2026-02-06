@@ -1,11 +1,21 @@
+# Local frontend runtime config overrides (not for source control)
+structures-frontend-next/public/app-config.override.json
+structures-frontend-next/public/app-config.json.local
+structures-frontend-next/public/config/app-config.override.json
+structures-frontend-next/public/config/app-config.json.local
+# Local service config overrides (not for source control)
+structures-server/src/main/resources/application-local.yml
+
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio and WebStorm
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
 .gradle
 bin/
-node_modules/
-/build/
+build/
 /buildSrc/build/
 !gradle/wrapper/gradle-wrapper.jar
+
+.idea/
+.pnpm-store/
 
 # User-specific stuff
 .idea/**/workspace.xml
@@ -49,6 +59,9 @@ node_modules/
 # IntelliJ
 out/
 
+# Node Projects
+node_modules/
+
 ### MAC SPECIFIC ###
 *.DS_Store
 
@@ -60,15 +73,8 @@ out/
 
 .idea/jpa-buddy.xml
 
-website/node_modules
-
-website/.vitepress/cache
-
-website/.vitepress/dist/
-
 structures-frontend/.env.development
 structures-frontend/.env.production
-structures-frontend/node_modules
 
 structures-js/structures-cli/.structures/
 structures-js/structures-ui-example/.structures/
@@ -77,10 +83,27 @@ structures-js/structures-cli/structures.json
 
 structures-js/structures-cli/yalc.lock
 
-.idea/
-
-.vscode/
-
 structures-js/structures-e2e/test/services/generated/
 
+allure-results/
+
 structures-sql/allure-results/
+
+structures-auth/allure-results/
+
+structures-server/allure-results/
+
+structures-server/src/main/resources/webroot/
+
+structures-server/src/main/resources/webroot2/
+
+.vscode/chrome-debug-profile/
+
+# KinD cluster local overrides (not for source control)
+dev-tools/kind/config/helm-values.local.yaml
+
+# Eviction tracking data (generated during testing)
+dev-tools/kind/eviction-data/
+eviction-data/
+**/eviction-events*.csv
+eviction-events.csv

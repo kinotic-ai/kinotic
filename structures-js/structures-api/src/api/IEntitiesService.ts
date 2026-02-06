@@ -155,7 +155,7 @@ export interface IEntitiesService {
 
     /**
      * This operation makes all the recent writes immediately available for search.
-     * @param structureId the id of the structure to sync the index for. (this is the {@link Structure#getNamespace()} + "." + {@link Structure#getName()})
+     * @param structureId the id of the structure to sync the index for. (this is the {@link Structure#getApplication()} + "." + {@link Structure#getName()})
      * @return a Promise that resolves when the operation is complete
      */
     syncIndex(structureId: string): Promise<void>

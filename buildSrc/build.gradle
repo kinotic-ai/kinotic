@@ -30,7 +30,7 @@ dependencies {
 
     // lombok
     implementation "io.freefair.gradle:lombok-plugin:${lombokPluginVersion}"
-
+    
     // JReleaser plugin
     implementation "org.jreleaser:jreleaser-gradle-plugin:${jreleaserVersion}"
 }

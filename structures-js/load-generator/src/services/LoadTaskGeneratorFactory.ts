@@ -1,5 +1,6 @@
 import {LoadTestConfig} from '@/config/LoadTestConfig.js'
 import {StructuresConnectionConfig} from '@/config/StructuresConnectionConfig.js'
+import { CreateComplexStructuresTaskGenerator } from '@/tasks/schema/CreateComplexStructuresTaskGenerator'
 import {FindTaskGenerator} from '@/tasks/FindTaskGenerator.js'
 import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
 import {ITaskGeneratorFactory} from '@/tasks/ITaskGeneratorFactory.js'
@@ -14,7 +15,7 @@ import {ConnectionInfo} from '@kinotic/continuum-client'
 export class LoadTaskGeneratorFactory {
 
     public static createTaskGenerator(structuresConfig: StructuresConnectionConfig,
-                                      loadTestConfig: LoadTestConfig): ITaskGenerator {
+                                      loadTestConfig: LoadTestConfig): ITaskGenerator | never {
 
         if(loadTestConfig.testName === 'bulkLoadSmall') {
 
@@ -115,6 +116,10 @@ export class LoadTaskGeneratorFactory {
                                                     1000,
                                                     100,
                                                     loadTestConfig.numberOfTenants)
+        } else if(loadTestConfig.testName === 'generateComplexStructures'){
+
+            return new CreateComplexStructuresTaskGenerator(this.createConnectionInfo('kinotic', structuresConfig))
+            
         }else {
             throw new Error(`Unsupported test name: ${loadTestConfig.testName}`)
         }

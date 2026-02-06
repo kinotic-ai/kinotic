@@ -23,7 +23,7 @@ spec:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "kinotic/structures-load-generator:{{ .Values.loadGenerator.image.tag }}"
+          image: "kinoticai/structures-load-generator:{{ .Values.loadGenerator.image.tag }}"
           imagePullPolicy: {{ .Values.loadGenerator.image.pullPolicy }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

@@ -1,0 +1,200 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "gradle",
+            "id": "${workspaceFolder}/structures-core:build",
+            "script": "structures-core:build",
+            "group": "build",
+            "project": "structures-core",
+            "buildFile": "${workspaceFolder}/structures-core/build.gradle",
+            "projectFolder": "${workspaceFolder}",
+            "workspaceFolder": "${workspaceFolder}",
+            "rootProject": "structures",
+            "javaDebug": true,
+            "args": "-x test",
+            "problemMatcher": [
+                "$gradle"
+            ],
+            "label": "Gradle: Build Core",
+            "description": "Build the core project"
+        },
+        {
+            "type": "gradle",
+            "id": "${workspaceFolder}/structures-sql:build",
+            "script": "structures-sql:build",
+            "group": "build",
+            "project": "structures-sql",
+            "buildFile": "${workspaceFolder}/structures-sql/build.gradle",
+            "projectFolder": "${workspaceFolder}",
+            "workspaceFolder": "${workspaceFolder}",
+            "rootProject": "structures",
+            "javaDebug": true,
+            "args": "-x test",
+            "problemMatcher": [
+                "$gradle"
+            ],
+            "label": "Gradle: Build SQL",
+            "description": "Build the sql project"
+        },
+        {
+            "type": "gradle",
+            "id": "${workspaceFolder}/structures-server:build",
+            "script": "structures-server:build",
+            "group": "build",
+            "project": "structures-server",
+            "buildFile": "${workspaceFolder}/structures-server/build.gradle",
+            "projectFolder": "${workspaceFolder}",
+            "workspaceFolder": "${workspaceFolder}",
+            "rootProject": "structures",
+            "javaDebug": true,
+            "args": "-x test",
+            "problemMatcher": [
+                "$gradle"
+            ],
+            "label": "Gradle: Build Server",
+            "description": "Build the server project"
+        },
+        {
+            "type": "gradle",
+            "id": "${workspaceFolder}/structures:build",
+            "script": "build",
+            "group": "build",
+            "project": "structures",
+            "buildFile": "${workspaceFolder}/build.gradle",
+            "projectFolder": "${workspaceFolder}",
+            "workspaceFolder": "${workspaceFolder}",
+            "rootProject": "structures",
+            "javaDebug": true,
+            "args": "-x test",
+            "problemMatcher": [
+                "$gradle"
+            ],
+            "label": "Gradle: Build All",
+            "description": "Build all projects"
+        },
+        {
+            "type": "gradle",
+            "id": "${workspaceFolder}/structures:clean",
+            "script": "clean",
+            "group": "build",
+            "project": "structures",
+            "buildFile": "${workspaceFolder}/build.gradle",
+            "projectFolder": "${workspaceFolder}",
+            "workspaceFolder": "${workspaceFolder}",
+            "rootProject": "structures",
+            "javaDebug": true,
+            "args": "-x test",
+            "problemMatcher": [
+                "$gradle"
+            ],
+            "label": "Gradle: Build All",
+            "description": "Clean all projects"
+        },
+        {
+            "type": "gradle",
+            "id": "${workspaceFolder}/structures:test",
+            "script": "test",
+            "group": "test",
+            "project": "structures",
+            "buildFile": "${workspaceFolder}/build.gradle",
+            "projectFolder": "${workspaceFolder}",
+            "workspaceFolder": "${workspaceFolder}",
+            "rootProject": "structures",
+            "javaDebug": true,
+            "problemMatcher": [
+                "$gradle"
+            ],
+            "label": "Gradle: Test All",
+            "description": "Test all projects"
+        },
+        {
+            "type": "gradle",
+            "id": "${workspaceFolder}/structures-server:test",
+            "script": "structures-server:test",
+            "group": "test",
+            "project": "structures-server",
+            "buildFile": "${workspaceFolder}/structures-server/build.gradle",
+            "projectFolder": "${workspaceFolder}",
+            "workspaceFolder": "${workspaceFolder}",
+            "rootProject": "structures",
+            "javaDebug": true,
+            "problemMatcher": [
+                "$gradle"
+            ],
+            "label": "Gradle: Test Server",
+            "description": "Test the server project"
+        },
+        {
+            "type": "gradle",
+            "id": "${workspaceFolder}/structures-core:test",
+            "script": "structures-core:test",
+            "group": "test",
+            "project": "structures-core",
+            "buildFile": "${workspaceFolder}/structures-core/build.gradle",
+            "projectFolder": "${workspaceFolder}",
+            "workspaceFolder": "${workspaceFolder}",
+            "rootProject": "structures",
+            "javaDebug": true,
+            "problemMatcher": [
+                "$gradle"
+            ],
+            "label": "Gradle: Test Core",
+            "description": "Test the core project"
+        },
+        {
+            "type": "gradle",
+            "id": "${workspaceFolder}/structures-sql:test",
+            "script": "structures-sql:test",
+            "group": "test",
+            "project": "structures-sql",
+            "buildFile": "${workspaceFolder}/structures-sql/build.gradle",
+            "projectFolder": "${workspaceFolder}",
+            "workspaceFolder": "${workspaceFolder}",
+            "rootProject": "structures",
+            "javaDebug": true,
+            "problemMatcher": [
+                "$gradle"
+            ],
+            "label": "Gradle: Test SQL",
+            "description": "Test the sql project"
+        },
+        {
+            "label": "Frontend: Install Dependencies",
+            "type": "shell",
+            "command": "./pnpmw install --reporter=append-only",
+            "options": {
+                "cwd": "${workspaceFolder}/structures-frontend-next"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Frontend: Dev Server",
+            "type": "shell",
+            "command": "./pnpmw dev",
+            "options": {
+                "cwd": "${workspaceFolder}/structures-frontend-next"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "isBackground": true,
+            "problemMatcher": []
+        }
+    ]
+} 

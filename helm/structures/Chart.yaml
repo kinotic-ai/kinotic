@@ -1,6 +1,6 @@
 apiVersion: v2
 name: structures
-description: A Helm chart for deploying kinotic/structures-server with configurable environment variables
+description: A Helm chart for deploying kinoticai/structures-server with configurable environment variables
 type: application
 
 # This is the chart version. This version number should be incremented each time you make changes

@@ -8,7 +8,7 @@ import {
     ParticipantConstants
 } from '@kinotic/continuum-client'
 import {C3Type, FunctionDefinition, ObjectC3Type} from '@kinotic/continuum-idl'
-import {EntityDecorator} from '@kinotic/structures-api'
+import {EntityConfiguration, EntityDecorator} from '@kinotic/structures-api'
 import fs from 'fs'
 import fsPromises from 'fs/promises'
 import { confirm } from '@inquirer/prompts'
@@ -21,12 +21,19 @@ import {createConversionContext} from './converter/IConversionContext.js'
 import {TypescriptConversionState} from './converter/typescript/TypescriptConversionState.js'
 import {TypescriptConverterStrategy} from './converter/typescript/TypescriptConverterStrategy.js'
 import {Logger} from './Logger.js'
-import {EntityConfiguration} from './state/StructuresProject.js'
 import {UtilFunctionLocator} from './UtilFunctionLocator.js'
 
 export type GeneratedServiceInfo = {
     entityServiceName: string
     namedQueries: FunctionDefinition[]
+}
+export class SessionMetadata {
+    public sessionId!: string
+    public replyToId!: string
+    constructor(sessionId: string, replyToId: string) {
+        this.sessionId = sessionId
+        this.replyToId = replyToId
+    }
 }
 
 function isEmpty(value: any): boolean {
@@ -59,7 +66,7 @@ export function jsonStringifyReplacer(key: any, value: any) {
  * @param logger the logger to use
  * @return true if the session was upgraded successfully
  */
-export async function connectAndUpgradeSession(server: string, logger: Logger): Promise<boolean>{
+export async function connectAndUpgradeSession(server: string, logger: Logger, authHeadersFile?: string): Promise<boolean>{
     try {
         const serverURL: URL = new URL(server)
 
@@ -85,45 +92,68 @@ export async function connectAndUpgradeSession(server: string, logger: Logger): 
             }
         }
 
-        connectionInfo.connectHeaders = {
-            login: ParticipantConstants.CLI_PARTICIPANT_ID
-        }
-        const connectedInfo: ConnectedInfo = await pTimeout(Continuum.connect(connectionInfo), {
-            milliseconds: 60000,
-            message: 'Connection timeout trying to connect to the Structures Server'
-        })
-
-        if (connectedInfo) {
-            // This works because any client can subscribe to a destination that is scoped to the connectedInfo.replyToId
-            const scope = connectedInfo.replyToId + ':' + uuidv4()
-            const url = server + (server.endsWith('/') ? '' : '/') + '#/sessionUpgrade/' + encodeURIComponent(scope)
-            logger.log('Authenticate your account at:')
-            logger.log(url)
-
-            const answer = await confirm({
-                message: 'Open in browser?',
-                default: true,
-            })
-            if(answer) {
-                await open(url)
+        if(authHeadersFile){
+            if(!fs.existsSync(authHeadersFile)){
+                logger.log(`Authentication header file ${authHeadersFile} does not exist. Please provide a valid file.`)
+                return false
             }else{
-                logger.log('Browser will not be opened. You must authenticate your account before continuing.')
+                logger.log(`Authentication header file ${authHeadersFile} loaded successfully. Using authentication headers to connect to the Structures Server.`)
             }
-
-            const sessionId = await receiveSessionId(scope)
-
-            await Continuum.disconnect()
+            const authHeaders = JSON.parse(fs.readFileSync(authHeadersFile, 'utf8'))
+            connectionInfo.connectHeaders = authHeaders
+            const connectedInfo: ConnectedInfo = await pTimeout(Continuum.connect(connectionInfo), {
+                milliseconds: 60000,
+                message: 'Connection timeout trying to connect to the Structures Server'
+            })
+            if(connectedInfo){
+                return true
+            }else{
+                return false
+            }
+        }else{
 
             connectionInfo.connectHeaders = {
-                session: sessionId
+                login: ParticipantConstants.CLI_PARTICIPANT_ID
             }
+            const connectedInfo: ConnectedInfo = await pTimeout(Continuum.connect(connectionInfo), {
+                milliseconds: 60000,
+                message: 'Connection timeout trying to connect to the Structures Server'
+            })
 
-            await Continuum.connect(connectionInfo)
-            logger.log('Authenticated successfully\n')
-            return true
-        }else{
-            logger.log("Could not connect to the Structures Server. Please check the server is running and the URL is correct.")
-            return false
+            if (connectedInfo) {
+                // This works because any client can subscribe to a destination that is scoped to the connectedInfo.replyToId
+                const scope = connectedInfo.replyToId + ':' + uuidv4()
+                const url = server + (server.endsWith('/') ? '' : '/') + '#/sessionUpgrade/' + encodeURIComponent(scope)
+                logger.log('Authenticate your account at:')
+                logger.log(url)
+
+                const answer = await confirm({
+                    message: 'Open in browser?',
+                    default: true,
+                })
+                if(answer) {
+                    await open(url)
+                }else{
+                    logger.log('Browser will not be opened. You must authenticate your account before continuing.')
+                }
+
+                const sessionMetadata = await receiveSessionId(scope)
+
+                await Continuum.disconnect()
+
+                connectionInfo.connectHeaders = {
+                    session: sessionMetadata.sessionId
+                }
+                // Provide this so the continuum client will use the same replyToId as the session
+                connectionInfo.connectHeaders[EventConstants.REPLY_TO_ID_HEADER] = sessionMetadata.replyToId
+
+                await Continuum.connect(connectionInfo)
+                logger.log('Authenticated successfully\n')
+                return true
+            }else{
+                logger.log("Could not connect to the Structures Server. Please check the server is running and the URL is correct.")
+                return false
+            }
         }
     } catch (e) {
         logger.log("Could not connect to the Structures Server. Please check the server is running and the URL is correct.", e)
@@ -131,10 +161,10 @@ export async function connectAndUpgradeSession(server: string, logger: Logger): 
     }
 }
 
-function receiveSessionId(scope: string): Promise<string> {
+function receiveSessionId(scope: string): Promise<SessionMetadata> {
     const subscribeCRI = EventConstants.SERVICE_DESTINATION_PREFIX + scope + '@continuum.cli.SessionUpgradeService'
 
-    return new Promise<string>(( resolve, reject) => {
+    return new Promise<SessionMetadata>((resolve, reject) => {
         const subscription = Continuum.eventBus.observe(subscribeCRI).subscribe((value: IEvent) => {
             // send reply to user
             const replyTo = value.getHeader(EventConstants.REPLY_TO_HEADER)
@@ -150,7 +180,7 @@ function receiveSessionId(scope: string): Promise<string> {
 
             subscription.unsubscribe()
 
-            const jsonObj: Array<string> = JSON.parse(value.getDataString())
+            const jsonObj: Array<SessionMetadata> = JSON.parse(value.getDataString())
             if(jsonObj?.length > 0){
                 resolve(jsonObj[0])
             }else {
@@ -169,9 +199,9 @@ export type EntityInfo = {
 }
 
 export type ConversionConfiguration = {
-    namespace: string,
+    application: string,
     entitiesPath: string,
-    utilFunctionLocator: UtilFunctionLocator,
+    utilFunctionLocator: UtilFunctionLocator | null,
     entityConfigurations?: EntityConfiguration[],
     verbose: boolean,
     logger: Logger,
@@ -246,7 +276,7 @@ export function convertAllEntities(config: ConversionConfiguration): EntityInfo[
         if(absSourcePath.startsWith(absEntitiesPath)) {
 
             const conversionContext =
-                      createConversionContext(new TypescriptConverterStrategy(new TypescriptConversionState(config.namespace,
+                      createConversionContext(new TypescriptConverterStrategy(new TypescriptConversionState(config.application,
                                                                                                             config.utilFunctionLocator),
                                                                               config.logger))
 
@@ -318,6 +348,11 @@ export function getRelativeImportPath(from: string, to: string, fileExtensionFor
     }
     const fromDir = path.dirname(from);
     let relativePath = path.relative(fromDir, to)
+
+    // Normalize path separators to forward slashes for import statements
+    // This is required because import statements always use forward slashes,
+    // even on Windows, but path.relative() returns platform-specific separators
+    relativePath = relativePath.replace(/\\/g, '/')
 
     // Make sure path starts with './' or '../'
     if (!relativePath.startsWith('../') && !relativePath.startsWith('./')) {

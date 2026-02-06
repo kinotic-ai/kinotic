@@ -39,9 +39,9 @@ public class ObjectC3TypeToOpenApi implements C3TypeConverter<Schema<?>, ObjectC
             }
 
             // if this is an object we create a reference schema
-            // TODO: handle cases where the same object name is used across multiple different types in the same namespace
-            //       To handle this we will need to keep track of all "Models" per namespace and check for conflicts
-            //       Or this could be done by keeping the Conversion State around and converting all Structures for a namespace at once
+            // TODO: handle cases where the same object name is used across multiple different types in the same application
+            //       To handle this we will need to keep track of all "Models" per application and check for conflicts
+            //       Or this could be done by keeping the Conversion State around and converting all Structures for a application at once
             if(type instanceof ComplexC3Type){
                 // For union literals the DiscriminatorDecorator can be on the property, we capture that here.
                 if(type instanceof UnionC3Type){

@@ -1,11 +1,6 @@
-import {C3Type, PropertyDefinition} from '@kinotic/continuum-idl'
+import {PropertyDefinition} from '@kinotic/continuum-idl'
 import {FunctionDeclaration} from 'ts-morph'
-import {
-    CalculatedPropertyConfiguration,
-    EntityConfiguration,
-    OverrideConfiguration,
-    TransformConfiguration
-} from '../../state/StructuresProject.js'
+import {CalculatedPropertyConfiguration, EntityConfiguration, OverrideConfiguration, TransformConfiguration} from '@kinotic/structures-api'
 import {UtilFunctionLocator} from '../../UtilFunctionLocator.js'
 
 export class BaseConversionState {
@@ -14,7 +9,7 @@ export class BaseConversionState {
     private readonly useFullJsonPathForCalculatedProperties: boolean
     private _entityConfiguration: EntityConfiguration | undefined = undefined
     private _exclusionMap: Map<string, void> | null = null
-    private readonly _namespace: string
+    private readonly _application: string
     private _overridesMap: Map<string, OverrideConfiguration> | null = null
     private _transformsMap: Map<string, TransformConfiguration> | null = null
     private _calculatedPropertiesMap: Map<string, CalculatedPropertyConfiguration[]> | null = null
@@ -22,13 +17,14 @@ export class BaseConversionState {
 
     /**
      * Create a new instance of the BaseConversionState
+     * @param application the application that entities will belong to
      * @param utilFunctionLocator used to locate util functions
      * @param useFullJsonPathForCalculatedProperties
      */
-    constructor(namespace: string,
+    constructor(application: string,
                 utilFunctionLocator: UtilFunctionLocator | null,
                 useFullJsonPathForCalculatedProperties = false) {
-        this._namespace = namespace
+        this._application = application
         this.utilFunctionLocator = utilFunctionLocator
         this.useFullJsonPathForCalculatedProperties = useFullJsonPathForCalculatedProperties
     }
@@ -87,8 +83,8 @@ export class BaseConversionState {
         }
     }
 
-    get namespace(): string {
-        return this._namespace
+    get application(): string {
+        return this._application
     }
 
     shouldExclude(jsonPath: string): boolean {

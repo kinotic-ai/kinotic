@@ -1,13 +1,13 @@
 package org.kinotic.structures.internal.serializer;
 
-import com.fasterxml.jackson.core.JacksonException;
+import java.io.IOException;
+
+import org.kinotic.structures.api.domain.RawJson;
+
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.kinotic.structures.api.domain.RawJson;
-
-import java.io.IOException;
 
 /**
  * Created by Navíd Mitchell 🤪 on 5/22/23.

@@ -9,7 +9,7 @@ export class StatementMapperConversionState extends BaseConversionState{
 
     public indent: number = 4
 
-    constructor(namespace: string, utilFunctionLocator: UtilFunctionLocator) {
+    constructor(namespace: string, utilFunctionLocator: UtilFunctionLocator| null) {
         super(namespace, utilFunctionLocator, true)
     }
 

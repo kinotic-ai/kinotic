@@ -1,0 +1,48 @@
+name: Build and Deploy Structures Doc Site
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'webdocs/**'
+
+jobs:
+  build_and_deploy_webdocs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 9
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: "./webdocs/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: |
+          cd webdocs
+          pnpm install
+
+      - name: Build Structures site
+        run: |
+          cd webdocs
+          pnpm docs:build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: webdocs/.vitepress/dist
+          publish_branch: gh-pages
+          destination_dir: webdocs
+          keep_files: false

@@ -4,7 +4,7 @@ import {Liquid} from 'liquidjs'
 import path from 'path'
 import {Project, Type} from 'ts-morph'
 import {fileURLToPath} from 'url'
-import {PageableC3Type, PageC3Type} from '@kinotic/structures-api'
+import {PageableC3Type, PageC3Type, TypescriptExternalProjectConfig, TypescriptProjectConfig} from '@kinotic/structures-api'
 import {createImportString, StatementMapper} from './converter/codegen/StatementMapper.js'
 import {StatementMapperConversionState} from './converter/codegen/StatementMapperConversionState.js'
 import {StatementMapperConverterStrategy} from './converter/codegen/StatementMapperConverterStrategy.js'
@@ -13,7 +13,6 @@ import {tsDecoratorToC3Decorator} from './converter/typescript/ConverterUtils.js
 import {TypescriptConversionState} from './converter/typescript/TypescriptConversionState.js'
 import {TypescriptConverterStrategy} from './converter/typescript/TypescriptConverterStrategy.js'
 import {Logger} from './Logger.js'
-import {NamespaceConfiguration} from './state/StructuresProject.js'
 import {UtilFunctionLocator} from './UtilFunctionLocator.js'
 import {
     ConversionConfiguration, convertAllEntities,
@@ -39,7 +38,7 @@ export class CodeGenerationService {
     private readonly tsMorphProject: Project
     private readonly conversionContext: IConversionContext<Type, C3Type, TypescriptConversionState>
 
-    constructor(namespace: string,
+    constructor(application: string,
                 fileExtensionForImports: string,
                 logger: Logger){
         this.fileExtensionForImports = fileExtensionForImports
@@ -50,43 +49,46 @@ export class CodeGenerationService {
                                  });
         this.tsMorphProject = createTsMorphProject()
 
-        const state = new TypescriptConversionState(namespace, null)
+        const state = new TypescriptConversionState(application, null)
         state.shouldAddSourcePathToMetadata = false
         this.conversionContext = createConversionContext(new TypescriptConverterStrategy(state, logger))
     }
 
-    public async generateAllEntities(namespaceConfig: NamespaceConfiguration,
+    public async generateAllEntities(projectConfig: TypescriptProjectConfig | TypescriptExternalProjectConfig,
                                      verbose: boolean,
                                      entityProcessor?: GeneratedEntityProcessor){
 
-        const utilFunctionLocator = new UtilFunctionLocator(namespaceConfig || [], verbose)
-
-        for(const entitiesPath of namespaceConfig.entitiesPaths) {
+        for(const entitiesPath of projectConfig.entitiesPaths) {
             const config: ConversionConfiguration = {
-                namespace: namespaceConfig.namespaceName,
-                entitiesPath: entitiesPath,
-                utilFunctionLocator: utilFunctionLocator,
-                verbose: verbose,
-                logger: this.logger
+                application        : projectConfig.application,
+                entitiesPath       : entitiesPath,
+                utilFunctionLocator: null,
+                verbose            : verbose,
+                logger             : this.logger
             }
-            await this.processEntities(config, namespaceConfig, entityProcessor)
+            await this.processEntities(config, projectConfig, entityProcessor)
         }
 
-        for(const [externalEntitiesPath, entityConfigurations] of Object.entries(namespaceConfig.externalEntities || {})){
-            const config: ConversionConfiguration = {
-                namespace: namespaceConfig.namespaceName,
-                entitiesPath: externalEntitiesPath,
-                utilFunctionLocator: utilFunctionLocator,
-                entityConfigurations: entityConfigurations,
-                verbose: verbose,
-                logger: this.logger
+        if(projectConfig instanceof TypescriptExternalProjectConfig){
+
+            const utilFunctionLocator= new UtilFunctionLocator(projectConfig || [], verbose)
+
+            for(const [externalEntitiesPath, entityConfigurations] of Object.entries(projectConfig.externalEntities || {})){
+                const config: ConversionConfiguration = {
+                    application         : projectConfig.application,
+                    entitiesPath        : externalEntitiesPath,
+                    utilFunctionLocator : utilFunctionLocator,
+                    entityConfigurations: entityConfigurations,
+                    verbose             : verbose,
+                    logger              : this.logger
+                }
+                await this.processEntities(config, projectConfig, entityProcessor)
             }
-            await this.processEntities(config, namespaceConfig, entityProcessor)
         }
     }
 
     private async processEntities(config: ConversionConfiguration,
-                                  namespaceConfig: NamespaceConfiguration,
+                                  projectConfig: TypescriptProjectConfig | TypescriptExternalProjectConfig,
                                   entityProcessor?: GeneratedEntityProcessor): Promise<void>{
 
         if (!fs.existsSync(config.entitiesPath)) {
@@ -105,25 +107,25 @@ export class CodeGenerationService {
 
                 generatedServices.push(await this.generateEntityService(false,
                                                              entityInfo,
-                                                             namespaceConfig,
+                                                                        projectConfig,
                                                              config.utilFunctionLocator))
 
                 if(entityInfo.multiTenantSelectionEnabled){
                     generatedServices.push(await this.generateEntityService(true,
                                                                             entityInfo,
-                                                                            namespaceConfig,
+                                                                            projectConfig,
                                                                             config.utilFunctionLocator))
                 }
 
                 if(config.verbose){
 
-                    await writeEntityJsonToFilesystem(namespaceConfig.generatedPath,
+                    await writeEntityJsonToFilesystem(projectConfig.generatedPath,
                                                       entityInfo.entity,
                                                       this.logger)
 
                     for(let generatedServiceInfo of generatedServices) {
                         if (generatedServiceInfo.namedQueries.length > 0) {
-                            await writeGeneratedServiceInfoToFilesystem(namespaceConfig.generatedPath,
+                            await writeGeneratedServiceInfoToFilesystem(projectConfig.generatedPath,
                                                                         generatedServiceInfo,
                                                                         this.logger)
                         }
@@ -136,25 +138,25 @@ export class CodeGenerationService {
             }
 
         } else {
-            this.logger.logVerbose(`No Entities found For namespace: ${config.namespace} and Entities Path: ${config.entitiesPath}`, config.verbose)
+            this.logger.logVerbose(`No Entities found For namespace: ${config.application} and Entities Path: ${config.entitiesPath}`, config.verbose)
         }
     }
 
     private async generateEntityService(adminService: boolean,
                                         entityInfo: EntityInfo,
-                                        namespaceConfig: NamespaceConfiguration,
-                                        utilFunctionLocator: UtilFunctionLocator): Promise<GeneratedServiceInfo> {
+                                        projectConfig: TypescriptProjectConfig | TypescriptExternalProjectConfig,
+                                        utilFunctionLocator: UtilFunctionLocator | null): Promise<GeneratedServiceInfo> {
 
         const adminPrefix = (adminService ? 'Admin' : '')
         const fileExtensionForImports = this.fileExtensionForImports
-        const generatedPath = namespaceConfig.generatedPath
+        const generatedPath = projectConfig.generatedPath
         const baseEntityServicePath = path.resolve(generatedPath, 'generated', `Base${entityInfo.entity.name}${adminPrefix}EntityService.ts`)
         const entityServicePath = path.resolve(generatedPath, `${entityInfo.entity.name}${adminPrefix}EntityService.ts`)
 
         const entityName = entityInfo.entity.name
         const entityNamespace = entityInfo.entity.namespace
         const defaultExport = entityInfo.defaultExport
-        const validate = namespaceConfig.validate
+        const validate = projectConfig.validate
 
         let entityImportPath = tryGetNodeModuleName(entityInfo.exportedFromFile)
         if(!entityImportPath){
@@ -345,7 +347,7 @@ export class CodeGenerationService {
     }
 
     private createStatementMapper(entityInfo: EntityInfo,
-                                  utilFunctionLocator: UtilFunctionLocator): StatementMapper{
+                                  utilFunctionLocator: UtilFunctionLocator | null): StatementMapper{
         const state = new StatementMapperConversionState(entityInfo.entity.namespace,
                                                          utilFunctionLocator)
         state.entityConfiguration = entityInfo.entityConfiguration

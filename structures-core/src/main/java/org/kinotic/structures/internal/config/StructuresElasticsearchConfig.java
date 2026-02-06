@@ -1,11 +1,5 @@
 package org.kinotic.structures.internal.config;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.json.JsonpMapper;
-import co.elastic.clients.json.jackson.JacksonJsonpMapper;
-import co.elastic.clients.transport.ElasticsearchTransport;
-import co.elastic.clients.transport.rest_client.RestClientTransport;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -13,54 +7,28 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
-import org.kinotic.structures.api.config.ElasticConnectionInfo;
 import org.kinotic.structures.api.config.StructuresProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.elasticsearch.client.ClientConfiguration;
-import org.springframework.data.elasticsearch.client.elc.ReactiveElasticsearchConfiguration;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.json.JsonpMapper;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.transport.ElasticsearchTransport;
+import co.elastic.clients.transport.rest_client.RestClientTransport;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/26/23.
  */
 @Configuration
-public class StructuresElasticsearchConfig extends ReactiveElasticsearchConfiguration {
+public class StructuresElasticsearchConfig {
 
     private final StructuresProperties structuresProperties;
 
     public StructuresElasticsearchConfig(StructuresProperties structuresProperties) {
         this.structuresProperties = structuresProperties;
-    }
-
-    @Override
-    public ClientConfiguration clientConfiguration() {
-        AtomicBoolean useSsl = new AtomicBoolean(false);
-        String[] uris = structuresProperties.getElasticConnections()
-                                            .stream()
-                                            .peek(v -> {
-                                                if(v.getScheme().equalsIgnoreCase("https")){
-                                                    useSsl.set(true);
-                                                }
-                                            })
-                                            .map(ElasticConnectionInfo::toHostAndPort)
-                                            .toArray(String[]::new);
-
-        ClientConfiguration.MaybeSecureClientConfigurationBuilder builder = ClientConfiguration.builder().connectedTo(uris);
-
-        if(useSsl.get()){
-            builder.usingSsl();
-        }
-
-        if(structuresProperties.hasElasticUsernameAndPassword()){
-            builder.withBasicAuth(structuresProperties.getElasticUsername(), structuresProperties.getElasticPassword());
-        }
-
-        builder.withConnectTimeout(structuresProperties.getElasticConnectionTimeout())
-               .withSocketTimeout(structuresProperties.getElasticSocketTimeout());
-
-        return builder.build();
     }
 
     @Bean
@@ -102,11 +70,6 @@ public class StructuresElasticsearchConfig extends ReactiveElasticsearchConfigur
     @Bean
     public JsonpMapper jsonpMapper(ObjectMapper objectMapper){
         return new JacksonJsonpMapper(objectMapper);
-    }
-
-    @Override
-    protected boolean writeTypeHints() {
-        return false;
     }
 
 }

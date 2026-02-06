@@ -1,29 +1,52 @@
-import {Continuum, CrudServiceProxy, ICrudServiceProxy, Page, Pageable} from '@kinotic/continuum-client'
+import {Continuum, CrudServiceProxy, FunctionalIterablePage, ICrudServiceProxy, IterablePage, Page, Pageable} from '@kinotic/continuum-client'
 import {Structure} from '@/api/domain/Structure'
 
 
 export interface IStructureService extends ICrudServiceProxy<Structure> {
 
     /**
-     * Finds all published structures for the given namespace.
-     * @param namespace the namespace to find structures for
-     * @param pageable the page to return
-     * @return a future that will complete with a page of structures
+     * Counts all structures for the given application.
+     * @param applicationId the application to find structures for
+     * @return Promise emitting the number of structures
      */
-    findAllPublishedForNamespace(namespace: string, pageable: Pageable): Promise<Page<Structure>>
+    countForApplication(applicationId: string): Promise<number>
 
     /**
-     * Counts all structures for the given namespace.
-     * @param namespace the namespace to find structures for
-     * @return a future that will complete with a page of structures
+     * Counts all structures for the given project.
+     * @param projectId the project to find structures for
+     * @return Promise emitting the number of structures
      */
-    countForNamespace(namespace: string): Promise<number>
+    countForProject(projectId: string): Promise<number>
+
+    /**
+     * Finds all structures for the given application.
+     * @param applicationId the application to find structures for
+     * @param pageable the page to return
+     * @return Promise emitting a page of structures
+     */
+    findAllForApplication(applicationId: string, pageable: Pageable): Promise<IterablePage<Structure>>
+
+    /**
+     * Finds all published structures for the given application.
+     * @param applicationId the application to find structures for
+     * @param pageable the page to return
+     * @return Promise emitting a page of structures
+     */
+    findAllPublishedForApplication(applicationId: string, pageable: Pageable): Promise<Page<Structure>>
+
+    /**
+     * Finds all structures for the given project.
+     * @param projectId the project to find structures for
+     * @param pageable the page to return
+     * @return Promise emitting a page of structures
+     */
+    findAllForProject(projectId: string, pageable: Pageable): Promise<IterablePage<Structure>>
 
     /**
      * Publishes the structure with the given id.
      * This will make the structure available for use to read and write items for.
      * @param structureId the id of the structure to publish
-     * @return a future that will complete when the structure has been published
+     * @return Promise that resolves when the structure has been published
      */
     publish(structureId: string): Promise<void>
 
@@ -36,7 +59,7 @@ export interface IStructureService extends ICrudServiceProxy<Structure> {
     /**
      * Un-publish the structure with the given id.
      * @param structureId the id of the structure to un-publish
-     * @return a future that will complete when the structure has been unpublished
+     * @return Promise that resolves when the structure has been unpublished
      */
     unPublish(structureId: string): Promise<void>
 }
@@ -47,12 +70,36 @@ export class StructureService extends CrudServiceProxy<Structure> implements ISt
         super(Continuum.serviceProxy('org.kinotic.structures.api.services.StructureService'))
     }
 
-    public findAllPublishedForNamespace(namespace: string, pageable: Pageable): Promise<Page<Structure>> {
-        return this.serviceProxy.invoke('findAllPublishedForNamespace', [namespace, pageable])
+    public countForApplication(applicationId: string): Promise<number> {
+        return this.serviceProxy.invoke('countForApplication', [applicationId])
     }
 
-    public countForNamespace(namespace: string): Promise<number> {
-        return this.serviceProxy.invoke('countForNamespace', [namespace])
+    public countForProject(projectId: string): Promise<number> {
+        return this.serviceProxy.invoke('countForProject', [projectId])
+    }
+
+    public findAllForApplicationSinglePage(applicationId: string, pageable: Pageable): Promise<Page<Structure>> {
+        return this.serviceProxy.invoke('findAllForApplication', [applicationId, pageable])
+    }
+
+    public async findAllForApplication(applicationId: string, pageable: Pageable): Promise<IterablePage<Structure>> {
+        const page: Page<Structure> = await this.findAllForApplicationSinglePage(applicationId, pageable)
+        return new FunctionalIterablePage(pageable, page,
+            (pageable: Pageable) => this.findAllForApplicationSinglePage(applicationId, pageable))
+    }
+
+    public findAllPublishedForApplication(applicationId: string, pageable: Pageable): Promise<Page<Structure>> {
+        return this.serviceProxy.invoke('findAllPublishedForApplication', [applicationId, pageable])
+    }
+
+    public async findAllForProject(projectId: string, pageable: Pageable): Promise<IterablePage<Structure>> {
+        const page: Page<Structure> = await this.findAllForProjectSinglePage(projectId, pageable)
+        return new FunctionalIterablePage(pageable, page,
+            (pageable: Pageable) => this.findAllForProjectSinglePage(projectId, pageable))
+    }
+
+    public findAllForProjectSinglePage(projectId: string, pageable: Pageable): Promise<Page<Structure>> {
+        return this.serviceProxy.invoke('findAllForProject', [projectId, pageable])
     }
 
     public publish(structureId: string): Promise<void> {

@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+<head>
+    <title>API Reference</title>
+    <meta charset="utf-8" />
+    <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+<script id="api-reference"></script>
+<script>
+    function getQueryParam(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    }
+
+    function getBaseUrl(){
+        let prefix = 'http'
+        let port = '8080'
+        if(window.location.protocol.startsWith('https')){
+            prefix = 'https'
+            port = '443'
+        }
+        return `${prefix}://${window.location.hostname}:${port}`
+    }
+
+    const namespace = getQueryParam('namespace') || 'default';
+    let apiReference = document.getElementById('api-reference')
+    window.addEventListener('message', (event) => {
+        const { token, sessionId, namespace: messageNamespace } = event.data || {}
+        
+        if (!token && !sessionId) {
+            console.error('No authentication provided (neither token nor sessionId)')
+            return
+        }
+        
+        if (!messageNamespace) {
+            console.error('Missing namespace in message')
+            return
+        }
+        
+        const finalNamespace = messageNamespace || namespace
+        const configuration = {
+            isEditable: false,
+            layout: "modern",
+            spec: {
+                url: `${getBaseUrl()}/api-docs/${finalNamespace}/openapi.json`
+            },
+            authentication: {
+                preferredSecurityScheme: 'http',
+                http: {
+                    scheme: 'bearer',
+                    bearerFormat: 'JWT'
+                }
+            },
+            requestInterceptor: (request) => {
+                if (token) {
+                    // OIDC: Use bearer token (JWT) or basic token
+                    if (token.includes('.')) {
+                        request.headers['Authorization'] = `Bearer ${token}`
+                    } else {
+                        request.headers['Authorization'] = `Basic ${token}`
+                    }
+                } else if (sessionId) {
+                    // Basic Auth: Use session ID header
+                    // Note: Backend needs to support X-Session-ID header
+                    request.headers['X-Session-ID'] = sessionId
+                }
+                return request
+            }
+        }
+        apiReference.dataset.configuration = JSON.stringify(configuration)
+    })
+    
+    const fallbackConfiguration = {
+        isEditable: false,
+        layout: "modern",
+        spec: {
+            url: `${getBaseUrl()}/api-docs/${namespace}/openapi.json`
+        }
+    }
+    apiReference.dataset.configuration = JSON.stringify(fallbackConfiguration)
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+</body>
+</html>

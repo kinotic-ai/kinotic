@@ -43,6 +43,8 @@ import java.util.function.Function;
 @Component
 public class CrudServiceTemplate {
 
+    private static final long DEFAULT_PRIORITY = 500L;
+
     private static final Logger log = LoggerFactory.getLogger(CrudServiceTemplate.class);
 
     private final ElasticsearchAsyncClient esAsyncClient;
@@ -144,7 +146,7 @@ public class CrudServiceTemplate {
         return esAsyncClient.indices().putIndexTemplate(builder -> {
             builder.name(templateName)
                    .indexPatterns(List.of(indexPattern))
-                   .priority(500L)
+                   .priority(DEFAULT_PRIORITY)
                    .create(true)
                    .template(t -> {
                                  t.settings(s -> s
@@ -254,9 +256,9 @@ public class CrudServiceTemplate {
                                                 Consumer<GetRequest.Builder> builderConsumer,
                                                 Function<GetResult<T>, R> resultMapper) {
 
-        //noinspection unchecked
-        JsonEndpoint<GetRequest, GetResponse<T>, ErrorResponse> endpoint =
-                (JsonEndpoint<GetRequest, GetResponse<T>, ErrorResponse>) GetRequest._ENDPOINT;
+        @SuppressWarnings("unchecked")
+        JsonEndpoint<GetRequest, GetResponse<T>, ErrorResponse> endpoint = 
+            (JsonEndpoint<GetRequest, GetResponse<T>, ErrorResponse>) GetRequest._ENDPOINT;
 
         endpoint = new EndpointWithResponseMapperAttr<>(endpoint,
                                                         "co.elastic.clients:Deserializer:_global.get.Response.TDocument",
@@ -278,8 +280,9 @@ public class CrudServiceTemplate {
                                 if(resultMapper != null) {
                                     return resultMapper.apply(tGetResponse);
                                 }else{
-                                    //noinspection unchecked
-                                    return (R)tGetResponse.source();
+                                    @SuppressWarnings("unchecked")
+                                    R result = (R)tGetResponse.source();
+                                    return result;
                                 }
                             });
     }
@@ -330,8 +333,9 @@ public class CrudServiceTemplate {
                                 }else{
                                     for (MultiGetResponseItem<T> hit : recordsResponse) {
                                         if(hit.isResult() && hit.result().found()){
-                                            //noinspection unchecked
-                                            content.add((R)hit.result().source());
+                                            @SuppressWarnings("unchecked")
+                                            R result = (R)hit.result().source();
+                                            content.add(result);
                                         }
                                     }
                                 }
@@ -391,8 +395,9 @@ public class CrudServiceTemplate {
                         }
                     }else {
                         for (Hit<T> hit : hitsMetadata.hits()) {
-                            //noinspection unchecked
-                            content.add((R)hit.source());
+                            @SuppressWarnings("unchecked")
+                            R result = (R)hit.source();
+                            content.add(result);
                             lastSort = hit.sort();
                         }
                     }
@@ -474,7 +479,7 @@ public class CrudServiceTemplate {
                                                                             .putIndexTemplate(builder -> {
                                                                                 builder.name(templateName)
                                                                                        .indexPatterns(existingTemplate.indexPatterns())
-                                                                                       .priority(existingTemplate.priority() != null ? existingTemplate.priority() : 500);
+                                                                                       .priority(Objects.requireNonNullElse(existingTemplate.priority(), DEFAULT_PRIORITY));
 
                                                                                 // Preserve data stream configuration if present
                                                                                 if (existingTemplate.dataStream() != null) {
@@ -483,10 +488,9 @@ public class CrudServiceTemplate {
 
                                                                                 // Apply existing settings and new mappings
                                                                                 builder.template(t -> {
-                                                                                    if (existingTemplate.template() != null && existingTemplate.template()
-                                                                                                                                               .settings() != null) {
-                                                                                        t.settings(existingTemplate.template()
-                                                                                                                   .settings());
+                                                                                    IndexTemplateSummary template = existingTemplate.template();
+                                                                                    if (template != null && template.settings() != null) {
+                                                                                        t.settings(template.settings());
                                                                                     }
                                                                                     t.mappings(m -> m
                                                                                             .dynamic(DynamicMapping.Strict)
@@ -503,8 +507,9 @@ public class CrudServiceTemplate {
 
     private <T> JsonpDeserializer<T> getDeserializer(Class<T> type) {
         if (RawJson.class.isAssignableFrom(type)) {
-            //noinspection unchecked
-            return (JsonpDeserializer<T>) rawJsonJsonpDeserializer;
+            @SuppressWarnings("unchecked")
+            JsonpDeserializer<T> deserializer = (JsonpDeserializer<T>) rawJsonJsonpDeserializer;
+            return deserializer;
         }
 
         // Try the built-in deserializers first to avoid repeated lookups in the Jsonp mapper for client-defined classes
