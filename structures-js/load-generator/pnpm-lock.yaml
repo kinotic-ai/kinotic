@@ -18,11 +18,11 @@ importers:
         specifier: ^2.0.4
         version: 2.0.4
       '@kinotic/structures-api':
-        specifier: ^3.5.0-beta.18
-        version: 3.5.0-beta.18(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))
+        specifier: ^3.5.0-beta.19
+        version: 3.5.0-beta.19(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))
       '@kinotic/structures-cli':
-        specifier: ^3.5.0-beta.8
-        version: 3.5.0-beta.8(@types/node@25.1.0)
+        specifier: ^3.5.0-beta.10
+        version: 3.5.0-beta.10(@types/node@25.1.0)
       '@opentelemetry/api':
         specifier: 1.9.0
         version: 1.9.0
@@ -572,13 +572,13 @@ packages:
   '@kinotic/continuum-idl@2.0.4':
     resolution: {integrity: sha512-akXcSw6Pw6hdorPV1lU2RXvMS+kpWZQnzfZv3GysyUrVU8IAZU5N1FmBM8QmthJUz+SXNdHgYzuireaV8aLtAw==}
 
-  '@kinotic/structures-api@3.5.0-beta.18':
-    resolution: {integrity: sha512-Z0aC9A/GLKcRKqD0565RAjdIaPqI2ueS0LDq1u4OIoL1QHuRtuXUjbOwFFRLqg3hSCUskjmqTNu0ZnWqDtSdDw==}
+  '@kinotic/structures-api@3.5.0-beta.19':
+    resolution: {integrity: sha512-3WBwk3NqMxXrAjd/jpftOzCQxqi+dkUgrbLkVgjJkSZk/9n27n5f2k1iTqxRKAioLooT8whOOQBpg3bG7k3H6A==}
     peerDependencies:
       '@kinotic/continuum-client': ^2.14.10
 
-  '@kinotic/structures-cli@3.5.0-beta.8':
-    resolution: {integrity: sha512-2Eibjqf9tbubBCVKyz9er1YctcfsNr5ZKGGCO5Kzq76exd03uE/xwk72xtodxFnDPDFoZCHe0x0JQH0XwyvhkQ==}
+  '@kinotic/structures-cli@3.5.0-beta.10':
+    resolution: {integrity: sha512-2zpHI8zfUAAunOhRQZBjN2H3pB4UA6u9kXNb8YcoryR4ve7ztu1azzvajmkJs5T/mIUle4BJyOje1bHlV0VTyA==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -2864,19 +2864,19 @@ snapshots:
 
   '@kinotic/continuum-idl@2.0.4': {}
 
-  '@kinotic/structures-api@3.5.0-beta.18(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))':
+  '@kinotic/structures-api@3.5.0-beta.19(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))':
     dependencies:
       '@kinotic/continuum-client': 2.14.10(reflect-metadata@0.2.2)
       '@kinotic/continuum-idl': 2.0.4
       reflect-metadata: 0.2.2
       rxjs: 7.8.2
 
-  '@kinotic/structures-cli@3.5.0-beta.8(@types/node@25.1.0)':
+  '@kinotic/structures-cli@3.5.0-beta.10(@types/node@25.1.0)':
     dependencies:
       '@inquirer/prompts': 8.1.0(@types/node@25.1.0)
       '@kinotic/continuum-client': 2.14.10(reflect-metadata@0.2.2)
       '@kinotic/continuum-idl': 2.0.4
-      '@kinotic/structures-api': 3.5.0-beta.18(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))
+      '@kinotic/structures-api': 3.5.0-beta.19(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))
       '@oclif/core': 4.8.0
       '@oclif/plugin-autocomplete': 3.2.39
       '@oclif/plugin-help': 6.2.28
