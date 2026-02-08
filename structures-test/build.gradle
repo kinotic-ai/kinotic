@@ -12,7 +12,6 @@ dependencies {
 
 	implementation 'org.springframework.boot:spring-boot-autoconfigure'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
 	implementation 'io.jsonwebtoken:jjwt-api'
 	implementation 'io.jsonwebtoken:jjwt-impl'

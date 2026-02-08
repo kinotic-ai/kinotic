@@ -56,7 +56,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
     public CompletableFuture<EntityHolder<RawJson>> process(T entity, EntityContext context) {
         return doProcess(entity, context, false).thenApply(list -> {
             if(list.size() != 1){
-                throw new IllegalStateException("Expected exactly one entity to be returned");
+                throw new IllegalStateException("Expected exactly one entity to be returned, got " + list.size());
             }
             return list.getFirst();
         });

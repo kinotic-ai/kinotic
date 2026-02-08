@@ -30,6 +30,15 @@ configurations {
         canBeResolved = true
         canBeConsumed = true
     }
+    // If you need to make sure jackson 2 does not exist at all.
+    // Use full when upgrading because it still can com from transient dependencies
+//    all {
+//        exclude group: 'com.fasterxml.jackson.core', module: 'jackson-core'
+//        exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
+//        exclude group: 'com.fasterxml.jackson.datatype'
+//        exclude group: 'com.fasterxml.jackson.module'
+//        exclude group: 'com.fasterxml.jackson.dataformat'
+//    }
 }
 
 dependencyManagement {
@@ -78,6 +87,7 @@ dependencyManagement {
 }
 
 dependencies {
+    implementation 'com.fasterxml.jackson.core:jackson-annotations'
     implementation 'jakarta.annotation:jakarta.annotation-api'
 
     implementation 'org.apache.commons:commons-lang3'
