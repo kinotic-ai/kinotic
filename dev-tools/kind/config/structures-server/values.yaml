@@ -33,7 +33,7 @@ image:
   # Repository matches bootBuildImage output
   repository: kinoticai/structures-server
   # Tag from gradle.properties version (structuresVersion=3.5.1-SNAPSHOT)
-  tag: 3.5.1
+  tag: 3.5.2
   # Never pull - use images loaded into KinD cluster
   pullPolicy: Never
   sha: ""
@@ -46,7 +46,7 @@ migration:
   activeDeadlineSeconds: 300
   image:
     repository: kinoticai/structures-migration
-    tag: 3.5.1
+    tag: 3.5.2
     # Never pull - use images loaded into KinD cluster
     pullPolicy: Never
     sha: ""
