@@ -283,12 +283,12 @@ export default class Login extends Vue {
     
     if (oidcParams.code && oidcParams.state) {
       if (await this.isDebugMode()) {
-        debug('OIDC callback detected - code: %s, state: %s', this.$route.query.code, this.$route.query.state);
+        debug('OIDC callback detected - code: %s, state: %s', oidcParams.code, oidcParams.state);
       }
       await this.handleOidcCallback();
     } else {
       if (await this.isDebugMode()) {
-        debug('No OIDC callback - code: %s, state: %s', !!this.$route.query.code, !!this.$route.query.state);
+        debug('No OIDC callback - code: %s, state: %s', !!oidcParams.code, !!oidcParams.state);
       }
     }
   }
@@ -389,13 +389,13 @@ export default class Login extends Vue {
     const oidcParams = this.getOidcCallbackParams();
     
     if (debugMode) {
-      debug('OIDC callback handling started - route query: %O', this.$route.query);
+      debug('OIDC callback handling started - oidcParams: %O, window.location.search: %s', oidcParams, window.location.search);
     }
     
     this.auth.setOidcCallbackLoading(true);
     
     try {
-      const stateString = this.$route.query.state as string;
+      const stateString = oidcParams.state || '';
       if (debugMode) {
         debug('Parsing state from URL: %s', stateString);
       }
@@ -438,7 +438,9 @@ export default class Login extends Vue {
         debug('User manager created');
       }
       
-      const user = await userManager.signinRedirectCallback();
+      // Pass the full URL so the library can parse params from the query string
+      // (needed for hash-mode routing where params are before the #)
+      const user = await userManager.signinRedirectCallback(window.location.href);
       if (debugMode) {
         debug('Signin callback successful - user: %O, access_token: %s', user.profile, user.access_token ? 'present' : 'missing');
       }
@@ -464,7 +466,7 @@ export default class Login extends Vue {
           message: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined,
           windowLocationSearch: window.location.search,
-          oidcParams: oidcParams
+          oidcParams
         });
       }
       

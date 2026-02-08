@@ -10,7 +10,7 @@ Keycloak has been deployed!
 {{- end }}
 
 2. Access the Admin Console:
-   URL: http://localhost:{{ .Values.service.nodePort }}{{ .Values.keycloak.relativePath }}/admin
+   URL: https://structures.local/admin
    Username: {{ .Values.auth.adminUser }}
    Password: {{ .Values.auth.adminPassword }}
 

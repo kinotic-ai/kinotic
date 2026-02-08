@@ -10,7 +10,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 120s
+      start_period: 150s
     ports:
       - "9200:9200"  # Elasticsearch HTTP API
       - "9300:9300"  # Elasticsearch transport

@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "structures-server.fullname" . }}-migration-{{ .Release.Revision }}
+  labels:
+    app: {{ include "structures-server.name" . }}-migration
+    release: {{ .Release.Name }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: {{ .Values.migration.backoffLimit | default 3 }}
+  activeDeadlineSeconds: {{ .Values.migration.activeDeadlineSeconds | default 300 }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "structures-server.name" . }}-migration
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: structures-migration
+          image: {{ if .Values.migration.image.sha }}"{{ .Values.migration.image.repository }}@{{ .Values.migration.image.sha }}"{{ else }}"{{ .Values.migration.image.repository }}:{{ .Values.migration.image.tag }}"{{ end }}
+          imagePullPolicy: {{ .Values.migration.image.pullPolicy }}
+          env:
+            - name: STRUCTURES_MIGRATION_ELASTIC_SCHEME
+              value: "{{ (index .Values.properties.structures.elastic.connections 0).scheme }}"
+            - name: STRUCTURES_MIGRATION_ELASTIC_HOST
+              value: "{{ (index .Values.properties.structures.elastic.connections 0).host }}"
+            - name: STRUCTURES_MIGRATION_ELASTIC_PORT
+              value: "{{ (index .Values.properties.structures.elastic.connections 0).port }}"
+            {{- if .Values.properties.structures.elastic.username }}
+            - name: STRUCTURES_MIGRATION_ELASTIC_USERNAME
+              value: "{{ .Values.properties.structures.elastic.username }}"
+            {{- end }}
+            {{- if .Values.properties.structures.elastic.password }}
+            - name: STRUCTURES_MIGRATION_ELASTIC_PASSWORD
+              value: "{{ .Values.properties.structures.elastic.password }}"
+            {{- end }}

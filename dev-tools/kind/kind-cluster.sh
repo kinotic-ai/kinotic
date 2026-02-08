@@ -75,6 +75,7 @@ Environment Variables:
   DEPLOY_DEPS              Deploy Elasticsearch dependency (0/1, default: 1)
   DEPLOY_KEYCLOAK          Deploy Keycloak + PostgreSQL (0/1, default: 0)
   DEPLOY_OBSERVABILITY     Deploy observability stack (0/1, default: 0)
+  DEPLOY_LOAD_GENERATOR    Run load generator post-deploy (0/1, default: 0)
 
 Examples:
   # Create a cluster with defaults
@@ -329,6 +330,10 @@ cmd_deploy() {
                 deploy_observability_override="1"
                 shift
                 ;;
+            --with-load-generator)
+                DEPLOY_LOAD_GENERATOR="1"
+                shift
+                ;;
             --wait-timeout)
                 wait_timeout_override="$2"
                 shift 2
@@ -348,6 +353,7 @@ Options:
   --no-deps                Skip dependencies (deploy only structures-server)
   --with-keycloak, -k      Deploy Keycloak + PostgreSQL and enable OIDC authentication
   --with-observability     Deploy observability stack (OTEL, Prometheus, Grafana)
+  --with-load-generator    Run load generator after deployment (generates schemas/test data)
   --wait-timeout <duration> Deployment timeout (default: 5m)
   --help, -h               Show this help message
 
@@ -367,6 +373,9 @@ Examples:
 
   # Deploy with observability stack
   $(basename "$0") deploy --with-observability
+
+  # Deploy with load generator (generates schemas/test data)
+  $(basename "$0") deploy --with-load-generator
 
   # Deploy with custom values
   $(basename "$0") deploy --values my-values.yaml
@@ -506,6 +515,37 @@ EOF
     # Build and load structures-server 
     cmd_build "--load"
     
+    # Build and load structures-migration (used by Helm pre-upgrade hook)
+    section "Building structures-migration"
+    progress "Running: ./gradlew :structures-migration:bootBuildImage"
+    progress "This may take a few minutes..."
+    blank_line
+    
+    export RUNNING_KIND_CLUSTER="true"
+    if ! execute ./gradlew ":structures-migration:bootBuildImage" 2>&1 | while IFS= read -r line; do
+        if [[ "${line}" == *"BUILD"* ]] || \
+           [[ "${line}" == *"Successfully built"* ]] || \
+           [[ "${line}" == *"Paketo"* ]] || \
+           [[ "${line}" == *"Error"* ]] || \
+           [[ "${line}" == *"FAIL"* ]] || \
+           [[ "${VERBOSE}" == "1" ]]; then
+            echo "  ${line}"
+        fi
+    done; then
+        error "Failed to build structures-migration image"
+        return "${EXIT_DEPLOYMENT_FAILED}"
+    fi
+    
+    local migration_image
+    migration_image=$(get_migration_image_name) || return "${EXIT_DEPLOYMENT_FAILED}"
+    
+    section "Loading Migration Image into Cluster"
+    if ! load_image_into_cluster "${CLUSTER_NAME}" "${migration_image}"; then
+        error "Failed to load migration image into cluster"
+        return "${EXIT_DEPLOYMENT_FAILED}"
+    fi
+    blank_line
+    
     if ! deploy_structures_server "${CLUSTER_NAME}" "${additional_sets}"; then
         error "Deployment failed"
         echo ""
@@ -515,6 +555,17 @@ EOF
         echo "  - Check events: kubectl --context ${context} get events --sort-by='.lastTimestamp'"
         echo ""
         return "${EXIT_DEPLOYMENT_FAILED}"
+    fi
+    
+    # Run load generator if requested (after structures-server is healthy)
+    if [[ "${DEPLOY_LOAD_GENERATOR}" == "1" ]]; then
+        section "Running Load Generator"
+        # Ensure CoreDNS resolves structures.local to the ingress controller
+        configure_coredns_custom_hosts "${CLUSTER_NAME}" "structures.local" || true
+        if ! deploy_load_generator "${CLUSTER_NAME}"; then
+            warning "Load generator failed (non-fatal)"
+        fi
+        blank_line
     fi
     
     # Display deployment status

@@ -65,21 +65,6 @@ nodes:
         hostPort: 8888
         protocol: TCP
 
-      # ============================================================
-      # Observability (optional)
-      # ============================================================
-      # Grafana (host:3000 → nodePort:30300)
-      - containerPort: 30300
-        hostPort: 3000
-        protocol: TCP
-      # Prometheus (host:9080 → nodePort:30081)
-      - containerPort: 30081
-        hostPort: 9080
-        protocol: TCP
-      # Jaeger UI (host:16686 → nodePort:30686)
-      - containerPort: 30686
-        hostPort: 16686
-        protocol: TCP
   - role: worker
     extraMounts:
       - hostPath: ./dev-tools/kind/eviction-data
