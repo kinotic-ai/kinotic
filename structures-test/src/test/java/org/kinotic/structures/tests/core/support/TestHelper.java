@@ -66,7 +66,7 @@ public class TestHelper {
     }
 
     public CompletableFuture<Void> bulkUpdateCarsAsRawJson(List<Car> cars, Structure structure, EntityContext entityContext){
-        TokenBuffer tokenBuffer = TokenBuffer.forGeneration();
+        TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
         try {
             tokenBuffer.writePOJO(cars);
         } catch (JacksonException e) {
@@ -76,7 +76,7 @@ public class TestHelper {
     }
 
     public CompletableFuture<Void> bulkSaveCarsAsRawJson(List<Car> cars, Structure structure, EntityContext entityContext){
-        TokenBuffer tokenBuffer = TokenBuffer.forGeneration();
+        TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
         try {
             tokenBuffer.writePOJO(cars);
         } catch (JacksonException e) {
@@ -86,7 +86,7 @@ public class TestHelper {
     }
 
     public CompletableFuture<Car> saveCarAsRawJson(Car car, Structure structure, EntityContext entityContext){
-        TokenBuffer tokenBuffer = TokenBuffer.forGeneration();
+        TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
         try {
             tokenBuffer.writePOJO(car);
         } catch (JacksonException e) {
@@ -104,7 +104,7 @@ public class TestHelper {
 
 
     public CompletableFuture<Car> updateCarAsRawJson(Car car, Structure structure, EntityContext entityContext){
-        TokenBuffer tokenBuffer = TokenBuffer.forGeneration();
+        TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
         try {
             tokenBuffer.writePOJO(car);
         } catch (JacksonException e) {
@@ -140,7 +140,7 @@ public class TestHelper {
                                                  Structure structure = pair.getLeft();
                                                  List<CompletableFuture<Person>> completableFutures = new ArrayList<>();
                                                  for(Person person : people){
-                                                     try (TokenBuffer tokenBuffer = TokenBuffer.forGeneration()) {
+                                                     try (TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false)) {
                                                          tokenBuffer.writePOJO(person);
                                                          completableFutures.add(entitiesService.save(structure.getId(),
                                                                                                      tokenBuffer,
@@ -179,7 +179,7 @@ public class TestHelper {
                 .thenCompose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
                                              .thenCompose(people -> {
                                                  Structure structure = pair.getLeft();
-                                                 TokenBuffer tokenBuffer = TokenBuffer.forGeneration();
+                                                 TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
                                                  try {
                                                      tokenBuffer.writePOJO(people);
                                                  } catch (JacksonException e) {
