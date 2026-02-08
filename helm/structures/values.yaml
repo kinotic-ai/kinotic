@@ -4,7 +4,7 @@ nameOverride: ""
 image:
   repository: kinoticai/structures-server
   pullPolicy: Always
-  tag: "3.5.1"
+  tag: "3.5.2"
   sha: ""
 
 # Migration configuration
@@ -15,7 +15,7 @@ migration:
   activeDeadlineSeconds: 300
   image:
     repository: kinoticai/structures-migration
-    tag: "3.5.1"
+    tag: "3.5.2"
     pullPolicy: Always
     sha: ""
 
