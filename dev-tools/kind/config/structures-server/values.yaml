@@ -28,26 +28,28 @@
 replicaCount: 3
 nameOverride: ""
 
-# Service configuration for KinD
-# Uses NodePort to map to KinD's extraPortMappings (see kind-config.yaml)
-service:
-  type: NodePort
-  nodePorts:
-    ui: 30090        # Maps to hostPort 9090 → http://localhost:9090
-    openapi: 30080   # Maps to hostPort 8080 → http://localhost:8080
-    graphql: 30400   # Maps to hostPort 4000 → http://localhost:4000
-    stomp: 30503     # Maps to hostPort 58503 → ws://localhost:58503
-    rest: 30504      # Maps to hostPort 58504 → http://localhost:58504
-
 # Image configuration
 image:
   # Repository matches bootBuildImage output
   repository: kinoticai/structures-server
   # Tag from gradle.properties version (structuresVersion=3.5.1-SNAPSHOT)
-  tag: 3.5.1-SNAPSHOT
+  tag: 3.5.1
   # Never pull - use images loaded into KinD cluster
   pullPolicy: Never
   sha: ""
+
+# Migration configuration
+# Runs as a Helm pre-install/pre-upgrade hook Job.
+# The migration must complete successfully before the Deployment is rolled out.
+migration:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  image:
+    repository: kinoticai/structures-migration
+    tag: 3.5.1
+    # Never pull - use images loaded into KinD cluster
+    pullPolicy: Never
+    sha: ""
 
 ## eviction-tracking uses the evictionTracking logic and paths for tracking eviction events
 properties:
@@ -106,9 +108,9 @@ continuum:
     communicationPort: 47100 
     # Static IP addresses for all nodes in the cluster
     # Format: host:port,host:port,...
-    localAddresses: null
+    # localAddresses: null
     # Note: sharedFsPath is still used for Structure data sharing, not for Ignite discovery
-    sharedFsPath: /sharedfs  # Shared with containers via bind mount
+    # sharedFsPath: /sharedfs  # Shared with containers via bind mount
     kubernetesNamespace: default
     kubernetesServiceName: structures
     kubernetesIncludeNotReadyAddresses: true
@@ -132,9 +134,8 @@ ingress:
 
 # OIDC security service configuration
 # Note: authority uses localhost because OIDC flows happen in the browser,
-# which accesses Keycloak via the ingress at https://localhost/auth
+# which accesses Keycloak via the ingress at https://structures.local/auth
 oidc:
-  enabled: false
   debug: true
   frontendConfigurationPath: "/app-config.override.json"
   oidcProviders:

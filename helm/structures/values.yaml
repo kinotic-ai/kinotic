@@ -4,8 +4,20 @@ nameOverride: ""
 image:
   repository: kinoticai/structures-server
   pullPolicy: Always
-  tag: "1.14.0-SNAPSHOT"
+  tag: "3.5.1"
   sha: ""
+
+# Migration configuration
+# Runs as a Helm pre-install/pre-upgrade hook Job.
+# The migration must complete successfully before the Deployment is rolled out.
+migration:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+  image:
+    repository: kinoticai/structures-migration
+    tag: "3.5.1"
+    pullPolicy: Always
+    sha: ""
 
 properties:
   springActiveProfiles: "production,debug"
@@ -110,14 +122,6 @@ nodeSelector: {}
 service:
   # Service type: ClusterIP (default), NodePort, or LoadBalancer
   type: ClusterIP
-  # NodePort values (only used when type: NodePort)
-  # Set to specific ports or leave as null for auto-assignment
-  nodePorts:
-    ui: null        # Static UI server (9090)
-    openapi: null   # OpenAPI REST (8080)
-    graphql: null   # GraphQL (4000)
-    stomp: null     # STOMP WebSocket (58503)
-    rest: null      # Continuum REST (58504)
 
 # Ingress configuration
 ingress:

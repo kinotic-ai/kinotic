@@ -121,28 +121,18 @@ wait_for_cluster_ready() {
     local elapsed=0
     local interval=5
     
-    info "Waiting for cluster to be ready..."
+    info "Waiting for cluster to be ready ..."
     
     while [[ ${elapsed} -lt ${timeout} ]]; do
         # Check if all nodes are Ready
-        if kubectl get nodes --context "kind-${cluster_name}" 2>/dev/null | grep -q "Ready"; then
-            # Count ready nodes - use awk to avoid whitespace issues
-            local ready_nodes
-            ready_nodes=$(kubectl get nodes --context "kind-${cluster_name}" --no-headers 2>/dev/null | awk '$2 == "Ready" {count++} END {print count+0}')
-            
-            if [[ ${ready_nodes} -gt 0 ]]; then
-                local total_nodes
-                total_nodes=$(kubectl get nodes --context "kind-${cluster_name}" --no-headers 2>/dev/null | wc -l | tr -d ' ' | tr -d '\n')
-                
-                if [[ ${ready_nodes} -eq ${total_nodes} ]]; then
-                    success "All nodes ready (${ready_nodes}/${total_nodes})"
-                    return 0
-                else
-                    progress "Nodes ready: ${ready_nodes}/${total_nodes}"
-                fi
-            fi
+        not_ready=$(kubectl get nodes | grep -c "NotReady")
+        if [ ${not_ready} -eq 0 ]; then
+            success "All nodes ready"
+            return 0
+        else
+            progress "Waiting for nodes to be ready... ${not_ready} nodes not ready"
         fi
-        
+
         sleep ${interval}
         elapsed=$((elapsed + interval))
     done

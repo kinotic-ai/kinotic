@@ -21,6 +21,8 @@ services:
       - OTEL_EXPORTER_TYPE=OTLP
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
+      structures-elasticsearch:
+        condition: service_healthy
       structures-server:
         condition: service_healthy
       otel-collector:

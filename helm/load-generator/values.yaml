@@ -4,6 +4,7 @@
 
 structures:
   useSsl: false
+  tlsInsecure: false  # Set to true to skip TLS certificate validation (for self-signed certs)
   host: host.docker.internal
   port: 58503
 
