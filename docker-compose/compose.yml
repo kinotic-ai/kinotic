@@ -6,7 +6,7 @@ services:
   structures-migration:
     container_name: structures-migration
     pull_policy: always
-    image: kinoticai/structures-migration:${structuresVersion:-3.5.0}
+    image: kinoticai/structures-migration:${structuresVersion:-3.5.1}
     depends_on:
       structures-elasticsearch:
         condition: service_healthy
@@ -17,7 +17,7 @@ services:
   structures-server:
     container_name: structures-server
     pull_policy: always
-    image: kinoticai/structures-server:${structuresVersion:-3.5.0}
+    image: kinoticai/structures-server:${structuresVersion:-3.5.1}
     depends_on:
       structures-elasticsearch:
         condition: service_healthy

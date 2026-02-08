@@ -29,6 +29,7 @@ readonly CONFIG_INGRESS_NGINX_DIR="${DEFAULT_CONFIG_DIR}/ingress-nginx"
 readonly CONFIG_CERT_MANAGER_DIR="${DEFAULT_CONFIG_DIR}/cert-manager"
 readonly CONFIG_COREDNS_DIR="${DEFAULT_CONFIG_DIR}/coredns"
 readonly CONFIG_STRUCTURES_SERVER_DIR="${DEFAULT_CONFIG_DIR}/structures-server"
+readonly CONFIG_LOAD_GENERATOR_DIR="${DEFAULT_CONFIG_DIR}/load-generator"
 
 # Structures-server Helm values (moved from helm-values.yaml)
 readonly DEFAULT_HELM_VALUES="${CONFIG_STRUCTURES_SERVER_DIR}/values.yaml"
@@ -44,6 +45,7 @@ SKIP_CHECKS=""
 DEPLOY_DEPS="1"
 DEPLOY_KEYCLOAK="0"       # Deploy Keycloak + PostgreSQL (default: disabled)
 DEPLOY_OBSERVABILITY="0"
+DEPLOY_LOAD_GENERATOR="0"  # Run load generator post-deploy (default: disabled)
 DEPLOY_TIMEOUT=""
 OIDC_ENABLED="false"      # Enable OIDC in structures-server (set automatically when DEPLOY_KEYCLOAK=1)
 
@@ -94,6 +96,7 @@ load_config() {
     verbose "  DEPLOY_DEPS=${DEPLOY_DEPS}"
     verbose "  DEPLOY_KEYCLOAK=${DEPLOY_KEYCLOAK}"
     verbose "  DEPLOY_OBSERVABILITY=${DEPLOY_OBSERVABILITY}"
+    verbose "  DEPLOY_LOAD_GENERATOR=${DEPLOY_LOAD_GENERATOR}"
     verbose "  OIDC_ENABLED=${OIDC_ENABLED}"
     verbose "  DEPLOY_TIMEOUT=${DEPLOY_TIMEOUT}"
 }
@@ -184,6 +187,9 @@ get_service_values_path() {
         structures-server)
             config_dir="${CONFIG_STRUCTURES_SERVER_DIR}"
             ;;
+        load-generator)
+            config_dir="${CONFIG_LOAD_GENERATOR_DIR}"
+            ;;
         *)
             error "Unknown service: ${service_name}"
             return 1
@@ -271,6 +277,20 @@ get_image_name() {
     
     local image_name="${IMAGE_NAME:-kinoticai/structures-server}"
     echo "${image_name}:${version}"
+}
+
+#
+# Get image name for structures-migration
+# Returns:
+#   Full image name (e.g., "kinoticai/structures-migration:0.5.0-SNAPSHOT")
+# Example:
+#   migration_image=$(get_migration_image_name)
+#
+get_migration_image_name() {
+    local version
+    version=$(get_structures_version) || return 1
+    
+    echo "kinoticai/structures-migration:${version}"
 }
 
 #
