@@ -1,2 +1,0 @@
-import{H as s}from"./Header-Byg0tzw5.js";import{d as r,c as a,e,a as o,r as c,o as n}from"./index-BAuc_XpL.js";import"./index-D9EM4B1w.js";import"./index-Bz44qjX7.js";import"./index-DN8o-Nsy.js";import"./component-CLWqUams.js";const i={class:"h-screen bg-surface-0 w-full"},p={class:"py-10"},_={class:"flex-1 px-[33px] overflow-y-auto"},y=r({__name:"MainLayout",setup(m){return(d,l)=>{const t=c("router-view");return n(),a("div",i,[e(s),o("div",p,[o("div",_,[e(t)])])])}}});export{y as default};
-//# sourceMappingURL=MainLayout-DahzSXGl.js.map
