@@ -189,7 +189,7 @@ structures:
 **Type-Safe Constants**:
 
 ```java
-import org.kinotic.structures.api.config.StructuresProperties.ClusterDiscoveryType;
+import org.kinotic.persistence.api.config.StructuresProperties.ClusterDiscoveryType;
 
 ClusterDiscoveryType.LOCAL      // Single-node
 ClusterDiscoveryType.SHAREDFS    // Docker/VMs

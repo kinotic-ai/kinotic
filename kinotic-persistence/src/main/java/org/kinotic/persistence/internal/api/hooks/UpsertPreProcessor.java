@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.api.hooks;
 
-import org.kinotic.structures.api.domain.EntityContext;
+import org.kinotic.persistence.api.domain.EntityContext;
 import org.kinotic.persistence.internal.api.services.EntityHolder;
 
 import java.util.List;

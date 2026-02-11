@@ -4,9 +4,9 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import tools.jackson.core.JsonParser;
 import tools.jackson.databind.json.JsonMapper;
 import org.kinotic.persistence.api.config.StructuresProperties;
-import org.kinotic.structures.api.domain.EntityContext;
-import org.kinotic.structures.api.domain.RawJson;
-import org.kinotic.structures.api.domain.Structure;
+import org.kinotic.persistence.api.domain.EntityContext;
+import org.kinotic.persistence.api.domain.RawJson;
+import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
 import org.kinotic.persistence.internal.api.services.EntityHolder;
 

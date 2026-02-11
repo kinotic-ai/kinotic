@@ -3,9 +3,9 @@ package org.kinotic.persistence.internal.api.services.sql;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
-import org.kinotic.structures.api.domain.EntityContext;
-import org.kinotic.structures.api.domain.ParameterHolder;
-import org.kinotic.structures.api.domain.QueryOptions;
+import org.kinotic.persistence.api.domain.EntityContext;
+import org.kinotic.persistence.api.domain.ParameterHolder;
+import org.kinotic.persistence.api.domain.QueryOptions;
 
 import java.util.ArrayList;
 import java.util.List;

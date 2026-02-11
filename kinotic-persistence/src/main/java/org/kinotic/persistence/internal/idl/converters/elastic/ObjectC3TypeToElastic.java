@@ -6,8 +6,8 @@ import org.kinotic.continuum.idl.api.converter.C3TypeConverter;
 import org.kinotic.continuum.idl.api.converter.Cacheable;
 import org.kinotic.continuum.idl.api.schema.*;
 import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
-import org.kinotic.structures.api.domain.DecoratedProperty;
-import org.kinotic.structures.api.domain.idl.decorators.*;
+import org.kinotic.persistence.api.domain.DecoratedProperty;
+import org.kinotic.persistence.api.domain.idl.decorators.*;
 import org.kinotic.persistence.internal.utils.StructuresUtil;
 
 /**

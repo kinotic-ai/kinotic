@@ -10,7 +10,7 @@ import org.kinotic.continuum.idl.api.converter.Cacheable;
 import org.kinotic.continuum.idl.api.schema.C3Type;
 import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
 import org.kinotic.continuum.idl.api.schema.UnionC3Type;
-import org.kinotic.structures.api.domain.idl.decorators.DiscriminatorDecorator;
+import org.kinotic.persistence.api.domain.idl.decorators.DiscriminatorDecorator;
 
 /**
  * {@link UnionC3TypeToOpenApi} is a {@link C3TypeConverterContainer} that converts a {@link UnionC3Type} to a {@link Schema}.

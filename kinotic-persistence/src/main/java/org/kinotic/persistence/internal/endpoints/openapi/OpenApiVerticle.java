@@ -7,7 +7,7 @@ import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.web.Router;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.persistence.api.config.StructuresProperties;
-import org.kinotic.structures.api.domain.Structure;
+import org.kinotic.persistence.api.domain.Structure;
 
 /**
  * We have one OpenApi spec for all {@link Structure}'s in a application. But this handles all applications and all structures.

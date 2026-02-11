@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.services.impl.security.graphos;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
-import org.kinotic.structures.api.domain.SecurityContext;
+import org.kinotic.persistence.api.domain.SecurityContext;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizationRequest;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizer;
 

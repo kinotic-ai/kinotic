@@ -6,7 +6,7 @@ import graphql.schema.DataFetchingEnvironment;
 import io.vertx.ext.web.RoutingContext;
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.structures.api.domain.EntityContext;
+import org.kinotic.persistence.api.domain.EntityContext;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.endpoints.openapi.RoutingContextToEntityContextAdapter;
 import org.kinotic.persistence.internal.utils.GqlUtils;

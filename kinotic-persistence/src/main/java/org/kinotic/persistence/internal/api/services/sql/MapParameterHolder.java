@@ -2,7 +2,7 @@ package org.kinotic.persistence.internal.api.services.sql;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.structures.api.domain.ParameterHolder;
+import org.kinotic.persistence.api.domain.ParameterHolder;
 
 import java.util.Map;
 

@@ -4,7 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.structures.api.domain.Structure;
+import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.internal.api.services.StructureDAO;
 import org.springframework.stereotype.Component;
 

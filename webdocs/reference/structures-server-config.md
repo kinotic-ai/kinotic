@@ -39,7 +39,7 @@ You can create your own custom Structures server by embedding Structures in your
 Add the following annotation to your Spring Boot application:
 
 ```java
-import org.kinotic.structures.api.annotations.EnableStructures;
+import org.kinotic.persistence.api.annotations.EnableStructures;
 
 @SpringBootApplication
 @EnableStructures

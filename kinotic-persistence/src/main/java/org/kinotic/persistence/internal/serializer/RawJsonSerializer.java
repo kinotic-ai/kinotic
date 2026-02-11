@@ -4,7 +4,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.core.JsonGenerator;
 import tools.jackson.databind.SerializationContext;
 import tools.jackson.databind.ValueSerializer;
-import org.kinotic.structures.api.domain.RawJson;
+import org.kinotic.persistence.api.domain.RawJson;
 
 import java.nio.charset.StandardCharsets;
 

@@ -4,10 +4,10 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.persistence.api.config.StructuresProperties;
-import org.kinotic.structures.api.domain.idl.decorators.EntityDecorator;
-import org.kinotic.structures.api.domain.idl.decorators.EsIndexConfigurationDecorator;
+import org.kinotic.persistence.api.domain.idl.decorators.EntityDecorator;
+import org.kinotic.persistence.api.domain.idl.decorators.EsIndexConfigurationDecorator;
 import org.kinotic.persistence.internal.idl.converters.common.BaseConversionState;
-import org.kinotic.structures.api.domain.DecoratedProperty;
+import org.kinotic.persistence.api.domain.DecoratedProperty;
 
 import java.util.LinkedList;
 import java.util.List;

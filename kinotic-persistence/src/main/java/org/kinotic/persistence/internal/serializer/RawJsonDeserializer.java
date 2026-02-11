@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.serializer;
 
-import org.kinotic.structures.api.domain.RawJson;
+import org.kinotic.persistence.api.domain.RawJson;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.JsonParser;
 import tools.jackson.databind.DeserializationContext;

@@ -2,10 +2,10 @@ package org.kinotic.persistence.api.services.security.graphos;
 
 import lombok.RequiredArgsConstructor;
 import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
-import org.kinotic.structures.api.domain.EntityOperation;
-import org.kinotic.structures.api.domain.NamedQueryOperation;
-import org.kinotic.structures.api.domain.Structure;
-import org.kinotic.structures.api.domain.idl.decorators.PolicyDecorator;
+import org.kinotic.persistence.api.domain.EntityOperation;
+import org.kinotic.persistence.api.domain.NamedQueryOperation;
+import org.kinotic.persistence.api.domain.Structure;
+import org.kinotic.persistence.api.domain.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
 import org.kinotic.persistence.internal.api.services.impl.security.NoopAuthorizationService;

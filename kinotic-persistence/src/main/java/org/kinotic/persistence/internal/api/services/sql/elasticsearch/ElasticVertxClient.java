@@ -4,7 +4,7 @@ import co.elastic.clients.elasticsearch.sql.TranslateResponse;
 import io.vertx.core.json.JsonObject;
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.structures.api.domain.QueryOptions;
+import org.kinotic.persistence.api.domain.QueryOptions;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

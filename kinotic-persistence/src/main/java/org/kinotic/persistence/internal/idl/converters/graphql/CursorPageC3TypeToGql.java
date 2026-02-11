@@ -5,8 +5,8 @@ import io.swagger.v3.oas.models.media.Schema;
 import org.kinotic.continuum.idl.api.converter.C3ConversionContext;
 import org.kinotic.continuum.idl.api.converter.C3TypeConverter;
 import org.kinotic.continuum.idl.api.schema.C3Type;
-import org.kinotic.structures.api.domain.idl.CursorPageC3Type;
-import org.kinotic.structures.api.domain.idl.PageC3Type;
+import org.kinotic.persistence.api.domain.idl.CursorPageC3Type;
+import org.kinotic.persistence.api.domain.idl.PageC3Type;
 import org.kinotic.persistence.internal.utils.GqlUtils;
 
 import static graphql.schema.GraphQLNonNull.nonNull;

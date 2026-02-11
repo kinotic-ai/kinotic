@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @EnableConfigurationProperties
-@ComponentScan(basePackages = "org.kinotic.structures")
+@ComponentScan(basePackages = "org.kinotic.persistence")
 public class StructuresConfiguration {
 
     @Bean

@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.hooks.impl;
 
 import org.apache.commons.lang3.NotImplementedException;
-import org.kinotic.structures.api.domain.EntityContext;
+import org.kinotic.persistence.api.domain.EntityContext;
 import org.kinotic.persistence.internal.api.hooks.UpsertPreProcessor;
 import org.kinotic.persistence.internal.api.services.EntityHolder;
 

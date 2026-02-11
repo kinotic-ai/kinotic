@@ -5,7 +5,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.structures.api.domain.EntityContext;
+import org.kinotic.persistence.api.domain.EntityContext;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.endpoints.openapi.RoutingContextToEntityContextAdapter;
 import org.kinotic.persistence.internal.utils.StructuresUtil;

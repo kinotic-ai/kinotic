@@ -7,14 +7,14 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.structures.api.domain.EntityContext;
-import org.kinotic.structures.api.domain.TenantSpecificId;
+import org.kinotic.persistence.api.domain.EntityContext;
+import org.kinotic.persistence.api.domain.TenantSpecificId;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.auth.internal.services.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.api.services.EntityService;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.cache.events.EvictionSourceType;
-import org.kinotic.structures.api.domain.ParameterHolder;
+import org.kinotic.persistence.api.domain.ParameterHolder;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 

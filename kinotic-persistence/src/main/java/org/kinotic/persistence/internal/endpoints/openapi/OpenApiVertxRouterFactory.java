@@ -16,7 +16,7 @@ import org.kinotic.continuum.api.security.SecurityService;
 import org.kinotic.continuum.core.api.crud.Pageable;
 import org.kinotic.rpc.gateway.api.security.AuthenticationHandler;
 import org.kinotic.persistence.api.config.StructuresProperties;
-import org.kinotic.structures.api.domain.*;
+import org.kinotic.persistence.api.domain.*;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.services.sql.MapParameterHolder;
 import org.kinotic.persistence.internal.utils.VertxWebUtil;

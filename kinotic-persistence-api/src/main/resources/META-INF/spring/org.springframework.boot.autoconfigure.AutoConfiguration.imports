@@ -1,1 +1,1 @@
-org.kinotic.structures.api_autoconfigure.StructuresApiAutoConfiguration
+org.kinotic.persistence.api_autoconfigure.PersistenceApiAutoConfiguration

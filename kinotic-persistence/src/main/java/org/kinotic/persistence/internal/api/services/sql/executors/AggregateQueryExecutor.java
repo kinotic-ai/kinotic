@@ -6,8 +6,8 @@ import java.util.concurrent.CompletableFuture;
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
 import org.kinotic.persistence.api.config.StructuresProperties;
-import org.kinotic.structures.api.domain.Structure;
-import org.kinotic.structures.api.domain.idl.decorators.MultiTenancyType;
+import org.kinotic.persistence.api.domain.Structure;
+import org.kinotic.persistence.api.domain.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 import org.kinotic.persistence.internal.api.services.sql.elasticsearch.ElasticVertxClient;
 

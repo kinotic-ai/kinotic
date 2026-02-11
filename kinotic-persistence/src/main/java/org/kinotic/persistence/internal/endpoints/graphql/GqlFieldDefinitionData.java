@@ -8,10 +8,10 @@ import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
 import org.kinotic.continuum.idl.api.converter.IdlConverter;
 import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
-import org.kinotic.structures.api.domain.Structure;
-import org.kinotic.structures.api.domain.idl.decorators.EntityServiceDecorator;
-import org.kinotic.structures.api.domain.idl.decorators.EntityServiceDecoratorsDecorator;
-import org.kinotic.structures.api.domain.EntityOperation;
+import org.kinotic.persistence.api.domain.Structure;
+import org.kinotic.persistence.api.domain.idl.decorators.EntityServiceDecorator;
+import org.kinotic.persistence.api.domain.idl.decorators.EntityServiceDecoratorsDecorator;
+import org.kinotic.persistence.api.domain.EntityOperation;
 import org.kinotic.persistence.internal.idl.converters.graphql.GqlConversionState;
 import org.kinotic.persistence.internal.idl.converters.graphql.GqlTypeHolder;
 

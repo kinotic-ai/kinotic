@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.serializer;
 
-import org.kinotic.structures.api.domain.RawJson;
+import org.kinotic.persistence.api.domain.RawJson;
 import co.elastic.clients.json.JsonpDeserializerBase;
 import co.elastic.clients.json.JsonpMapper;
 import co.elastic.clients.json.jackson.Jackson3JsonpParser;

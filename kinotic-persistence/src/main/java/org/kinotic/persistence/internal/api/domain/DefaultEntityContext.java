@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.continuum.api.security.Participant;
-import org.kinotic.structures.api.domain.EntityContext;
+import org.kinotic.persistence.api.domain.EntityContext;
 
 import java.util.List;
 

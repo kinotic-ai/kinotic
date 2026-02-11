@@ -3,10 +3,10 @@ package org.kinotic.persistence.internal.api.services.impl;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import org.kinotic.structures.api.domain.MigrationDefinition;
-import org.kinotic.structures.api.domain.MigrationRequest;
-import org.kinotic.structures.api.domain.MigrationResult;
-import org.kinotic.structures.api.services.MigrationService;
+import org.kinotic.persistence.api.domain.MigrationDefinition;
+import org.kinotic.persistence.api.domain.MigrationRequest;
+import org.kinotic.persistence.api.domain.MigrationResult;
+import org.kinotic.persistence.api.services.MigrationService;
 import org.kinotic.persistence.sql.domain.Migration;
 import org.kinotic.persistence.sql.domain.MigrationContent;
 import org.kinotic.persistence.sql.executor.MigrationExecutor;

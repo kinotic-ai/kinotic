@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.services.sql;
 
-import org.kinotic.structures.api.domain.NamedQueriesDefinition;
-import org.kinotic.structures.api.domain.Structure;
+import org.kinotic.persistence.api.domain.NamedQueriesDefinition;
+import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.internal.api.services.sql.executors.QueryExecutor;
 
 /**

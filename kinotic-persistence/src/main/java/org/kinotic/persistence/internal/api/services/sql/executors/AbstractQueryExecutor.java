@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.api.services.sql.executors;
 
-import org.kinotic.structures.api.domain.Structure;
+import org.kinotic.persistence.api.domain.Structure;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/29/24.

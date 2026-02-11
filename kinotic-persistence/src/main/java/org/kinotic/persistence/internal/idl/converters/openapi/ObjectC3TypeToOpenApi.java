@@ -8,8 +8,8 @@ import org.kinotic.continuum.idl.api.converter.C3TypeConverter;
 import org.kinotic.continuum.idl.api.converter.Cacheable;
 import org.kinotic.continuum.idl.api.schema.*;
 import org.kinotic.continuum.idl.api.schema.decorators.NotNullC3Decorator;
-import org.kinotic.structures.api.domain.idl.decorators.DiscriminatorDecorator;
-import org.kinotic.structures.api.domain.idl.decorators.ReadOnlyDecorator;
+import org.kinotic.persistence.api.domain.idl.decorators.DiscriminatorDecorator;
+import org.kinotic.persistence.api.domain.idl.decorators.ReadOnlyDecorator;
 
 /**
  * Created by Navíd Mitchell 🤪 on 5/15/23.

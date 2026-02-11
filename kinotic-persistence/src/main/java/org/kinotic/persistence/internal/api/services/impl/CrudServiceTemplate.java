@@ -23,7 +23,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.type.TypeFactory;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.continuum.core.api.crud.*;
-import org.kinotic.structures.api.domain.RawJson;
+import org.kinotic.persistence.api.domain.RawJson;
 import org.kinotic.persistence.internal.serializer.RawJsonJsonpDeserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

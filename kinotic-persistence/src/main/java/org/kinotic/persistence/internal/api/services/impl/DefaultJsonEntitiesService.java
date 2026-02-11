@@ -6,11 +6,11 @@ import org.kinotic.continuum.api.security.Participant;
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
 import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
-import org.kinotic.structures.api.domain.FastestType;
-import org.kinotic.structures.api.domain.QueryParameter;
-import org.kinotic.structures.api.domain.RawJson;
+import org.kinotic.persistence.api.domain.FastestType;
+import org.kinotic.persistence.api.domain.QueryParameter;
+import org.kinotic.persistence.api.domain.RawJson;
 import org.kinotic.persistence.api.services.EntitiesService;
-import org.kinotic.structures.api.services.JsonEntitiesService;
+import org.kinotic.persistence.api.services.JsonEntitiesService;
 import org.kinotic.persistence.internal.api.services.sql.ListParameterHolder;
 import org.springframework.stereotype.Component;
 

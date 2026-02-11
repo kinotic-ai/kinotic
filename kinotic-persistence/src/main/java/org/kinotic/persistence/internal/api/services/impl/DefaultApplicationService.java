@@ -5,9 +5,9 @@ import java.util.concurrent.CompletableFuture;
 
 import org.kinotic.continuum.core.api.crud.Page;
 import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.structures.api.domain.Application;
-import org.kinotic.structures.api.services.ApplicationService;
-import org.kinotic.structures.api.services.ProjectService;
+import org.kinotic.persistence.api.domain.Application;
+import org.kinotic.persistence.api.services.ApplicationService;
+import org.kinotic.persistence.api.services.ProjectService;
 import org.kinotic.persistence.internal.utils.StructuresUtil;
 import org.springframework.stereotype.Component;
 

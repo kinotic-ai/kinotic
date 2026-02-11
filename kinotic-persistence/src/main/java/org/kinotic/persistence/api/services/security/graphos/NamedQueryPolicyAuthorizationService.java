@@ -2,9 +2,9 @@ package org.kinotic.persistence.api.services.security.graphos;
 
 import org.kinotic.continuum.api.exceptions.AuthorizationException;
 import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
-import org.kinotic.structures.api.domain.NamedQueryOperation;
-import org.kinotic.structures.api.domain.SecurityContext;
-import org.kinotic.structures.api.domain.idl.decorators.PolicyDecorator;
+import org.kinotic.persistence.api.domain.NamedQueryOperation;
+import org.kinotic.persistence.api.domain.SecurityContext;
+import org.kinotic.persistence.api.domain.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.internal.api.services.impl.security.graphos.DefaultPolicyAuthorizationRequest;
 import org.kinotic.persistence.internal.api.services.impl.security.graphos.PolicyExpression;
