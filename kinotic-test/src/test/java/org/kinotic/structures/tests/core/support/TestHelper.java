@@ -2,12 +2,12 @@ package org.kinotic.structures.tests.core.support;
 
 import org.kinotic.structures.api.domain.EntityContext;
 import org.kinotic.structures.api.domain.Structure;
-import org.kinotic.structures.api.services.EntitiesService;
-import org.kinotic.structures.internal.api.domain.DefaultEntityContext;
-import org.kinotic.structures.internal.sample.Car;
-import org.kinotic.structures.internal.sample.DummyParticipant;
-import org.kinotic.structures.internal.sample.Person;
-import org.kinotic.structures.internal.sample.TestDataService;
+import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
+import org.kinotic.persistence.internal.sample.Car;
+import org.kinotic.persistence.internal.sample.DummyParticipant;
+import org.kinotic.persistence.internal.sample.Person;
+import org.kinotic.persistence.internal.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;

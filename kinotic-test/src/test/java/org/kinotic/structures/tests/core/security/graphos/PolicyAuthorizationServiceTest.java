@@ -8,9 +8,9 @@ import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.idl.decorators.EntityServiceDecoratorsConfig;
 import org.kinotic.structures.api.domain.idl.decorators.EntityServiceDecoratorsDecorator;
 import org.kinotic.structures.api.domain.idl.decorators.PolicyDecorator;
-import org.kinotic.structures.api.services.security.graphos.PolicyAuthorizationRequest;
-import org.kinotic.structures.api.services.security.graphos.StructurePolicyAuthorizationService;
-import org.kinotic.structures.api.services.security.graphos.PolicyAuthorizer;
+import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizationRequest;
+import org.kinotic.persistence.api.services.security.graphos.StructurePolicyAuthorizationService;
+import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizer;
 import org.kinotic.structures.api.domain.EntityOperation;
 import org.kinotic.structures.api.domain.DecoratedProperty;
 

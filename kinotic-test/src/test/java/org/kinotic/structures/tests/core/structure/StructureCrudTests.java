@@ -7,13 +7,13 @@ import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.structures.support.elastic.ElasticTestBase;
-import org.kinotic.structures.internal.api.domain.DefaultEntityContext;
+import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.idl.decorators.MultiTenancyType;
-import org.kinotic.structures.api.services.EntitiesService;
+import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.structures.api.services.StructureService;
-import org.kinotic.structures.internal.sample.DummyParticipant;
-import org.kinotic.structures.internal.sample.TestDataService;
+import org.kinotic.persistence.internal.sample.DummyParticipant;
+import org.kinotic.persistence.internal.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 

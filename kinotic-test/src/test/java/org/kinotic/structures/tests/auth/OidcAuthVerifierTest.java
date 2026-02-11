@@ -2,7 +2,7 @@ package org.kinotic.structures.tests.auth;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.continuum.api.security.Participant;
-import org.kinotic.structures.auth.internal.services.OidcSecurityService;
+import org.kinotic.auth.internal.services.OidcSecurityService;
 import org.kinotic.structures.support.keycloak.KeycloakTestBase;
 import org.kinotic.structures.support.keycloak.KeyloakTestConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;

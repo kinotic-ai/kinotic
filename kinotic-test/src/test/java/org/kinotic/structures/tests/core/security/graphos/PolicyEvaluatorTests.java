@@ -2,10 +2,10 @@ package org.kinotic.structures.tests.core.security.graphos;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.kinotic.persistence.internal.api.services.impl.security.graphos.*;
 import org.kinotic.structures.api.domain.SecurityContext;
-import org.kinotic.structures.api.services.security.graphos.PolicyAuthorizationRequest;
-import org.kinotic.structures.api.services.security.graphos.PolicyAuthorizer;
-import org.kinotic.structures.internal.api.services.impl.security.graphos.*;
+import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizationRequest;
+import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizer;
 
 import java.util.List;
 import java.util.Map;

@@ -45,12 +45,12 @@ node {
 }
 
 task deleteDist(type: Delete){
-    delete "${project.projectDir.parent}/structures-server/src/main/resources/webroot/", "${project.projectDir}/dist/"
+    delete "${project.projectDir.parent}/kinotic-server/src/main/resources/webroot/", "${project.projectDir}/dist/"
 }
 
 task copyDist(type: Copy){
     from "${project.projectDir}/dist"
-    into "${project.projectDir.parent}/structures-server/src/main/resources/webroot"
+    into "${project.projectDir.parent}/kinotic-server/src/main/resources/webroot"
     dependsOn 'pnpmBuild'
 }
 

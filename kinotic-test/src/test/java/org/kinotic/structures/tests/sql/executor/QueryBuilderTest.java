@@ -6,8 +6,8 @@ import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.kinotic.structures.sql.domain.WhereClause;
-import org.kinotic.structures.sql.executor.QueryBuilder;
+import org.kinotic.persistence.sql.domain.WhereClause;
+import org.kinotic.persistence.sql.executor.QueryBuilder;
 
 import java.util.HashMap;
 import java.util.Map;
