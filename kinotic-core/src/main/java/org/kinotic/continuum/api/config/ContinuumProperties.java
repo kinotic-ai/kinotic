@@ -80,4 +80,5 @@ public interface ContinuumProperties {
      * @return the max number of CPU Cores to Use
      */
     int getMaxNumberOfCoresToUse();
+
 }

@@ -14,7 +14,7 @@ import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.Nullable;
 import org.kinotic.continuum.api.security.SecurityService;
 import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.continuum.gateway.api.security.AuthenticationHandler;
+import org.kinotic.rpc.gateway.api.security.AuthenticationHandler;
 import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.structures.api.domain.*;
 import org.kinotic.persistence.api.services.EntitiesService;

@@ -9,7 +9,7 @@ import org.kinotic.continuum.idl.api.schema.ArrayC3Type;
 import org.kinotic.continuum.idl.api.schema.IntC3Type;
 import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
 import org.kinotic.continuum.idl.api.schema.StringC3Type;
-import org.kinotic.continuum.internal.utils.ContinuumUtil;
+import org.kinotic.rpc.internal.utils.ContinuumUtil;
 import org.kinotic.structures.api.domain.Structure;
 import org.kinotic.structures.api.domain.idl.decorators.*;
 import org.kinotic.structures.api.services.ApplicationService;
