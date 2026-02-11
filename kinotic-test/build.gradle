@@ -5,9 +5,10 @@ plugins {
 
 dependencies {
 
-	implementation project(':kinotic-api')
+
 	implementation project(':kinotic-auth')
 	implementation project(':kinotic-persistence')
+	implementation project(':kinotic-persistence-api')
 	implementation project(':kinotic-persistence-sql')
 
 	implementation 'org.springframework.boot:spring-boot-autoconfigure'
