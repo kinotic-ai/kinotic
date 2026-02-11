@@ -1,0 +1,47 @@
+{
+  "entityServiceName": "PersonWithTenantAdminEntityService",
+  "namedQueries": [
+    {
+      "name": "adminCountByLastName",
+      "decorators": [
+        {
+          "type": "Query",
+          "statements": "select count(firstName) as count from \"struct_PLACEHOLDER\" where lastName = ?"
+        }
+      ],
+      "returnType": {
+        "type": "array",
+        "contains": {
+          "type": "object",
+          "name": "CountResult",
+          "namespace": "people",
+          "properties": [
+            {
+              "name": "count",
+              "type": {
+                "type": "int"
+              }
+            }
+          ]
+        }
+      },
+      "parameters": [
+        {
+          "name": "lastName",
+          "type": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "tenantSelection",
+          "type": {
+            "type": "tenantSelection",
+            "contains": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

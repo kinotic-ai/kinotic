@@ -1,0 +1,9 @@
+{
+  "oidc-security-service": {
+    "enabled": false,
+    "tenantIdFieldName": "tenantId",
+    "debug": false,
+    "oidcProviders": [],
+    "frontendConfigurationPath": "/app-config.override.json"
+  }
+}

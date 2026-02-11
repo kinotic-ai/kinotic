@@ -1,0 +1,35 @@
+plugins {
+	id 'org.kinotic.java-application-conventions'
+}
+
+sourceSets {
+    main {
+        java {
+            exclude '**/test/**'
+        }
+    }
+}
+
+dependencies {
+	implementation project(':kinotic-persistence')
+	implementation project(':kinotic-auth')
+
+	// Additional Continuum Dependencies
+	implementation "org.kinotic:continuum-core"
+	implementation "org.kinotic:continuum-gateway"
+
+	implementation 'com.github.ben-manes.caffeine:caffeine'
+
+	implementation 'io.jsonwebtoken:jjwt-api'
+	implementation 'io.jsonwebtoken:jjwt-impl'
+	implementation 'io.jsonwebtoken:jjwt-jackson'
+
+}
+
+tasks.named('processResources') {
+	dependsOn ":structures-frontend-next:copyDist"
+}
+
+tasks.named('sourcesJar') {
+	dependsOn ":structures-frontend-next:copyDist"
+}

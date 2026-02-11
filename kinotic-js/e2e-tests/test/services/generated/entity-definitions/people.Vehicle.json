@@ -1,0 +1,81 @@
+{
+  "type": "object",
+  "name": "Vehicle",
+  "namespace": "people",
+  "decorators": [
+    {
+      "type": "Entity",
+      "multiTenancyType": 1,
+      "stream": false
+    }
+  ],
+  "properties": [
+    {
+      "name": "id",
+      "decorators": [
+        {
+          "type": "Id"
+        }
+      ],
+      "type": {
+        "type": "string"
+      }
+    },
+    {
+      "name": "version",
+      "decorators": [
+        {
+          "type": "VersionDecorator"
+        }
+      ],
+      "type": {
+        "type": "string"
+      }
+    },
+    {
+      "name": "manufacturer",
+      "type": {
+        "type": "string"
+      }
+    },
+    {
+      "name": "model",
+      "decorators": [
+        {
+          "type": "Text"
+        }
+      ],
+      "type": {
+        "type": "string"
+      }
+    },
+    {
+      "name": "color",
+      "type": {
+        "type": "string"
+      }
+    },
+    {
+      "name": "wheelType",
+      "type": {
+        "type": "object",
+        "name": "Wheel",
+        "namespace": "people",
+        "properties": [
+          {
+            "name": "brand",
+            "type": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "size",
+            "type": {
+              "type": "int"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

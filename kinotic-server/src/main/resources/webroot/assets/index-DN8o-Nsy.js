@@ -1,0 +1,2 @@
+import{P as t,R as n,c as r,o as a,f as o,X as c}from"./index-BAuc_XpL.js";var p={root:"p-inputicon"},i=t.extend({name:"inputicon",classes:p}),l={name:"BaseInputIcon",extends:n,style:i,props:{class:null},provide:function(){return{$pcInputIcon:this,$parentInstance:this}}},u={name:"InputIcon",extends:l,inheritAttrs:!1,computed:{containerClass:function(){return[this.cx("root"),this.class]}}};function d(s,m,I,$,f,e){return a(),r("span",c({class:e.containerClass},s.ptmi("root")),[o(s.$slots,"default")],16)}u.render=d;export{u as s};
+//# sourceMappingURL=index-DN8o-Nsy.js.map

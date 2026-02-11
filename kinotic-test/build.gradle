@@ -1,0 +1,48 @@
+plugins {
+	id 'org.kinotic.java-library-conventions'
+	id 'io.freefair.lombok'
+}
+
+dependencies {
+
+	implementation project(':kinotic-api')
+	implementation project(':kinotic-auth')
+	implementation project(':kinotic-persistence')
+	implementation project(':kinotic-persistence-sql')
+
+	implementation 'org.springframework.boot:spring-boot-autoconfigure'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// Used to create the ElasticSearch client, for the migration tests
+	implementation 'org.springframework.boot:spring-boot-starter-elasticsearch'
+
+	implementation 'io.jsonwebtoken:jjwt-api'
+	implementation 'io.jsonwebtoken:jjwt-impl'
+	implementation 'io.jsonwebtoken:jjwt-jackson'
+
+	implementation "com.github.ben-manes.caffeine:caffeine"
+
+    // using api directly
+    implementation "jakarta.annotation:jakarta.annotation-api"
+
+	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+	// Spring Boot 4: modular test starters - add test starters for each technology used by main code
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-jackson-test'
+	testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+	testImplementation "org.testcontainers:testcontainers-elasticsearch:${testContainersVersion}"
+	testImplementation 'io.projectreactor:reactor-test'
+	testImplementation 'org.springframework.security:spring-security-oauth2-client'
+	testImplementation 'com.github.dasniko:testcontainers-keycloak:3.8.0'
+
+	// Fix runtime linkage error in Testcontainers tar/copy (commons-compress expects newer commons-io).
+	// Without this you can see: NoSuchMethodError FileTimes.toUnixTime(FileTime)
+	testImplementation 'commons-io:commons-io:2.21.0'
+}
+
+test {
+    systemProperty 'spring.profiles.active', 'test'
+    // some tests take longer
+    timeout = Duration.ofMinutes(10)
+}
