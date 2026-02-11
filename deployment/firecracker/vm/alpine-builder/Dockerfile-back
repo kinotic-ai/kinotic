@@ -1,0 +1,57 @@
+# Dockerfile — firecracker/vms/firecracker-alpine/Dockerfile
+FROM alpine:3.20
+
+# Install system + enable serial console + create user + set SSH perms + start services
+RUN apk update \
+	&& apk add --no-cache \
+		openrc \
+		openssh \
+		util-linux \
+		nodejs \
+		npm \
+		bash \
+		curl \
+		shadow \
+		su-exec \
+		tzdata \
+		ca-certificates \
+	&& ssh-keygen -A \
+	&& mkdir -p /home/alpine/.ssh \
+	&& adduser -D -s /bin/bash -h /home/alpine alpine \
+	&& ln -s /etc/init.d/agetty /etc/init.d/agetty.ttyS0 \
+	&& echo ttyS0 > /etc/securetty \
+	&& rc-update add agetty.ttyS0 default \
+	&& rc-update add devfs boot \
+	&& rc-update add procfs boot \
+	&& rc-update add sysfs boot \
+	&& rc-update add local default
+
+# Copy key and set permissions BEFORE starting sshd
+COPY key.pub /home/alpine/.ssh/authorized_keys
+RUN chown -R alpine:alpine /home/alpine \
+	&& chmod 700 /home/alpine \
+	&& chmod 700 /home/alpine/.ssh \
+	&& chmod 600 /home/alpine/.ssh/authorized_keys \
+	&& mkdir -p /run/openrc \
+	&& touch /run/openrc/softlevel \
+	&& rc-update add sshd default
+
+# Disable password login
+RUN sed -i 's/^#PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config \
+	&& sed -i 's/^#PermitEmptyPasswords.*/PermitEmptyPasswords no/' /etc/ssh/sshd_config
+
+# Copy your app
+COPY app/ /opt/demo/
+RUN cd /opt/demo && npm install
+
+# Auto-start Node.js at boot
+RUN echo '#!/bin/sh' > /etc/init.d/node-demo \
+	&& echo 'start() { su-exec alpine:alpine sh -c "cd /opt/demo && node index.js"; }' >> /etc/init.d/node-demo \
+	&& chmod +x /etc/init.d/node-demo \
+	&& rc-update add node-demo default
+
+# Lock root account
+RUN passwd -l root
+
+USER alpine
+WORKDIR /home/alpine

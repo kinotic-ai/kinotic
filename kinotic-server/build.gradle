@@ -14,9 +14,9 @@ dependencies {
 	implementation project(':kinotic-persistence')
 	implementation project(':kinotic-auth')
 
-	// Additional Continuum Dependencies
-	implementation "org.kinotic:continuum-core"
-	implementation "org.kinotic:continuum-gateway"
+    // These were continuum. As we move things around we can refine the dependencies
+    implementation project(':kinotic-core')
+    implementation project(':kinotic-rpc-gateway')
 
 	implementation 'com.github.ben-manes.caffeine:caffeine'
 

@@ -4,6 +4,12 @@ plugins {
 }
 
 dependencies {
+    // These were continuum. As we move things around we can refine the dependencies
+    implementation project(':kinotic-core')
+    implementation project(':kinotic-rpc')
+    implementation project(':kinotic-rpc-gateway')
+    implementation project(':kinotic-idl')
+
 	implementation project(':kinotic-api')
 	implementation project(':kinotic-auth')
 	implementation project(':kinotic-persistence-sql')
@@ -26,11 +32,6 @@ dependencies {
 	implementation "io.vertx:vertx-health-check"
 	implementation 'org.apache.ignite:ignite-core'
 	implementation 'org.apache.ignite:ignite-kubernetes'
-
-	implementation "org.kinotic:continuum-core"
-	implementation "org.kinotic:continuum-core-vertx"
-	implementation "org.kinotic:continuum-gateway"
-	implementation "org.kinotic:continuum-idl"
 
 	implementation "com.github.ben-manes.caffeine:caffeine"
 

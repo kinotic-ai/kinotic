@@ -1,0 +1,21 @@
+plugins {
+    id 'org.kinotic.java-library-conventions'
+}
+
+dependencies {
+    // reactive https://github.com/reactive-streams/reactive-streams-jvm
+    // these should be the only reactive interfaces exposed by the Core API!
+    api 'org.reactivestreams:reactive-streams'
+    api 'io.projectreactor:reactor-core'
+
+    implementation 'org.springframework.boot:spring-boot'
+    implementation 'org.springframework:spring-core'
+    implementation 'org.springframework:spring-aop'
+    implementation 'org.springframework:spring-context'
+
+    // To include When.MAYBE to get rid of message
+    implementation 'com.google.code.findbugs:jsr305:3.0.2'
+
+    // JSON
+    implementation 'com.fasterxml.jackson.core:jackson-annotations'
+}

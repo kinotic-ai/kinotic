@@ -1,0 +1,10 @@
+  # YAML Reference http://www.yaml.org/refcard.html
+  continuum:
+    debug: true
+
+  logging:
+    level:
+      com:
+        kinotic: TRACE
+      io:
+        vertx: DEBUG

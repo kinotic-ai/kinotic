@@ -1,0 +1,54 @@
+/*
+ *
+ * Copyright 2008-2021 Kinotic and the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.kinotic.continuum.grind.api;
+
+/**
+ *
+ * Created by Navid Mitchell on 11/11/20
+ */
+public class ResultOptions {
+    private DiagnosticLevel diagnosticsLevel;
+    private boolean enableProgressResults;
+
+    public ResultOptions() {
+    }
+
+    public ResultOptions(DiagnosticLevel diagnosticsLevel, boolean enableProgressResults) {
+        this.diagnosticsLevel = diagnosticsLevel;
+        this.enableProgressResults = enableProgressResults;
+    }
+
+    public DiagnosticLevel getDiagnosticsLevel() {
+        return diagnosticsLevel;
+    }
+
+    public ResultOptions setDiagnosticsLevel(DiagnosticLevel diagnosticsLevel) {
+        this.diagnosticsLevel = diagnosticsLevel;
+        return this;
+    }
+
+    public boolean isEnableProgressResults() {
+        return enableProgressResults;
+    }
+
+    public ResultOptions setEnableProgressResults(boolean enableProgressResults) {
+        this.enableProgressResults = enableProgressResults;
+        return this;
+    }
+
+}

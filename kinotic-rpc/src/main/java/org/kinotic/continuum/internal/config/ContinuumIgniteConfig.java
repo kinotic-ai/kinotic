@@ -1,0 +1,272 @@
+/*
+ *
+ * Copyright 2008-2021 Kinotic and the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.kinotic.continuum.internal.config;
+
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.ignite.IgniteSystemProperties;
+import org.apache.ignite.calcite.CalciteQueryEngineConfiguration;
+import org.apache.ignite.configuration.*;
+import org.apache.ignite.failure.FailureHandler;
+import org.apache.ignite.failure.NoOpFailureHandler;
+import org.apache.ignite.failure.StopNodeOrHaltFailureHandler;
+import org.apache.ignite.kubernetes.configuration.KubernetesConnectionConfiguration;
+import org.apache.ignite.logger.slf4j.Slf4jLogger;
+import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.spi.discovery.DiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.kubernetes.TcpDiscoveryKubernetesIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.sharedfs.TcpDiscoverySharedFsIpFinder;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.kinotic.continuum.api.config.ContinuumProperties;
+import org.kinotic.continuum.api.config.IgniteClusterDiscoveryType;
+import org.kinotic.continuum.api.config.IgniteClusterProperties;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.List;
+
+import static org.apache.ignite.failure.FailureType.*;
+
+/**
+ * Class provides environment agnostic configuration for ignite
+ * Created by navid on 5/13/16.
+ */
+@Slf4j
+@Configuration
+@ConditionalOnProperty(value = "continuum.disableClustering", havingValue = "false", matchIfMissing = true)
+public class ContinuumIgniteConfig {
+
+    @Autowired
+    private ContinuumProperties continuumProperties;
+
+    @Autowired
+    private IgniteClusterProperties igniteClusterProperties;
+
+    @Autowired(required = false)
+    private List<CacheConfiguration<?, ?>> caches;
+
+    @Autowired(required = false)
+    private List<DataRegionConfiguration> dataRegions;
+
+    /**
+     * Create the appropriate IP finder based on discovery type
+     */
+    @ConditionalOnMissingBean
+    @Bean
+    public DiscoverySpi tcpDiscoverySpi() {
+        TcpDiscoverySpi discoverySpi = new TcpDiscoverySpi();
+
+        IgniteClusterDiscoveryType discoveryType = igniteClusterProperties.getDiscoveryType();
+        switch (discoveryType) {
+            case IgniteClusterDiscoveryType.LOCAL:
+                discoverySpi.setIpFinder(createLocalIpFinder());
+                break;
+            case IgniteClusterDiscoveryType.SHAREDFS:
+                discoverySpi.setIpFinder(createSharedFsIpFinder());
+                break;
+            case IgniteClusterDiscoveryType.KUBERNETES:
+                discoverySpi.setIpFinder(createKubernetesIpFinder());
+                break;
+            default:
+                log.warn("Unknown cluster discovery type: {}, defaulting to LOCAL", discoveryType);
+                discoverySpi.setIpFinder(createLocalIpFinder());
+        }
+
+//        discoverySpi.setJoinTimeout(igniteClusterProperties.getJoinTimeoutMs());
+//        discoverySpi.setLocalPort(igniteClusterProperties.getDiscoveryPort());
+
+        if(StringUtils.isNotBlank(igniteClusterProperties.getLocalAddress())){
+            discoverySpi.setLocalAddress(igniteClusterProperties.getLocalAddress());
+        }
+
+        return discoverySpi;
+    }
+
+    /**
+     * Nodes communicate with each other over this port
+     **/
+    @ConditionalOnMissingBean
+    @Bean
+    public TcpCommunicationSpi tcpCommunicationSpi() {
+        TcpCommunicationSpi communicationSpi = new TcpCommunicationSpi();
+        communicationSpi.setLocalPort(igniteClusterProperties.getCommunicationPort());
+        return communicationSpi;
+    }
+
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
+    @Bean
+    public IgniteConfiguration igniteConfiguration(DiscoverySpi discoverySpi,
+            TcpCommunicationSpi tcpCommunicationSpi,
+            FailureHandler failureHandler) {
+        // Set up a few system schema Ignite uses
+        System.setProperty(IgniteSystemProperties.IGNITE_NO_ASCII, "true");// Turn off ignite console banner
+
+        // Ignite is shutdown by Spring during application context shutdown. This is
+        // done because of config in ContinuumIgniteBootstrap
+        System.setProperty(IgniteSystemProperties.IGNITE_NO_SHUTDOWN_HOOK, "true");// keep from shutting down before our
+                                                                                   // code
+
+        IgniteConfiguration cfg = new IgniteConfiguration();
+
+        cfg.setGridLogger(new Slf4jLogger());
+
+        // Turn Stuff OFF
+        cfg.setMetricsLogFrequency(0);// Metrics Logging to Console
+
+        // Override default discovery SPI.
+        if (discoverySpi != null) {
+            cfg.setDiscoverySpi(discoverySpi);
+        }
+
+        // Override default communication SPI.
+        if (tcpCommunicationSpi != null) {
+            cfg.setCommunicationSpi(tcpCommunicationSpi);
+        }
+
+        // Setup calcite sql engine
+        cfg.setSqlConfiguration(
+                new SqlConfiguration().setQueryEnginesConfiguration(
+                        new CalciteQueryEngineConfiguration().setDefault(true)));
+
+        DataStorageConfiguration dataStorageConfiguration = new DataStorageConfiguration();
+
+        // setup default memory region based on continuum config
+        dataStorageConfiguration.getDefaultDataRegionConfiguration()
+                .setInitialSize(continuumProperties.getMaxOffHeapMemory() / 2)
+                .setMaxSize(continuumProperties.getMaxOffHeapMemory());
+
+        if (dataRegions != null && !dataRegions.isEmpty()) {
+            // Add other configured data regions
+            DataRegionConfiguration[] configs = dataRegions.toArray(new DataRegionConfiguration[0]);
+            dataStorageConfiguration.setDataRegionConfigurations(configs);
+        }
+
+        cfg.setDataStorageConfiguration(dataStorageConfiguration);
+
+        // Ignite Cache configurations
+        if (caches != null && !caches.isEmpty()) {
+            CacheConfiguration<?, ?>[] cacheConfigs = caches.toArray(new CacheConfiguration[0]);
+            cfg.setCacheConfiguration(cacheConfigs);
+        }
+
+        cfg.setFailureHandler(failureHandler);
+
+        cfg.setWorkDirectory(continuumProperties.getIgniteWorkDirectory());
+
+        cfg.setAsyncContinuationExecutor(Runnable::run);
+
+        return cfg;
+    }
+
+    @Bean
+    @Profile("development")
+    FailureHandler noopFailureHandler() {
+        NoOpFailureHandler ret = new NoOpFailureHandler();
+        ret.setIgnoredFailureTypes(Collections.unmodifiableSet(EnumSet.of(SEGMENTATION,
+                SYSTEM_WORKER_TERMINATION,
+                SYSTEM_WORKER_BLOCKED,
+                CRITICAL_ERROR,
+                SYSTEM_CRITICAL_OPERATION_TIMEOUT)));
+        return ret;
+    }
+
+    @Bean
+    @Profile("!development")
+    FailureHandler haltFailureHandler() {
+        return new StopNodeOrHaltFailureHandler();
+    }
+
+    /**
+     * Create local/VM IP finder for single-node or testing
+     */
+    private TcpDiscoveryIpFinder createLocalIpFinder() {
+        log.info("Configuring LOCAL discovery (single-node mode)");
+
+        TcpDiscoveryVmIpFinder ipFinder = new TcpDiscoveryVmIpFinder();
+        if(StringUtils.isNotBlank(igniteClusterProperties.getLocalAddresses())){
+            ipFinder.setAddresses(List.of(igniteClusterProperties.getLocalAddresses().split(",")));
+        } else {
+            ipFinder.setAddresses(List.of("127.0.0.1:" + igniteClusterProperties.getDiscoveryPort()));
+        }
+
+        return ipFinder;
+    }
+
+    /**
+     * Create shared filesystem (static IP) IP finder for Docker/VM environments
+     */
+    private TcpDiscoveryIpFinder createSharedFsIpFinder() {
+        String configuredPath = igniteClusterProperties.getSharedFsPath();
+        log.info("Configuring SHAREDFS discovery with path: {}", configuredPath);
+
+        TcpDiscoverySharedFsIpFinder ipFinder = new TcpDiscoverySharedFsIpFinder();
+        Path sharedFsPath = Path.of(configuredPath);
+
+        try {
+            if (Files.notExists(sharedFsPath)) {
+                Files.createDirectories(sharedFsPath);
+                log.debug("Created shared filesystem directory {}", sharedFsPath);
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to prepare shared filesystem path " + sharedFsPath, e);
+        }
+
+        if (!Files.isWritable(sharedFsPath)) {
+            throw new IllegalStateException("Shared filesystem path is not writable: " + sharedFsPath.toAbsolutePath());
+        }
+
+        ipFinder.setPath(sharedFsPath.toAbsolutePath().toString());
+
+        log.info("Configured SHAREDFS discovery with writable path: {}", sharedFsPath.toAbsolutePath());
+
+        return ipFinder;
+    }
+
+    /**
+     * Create Kubernetes IP finder for K8s deployments.
+     */
+    private TcpDiscoveryIpFinder createKubernetesIpFinder() {
+        log.info("Configuring Kubernetes discovery with namespace: {}, service: {}, include not ready addresses: {}",
+                igniteClusterProperties.getKubernetesNamespace(), igniteClusterProperties.getKubernetesServiceName(),
+                igniteClusterProperties.getKubernetesIncludeNotReadyAddresses());
+
+        KubernetesConnectionConfiguration connectionConfig = new KubernetesConnectionConfiguration();
+        ;
+        connectionConfig.setNamespace(igniteClusterProperties.getKubernetesNamespace());
+        connectionConfig.setServiceName(igniteClusterProperties.getKubernetesServiceName());
+        connectionConfig.setIncludeNotReadyAddresses(igniteClusterProperties.getKubernetesIncludeNotReadyAddresses());
+        if (igniteClusterProperties.getKubernetesMasterUrl() != null) {
+            connectionConfig.setMasterUrl(igniteClusterProperties.getKubernetesMasterUrl());
+        }
+        if (igniteClusterProperties.getKubernetesAccountToken() != null) {
+            connectionConfig.setAccountToken(igniteClusterProperties.getKubernetesAccountToken());
+        }
+
+        return new TcpDiscoveryKubernetesIpFinder(connectionConfig);
+    }
+}

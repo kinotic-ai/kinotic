@@ -1,0 +1,587 @@
+Aardvark
+Aardwolf
+Albatross
+Alligator
+Alpaca
+Amphibian
+Anaconda
+Angelfish
+Anglerfish
+Ant
+Anteater
+Antelope
+Antlion
+Ape
+Aphid
+Arabian leopard
+Arctic Fox
+Arctic Wolf
+Armadillo
+Arrow crab
+Asp
+Baboon
+Badger
+Bald eagle
+Bandicoot
+Barnacle
+Barracuda
+Basilisk
+Bass
+Bat
+Beaked whale
+Bear
+Beaver
+Bedbug
+Bee
+Beetle
+Bird
+Bison
+Blackbird
+Black panther
+Black widow spider
+Blue bird
+Blue jay
+Blue whale
+Boa
+Boar
+Bobcat
+Bobolink
+Bonobo
+Booby
+Box jellyfish
+Bovid
+Buffalo
+Bug
+Butterfly
+Buzzard
+Camel
+Canid
+Capybara
+Cardinal
+Caribou
+Carp
+Cat
+Catshark
+Caterpillar
+Catfish
+Cattle
+Centipede
+Cephalopod
+Chameleon
+Cheetah
+Chickadee
+Chicken
+Chimpanzee
+Chinchilla
+Chipmunk
+Clam
+Clownfish
+Cobra
+Cod
+Condor
+Constrictor
+Coral
+Cougar
+Cow
+Coyote
+Crab
+Crane
+Crane fly
+Crawdad
+Crayfish
+Cricket
+Crocodile
+Crow
+Cuckoo
+Cicada
+Damselfly
+Deer
+Dingo
+Dinosaur
+Dog
+Dolphin
+Donkey
+Dormouse
+Dove
+Dragonfly
+Dragon
+Duck
+Dung beetle
+Eagle
+Earthworm
+Earwig
+Echidna
+Eel
+Egret
+Elephant
+Elephant seal
+Elk
+Emu
+English pointer
+Ermine
+Falcon
+Ferret
+Finch
+Firefly
+Fish
+Flamingo
+Flea
+Fly
+Flyingfish
+Fowl
+Fox
+Frog
+Fruit bat
+Gamefowl
+Galliform
+Gazelle
+Gecko
+Gerbil
+Giant panda
+Giant squid
+Gibbon
+Gila monster
+Giraffe
+Goat
+Goldfish
+Goose
+Gopher
+Gorilla
+Grasshopper
+Great blue heron
+Great white shark
+Grizzly bear
+Ground shark
+Ground sloth
+Grouse
+Guan
+Guanaco
+Guineafowl
+Guinea pig
+Gull
+Guppy
+Haddock
+Halibut
+Hammerhead shark
+Hamster
+Hare
+Harrier
+Hawk
+Hedgehog
+Hermit crab
+Heron
+Herring
+Hippopotamus
+Hookworm
+Hornet
+Horse
+Hoverfly
+Hummingbird
+Humpback whale
+Hyena
+Iguana
+Impala
+Jackal
+Jaguar
+Jay
+Jellyfish
+Junglefowl
+Kangaroo
+Kangaroo mouse
+Kangaroo rat
+Kingfisher
+Kite
+Kiwi
+Koala
+Koi
+Komodo dragon
+Krill
+Ladybug
+Lamprey
+Landfowl
+Land snail
+Lark
+Leech
+Lemming
+Lemur
+Leopard
+Leopon
+Limpet
+Lion
+Lizard
+Llama
+Lobster
+Locust
+Loon
+Louse
+Lungfish
+Lynx
+Macaw
+Mackerel
+Magpie
+Mammal
+Manatee
+Mandrill
+Manta ray
+Marlin
+Marmoset
+Marmot
+Marsupial
+Marten
+Mastodon
+Meadowlark
+Meerkat
+Mink
+Minnow
+Mite
+Mockingbird
+Mole
+Mollusk
+Mongoose
+Monitor lizard
+Monkey
+Moose
+Mosquito
+Moth
+Mountain goat
+Mouse
+Mule
+Muskox
+Narwhal
+Newt
+New World quail
+Nightingale
+Ocelot
+Octopus
+Old World quail
+Opossum
+Orangutan
+Orca
+Ostrich
+Otter
+Owl
+Ox
+Panda
+Panther
+Parakeet
+Parrot
+Parrotfish
+Partridge
+Peacock
+Peafowl
+Pelican
+Penguin
+Perch
+Peregrine falcon
+Pheasant
+Pig
+Pigeon
+Pike
+Pilot whale
+Pinniped
+Piranha
+Planarian
+Platypus
+Polar bear
+Pony
+Porcupine
+Porpoise
+Portuguese man o' war
+Possum
+Prairie dog
+Prawn
+Praying mantis
+Primate
+Ptarmigan
+Puffin
+Puma
+Python
+Quail
+Quelea
+Quokka
+Rabbit
+Raccoon
+Rainbow trout
+Rat
+Rattlesnake
+Raven
+Ray
+Red panda
+Reindeer
+Reptile
+Rhinoceros
+Right whale
+Roadrunner
+Rodent
+Rook
+Rooster
+Roundworm
+Saber-toothed cat
+Sailfish
+Salamander
+Salmon
+Sawfish
+Scale insect
+Scallop
+Scorpion
+Seahorse
+Sea lion
+Sea slug
+Sea snail
+Shark
+Sheep
+Shrew
+Shrimp
+Silkworm
+Silverfish
+Skink
+Skunk
+Sloth
+Slug
+Smelt
+Snail
+Snake
+Snipe
+Snow leopard
+Sockeye salmon
+Sole
+Sparrow
+Sperm whale
+Spider
+Spider monkey
+Spoonbill
+Squid
+Squirrel
+Starfish
+Star-nosed mole
+Steelhead trout
+Stingray
+Stoat
+Stork
+Sturgeon
+Sugar glider
+Swallow
+Swan
+Swift
+Swordfish
+Swordtail
+Tahr
+Takin
+Tapir
+Tarantula
+Tarsier
+Tasmanian devil
+Termite
+Tern
+Thrush
+Tick
+Tiger
+Tiger shark
+Tiglon
+Toad
+Tortoise
+Toucan
+Trapdoor spider
+Tree frog
+Trout
+Tuna
+Turkey
+Turtle
+Tyrannosaurus
+Urial
+Vampire bat
+Vampire squid
+Vicuna
+Viper
+Vole
+Vulture
+Wallaby
+Walrus
+Wasp
+Warbler
+Water Boa
+Water buffalo
+Weasel
+Whale
+Whippet
+Whitefish
+Whooping crane
+Wildcat
+Wildebeest
+Wildfowl
+Wolf
+Wolverine
+Wombat
+Woodpecker
+Worm
+Wren
+Xerinae
+X-ray fish
+Yak
+Yellow perch
+Zebra
+Alethe
+Andean tapaculo
+Andean toucanet
+Andean tyrant
+Asian paradise flycatcher
+Bar-necked cuckoo-dove
+Bearded bulbul
+Black swift
+Black-and-white fairywren
+Black-and-white monarch
+Black-chinned laughingthrush
+Black-headed batis
+Black-lored tit
+Blue wren
+Blue-tailed trogon
+Boatbill
+Bornean mountain whistler
+Brown bulbul
+Brown flycatcher
+Brown pitohui
+Brown-throated treecreeper
+Brownbul
+Brushturkey
+Bullfinch
+Bush tyrant
+Bushbird
+Camp robber
+Canary-winged parakeet
+Chat-tyrant
+Chinese pheasant
+Cinnamon bush lark
+Common fiscal
+Common koel
+Crowned crane
+Cuban warbler
+Damara longbill
+Damaraland long-billed lark
+Dark-eared brown dove
+Diving bird
+Duck
+Dusky woodcock
+Dwarf emu
+Earthcreeper
+Eastern short-toed lark
+Eastern sirystes
+Emerald cuckoo
+Florican
+Grass owl
+Greater Antillean nightjar
+Greater Antillean oriole
+Green violetear
+Green woodpecker
+Green-backed bulbul
+Green-backed heron
+Green-throated greenbul
+Green-winged bulbul
+Grey woodpecker
+Grey-breasted laughingthrush
+Grey-throated bulbul
+Hwamei
+Island flycatcher
+Jungle crow
+Jungle flycatcher
+Kenya short-toed lark
+Large-billed Sabota lark
+Leaflove
+Lesser golden plover
+Lilac-throated roller
+Lineated woodcreeper
+Little shrikethrush
+Long-billed lark
+Long-tailed antbird
+Long-tailed mountain pigeon
+Long-tailed wren-babbler
+Mealy amazon
+Melanesian cuckooshrike
+Mencke's monarch
+Micronesian broadbill
+Micronesian kingfisher
+Micronesian Myiagra
+Montane oriole
+Mourner (bird)
+Mussau Island monarch
+Old World warbler
+Olivaceous bulbul
+Olive greenbul
+Olive pigeon
+Orphean warbler
+Pacific monarch
+Pied flycatcher
+Plain wren
+Plain-backed thrush
+Pratincole
+Bird of prey
+Purple gallinule
+Purple swamphen
+Pygmy tyrant
+Red-bellied pitta
+Red-eyed bulbul
+Robin-chat
+Royal albatross
+Rufous short-toed lark
+Rufous sparrow
+Rufous winged bush lark
+Rufous-backed sparrow
+Rufous-bellied bulbul
+Rufous-naped wren
+Rufous-sided towhee
+Scaup
+Scrub bulbul
+Seaside cinclodes
+Short-toed lark
+Shortwing (bird)
+Slaty flycatcher
+Slender-billed cuckoo-dove
+Small blue kingfisher
+Smoky honeyeater
+Snowfinch
+Solitary vireo
+Sooty woodpecker
+Southern grey shrike
+Southern mountain greenbul
+Sparrowhawk
+Spinifex parrot
+Spot-backed puffbird
+Spotted nightingale-thrush
+Spurfowl
+Square-tailed drongo
+Sri Lanka bulbul
+Streak-throated fulvetta
+Streaked antwren
+Striolated puffbird
+Stripe-headed brush finch
+Striped manakin
+Striped tit-babbler
+Sumatran bulbul
+Sunda whistler
+Tanimbar monarch
+Traill's flycatcher
+Treerunner
+Troupial
+Tuamotu kingfisher
+Turtledove
+Twinspot
+Variable dwarf kingfisher
+Variable pitohui
+Water bird
+Wattled bulbul
+Waxbill
+Wedge-billed hummingbird
+Western mountain greenbul
+Western scrub jay
+Western whipbird
+White-bellied thrush
+White-cheeked bulbul
+White-collared seedeater
+White-eyed bulbul
+White-tailed greenbul
+White-tailed rubythroat
+White-throated bearded greenbul
+White-vented bulbul
+Wild duck
+Wood pewee
+Yellow-billed hornbill
+Yellow-necked greenbul

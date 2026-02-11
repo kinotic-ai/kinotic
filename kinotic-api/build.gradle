@@ -4,6 +4,8 @@ plugins {
 }
 
 dependencies {
+    api project(':kinotic-core')
+    api project(':kinotic-idl')
 
     // The can be removed once RawJson is no longer needed to extend JsonpSerializable
     api 'co.elastic.clients:elasticsearch-java'
@@ -14,7 +16,5 @@ dependencies {
     api 'tools.jackson.core:jackson-core'
     api 'tools.jackson.core:jackson-databind'
 
-    api "org.kinotic:continuum-core"
-    api "org.kinotic:continuum-idl"
 }
 

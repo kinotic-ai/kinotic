@@ -1,13 +1,19 @@
 plugins {
     // Apply the java Plugin to add support for Java.
     id 'java'
+    id 'io.freefair.lombok'
     id 'io.spring.dependency-management'
 }
 
 group 'org.kinotic'
-version "${structuresVersion}"
+version "${kinoticVersion}"
 java {
     sourceCompatibility = '21'
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    withJavadocJar()
+    withSourcesJar()
 }
 
 
@@ -43,10 +49,10 @@ configurations {
 
 dependencyManagement {
     imports {
-        mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
         mavenBom "io.opentelemetry:opentelemetry-bom:${otelBomVersion}"
         mavenBom "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:${otelInstrumentationBomVersion}"
         mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+        mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
     }
     dependencies {
         dependency "co.elastic.clients:elasticsearch-java:${elasticClientVersion}"
@@ -56,28 +62,43 @@ dependencyManagement {
 
         dependency "com.graphql-java:graphql-java:${graphQlJavaVersion}"
 
-        dependency "io.vertx:vertx-web:${vertxVersion}"
-        dependency "io.vertx:vertx-web-graphql:${vertxVersion}"
-        dependency "io.vertx:vertx-web-client:${vertxVersion}"
+        dependency "commons-io:commons-io:${commonsIoVersion}"
+
+        dependency "io.vertx:vertx-auth-common:${vertxVersion}"
+        dependency "io.vertx:vertx-core:${vertxVersion}"
+        dependency "io.vertx:vertx-grpc-server:${vertxVersion}"
+        dependency "io.vertx:vertx-grpcio-server:${vertxVersion}"
+        dependency "io.vertx:vertx-grpcio-client:${vertxVersion}"
         dependency "io.vertx:vertx-health-check:${vertxVersion}"
+        dependency "io.vertx:vertx-ignite:${vertxVersion}"
+        dependency "io.vertx:vertx-reactive-streams:${vertxVersion}"
+        dependency "io.vertx:vertx-web:${vertxVersion}"
+        dependency "io.vertx:vertx-web-client:${vertxVersion}"
+        dependency "io.vertx:vertx-web-graphql:${vertxVersion}"
 
         dependency "org.apache.commons:commons-compress:${apacheCommonsCompressVersion}"
         dependency "org.apache.commons:commons-lang3:${apacheCommonsLangVersion}"
         dependency "org.apache.commons:commons-text:${apacheCommonsTextVersion}"
 
-        dependency "org.apache.ignite:ignite-core:${igniteVersion}"
-        dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
-        dependency "org.apache.ignite:ignite-spring:${igniteVersion}"
+        dependency "org.apache.groovy:groovy:${groovyVersion}"
 
-        dependency "org.kinotic:continuum-core:${continuumVersion}"
-        dependency "org.kinotic:continuum-core-vertx:${continuumVersion}"
-        dependency "org.kinotic:continuum-gateway:${continuumVersion}"
-        dependency "org.kinotic:continuum-idl:${continuumVersion}"
+        dependency "org.apache.ignite:ignite-core:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-indexing:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-calcite:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-spring:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-slf4j:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
+
+        dependency "org.kinotic:vertx-stomp-lite:${vertxStompLiteVersion}"
+
+        dependency "org.springframework.boot:spring-boot-configuration-processor:${springBootVersion}"
 
         // Spring no longer uses javax annotations
         dependency "jakarta.annotation:jakarta.annotation-api:${jakartaAnnotationVersion}"
         // must be overridden for the elastic client
         dependency 'jakarta.json:jakarta.json-api:2.0.1'
+
+        dependency "javax.cache:cache-api:${jCacheApiVersion}"
 
         // JWT and OIDC dependencies
         dependency "io.jsonwebtoken:jjwt-api:${jsonwebtokenVersion}"
@@ -87,16 +108,20 @@ dependencyManagement {
 }
 
 dependencies {
-    implementation 'com.fasterxml.jackson.core:jackson-annotations'
-    implementation 'jakarta.annotation:jakarta.annotation-api'
-
-    implementation 'org.apache.commons:commons-lang3'
-    implementation "org.apache.commons:commons-text"
-
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations'
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
     implementation 'ch.qos.logback:logback-core'
     implementation 'ch.qos.logback:logback-classic'
+
+    implementation 'com.fasterxml.jackson.core:jackson-annotations'
+
+    implementation 'io.opentelemetry:opentelemetry-api'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations'
+
+    implementation 'jakarta.annotation:jakarta.annotation-api'
+
+    implementation 'org.apache.commons:commons-lang3'
+    implementation 'org.apache.commons:commons-text'
 
     // Add aspectj weaver dependency for use during tests
     agent "org.aspectj:aspectjweaver:$aspectJVersion"
@@ -105,18 +130,17 @@ dependencies {
     testImplementation "io.qameta.allure:allure-junit5"
     testImplementation 'org.junit.jupiter:junit-jupiter-api'
     testImplementation 'org.junit.jupiter:junit-jupiter-engine'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    //testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 test {
     useJUnitPlatform()
-    environment("JAVA_TOOL_OPTIONS", "-javaagent:${configurations.agent.singleFile} --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED")
+    jvmArgs(
+        "-javaagent:${configurations.agent.singleFile}",
+        "--add-opens=java.base/java.nio=ALL-UNNAMED",
+        "--add-opens=java.base/java.util=ALL-UNNAMED",
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+    )
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-    withJavadocJar()
-    withSourcesJar()
-}
