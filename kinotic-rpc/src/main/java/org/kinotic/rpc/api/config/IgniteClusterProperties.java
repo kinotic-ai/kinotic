@@ -2,14 +2,6 @@ package org.kinotic.rpc.api.config;
 
 /**
  * Ignite Cluster Configuration Properties
- * 
- * @author Navid Mitchell
- * @since 1.0.0
- * @version 1.0.0
- * @see IgniteClusterDiscoveryType
- * @see IgniteClusterDiscoveryType#LOCAL
- * @see IgniteClusterDiscoveryType#SHAREDFS
- * @see IgniteClusterDiscoveryType#KUBERNETES
  */
 public interface IgniteClusterProperties {
     
@@ -19,6 +11,10 @@ public interface IgniteClusterProperties {
      * - LOCAL: Single-node, no clustering (default for development)
      * - SHAREDFS: Shared filesystem discovery (Docker/VM environments)
      * - KUBERNETES: Kubernetes discovery via K8s API
+     * @see IgniteClusterDiscoveryType
+     * @see IgniteClusterDiscoveryType#LOCAL
+     * @see IgniteClusterDiscoveryType#SHAREDFS
+     * @see IgniteClusterDiscoveryType#KUBERNETES
      */
     IgniteClusterDiscoveryType getDiscoveryType();
 
@@ -36,7 +32,7 @@ public interface IgniteClusterProperties {
      * NOTE: You should initialize the IgniteConfiguration.getLocalHost() or getLocalAddress()
      * parameter with the network interface that will be used for inter-node communication.
      * Otherwise, the node can listen on multiple network addresses available in the
-     * environment and this can prolong node failures detection if some of the addresses
+     * environment, and this can prolong node failure detection if some addresses
      * are not reachable from other cluster nodes. For instance, if the node is
      * bound to 3 network interfaces, it can take up to
      * 'IgniteConfiguration.getFailureDetectionTimeout() * 3 + getConnectionRecoveryTimeout()' milliseconds
@@ -68,7 +64,7 @@ public interface IgniteClusterProperties {
     
     /**
      * Kubernetes master URL for API access.
-     * If null, uses in-cluster configuration.
+     * If null, use in-cluster configuration.
      * Only used when clusterDiscoveryType = "kubernetes"
      */
     String getKubernetesMasterUrl();
@@ -87,8 +83,8 @@ public interface IgniteClusterProperties {
 
     /**
      * Comma-delimited string of network addresses that should be considered
-     * when using LOCAL clustering. Should contain proper discovery port for address.
-     * must provide known nodes addresses.
+     * when using LOCAL clustering. Should contain a proper discovery port for address.
+     * must provide known node addresses.
      */
     String getLocalAddresses();
     
@@ -96,25 +92,5 @@ public interface IgniteClusterProperties {
      * Port used for Ignite node communication
      */
     Integer getCommunicationPort();
-
-    // /**
-    //  * Port used for Ignite JMX
-    //  */
-    // private Integer jmxPort = 49112;
-
-    // /**
-    //  * Port used for Ignite thin client/JDBC/ODBC
-    //  */
-    // private Integer thinClientPort = 10800;
-
-    // /**
-    //  * Port used for Ignite REST API
-    //  */
-    // private Integer restApiPort = 8080;
-
-    // /**
-    //  * Port used for Ignite control script
-    //  */
-    // private Integer controlScriptPort = 11211;
     
 }
