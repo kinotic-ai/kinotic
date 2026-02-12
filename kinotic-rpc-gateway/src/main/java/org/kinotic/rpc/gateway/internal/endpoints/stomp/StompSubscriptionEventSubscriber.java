@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.gateway.internal.endpoints.stomp;
 
-import org.kinotic.continuum.core.api.event.Event;
+import org.kinotic.rpc.api.event.Event;
 import io.vertx.ext.stomp.lite.StompServerConnection;
 import io.vertx.ext.stomp.lite.frame.Frame;
 import org.slf4j.Logger;

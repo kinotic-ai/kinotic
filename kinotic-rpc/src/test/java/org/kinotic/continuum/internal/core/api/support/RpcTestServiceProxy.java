@@ -18,7 +18,7 @@
 package org.kinotic.continuum.internal.core.api.support;
 
 import io.vertx.core.Future;
-import org.kinotic.continuum.api.annotations.Proxy;
+import org.kinotic.rpc.api.annotations.Proxy;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.util.TokenBuffer;

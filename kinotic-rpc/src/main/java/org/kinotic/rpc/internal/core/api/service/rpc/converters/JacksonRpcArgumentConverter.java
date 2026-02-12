@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.internal.core.api.service.rpc.converters;
 
-import org.kinotic.continuum.api.config.ContinuumProperties;
+import org.kinotic.rpc.api.config.ContinuumProperties;
 import org.kinotic.rpc.internal.core.api.service.json.AbstractJacksonSupport;
 import org.kinotic.rpc.internal.core.api.service.rpc.RpcArgumentConverter;
 import org.springframework.core.ReactiveAdapterRegistry;

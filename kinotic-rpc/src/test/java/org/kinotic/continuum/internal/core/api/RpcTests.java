@@ -21,7 +21,7 @@ import io.vertx.core.Future;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.kinotic.continuum.api.Continuum;
+import org.kinotic.rpc.api.Continuum;
 import org.kinotic.continuum.api.exceptions.RpcInvocationException;
 import org.kinotic.continuum.api.exceptions.RpcMissingMethodException;
 import org.kinotic.continuum.api.exceptions.RpcMissingServiceException;

@@ -19,8 +19,8 @@ package org.kinotic.rpc.internal.utils;
 
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.reflect.FieldUtils;
-import org.kinotic.continuum.api.annotations.Scope;
-import org.kinotic.continuum.api.annotations.Version;
+import org.kinotic.rpc.api.annotations.Scope;
+import org.kinotic.rpc.api.annotations.Version;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.MethodParameter;

@@ -19,8 +19,8 @@ package org.kinotic.rpc.gateway.internal.endpoints.stomp;
 
 import java.util.Map;
 
-import org.kinotic.continuum.core.api.event.CRI;
-import org.kinotic.continuum.core.api.event.Event;
+import org.kinotic.rpc.api.event.CRI;
+import org.kinotic.rpc.api.event.Event;
 import org.kinotic.rpc.gateway.internal.endpoints.EndpointConnectionHandler;
 import org.kinotic.rpc.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;

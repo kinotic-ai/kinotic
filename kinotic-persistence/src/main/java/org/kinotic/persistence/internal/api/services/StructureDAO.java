@@ -1,8 +1,8 @@
 package org.kinotic.persistence.internal.api.services;
 
-import org.kinotic.continuum.core.api.crud.IdentifiableCrudService;
-import org.kinotic.continuum.core.api.crud.Page;
-import org.kinotic.continuum.core.api.crud.Pageable;
+import org.kinotic.continuum.api.crud.IdentifiableCrudService;
+import org.kinotic.continuum.api.crud.Page;
+import org.kinotic.continuum.api.crud.Pageable;
 import org.kinotic.persistence.api.domain.Structure;
 
 import java.util.concurrent.CompletableFuture;

@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.api.services.impl.insights;
 
-import org.kinotic.continuum.api.security.Participant;
+import org.kinotic.rpc.api.security.Participant;
 import org.kinotic.persistence.api.domain.insights.InsightRequest;
 import org.springframework.stereotype.Service;
 

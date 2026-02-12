@@ -18,10 +18,10 @@
 package org.kinotic.rpc.internal;
 
 import org.apache.commons.lang3.StringUtils;
-import org.kinotic.continuum.api.annotations.Publish;
-import org.kinotic.continuum.core.api.RpcServiceProxy;
-import org.kinotic.continuum.core.api.ServiceRegistry;
-import org.kinotic.continuum.core.api.service.ServiceIdentifier;
+import org.kinotic.rpc.api.annotations.Publish;
+import org.kinotic.rpc.api.RpcServiceProxy;
+import org.kinotic.rpc.api.ServiceRegistry;
+import org.kinotic.rpc.api.service.ServiceIdentifier;
 import org.kinotic.rpc.internal.utils.ContinuumUtil;
 import org.kinotic.rpc.internal.utils.MetaUtil;
 import org.slf4j.Logger;

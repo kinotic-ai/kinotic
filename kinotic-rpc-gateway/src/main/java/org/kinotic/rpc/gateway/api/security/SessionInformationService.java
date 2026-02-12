@@ -17,8 +17,8 @@
 
 package org.kinotic.rpc.gateway.api.security;
 
-import org.kinotic.continuum.core.api.event.StreamData;
-import org.kinotic.continuum.core.api.security.SessionMetadata;
+import org.kinotic.rpc.api.event.StreamData;
+import org.kinotic.rpc.api.security.SessionMetadata;
 
 import reactor.core.publisher.Flux;
 

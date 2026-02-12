@@ -17,8 +17,8 @@
 
 package org.kinotic.rpc.internal.core.api.service.rpc.types;
 
-import org.kinotic.continuum.core.api.event.Event;
-import org.kinotic.continuum.core.api.event.EventConstants;
+import org.kinotic.rpc.api.event.Event;
+import org.kinotic.rpc.api.event.EventConstants;
 import org.kinotic.rpc.internal.core.api.service.ExceptionConverter;
 import org.kinotic.rpc.internal.core.api.service.rpc.RpcRequest;
 import org.kinotic.rpc.internal.core.api.service.rpc.RpcResponseConverter;

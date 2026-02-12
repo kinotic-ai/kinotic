@@ -6,7 +6,7 @@ import graphql.language.OperationDefinition;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.text.WordUtils;
-import org.kinotic.continuum.core.api.crud.Pageable;
+import org.kinotic.continuum.api.crud.Pageable;
 import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.domain.NamedQueriesDefinition;
 import org.kinotic.persistence.api.domain.Structure;

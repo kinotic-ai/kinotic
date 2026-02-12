@@ -19,7 +19,7 @@ package org.kinotic.continuum.internal.core.api.support;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import org.kinotic.continuum.api.security.Participant;
+import org.kinotic.rpc.api.security.Participant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;

@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.internal.core.api.event;
 
-import org.kinotic.continuum.core.api.event.Metadata;
+import org.kinotic.rpc.api.event.Metadata;
 import io.vertx.core.MultiMap;
 
 import java.util.Iterator;

@@ -17,11 +17,11 @@
 
 package org.kinotic.rpc.internal.config;
 
-import org.kinotic.continuum.api.security.DefaultParticipant;
-import org.kinotic.continuum.api.security.Participant;
-import org.kinotic.continuum.core.api.crud.Page;
-import org.kinotic.continuum.core.api.crud.Pageable;
-import org.kinotic.continuum.core.api.crud.SearchComparator;
+import org.kinotic.rpc.api.security.DefaultParticipant;
+import org.kinotic.rpc.api.security.Participant;
+import org.kinotic.continuum.api.crud.Page;
+import org.kinotic.continuum.api.crud.Pageable;
+import org.kinotic.continuum.api.crud.SearchComparator;
 import org.kinotic.rpc.internal.serializer.PageSerializer;
 import org.kinotic.rpc.internal.serializer.PageableDeserializer;
 import org.kinotic.rpc.internal.serializer.SearchComparatorDeserializer;

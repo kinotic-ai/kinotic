@@ -17,8 +17,8 @@
 
 package org.kinotic.continuum.internal.core.api;
 
-import org.kinotic.continuum.core.api.event.CRI;
-import org.kinotic.continuum.core.api.event.EventConstants;
+import org.kinotic.rpc.api.event.CRI;
+import org.kinotic.rpc.api.event.EventConstants;
 import org.apache.commons.lang3.Validate;
 import org.junit.jupiter.api.Test;
 

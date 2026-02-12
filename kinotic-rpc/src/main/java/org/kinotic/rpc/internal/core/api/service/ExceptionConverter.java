@@ -17,8 +17,8 @@
 
 package org.kinotic.rpc.internal.core.api.service;
 
-import org.kinotic.continuum.core.api.event.Event;
-import org.kinotic.continuum.core.api.event.Metadata;
+import org.kinotic.rpc.api.event.Event;
+import org.kinotic.rpc.api.event.Metadata;
 
 /**
  * Converts an exception to a message that can bes sent on the event bus

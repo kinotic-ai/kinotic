@@ -1,7 +1,7 @@
 package org.kinotic.continuum.internal.core.api.support;
 
-import org.kinotic.continuum.api.annotations.Proxy;
-import org.kinotic.continuum.api.annotations.Version;
+import org.kinotic.rpc.api.annotations.Proxy;
+import org.kinotic.rpc.api.annotations.Version;
 import reactor.core.publisher.Mono;
 
 /**

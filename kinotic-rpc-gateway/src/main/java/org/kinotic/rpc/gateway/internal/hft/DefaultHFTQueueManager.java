@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.gateway.internal.hft;
 
-import org.kinotic.continuum.core.api.event.Event;
+import org.kinotic.rpc.api.event.Event;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 

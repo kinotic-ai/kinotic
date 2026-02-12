@@ -13,7 +13,7 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.text.WordUtils;
-import org.kinotic.continuum.core.api.crud.Pageable;
+import org.kinotic.continuum.api.crud.Pageable;
 import org.kinotic.continuum.idl.api.converter.IdlConverter;
 import org.kinotic.continuum.idl.api.schema.*;
 import org.kinotic.persistence.api.config.StructuresProperties;

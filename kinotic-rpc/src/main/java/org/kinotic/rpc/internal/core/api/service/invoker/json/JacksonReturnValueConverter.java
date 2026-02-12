@@ -17,10 +17,10 @@
 
 package org.kinotic.rpc.internal.core.api.service.invoker.json;
 
-import org.kinotic.continuum.api.config.ContinuumProperties;
-import org.kinotic.continuum.core.api.event.Event;
-import org.kinotic.continuum.core.api.event.EventConstants;
-import org.kinotic.continuum.core.api.event.Metadata;
+import org.kinotic.rpc.api.config.ContinuumProperties;
+import org.kinotic.rpc.api.event.Event;
+import org.kinotic.rpc.api.event.EventConstants;
+import org.kinotic.rpc.api.event.Metadata;
 import org.kinotic.rpc.internal.core.api.service.invoker.ReturnValueConverter;
 import org.kinotic.rpc.internal.core.api.service.json.AbstractJacksonSupport;
 import org.springframework.core.ReactiveAdapterRegistry;

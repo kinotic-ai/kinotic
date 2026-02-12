@@ -17,12 +17,12 @@
 
 package org.kinotic.rpc.internal.core.api.service.json;
 
-import org.kinotic.continuum.api.config.ContinuumProperties;
+import org.kinotic.rpc.api.config.ContinuumProperties;
 import org.kinotic.continuum.api.exceptions.RpcInvocationException;
-import org.kinotic.continuum.core.api.event.Event;
-import org.kinotic.continuum.core.api.event.EventConstants;
-import org.kinotic.continuum.core.api.event.Metadata;
-import org.kinotic.continuum.core.api.service.ServiceExceptionWrapper;
+import org.kinotic.rpc.api.event.Event;
+import org.kinotic.rpc.api.event.EventConstants;
+import org.kinotic.rpc.api.event.Metadata;
+import org.kinotic.rpc.api.service.ServiceExceptionWrapper;
 import org.kinotic.rpc.internal.core.api.service.ExceptionConverter;
 import org.kinotic.rpc.internal.utils.EventUtil;
 import org.slf4j.Logger;

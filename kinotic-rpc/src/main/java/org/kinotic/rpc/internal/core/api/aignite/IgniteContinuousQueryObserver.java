@@ -29,7 +29,7 @@ import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.query.ContinuousQuery;
 import org.apache.ignite.cache.query.Query;
 import org.apache.ignite.cache.query.SqlQuery;
-import org.kinotic.continuum.core.api.event.StreamData;
+import org.kinotic.rpc.api.event.StreamData;
 import org.kinotic.rpc.internal.utils.IgniteUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

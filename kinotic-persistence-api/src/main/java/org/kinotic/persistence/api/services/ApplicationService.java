@@ -2,7 +2,7 @@ package org.kinotic.persistence.api.services;
 
 import org.kinotic.continuum.api.annotations.Proxy;
 import org.kinotic.continuum.api.annotations.Publish;
-import org.kinotic.continuum.core.api.crud.IdentifiableCrudService;
+import org.kinotic.continuum.api.crud.IdentifiableCrudService;
 import org.kinotic.persistence.api.domain.Application;
 
 import java.util.concurrent.CompletableFuture;

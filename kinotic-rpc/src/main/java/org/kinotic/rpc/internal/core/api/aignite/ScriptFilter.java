@@ -18,7 +18,7 @@
  */
 package org.kinotic.rpc.internal.core.api.aignite;
 
-import org.kinotic.continuum.core.api.event.StreamData;
+import org.kinotic.rpc.api.event.StreamData;
 import groovy.lang.*;
 import org.apache.ignite.binary.BinaryField;
 import org.apache.ignite.binary.BinaryObject;

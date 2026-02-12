@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.internal.core.api.service.rpc;
 
-import org.kinotic.continuum.core.api.event.Event;
+import org.kinotic.rpc.api.event.Event;
 
 /**
  * Handles responses from remote service invocations and translates them into Java side objects returned from proxy invocations

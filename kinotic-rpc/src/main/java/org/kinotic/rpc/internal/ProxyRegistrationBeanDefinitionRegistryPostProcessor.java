@@ -18,8 +18,8 @@
 package org.kinotic.rpc.internal;
 
 import org.apache.commons.lang3.ClassUtils;
-import org.kinotic.continuum.api.annotations.ContinuumPackages;
-import org.kinotic.continuum.api.annotations.Proxy;
+import org.kinotic.rpc.api.annotations.ContinuumPackages;
+import org.kinotic.rpc.api.annotations.Proxy;
 import org.kinotic.rpc.internal.utils.MetaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

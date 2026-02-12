@@ -17,10 +17,10 @@
 
 package org.kinotic.rpc.internal.api;
 
-import org.kinotic.continuum.api.*;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.continuum.api.log.*;
-import org.kinotic.continuum.api.log.LogLevel;
+import org.kinotic.rpc.api.Continuum;
+import org.kinotic.rpc.api.log.*;
+import org.kinotic.rpc.api.log.LogLevel;
 import org.springframework.boot.logging.*;
 import org.springframework.stereotype.Component;
 

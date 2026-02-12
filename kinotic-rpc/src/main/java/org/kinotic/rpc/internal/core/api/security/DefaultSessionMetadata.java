@@ -19,8 +19,8 @@ package org.kinotic.rpc.internal.core.api.security;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.ignite.cache.query.annotations.QuerySqlField;
-import org.kinotic.continuum.api.security.Participant;
-import org.kinotic.continuum.core.api.security.SessionMetadata;
+import org.kinotic.rpc.api.security.Participant;
+import org.kinotic.rpc.api.security.SessionMetadata;
 
 import java.io.Serializable;
 import java.util.Date;

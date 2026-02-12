@@ -17,7 +17,7 @@
 
 package org.kinotic.continuum.internal.core.api.event;
 
-import org.kinotic.continuum.core.api.event.EventStreamService;
+import org.kinotic.rpc.api.event.EventStreamService;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

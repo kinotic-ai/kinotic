@@ -2,10 +2,10 @@ package org.kinotic.persistence.internal.api.services.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.Refresh;
-import org.kinotic.continuum.api.Identifiable;
-import org.kinotic.continuum.core.api.crud.IdentifiableCrudService;
-import org.kinotic.continuum.core.api.crud.Page;
-import org.kinotic.continuum.core.api.crud.Pageable;
+import org.kinotic.continuum.api.crud.Identifiable;
+import org.kinotic.continuum.api.crud.IdentifiableCrudService;
+import org.kinotic.continuum.api.crud.Page;
+import org.kinotic.continuum.api.crud.Pageable;
 
 import lombok.RequiredArgsConstructor;
 

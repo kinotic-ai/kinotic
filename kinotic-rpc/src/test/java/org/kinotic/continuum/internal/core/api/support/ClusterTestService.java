@@ -17,7 +17,7 @@
 
 package org.kinotic.continuum.internal.core.api.support;
 
-import org.kinotic.continuum.api.annotations.Publish;
+import org.kinotic.rpc.api.annotations.Publish;
 
 /**
  *

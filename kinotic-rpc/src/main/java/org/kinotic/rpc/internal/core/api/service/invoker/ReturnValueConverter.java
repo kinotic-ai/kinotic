@@ -17,9 +17,9 @@
 
 package org.kinotic.rpc.internal.core.api.service.invoker;
 
-import org.kinotic.continuum.core.api.event.Event;
-import org.kinotic.continuum.core.api.event.Metadata;
-import org.kinotic.continuum.core.api.event.EventBusService;
+import org.kinotic.rpc.api.event.Event;
+import org.kinotic.rpc.api.event.Metadata;
+import org.kinotic.rpc.api.event.EventBusService;
 
 /**
  * Converts the return value to a {@link Event} that can bes sent on the {@link EventBusService}

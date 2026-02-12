@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.internal.core.api.security;
 
-import org.kinotic.continuum.api.security.Participant;
+import org.kinotic.rpc.api.security.Participant;
 import org.springframework.http.server.PathContainer;
 import org.springframework.web.util.pattern.PathPattern;
 

@@ -17,8 +17,8 @@
 
 package org.kinotic.continuum.internal.core.api.event;
 
-import org.kinotic.continuum.core.api.event.Event;
-import org.kinotic.continuum.core.api.event.EventBusService;
+import org.kinotic.rpc.api.event.Event;
+import org.kinotic.rpc.api.event.EventBusService;
 import org.springframework.beans.factory.annotation.Autowired;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;

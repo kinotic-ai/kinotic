@@ -18,9 +18,9 @@
 package org.kinotic.rpc.internal.utils;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.continuum.core.api.event.Event;
-import org.kinotic.continuum.core.api.event.EventConstants;
-import org.kinotic.continuum.core.api.event.Metadata;
+import org.kinotic.rpc.api.event.Event;
+import org.kinotic.rpc.api.event.EventConstants;
+import org.kinotic.rpc.api.event.Metadata;
 import org.kinotic.rpc.internal.core.api.service.invoker.ServiceInvocationSupervisor;
 import org.springframework.util.Assert;
 

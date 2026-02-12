@@ -18,8 +18,8 @@
 package org.kinotic.continuum.internal.core.api.support;
 
 import io.vertx.core.Future;
-import org.kinotic.continuum.api.annotations.Publish;
-import org.kinotic.continuum.api.security.Participant;
+import org.kinotic.rpc.api.annotations.Publish;
+import org.kinotic.rpc.api.security.Participant;
 import org.kinotic.continuum.internal.core.api.RpcTests;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;

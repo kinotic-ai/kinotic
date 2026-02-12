@@ -2,7 +2,7 @@ package org.kinotic.persistence.api.domain;
 
 import lombok.*;
 import lombok.experimental.Accessors;
-import org.kinotic.continuum.api.Identifiable;
+import org.kinotic.continuum.api.crud.Identifiable;
 
 
 import java.util.Date;

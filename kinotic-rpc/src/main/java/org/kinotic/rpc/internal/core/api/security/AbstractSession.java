@@ -17,9 +17,9 @@
 
 package org.kinotic.rpc.internal.core.api.security;
 
-import org.kinotic.continuum.core.api.event.CRI;
-import org.kinotic.continuum.api.security.Participant;
-import org.kinotic.continuum.core.api.security.Session;
+import org.kinotic.rpc.api.event.CRI;
+import org.kinotic.rpc.api.security.Participant;
+import org.kinotic.rpc.api.security.Session;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;

@@ -18,12 +18,12 @@
 package org.kinotic.rpc.gateway.internal.endpoints;
 
 import io.vertx.core.Vertx;
-import org.kinotic.continuum.api.Continuum;
-import org.kinotic.continuum.api.config.ContinuumProperties;
-import org.kinotic.continuum.api.security.SecurityService;
-import org.kinotic.continuum.core.api.event.EventBusService;
-import org.kinotic.continuum.core.api.event.EventStreamService;
-import org.kinotic.continuum.core.api.security.SessionManager;
+import org.kinotic.rpc.api.Continuum;
+import org.kinotic.rpc.api.config.ContinuumProperties;
+import org.kinotic.rpc.api.security.SecurityService;
+import org.kinotic.rpc.api.event.EventBusService;
+import org.kinotic.rpc.api.event.EventStreamService;
+import org.kinotic.rpc.api.security.SessionManager;
 import org.kinotic.rpc.gateway.api.config.ContinuumGatewayProperties;
 import org.kinotic.rpc.gateway.internal.endpoints.stomp.DefaultStompServerHandler;
 import org.kinotic.rpc.internal.core.api.service.ExceptionConverter;

@@ -17,7 +17,7 @@
 
 package org.kinotic.continuum.internal;
 
-import org.kinotic.continuum.api.annotations.EnableContinuum;
+import org.kinotic.rpc.api.annotations.EnableContinuum;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jmx.JmxAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

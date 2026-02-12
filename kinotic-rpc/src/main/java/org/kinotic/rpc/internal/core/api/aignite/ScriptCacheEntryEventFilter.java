@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.internal.core.api.aignite;
 
-import org.kinotic.continuum.core.api.event.StreamData;
+import org.kinotic.rpc.api.event.StreamData;
 import org.kinotic.rpc.internal.utils.IgniteUtil;
 import groovy.lang.Binding;
 import org.apache.commons.lang3.builder.ToStringBuilder;

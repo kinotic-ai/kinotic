@@ -1,8 +1,8 @@
 package org.kinotic.persistence.internal.endpoints.openapi;
 
 import io.vertx.ext.web.RoutingContext;
-import org.kinotic.continuum.api.security.Participant;
-import org.kinotic.continuum.core.api.event.EventConstants;
+import org.kinotic.rpc.api.security.Participant;
+import org.kinotic.rpc.api.event.EventConstants;
 import org.kinotic.persistence.api.domain.EntityContext;
 
 import java.util.List;

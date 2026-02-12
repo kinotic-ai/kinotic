@@ -19,9 +19,9 @@ package org.kinotic.rpc.gateway.internal.endpoints.rest;
 
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.continuum.core.api.event.CRI;
-import org.kinotic.continuum.core.api.event.Event;
-import org.kinotic.continuum.core.api.event.Metadata;
+import org.kinotic.rpc.api.event.CRI;
+import org.kinotic.rpc.api.event.Event;
+import org.kinotic.rpc.api.event.Metadata;
 import org.kinotic.rpc.internal.core.api.event.MultiMapMetadataAdapter;
 
 import io.vertx.core.http.HttpHeaders;

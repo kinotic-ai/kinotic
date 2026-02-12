@@ -17,7 +17,7 @@
 
 package org.kinotic.continuum.internal.core.api.support;
 
-import org.kinotic.continuum.api.annotations.Proxy;
+import org.kinotic.rpc.api.annotations.Proxy;
 import io.vertx.core.Future;
 import reactor.core.publisher.Mono;
 

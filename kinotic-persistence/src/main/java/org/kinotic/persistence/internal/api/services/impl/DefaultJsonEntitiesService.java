@@ -2,9 +2,9 @@ package org.kinotic.persistence.internal.api.services.impl;
 
 import tools.jackson.databind.util.TokenBuffer;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.continuum.api.security.Participant;
-import org.kinotic.continuum.core.api.crud.Page;
-import org.kinotic.continuum.core.api.crud.Pageable;
+import org.kinotic.rpc.api.security.Participant;
+import org.kinotic.continuum.api.crud.Page;
+import org.kinotic.continuum.api.crud.Pageable;
 import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
 import org.kinotic.persistence.api.domain.FastestType;
 import org.kinotic.persistence.api.domain.QueryParameter;

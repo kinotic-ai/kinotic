@@ -17,9 +17,9 @@
 
 package org.kinotic.rpc.internal;
 
-import org.kinotic.continuum.core.api.RpcServiceProxyHandle;
-import org.kinotic.continuum.core.api.ServiceRegistry;
-import org.kinotic.continuum.core.api.service.ServiceIdentifier;
+import org.kinotic.rpc.api.RpcServiceProxyHandle;
+import org.kinotic.rpc.api.ServiceRegistry;
+import org.kinotic.rpc.api.service.ServiceIdentifier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.AbstractFactoryBean;
 

@@ -25,7 +25,7 @@ import javax.cache.event.CacheEntryExpiredListener;
 import javax.cache.event.CacheEntryListenerException;
 import javax.cache.event.CacheEntryRemovedListener;
 
-import org.kinotic.continuum.core.api.event.ListenerStatus;
+import org.kinotic.rpc.api.event.ListenerStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

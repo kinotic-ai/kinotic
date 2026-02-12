@@ -2,7 +2,7 @@ package org.kinotic.persistence.internal.api.services.impl.insights;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.continuum.api.security.Participant;
+import org.kinotic.rpc.api.security.Participant;
 import org.kinotic.persistence.api.domain.insights.InsightProgress;
 import org.kinotic.persistence.api.domain.insights.InsightRequest;
 import org.kinotic.persistence.api.services.insights.DataInsightsService;

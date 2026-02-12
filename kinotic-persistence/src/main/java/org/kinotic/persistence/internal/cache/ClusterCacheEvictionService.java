@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.cluster.ClusterGroup;
 import org.apache.ignite.lang.IgniteFuture;
-import org.kinotic.continuum.api.config.ContinuumProperties;
+import org.kinotic.rpc.api.config.ContinuumProperties;
 import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionSource;

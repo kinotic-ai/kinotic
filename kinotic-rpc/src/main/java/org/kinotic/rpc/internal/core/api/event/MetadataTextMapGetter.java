@@ -1,7 +1,7 @@
 package org.kinotic.rpc.internal.core.api.event;
 
 import io.opentelemetry.context.propagation.TextMapGetter;
-import org.kinotic.continuum.core.api.event.Metadata;
+import org.kinotic.rpc.api.event.Metadata;
 
 import java.util.ArrayList;
 import java.util.Map;

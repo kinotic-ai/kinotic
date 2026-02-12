@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.internal.core.api.service.rpc;
 
-import org.kinotic.continuum.core.api.event.Event;
+import org.kinotic.rpc.api.event.Event;
 import org.springframework.core.MethodParameter;
 
 /**

@@ -10,7 +10,7 @@ import lombok.experimental.Accessors;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.kinotic.continuum.api.Identifiable;
+import org.kinotic.continuum.api.crud.Identifiable;
 import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
 import org.kinotic.persistence.api.domain.idl.decorators.EntityType;
 import org.kinotic.persistence.api.domain.idl.decorators.MultiTenancyType;

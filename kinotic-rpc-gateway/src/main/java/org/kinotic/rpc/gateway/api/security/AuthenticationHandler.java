@@ -7,8 +7,8 @@ import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.ext.web.RoutingContext;
-import org.kinotic.continuum.core.api.event.EventConstants;
-import org.kinotic.continuum.api.security.SecurityService;
+import org.kinotic.rpc.api.event.EventConstants;
+import org.kinotic.rpc.api.security.SecurityService;
 
 import java.util.HashMap;
 import java.util.Map;

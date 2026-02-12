@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.gateway.internal.hft;
 
-import org.kinotic.continuum.core.api.event.EventConstants;
+import org.kinotic.rpc.api.event.EventConstants;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;

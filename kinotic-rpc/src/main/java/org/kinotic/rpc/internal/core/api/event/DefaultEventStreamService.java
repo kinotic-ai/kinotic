@@ -17,9 +17,9 @@
 
 package org.kinotic.rpc.internal.core.api.event;
 
-import org.kinotic.continuum.core.api.event.CRI;
-import org.kinotic.continuum.core.api.event.Event;
-import org.kinotic.continuum.core.api.event.EventStreamService;
+import org.kinotic.rpc.api.event.CRI;
+import org.kinotic.rpc.api.event.Event;
+import org.kinotic.rpc.api.event.EventStreamService;
 import org.reactivestreams.Publisher;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
