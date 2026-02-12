@@ -27,8 +27,8 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.awaitility.Awaitility;
 import org.kinotic.rpc.api.Continuum;
 import org.kinotic.rpc.api.ServerInfo;
-import org.kinotic.rpc.api.annotations.ContinuumPackages;
-import org.kinotic.rpc.api.annotations.EnableContinuum;
+import org.kinotic.rpc.api.annotations.KinoticRpcPackages;
+import org.kinotic.rpc.api.annotations.EnableKinoticRpc;
 import org.kinotic.rpc.api.config.ContinuumProperties;
 import org.kinotic.rpc.api.config.IgniteClusterProperties;
 import org.kinotic.rpc.internal.utils.ContinuumUtil;
@@ -110,8 +110,8 @@ public class DefaultContinuum implements Continuum {
         this.serverInfo = new ServerInfo(nodeId, nodeName);
 
         // find Continuum application name
-        List<String> packages = ContinuumPackages.get(applicationContext);
-        MetadataReader[] readers = MetaUtil.findClassesWithAnnotation(applicationContext, packages, EnableContinuum.class)
+        List<String> packages = KinoticRpcPackages.get(applicationContext);
+        MetadataReader[] readers = MetaUtil.findClassesWithAnnotation(applicationContext, packages, EnableKinoticRpc.class)
                                            .toArray(new MetadataReader[0]);
 
         MetadataReader readerToUse = null;
@@ -124,7 +124,7 @@ public class DefaultContinuum implements Continuum {
 
         if(readerToUse != null){
             Map<String, Object> annotationAttributes = readerToUse.getAnnotationMetadata()
-                                                                  .getAnnotationAttributes(EnableContinuum.class.getName());
+                                                                  .getAnnotationAttributes(EnableKinoticRpc.class.getName());
             if(annotationAttributes != null){
                 applicationName = (String) annotationAttributes.get("name");
                 applicationVersion = (String) annotationAttributes.get("version");

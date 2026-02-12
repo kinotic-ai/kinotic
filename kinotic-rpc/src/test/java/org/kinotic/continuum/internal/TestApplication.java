@@ -17,7 +17,7 @@
 
 package org.kinotic.continuum.internal;
 
-import org.kinotic.rpc.api.annotations.EnableContinuum;
+import org.kinotic.rpc.api.annotations.EnableKinoticRpc;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jmx.JmxAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -29,7 +29,7 @@ import org.springframework.test.context.ActiveProfiles;
  */
 @SpringBootApplication(exclude = {JmxAutoConfiguration.class})
 @EnableConfigurationProperties
-@EnableContinuum
+@EnableKinoticRpc
 @ActiveProfiles({"test"})
 public class TestApplication {
 }

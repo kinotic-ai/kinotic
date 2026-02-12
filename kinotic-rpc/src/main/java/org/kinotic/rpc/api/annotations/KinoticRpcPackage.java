@@ -17,36 +17,27 @@
 
 package org.kinotic.rpc.api.annotations;
 
-import org.kinotic.rpc.internal.config.ContinuumConfiguration;
-import org.springframework.context.annotation.Import;
-
+import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
+import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+import org.springframework.context.annotation.Import;
+
 /**
- * Annotation to be used on a Spring Boot Application / Library to enable Continuum
+ * Indicates that the package containing the annotated class should be registered with
+ * {@link KinoticRpcPackages}.
+ * This must be used with the {@link org.springframework.context.annotation.Configuration} annotation, or else it will not be detected.
  *
- * You should only include one {@link EnableContinuum} annotation per application or library
  *
- * Created by Navid Mitchell 🤪 on 11/28/18.
+ * Created by navid on 2/11/20
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@Import(ContinuumConfiguration.class)
-@ContinuumPackage
-public @interface EnableContinuum {
-
-    /**
-     * The logical name for the Continuum application / library
-     * If this is not provided, the class name is used
-     */
-    String name() default "";
-
-    /**
-     * The version of the Continuum application / library.
-     */
-    String version() default "";
-
+@Documented
+@Inherited
+@Import(KinoticRpcPackages.Registrar.class)
+public @interface KinoticRpcPackage {
 }
