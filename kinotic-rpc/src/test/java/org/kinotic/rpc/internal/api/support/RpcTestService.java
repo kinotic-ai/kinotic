@@ -1,11 +1,11 @@
 
 
-package org.kinotic.continuum.internal.core.api.support;
+package org.kinotic.rpc.internal.api.support;
 
 import io.vertx.core.Future;
 import org.kinotic.rpc.api.annotations.Publish;
 import org.kinotic.rpc.api.security.Participant;
-import org.kinotic.continuum.internal.core.api.RpcTests;
+import org.kinotic.rpc.internal.api.RpcTests;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.util.TokenBuffer;

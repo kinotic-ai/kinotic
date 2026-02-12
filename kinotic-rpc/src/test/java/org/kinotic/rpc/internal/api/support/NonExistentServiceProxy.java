@@ -1,4 +1,4 @@
-package org.kinotic.continuum.internal.core.api.support;
+package org.kinotic.rpc.internal.api.support;
 
 import org.kinotic.rpc.api.annotations.Proxy;
 import org.kinotic.rpc.api.annotations.Version;

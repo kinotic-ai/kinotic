@@ -1,6 +1,6 @@
 
 
-package org.kinotic.continuum.internal.core.api;
+package org.kinotic.rpc.internal.api;
 
 import io.vertx.core.Future;
 import org.awaitility.Awaitility;
@@ -10,7 +10,7 @@ import org.kinotic.rpc.api.Continuum;
 import org.kinotic.rpc.api.exceptions.RpcInvocationException;
 import org.kinotic.rpc.api.exceptions.RpcMissingMethodException;
 import org.kinotic.rpc.api.exceptions.RpcMissingServiceException;
-import org.kinotic.continuum.internal.core.api.support.*;
+import org.kinotic.rpc.internal.api.support.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -21,7 +21,6 @@ import reactor.util.function.Tuple2;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,7 +47,7 @@ public class RpcTests {
     private JsonMapper jsonMapper;
 
     // TODO: test to few arguments, and too many arguments, also a variation with the participant. Participant variant error message may be misleading?
-    // See org.kinotic.continuum.internal.core.api.service.json.AbstractJacksonSupport Line 114, Line 180. Should we keep the number of participant args in mind.
+    // See org.kinotic.rpc.internal.api.service.json.AbstractJacksonSupport Line 114, Line 180. Should we keep the number of participant args in mind.
 
     @Test
     public void testABunchOfArguments(){
@@ -352,7 +351,7 @@ public class RpcTests {
     }
 
     @Test
-    public void testSendTokenBuffer() throws IOException {
+    public void testSendTokenBuffer() {
         try (TokenBuffer tokenBuffer = new TokenBuffer(jsonMapper._serializationContext(), false)) {
             tokenBuffer.writeStartObject();
             tokenBuffer.writeStringProperty("test", "Hello Sucka");
@@ -372,9 +371,7 @@ public class RpcTests {
                                                                      .zipWhen(simpleObject -> rpcTestServiceProxy.getSimpleObjectToString(simpleObject));
 
         StepVerifier.create(mono)
-                    .expectNextMatches(tuple -> {
-                        return tuple.getT1().toString().equals(tuple.getT2());
-                    })
+                    .expectNextMatches(tuple -> tuple.getT1().toString().equals(tuple.getT2()))
                     .expectComplete()
                     .verify();
     }

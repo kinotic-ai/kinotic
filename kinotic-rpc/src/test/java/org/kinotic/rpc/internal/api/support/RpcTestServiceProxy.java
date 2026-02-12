@@ -1,6 +1,6 @@
 
 
-package org.kinotic.continuum.internal.core.api.support;
+package org.kinotic.rpc.internal.api.support;
 
 import io.vertx.core.Future;
 import org.kinotic.rpc.api.annotations.Proxy;
@@ -17,7 +17,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * Created by navid on 10/30/19
  */
-@Proxy(namespace = "org.kinotic.continuum.internal.core.api.support",
+@Proxy(namespace = "org.kinotic.rpc.internal.api.support",
        name = "RpcTestService")
 public interface RpcTestServiceProxy {
 

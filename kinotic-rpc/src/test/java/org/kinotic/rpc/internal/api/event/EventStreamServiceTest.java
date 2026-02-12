@@ -1,6 +1,6 @@
 
 
-package org.kinotic.continuum.internal.core.api.event;
+package org.kinotic.rpc.internal.api.event;
 
 import org.kinotic.rpc.api.event.EventStreamService;
 import org.junit.jupiter.api.Test;

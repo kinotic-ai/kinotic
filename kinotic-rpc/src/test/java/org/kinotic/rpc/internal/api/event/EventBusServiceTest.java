@@ -1,6 +1,6 @@
 
 
-package org.kinotic.continuum.internal.core.api.event;
+package org.kinotic.rpc.internal.api.event;
 
 import org.kinotic.rpc.api.event.Event;
 import org.kinotic.rpc.api.event.EventBusService;
@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 public class EventBusServiceTest {
 
     // There are no hard constraints on destinations we are choosing these because of internal conventions
-    private static final String DESTINATION = "srv://org.kinotic.continuum.tests.TestService/serviceMethod";
+    private static final String DESTINATION = "srv://org.kinotic.rpc.tests.TestService/serviceMethod";
 
     @Autowired
     private EventBusService eventBusService;

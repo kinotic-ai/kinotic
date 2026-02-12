@@ -1,6 +1,6 @@
 
 
-package org.kinotic.continuum.internal.core.api;
+package org.kinotic.rpc.internal.api;
 
 import org.kinotic.rpc.api.event.CRI;
 import org.kinotic.rpc.api.event.EventConstants;

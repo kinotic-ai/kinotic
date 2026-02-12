@@ -1,6 +1,6 @@
 
 
-package org.kinotic.continuum.internal.core.api;
+package org.kinotic.rpc.internal.api;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

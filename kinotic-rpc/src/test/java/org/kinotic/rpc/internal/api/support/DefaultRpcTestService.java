@@ -1,6 +1,6 @@
 
 
-package org.kinotic.continuum.internal.core.api.support;
+package org.kinotic.rpc.internal.api.support;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;

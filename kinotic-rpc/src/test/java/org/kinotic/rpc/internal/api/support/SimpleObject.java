@@ -1,6 +1,6 @@
 
 
-package org.kinotic.continuum.internal.core.api.support;
+package org.kinotic.rpc.internal.api.support;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;

@@ -1,6 +1,6 @@
 
 
-package org.kinotic.continuum.internal;
+package org.kinotic.rpc.internal;
 
 import org.kinotic.rpc.api.annotations.EnableKinoticRpc;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
