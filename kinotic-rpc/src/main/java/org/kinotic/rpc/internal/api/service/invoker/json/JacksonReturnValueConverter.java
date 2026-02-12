@@ -2,7 +2,7 @@
 
 package org.kinotic.rpc.internal.api.service.invoker.json;
 
-import org.kinotic.rpc.api.config.ContinuumProperties;
+import org.kinotic.rpc.api.config.KinoticRpcProperties;
 import org.kinotic.rpc.api.event.Event;
 import org.kinotic.rpc.api.event.EventConstants;
 import org.kinotic.rpc.api.event.Metadata;
@@ -24,8 +24,8 @@ public class JacksonReturnValueConverter extends AbstractJacksonSupport implemen
 
     public JacksonReturnValueConverter(JsonMapper jsonMapper,
                                        ReactiveAdapterRegistry reactiveAdapterRegistry,
-                                       ContinuumProperties continuumProperties) {
-        super(jsonMapper, reactiveAdapterRegistry, continuumProperties);
+                                       KinoticRpcProperties kinoticRpcProperties) {
+        super(jsonMapper, reactiveAdapterRegistry, kinoticRpcProperties);
     }
 
     @Override

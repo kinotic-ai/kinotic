@@ -12,7 +12,7 @@ import io.vertx.core.shareddata.SharedData;
 import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
-import org.kinotic.rpc.api.config.ContinuumProperties;
+import org.kinotic.rpc.api.config.KinoticRpcProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -58,7 +58,7 @@ public class ContinuumVertxConfig {
     }
 
     @Bean
-    public Vertx vertx(ContinuumProperties properties,
+    public Vertx vertx(KinoticRpcProperties properties,
                        @Autowired(required = false) ClusterManager clusterManager) throws Throwable {
 
         VertxBuilder builder = Vertx.builder();

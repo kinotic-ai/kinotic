@@ -31,7 +31,7 @@ public class ContinuumJacksonConfig {
 
     @Bean
     public SimpleModule continuumModule(){
-        SimpleModule ret = new SimpleModule("ContinuumModule", Version.unknownVersion());
+        SimpleModule ret = new SimpleModule("KinoticRpcModule", Version.unknownVersion());
 
         ret.addDeserializer(Pageable.class, new PageableDeserializer());
         ret.addSerializer(Page.class, new PageSerializer());

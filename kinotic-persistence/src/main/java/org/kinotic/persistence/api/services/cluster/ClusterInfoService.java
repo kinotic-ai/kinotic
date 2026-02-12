@@ -1,7 +1,7 @@
 package org.kinotic.persistence.api.services.cluster;
 
-// import org.kinotic.continuum.api.annotations.Publish;
-// import org.kinotic.continuum.api.annotations.Version;
+// import org.kinotic.rpc.api.annotations.Publish;
+// import org.kinotic.rpc.api.annotations.Version;
 import org.kinotic.persistence.api.domain.cluster.ClusterInfo;
 
 import reactor.core.publisher.Mono;

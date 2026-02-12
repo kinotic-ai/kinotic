@@ -3,7 +3,7 @@
 package org.kinotic.rpc.internal.config;
 
 import org.apache.ignite.cache.CacheAtomicityMode;
-import org.kinotic.rpc.api.config.ContinuumProperties;
+import org.kinotic.rpc.api.config.KinoticRpcProperties;
 import org.kinotic.rpc.api.security.SessionMetadata;
 import org.kinotic.rpc.internal.api.security.DefaultSessionMetadata;
 import org.apache.ignite.cache.CacheMode;
@@ -28,10 +28,10 @@ import java.util.concurrent.TimeUnit;
         matchIfMissing = true)
 public class ContinuumIgniteConfigCaches {
 
-    private final ContinuumProperties continuumProperties;
+    private final KinoticRpcProperties kinoticRpcProperties;
 
-    public ContinuumIgniteConfigCaches(ContinuumProperties continuumProperties) {
-        this.continuumProperties = continuumProperties;
+    public ContinuumIgniteConfigCaches(KinoticRpcProperties kinoticRpcProperties) {
+        this.kinoticRpcProperties = kinoticRpcProperties;
     }
 
     @Bean
@@ -43,7 +43,7 @@ public class ContinuumIgniteConfigCaches {
         cacheConfiguration.setBackups(1);
         cacheConfiguration.setWriteSynchronizationMode(CacheWriteSynchronizationMode.PRIMARY_SYNC);
         cacheConfiguration.setExpiryPolicyFactory(TouchedExpiryPolicy.factoryOf(new Duration(TimeUnit.MILLISECONDS,
-                                                                                             continuumProperties.getSessionTimeout())));
+                                                                                             kinoticRpcProperties.getSessionTimeout())));
         cacheConfiguration.setSqlSchema("PUBLIC");
         cacheConfiguration.setIndexedTypes(String.class, DefaultSessionMetadata.class);
 

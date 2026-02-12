@@ -19,7 +19,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.kubernetes.TcpDiscoveryKubernetesIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.sharedfs.TcpDiscoverySharedFsIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
-import org.kinotic.rpc.api.config.ContinuumProperties;
+import org.kinotic.rpc.api.config.KinoticRpcProperties;
 import org.kinotic.rpc.api.config.IgniteClusterDiscoveryType;
 import org.kinotic.rpc.api.config.IgniteClusterProperties;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,7 +47,7 @@ import static org.apache.ignite.failure.FailureType.*;
 public class ContinuumIgniteConfig {
 
     @Autowired
-    private ContinuumProperties continuumProperties;
+    private KinoticRpcProperties kinoticRpcProperties;
 
     @Autowired
     private IgniteClusterProperties igniteClusterProperties;
@@ -59,7 +59,7 @@ public class ContinuumIgniteConfig {
     private List<DataRegionConfiguration> dataRegions;
 
     /**
-     * Create the appropriate IP finder based on discovery type
+     * Create the appropriate IP finder based on the configured discovery type
      */
     @ConditionalOnMissingBean
     @Bean
@@ -82,8 +82,8 @@ public class ContinuumIgniteConfig {
                 discoverySpi.setIpFinder(createLocalIpFinder());
         }
 
-//        discoverySpi.setJoinTimeout(igniteClusterProperties.getJoinTimeoutMs());
-//        discoverySpi.setLocalPort(igniteClusterProperties.getDiscoveryPort());
+        discoverySpi.setJoinTimeout(igniteClusterProperties.getJoinTimeoutMs());
+        discoverySpi.setLocalPort(igniteClusterProperties.getDiscoveryPort());
 
         if(StringUtils.isNotBlank(igniteClusterProperties.getLocalAddress())){
             discoverySpi.setLocalAddress(igniteClusterProperties.getLocalAddress());
@@ -142,8 +142,8 @@ public class ContinuumIgniteConfig {
 
         // setup default memory region based on continuum config
         dataStorageConfiguration.getDefaultDataRegionConfiguration()
-                .setInitialSize(continuumProperties.getMaxOffHeapMemory() / 2)
-                .setMaxSize(continuumProperties.getMaxOffHeapMemory());
+                .setInitialSize(kinoticRpcProperties.getMaxOffHeapMemory() / 2)
+                .setMaxSize(kinoticRpcProperties.getMaxOffHeapMemory());
 
         if (dataRegions != null && !dataRegions.isEmpty()) {
             // Add other configured data regions
@@ -161,7 +161,7 @@ public class ContinuumIgniteConfig {
 
         cfg.setFailureHandler(failureHandler);
 
-        cfg.setWorkDirectory(continuumProperties.getIgniteWorkDirectory());
+        cfg.setWorkDirectory(kinoticRpcProperties.getIgniteWorkDirectory());
 
         cfg.setAsyncContinuationExecutor(Runnable::run);
 

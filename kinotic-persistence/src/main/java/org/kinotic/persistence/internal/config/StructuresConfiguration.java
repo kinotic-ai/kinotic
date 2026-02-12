@@ -3,7 +3,7 @@ package org.kinotic.persistence.internal.config;
 import io.vertx.core.Vertx;
 import io.vertx.ext.healthchecks.HealthChecks;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
-import org.kinotic.persistence.internal.api.services.impl.security.NoopAuthorizationServiceFactory;
+import org.kinotic.persistence.internal.api.services.security.NoopAuthorizationServiceFactory;
 import org.kinotic.rpc.api.annotations.EnableKinoticRpc;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

@@ -20,13 +20,13 @@ public @interface Publish {
 
     /**
      * The logical namespace that can be used to locate the published service
-     * If this is not provided the class's package is used
+     * If this is not provided, the class's package is used
      */
     String namespace() default "";
 
     /**
      * The logical name that can be used to locate the published service
-     * If this is not provided the class name is used
+     * If this is not provided, the class name is used
      */
     String name() default "";
 

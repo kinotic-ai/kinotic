@@ -69,7 +69,7 @@ public abstract class KinoticRpcPackages {
 			return beanFactory.getBean(BEAN, BasePackages.class).get();
 		}
 		catch (NoSuchBeanDefinitionException ex) {
-			throw new IllegalStateException("Unable to retrieve @ContinuumPackage base packages");
+			throw new IllegalStateException("Unable to retrieve @KinoticRpcPackage base packages");
 		}
 	}
 
@@ -79,7 +79,7 @@ public abstract class KinoticRpcPackages {
 	 * registered. You can use this method to manually define the base packages that will
 	 * be used for a given {@link BeanDefinitionRegistry}. Generally it's recommended that
 	 * you don't call this method directly, but instead rely on the default convention
-	 * where the package name is set from your {@code @ContinuumPackage}
+	 * where the package name is set from your {@code @KinoticRpcPackage}
 	 * configuration class or classes.
 	 * @param registry the bean definition registry
 	 * @param packageNames the package names to set
@@ -148,15 +148,16 @@ public abstract class KinoticRpcPackages {
 			if (!this.loggedBasePackageInfo) {
 				if (this.packages.isEmpty()) {
 					if (logger.isWarnEnabled()) {
-						logger.warn("@ContinuumPackage was declared on a class "
+						logger.warn("@KinoticRpcPackage was declared on a class "
 								+ "in the default package. Automatic @Proxy scanning is not enabled.");
 					}
 				}
 				else {
 					if (logger.isDebugEnabled()) {
 						String packageNames = StringUtils.collectionToCommaDelimitedString(this.packages);
-						logger.debug("@ContinuumPackage was declared on a class in the package '" + packageNames
-								+ "'. Automatic @Proxy scanning is enabled.");
+                        logger.debug(
+                                "@KinoticRpcPackage was declared on a class in the package '{}'. Automatic @Proxy scanning is enabled.",
+                                packageNames);
 					}
 				}
 				this.loggedBasePackageInfo = true;

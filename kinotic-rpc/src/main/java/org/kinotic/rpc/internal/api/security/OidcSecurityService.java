@@ -251,7 +251,7 @@ public class OidcSecurityService implements SecurityService {
 
         Object rolesClaim = extractValueFromPath(claims, oidcProvider.getRolesClaimPath());
 
-        if (rolesClaim != null && rolesClaim instanceof List) {
+        if (rolesClaim instanceof List) {
             @SuppressWarnings("unchecked")
             List<String> roles = (List<String>) rolesClaim;
             return roles;

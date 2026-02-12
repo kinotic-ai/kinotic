@@ -8,7 +8,7 @@ import io.vertx.ext.stomp.lite.StompServerVerticle;
 import io.vertx.ext.stomp.lite.StompServerVerticleFactory;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.StaticHandler;
-import org.kinotic.rpc.api.config.ContinuumProperties;
+import org.kinotic.rpc.api.config.KinoticRpcProperties;
 import org.kinotic.rpc.api.security.SecurityService;
 import org.kinotic.rpc.api.event.EventBusService;
 import org.kinotic.rpc.gateway.api.config.ContinuumGatewayProperties;
@@ -26,7 +26,7 @@ import java.util.List;
 @Component
 public class ContinuumVertcleFactory {
 
-    private final ContinuumProperties continuumProperties;
+    private final KinoticRpcProperties kinoticRpcProperties;
     private final ContinuumGatewayProperties gatewayProperties;
     private final StompServerHandlerFactory stompServerHandlerFactory;
     private final EventBusService eventService;
@@ -34,14 +34,14 @@ public class ContinuumVertcleFactory {
     private final JsonMapper jsonMapper;
     private final Vertx vertx;
 
-    public ContinuumVertcleFactory(ContinuumProperties continuumProperties,
+    public ContinuumVertcleFactory(KinoticRpcProperties kinoticRpcProperties,
                                    ContinuumGatewayProperties gatewayProperties,
                                    StompServerHandlerFactory stompServerHandlerFactory,
                                    EventBusService eventService,
                                    JsonMapper jsonMapper,
                                    Vertx vertx,
                                    @Autowired(required = false) SecurityService securityService) {
-        this.continuumProperties = continuumProperties;
+        this.kinoticRpcProperties = kinoticRpcProperties;
         this.gatewayProperties = gatewayProperties;
         this.stompServerHandlerFactory = stompServerHandlerFactory;
         this.eventService = eventService;
@@ -58,10 +58,10 @@ public class ContinuumVertcleFactory {
         StompServerOptions stompServerOptions = gatewayProperties.getStomp();
 
         // we override the body length with the continuum properties
-        stompServerOptions.setMaxBodyLength(continuumProperties.getMaxEventPayloadSize());
+        stompServerOptions.setMaxBodyLength(kinoticRpcProperties.getMaxEventPayloadSize());
         HttpServerOptions serverOptions = new HttpServerOptions();
         serverOptions.setWebSocketSubProtocols(List.of("v12.stomp"));
-        serverOptions.setMaxWebSocketFrameSize(continuumProperties.getMaxEventPayloadSize());
+        serverOptions.setMaxWebSocketFrameSize(kinoticRpcProperties.getMaxEventPayloadSize());
 
         return StompServerVerticleFactory.create(serverOptions, stompServerOptions, stompServerHandlerFactory, router);
     }

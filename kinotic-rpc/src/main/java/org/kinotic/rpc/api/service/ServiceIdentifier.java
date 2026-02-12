@@ -18,7 +18,7 @@ public class ServiceIdentifier {
 
     private final String name;
 
-    // TODO: consider moving this somewhere else. It is not really appropriate for any {@link org.kinotic.continuum.api.annotations.Proxy} definitions
+    // TODO: consider moving this somewhere else. It is not really appropriate for any {@link org.kinotic.rpc.api.annotations.Proxy} definitions
     private final String scope;
 
     private final String version;

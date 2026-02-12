@@ -289,7 +289,7 @@ public class EndpointConnectionHandler {
     private void sessionActive(Session session) {
         this.session = session;
         // update session at least every half the time of the timeout
-        long sessionUpdateInterval = services.continuumProperties.getSessionTimeout() / 2;
+        long sessionUpdateInterval = services.kinoticRpcProperties.getSessionTimeout() / 2;
         sessionTimer = services.vertx.setPeriodic(sessionUpdateInterval, event -> this.session.touch());
     }
 

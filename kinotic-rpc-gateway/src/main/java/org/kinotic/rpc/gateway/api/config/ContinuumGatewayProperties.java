@@ -5,7 +5,7 @@ package org.kinotic.rpc.gateway.api.config;
 import io.vertx.ext.stomp.lite.StompServerOptions;
 import lombok.Getter;
 import lombok.Setter;
-import org.kinotic.rpc.api.config.ContinuumProperties;
+import org.kinotic.rpc.api.config.KinoticRpcProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -33,10 +33,10 @@ public class ContinuumGatewayProperties {
      */
     private boolean enableCLIConnections = true;
 
-    public ContinuumGatewayProperties(ContinuumProperties continuumProperties) {
+    public ContinuumGatewayProperties(KinoticRpcProperties kinoticRpcProperties) {
         stomp = new StompServerOptions()
                 .setPort(DEFAULT_STOMP_PORT)
                 .setWebsocketPath(DEFAULT_STOMP_WEBSOCKET_PATH)
-                .setDebugEnabled(continuumProperties.isDebug());
+                .setDebugEnabled(kinoticRpcProperties.isDebug());
     }
 }

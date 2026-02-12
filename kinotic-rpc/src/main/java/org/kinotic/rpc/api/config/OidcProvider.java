@@ -35,8 +35,8 @@ public class OidcProvider {
     private String clientId;
 
     /**
-     * The authority of the OIDC provider. This should be fully qualified, 
-     * i.e. 
+     * The authority of the OIDC provider. This should be fully qualified.
+     * i.e.
      * https://your-authority.com/auth/realms/your-realm 
      *  or 
      * https://something.okta.com/oauth2/default

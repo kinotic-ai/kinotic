@@ -2,7 +2,7 @@
 
 package org.kinotic.rpc.internal.api.service.json;
 
-import org.kinotic.rpc.api.config.ContinuumProperties;
+import org.kinotic.rpc.api.config.KinoticRpcProperties;
 import org.kinotic.rpc.api.exceptions.RpcInvocationException;
 import org.kinotic.rpc.api.event.Event;
 import org.kinotic.rpc.api.event.EventConstants;
@@ -33,9 +33,9 @@ public class JacksonExceptionConverter implements ExceptionConverter {
     private static final Logger log = LoggerFactory.getLogger(JacksonExceptionConverter.class);
 
     private final JsonMapper jsonMapper;
-    private final ContinuumProperties properties;
+    private final KinoticRpcProperties properties;
 
-    public JacksonExceptionConverter(ContinuumProperties properties, JsonMapper jsonMapper) {
+    public JacksonExceptionConverter(KinoticRpcProperties properties, JsonMapper jsonMapper) {
         this.properties = properties;
         this.jsonMapper = jsonMapper;
     }

@@ -6,9 +6,9 @@ import org.kinotic.persistence.api.domain.NamedQueryOperation;
 import org.kinotic.persistence.api.domain.SecurityContext;
 import org.kinotic.persistence.api.domain.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
-import org.kinotic.persistence.internal.api.services.impl.security.graphos.DefaultPolicyAuthorizationRequest;
-import org.kinotic.persistence.internal.api.services.impl.security.graphos.PolicyExpression;
-import org.kinotic.persistence.internal.api.services.impl.security.graphos.PolicyExpressionUtil;
+import org.kinotic.persistence.internal.api.services.security.graphos.DefaultPolicyAuthorizationRequest;
+import org.kinotic.persistence.internal.api.services.security.graphos.PolicyExpression;
+import org.kinotic.persistence.internal.api.services.security.graphos.PolicyExpressionUtil;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;

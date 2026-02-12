@@ -4,7 +4,7 @@ package org.kinotic.rpc.gateway.internal.endpoints;
 
 import io.vertx.core.Vertx;
 import org.kinotic.rpc.api.Continuum;
-import org.kinotic.rpc.api.config.ContinuumProperties;
+import org.kinotic.rpc.api.config.KinoticRpcProperties;
 import org.kinotic.rpc.api.security.SecurityService;
 import org.kinotic.rpc.api.event.EventBusService;
 import org.kinotic.rpc.api.event.EventStreamService;
@@ -28,7 +28,7 @@ public class Services {
     @Autowired
     public ContinuumGatewayProperties continuumGatewayProperties;
     @Autowired
-    public ContinuumProperties continuumProperties;
+    public KinoticRpcProperties kinoticRpcProperties;
     @Autowired
     public EventBusService eventBusService;
     @Autowired

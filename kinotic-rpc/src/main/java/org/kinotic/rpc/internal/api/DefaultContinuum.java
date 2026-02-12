@@ -14,7 +14,7 @@ import org.kinotic.rpc.api.Continuum;
 import org.kinotic.rpc.api.ServerInfo;
 import org.kinotic.rpc.api.annotations.KinoticRpcPackages;
 import org.kinotic.rpc.api.annotations.EnableKinoticRpc;
-import org.kinotic.rpc.api.config.ContinuumProperties;
+import org.kinotic.rpc.api.config.KinoticRpcProperties;
 import org.kinotic.rpc.api.config.IgniteClusterProperties;
 import org.kinotic.rpc.internal.utils.ContinuumUtil;
 import org.kinotic.rpc.internal.utils.MetaUtil;
@@ -57,7 +57,7 @@ public class DefaultContinuum implements Continuum {
     private static final int ANIMAL_COUNT = 587;
     private static final Logger log = LoggerFactory.getLogger(DefaultContinuum.class);
     private static final SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yy HH:mm:ss z");
-    private final ContinuumProperties continuumProperties;
+    private final KinoticRpcProperties kinoticRpcProperties;
     private final IgniteClusterProperties igniteClusterProperties;
     private final ServerInfo serverInfo;
     private final Vertx vertx;
@@ -69,7 +69,7 @@ public class DefaultContinuum implements Continuum {
                             ClusterManager clusterManager,
                             Vertx vertx,
                             ApplicationContext applicationContext,
-                            ContinuumProperties continuumProperties,
+                            KinoticRpcProperties kinoticRpcProperties,
                             IgniteClusterProperties igniteClusterProperties,
                             ReactiveAdapterRegistry reactiveAdapterRegistry) throws IOException {
         String nodeName;
@@ -89,7 +89,7 @@ public class DefaultContinuum implements Continuum {
              nodeName = nodeName + " " + WordUtils.capitalize(temp);
         }
         this.vertx = vertx;
-        this.continuumProperties = continuumProperties;
+        this.kinoticRpcProperties = kinoticRpcProperties;
         this.igniteClusterProperties = igniteClusterProperties;
         String nodeId = (clusterManager != null  ?  clusterManager.getNodeId() : UUID.randomUUID().toString());
         this.serverInfo = new ServerInfo(nodeId, nodeName);
@@ -119,7 +119,7 @@ public class DefaultContinuum implements Continuum {
             }
         }else{
             // Probably will not happen!
-            log.warn("No @SpringBootApplication could be found with @EnableContinuum annotation.");
+            log.warn("No @SpringBootApplication could be found with @EnableKinoticRpc annotation.");
         }
 
         // Register Vertx Future with Reactor
@@ -174,7 +174,7 @@ public class DefaultContinuum implements Continuum {
             info.append(ip);
         }
         info.append("\n\n");
-        info.append(continuumProperties.toString());
+        info.append(kinoticRpcProperties.toString());
         info.append("\n\nIgnite Cluster Properties:");
         info.append(igniteClusterProperties.toString());
 

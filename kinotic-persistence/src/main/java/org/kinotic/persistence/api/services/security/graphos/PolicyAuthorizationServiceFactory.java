@@ -8,7 +8,7 @@ import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
-import org.kinotic.persistence.internal.api.services.impl.security.NoopAuthorizationService;
+import org.kinotic.persistence.internal.api.services.security.NoopAuthorizationService;
 
 import java.util.concurrent.CompletableFuture;
 

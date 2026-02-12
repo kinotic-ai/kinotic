@@ -2,7 +2,7 @@ package org.kinotic.test.tests.core.security.graphos;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.kinotic.persistence.internal.api.services.impl.security.graphos.*;
+import org.kinotic.persistence.internal.api.services.security.graphos.*;
 import org.kinotic.persistence.api.domain.SecurityContext;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizationRequest;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizer;
