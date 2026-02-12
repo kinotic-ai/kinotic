@@ -1,8 +1,8 @@
 package org.kinotic.persistence.internal.api.services.sql.executors;
 
 import lombok.RequiredArgsConstructor;
-import org.kinotic.continuum.api.crud.Page;
-import org.kinotic.continuum.api.crud.Pageable;
+import org.kinotic.rpc.api.crud.Page;
+import org.kinotic.rpc.api.crud.Pageable;
 import org.kinotic.persistence.api.domain.NamedQueryOperation;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;

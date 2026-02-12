@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.api.log;
 
-import org.kinotic.continuum.api.annotations.Scope;
+import org.kinotic.rpc.api.annotations.Scope;
 
 /**
  * Interface providing the ability to work with runtime logging configuration per node

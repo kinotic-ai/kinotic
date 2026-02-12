@@ -5,18 +5,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
-/**
- * Ignite Cluster Configuration Properties
- * 
- * @author Navid Mitchell
- * @since 1.0.0
- * @version 1.0.0
- * @see StructuresProperties
- * @see ClusterDiscoveryType
- * @see ClusterDiscoveryType#LOCAL
- * @see ClusterDiscoveryType#SHAREDFS
- * @see ClusterDiscoveryType#KUBERNETES
- */
 @Getter
 @Setter
 @Accessors(chain = true)
@@ -37,29 +25,6 @@ public class ClusterEvictionProperties {
      * The timeout for cluster cache sync
      */
     private Long cacheSyncTimeoutMs = 30000L; // 30 seconds
-    
-    // ========== Apache Ignite Cluster Configuration ==========
-    
- 
 
-    // /**
-    //  * Port used for Ignite JMX
-    //  */
-    // private Integer jmxPort = 49112;
-
-    // /**
-    //  * Port used for Ignite thin client/JDBC/ODBC
-    //  */
-    // private Integer thinClientPort = 10800;
-
-    // /**
-    //  * Port used for Ignite REST API
-    //  */
-    // private Integer restApiPort = 8080;
-
-    // /**
-    //  * Port used for Ignite control script
-    //  */
-    // private Integer controlScriptPort = 11211;
     
 }

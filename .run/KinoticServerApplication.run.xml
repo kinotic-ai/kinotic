@@ -1,0 +1,26 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="KinoticServerApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <option name="ACTIVE_PROFILES" value="development" />
+    <option name="ENABLE_JMX_AGENT" value="false" />
+    <envs>
+      <env name="JAVA_TOOL_OPTIONS" value="-javaagent:$PROJECT_DIR$/structures-server/src/main/resources/opentelemetry-javaagent.jar --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED --add-opens=jdk.internal.jvmstat/sun.jvmstat.monitor=ALL-UNNAMED --add-opens=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED" />
+      <env name="OTEL_EXPORTER_OTLP_ENDPOINT" value="http://127.0.0.1:4317" />
+      <env name="OTEL_EXPORTER_OTLP_PROTOCOL" value="grpc" />
+      <env name="OTEL_LOGS_EXPORTER" value="otlp" />
+      <env name="OTEL_METRICS_EXPORTER" value="otlp" />
+      <env name="OTEL_TRACES_EXPORTER" value="otlp" />
+      <env name="OTEL_SERVICE_NAME" value="structures-server" />
+    </envs>
+    <module name="kinotic.kinotic-server.main" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="org.kinotic.server.KinoticServerApplication" />
+    <option name="VM_PARAMETERS" value="-XX:MaxDirectMemorySize=1g -Xmx4096m -XX:+AlwaysPreTouch -XX:+UseG1GC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC" />
+    <extension name="software.aws.toolkits.jetbrains.core.execution.JavaAwsConnectionExtension">
+      <option name="credential" />
+      <option name="region" />
+      <option name="useCurrentConnection" value="false" />
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

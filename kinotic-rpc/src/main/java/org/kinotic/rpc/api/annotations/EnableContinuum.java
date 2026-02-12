@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.api.annotations;
 
-import org.kinotic.continuum.internal.config.ContinuumConfiguration;
+import org.kinotic.rpc.internal.config.ContinuumConfiguration;
 import org.springframework.context.annotation.Import;
 
 import java.lang.annotation.ElementType;

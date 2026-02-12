@@ -19,7 +19,7 @@ package org.kinotic.rpc.internal.utils;
 
 import org.kinotic.rpc.api.event.StreamData;
 import org.kinotic.rpc.api.event.StreamOperation;
-import org.kinotic.rpc.internal.core.api.aignite.Observer;
+import org.kinotic.rpc.internal.api.aignite.Observer;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;

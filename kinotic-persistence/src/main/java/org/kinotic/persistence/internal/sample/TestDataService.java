@@ -14,7 +14,7 @@ import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.decorators.*;
 import org.kinotic.persistence.api.services.ApplicationService;
 import org.kinotic.persistence.api.services.StructureService;
-import org.kinotic.auth.internal.services.DefaultCaffeineCacheFactory;
+import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.utils.StructuresUtil;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;

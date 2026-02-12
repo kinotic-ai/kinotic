@@ -13,7 +13,7 @@ import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.decorators.EntityServiceDecorator;
 import org.kinotic.persistence.api.domain.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.api.services.EntitiesService;
-import org.kinotic.auth.internal.services.DefaultCaffeineCacheFactory;
+import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.utils.GqlUtils;
 import org.springframework.context.event.EventListener;

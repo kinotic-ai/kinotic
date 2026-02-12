@@ -1,6 +1,6 @@
 package org.kinotic.rpc.api.security;
 
-import org.kinotic.continuum.api.crud.Identifiable;
+import org.kinotic.rpc.api.crud.Identifiable;
 
 import java.util.List;
 import java.util.Map;

@@ -18,7 +18,7 @@ import co.elastic.clients.json.JsonpDeserializer;
 import co.elastic.clients.json.JsonpMapperBase;
 import co.elastic.clients.transport.JsonEndpoint;
 import co.elastic.clients.transport.endpoints.EndpointWithResponseMapperAttr;
-import org.kinotic.continuum.api.crud.*;
+import org.kinotic.rpc.api.crud.Page;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.type.TypeFactory;
@@ -356,7 +356,7 @@ public class CrudServiceTemplate {
      * @return a {@link CompletableFuture} that will complete with a {@link Page} of documents
      */
     public <T> CompletableFuture<Page<T>> search(String indexName,
-                                                 Pageable pageable,
+                                                 org.kinotic.rpc.api.crud.Pageable pageable,
                                                  Class<T> type,
                                                  Consumer<SearchRequest.Builder> builderConsumer){
         return search(indexName, pageable, type, builderConsumer, null);
@@ -376,7 +376,7 @@ public class CrudServiceTemplate {
      * @return a {@link CompletableFuture} that will complete with a {@link Page} of documents
      */
     public <T,R> CompletableFuture<Page<R>> search(String indexName,
-                                                   Pageable pageable,
+                                                   org.kinotic.rpc.api.crud.Pageable pageable,
                                                    Class<T> type,
                                                    Consumer<SearchRequest.Builder> builderConsumer,
                                                    Function<Hit<T>, R> hitMapper) {
@@ -402,7 +402,7 @@ public class CrudServiceTemplate {
                         }
                     }
 
-                    if(pageable instanceof CursorPageable) {
+                    if(pageable instanceof org.kinotic.rpc.api.crud.CursorPageable) {
                         String cursor = null;
                         if (lastSort != null) {
                             try {
@@ -411,9 +411,9 @@ public class CrudServiceTemplate {
                                 throw new IllegalStateException("Sort Array could not be serialized to JSON", e);
                             }
                         }
-                        return new CursorPage<>(content,
-                                                cursor,
-                                                null);
+                        return new org.kinotic.rpc.api.crud.CursorPage<>(content,
+                                                                         cursor,
+                                                                         null);
                     }else{
                         return new Page<>(content,
                                           Objects.requireNonNull(hitsMetadata.total(),
@@ -531,7 +531,7 @@ public class CrudServiceTemplate {
      * @return a {@link CompletableFuture} that will complete with a {@link SearchResponse} of documents
      */
     private <T> CompletableFuture<SearchResponse<T>> searchFullResponse(String indexName,
-                                                                        Pageable pageable,
+                                                                        org.kinotic.rpc.api.crud.Pageable pageable,
                                                                         Class<T> type,
                                                                         Consumer<SearchRequest.Builder> builderConsumer) {
 
@@ -550,12 +550,12 @@ public class CrudServiceTemplate {
         builder.index(indexName)
                .size(pageable.getPageSize());
 
-        if(pageable instanceof OffsetPageable){
+        if(pageable instanceof org.kinotic.rpc.api.crud.OffsetPageable){
 
-            builder.from(((OffsetPageable)pageable).getPageNumber() * pageable.getPageSize())
+            builder.from(((org.kinotic.rpc.api.crud.OffsetPageable)pageable).getPageNumber() * pageable.getPageSize())
                    .trackTotalHits(t -> t.enabled(true));
 
-        } else if (pageable instanceof CursorPageable cursorPageable){
+        } else if (pageable instanceof org.kinotic.rpc.api.crud.CursorPageable cursorPageable){
 
             try {
                 if(pageable.getSort() == null || pageable.getSort().isUnsorted()){
@@ -580,7 +580,7 @@ public class CrudServiceTemplate {
         }
 
         if(pageable.getSort() != null) {
-            for (Order order : pageable.getSort()) {
+            for (org.kinotic.rpc.api.crud.Order order : pageable.getSort()) {
                 builder.sort(s -> s.field(f -> {
                     String property = order.getProperty();
                     FieldSort.Builder fieldSortBuilder

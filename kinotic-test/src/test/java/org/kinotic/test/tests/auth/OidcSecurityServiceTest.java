@@ -3,9 +3,9 @@ package org.kinotic.test.tests.auth;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.kinotic.auth.api.config.OidcSecurityServiceProperties;
-import org.kinotic.auth.api.services.JwksService;
-import org.kinotic.auth.internal.services.OidcSecurityService;
+import org.kinotic.rpc.api.config.OidcSecurityServiceProperties;
+import org.kinotic.rpc.internal.api.security.JwksService;
+import org.kinotic.rpc.internal.api.security.OidcSecurityService;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 

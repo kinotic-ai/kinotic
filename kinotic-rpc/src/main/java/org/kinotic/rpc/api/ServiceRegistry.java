@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.api;
 
-import org.kinotic.continuum.api.annotations.Proxy;
+import org.kinotic.rpc.api.annotations.Proxy;
 import org.kinotic.rpc.api.service.ServiceDescriptor;
 import org.kinotic.rpc.api.service.ServiceFunctionInstanceProvider;
 import org.kinotic.rpc.api.service.ServiceFunction;

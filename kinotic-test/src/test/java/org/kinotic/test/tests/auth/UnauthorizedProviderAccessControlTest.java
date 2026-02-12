@@ -1,8 +1,8 @@
 package org.kinotic.test.tests.auth;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.continuum.api.security.Participant;
-import org.kinotic.auth.internal.services.OidcSecurityService;
+import org.kinotic.rpc.api.security.Participant;
+import org.kinotic.rpc.internal.api.security.OidcSecurityService;
 import org.kinotic.test.support.keycloak.KeycloakTestBase;
 import org.kinotic.test.support.keycloak.KeyloakTestConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;

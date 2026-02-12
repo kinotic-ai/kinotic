@@ -22,7 +22,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.rpc.api.event.CRI;
 import org.kinotic.rpc.api.event.Event;
 import org.kinotic.rpc.api.event.Metadata;
-import org.kinotic.rpc.internal.core.api.event.MultiMapMetadataAdapter;
+import org.kinotic.rpc.internal.api.event.MultiMapMetadataAdapter;
 
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.ext.web.RoutingContext;

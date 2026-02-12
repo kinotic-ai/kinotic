@@ -6,13 +6,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.continuum.api.crud.Page;
-import org.kinotic.continuum.api.crud.Pageable;
+import org.kinotic.rpc.api.crud.Page;
+import org.kinotic.rpc.api.crud.Pageable;
 import org.kinotic.persistence.api.domain.EntityContext;
 import org.kinotic.persistence.api.domain.NamedQueriesDefinition;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.services.NamedQueriesService;
-import org.kinotic.auth.internal.services.DefaultCaffeineCacheFactory;
+import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.api.domain.ParameterHolder;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 import org.kinotic.persistence.internal.api.services.sql.QueryExecutorFactory;

@@ -18,7 +18,7 @@ package org.kinotic.rpc.internal.serializer;
 
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.continuum.api.crud.*;
+import org.kinotic.rpc.api.crud.*;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.JsonParser;
 import tools.jackson.databind.DeserializationContext;

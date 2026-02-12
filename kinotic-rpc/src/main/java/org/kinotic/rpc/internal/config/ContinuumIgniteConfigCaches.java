@@ -20,7 +20,7 @@ package org.kinotic.rpc.internal.config;
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.kinotic.rpc.api.config.ContinuumProperties;
 import org.kinotic.rpc.api.security.SessionMetadata;
-import org.kinotic.rpc.internal.core.api.security.DefaultSessionMetadata;
+import org.kinotic.rpc.internal.api.security.DefaultSessionMetadata;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.configuration.CacheConfiguration;

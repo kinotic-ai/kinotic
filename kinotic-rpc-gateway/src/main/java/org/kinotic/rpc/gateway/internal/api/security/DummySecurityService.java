@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.gateway.internal.api.security;
 
-import org.kinotic.continuum.api.exceptions.AuthenticationException;
+import org.kinotic.rpc.api.exceptions.AuthenticationException;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;

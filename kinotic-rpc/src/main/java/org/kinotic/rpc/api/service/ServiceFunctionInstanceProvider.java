@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.api.service;
 
-import org.kinotic.continuum.core.api.ServiceRegistry;
+import org.kinotic.rpc.api.ServiceRegistry;
 
 import java.util.Map;
 

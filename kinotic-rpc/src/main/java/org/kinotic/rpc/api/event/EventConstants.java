@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.api.event;
 
-import org.kinotic.continuum.api.security.ConnectedInfo;
+import org.kinotic.rpc.api.security.ConnectedInfo;
 
 /**
  *

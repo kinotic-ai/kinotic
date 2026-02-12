@@ -5,12 +5,12 @@ import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.extern.slf4j.Slf4j;
 
-import org.kinotic.continuum.api.crud.Page;
-import org.kinotic.continuum.api.crud.Pageable;
+import org.kinotic.rpc.api.crud.Page;
+import org.kinotic.rpc.api.crud.Pageable;
 import org.kinotic.persistence.api.domain.EntityContext;
 import org.kinotic.persistence.api.domain.TenantSpecificId;
 import org.kinotic.persistence.api.services.EntitiesService;
-import org.kinotic.auth.internal.services.DefaultCaffeineCacheFactory;
+import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.api.services.EntityService;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.cache.events.EvictionSourceType;

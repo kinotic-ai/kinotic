@@ -13,7 +13,7 @@ import io.vertx.ext.web.handler.StaticHandler;
 import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.persistence.api.config.StructuresProperties;
-import org.kinotic.auth.api.config.OidcSecurityServiceProperties;
+import org.kinotic.rpc.api.config.OidcSecurityServiceProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.databind.ObjectMapper;

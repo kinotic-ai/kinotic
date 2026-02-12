@@ -17,7 +17,7 @@
 
 package org.kinotic.rpc.internal.serializer;
 
-import org.kinotic.continuum.api.crud.SearchComparator;
+import org.kinotic.rpc.api.crud.SearchComparator;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.JsonGenerator;
 import tools.jackson.databind.SerializationContext;

@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-import org.kinotic.continuum.api.exceptions.AuthorizationException;
+import org.kinotic.rpc.api.exceptions.AuthorizationException;
 import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
 import org.kinotic.persistence.api.domain.EntityOperation;
 import org.kinotic.persistence.api.domain.SecurityContext;

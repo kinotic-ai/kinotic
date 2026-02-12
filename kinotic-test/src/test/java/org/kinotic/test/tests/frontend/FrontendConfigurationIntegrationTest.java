@@ -4,7 +4,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.kinotic.persistence.api.config.StructuresProperties;
-import org.kinotic.auth.api.config.OidcSecurityServiceProperties;
+import org.kinotic.rpc.api.config.OidcSecurityServiceProperties;
 import org.kinotic.test.support.elastic.ElasticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

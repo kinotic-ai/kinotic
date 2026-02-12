@@ -4,15 +4,11 @@ plugins {
 }
 
 dependencies {
-    // These were continuum. As we move things around we can refine the dependencies
-    implementation project(':kinotic-core')
     implementation project(':kinotic-rpc')
     implementation project(':kinotic-rpc-gateway')
     implementation project(':kinotic-idl')
 
-	implementation project(':kinotic-auth')
-	implementation project(':kinotic-persistence-api')
-	implementation project(':kinotic-persistence-sql')
+	implementation project(':kinotic-sql')
 
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-jackson'

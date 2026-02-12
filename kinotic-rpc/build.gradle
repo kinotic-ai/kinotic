@@ -3,16 +3,18 @@ plugins {
 }
 
 dependencies {
-    // Continuum Dependencies
-    api project(':kinotic-core')
+    // jackson annotations
+    api 'com.fasterxml.jackson.core:jackson-annotations'
 
-    // spring
-    implementation 'org.springframework.boot:spring-boot-starter-jackson'
-    implementation 'org.springframework:spring-core'
-    implementation 'org.springframework:spring-context'
-    implementation 'org.springframework:spring-aop'
-    implementation 'org.springframework:spring-web' // used for json conversion functionality spring web has a lot of helpful utilities
-    implementation 'org.springframework.boot:spring-boot-autoconfigure' // Used for conditionally wiring beans
+    implementation "com.github.ben-manes.caffeine:caffeine"
+    implementation 'commons-io:commons-io'
+
+    implementation 'io.jsonwebtoken:jjwt-api'
+    implementation 'io.jsonwebtoken:jjwt-impl'
+    implementation 'io.jsonwebtoken:jjwt-jackson'
+
+    // reactive streams apis
+    api 'io.projectreactor:reactor-core'
 
     // vertx
     api 'io.vertx:vertx-core'
@@ -22,23 +24,30 @@ dependencies {
     // Apache Ignite
     implementation 'org.apache.ignite:ignite-core'
     implementation 'org.apache.ignite:ignite-calcite'
-	implementation 'org.apache.ignite:ignite-kubernetes' // support for kubernetes discovery
+    implementation 'org.apache.ignite:ignite-kubernetes' // support for kubernetes discovery
     implementation 'org.apache.ignite:ignite-spring'
     implementation 'org.apache.ignite:ignite-slf4j'
+
+    implementation 'org.awaitility:awaitility'
+
+    // reactive streams apis
+    api 'org.reactivestreams:reactive-streams'
+
+    // spring
+    implementation 'org.springframework.boot:spring-boot-starter-jackson'
+    implementation 'org.springframework.boot:spring-boot-starter-webclient'
+    implementation 'org.springframework:spring-core'
+    implementation 'org.springframework:spring-context'
+    implementation 'org.springframework:spring-aop'
+    implementation 'org.springframework:spring-web' // used for json conversion functionality spring web has a lot of helpful utilities
+    implementation 'org.springframework.boot:spring-boot-autoconfigure' // Used for conditionally wiring beans
+
+
     implementation 'javax.cache:cache-api'
 
-    // Json
-    api 'com.fasterxml.jackson.core:jackson-annotations'
+    // jackson impl
     api 'tools.jackson.core:jackson-core'
     api 'tools.jackson.core:jackson-databind'
-
-    // Dependencies required to handle various JsonSchema converters. These can be moved when that code is separated
-    implementation 'org.apache.groovy:groovy'
-
-    // Misc
-    implementation 'commons-io:commons-io'
-    implementation 'com.github.ben-manes.caffeine:caffeine'
-    implementation 'org.awaitility:awaitility'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'

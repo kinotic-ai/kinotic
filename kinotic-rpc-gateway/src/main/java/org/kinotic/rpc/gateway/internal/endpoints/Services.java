@@ -26,7 +26,7 @@ import org.kinotic.rpc.api.event.EventStreamService;
 import org.kinotic.rpc.api.security.SessionManager;
 import org.kinotic.rpc.gateway.api.config.ContinuumGatewayProperties;
 import org.kinotic.rpc.gateway.internal.endpoints.stomp.DefaultStompServerHandler;
-import org.kinotic.rpc.internal.core.api.service.ExceptionConverter;
+import org.kinotic.rpc.internal.api.service.ExceptionConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;

@@ -19,7 +19,7 @@ package org.kinotic.rpc.api.event;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.kinotic.continuum.api.crud.Identifiable;
+import org.kinotic.rpc.api.crud.Identifiable;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 

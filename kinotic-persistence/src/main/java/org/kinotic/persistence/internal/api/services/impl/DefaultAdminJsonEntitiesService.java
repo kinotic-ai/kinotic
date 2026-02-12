@@ -2,8 +2,8 @@ package org.kinotic.persistence.internal.api.services.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.kinotic.rpc.api.security.Participant;
-import org.kinotic.continuum.api.crud.Page;
-import org.kinotic.continuum.api.crud.Pageable;
+import org.kinotic.rpc.api.crud.Page;
+import org.kinotic.rpc.api.crud.Pageable;
 import org.kinotic.persistence.api.domain.FastestType;
 import org.kinotic.persistence.api.domain.QueryParameter;
 import org.kinotic.persistence.api.domain.RawJson;

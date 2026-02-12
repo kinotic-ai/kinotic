@@ -9,7 +9,7 @@ import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
-import org.kinotic.auth.internal.services.DefaultCaffeineCacheFactory;
+import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 
 /**
  * A PreparsedDocumentProvider that caches the results of parsing and validating a query.

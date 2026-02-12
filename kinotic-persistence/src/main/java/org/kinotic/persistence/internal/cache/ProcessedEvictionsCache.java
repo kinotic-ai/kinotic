@@ -3,7 +3,6 @@ package org.kinotic.persistence.internal.cache;
 import com.github.benmanes.caffeine.cache.Cache;
 import lombok.extern.slf4j.Slf4j;
 
-import org.kinotic.auth.internal.services.DefaultCaffeineCacheFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;

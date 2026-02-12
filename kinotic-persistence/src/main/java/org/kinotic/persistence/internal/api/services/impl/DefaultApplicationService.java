@@ -3,8 +3,8 @@ package org.kinotic.persistence.internal.api.services.impl;
 import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 
-import org.kinotic.continuum.api.crud.Page;
-import org.kinotic.continuum.api.crud.Pageable;
+import org.kinotic.rpc.api.crud.Page;
+import org.kinotic.rpc.api.crud.Pageable;
 import org.kinotic.persistence.api.domain.Application;
 import org.kinotic.persistence.api.services.ApplicationService;
 import org.kinotic.persistence.api.services.ProjectService;

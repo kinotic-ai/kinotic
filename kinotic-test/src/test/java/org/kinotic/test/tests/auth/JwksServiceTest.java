@@ -2,7 +2,7 @@ package org.kinotic.test.tests.auth;
 
 import io.jsonwebtoken.security.Jwk;
 import org.junit.jupiter.api.Test;
-import org.kinotic.auth.api.services.JwksService;
+import org.kinotic.rpc.internal.api.security.JwksService;
 import org.kinotic.test.support.keycloak.KeycloakTestBase;
 import org.kinotic.test.support.keycloak.KeyloakTestConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,21 +25,6 @@ public class JwksServiceTest extends KeycloakTestBase {
 
     @Autowired
     private JwksService jwksService;
-
-    @Test
-    public void testJwksServiceInitialization() {
-        assertNotNull(jwksService);
-        
-        // Test that caches are initialized
-        // Note: We can't directly access private fields, but we can test behavior
-        assertDoesNotThrow(() -> jwksService.clearCaches());
-    }
-
-    @Test
-    public void testClearCaches() {
-        // Test that clearing caches doesn't throw exceptions
-        assertDoesNotThrow(() -> jwksService.clearCaches());
-    }
 
     @Test
     public void testInvalidJwtTokenFormat() {

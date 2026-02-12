@@ -4,8 +4,8 @@ import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.continuum.api.crud.Page;
-import org.kinotic.continuum.api.crud.Pageable;
+import org.kinotic.rpc.api.crud.Page;
+import org.kinotic.rpc.api.crud.Pageable;
 import org.kinotic.persistence.api.domain.Project;
 import org.kinotic.persistence.api.services.ProjectService;
 import org.kinotic.persistence.api.services.StructureService;

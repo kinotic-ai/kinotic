@@ -12,10 +12,7 @@ sourceSets {
 
 dependencies {
 	implementation project(':kinotic-persistence')
-	implementation project(':kinotic-auth')
-
-    // These were continuum. As we move things around we can refine the dependencies
-    implementation project(':kinotic-core')
+	implementation project(':kinotic-rpc')
     implementation project(':kinotic-rpc-gateway')
 
 	implementation 'com.github.ben-manes.caffeine:caffeine'

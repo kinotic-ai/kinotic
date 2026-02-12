@@ -13,7 +13,7 @@ import io.vertx.ext.web.handler.BodyHandler;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.Nullable;
 import org.kinotic.rpc.api.security.SecurityService;
-import org.kinotic.continuum.api.crud.Pageable;
+import org.kinotic.rpc.api.crud.Pageable;
 import org.kinotic.rpc.gateway.api.security.AuthenticationHandler;
 import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.persistence.api.domain.*;
