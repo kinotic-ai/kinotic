@@ -1,6 +1,6 @@
 package org.kinotic.persistence.api.services.security;
 
-import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.domain.NamedQueryOperation;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.EntityOperation;

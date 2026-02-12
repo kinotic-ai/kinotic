@@ -2,9 +2,9 @@ package org.kinotic.continuum.idl.internal;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.kinotic.continuum.idl.api.schema.ArrayC3Type;
-import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
-import org.kinotic.continuum.idl.api.schema.StringC3Type;
+import org.kinotic.idl.api.schema.ArrayC3Type;
+import org.kinotic.idl.api.schema.ObjectC3Type;
+import org.kinotic.idl.api.schema.StringC3Type;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;

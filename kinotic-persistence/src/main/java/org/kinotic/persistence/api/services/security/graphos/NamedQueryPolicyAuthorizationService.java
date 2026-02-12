@@ -1,7 +1,7 @@
 package org.kinotic.persistence.api.services.security.graphos;
 
 import org.kinotic.rpc.api.exceptions.AuthorizationException;
-import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.domain.NamedQueryOperation;
 import org.kinotic.persistence.api.domain.SecurityContext;
 import org.kinotic.persistence.api.domain.idl.decorators.PolicyDecorator;

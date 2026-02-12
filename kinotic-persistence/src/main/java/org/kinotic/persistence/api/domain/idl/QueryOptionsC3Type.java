@@ -1,9 +1,9 @@
 package org.kinotic.persistence.api.domain.idl;
 
-import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
-import org.kinotic.continuum.idl.api.schema.IntC3Type;
-import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
-import org.kinotic.continuum.idl.api.schema.StringC3Type;
+import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.schema.IntC3Type;
+import org.kinotic.idl.api.schema.ObjectC3Type;
+import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.persistence.api.domain.QueryOptions;
 
 /**

@@ -2,9 +2,9 @@ package org.kinotic.continuum.idl.internal;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.kinotic.continuum.idl.api.directory.SchemaFactory;
-import org.kinotic.continuum.idl.api.schema.NamespaceDefinition;
-import org.kinotic.continuum.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.schema.NamespaceDefinition;
+import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.continuum.idl.internal.support.TestService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

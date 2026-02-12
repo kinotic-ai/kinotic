@@ -2,7 +2,7 @@ package org.kinotic.persistence.internal.api.services.sql;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.NotImplementedException;
-import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.persistence.api.domain.NamedQueriesDefinition;
 import org.kinotic.persistence.api.domain.NamedQueryOperation;

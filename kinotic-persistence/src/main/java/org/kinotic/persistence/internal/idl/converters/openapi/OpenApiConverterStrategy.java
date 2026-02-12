@@ -1,10 +1,10 @@
 package org.kinotic.persistence.internal.idl.converters.openapi;
 
 import io.swagger.v3.oas.models.media.*;
-import org.kinotic.continuum.idl.api.converter.C3TypeConverter;
-import org.kinotic.continuum.idl.api.converter.C3TypeConverterContainer;
-import org.kinotic.continuum.idl.api.converter.IdlConverterStrategy;
-import org.kinotic.continuum.idl.api.schema.*;
+import org.kinotic.idl.api.converter.C3TypeConverter;
+import org.kinotic.idl.api.converter.C3TypeConverterContainer;
+import org.kinotic.idl.api.converter.IdlConverterStrategy;
+import org.kinotic.idl.api.schema.*;
 import org.kinotic.persistence.api.config.StructuresProperties;
 
 import java.math.BigDecimal;

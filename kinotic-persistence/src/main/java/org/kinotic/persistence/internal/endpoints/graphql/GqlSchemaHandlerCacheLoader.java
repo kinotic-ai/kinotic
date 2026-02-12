@@ -13,7 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.text.WordUtils;
 import org.kinotic.rpc.api.crud.Pageable;
-import org.kinotic.continuum.idl.api.converter.IdlConverter;
+import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.decorators.EntityServiceDecorator;
 import org.kinotic.persistence.api.domain.idl.decorators.EntityServiceDecoratorsDecorator;

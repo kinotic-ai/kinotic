@@ -3,7 +3,7 @@ package org.kinotic.persistence.api.services;
 import org.kinotic.rpc.api.crud.IdentifiableCrudService;
 import org.kinotic.rpc.api.crud.Page;
 import org.kinotic.rpc.api.crud.Pageable;
-import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.domain.EntityContext;
 import org.kinotic.persistence.api.domain.NamedQueriesDefinition;
 import org.kinotic.persistence.api.domain.ParameterHolder;

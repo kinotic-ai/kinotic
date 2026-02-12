@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.api.hooks;
 
-import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
+import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.domain.EntityContext;
 import org.kinotic.persistence.api.domain.Structure;
 

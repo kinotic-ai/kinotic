@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.text.WordUtils;
 import org.kinotic.rpc.api.crud.Pageable;
-import org.kinotic.continuum.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.domain.NamedQueriesDefinition;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.PageC3Type;

@@ -1,13 +1,13 @@
 package org.kinotic.persistence.internal.idl.converters.elastic;
 
 import co.elastic.clients.elasticsearch._types.mapping.Property;
-import org.kinotic.continuum.idl.api.converter.C3ConversionContext;
-import org.kinotic.continuum.idl.api.converter.C3TypeConverter;
-import org.kinotic.continuum.idl.api.converter.Cacheable;
-import org.kinotic.continuum.idl.api.schema.C3Type;
-import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
-import org.kinotic.continuum.idl.api.schema.PropertyDefinition;
-import org.kinotic.continuum.idl.api.schema.UnionC3Type;
+import org.kinotic.idl.api.converter.C3ConversionContext;
+import org.kinotic.idl.api.converter.C3TypeConverter;
+import org.kinotic.idl.api.converter.Cacheable;
+import org.kinotic.idl.api.schema.C3Type;
+import org.kinotic.idl.api.schema.ObjectC3Type;
+import org.kinotic.idl.api.schema.PropertyDefinition;
+import org.kinotic.idl.api.schema.UnionC3Type;
 
 import java.util.HashMap;
 import java.util.Map;

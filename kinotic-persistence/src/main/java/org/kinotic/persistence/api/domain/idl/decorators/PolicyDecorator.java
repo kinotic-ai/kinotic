@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.continuum.idl.api.schema.decorators.DecoratorTarget;
+import org.kinotic.idl.api.schema.decorators.DecoratorTarget;
 
 import java.util.List;
 

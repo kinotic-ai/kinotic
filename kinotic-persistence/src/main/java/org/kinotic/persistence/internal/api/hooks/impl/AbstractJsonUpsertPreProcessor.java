@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.api.hooks.impl;
 
-import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
+import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import tools.jackson.core.JsonEncoding;
 import tools.jackson.core.JsonGenerator;
 import tools.jackson.core.JsonParser;

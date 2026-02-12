@@ -1,8 +1,8 @@
 package org.kinotic.persistence.api.domain.idl.decorators;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
-import org.kinotic.continuum.idl.api.schema.decorators.DecoratorTarget;
+import org.kinotic.idl.api.schema.decorators.C3Decorator;
+import org.kinotic.idl.api.schema.decorators.DecoratorTarget;
 
 import java.util.List;
 

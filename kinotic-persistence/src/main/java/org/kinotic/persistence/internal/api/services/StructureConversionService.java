@@ -1,8 +1,8 @@
 package org.kinotic.persistence.internal.api.services;
 
 import io.swagger.v3.oas.models.media.Schema;
-import org.kinotic.continuum.idl.api.converter.IdlConverter;
-import org.kinotic.continuum.idl.api.schema.C3Type;
+import org.kinotic.idl.api.converter.IdlConverter;
+import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.internal.idl.converters.graphql.GqlConversionState;
 import org.kinotic.persistence.internal.idl.converters.graphql.GqlTypeHolder;

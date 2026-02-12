@@ -2,8 +2,8 @@ package org.kinotic.persistence.api.domain.idl;
 
 import lombok.*;
 import lombok.experimental.Accessors;
-import org.kinotic.continuum.idl.api.schema.C3Type;
-import org.kinotic.continuum.idl.api.schema.ObjectC3Type;
+import org.kinotic.idl.api.schema.C3Type;
+import org.kinotic.idl.api.schema.ObjectC3Type;
 
 /**
  * This is a placeholder for the Page type.

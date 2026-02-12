@@ -2,9 +2,9 @@ package org.kinotic.persistence.internal.idl.converters.openapi;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.media.Schema;
-import org.kinotic.continuum.idl.api.converter.C3ConversionContext;
-import org.kinotic.continuum.idl.api.converter.C3TypeConverter;
-import org.kinotic.continuum.idl.api.schema.C3Type;
+import org.kinotic.idl.api.converter.C3ConversionContext;
+import org.kinotic.idl.api.converter.C3TypeConverter;
+import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.persistence.api.domain.idl.PageC3Type;
 import org.kinotic.persistence.internal.utils.OpenApiUtils;
 

@@ -3,7 +3,7 @@ package org.kinotic.persistence.internal.api.services;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
+import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.services.NamedQueriesService;

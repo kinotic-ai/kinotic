@@ -2,11 +2,11 @@ package org.kinotic.persistence.internal.idl.converters.elastic;
 
 import co.elastic.clients.elasticsearch._types.mapping.*;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.continuum.idl.api.converter.C3ConversionContext;
-import org.kinotic.continuum.idl.api.converter.C3TypeConverter;
-import org.kinotic.continuum.idl.api.converter.C3TypeConverterContainer;
-import org.kinotic.continuum.idl.api.converter.IdlConverterStrategy;
-import org.kinotic.continuum.idl.api.schema.*;
+import org.kinotic.idl.api.converter.C3ConversionContext;
+import org.kinotic.idl.api.converter.C3TypeConverter;
+import org.kinotic.idl.api.converter.C3TypeConverterContainer;
+import org.kinotic.idl.api.converter.IdlConverterStrategy;
+import org.kinotic.idl.api.schema.*;
 import org.kinotic.persistence.api.config.StructuresProperties;
 
 import java.util.LinkedHashSet;

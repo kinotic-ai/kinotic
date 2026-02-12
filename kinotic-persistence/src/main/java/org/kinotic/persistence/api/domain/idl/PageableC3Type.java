@@ -2,7 +2,7 @@ package org.kinotic.persistence.api.domain.idl;
 
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
-import org.kinotic.continuum.idl.api.schema.C3Type;
+import org.kinotic.idl.api.schema.C3Type;
 
 /**
  * This is a placeholder for the Pageable type.

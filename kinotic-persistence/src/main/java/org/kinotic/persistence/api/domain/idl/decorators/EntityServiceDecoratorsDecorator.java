@@ -5,8 +5,8 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
-import org.kinotic.continuum.idl.api.schema.decorators.DecoratorTarget;
+import org.kinotic.idl.api.schema.decorators.C3Decorator;
+import org.kinotic.idl.api.schema.decorators.DecoratorTarget;
 
 import java.util.List;
 

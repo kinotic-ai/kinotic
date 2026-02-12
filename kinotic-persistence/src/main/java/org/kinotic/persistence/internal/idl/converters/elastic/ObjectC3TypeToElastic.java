@@ -1,11 +1,11 @@
 package org.kinotic.persistence.internal.idl.converters.elastic;
 
 import co.elastic.clients.elasticsearch._types.mapping.*;
-import org.kinotic.continuum.idl.api.converter.C3ConversionContext;
-import org.kinotic.continuum.idl.api.converter.C3TypeConverter;
-import org.kinotic.continuum.idl.api.converter.Cacheable;
-import org.kinotic.continuum.idl.api.schema.*;
-import org.kinotic.continuum.idl.api.schema.decorators.C3Decorator;
+import org.kinotic.idl.api.converter.C3ConversionContext;
+import org.kinotic.idl.api.converter.C3TypeConverter;
+import org.kinotic.idl.api.converter.Cacheable;
+import org.kinotic.idl.api.schema.*;
+import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.domain.DecoratedProperty;
 import org.kinotic.persistence.api.domain.idl.decorators.*;
 import org.kinotic.persistence.internal.utils.StructuresUtil;
