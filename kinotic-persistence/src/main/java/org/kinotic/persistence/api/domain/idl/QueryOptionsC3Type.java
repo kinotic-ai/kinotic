@@ -8,7 +8,7 @@ import org.kinotic.persistence.api.domain.QueryOptions;
 
 /**
  * A {@link QueryOptionsC3Type} represents the {@link QueryOptions} type.
- * This allows us to detect its usage in {@link FunctionDefinition} parameters and apply the needed logic.
+ * This allows us to detect its usage in {@link FunctionDefinition} parameters and apply the necessary logic.
  * Created By Navíd Mitchell 🤪on 2/24/25
  */
 public class QueryOptionsC3Type extends ObjectC3Type {
