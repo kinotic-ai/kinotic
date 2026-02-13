@@ -1,16 +1,16 @@
 plugins {
-	id 'org.mindignited.java-library-conventions'
+	id 'org.kinotic.java-library-conventions'
 	id 'io.freefair.lombok'
     id 'antlr'
 }
 
 // Configure ANTLR plugin
 generateGrammarSource {
-	arguments += ['-package', 'org.mindignited.structures.sql.parser']
+	arguments += ['-package', 'org.kinotic.structures.sql.parser']
 	arguments += ['-visitor']
 
 	// Output directly to the parser package
-	outputDirectory = file("${projectDir}/src/main/java/org/mindignited/structures/sql/parser")
+	outputDirectory = file("${projectDir}/src/main/java/org/kinotic/structures/sql/parser")
 	enabled = project.gradle.startParameter.taskNames.contains(':structures-sql:generateGrammarSource')
 }
 
@@ -22,36 +22,23 @@ tasks.withType(Javadoc) {
 }
 
 dependencies {
-
-    api 'org.apache.ignite:ignite-core'
-    api 'org.apache.ignite:ignite-spring'
-
     // Spring dependencies
     api 'org.springframework.boot:spring-boot-starter'
     api 'org.springframework.boot:spring-boot-autoconfigure'
     
     // Elasticsearch dependencies
     api 'co.elastic.clients:elasticsearch-java'
-    api 'org.elasticsearch.client:elasticsearch-rest-client'
-    
-    // Jackson dependencies
-    api 'com.fasterxml.jackson.core:jackson-databind'
-    api 'com.fasterxml.jackson.core:jackson-core'
-    api 'com.fasterxml.jackson.core:jackson-annotations'
+    api 'co.elastic.clients:elasticsearch-rest5-client'
 
-    // Parsing dependencies
+    // Json
+    api 'com.fasterxml.jackson.core:jackson-annotations'
+    api 'tools.jackson.core:jackson-core'
+    api 'tools.jackson.core:jackson-databind'
+
+    // Parsing dependencies FIXME: move versions below to dependency management
 	implementation 'org.antlr:antlr4-runtime:4.13.2'
 	antlr 'org.antlr:antlr4:4.13.2'
 
-    // Test dependencies
-    testImplementation 'org.mockito:mockito-core:5.11.0'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
-	testImplementation "org.testcontainers:elasticsearch:${testContainersVersion}"
 }
 
-test {
-    useJUnitPlatform()
-    systemProperty 'spring.profiles.active', 'test'
-}
+

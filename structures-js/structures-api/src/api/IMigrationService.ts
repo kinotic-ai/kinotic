@@ -40,7 +40,7 @@ export class MigrationService implements IMigrationService {
     private readonly serviceProxy: IServiceProxy;
 
     constructor() {
-        this.serviceProxy = Continuum.serviceProxy('org.mindignited.structures.api.services.MigrationService');
+        this.serviceProxy = Continuum.serviceProxy('org.kinotic.structures.api.services.MigrationService');
     }
 
     public executeMigrations(migrationRequest: MigrationRequest): Promise<MigrationResult> {

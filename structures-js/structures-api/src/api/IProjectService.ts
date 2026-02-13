@@ -36,7 +36,7 @@ export interface IProjectService extends ICrudServiceProxy<Project> {
 export class ProjectService extends CrudServiceProxy<Project> implements IProjectService{
 
     constructor() {
-        super(Continuum.serviceProxy('org.mindignited.structures.api.services.ProjectService'))
+        super(Continuum.serviceProxy('org.kinotic.structures.api.services.ProjectService'))
     }
 
     public countForApplication(applicationId: string): Promise<number> {

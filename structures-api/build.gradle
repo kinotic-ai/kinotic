@@ -1,5 +1,5 @@
 plugins {
-	id 'org.mindignited.java-library-conventions'
+	id 'org.kinotic.java-library-conventions'
 	id 'io.freefair.lombok'
 }
 
@@ -8,22 +8,13 @@ dependencies {
     // The can be removed once RawJson is no longer needed to extend JsonpSerializable
     api 'co.elastic.clients:elasticsearch-java'
 
+    // Json
     api 'com.fasterxml.jackson.core:jackson-annotations'
     // The two jackson libs below can be removed once RawJson is no longer needed to extend JsonpSerializable
-    api 'com.fasterxml.jackson.core:jackson-core'
-    api 'com.fasterxml.jackson.core:jackson-databind'
+    api 'tools.jackson.core:jackson-core'
+    api 'tools.jackson.core:jackson-databind'
 
-    api "org.mindignited:continuum-core"
-    api "org.mindignited:continuum-idl"
-
-    // Test dependencies
-    testImplementation 'org.mockito:mockito-core:5.11.0'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
-	testImplementation "org.testcontainers:elasticsearch:${testContainersVersion}"
+    api "org.kinotic:continuum-core"
+    api "org.kinotic:continuum-idl"
 }
 
-test {
-    useJUnitPlatform()
-}

@@ -866,7 +866,7 @@ deploy_structures_server() {
     fi
     
     # Add wait and timeout
-    helm_cmd+=(--wait --timeout "${DEPLOY_TIMEOUT}" --atomic)
+    helm_cmd+=(--wait --timeout "${DEPLOY_TIMEOUT}" --rollback-on-failure)
     
     # Show the helm command being executed (for debugging)
     verbose "Executing: ${helm_cmd[*]}"
@@ -948,6 +948,63 @@ deploy_structures_server() {
         kubectl get svc --context "${context}" -l app.kubernetes.io/name=structures-server 2>&1 || true
     fi
     
+    return 0
+}
+
+#
+# Deploy load generator via standalone Helm chart
+# Runs as a Job that generates schemas and test data against structures-server
+# Args:
+#   $1: Cluster name
+# Returns:
+#   0 on success, 1 on failure
+# Example:
+#   deploy_load_generator "structures-cluster"
+#
+deploy_load_generator() {
+    local cluster_name="$1"
+    local context="kind-${cluster_name}"
+    local chart_path="./helm/load-generator"
+    
+    progress "Running load generator (generateComplexStructures)..."
+    
+    if [[ ! -d "${chart_path}" ]]; then
+        error "Load generator chart not found: ${chart_path}"
+        return 1
+    fi
+    
+    # Get load-generator values file from config directory
+    local values_flags
+    values_flags=$(get_service_helm_flags "load-generator") || return 1
+    
+    progress "Using load-generator chart from: ${chart_path}"
+    progress "Using load-generator values from: $(get_service_values_path load-generator)"
+    
+    # Deploy using standalone Helm chart
+    local helm_output
+    # shellcheck disable=SC2086
+    helm_output=$(helm upgrade --install load-generator "${chart_path}" \
+        --kube-context "${context}" \
+        ${values_flags} \
+        --wait --timeout 10m 2>&1)
+    
+    local exit_code=$?
+    
+    if [[ ${exit_code} -ne 0 ]]; then
+        error "Failed to run load generator"
+        echo ""
+        echo "Helm output:"
+        echo "${helm_output}"
+        echo ""
+        echo "Check job status:"
+        echo "  kubectl get jobs --context ${context}"
+        echo "Check pod logs:"
+        echo "  kubectl logs -l app.kubernetes.io/name=structures-load-generator --context ${context}"
+        echo ""
+        return 1
+    fi
+    
+    success "Load generator completed successfully"
     return 0
 }
 

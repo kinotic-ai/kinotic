@@ -58,13 +58,13 @@ List<Statement> statements = parser.parse(sqlContent);
 - `src/main/antlr/StructuresSQL.g4`: ANTLR4 grammar definition
 
 ### Core Library Components
-- `src/main/java/org/mindignited/structures/sql/SystemMigrator.java`: Migration orchestrator
-- `src/main/java/org/mindignited/structures/sql/executor/MigrationExecutor.java`: Migration execution
-- `src/main/java/org/mindignited/structures/sql/parsers/MigrationParser.java`: SQL parsing
-- `src/main/java/org/mindignited/structures/sql/domain/`: Domain objects
+- `src/main/java/org/kinotic/structures/sql/SystemMigrator.java`: Migration orchestrator
+- `src/main/java/org/kinotic/structures/sql/executor/MigrationExecutor.java`: Migration execution
+- `src/main/java/org/kinotic/structures/sql/parsers/MigrationParser.java`: SQL parsing
+- `src/main/java/org/kinotic/structures/sql/domain/`: Domain objects
 
 ### Parser Implementation
-- `src/main/java/org/mindignited/structures/sql/parsers/`: Statement parsers
+- `src/main/java/org/kinotic/structures/sql/parsers/`: Statement parsers
   - `CreateTableStatementParser.java`: Table creation parsing
   - `ReindexStatementParser.java`: Reindex operation parsing
   - `UpdateStatementParser.java`: Update operation parsing
@@ -72,7 +72,7 @@ List<Statement> statements = parser.parse(sqlContent);
   - `InsertStatementParser.java`: Insert operation parsing
 
 ### Executor Implementation
-- `src/main/java/org/mindignited/structures/sql/executor/`: Statement executors
+- `src/main/java/org/kinotic/structures/sql/executor/`: Statement executors
   - `executors/`: Specific statement executors
   - `TypeMapper.java`: SQL to Elasticsearch type mapping
   - `QueryBuilder.java`: Dynamic query construction

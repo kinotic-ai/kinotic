@@ -81,11 +81,11 @@ build_image() {
 #
 # Check if Docker image exists locally
 # Args:
-#   $1: Image name (e.g., "mindignited/structures-server:0.5.0-SNAPSHOT")
+#   $1: Image name (e.g., "kinoticai/structures-server:0.5.0-SNAPSHOT")
 # Returns:
 #   0 if exists, 1 otherwise
 # Example:
-#   image_exists "mindignited/structures-server:0.5.0-SNAPSHOT"
+#   image_exists "kinoticai/structures-server:0.5.0-SNAPSHOT"
 #
 image_exists() {
     local image_name="$1"
@@ -102,7 +102,7 @@ image_exists() {
 # Args:
 #   $1: Image name
 # Example:
-#   get_image_info "mindignited/structures-server:0.5.0-SNAPSHOT"
+#   get_image_info "kinoticai/structures-server:0.5.0-SNAPSHOT"
 #
 get_image_info() {
     local image_name="$1"
@@ -154,7 +154,7 @@ get_image_info() {
 # Returns:
 #   0 on success, 1 on failure
 # Example:
-#   load_image_into_cluster "structures-cluster" "mindignited/structures-server:0.5.0-SNAPSHOT"
+#   load_image_into_cluster "structures-cluster" "kinoticai/structures-server:0.5.0-SNAPSHOT"
 #
 load_image_into_cluster() {
     local cluster_name="$1"
@@ -212,7 +212,7 @@ load_image_into_cluster() {
 # Args:
 #   $1: Image name
 # Example:
-#   display_deployment_instructions "mindignited/structures-server:0.5.0-SNAPSHOT"
+#   display_deployment_instructions "kinoticai/structures-server:0.5.0-SNAPSHOT"
 #
 display_deployment_instructions() {
     local image_name="$1"

@@ -1,13 +1,13 @@
 {
   "name": "@kinotic/structures-cli",
-  "version": "3.5.0-beta.8",
+  "version": "3.5.0",
   "description": "Structures CLI provides the ability to interact with the Structures Server",
-  "author": "Mind Ignited Developers",
+  "author": "Kinotic Developers",
   "bin": {
     "structures": "./bin/run.js"
   },
-  "homepage": "https://mindignited.github.io/structures/",
-  "repository": "https://github.com/MindIgnited/structures",
+  "homepage": "https://kinotic-ai.github.io/kinotic/",
+  "repository": "https://github.com/kinotic-ai/kinotic",
   "license": "MIT",
   "main": "dist/index.js",
   "type": "module",
@@ -21,7 +21,7 @@
     "@inquirer/prompts": "^8.0.2",
     "@kinotic/continuum-client": "2.14.10",
     "@kinotic/continuum-idl": "^2.0.4",
-    "@kinotic/structures-api": "^3.5.0-beta.18",
+    "@kinotic/structures-api": "^3.5.0",
     "@oclif/core": "^4.8.0",
     "@oclif/plugin-autocomplete": "^3.2.39",
     "@oclif/plugin-help": "^6",
@@ -91,7 +91,6 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "bugs": "https://github.com/https://github.com/MindIgnited/structures/structures/issues",
   "keywords": [
     "oclif"
   ],

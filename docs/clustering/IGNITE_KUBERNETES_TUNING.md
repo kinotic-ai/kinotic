@@ -67,7 +67,7 @@ dependencies {
 ```
 
 Then uncomment the Kubernetes IP Finder implementation in:
-- `structures-core/src/main/java/org/mindignited/structures/internal/config/IgniteConfiguration.java`
+- `structures-core/src/main/java/org/kinotic/structures/internal/config/IgniteConfiguration.java`
 
 ## Overview
 

@@ -23,14 +23,6 @@ The Docker Compose files provide different service configurations for:
   - Structures Server: 9090
 - **Usage**: `docker-compose up -d`
 
-#### `compose.test.yml` - Testing Environment
-- **Purpose**: Isolated testing environment
-- **Services**: Elasticsearch, Structures Server (test profile)
-- **Ports**: 
-  - Elasticsearch: 9201
-  - Structures Server: 9090
-- **Usage**: `docker-compose -f compose.test.yml up -d`
-
 ### Authentication Services
 
 #### `compose.keycloak.yml` - Keycloak Identity Provider
@@ -90,7 +82,7 @@ The Docker Compose files provide different service configurations for:
 The fastest way to get started is using our one-liner installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mindignited/structures/main/docker-compose/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kinotic-ai/kinotic/main/docker-compose/install.sh | bash
 ```
 
 This script will:
@@ -105,10 +97,10 @@ This script will:
 STRUCTURES_REPO=your-username/your-repo curl -fsSL https://raw.githubusercontent.com/your-username/your-repo/main/docker-compose/install.sh | bash
 
 # Use a different branch
-STRUCTURES_BRANCH=develop curl -fsSL https://raw.githubusercontent.com/mindignited/structures/main/docker-compose/install.sh | bash
+STRUCTURES_BRANCH=develop curl -fsSL https://raw.githubusercontent.com/kinotic-ai/kinotic/main/docker-compose/install.sh | bash
 
 # Install to a custom directory
-STRUCTURES_INSTALL=~/my-structures curl -fsSL https://raw.githubusercontent.com/mindignited/structures/main/docker-compose/install.sh | bash
+STRUCTURES_INSTALL=~/my-structures curl -fsSL https://raw.githubusercontent.com/kinotic-ai/kinotic/main/docker-compose/install.sh | bash
 ```
 
 **Note**: After installation, manage services from `~/.structures`:
@@ -245,19 +237,7 @@ docker-compose up -d
 docker-compose -f compose.yml -f compose.ek-m4.override.yml -f compose.gen-schemas.yml -f compose.keycloak.yml up -d
 ```
 
-### 2. Testing
-```bash
-# Start test environment
-docker-compose -f compose.test.yml up -d
-
-# Run tests
-./gradlew test
-
-# Clean up
-docker-compose -f compose.test.yml down -v
-```
-
-### 3. Debugging
+### 2. Debugging
 ```bash
 # View service logs
 docker-compose logs -f structures-server

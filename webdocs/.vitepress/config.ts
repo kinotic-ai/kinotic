@@ -19,11 +19,11 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: ' https://github.com/MindIgnited/structures' }
+      { icon: 'github', link: ' https://github.com/kinotic-ai/kinotic' }
     ],
     footer: {
       message: 'Released under the Apache License.',
-      copyright: 'Copyright © 2018-present Mind Ignited'
+      copyright: 'Copyright © 2018-present Kinotic',
     }
   }
 })
@@ -38,7 +38,7 @@ function nav() {
     },
     {
       text: 'Test Status',
-      link: 'https://mindignited.github.io/structures/allure' // Fully qualified URL
+      link: 'https://kinotic-ai.github.io/kinotic/allure' // Fully qualified URL
     }
   ]
 }

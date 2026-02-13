@@ -1,5 +1,5 @@
 plugins {
-	id 'org.mindignited.java-application-conventions'
+	id 'org.kinotic.java-application-conventions'
 }
 
 sourceSets {
@@ -15,29 +15,8 @@ dependencies {
 	implementation project(':structures-auth')
 
 	// Additional Continuum Dependencies
-	implementation "org.mindignited:continuum-core"
-	implementation "org.mindignited:continuum-gateway"
-
-
-    // needed if building against continuum-framework locally
-    if (file("${rootDir}/../continuum-framework").exists()) {
-
-        // figure out a clever way to handle this better
-        // implementation "org.mindignited:vertx-stomp-lite"
-        implementation "org.kinotic:vertx-stomp-lite"
-        implementation "io.vertx:vertx-ignite"
-        implementation "io.vertx:vertx-mqtt"
-        // implementation "org.mindignited:vertx-stomp-lite"
-        implementation "javax.annotation:javax.annotation-api"
-        // implementation "tools.jackson.core:jackson-core"
-        // implementation "tools.jackson.core:jackson-databind"
-        // implementation "org.springframework.boot:spring-boot-starter-jackson"
-        implementation "org.apache.ignite:ignite-calcite"
-        implementation "org.apache.ignite:ignite-spring"
-        implementation "org.apache.ignite:ignite-slf4j"
-    }
-    // end of continuum-framework dependencies
-
+	implementation "org.kinotic:continuum-core"
+	implementation "org.kinotic:continuum-gateway"
 
 	implementation 'com.github.ben-manes.caffeine:caffeine'
 	
@@ -45,21 +24,6 @@ dependencies {
 	implementation 'io.jsonwebtoken:jjwt-impl'
 	implementation 'io.jsonwebtoken:jjwt-jackson'
 
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'org.springframework.boot:spring-boot-starter-web'
-    testImplementation 'com.fasterxml.jackson.core:jackson-databind'
-    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
-    testImplementation "org.testcontainers:junit-jupiter:${testContainersVersion}"
-	testImplementation "org.testcontainers:elasticsearch:${testContainersVersion}"
-	testImplementation 'com.github.dasniko:testcontainers-keycloak:3.8.0'
-}
-
-test {
-
-	environment 'JAVA_TOOL_OPTIONS', '--add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED --add-opens=jdk.internal.jvmstat/sun.jvmstat.monitor=ALL-UNNAMED --add-opens=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.in=ALL-UNNAMED'
-
-	systemProperty 'spring.profiles.active', 'test'
-    
 }
 
 tasks.named('processResources') {

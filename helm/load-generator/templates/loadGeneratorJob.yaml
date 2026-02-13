@@ -23,7 +23,7 @@ spec:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "mindignited/structures-load-generator:{{ .Values.loadGenerator.image.tag }}"
+          image: "kinoticai/structures-load-generator:{{ .Values.loadGenerator.image.tag }}"
           imagePullPolicy: {{ .Values.loadGenerator.image.pullPolicy }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
@@ -38,6 +38,10 @@ spec:
               value: {{ .Values.otel.type }}
             - name: STRUCTURES_USE_SSL
               value: "{{ .Values.structures.useSsl }}"
+          {{- if .Values.structures.tlsInsecure }}
+            - name: NODE_TLS_REJECT_UNAUTHORIZED
+              value: "0"
+          {{- end }}
             - name: STRUCTURES_HOST
               value: "{{ .Values.structures.host }}"
           {{- if .Values.structures.port }}

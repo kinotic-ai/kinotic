@@ -175,7 +175,6 @@ const createWidgetElement = (elementName: string) => {
       } else {
         debug('No shadow root found!')
       }
-      }
     }, 300)
   } else {
     debug('Preview container not found for: %s', props.widget.id)

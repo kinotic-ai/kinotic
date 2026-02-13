@@ -1,0 +1,12 @@
+plugins {
+	id 'org.kinotic.java-application-conventions'
+}
+
+dependencies {
+	implementation project(':structures-sql')
+
+	implementation 'org.springframework.boot:spring-boot-starter'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+}
+

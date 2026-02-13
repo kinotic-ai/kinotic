@@ -1,0 +1,24 @@
+# Kind-specific values for the load-generator chart
+# Connects through nginx ingress for full-path testing
+
+structures:
+  useSsl: true
+  tlsInsecure: true  # Accept mkcert/self-signed certs
+  host: structures.local
+  port: 443
+
+loadGenerator:
+  image:
+    tag: latest
+    pullPolicy: Always
+  config:
+    maxConcurrentRequests: 1
+    maxRequestsPerSecond: 100
+    testName: generateComplexStructures
+    beginTenantIdNumber: 1
+    numberOfTenants: 1
+
+otel:
+  type: NONE
+
+parallelism: 1

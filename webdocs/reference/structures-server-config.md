@@ -39,7 +39,7 @@ You can create your own custom Structures server by embedding Structures in your
 Add the following annotation to your Spring Boot application:
 
 ```java
-import org.mindignited.structures.api.annotations.EnableStructures;
+import org.kinotic.structures.api.annotations.EnableStructures;
 
 @SpringBootApplication
 @EnableStructures
@@ -55,7 +55,7 @@ public class MyStructuresServer {
 You can provide your own implementation of the `SecurityService` interface to control how users are authenticated. For example, the reference server includes a simple hardcoded implementation:
 
 ```java
-// src/main/java/org/mindignited/structuresserver/config/TemporarySecurityService.java
+// src/main/java/org/kinotic/structuresserver/config/TemporarySecurityService.java
 @Component
 public class TemporarySecurityService implements SecurityService {
     private static final String PASSWORD = "structures";
@@ -90,7 +90,7 @@ You can replace this logic with your own, for example to integrate with an exter
 For fine-grained authorization, you can implement your own `AuthorizationServiceFactory` to provide RBAC or other access control mechanisms. The interface looks like this:
 
 ```java
-// org.mindignited.structures.api.services.security.AuthorizationServiceFactory
+// org.kinotic.structures.api.services.security.AuthorizationServiceFactory
 public interface AuthorizationServiceFactory {
     CompletableFuture<AuthorizationService<EntityOperation>> createStructureAuthorizationService(Structure structure);
     CompletableFuture<AuthorizationService<NamedQueryOperation>> createNamedQueryAuthorizationService(FunctionDefinition namedQuery);

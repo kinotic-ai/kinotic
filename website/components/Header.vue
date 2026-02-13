@@ -112,7 +112,7 @@ watch(isMenuOpen, (val) => {
             <NuxtLink to="https://structuresframework.org/allure/index.html" class="text-[#EDEEF2] text-sm" @click="isMenuOpen = false">Test Status</NuxtLink>
           </div>
           <NuxtLink
-            to="https://github.com/MindIgnited/structures"
+            to="https://github.com/kinotic-ai/kinotic"
             class="flex items-center justify-center gap-2 rounded-lg px-3 py-2 bg-[#2B2A32] w-full xl:w-fit"
             @click="isMenuOpen = false"
           >

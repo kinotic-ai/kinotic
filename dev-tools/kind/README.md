@@ -46,12 +46,6 @@ Once the cluster is deployed, services are accessible via **HTTPS** through the 
 
 | Service | URL | Credentials | Notes |
 |---------|-----|-------------|-------|
-| **Structures UI** | http://localhost:9090 | - | Always available |
-| **Structures Health** | http://localhost:9090/health | - | Always available |
-| **Structures OpenAPI** | http://localhost:8080 | - | Always available |
-| **Structures GraphQL** | http://localhost:4000 | - | Always available |
-| **Continuum Stomp** | ws://localhost:58503 | - | Always available |
-| **Continuum REST** | http://localhost:58504 | - | Always available |
 | **Elasticsearch** | http://localhost:9200 | - | With `--with-deps` (default) |
 | **PostgreSQL** | localhost:5555 | keycloak / keycloak | With `--with-keycloak` only |
 | **Keycloak Admin** | http://localhost:8888/auth/admin | admin / admin | With `--with-keycloak` only |
@@ -91,52 +85,7 @@ mkcert -install   # Install local CA (one-time setup)
 
 ### Linux Installation
 
-```bash
-# kind
-curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-chmod +x ./kind
-sudo mv ./kind /usr/local/bin/kind
-
-# kubectl
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-chmod +x kubectl
-sudo mv kubectl /usr/local/bin/
-
-# helm
-curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-
-# Docker (Ubuntu/Debian)
-sudo apt-get update
-sudo apt-get install docker.io
-sudo systemctl start docker
-sudo usermod -aG docker $USER
-
-# Optional: mkcert for browser-trusted local HTTPS
-# First install certutil (required for Firefox/Chrome)
-sudo apt install libnss3-tools    # Ubuntu/Debian
-# or: sudo yum install nss-tools  # Fedora/RHEL
-# or: sudo pacman -S nss          # Arch
-
-# Install mkcert via Homebrew on Linux
-brew install mkcert
-
-# Or install from pre-built binaries
-curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
-chmod +x mkcert-v*-linux-amd64
-sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
-
-# Install local CA (one-time setup)
-mkcert -install
-```
-
-### About mkcert
-
-[mkcert](https://github.com/FiloSottile/mkcert) is a simple tool for making locally-trusted development certificates. When installed:
-
-- **With mkcert**: `https://localhost` works with no browser warnings
-- **Without mkcert**: Uses cert-manager self-signed certs (browser shows "Not Secure" warning, but still works)
-
-The deploy script automatically detects mkcert and generates browser-trusted certificates if available.
+Install [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation), [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/), [helm](https://helm.sh/docs/intro/install/), and Docker using your package manager or the official installation instructions. Optionally install [mkcert](https://github.com/FiloSottile/mkcert) for browser-trusted local HTTPS.
 
 ## Commands
 
@@ -274,7 +223,7 @@ Build structures-server Docker image using Gradle's `bootBuildImage` task with S
 1. Runs `./gradlew :structures-server:bootBuildImage`
 2. Uses Paketo Buildpacks for optimized Java images
 3. Includes health checker buildpack
-4. Tags image as `mindignited/structures-server:<version>` from gradle.properties
+4. Tags image as `kinoticai/structures-server:<version>` from gradle.properties
 5. Optionally loads into cluster if `--load` flag provided
 
 **Time:** 2-5 minutes (first build), < 1 minute (subsequent builds with cache)
@@ -300,7 +249,7 @@ Load a locally built Docker image into KinD cluster nodes.
 ./kind-cluster.sh load
 
 # Load specific image
-./kind-cluster.sh load --image mindignited/structures-server:0.5.0
+./kind-cluster.sh load --image kinoticai/structures-server:0.5.0
 
 # Load into specific cluster
 ./kind-cluster.sh load --name test-cluster
@@ -468,8 +417,6 @@ This architecture:
 - ✅ Provides HTTPS with automatic TLS certificate management
 - ✅ Supports WebSocket connections with proper sticky sessions
 - ✅ Handles path-based routing to multiple backend services
-
-See [INGRESS_SETUP.md](INGRESS_SETUP.md) for detailed configuration information.
 
 ---
 
@@ -683,41 +630,15 @@ lsof -i :8888
 
 **Problem:** Admission webhook denies ingress with "configuration-snippet" or "risky annotation" error
 
-```
-Error: admission webhook "validate.nginx.ingress.kubernetes.io" denied the request: 
-nginx.ingress.kubernetes.io/configuration-snippet annotation cannot be used
-```
-or
-```
-annotation group ConfigurationSnippet contains risky annotation based on ingress configuration
-```
-
-**Solution:**
+**Solution:** This is automatically handled by the deployment scripts for new clusters. If it occurs on an existing cluster, patch nginx-ingress:
 ```bash
-# Patch nginx-ingress to allow snippets and risky annotations (development only!)
-kubectl patch configmap ingress-nginx-controller \
-  -n ingress-nginx \
-  --context kind-structures-cluster \
-  --type merge \
+kubectl patch configmap ingress-nginx-controller -n ingress-nginx \
+  --context kind-structures-cluster --type merge \
   -p '{"data":{"allow-snippet-annotations":"true","annotations-risk-level":"Critical"}}'
-
-# Restart the ingress controller
-kubectl rollout restart deployment ingress-nginx-controller \
-  -n ingress-nginx \
+kubectl rollout restart deployment ingress-nginx-controller -n ingress-nginx \
   --context kind-structures-cluster
-
-# Wait for it to be ready
-kubectl wait --namespace ingress-nginx \
-  --for=condition=ready pod \
-  --selector=app.kubernetes.io/component=controller \
-  --timeout=60s \
-  --context kind-structures-cluster
-
-# Retry deployment
-./kind-cluster.sh deploy
+./kind-cluster.sh deploy  # Retry
 ```
-
-> **Note:** This is automatically handled by the deployment scripts for new clusters. See [Security Considerations](#security-considerations) for details.
 
 ---
 
@@ -733,7 +654,7 @@ kubectl describe pod <pod-name>
 
 # Common fixes:
 # 1. If ImagePullBackOff on locally built image:
-./kind-cluster.sh load --image mindignited/structures-server:<version>
+./kind-cluster.sh load --image kinoticai/structures-server:<version>
 
 # 2. If resource constraints:
 # Edit config/structures-server/values.yaml to reduce resource requests
@@ -822,53 +743,33 @@ docker search kindest/node
 kubectl config use-context kind-cluster1
 ```
 
-### Observability Stack (Future)
-
-```bash
-# Deploy with full observability
-./kind-cluster.sh deploy --with-observability
-
-# Access Grafana dashboards
-open http://localhost:3000
-
-# Access Prometheus
-open http://localhost:9080
-
-# Access Jaeger traces
-open http://localhost:16686
-```
-
 ---
 
 ## Files and Directories
 
 ```
 dev-tools/kind/
-├── kind-cluster.sh           # Main CLI script
+├── kind-cluster.sh                # Main CLI script
 ├── lib/
-│   ├── logging.sh            # Logging and output functions
-│   ├── config.sh             # Configuration loading
-│   ├── prerequisites.sh      # Tool prerequisite checking
-│   ├── cluster.sh            # Cluster lifecycle management
-│   ├── deploy.sh             # Deployment functions
-│   └── images.sh             # Image build/load functions
+│   ├── logging.sh                 # Logging and output functions
+│   ├── config.sh                  # Configuration loading
+│   ├── prerequisites.sh           # Tool prerequisite checking
+│   ├── cluster.sh                 # Cluster lifecycle management
+│   ├── deploy.sh                  # Deployment functions
+│   ├── images.sh                  # Image build/load functions
+│   └── node_update.sh             # Node update simulation
 ├── config/
 │   ├── kind-config.yaml           # KinD cluster configuration
-│   ├── elasticsearch/             # Elasticsearch Helm values
-│   │   └── values.yaml
-│   ├── postgresql/                # PostgreSQL Helm values
-│   │   └── values.yaml
-│   ├── keycloak/                  # Keycloak Helm values
-│   │   └── values.yaml
-│   ├── ingress-nginx/             # NGINX Ingress values
-│   │   └── values.yaml
-│   ├── cert-manager/              # cert-manager values
-│   │   └── values.yaml
-│   ├── coredns/                   # CoreDNS ConfigMap template
-│   │   └── custom-hosts.yaml
-│   └── structures-server/         # structures-server Helm values
-│       ├── values.yaml
+│   ├── cert-manager/values.yaml   # cert-manager values
+│   ├── coredns/custom-hosts.yaml  # CoreDNS ConfigMap template
+│   ├── elasticsearch/values.yaml  # Elasticsearch Helm values
+│   ├── ingress-nginx/values.yaml  # NGINX Ingress values
+│   ├── keycloak/values.yaml       # Keycloak Helm values
+│   ├── postgresql/values.yaml     # PostgreSQL Helm values
+│   └── structures-server/
+│       ├── values.yaml            # structures-server Helm values
 │       └── values.local.yaml      # Local overrides (gitignored)
+├── charts/keycloak/               # Local Keycloak Helm chart
 └── README.md                      # This file
 ```
 
@@ -894,20 +795,4 @@ When modifying the tools:
 2. Run `shellcheck` on modified scripts
 3. Update this README if adding features
 4. Follow existing code patterns and error handling
-
----
-
-## Support
-
-For issues or questions:
-1. Check this README's Troubleshooting section
-2. Review `specs/001-kind-cluster-tools/` documentation
-3. Check cluster/pod logs: `./kind-cluster.sh logs`
-4. Consult project maintainers
-
----
-
-## License
-
-Same as parent Structures project - see LICENSE.txt in repository root.
 

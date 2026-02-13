@@ -22,7 +22,7 @@ logging:
     org:
       springframework:
         web: DEBUG
-      mindignited: TRACE
+      kinotic: TRACE
     io:
       vertx: DEBUG
 

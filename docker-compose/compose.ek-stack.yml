@@ -1,6 +1,6 @@
 services:
   structures-elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.18.1
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.2.4
     container_name: structures-elasticsearch
     environment:
       - discovery.type=single-node
@@ -10,7 +10,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 120s
+      start_period: 150s
     ports:
       - "9200:9200"  # Elasticsearch HTTP API
       - "9300:9300"  # Elasticsearch transport
@@ -25,7 +25,7 @@ services:
     volumes:
       - ~/structures/elastic-data:/usr/share/elasticsearch/data
   structures-kibana:
-    image: docker.elastic.co/kibana/kibana:8.18.1
+    image: docker.elastic.co/kibana/kibana:9.2.4
     container_name: structures-kibana
     depends_on:
       structures-elasticsearch:

@@ -1,8 +1,7 @@
-import { ConnectionInfo } from '@mindignited/continuum-client'
-import { createDebug } from './debug'
 
+import { createDebug } from './debug'
 const debug = createDebug('config');
-import type { ConnectionInfo } from "@mindignited/continuum-client";
+import type { ConnectionInfo } from "@kinotic/continuum-client";
 // import { USER_STATE } from "../states/IUserState";
 import { createConnectionInfo } from "./helpers";
 

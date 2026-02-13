@@ -25,7 +25,7 @@ export class DataInsightsService implements IDataInsightsService {
     private readonly serviceProxy: IServiceProxy
 
     constructor() {
-        this.serviceProxy = Continuum.serviceProxy('org.mindignited.structures.api.services.insights.DataInsightsService')
+        this.serviceProxy = Continuum.serviceProxy('org.kinotic.structures.api.services.insights.DataInsightsService')
     }
 
     public processRequest(request: InsightRequest): Observable<InsightProgress> {

@@ -191,7 +191,7 @@ Enable debug logging for troubleshooting:
 ```yaml
 logging:
   level:
-    org.mindignited.structures: DEBUG
+    org.kinotic.structures: DEBUG
     org.springframework.security: DEBUG
 ```
 
