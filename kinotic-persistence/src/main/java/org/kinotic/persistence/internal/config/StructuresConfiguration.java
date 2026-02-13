@@ -11,13 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Enables component scanning for structures classes when {@link EnableKinoticRpc} is present
- * Created by Navíd Mitchell 🤪 on 5/30/23.
- */
 @Configuration
-@EnableConfigurationProperties
-@ComponentScan(basePackages = "org.kinotic.persistence")
 public class StructuresConfiguration {
 
     @Bean

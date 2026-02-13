@@ -30,6 +30,7 @@ dependencies {
 	implementation "io.swagger.core.v3:swagger-models:${swaggerCoreVersion}"
 	implementation "io.swagger.core.v3:swagger-core:${swaggerCoreVersion}"
 
+	implementation "io.vertx:vertx-core"
 	implementation "io.vertx:vertx-web"
 	implementation "io.vertx:vertx-web-graphql"
 	implementation "io.vertx:vertx-web-client"

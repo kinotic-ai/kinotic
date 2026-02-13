@@ -6,14 +6,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.junit.jupiter.api.BeforeEach;
-import org.kinotic.persistence.api.annotations.EnableStructures;
 import org.kinotic.persistence.sql.SystemMigrator;
 import org.kinotic.persistence.sql.executor.MigrationExecutor;
 import org.kinotic.persistence.sql.parsers.MigrationParser;
 
 @ContextConfiguration(initializers = ElasticsearchTestContextInitializer.class)
 @SpringBootTest
-@EnableStructures
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class ElasticTestBase {
 
