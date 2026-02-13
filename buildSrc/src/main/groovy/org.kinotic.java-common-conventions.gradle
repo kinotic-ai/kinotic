@@ -98,8 +98,6 @@ dependencyManagement {
         // must be overridden for the elastic client
         dependency 'jakarta.json:jakarta.json-api:2.0.1'
 
-        dependency "javax.cache:cache-api:${jCacheApiVersion}"
-
         // JWT and OIDC dependencies
         dependency "io.jsonwebtoken:jjwt-api:${jsonwebtokenVersion}"
         dependency "io.jsonwebtoken:jjwt-impl:${jsonwebtokenVersion}"

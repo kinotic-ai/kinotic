@@ -199,7 +199,7 @@ export class User {
 
    For **Node.js/Backend** applications:
    ```typescript
-   import { Continuum } from '@kinotic/continuum-client'
+   import { Continuum } from '@kinotic/kinotic-client'
    import { WebSocket } from 'ws'
    import { UserEntityService } from './generated/UserEntityService'
 

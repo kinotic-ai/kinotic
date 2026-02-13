@@ -6,7 +6,7 @@ import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.rpc.api.config.KinoticRpcProperties;
+import org.kinotic.boot.api.config.KinoticProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -22,13 +22,13 @@ public class ContinuumGatewayEndpointInitializer {
     private static final Logger log = LoggerFactory.getLogger(ContinuumGatewayEndpointInitializer.class);
 
     private final ContinuumVertcleFactory continuumVertcleFactory;
-    private final KinoticRpcProperties kinoticRpcProperties;
+    private final KinoticProperties kinoticProperties;
     private final Vertx vertx;
 
     @PostConstruct
     public void init(){
         // If production deploy one verticle of each per core
-        int numToDeploy = kinoticRpcProperties.getMaxNumberOfCoresToUse();
+        int numToDeploy = kinoticProperties.getMaxNumberOfCoresToUse();
         log.info("{} Cores will be used for Continuum Endpoints", numToDeploy);
         DeploymentOptions options = new DeploymentOptions().setInstances(numToDeploy);
 

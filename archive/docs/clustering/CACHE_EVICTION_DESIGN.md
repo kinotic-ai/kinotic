@@ -397,7 +397,7 @@ See `docker-compose/CLUSTER_TESTING.md` for detailed testing procedures.
 
 **Docker/Testcontainers** (Static IP Discovery):
 ```yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: SHAREDFS
@@ -408,7 +408,7 @@ continuum:
 
 **Kubernetes** (Kubernetes Discovery):
 ```yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: KUBERNETES
@@ -436,8 +436,8 @@ continuum:
 
 **Nodes not joining cluster**:
 - Check Docker network connectivity
-- Verify discovery addresses in configuration (`continuum.cluster.localAddresses`)
-- Increase `continuum.cluster.joinTimeoutMs` if nodes are slow
+- Verify discovery addresses in configuration (`kinotic.cluster.localAddresses`)
+- Increase `kinotic.cluster.joinTimeoutMs` if nodes are slow
 - Check logs for "Topology snapshot" messages
 
 **Cache eviction not propagating**:
@@ -462,7 +462,7 @@ For production Kubernetes deployments, use Kubernetes discovery instead of stati
 
 **Application Configuration** (via environment variables or ConfigMap):
 ```yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: KUBERNETES

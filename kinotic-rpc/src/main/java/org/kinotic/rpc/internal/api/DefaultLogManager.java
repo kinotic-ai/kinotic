@@ -3,7 +3,7 @@
 package org.kinotic.rpc.internal.api;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.rpc.api.Continuum;
+import org.kinotic.boot.api.Kinotic;
 import org.kinotic.rpc.api.log.*;
 import org.kinotic.rpc.api.log.LogLevel;
 import org.springframework.boot.logging.*;
@@ -25,23 +25,23 @@ import java.util.stream.Collectors;
 public class DefaultLogManager implements LogManager {
 
 
-    private final Continuum continuum;
+    private final Kinotic kinotic;
     private final LoggingSystem loggingSystem;
     private final LoggerGroups loggerGroups;
 
 
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
-    public DefaultLogManager(Continuum continuum,
+    public DefaultLogManager(Kinotic kinotic,
                              LoggingSystem loggingSystem,
                              LoggerGroups loggerGroups) {
-        this.continuum = continuum;
+        this.kinotic = kinotic;
         this.loggingSystem = loggingSystem;
         this.loggerGroups = loggerGroups;
     }
 
     @Override
     public String nodeId() {
-        return continuum.serverInfo().getNodeId();
+        return kinotic.serverInfo().getNodeId();
     }
 
     public LoggersDescriptor loggers() {

@@ -1,12 +1,13 @@
 package org.kinotic.rpc.api.annotations;
 
+import org.kinotic.boot.api.annotations.KinoticPackages;
 import org.springframework.stereotype.Indexed;
 
 import java.lang.annotation.*;
 
 /**
  * {@link Proxy} annotations mark an interface as a proxy to a {@link Publish}ed service.
- * They will automatically be detected when the spring application boots if any exist in the {@link KinoticRpcPackages}.
+ * They will automatically be detected when the spring application boots if any exist in the {@link KinoticPackages}.
  *
  * Created by Navid Mitchell on 2019-02-03.
  */

@@ -4,7 +4,7 @@ package org.kinotic.rpc.internal.api.service.json;
 
 
 import lombok.Getter;
-import org.kinotic.rpc.api.config.KinoticRpcProperties;
+import org.kinotic.boot.api.config.KinoticProperties;
 import org.kinotic.rpc.api.event.Event;
 import org.kinotic.rpc.api.event.EventConstants;
 import org.kinotic.rpc.api.event.Metadata;
@@ -42,14 +42,14 @@ public abstract class AbstractJacksonSupport {
     @Getter
     private final JsonMapper jsonMapper;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
-    private final KinoticRpcProperties kinoticRpcProperties;
+    private final KinoticProperties kinoticProperties;
 
     public AbstractJacksonSupport(JsonMapper jsonMapper,
                                   ReactiveAdapterRegistry reactiveAdapterRegistry,
-                                  KinoticRpcProperties kinoticRpcProperties) {
+                                  KinoticProperties kinoticProperties) {
         this.jsonMapper = jsonMapper;
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
-        this.kinoticRpcProperties = kinoticRpcProperties;
+        this.kinoticProperties = kinoticProperties;
 
     }
 
@@ -87,7 +87,7 @@ public abstract class AbstractJacksonSupport {
         List<TokenBuffer> tokens = JacksonTokenizer.tokenize(Flux.just(event.data()),
                                                              jsonMapper,
                                                              dataInArray,
-                                                             kinoticRpcProperties.getMaxEventPayloadSize())
+                                                             kinoticProperties.getMaxEventPayloadSize())
                                                    .collectList()
                                                    .block();
 

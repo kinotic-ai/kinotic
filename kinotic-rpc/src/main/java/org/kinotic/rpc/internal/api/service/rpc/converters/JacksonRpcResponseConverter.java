@@ -2,7 +2,7 @@
 
 package org.kinotic.rpc.internal.api.service.rpc.converters;
 
-import org.kinotic.rpc.api.config.KinoticRpcProperties;
+import org.kinotic.boot.api.config.KinoticProperties;
 import org.kinotic.rpc.api.event.Event;
 import org.kinotic.rpc.internal.api.service.json.AbstractJacksonSupport;
 import org.kinotic.rpc.internal.api.service.rpc.RpcResponseConverter;
@@ -21,8 +21,8 @@ public class JacksonRpcResponseConverter extends AbstractJacksonSupport implemen
 
     public JacksonRpcResponseConverter(JsonMapper jsonMapper,
                                        ReactiveAdapterRegistry reactiveAdapterRegistry,
-                                       KinoticRpcProperties kinoticRpcProperties) {
-        super(jsonMapper, reactiveAdapterRegistry, kinoticRpcProperties);
+                                       KinoticProperties kinoticProperties) {
+        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties);
     }
 
     @Override

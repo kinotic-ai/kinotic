@@ -6,7 +6,7 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.healthchecks.Status;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.rpc.api.config.KinoticRpcProperties;
+import org.kinotic.boot.api.config.KinoticProperties;
 import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.persistence.internal.endpoints.StructuresVerticleFactory;
 import org.slf4j.Logger;
@@ -26,7 +26,7 @@ import jakarta.annotation.PostConstruct;
 public class StructuresInitializer {
 
     private static final Logger log = LoggerFactory.getLogger(StructuresInitializer.class);
-    private final KinoticRpcProperties kinoticRpcProperties;
+    private final KinoticProperties kinoticProperties;
     private final ElasticsearchAsyncClient esAsyncClient;
     private final HealthChecks healthChecks;
     private final StructuresProperties properties;
@@ -37,7 +37,7 @@ public class StructuresInitializer {
 
     @PostConstruct
     public void init(){
-        int numToDeploy = kinoticRpcProperties.getMaxNumberOfCoresToUse();
+        int numToDeploy = kinoticProperties.getMaxNumberOfCoresToUse();
         log.info("{} Cores will be used for Structures Endpoints", numToDeploy);
         DeploymentOptions options = new DeploymentOptions().setInstances(numToDeploy);
 

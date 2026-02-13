@@ -13,7 +13,7 @@ import org.kinotic.rpc.api.RpcServiceProxy;
 import org.kinotic.rpc.api.RpcServiceProxyHandle;
 import org.kinotic.rpc.api.event.*;
 import org.kinotic.rpc.api.service.ServiceIdentifier;
-import org.kinotic.rpc.internal.utils.ContinuumUtil;
+import org.kinotic.boot.internal.utils.KinoticUtil;
 import org.kinotic.rpc.internal.utils.MetaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,13 +74,13 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
 
         this.serviceIdentifier = serviceIdentifier;
         this.nodeName = nodeName;
-        String encodedNodeName = ContinuumUtil.safeEncodeURI(nodeName);
+        String encodedNodeName = KinoticUtil.safeEncodeURI(nodeName);
         this.serviceClass = serviceClass;
         this.rpcArgumentConverter = rpcArgumentConverter;
         this.rpcReturnValueHandlerFactory = rpcReturnValueHandlerFactory;
         this.eventBusService = eventBusService;
 
-        this.handlerCRI = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, encodedNodeName + ":" + UUID.randomUUID(), ContinuumUtil.safeEncodeURI(serviceClass.getName())+"RpcProxyResponseHandler");
+        this.handlerCRI = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, encodedNodeName + ":" + UUID.randomUUID(), KinoticUtil.safeEncodeURI(serviceClass.getName())+"RpcProxyResponseHandler");
 
         // Verify that a proxy can be built supporting all methods of the provided serviceClass
         ReflectionUtils.doWithMethods(serviceClass, method -> {

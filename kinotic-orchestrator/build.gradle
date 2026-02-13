@@ -4,9 +4,14 @@ plugins {
 
 
 dependencies {
-    api project(':kinotic-rpc')
+    implementation project(':kinotic-boot')
+    implementation project(':kinotic-rpc')
 
     implementation 'commons-io:commons-io'
+
+    implementation 'io.projectreactor:reactor-core'
+
+    implementation 'org.reactivestreams:reactive-streams'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'

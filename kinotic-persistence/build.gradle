@@ -4,6 +4,7 @@ plugins {
 }
 
 dependencies {
+	implementation project(':kinotic-boot')
     implementation project(':kinotic-rpc')
     implementation project(':kinotic-rpc-gateway')
     implementation project(':kinotic-idl')

@@ -11,6 +11,8 @@ sourceSets {
 }
 
 dependencies {
+	implementation project(':kinotic-boot')
+	implementation project(':kinotic-core')
 	implementation project(':kinotic-persistence')
 	implementation project(':kinotic-rpc')
     implementation project(':kinotic-rpc-gateway')

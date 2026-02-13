@@ -4,26 +4,27 @@ plugins {
 
 dependencies {
     // Continuum Dependencies
-    api project(':kinotic-rpc')
+    implementation project(':kinotic-boot')
+    implementation project(':kinotic-rpc')
 
-    implementation 'org.springframework:spring-core'
-    implementation 'org.springframework:spring-context'
-    implementation 'org.springframework.boot:spring-boot-autoconfigure' // Used for conditionally wiring beans
+    // reactive streams apis
+    implementation 'io.projectreactor:reactor-core'
 
     implementation 'io.vertx:vertx-core'
-    api 'io.vertx:vertx-web'
-    implementation 'org.kinotic:vertx-stomp-lite'
+    implementation 'io.vertx:vertx-web'
 
     implementation 'org.apache.ignite:ignite-core'
 
-    // OpenHFT, temps storage before event backend
-//    implementation 'net.openhft:chronicle-queue'
-//    implementation 'com.github.ben-manes.caffeine:caffeine'
+    implementation 'org.kinotic:vertx-stomp-lite'
 
-    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+    implementation 'org.reactivestreams:reactive-streams'
 
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'io.projectreactor:reactor-test'
+    implementation 'org.springframework:spring-core'
+    implementation 'org.springframework:spring-context'
+
+    implementation 'tools.jackson.core:jackson-core'
+    implementation 'tools.jackson.core:jackson-databind'
+
     testImplementation 'io.vertx:vertx-web-client'
     testImplementation 'org.awaitility:awaitility'
 }

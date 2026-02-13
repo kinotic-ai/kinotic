@@ -6,7 +6,7 @@ import io.vertx.core.Future;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.kinotic.rpc.api.Continuum;
+import org.kinotic.boot.api.Kinotic;
 import org.kinotic.rpc.api.exceptions.RpcInvocationException;
 import org.kinotic.rpc.api.exceptions.RpcMissingMethodException;
 import org.kinotic.rpc.api.exceptions.RpcMissingServiceException;
@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 public class RpcTests {
 
     @Autowired
-    private Continuum continuum;
+    private Kinotic kinotic;
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because continuum wires them..
     @Autowired
     private NonExistentServiceProxy nonExistentServiceProxy;
@@ -83,7 +83,7 @@ public class RpcTests {
         Mono<String> mono = rpcTestServiceProxy.firstArgParticipant(suffix);
 
         StepVerifier.create(mono)
-                    .expectNext(continuum.serverInfo().getNodeName() + suffix)
+                    .expectNext(kinotic.serverInfo().getNodeName() + suffix)
                     .expectComplete()
                     .verify();
     }
@@ -108,7 +108,7 @@ public class RpcTests {
         Mono<String> mono = rpcTestServiceProxy.lastArgParticipant(prefix);
 
         StepVerifier.create(mono)
-                    .expectNext(prefix + continuum.serverInfo().getNodeName())
+                    .expectNext(prefix + kinotic.serverInfo().getNodeName())
                     .expectComplete()
                     .verify();
     }
@@ -131,7 +131,7 @@ public class RpcTests {
         Mono<String> mono = rpcTestServiceProxy.middleArgParticipant(prefix, suffix);
 
         StepVerifier.create(mono)
-                    .expectNext(prefix + continuum.serverInfo().getNodeName() + suffix)
+                    .expectNext(prefix + kinotic.serverInfo().getNodeName() + suffix)
                     .expectComplete()
                     .verify();
     }

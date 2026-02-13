@@ -50,7 +50,7 @@ This index provides an overview of all clustering and high availability document
 
 ## Cluster Discovery Types
 
-Structures supports three cluster discovery mechanisms via `continuum.cluster.discoveryType`:
+Structures supports three cluster discovery mechanisms via `kinotic.cluster.discoveryType`:
 
 | Type | Use Case | Documentation |
 |------|----------|---------------|
@@ -92,9 +92,9 @@ docker compose -f compose.cluster-test.yml up
 ```bash
 helm install structures ./helm/structures \
   --set replicaCount=3 \
-  --set continuum.cluster.discoveryType=KUBERNETES \
-  --set continuum.cluster.kubernetesNamespace=production \
-  --set continuum.cluster.kubernetesServiceName=structures-ignite
+  --set kinotic.cluster.discoveryType=KUBERNETES \
+  --set kinotic.cluster.kubernetesNamespace=production \
+  --set kinotic.cluster.kubernetesServiceName=structures-ignite
 ```
 
 ---

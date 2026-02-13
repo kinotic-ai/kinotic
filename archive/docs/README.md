@@ -52,7 +52,7 @@ Kubernetes deployment guides and tooling.
 
 | Prefix | Purpose |
 |--------|---------|
-| `continuum.cluster.*` | Ignite cluster configuration |
+| `kinotic.cluster.*` | Ignite cluster configuration |
 | `structures.*` | Structures-specific settings |
 | `oidc.security-service.*` | OIDC authentication |
 

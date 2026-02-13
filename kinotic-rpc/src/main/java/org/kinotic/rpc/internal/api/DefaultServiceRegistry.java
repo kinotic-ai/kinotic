@@ -5,7 +5,7 @@ package org.kinotic.rpc.internal.api;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.rpc.api.Continuum;
+import org.kinotic.boot.api.Kinotic;
 import org.kinotic.rpc.api.annotations.Proxy;
 import org.kinotic.rpc.api.RpcServiceProxyHandle;
 import org.kinotic.rpc.api.ServiceRegistry;
@@ -21,7 +21,7 @@ import org.kinotic.rpc.internal.api.service.rpc.DefaultRpcServiceProxyHandle;
 import org.kinotic.rpc.internal.api.service.rpc.RpcArgumentConverter;
 import org.kinotic.rpc.internal.api.service.rpc.RpcArgumentConverterResolver;
 import org.kinotic.rpc.internal.api.service.rpc.RpcReturnValueHandlerFactory;
-import org.kinotic.rpc.internal.utils.ContinuumUtil;
+import org.kinotic.boot.internal.utils.KinoticUtil;
 import org.kinotic.rpc.internal.utils.MetaUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ReactiveAdapterRegistry;
@@ -44,7 +44,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     @Autowired
     private ArgumentResolverComposite argumentResolver;
     @Autowired
-    private Continuum continuum;
+    private Kinotic kinotic;
     @Autowired
     private EventBusService eventBusService;
     @Autowired
@@ -108,7 +108,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     public <T> RpcServiceProxyHandle<T> serviceProxy(ServiceIdentifier serviceIdentifier, Class<T> serviceInterface) {
         RpcArgumentConverter rpcArgumentConverter = rpcArgumentConverterResolver.resolve(MimeTypeUtils.APPLICATION_JSON_VALUE);
         return new DefaultRpcServiceProxyHandle<>(serviceIdentifier,
-                                                  continuum.serverInfo().getNodeName(),
+                                                  kinotic.serverInfo().getNodeName(),
                                                   serviceInterface,
                                                   rpcArgumentConverter,
                                                   rpcReturnValueHandlerFactory,
@@ -122,7 +122,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
         Validate.isTrue(rpcArgumentConverterResolver.canResolve(contentTypeExpected), "The contentType:"+contentTypeExpected+" does not have any configured RpcArgumentConverter's");
         RpcArgumentConverter rpcArgumentConverter = rpcArgumentConverterResolver.resolve(contentTypeExpected);
         return new DefaultRpcServiceProxyHandle<>(serviceIdentifier,
-                                                  continuum.serverInfo().getNodeName(),
+                                                  kinotic.serverInfo().getNodeName(),
                                                   serviceInterface,
                                                   rpcArgumentConverter,
                                                   rpcReturnValueHandlerFactory,
@@ -135,7 +135,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
         Proxy proxyAnnotation = serviceInterface.getAnnotation(Proxy.class);
         Validate.notNull(proxyAnnotation, "The Class provided must be annotated with @Proxy");
 
-        String namespace = proxyAnnotation.namespace().isEmpty() ? ContinuumUtil.safeEncodeURI(serviceInterface.getPackageName()) : ContinuumUtil.safeEncodeURI(proxyAnnotation.namespace());
+        String namespace = proxyAnnotation.namespace().isEmpty() ? KinoticUtil.safeEncodeURI(serviceInterface.getPackageName()) : KinoticUtil.safeEncodeURI(proxyAnnotation.namespace());
         String name = proxyAnnotation.name().isEmpty() ? serviceInterface.getSimpleName() : proxyAnnotation.name();
         String version = MetaUtil.getVersion(serviceInterface);
 

@@ -9,7 +9,7 @@ import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.IntC3Type;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
-import org.kinotic.rpc.internal.utils.ContinuumUtil;
+import org.kinotic.boot.internal.utils.KinoticUtil;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.decorators.*;
 import org.kinotic.persistence.api.services.ApplicationService;
@@ -199,14 +199,14 @@ public class TestDataService {
      * @return a {@link CompletableFuture} that will return a random {@link Person} from the cache.
      */
     public CompletableFuture<Person> createTestPerson() {
-        return peopleCache.get(PEOPLE_KEY).thenApply(people -> people.get(ContinuumUtil.getRandomNumberInRange(people.size() - 1)));
+        return peopleCache.get(PEOPLE_KEY).thenApply(people -> people.get(KinoticUtil.getRandomNumberInRange(people.size() - 1)));
     }
 
     /**
      * @return a {@link CompletableFuture} that will return a random {@link Person} with the id populated, from the cache.
      */
     public CompletableFuture<Person> createTestPersonWithId() {
-        return peopleCache.get(PEOPLE_WITH_ID_KEY).thenApply(people -> people.get(ContinuumUtil.getRandomNumberInRange(people.size() - 1)));
+        return peopleCache.get(PEOPLE_WITH_ID_KEY).thenApply(people -> people.get(KinoticUtil.getRandomNumberInRange(people.size() - 1)));
     }
 
     /**
@@ -257,7 +257,7 @@ public class TestDataService {
 
             List<Person> ret = new ArrayList<>(numberToCreate);
             for(int i = 0; i < numberToCreate; i++) {
-                ret.add(people.get((random ? ContinuumUtil.getRandomNumberInRange(size - 1) : i)));
+                ret.add(people.get((random ? KinoticUtil.getRandomNumberInRange(size - 1) : i)));
             }
             return ret;
         });

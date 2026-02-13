@@ -3,8 +3,7 @@ plugins {
 }
 
 dependencies {
-    // jackson annotations
-    api 'com.fasterxml.jackson.core:jackson-annotations'
+    implementation project(':kinotic-boot')
 
     implementation "com.github.ben-manes.caffeine:caffeine"
     implementation 'commons-io:commons-io'
@@ -14,40 +13,27 @@ dependencies {
     implementation 'io.jsonwebtoken:jjwt-jackson'
 
     // reactive streams apis
-    api 'io.projectreactor:reactor-core'
+    implementation 'io.projectreactor:reactor-core'
 
-    // vertx
-    api 'io.vertx:vertx-core'
-    implementation 'io.vertx:vertx-auth-common'
+    implementation 'io.vertx:vertx-core'
     implementation 'io.vertx:vertx-ignite'
-    implementation "io.vertx:vertx-web-client"
+    implementation 'io.vertx:vertx-web'
+    implementation 'io.vertx:vertx-web-client'
 
-    // Apache Ignite
     implementation 'org.apache.ignite:ignite-core'
-    implementation 'org.apache.ignite:ignite-calcite'
-    implementation 'org.apache.ignite:ignite-kubernetes' // support for kubernetes discovery
-    implementation 'org.apache.ignite:ignite-spring'
-    implementation 'org.apache.ignite:ignite-slf4j'
-
-    implementation 'org.awaitility:awaitility'
 
     // reactive streams apis
-    api 'org.reactivestreams:reactive-streams'
+    implementation 'org.reactivestreams:reactive-streams'
 
     // spring
-    implementation 'org.springframework.boot:spring-boot-starter-jackson'
     implementation 'org.springframework:spring-core'
-    implementation 'org.springframework:spring-context'
     implementation 'org.springframework:spring-aop'
+    implementation 'org.springframework:spring-context'
     implementation 'org.springframework:spring-web' // used for json conversion functionality spring web has a lot of helpful utilities
-    implementation 'org.springframework.boot:spring-boot-autoconfigure' // Used for conditionally wiring beans
-
-
-    implementation 'javax.cache:cache-api'
 
     // jackson impl
-    api 'tools.jackson.core:jackson-core'
-    api 'tools.jackson.core:jackson-databind'
+    implementation 'tools.jackson.core:jackson-core'
+    implementation 'tools.jackson.core:jackson-databind'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'

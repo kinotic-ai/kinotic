@@ -557,7 +557,7 @@ kubectl get secret structures-tls-secret -n default \
 If the CLI hangs or fails to connect, enable STOMP debug logging:
 
 ```bash
-DEBUG=continuum:stomp structures sync -s https://localhost
+DEBUG=kinotic:stomp structures sync -s https://localhost
 ```
 
 This shows the WebSocket/STOMP connection flow and helps identify SSL, network, or authentication issues.

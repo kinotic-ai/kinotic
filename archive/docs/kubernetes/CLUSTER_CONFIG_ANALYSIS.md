@@ -13,15 +13,15 @@ The Helm ConfigMap uses underscore-separated names (which Spring Boot's relaxed 
 
 | Helm ConfigMap Variable | Application YAML Property | Helm Values Key |
 |------------------------|---------------------------|-----------------|
-| `CONTINUUM_CLUSTER_DISCOVERY_TYPE` | `continuum.cluster.discoveryType` | `continuum.cluster.discoveryType` |
-| `CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS` | `continuum.cluster.joinTimeoutMs` | `continuum.cluster.joinTimeoutMs` |
-| `CONTINUUM_CLUSTER_DISCOVERY_PORT` | `continuum.cluster.discoveryPort` | `continuum.cluster.discoveryPort` |
-| `CONTINUUM_CLUSTER_COMMUNICATION_PORT` | `continuum.cluster.communicationPort` | `continuum.cluster.communicationPort` |
-| `CONTINUUM_CLUSTER_LOCAL_ADDRESS` | `continuum.cluster.localAddress` | `continuum.cluster.localAddress` |
-| `CONTINUUM_CLUSTER_LOCAL_ADDRESSES` | `continuum.cluster.localAddresses` | `continuum.cluster.localAddresses` |
-| `CONTINUUM_CLUSTER_KUBERNETES_NAMESPACE` | `continuum.cluster.kubernetesNamespace` | `continuum.cluster.kubernetesNamespace` |
-| `CONTINUUM_CLUSTER_KUBERNETES_SERVICE_NAME` | `continuum.cluster.kubernetesServiceName` | `continuum.cluster.kubernetesServiceName` |
-| `CONTINUUM_CLUSTER_SHARED_FS_PATH` | `continuum.cluster.sharedFsPath` | `continuum.cluster.sharedFsPath` |
+| `CONTINUUM_CLUSTER_DISCOVERY_TYPE` | `kinotic.cluster.discoveryType` | `kinotic.cluster.discoveryType` |
+| `CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS` | `kinotic.cluster.joinTimeoutMs` | `kinotic.cluster.joinTimeoutMs` |
+| `CONTINUUM_CLUSTER_DISCOVERY_PORT` | `kinotic.cluster.discoveryPort` | `kinotic.cluster.discoveryPort` |
+| `CONTINUUM_CLUSTER_COMMUNICATION_PORT` | `kinotic.cluster.communicationPort` | `kinotic.cluster.communicationPort` |
+| `CONTINUUM_CLUSTER_LOCAL_ADDRESS` | `kinotic.cluster.localAddress` | `kinotic.cluster.localAddress` |
+| `CONTINUUM_CLUSTER_LOCAL_ADDRESSES` | `kinotic.cluster.localAddresses` | `kinotic.cluster.localAddresses` |
+| `CONTINUUM_CLUSTER_KUBERNETES_NAMESPACE` | `kinotic.cluster.kubernetesNamespace` | `kinotic.cluster.kubernetesNamespace` |
+| `CONTINUUM_CLUSTER_KUBERNETES_SERVICE_NAME` | `kinotic.cluster.kubernetesServiceName` | `kinotic.cluster.kubernetesServiceName` |
+| `CONTINUUM_CLUSTER_SHARED_FS_PATH` | `kinotic.cluster.sharedFsPath` | `kinotic.cluster.sharedFsPath` |
 
 ## Helm Values Configuration
 
@@ -29,7 +29,7 @@ The Helm ConfigMap uses underscore-separated names (which Spring Boot's relaxed 
 
 ```yaml
 # helm-values.yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: KUBERNETES
@@ -44,7 +44,7 @@ continuum:
 
 ```yaml
 # helm-values.yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: SHAREDFS
@@ -60,7 +60,7 @@ continuum:
 
 ```yaml
 # helm-values.yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: LOCAL
@@ -108,27 +108,27 @@ For `KUBERNETES` discovery to work:
 The ConfigMap template (`helm/structures/templates/structures-server-config-map.yaml`) now includes:
 
 ```yaml
-{{- if .Values.continuum }}
-{{- if .Values.continuum.cluster }}
+{{- if .Values.kinotic }}
+{{- if .Values.kinotic.cluster }}
 # Continuum Cluster Configuration
-CONTINUUM_CLUSTER_DISABLE_CLUSTERING: "{{ .Values.continuum.disableClustering | default "false" }}"
-CONTINUUM_CLUSTER_DISCOVERY_TYPE: "{{ .Values.continuum.cluster.discoveryType | default "LOCAL" | upper }}"
-CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS: "{{ .Values.continuum.cluster.joinTimeoutMs | default "0" }}"
-CONTINUUM_CLUSTER_DISCOVERY_PORT: "{{ .Values.continuum.cluster.discoveryPort | default "47500" }}"
-CONTINUUM_CLUSTER_COMMUNICATION_PORT: "{{ .Values.continuum.cluster.communicationPort | default "47100" }}"
-CONTINUUM_CLUSTER_LOCAL_ADDRESS: "{{ .Values.continuum.cluster.localAddress | default "" }}"
+CONTINUUM_CLUSTER_DISABLE_CLUSTERING: "{{ .Values.kinotic.disableClustering | default "false" }}"
+CONTINUUM_CLUSTER_DISCOVERY_TYPE: "{{ .Values.kinotic.cluster.discoveryType | default "LOCAL" | upper }}"
+CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS: "{{ .Values.kinotic.cluster.joinTimeoutMs | default "0" }}"
+CONTINUUM_CLUSTER_DISCOVERY_PORT: "{{ .Values.kinotic.cluster.discoveryPort | default "47500" }}"
+CONTINUUM_CLUSTER_COMMUNICATION_PORT: "{{ .Values.kinotic.cluster.communicationPort | default "47100" }}"
+CONTINUUM_CLUSTER_LOCAL_ADDRESS: "{{ .Values.kinotic.cluster.localAddress | default "" }}"
 
-{{- if eq (.Values.continuum.cluster.discoveryType | default "LOCAL" | upper) "KUBERNETES" }}
-CONTINUUM_CLUSTER_KUBERNETES_NAMESPACE: "{{ .Values.continuum.cluster.kubernetesNamespace | default "default" }}"
-CONTINUUM_CLUSTER_KUBERNETES_SERVICE_NAME: "{{ .Values.continuum.cluster.kubernetesServiceName | default "structures" }}"
+{{- if eq (.Values.kinotic.cluster.discoveryType | default "LOCAL" | upper) "KUBERNETES" }}
+CONTINUUM_CLUSTER_KUBERNETES_NAMESPACE: "{{ .Values.kinotic.cluster.kubernetesNamespace | default "default" }}"
+CONTINUUM_CLUSTER_KUBERNETES_SERVICE_NAME: "{{ .Values.kinotic.cluster.kubernetesServiceName | default "structures" }}"
 {{- end }}
 
-{{- if eq (.Values.continuum.cluster.discoveryType | default "LOCAL" | upper) "SHAREDFS" }}
-CONTINUUM_CLUSTER_SHARED_FS_PATH: "{{ .Values.continuum.cluster.sharedFsPath | default "/sharedfs" }}"
+{{- if eq (.Values.kinotic.cluster.discoveryType | default "LOCAL" | upper) "SHAREDFS" }}
+CONTINUUM_CLUSTER_SHARED_FS_PATH: "{{ .Values.kinotic.cluster.sharedFsPath | default "/sharedfs" }}"
 {{- end }}
 
-{{- if eq (.Values.continuum.cluster.discoveryType | default "LOCAL" | upper) "LOCAL" }}
-CONTINUUM_CLUSTER_LOCAL_ADDRESSES: "{{ .Values.continuum.cluster.localAddresses | default "" }}"
+{{- if eq (.Values.kinotic.cluster.discoveryType | default "LOCAL" | upper) "LOCAL" }}
+CONTINUUM_CLUSTER_LOCAL_ADDRESSES: "{{ .Values.kinotic.cluster.localAddresses | default "" }}"
 {{- end }}
 {{- end }}
 {{- end }}

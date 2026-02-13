@@ -7,7 +7,7 @@ import org.kinotic.rpc.api.annotations.Publish;
 import org.kinotic.rpc.api.RpcServiceProxy;
 import org.kinotic.rpc.api.ServiceRegistry;
 import org.kinotic.rpc.api.service.ServiceIdentifier;
-import org.kinotic.rpc.internal.utils.ContinuumUtil;
+import org.kinotic.boot.internal.utils.KinoticUtil;
 import org.kinotic.rpc.internal.utils.MetaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,8 +84,8 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
 
                         if(publish != null) {
                             String namespace = publish.namespace().isEmpty()
-                                    ? ContinuumUtil.safeEncodeURI(inter.getPackageName())
-                                    : ContinuumUtil.safeEncodeURI(publish.namespace());
+                                    ? KinoticUtil.safeEncodeURI(inter.getPackageName())
+                                    : KinoticUtil.safeEncodeURI(publish.namespace());
 
                             String name = publish.name().isEmpty() ? inter.getSimpleName() : publish.name();
                             String scope = MetaUtil.getScopeIfAvailable(instance, inter);

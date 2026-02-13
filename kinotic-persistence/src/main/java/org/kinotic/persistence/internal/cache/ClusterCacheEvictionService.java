@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.cluster.ClusterGroup;
 import org.apache.ignite.lang.IgniteFuture;
-import org.kinotic.rpc.api.config.KinoticRpcProperties;
+import org.kinotic.boot.api.config.KinoticProperties;
 import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionSource;
@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
 public class ClusterCacheEvictionService {
 
     private final StructuresProperties structuresProperties;
-    private final KinoticRpcProperties kinoticRpcProperties;
+    private final KinoticProperties kinoticProperties;
     private final Ignite ignite;
 
     private final LongCounter evictionRequestCounter;
@@ -41,11 +41,11 @@ public class ClusterCacheEvictionService {
     private final LongHistogram clusterDurationHistogram;
     private final LongCounter retryCounter;
 
-    public ClusterCacheEvictionService(KinoticRpcProperties kinoticRpcProperties,
+    public ClusterCacheEvictionService(KinoticProperties kinoticProperties,
                                        StructuresProperties structuresProperties,
                                        Ignite ignite,
                                        OpenTelemetry openTelemetry) {
-        this.kinoticRpcProperties = kinoticRpcProperties;
+        this.kinoticProperties = kinoticProperties;
         this.structuresProperties = structuresProperties;
         this.ignite = ignite;
 
@@ -86,7 +86,7 @@ public class ClusterCacheEvictionService {
             // we need to clear on both eviction types
             if (event.getEvictionSource() == CacheEvictionSource.LOCAL_MESSAGE) {
                 long timestamp = System.currentTimeMillis();
-                if (!kinoticRpcProperties.isDisableClustering()) {
+                if (!kinoticProperties.isDisableClustering()) {
                     evictCachesClusterWideWithRetry(event, timestamp);
                 }
             }

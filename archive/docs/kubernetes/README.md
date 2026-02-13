@@ -53,7 +53,7 @@ kubectl logs -l app.kubernetes.io/name=structures | grep "Topology snapshot"
 # helm-values.yaml
 replicaCount: 3
 
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: KUBERNETES

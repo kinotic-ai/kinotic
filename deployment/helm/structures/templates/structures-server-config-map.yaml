@@ -49,7 +49,7 @@ data:
   # Used to override application YAML configuration for different environments
   # Reference: structures-core/src/test/resources/docker-compose/cluster-test-compose.yml
 
-  CONTINUUM_CLUSTER_DISABLE_CLUSTERING: "{{ .Values.continuum.disableClustering | default "false" }}"
+  CONTINUUM_CLUSTER_DISABLE_CLUSTERING: "{{ .Values.kinotic.disableClustering | default "false" }}"
   CONTINUUM_CLUSTER_DISCOVERY_TYPE: "{{ .Values.continuum.cluster.discoveryType | default "LOCAL" | upper }}"
   CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS: "{{ .Values.continuum.cluster.joinTimeoutMs | default "0" }}"
   CONTINUUM_CLUSTER_DISCOVERY_PORT: "{{ .Values.continuum.cluster.discoveryPort | default "47500" }}"
@@ -87,8 +87,8 @@ data:
   {{- if .Values.continuum.maxNumberOfCoresToUse }}
   CONTINUUM_MAX_NUMBER_OF_CORES_TO_USE: "{{ .Values.continuum.maxNumberOfCoresToUse }}"
   {{- end }}
-  {{- if .Values.continuum.disableClustering }}
-  CONTINUUM_DISABLE_CLUSTERING: "{{ .Values.continuum.disableClustering }}"
+  {{- if .Values.kinotic.disableClustering }}
+  CONTINUUM_DISABLE_CLUSTERING: "{{ .Values.kinotic.disableClustering }}"
   {{- end }}
   {{- end }}
   {{- end }}

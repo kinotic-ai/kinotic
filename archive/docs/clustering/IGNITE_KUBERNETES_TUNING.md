@@ -6,31 +6,31 @@ This document provides a comprehensive guide to all tunable options for Apache I
 
 ## Currently Implemented Options (via ContinuumProperties)
 
-These options are currently exposed and configurable through `continuum.cluster.*` properties:
+These options are currently exposed and configurable through `kinotic.cluster.*` properties:
 
 ### Core Configuration
 | Property | Default | Type | Description |
 |----------|---------|------|-------------|
-| `continuum.cluster.discoveryType` | `LOCAL` | Enum | Discovery mechanism: `LOCAL`, `SHAREDFS`, `KUBERNETES` |
-| `continuum.cluster.discoveryPort` | `47500` | Integer | Port for discovery protocol |
-| `continuum.cluster.communicationPort` | `47100` | Integer | Port for node-to-node communication |
-| `continuum.cluster.joinTimeoutMs` | `0` | Long | Timeout for joining cluster (0 = no timeout) |
-| `continuum.cluster.localAddress` | `null` | String | Local bind address |
+| `kinotic.cluster.discoveryType` | `LOCAL` | Enum | Discovery mechanism: `LOCAL`, `SHAREDFS`, `KUBERNETES` |
+| `kinotic.cluster.discoveryPort` | `47500` | Integer | Port for discovery protocol |
+| `kinotic.cluster.communicationPort` | `47100` | Integer | Port for node-to-node communication |
+| `kinotic.cluster.joinTimeoutMs` | `0` | Long | Timeout for joining cluster (0 = no timeout) |
+| `kinotic.cluster.localAddress` | `null` | String | Local bind address |
 
 ### Shared FS (Static IP) Discovery
 | Property | Default | Type | Description |
 |----------|---------|------|-------------|
-| `continuum.cluster.localAddresses` | `null` | String | Comma-separated list: `"host1:port1,host2:port2"` |
-| `continuum.cluster.sharedFsPath` | `/tmp/structures-sharedfs` | String | Path for shared filesystem |
+| `kinotic.cluster.localAddresses` | `null` | String | Comma-separated list: `"host1:port1,host2:port2"` |
+| `kinotic.cluster.sharedFsPath` | `/tmp/structures-sharedfs` | String | Path for shared filesystem |
 
 ### Kubernetes Discovery
 | Property | Default | Type | Description |
 |----------|---------|------|-------------|
-| `continuum.cluster.kubernetesNamespace` | `default` | String | K8s namespace for pod discovery |
-| `continuum.cluster.kubernetesServiceName` | `structures` | String | Headless service name |
-| `continuum.cluster.kubernetesMasterUrl` | `null` | String | K8s API server URL (optional, uses in-cluster if null) |
-| `continuum.cluster.kubernetesAccountToken` | `null` | String | Service account token (optional, uses mounted if null) |
-| `continuum.cluster.kubernetesIncludeNotReadyAddresses` | `false` | Boolean | Include pods not ready |
+| `kinotic.cluster.kubernetesNamespace` | `default` | String | K8s namespace for pod discovery |
+| `kinotic.cluster.kubernetesServiceName` | `structures` | String | Headless service name |
+| `kinotic.cluster.kubernetesMasterUrl` | `null` | String | K8s API server URL (optional, uses in-cluster if null) |
+| `kinotic.cluster.kubernetesAccountToken` | `null` | String | Service account token (optional, uses mounted if null) |
+| `kinotic.cluster.kubernetesIncludeNotReadyAddresses` | `false` | Boolean | Include pods not ready |
 
 ### Cache Eviction Retry (via StructuresProperties)
 | Property | Default | Type | Description |
@@ -75,7 +75,7 @@ The Kubernetes IP Finder (`TcpDiscoveryKubernetesIpFinder`) uses the Kubernetes 
 
 **Configuration via ContinuumProperties**:
 ```yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: KUBERNETES
@@ -86,7 +86,7 @@ continuum:
 ## Required Configuration
 
 ### 1. Namespace (`kubernetesNamespace`)
-**Property**: `continuum.cluster.kubernetesNamespace`  
+**Property**: `kinotic.cluster.kubernetesNamespace`  
 **Java**: `ipFinder.setNamespace(String namespace)`  
 **Required**: YES  
 **Default**: `"default"`
@@ -95,7 +95,7 @@ The Kubernetes namespace where your Structures pods are deployed.
 
 **Example**:
 ```yaml
-continuum:
+kinotic:
   cluster:
     kubernetesNamespace: production
 ```
@@ -105,7 +105,7 @@ continuum:
 ---
 
 ### 2. Service Name (`kubernetesServiceName`)
-**Property**: `continuum.cluster.kubernetesServiceName`  
+**Property**: `kinotic.cluster.kubernetesServiceName`  
 **Java**: `ipFinder.setServiceName(String serviceName)`  
 **Required**: YES  
 **Default**: `"structures"`
@@ -114,7 +114,7 @@ The name of the **headless service** used for pod discovery.
 
 **Example**:
 ```yaml
-continuum:
+kinotic:
   cluster:
     kubernetesServiceName: structures-ignite
 ```
@@ -141,7 +141,7 @@ spec:
 ## Optional Configuration
 
 ### 3. Master URL (`kubernetesMasterUrl`)
-**Property**: `continuum.cluster.kubernetesMasterUrl`  
+**Property**: `kinotic.cluster.kubernetesMasterUrl`  
 **Java**: `ipFinder.setMasterUrl(String masterUrl)`  
 **Required**: NO  
 **Default**: Uses in-cluster configuration  
@@ -155,7 +155,7 @@ The Kubernetes API server URL.
 
 **Example**:
 ```yaml
-continuum:
+kinotic:
   cluster:
     # In-cluster (default - leave null)
     kubernetesMasterUrl: null
@@ -169,7 +169,7 @@ continuum:
 ---
 
 ### 4. Account Token (`kubernetesAccountToken`)
-**Property**: `continuum.cluster.kubernetesAccountToken`  
+**Property**: `kinotic.cluster.kubernetesAccountToken`  
 **Java**: `ipFinder.setAccountToken(String token)`  
 **Required**: NO  
 **Default**: Uses mounted service account token  
@@ -183,7 +183,7 @@ The service account token for Kubernetes API authentication.
 
 **Example**:
 ```yaml
-continuum:
+kinotic:
   cluster:
     # In-cluster (default - leave null)
     kubernetesAccountToken: null
@@ -315,7 +315,7 @@ ipFinder.setShared(true);
 These apply to the `TcpDiscoverySpi` itself (not the IP finder):
 
 ### 10. Join Timeout (`setJoinTimeout()`)
-**Property**: `continuum.cluster.joinTimeoutMs`  
+**Property**: `kinotic.cluster.joinTimeoutMs`  
 **Java**: `discoverySpi.setJoinTimeout(long timeout)`  
 **Default**: `0` (no timeout)  
 **Current**: ✅ Already configured
@@ -506,7 +506,7 @@ commSpi.setConnectTimeout(properties.getClusterCommConnectTimeoutMs());
 
 ### Minimal (Good Starting Point)
 ```yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: KUBERNETES
@@ -519,7 +519,7 @@ continuum:
 
 ### Optimized for Fast Failure Detection
 ```yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: KUBERNETES
@@ -536,7 +536,7 @@ continuum:
 
 ### Optimized for Geo-Distributed Clusters
 ```yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: KUBERNETES
@@ -642,7 +642,7 @@ if (properties.getClusterKubernetesConnectionTimeoutMs() != null) {
 
 ### 3. Document in application.yml
 ```yaml
-continuum:
+kinotic:
   cluster:
     kubernetesConnectionTimeoutMs: 5000
 ```
@@ -679,7 +679,7 @@ CONTINUUM_CLUSTER_KUBERNETES_CONNECTION_TIMEOUT_MS=5000
 **Symptoms**: Takes > 1 minute for nodes to join cluster
 
 **Solutions**:
-- Increase `continuum.cluster.joinTimeoutMs` to prevent premature failures
+- Increase `kinotic.cluster.joinTimeoutMs` to prevent premature failures
 - Check Kubernetes API performance
 - Verify network policies allow pod-to-pod communication on discovery port
 - Check for DNS resolution issues
@@ -703,7 +703,7 @@ CONTINUUM_CLUSTER_KUBERNETES_CONNECTION_TIMEOUT_MS=5000
 
 ### Development (Local Single-Node)
 ```yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: LOCAL
@@ -713,7 +713,7 @@ continuum:
 
 ### Docker Compose Testing
 ```yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: SHAREDFS
@@ -725,7 +725,7 @@ continuum:
 
 ### Kubernetes Production
 ```yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: KUBERNETES
@@ -866,5 +866,5 @@ Based on common production needs, consider exposing these options first:
 **Last Updated**: January 2026  
 **Total Tunable Options**: 30+ (12 implemented, 18+ available to add)  
 **Apache Ignite Version**: Compatible with 2.x and 3.x  
-**Configuration Prefix**: `continuum.cluster.*`
+**Configuration Prefix**: `kinotic.cluster.*`
 

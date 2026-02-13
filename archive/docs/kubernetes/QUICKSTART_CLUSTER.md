@@ -29,7 +29,7 @@ open http://localhost:9090
 
 ### ✅ KinD Values Configured
 - **File**: `dev-tools/kind/config/helm-values.yaml`
-- **Added**: `continuum.cluster.*` configuration
+- **Added**: `kinotic.cluster.*` configuration
 - **Effect**: Overrides `application-production.yml` (SHAREDFS → KUBERNETES)
 
 ## Verify It's Working
@@ -130,7 +130,7 @@ kubectl logs <pod-name> --previous
 ### Our Setup (KinD):
 
 ```yaml
-continuum:
+kinotic:
   cluster:
     discoveryType: KUBERNETES  # ← K8s mode
     disableClustering: false   # ← Enable clustering

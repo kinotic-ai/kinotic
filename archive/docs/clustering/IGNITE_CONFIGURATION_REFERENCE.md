@@ -4,11 +4,11 @@ This document provides a quick reference for all Ignite cluster configuration op
 
 ## Configuration Overview
 
-Structures uses `ContinuumProperties` for Ignite cluster configuration. All cluster properties are prefixed with `continuum.cluster.*`.
+Structures uses `ContinuumProperties` for Ignite cluster configuration. All cluster properties are prefixed with `kinotic.cluster.*`.
 
 ## Discovery Type Selection
 
-**Property**: `continuum.cluster.discoveryType`  
+**Property**: `kinotic.cluster.discoveryType`  
 **Java Enum**: `IgniteClusterDiscoveryType`  
 **Values**: `LOCAL`, `SHAREDFS`, `KUBERNETES`  
 **Default**: `LOCAL`  
@@ -30,23 +30,23 @@ Structures uses `ContinuumProperties` for Ignite cluster configuration. All clus
 
 | Property | Type | Default | Environment Variable | Description |
 |----------|------|---------|---------------------|-------------|
-| `continuum.disableClustering` | Boolean | `false` | `CONTINUUM_DISABLE_CLUSTERING` | Disable clustering entirely |
+| `kinotic.disableClustering` | Boolean | `false` | `CONTINUUM_DISABLE_CLUSTERING` | Disable clustering entirely |
 
 ### Network Configuration
 
 | Property | Type | Default | Environment Variable | Description |
 |----------|------|---------|---------------------|-------------|
-| `continuum.cluster.discoveryPort` | Integer | `47500` | `CONTINUUM_CLUSTER_DISCOVERY_PORT` | Port for Ignite discovery protocol |
-| `continuum.cluster.communicationPort` | Integer | `47100` | `CONTINUUM_CLUSTER_COMMUNICATION_PORT` | Port for node communication |
-| `continuum.cluster.joinTimeoutMs` | Long | `0` | `CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS` | Cluster formation timeout (0 = no timeout) |
-| `continuum.cluster.localAddress` | String | `null` | `CONTINUUM_CLUSTER_LOCAL_ADDRESS` | Local bind address |
+| `kinotic.cluster.discoveryPort` | Integer | `47500` | `CONTINUUM_CLUSTER_DISCOVERY_PORT` | Port for Ignite discovery protocol |
+| `kinotic.cluster.communicationPort` | Integer | `47100` | `CONTINUUM_CLUSTER_COMMUNICATION_PORT` | Port for node communication |
+| `kinotic.cluster.joinTimeoutMs` | Long | `0` | `CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS` | Cluster formation timeout (0 = no timeout) |
+| `kinotic.cluster.localAddress` | String | `null` | `CONTINUUM_CLUSTER_LOCAL_ADDRESS` | Local bind address |
 
 ### Shared FS (Static IP) Discovery
 
 | Property | Type | Default | Environment Variable | Description |
 |----------|------|---------|---------------------|-------------|
-| `continuum.cluster.localAddresses` | String | `null` | `CONTINUUM_CLUSTER_LOCAL_ADDRESSES` | Comma-separated node addresses |
-| `continuum.cluster.sharedFsPath` | String | `/tmp/structures-sharedfs` | `CONTINUUM_CLUSTER_SHARED_FS_PATH` | Path for shared filesystem |
+| `kinotic.cluster.localAddresses` | String | `null` | `CONTINUUM_CLUSTER_LOCAL_ADDRESSES` | Comma-separated node addresses |
+| `kinotic.cluster.sharedFsPath` | String | `/tmp/structures-sharedfs` | `CONTINUUM_CLUSTER_SHARED_FS_PATH` | Path for shared filesystem |
 
 **Format**: `host1:port1,host2:port2,host3:port3`  
 **Example**: `node1:47500,node2:47500,node3:47500`
@@ -55,11 +55,11 @@ Structures uses `ContinuumProperties` for Ignite cluster configuration. All clus
 
 | Property | Type | Default | Environment Variable | Description |
 |----------|------|---------|---------------------|-------------|
-| `continuum.cluster.kubernetesNamespace` | String | `default` | `CONTINUUM_CLUSTER_KUBERNETES_NAMESPACE` | K8s namespace |
-| `continuum.cluster.kubernetesServiceName` | String | `structures` | `CONTINUUM_CLUSTER_KUBERNETES_SERVICE_NAME` | Headless service name |
-| `continuum.cluster.kubernetesMasterUrl` | String | `null` | `CONTINUUM_CLUSTER_KUBERNETES_MASTER_URL` | K8s API server URL (optional) |
-| `continuum.cluster.kubernetesAccountToken` | String | `null` | `CONTINUUM_CLUSTER_KUBERNETES_ACCOUNT_TOKEN` | Service account token (optional) |
-| `continuum.cluster.kubernetesIncludeNotReadyAddresses` | Boolean | `false` | `CONTINUUM_CLUSTER_KUBERNETES_INCLUDE_NOT_READY_ADDRESSES` | Include pods not ready |
+| `kinotic.cluster.kubernetesNamespace` | String | `default` | `CONTINUUM_CLUSTER_KUBERNETES_NAMESPACE` | K8s namespace |
+| `kinotic.cluster.kubernetesServiceName` | String | `structures` | `CONTINUUM_CLUSTER_KUBERNETES_SERVICE_NAME` | Headless service name |
+| `kinotic.cluster.kubernetesMasterUrl` | String | `null` | `CONTINUUM_CLUSTER_KUBERNETES_MASTER_URL` | K8s API server URL (optional) |
+| `kinotic.cluster.kubernetesAccountToken` | String | `null` | `CONTINUUM_CLUSTER_KUBERNETES_ACCOUNT_TOKEN` | Service account token (optional) |
+| `kinotic.cluster.kubernetesIncludeNotReadyAddresses` | Boolean | `false` | `CONTINUUM_CLUSTER_KUBERNETES_INCLUDE_NOT_READY_ADDRESSES` | Include pods not ready |
 
 **Notes**:
 - `kubernetesMasterUrl` and `kubernetesAccountToken` are optional - uses in-cluster config by default
@@ -82,7 +82,7 @@ Structures uses `ContinuumProperties` for Ignite cluster configuration. All clus
 
 **application.yml**:
 ```yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: LOCAL
@@ -99,7 +99,7 @@ continuum:
 
 **application.yml**:
 ```yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: SHAREDFS
@@ -127,7 +127,7 @@ services:
 
 **application.yml** (or ConfigMap):
 ```yaml
-continuum:
+kinotic:
   disableClustering: false
   cluster:
     discoveryType: KUBERNETES
@@ -155,7 +155,7 @@ CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS=60000
 You can use type-safe constants in code:
 
 ```java
-import org.kinotic.rpc.api.config.IgniteClusterDiscoveryType;
+import org.kinotic.core.api.config.IgniteClusterDiscoveryType;
 
 // In configuration or logic
 if(properties.getDiscoveryType() ==IgniteClusterDiscoveryType.KUBERNETES){
@@ -194,7 +194,7 @@ dependencies {
 
 ### 2. Uncomment code in IgniteConfiguration
 
-File: `continuum-core-vertx/src/main/java/org/kinotic/continuum/internal/config/ContinuumIgniteConfig.java`
+File: `kinotic-core-vertx/src/main/java/org/kinotic/kinotic/internal/config/ContinuumIgniteConfig.java`
 
 Enable the `TcpDiscoveryKubernetesIpFinder` implementation.
 
@@ -222,7 +222,7 @@ Cluster size should match your expected node count.
 
 ### Fast Failure Detection
 ```yaml
-continuum:
+kinotic:
   cluster:
     discoveryType: KUBERNETES
     joinTimeoutMs: 60000
@@ -236,7 +236,7 @@ structures:
 
 ### Geo-Distributed Cluster
 ```yaml
-continuum:
+kinotic:
   cluster:
     discoveryType: KUBERNETES
     joinTimeoutMs: 120000
@@ -250,7 +250,7 @@ structures:
 
 ### High Availability Focus
 ```yaml
-continuum:
+kinotic:
   cluster:
     discoveryType: KUBERNETES
     joinTimeoutMs: 60000
@@ -270,18 +270,18 @@ All properties can be set via environment variables. The Helm ConfigMap uses und
 
 | Property | Environment Variable |
 |----------|---------------------|
-| `continuum.disableClustering` | `CONTINUUM_DISABLE_CLUSTERING` |
-| `continuum.cluster.discoveryType` | `CONTINUUM_CLUSTER_DISCOVERY_TYPE` |
-| `continuum.cluster.localAddresses` | `CONTINUUM_CLUSTER_LOCAL_ADDRESSES` |
-| `continuum.cluster.localAddress` | `CONTINUUM_CLUSTER_LOCAL_ADDRESS` |
-| `continuum.cluster.discoveryPort` | `CONTINUUM_CLUSTER_DISCOVERY_PORT` |
-| `continuum.cluster.communicationPort` | `CONTINUUM_CLUSTER_COMMUNICATION_PORT` |
-| `continuum.cluster.joinTimeoutMs` | `CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS` |
-| `continuum.cluster.sharedFsPath` | `CONTINUUM_CLUSTER_SHARED_FS_PATH` |
-| `continuum.cluster.kubernetesNamespace` | `CONTINUUM_CLUSTER_KUBERNETES_NAMESPACE` |
-| `continuum.cluster.kubernetesServiceName` | `CONTINUUM_CLUSTER_KUBERNETES_SERVICE_NAME` |
-| `continuum.cluster.kubernetesMasterUrl` | `CONTINUUM_CLUSTER_KUBERNETES_MASTER_URL` |
-| `continuum.cluster.kubernetesAccountToken` | `CONTINUUM_CLUSTER_KUBERNETES_ACCOUNT_TOKEN` |
+| `kinotic.disableClustering` | `CONTINUUM_DISABLE_CLUSTERING` |
+| `kinotic.cluster.discoveryType` | `CONTINUUM_CLUSTER_DISCOVERY_TYPE` |
+| `kinotic.cluster.localAddresses` | `CONTINUUM_CLUSTER_LOCAL_ADDRESSES` |
+| `kinotic.cluster.localAddress` | `CONTINUUM_CLUSTER_LOCAL_ADDRESS` |
+| `kinotic.cluster.discoveryPort` | `CONTINUUM_CLUSTER_DISCOVERY_PORT` |
+| `kinotic.cluster.communicationPort` | `CONTINUUM_CLUSTER_COMMUNICATION_PORT` |
+| `kinotic.cluster.joinTimeoutMs` | `CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS` |
+| `kinotic.cluster.sharedFsPath` | `CONTINUUM_CLUSTER_SHARED_FS_PATH` |
+| `kinotic.cluster.kubernetesNamespace` | `CONTINUUM_CLUSTER_KUBERNETES_NAMESPACE` |
+| `kinotic.cluster.kubernetesServiceName` | `CONTINUUM_CLUSTER_KUBERNETES_SERVICE_NAME` |
+| `kinotic.cluster.kubernetesMasterUrl` | `CONTINUUM_CLUSTER_KUBERNETES_MASTER_URL` |
+| `kinotic.cluster.kubernetesAccountToken` | `CONTINUUM_CLUSTER_KUBERNETES_ACCOUNT_TOKEN` |
 
 ---
 
@@ -323,4 +323,4 @@ INFO - Apache Ignite started successfully - Cluster size: 3
 ---
 
 **Last Updated**: January 2026  
-**Configuration Prefix**: `continuum.cluster.*` (ContinuumProperties)
+**Configuration Prefix**: `kinotic.cluster.*` (ContinuumProperties)

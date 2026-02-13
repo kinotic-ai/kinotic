@@ -184,7 +184,7 @@ public class MetaUtil {
 
     /**
      * Gets the version for the class by searching for a {@link Version} annotation.
-     * If the class contains the annotation that version is returned otherwise it returns the version from the package-info.java file annotation if found.
+     * If the class contains the annotation, that version is returned otherwise it returns the version from the package-info.java file annotation if found.
      * @param clazz to search for a version
      * @return the version or null if not found
      */
