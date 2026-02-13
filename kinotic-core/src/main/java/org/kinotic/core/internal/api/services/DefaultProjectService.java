@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.api.services;
+package org.kinotic.core.internal.api.services;
 
 import java.util.Date;
 import java.util.concurrent.CompletableFuture;
@@ -8,10 +8,7 @@ import org.kinotic.core.api.services.crud.Page;
 import org.kinotic.core.api.services.crud.Pageable;
 import org.kinotic.core.api.domain.Project;
 import org.kinotic.core.api.services.ProjectService;
-import org.kinotic.core.internal.api.services.AbstractCrudService;
-import org.kinotic.core.internal.api.services.CrudServiceTemplate;
-import org.kinotic.persistence.api.services.StructureService;
-import org.kinotic.persistence.internal.utils.StructuresUtil;
+import org.kinotic.core.api.utils.CoreUtil;
 import org.springframework.stereotype.Component;
 
 import com.github.slugify.Slugify;
@@ -22,17 +19,14 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 @Component
 public class DefaultProjectService extends AbstractCrudService<Project> implements ProjectService {
 
-    private final StructureService structureService;
     final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
 
     public DefaultProjectService(CrudServiceTemplate crudServiceTemplate,
-                                 ElasticsearchAsyncClient esAsyncClient,
-                                 StructureService structureService) {
+                                 ElasticsearchAsyncClient esAsyncClient) {
         super("struct_project", 
               Project.class, 
               esAsyncClient, 
               crudServiceTemplate);
-        this.structureService = structureService;
     }
 
     @Override
@@ -56,7 +50,7 @@ public class DefaultProjectService extends AbstractCrudService<Project> implemen
             project.setId(projectId);
         }
         // Sanity check
-        StructuresUtil.validateProjectId(project.getId());
+        CoreUtil.validateProjectId(project.getId());
 
         return findById(project.getId())
                 .thenCompose(existing -> {
@@ -70,11 +64,13 @@ public class DefaultProjectService extends AbstractCrudService<Project> implemen
 
     @Override
     public CompletableFuture<Void> deleteById(String id) {
-        return structureService.countForProject(id).thenAccept(count -> {
-            if(count > 0){
-                throw new IllegalStateException("Cannot delete project with structures in it.");
-            }
-        }).thenCompose(v -> super.deleteById(id));
+        // FIXME figure out how to check if project can be deleted
+//        return structureService.countForProject(id).thenAccept(count -> {
+//            if(count > 0){
+//                throw new IllegalStateException("Cannot delete project with structures in it.");
+//            }
+//        }).thenCompose(v -> super.deleteById(id));
+        return null;
     }
 
 

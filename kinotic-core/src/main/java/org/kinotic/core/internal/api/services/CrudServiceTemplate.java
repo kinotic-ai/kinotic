@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.api.services;
+package org.kinotic.core.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.ErrorResponse;

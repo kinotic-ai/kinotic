@@ -1,4 +1,4 @@
-package org.kinotic.persistence.api.domain;
+package org.kinotic.core.api.domain;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -16,7 +16,7 @@ import tools.jackson.core.util.ByteArrayBuilder;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Class is used to represent raw json data
+ * Class is used to represent raw JSON data
  * Created by Navíd Mitchell 🤪 on 5/22/23.
  */
 public final class RawJson implements JsonpSerializable {

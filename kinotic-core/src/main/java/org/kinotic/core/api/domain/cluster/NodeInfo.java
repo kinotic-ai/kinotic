@@ -1,4 +1,4 @@
-package org.kinotic.persistence.api.domain.cluster;
+package org.kinotic.core.api.domain.cluster;
 
 import java.util.Collection;
 import java.util.Map;

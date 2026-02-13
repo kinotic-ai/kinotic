@@ -1,4 +1,4 @@
-package org.kinotic.persistence.api.domain;
+package org.kinotic.core.api.domain;
 
 import lombok.*;
 import lombok.experimental.Accessors;

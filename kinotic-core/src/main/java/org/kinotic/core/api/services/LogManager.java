@@ -1,5 +1,8 @@
-package org.kinotic.core.api.log;
+package org.kinotic.core.api.services;
 
+import org.kinotic.core.api.domain.log.LogLevel;
+import org.kinotic.core.api.domain.log.LoggerLevelsDescriptor;
+import org.kinotic.core.api.domain.log.LoggersDescriptor;
 import org.kinotic.rpc.api.annotations.Scope;
 
 /**

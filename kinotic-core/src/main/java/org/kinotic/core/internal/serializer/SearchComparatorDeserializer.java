@@ -1,9 +1,7 @@
+package org.kinotic.core.internal.serializer;
 
 
-package org.kinotic.rpc.internal.serializer;
-
-
-import org.kinotic.core.api.crud.SearchComparator;
+import org.kinotic.core.api.services.crud.SearchComparator;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.JsonParser;
 import tools.jackson.databind.DeserializationContext;

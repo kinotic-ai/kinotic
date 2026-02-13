@@ -5,7 +5,10 @@ plugins {
 dependencies {
 	implementation project(':kinotic-sql')
 
-	implementation 'org.springframework.boot:spring-boot-starter'
-	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'co.elastic.clients:elasticsearch-java'
+	implementation 'co.elastic.clients:elasticsearch-rest5-client'
 
+	implementation 'org.springframework.boot:spring-boot-starter'
+	implementation 'org.springframework.boot:spring-boot-starter-jackson'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
 }

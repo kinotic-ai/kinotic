@@ -1,4 +1,4 @@
-package org.kinotic.core.api.crud;
+package org.kinotic.core.api.services.crud;
 
 import org.apache.commons.lang3.Validate;
 import java.util.concurrent.CompletableFuture;
@@ -7,7 +7,7 @@ import java.util.concurrent.CompletableFuture;
  * Extends {@link CrudService} to add a support for types that are {@link Identifiable}
  * Created by navid on 2/3/20
  */
-public interface IdentifiableCrudService<T extends Identifiable<ID>, ID> extends org.kinotic.core.api.crud.CrudService<T, ID> {
+public interface IdentifiableCrudService<T extends Identifiable<ID>, ID> extends CrudService<T, ID> {
 
     /**
      * Creates a new entity if one does not already exist for the given id

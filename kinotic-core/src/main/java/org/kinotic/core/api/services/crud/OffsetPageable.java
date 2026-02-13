@@ -1,4 +1,4 @@
-package org.kinotic.core.api.crud;
+package org.kinotic.core.api.services.crud;
 
 public class OffsetPageable extends AbstractPageable {
 

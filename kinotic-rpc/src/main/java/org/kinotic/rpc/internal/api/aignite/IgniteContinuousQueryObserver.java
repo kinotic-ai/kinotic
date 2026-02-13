@@ -2,22 +2,20 @@
 
 package org.kinotic.rpc.internal.api.aignite;
 
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import javax.cache.Cache;
-import javax.cache.event.CacheEntryEvent;
-
 import io.vertx.core.*;
 import io.vertx.core.internal.ContextInternal;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.query.ContinuousQuery;
 import org.apache.ignite.cache.query.Query;
-import org.apache.ignite.cache.query.SqlQuery;
 import org.kinotic.rpc.api.event.StreamData;
 import org.kinotic.rpc.internal.utils.IgniteUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.cache.Cache;
+import javax.cache.event.CacheEntryEvent;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Using this as a bridge between tested legacy Ignite logic and the new code base

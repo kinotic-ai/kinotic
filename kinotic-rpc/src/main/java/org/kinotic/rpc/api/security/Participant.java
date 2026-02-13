@@ -1,22 +1,19 @@
 package org.kinotic.rpc.api.security;
 
-import org.kinotic.rpc.api.crud.Identifiable;
-
 import java.util.List;
 import java.util.Map;
 
 /**
- * Stores identifying information about a logged in participant
+ * Stores identifying information about a logged-in participant
  * WARNING: do not store sensitive information in {@link Participant} as it will be sent to receivers of requests sent by the {@link Participant}
  * Created by Navíd Mitchell 🤪on 6/16/23.
  */
-public interface Participant extends Identifiable<String> {
+public interface Participant {
     /**
      * The identity of the participant
      *
      * @return the identity of the participant
      */
-    @Override
     String getId();
 
     /**

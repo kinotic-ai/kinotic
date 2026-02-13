@@ -3,8 +3,8 @@ package org.kinotic.persistence.internal.api.services.sql.executors;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import org.kinotic.rpc.api.crud.Page;
-import org.kinotic.rpc.api.crud.Pageable;
+import org.kinotic.core.api.services.crud.Page;
+import org.kinotic.core.api.services.crud.Pageable;
 import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.decorators.MultiTenancyType;

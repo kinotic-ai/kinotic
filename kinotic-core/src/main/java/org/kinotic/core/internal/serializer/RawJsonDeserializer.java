@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.serializer;
+package org.kinotic.core.internal.serializer;
 
 import org.kinotic.core.api.domain.RawJson;
 import tools.jackson.core.JacksonException;

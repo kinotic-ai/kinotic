@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.kinotic.core.api.crud;
+package org.kinotic.core.api.services.crud;
 
 import java.util.Locale;
 

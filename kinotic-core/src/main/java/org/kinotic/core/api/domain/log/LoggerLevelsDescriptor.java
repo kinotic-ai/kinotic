@@ -1,4 +1,4 @@
-package org.kinotic.core.api.log;
+package org.kinotic.core.api.domain.log;
 
 /**
  * Description of levels configured for a given logger.

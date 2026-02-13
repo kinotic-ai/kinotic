@@ -1,4 +1,4 @@
-package org.kinotic.core.api.crud;
+package org.kinotic.core.api.services.crud;
 
 /**
  * A {@link Pageable} that uses a cursor to track the current position in the result set.

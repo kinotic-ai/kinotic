@@ -9,9 +9,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter'
 
     // Json
-    api 'com.fasterxml.jackson.core:jackson-annotations'
-    api 'tools.jackson.core:jackson-core'
-    api 'tools.jackson.core:jackson-databind'
+	implementation 'com.fasterxml.jackson.core:jackson-annotations'
+	implementation 'tools.jackson.core:jackson-core'
+	implementation 'tools.jackson.core:jackson-databind'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-json'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'

@@ -1,9 +1,7 @@
-
-package org.kinotic.rpc.internal.serializer;
-
+package org.kinotic.core.internal.serializer;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.crud.NullHandling;
+import org.kinotic.core.api.services.crud.*;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.JsonParser;
 import tools.jackson.databind.DeserializationContext;
@@ -16,20 +14,20 @@ import java.util.List;
 /**
  * Created by navid on 2/4/20
  */
-public class PageableDeserializer extends ValueDeserializer<org.kinotic.core.api.crud.Pageable> {
+public class PageableDeserializer extends ValueDeserializer<Pageable> {
 
     @Override
-    public org.kinotic.core.api.crud.Pageable deserialize(JsonParser jp, DeserializationContext ctxt) throws JacksonException {
+    public Pageable deserialize(JsonParser jp, DeserializationContext ctxt) throws JacksonException {
         JsonNode node = jp.objectReadContext().readTree(jp);
         Validate.isTrue(node.has("pageSize"), "pageSize missing from Pageable");
         int pageSize = node.get("pageSize").intValue();
 
-        org.kinotic.core.api.crud.Sort sort = null;
+        Sort sort = null;
         if(node.has("sort")){
             JsonNode ordersNode = node.get("sort").get("orders");
             if(ordersNode != null && ordersNode.isArray()){
-                List<org.kinotic.core.api.crud.Order> orders = deserializeOrders(ordersNode);
-                sort = org.kinotic.core.api.crud.Sort.by(orders);
+                List<Order> orders = deserializeOrders(ordersNode);
+                sort = Sort.by(orders);
             }
         }
 
@@ -52,30 +50,30 @@ public class PageableDeserializer extends ValueDeserializer<org.kinotic.core.api
             throw new IllegalArgumentException("Pageable cannot have both a cursor and a pageNumber");
         }
 
-        org.kinotic.core.api.crud.Pageable ret;
+        Pageable ret;
         if(pageNumber == null){
-            ret = org.kinotic.core.api.crud.Pageable.create(cursor, pageSize, sort);
+            ret = Pageable.create(cursor, pageSize, sort);
         }else{
-            ret = org.kinotic.core.api.crud.Pageable.create(pageNumber, pageSize, sort);
+            ret = Pageable.create(pageNumber, pageSize, sort);
         }
         return ret;
     }
 
-    private List<org.kinotic.core.api.crud.Order> deserializeOrders(JsonNode ordersNode){
-        List<org.kinotic.core.api.crud.Order> ret = new LinkedList<>();
+    private List<Order> deserializeOrders(JsonNode ordersNode){
+        List<Order> ret = new LinkedList<>();
         for(JsonNode node: ordersNode){
 
             Validate.isTrue(node.has("direction"), "direction missing from Order");
-            org.kinotic.core.api.crud.Direction direction = org.kinotic.core.api.crud.Direction.fromString(node.get("direction").stringValue());
+            Direction direction = Direction.fromString(node.get("direction").stringValue());
 
             Validate.isTrue(node.has("property"), "property missing from Order");
             String property = node.get("property").stringValue();
 
             if(node.has("nullHandling")){
                 NullHandling nullHandling = NullHandling.valueOf(node.get("nullHandling").stringValue());
-                ret.add(new org.kinotic.core.api.crud.Order(direction, property, nullHandling));
+                ret.add(new Order(direction, property, nullHandling));
             }else {
-                ret.add(new org.kinotic.core.api.crud.Order(direction, property));
+                ret.add(new Order(direction, property));
             }
         }
         return ret;

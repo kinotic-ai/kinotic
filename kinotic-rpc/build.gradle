@@ -26,6 +26,7 @@ dependencies {
     implementation 'org.reactivestreams:reactive-streams'
 
     // spring
+    implementation 'org.springframework.boot:spring-boot'
     implementation 'org.springframework:spring-core'
     implementation 'org.springframework:spring-aop'
     implementation 'org.springframework:spring-context'

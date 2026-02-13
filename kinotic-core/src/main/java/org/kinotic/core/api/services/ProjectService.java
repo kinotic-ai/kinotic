@@ -1,11 +1,11 @@
-package org.kinotic.persistence.api.services;
+package org.kinotic.core.api.services;
 
 import java.util.concurrent.CompletableFuture;
 
 import org.kinotic.rpc.api.annotations.Proxy;
 import org.kinotic.rpc.api.annotations.Publish;
 import org.kinotic.core.api.services.crud.IdentifiableCrudService;
-import org.kinotic.persistence.api.domain.Project;
+import org.kinotic.core.api.domain.Project;
 import org.kinotic.core.api.services.crud.Page;
 import org.kinotic.core.api.services.crud.Pageable;
 

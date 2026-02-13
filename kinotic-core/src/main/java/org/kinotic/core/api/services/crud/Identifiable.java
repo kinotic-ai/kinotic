@@ -1,6 +1,6 @@
 
 
-package org.kinotic.core.api.crud;
+package org.kinotic.core.api.services.crud;
 
 /**
  * Instances of this interface have a unique id (identity) and are therefore "Identifiable"

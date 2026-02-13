@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
  * Created by Navid Mitchell 🤪 on 10/24/19
  */
 @Component
-@ConfigurationProperties(prefix = "continuum")
+@ConfigurationProperties(prefix = "kinotic")
 @Getter
 @Setter
 @Accessors(chain = true)

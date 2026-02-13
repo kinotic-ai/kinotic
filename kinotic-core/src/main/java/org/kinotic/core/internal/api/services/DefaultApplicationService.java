@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.api.services;
+package org.kinotic.core.internal.api.services;
 
 import java.util.Date;
 import java.util.concurrent.CompletableFuture;
@@ -8,9 +8,7 @@ import org.kinotic.core.api.services.crud.Pageable;
 import org.kinotic.core.api.domain.Application;
 import org.kinotic.core.api.services.ApplicationService;
 import org.kinotic.core.api.services.ProjectService;
-import org.kinotic.core.internal.api.services.AbstractCrudService;
-import org.kinotic.core.internal.api.services.CrudServiceTemplate;
-import org.kinotic.persistence.internal.utils.StructuresUtil;
+import org.kinotic.core.api.utils.CoreUtil;
 import org.springframework.stereotype.Component;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
@@ -23,7 +21,7 @@ public class DefaultApplicationService extends AbstractCrudService<Application> 
     public DefaultApplicationService(ElasticsearchAsyncClient esAsyncClient,
                                      ProjectService projectService,
                                      CrudServiceTemplate crudServiceTemplate) {
-        super("struct_application",
+        super("kinotic_application",
               Application.class,
               esAsyncClient,
               crudServiceTemplate);
@@ -32,7 +30,7 @@ public class DefaultApplicationService extends AbstractCrudService<Application> 
 
     @Override
     public CompletableFuture<Application> createApplicationIfNotExist(String id, String description) {
-        StructuresUtil.validateApplicationId(id);
+        CoreUtil.validateApplicationId(id);
         return findById(id)
                 .thenCompose(application -> {
                     if(application != null){
@@ -54,7 +52,7 @@ public class DefaultApplicationService extends AbstractCrudService<Application> 
 
     @Override
     public CompletableFuture<Application> save(Application entity) {
-        StructuresUtil.validateApplicationId(entity.getId());
+        CoreUtil.validateApplicationId(entity.getId());
         entity.setUpdated(new Date());
         return super.save(entity);
     }

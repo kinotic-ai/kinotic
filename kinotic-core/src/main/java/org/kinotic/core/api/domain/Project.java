@@ -1,4 +1,4 @@
-package org.kinotic.persistence.api.domain;
+package org.kinotic.core.api.domain;
 
 import java.util.Date;
 import org.kinotic.core.api.services.crud.Identifiable;

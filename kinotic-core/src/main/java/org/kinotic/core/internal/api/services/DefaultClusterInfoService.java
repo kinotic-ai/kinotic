@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.api.services.cluster;
+package org.kinotic.core.internal.api.services;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;

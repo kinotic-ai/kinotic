@@ -6,8 +6,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.rpc.api.crud.Page;
-import org.kinotic.rpc.api.crud.Pageable;
+import org.kinotic.core.api.services.crud.Page;
+import org.kinotic.core.api.services.crud.Pageable;
+import org.kinotic.core.internal.api.services.AbstractCrudService;
+import org.kinotic.core.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.domain.EntityContext;
 import org.kinotic.persistence.api.domain.NamedQueriesDefinition;
 import org.kinotic.persistence.api.domain.Structure;

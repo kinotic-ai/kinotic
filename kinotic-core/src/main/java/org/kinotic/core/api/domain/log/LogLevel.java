@@ -1,4 +1,4 @@
-package org.kinotic.core.api.log;
+package org.kinotic.core.api.domain.log;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/5/23.

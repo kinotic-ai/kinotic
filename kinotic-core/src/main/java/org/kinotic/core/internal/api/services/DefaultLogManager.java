@@ -1,11 +1,12 @@
 
 
-package org.kinotic.core.internal.api.log;
+package org.kinotic.core.internal.api.services;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.boot.api.Kinotic;
-import org.kinotic.core.api.log.*;
-import org.kinotic.core.api.log.LogLevel;
+import org.kinotic.core.api.domain.log.*;
+import org.kinotic.core.api.domain.log.LogLevel;
+import org.kinotic.core.api.services.LogManager;
 import org.springframework.boot.logging.*;
 import org.springframework.stereotype.Component;
 

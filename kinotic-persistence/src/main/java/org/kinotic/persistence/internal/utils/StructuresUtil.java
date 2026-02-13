@@ -1,6 +1,7 @@
 package org.kinotic.persistence.internal.utils;
 
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.utils.CoreUtil;
 import org.kinotic.persistence.api.domain.Structure;
 
 import java.util.LinkedHashMap;
@@ -12,8 +13,6 @@ import java.util.regex.Pattern;
 public class StructuresUtil {
 
     private static final Pattern StructureNamePattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
-    private static final Pattern StructureApplicationPattern = Pattern.compile("^[A-Za-z][A-Za-z0-9._-]*$");
-    private static final Pattern StructureProjectIdPattern = Pattern.compile("^[a-z][a-z0-9._-]*$");
 
     /**
      * Function will convert a structure applicationId and name to a valid
@@ -35,9 +34,9 @@ public class StructuresUtil {
 
         validateStructureName(structure.getName());
 
-        validateApplicationId(structure.getApplicationId());
+        CoreUtil.validateApplicationId(structure.getApplicationId());
 
-        validateProjectId(structure.getProjectId());
+        CoreUtil.validateProjectId(structure.getProjectId());
 
         if (structure.getEntityDefinition() == null) {
             throw new IllegalArgumentException("Structure entityDefinition must not be null");
@@ -60,31 +59,6 @@ public class StructuresUtil {
         }
     }
 
-    /**
-     * Function will validate the structure application name
-     *
-     * @param applicationId to validate
-     * @throws IllegalArgumentException will be thrown if the structure application is invalid
-     */
-    public static void validateApplicationId(String applicationId) {
-        if (applicationId == null) {
-            throw new IllegalArgumentException("Application Id must not be null");
-        }
-        if (!StructureApplicationPattern.matcher(applicationId).matches()){
-            throw new IllegalArgumentException("Structure Application Id Invalid, first character must be a " +
-                                               "letter. And contain only letters, numbers, periods, underscores or dashes. Got "+ applicationId);
-        }
-    }
-
-    public static void validateProjectId(String projectId){
-        if(projectId == null){
-            throw new IllegalArgumentException("Project Id must not be null");
-        }
-        if (!StructureProjectIdPattern.matcher(projectId).matches()){
-            throw new IllegalArgumentException("Structure Project Id Invalid, first character must be a " +
-                                               "letter. And contain only letters, numbers, periods, underscores or dashes. Got "+ projectId);
-        }
-    }
 
     /**
      * Function will validate the property name

@@ -1,10 +1,8 @@
+package org.kinotic.core.internal.serializer;
 
 
-package org.kinotic.rpc.internal.serializer;
-
-
-import org.kinotic.core.api.crud.CursorPage;
-import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.services.crud.CursorPage;
+import org.kinotic.core.api.services.crud.Page;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.JsonGenerator;
 import tools.jackson.databind.SerializationContext;

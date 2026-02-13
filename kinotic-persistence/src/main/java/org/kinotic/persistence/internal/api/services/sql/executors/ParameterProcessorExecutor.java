@@ -1,8 +1,8 @@
 package org.kinotic.persistence.internal.api.services.sql.executors;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.rpc.api.crud.Page;
-import org.kinotic.rpc.api.crud.Pageable;
+import org.kinotic.core.api.services.crud.Page;
+import org.kinotic.core.api.services.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.persistence.api.domain.ParameterHolder;

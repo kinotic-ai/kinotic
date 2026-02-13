@@ -1,6 +1,7 @@
 package org.kinotic.persistence.internal.config;
 
 import co.elastic.clients.elasticsearch._types.FieldValue;
+import org.kinotic.core.internal.serializer.RawJsonDeserializer;
 import org.kinotic.persistence.internal.serializer.*;
 import tools.jackson.core.Version;
 import tools.jackson.databind.ObjectMapper;
@@ -11,7 +12,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.rpc.internal.utils.MetaUtil;
 import org.kinotic.persistence.api.domain.FastestType;
-import org.kinotic.persistence.api.domain.RawJson;
+import org.kinotic.core.api.domain.RawJson;
 import org.kinotic.persistence.api.domain.TenantSpecificId;
 import org.kinotic.persistence.api.domain.idl.PageC3Type;
 import org.kinotic.persistence.api.domain.idl.PageableC3Type;
@@ -66,9 +67,6 @@ public class StructuresJacksonConfig {
         ret.registerSubtypes(new NamedType(QueryOptionsC3Type.class, "queryOptions"));
 
         // register internal serializer deserializers
-        ret.addDeserializer(RawJson.class, new RawJsonDeserializer(new ObjectMapper()));
-        ret.addSerializer(RawJson.class, new RawJsonSerializer());
-
         ret.addDeserializer(FieldValue.class, new FieldValueDeserializer());
         ret.addSerializer(FieldValue.class, new FieldValueSerializer());
 

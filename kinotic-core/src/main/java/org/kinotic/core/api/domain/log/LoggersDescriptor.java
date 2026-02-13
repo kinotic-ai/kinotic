@@ -1,4 +1,4 @@
-package org.kinotic.core.api.log;
+package org.kinotic.core.api.domain.log;
 
 import java.util.Collections;
 import java.util.Map;

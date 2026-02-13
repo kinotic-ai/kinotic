@@ -21,7 +21,7 @@ import org.kinotic.rpc.api.event.Event;
 import org.kinotic.rpc.api.event.EventBusService;
 import org.kinotic.rpc.api.event.EventConstants;
 import org.kinotic.rpc.gateway.api.config.ContinuumGatewayProperties;
-import org.kinotic.rpc.gateway.api.security.AuthenticationHandler;
+import org.kinotic.rpc.api.security.AuthenticationHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.Disposable;

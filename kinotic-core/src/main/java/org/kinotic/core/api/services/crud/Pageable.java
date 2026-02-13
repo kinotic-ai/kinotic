@@ -1,4 +1,4 @@
-package org.kinotic.core.api.crud;
+package org.kinotic.core.api.services.crud;
 
 /**
  * {@link Pageable} is used to represent a request for a page of data.

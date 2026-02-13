@@ -1,4 +1,4 @@
-package org.kinotic.core.api.crud;
+package org.kinotic.core.api.services.crud;
 
 import java.util.concurrent.CompletableFuture;
 

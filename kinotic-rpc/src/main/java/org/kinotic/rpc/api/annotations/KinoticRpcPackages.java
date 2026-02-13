@@ -17,7 +17,7 @@ import org.springframework.util.StringUtils;
 import java.util.*;
 
 /**
- * Class for storing Kinotic packages for reference later (e.g. by Service scanner).
+ * Class for storing Kinotic RPC packages for reference later (e.g. by Service scanner).
  *
  * Adapted from Spring Boot
  *
@@ -26,14 +26,14 @@ import java.util.*;
  * @author Oliver Gierke
  * @author navid
  */
-public abstract class KinoticPackages {
+public abstract class KinoticRpcPackages {
 
-	private static final Logger logger = LoggerFactory.getLogger(KinoticPackages.class);
+	private static final Logger logger = LoggerFactory.getLogger(KinoticRpcPackages.class);
 
-	private static final String BEAN = KinoticPackages.class.getName();
+	private static final String BEAN = KinoticRpcPackages.class.getName();
 
 	/**
-	 * Determine if the Kinotic base packages for the given bean factory are
+	 * Determine if the Kinotic RPC base packages for the given bean factory are
 	 * available.
 	 * @param beanFactory the source bean factory
 	 * @return true if there are auto-config packages available
@@ -43,10 +43,10 @@ public abstract class KinoticPackages {
 	}
 
 	/**
-	 * Return the Kinotic base packages for the given bean factory.
+	 * Return the Kinotic RPC base packages for the given bean factory.
 	 * @param beanFactory the source bean factory
-	 * @return a list of Kinotic packages
-	 * @throws IllegalStateException if Kinotic is not enabled
+	 * @return a list of Kinotic RPC packages
+	 * @throws IllegalStateException if Kinotic RPC is not enabled
 	 */
 	public static List<String> get(BeanFactory beanFactory) {
 		try {
@@ -58,7 +58,7 @@ public abstract class KinoticPackages {
 	}
 
 	/**
-	 * Programmatically registers the Kinotic package names. Subsequent
+	 * Programmatically registers the Kinotic RPC package names. Subsequent
 	 * invocations will add the given package names to those that have already been
 	 * registered. You can use this method to manually define the base packages that will
 	 * be used for a given {@link BeanDefinitionRegistry}. Generally it's recommended that

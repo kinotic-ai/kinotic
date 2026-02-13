@@ -12,7 +12,7 @@ import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.boot.internal.utils.KinoticUtil;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.decorators.*;
-import org.kinotic.persistence.api.services.ApplicationService;
+import org.kinotic.core.api.services.ApplicationService;
 import org.kinotic.persistence.api.services.StructureService;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.utils.StructuresUtil;

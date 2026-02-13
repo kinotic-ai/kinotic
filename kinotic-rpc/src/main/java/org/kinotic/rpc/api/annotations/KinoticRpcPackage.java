@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Import;
 
 /**
  * Indicates that the package containing the annotated class should be registered with
- * {@link KinoticPackages}.
+ * {@link KinoticRpcPackages}.
  * This must be used with the {@link org.springframework.context.annotation.Configuration} annotation, or else it will not be detected.
  *
  *
@@ -21,6 +21,6 @@ import org.springframework.context.annotation.Import;
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Inherited
-@Import(KinoticPackages.Registrar.class)
-public @interface KinoticPackage {
+@Import(KinoticRpcPackages.Registrar.class)
+public @interface KinoticRpcPackage {
 }

@@ -1,4 +1,4 @@
-package org.kinotic.rpc.gateway.api.security;
+package org.kinotic.rpc.api.security;
 
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -8,7 +8,6 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.ext.web.RoutingContext;
 import org.kinotic.rpc.api.event.EventConstants;
-import org.kinotic.rpc.api.security.SecurityService;
 
 import java.util.HashMap;
 import java.util.Map;

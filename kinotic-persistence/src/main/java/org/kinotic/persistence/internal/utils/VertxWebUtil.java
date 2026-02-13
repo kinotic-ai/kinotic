@@ -9,6 +9,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CorsHandler;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.NonNull;
+import org.kinotic.core.api.services.crud.*;
 import org.kinotic.rpc.api.exceptions.AuthenticationException;
 import org.kinotic.rpc.api.exceptions.AuthorizationException;
 import org.kinotic.persistence.api.config.StructuresProperties;
@@ -42,46 +43,46 @@ public class VertxWebUtil {
     }
 
     /**
-     * Returns a {@link org.kinotic.rpc.api.crud.Pageable} from the request or a default {@link org.kinotic.rpc.api.crud.OffsetPageable} if none is present
+     * Returns a {@link Pageable} from the request or a default {@link OffsetPageable} if none is present
      * @param ctx the routing context to get the pageable from
-     * @return a {@link org.kinotic.rpc.api.crud.Pageable}
+     * @return a {@link Pageable}
      */
-    public static org.kinotic.rpc.api.crud.Pageable getPageableOrDefaultOffsetPageable(RoutingContext ctx){
-        org.kinotic.rpc.api.crud.Pageable ret = getPageableIfExits(ctx , true, org.kinotic.rpc.api.crud.OffsetPageable.class);
+    public static Pageable getPageableOrDefaultOffsetPageable(RoutingContext ctx){
+        Pageable ret = getPageableIfExits(ctx , true, OffsetPageable.class);
         if(ret == null){
             String sizeString = ctx.request().getParam("size");
             int size = (sizeString != null && !sizeString.isEmpty()) ? Integer.parseInt(sizeString) : 25;
-            ret = org.kinotic.rpc.api.crud.Pageable.create(0, size, null);
+            ret = Pageable.create(0, size, null);
         }
         return ret;
     }
 
     /**
-     * Returns a {@link org.kinotic.rpc.api.crud.Pageable} from the request or a default {@link org.kinotic.rpc.api.crud.CursorPageable} if none is present
+     * Returns a {@link Pageable} from the request or a default {@link CursorPageable} if none is present
      * @param ctx the routing context to get the pageable from
-     * @return a {@link org.kinotic.rpc.api.crud.Pageable}
+     * @return a {@link Pageable}
      */
-    public static org.kinotic.rpc.api.crud.Pageable getPageableOrDefaultCursorPageable(RoutingContext ctx){
-        org.kinotic.rpc.api.crud.Pageable ret = getPageableIfExits(ctx , true, org.kinotic.rpc.api.crud.CursorPageable.class);
+    public static Pageable getPageableOrDefaultCursorPageable(RoutingContext ctx){
+        Pageable ret = getPageableIfExits(ctx , true, CursorPageable.class);
         if(ret == null){
             String sizeString = ctx.request().getParam("size");
             int size = (sizeString != null && !sizeString.isEmpty()) ? Integer.parseInt(sizeString) : 25;
-            ret = org.kinotic.rpc.api.crud.Pageable.create(null, size, null);
+            ret = Pageable.create(null, size, null);
         }
         return ret;
     }
 
     /**
-     * Returns a {@link org.kinotic.rpc.api.crud.Pageable} if either a cursor or page number is present in the request
+     * Returns a {@link Pageable} if either a cursor or page number is present in the request
      * @param ctx the routing context to get the pageable from
-     * @param createIfOnlySortPresent if true and only a sort is present a {@link org.kinotic.rpc.api.crud.OffsetPageable} will be created with a page number of 0
-     * @param defaultPageableClass the default {@link org.kinotic.rpc.api.crud.Pageable} type if only a sort is present
-     * @return a {@link org.kinotic.rpc.api.crud.Pageable} or null if neither a cursor nor page number is present
+     * @param createIfOnlySortPresent if true and only a sort is present a {@link OffsetPageable} will be created with a page number of 0
+     * @param defaultPageableClass the default {@link Pageable} type if only a sort is present
+     * @return a {@link Pageable} or null if neither a cursor nor page number is present
      */
-    public static org.kinotic.rpc.api.crud.Pageable getPageableIfExits(RoutingContext ctx,
-                                                                       boolean createIfOnlySortPresent,
-                                                                       Class<? extends org.kinotic.rpc.api.crud.Pageable> defaultPageableClass){
-        org.kinotic.rpc.api.crud.Pageable ret = null;
+    public static Pageable getPageableIfExits(RoutingContext ctx,
+                                              boolean createIfOnlySortPresent,
+                                              Class<? extends Pageable> defaultPageableClass){
+        Pageable ret = null;
         String sizeString = ctx.request().getParam("size");
         int size = (sizeString != null && !sizeString.isEmpty()) ? Integer.parseInt(sizeString) : 25;
 
@@ -103,24 +104,24 @@ public class VertxWebUtil {
 
         String sortString = ctx.request().getParam("sort");
         String[] sort = (sortString != null && !sortString.isEmpty()) ? sortString.split(",") : new String[0];
-        List<org.kinotic.rpc.api.crud.Order> orders = new ArrayList<>();
+        List<Order> orders = new ArrayList<>();
         for(String fieldString : sort){
             if(fieldString.startsWith("-")) {
-                orders.add(new org.kinotic.rpc.api.crud.Order(org.kinotic.rpc.api.crud.Direction.DESC, fieldString.substring(1)));
+                orders.add(new Order(Direction.DESC, fieldString.substring(1)));
             }else {
-                orders.add(new org.kinotic.rpc.api.crud.Order(org.kinotic.rpc.api.crud.Direction.ASC, fieldString));
+                orders.add(new Order(Direction.ASC, fieldString));
             }
         }
 
         if(pageNumber != null){
-            ret = org.kinotic.rpc.api.crud.Pageable.create(pageNumber, size, org.kinotic.rpc.api.crud.Sort.by(orders));
+            ret = Pageable.create(pageNumber, size, Sort.by(orders));
         } else if(cursorPresent){
-            ret = org.kinotic.rpc.api.crud.Pageable.create(cursor, size, org.kinotic.rpc.api.crud.Sort.by(orders));
+            ret = Pageable.create(cursor, size, Sort.by(orders));
         } else if(createIfOnlySortPresent && defaultPageableClass != null && !orders.isEmpty()){
-            if(defaultPageableClass == org.kinotic.rpc.api.crud.OffsetPageable.class){
-                ret = org.kinotic.rpc.api.crud.Pageable.create(0, size, org.kinotic.rpc.api.crud.Sort.by(orders));
-            }else if(defaultPageableClass == org.kinotic.rpc.api.crud.CursorPageable.class){
-                ret = org.kinotic.rpc.api.crud.Pageable.create(null, size, org.kinotic.rpc.api.crud.Sort.by(orders));
+            if(defaultPageableClass == OffsetPageable.class){
+                ret = Pageable.create(0, size, Sort.by(orders));
+            }else if(defaultPageableClass == CursorPageable.class){
+                ret = Pageable.create(null, size, Sort.by(orders));
             }else{
                 throw new IllegalArgumentException("Unsupported defaultPageableClass: " + defaultPageableClass);
             }

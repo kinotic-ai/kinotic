@@ -55,7 +55,7 @@ public class DefaultKinotic implements Kinotic {
 
     public DefaultKinotic(ResourceLoader resourceLoader,
                           @Autowired(required = false)
-                            ClusterManager clusterManager,
+                          ClusterManager clusterManager,
                           Vertx vertx,
                           KinoticProperties kinoticProperties,
                           IgniteProperties igniteProperties,

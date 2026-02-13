@@ -1,7 +1,7 @@
-package org.kinotic.persistence.api.services;
+package org.kinotic.core.api.services;
 
 import org.kinotic.core.api.services.crud.IdentifiableCrudService;
-import org.kinotic.persistence.api.domain.Application;
+import org.kinotic.core.api.domain.Application;
 import org.kinotic.rpc.api.annotations.Publish;
 
 import java.util.concurrent.CompletableFuture;

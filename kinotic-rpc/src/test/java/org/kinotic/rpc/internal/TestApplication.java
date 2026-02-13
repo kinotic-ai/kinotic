@@ -2,6 +2,7 @@
 
 package org.kinotic.rpc.internal;
 
+import org.kinotic.rpc.api.annotations.EnableKinoticRpc;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jmx.JmxAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -13,7 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
  */
 @SpringBootApplication(exclude = {JmxAutoConfiguration.class})
 @EnableConfigurationProperties
-@org.kinotic.boot.api.annotations.EnableKinotic
+@EnableKinoticRpc
 @ActiveProfiles({"test"})
 public class TestApplication {
 }

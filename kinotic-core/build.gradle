@@ -3,5 +3,18 @@ plugins {
 }
 
 dependencies {
+    implementation project(':kinotic-boot')
+    implementation project(':kinotic-rpc')
 
+    implementation 'co.elastic.clients:elasticsearch-java'
+    implementation 'co.elastic.clients:elasticsearch-rest5-client'
+
+    implementation "com.github.slugify:slugify:${slugifyVersion}"
+
+    implementation 'org.apache.ignite:ignite-core'
+
+    // jackson impl
+    implementation 'tools.jackson.core:jackson-core'
+    implementation 'tools.jackson.core:jackson-databind'
 }
+

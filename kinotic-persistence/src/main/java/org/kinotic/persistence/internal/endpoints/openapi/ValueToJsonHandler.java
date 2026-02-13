@@ -6,7 +6,7 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.persistence.api.domain.FastestType;
-import org.kinotic.persistence.api.domain.RawJson;
+import org.kinotic.core.api.domain.RawJson;
 import org.kinotic.persistence.internal.utils.VertxWebUtil;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;

@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.serializer;
+package org.kinotic.core.internal.serializer;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.JsonGenerator;

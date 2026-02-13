@@ -5,7 +5,7 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
 import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.persistence.api.domain.EntityContext;
-import org.kinotic.persistence.api.domain.RawJson;
+import org.kinotic.core.api.domain.RawJson;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.internal.api.hooks.impl.MapUpsertPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.impl.PojoUpsertPreProcessor;

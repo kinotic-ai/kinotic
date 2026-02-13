@@ -3,6 +3,7 @@ package org.kinotic.persistence.internal.api.services;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import org.apache.commons.lang3.Validate;
 import org.kinotic.persistence.api.domain.MigrationDefinition;
 import org.kinotic.persistence.api.domain.MigrationRequest;
 import org.kinotic.persistence.api.domain.MigrationResult;
@@ -32,6 +33,9 @@ public class DefaultMigrationService implements MigrationService {
 
     @Override
     public CompletableFuture<MigrationResult> executeMigrations(MigrationRequest migrationRequest) {
+        Validate.isTrue(!migrationRequest.projectId().equals(MigrationExecutor.SYSTEM_PROJECT),
+                        "Project ID %s is not allowed", MigrationExecutor.SYSTEM_PROJECT);
+
         log.debug("Executing {} migrations for project {}", 
                 migrationRequest.migrations().size(), 
                 migrationRequest.projectId());
@@ -68,12 +72,19 @@ public class DefaultMigrationService implements MigrationService {
 
     @Override
     public CompletableFuture<Integer> getLastAppliedMigrationVersion(String projectId) {
+        Validate.notNull(projectId, "Project ID cannot be null");
+        Validate.isTrue(!projectId.equals(MigrationExecutor.SYSTEM_PROJECT),
+                        "Project ID %s is not allowed", MigrationExecutor.SYSTEM_PROJECT);
         // Query Elasticsearch for the highest migration version applied to this project
         return migrationExecutor.getLastAppliedMigrationVersion(projectId);
     }
 
     @Override
     public CompletableFuture<Boolean> isMigrationApplied(String projectId, String version) {
+        Validate.notNull(projectId, "Project ID cannot be null");
+        Validate.notNull(version, "Migration version cannot be null");
+        Validate.isTrue(!projectId.equals(MigrationExecutor.SYSTEM_PROJECT),
+                        "Project ID %s is not allowed", MigrationExecutor.SYSTEM_PROJECT);
         return migrationExecutor.isMigrationAppliedAsync(version, projectId);
     }
     
