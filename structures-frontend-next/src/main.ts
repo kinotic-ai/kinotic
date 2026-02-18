@@ -9,14 +9,12 @@ import ToastService from 'primevue/toastservice'
 import { CONTINUUM_UI } from '@/IContinuumUI'
 import 'primeicons/primeicons.css'
 import { createApp } from 'vue'
-import { createPinia } from 'pinia'
 import App from './App.vue'
 import { Log } from 'oidc-client-ts'
 Log.setLogger(console)
 
 import { Structures } from '@kinotic/structures-api'
 
-// Make Structures globally available for web components
 declare global {
   interface Window {
     Structures: typeof Structures
@@ -24,7 +22,6 @@ declare global {
 }
 window.Structures = Structures
 
-// Dev-only: prevent stale assets in browsers (notably Firefox)
 if (import.meta.env.DEV) {
   try {
     if ('serviceWorker' in navigator) {
@@ -39,12 +36,9 @@ if (import.meta.env.DEV) {
     // ignore
   }
 
-  // Best-effort: consume horizontal wheel overscroll at edges to reduce
-  // mac trackpad "swipe/refresh/back" style navigation.
   window.addEventListener(
     'wheel',
     (e: WheelEvent) => {
-      // Only care about horizontal intent.
       if (Math.abs(e.deltaX) < Math.abs(e.deltaY) || Math.abs(e.deltaX) < 8) return
 
       let el = e.target as HTMLElement | null
@@ -72,8 +66,6 @@ if (import.meta.env.DEV) {
 }
 const app = createApp(App)
 
-app.use(createPinia())
-
 app.use(PrimeVue, {
     theme: {
         preset: StructuresPreset,
@@ -85,7 +77,6 @@ app.use(PrimeVue, {
     }
 })
 
-// Initialize CONTINUUM_UI with the existing router instance
 CONTINUUM_UI.initialize(router);
 
 app.directive('styleclass', StyleClass)
