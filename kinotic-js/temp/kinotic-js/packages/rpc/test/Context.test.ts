@@ -1,4 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from "bun:test"
+/*
+ * Copyright 2008-present Mind Ignited and the original author or authors.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * See https://www.apache.org/licenses/LICENSE-2.0
+ */
+
+import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { ConnectedInfo, Continuum, Event, EventConstants, IEvent } from "../src"
 import { TestServiceWithContext } from "./TestServiceWithContext"
 import { createConnectionInfo, logFailure, validateConnectedInfo } from "./TestHelper"

@@ -24,9 +24,9 @@ public class TemporarySecurityService implements SecurityService {
 
     private static final Logger log = LoggerFactory.getLogger(TemporarySecurityService.class);
 
-    private static final String PASSWORD = "structures";
+    private static final String PASSWORD = "kinotic";
     private static final Participant participant = new DefaultParticipant("kinotic",
-                                                                          "admin",
+                                                                          "kinotic",
                                                                           Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
                                                                                  ParticipantConstants.PARTICIPANT_TYPE_USER),
                                                                           List.of("ADMIN"));
@@ -34,8 +34,8 @@ public class TemporarySecurityService implements SecurityService {
     /**
      * Authenticates a user based on the provided authenticationInfo
      * This currently uses a hard coded username and password for demonstration purposes
-     * Username: admin
-     * Password: structures
+     * Username: kinotic
+     * Password: kinotic
      *
      * This also supports Basic Auth. The username and password are base64 encoded and sent in the Authorization header
      * {
@@ -51,7 +51,7 @@ public class TemporarySecurityService implements SecurityService {
         // however we should look at supporting audience and issuer validations
         // but to do this we need to store those values with the organization 
         // we might need to know if a request for auth is coming from an application or the management UI. 
-        if(authenticationInfo.containsKey("login") && Objects.equals(authenticationInfo.get("login"), "admin")
+        if(authenticationInfo.containsKey("login") && Objects.equals(authenticationInfo.get("login"), participant.getId())
             && authenticationInfo.containsKey("passcode") && Objects.equals(authenticationInfo.get("passcode"), PASSWORD)){
             log.debug("Successfully authenticated user with continuum credentials");
 
@@ -66,7 +66,7 @@ public class TemporarySecurityService implements SecurityService {
                 String credentials = new String(Base64.getDecoder().decode(parts[1]), StandardCharsets.UTF_8);
                 String[] creds = credentials.split(":", 2);
                 if (creds.length == 2) {
-                    if (creds[0].equals("admin") && creds[1].equals(PASSWORD)) {
+                    if (creds[0].equals(participant.getId()) && creds[1].equals(PASSWORD)) {
 
                         log.debug("Successfully authenticated user with basic auth");
 
@@ -86,7 +86,7 @@ public class TemporarySecurityService implements SecurityService {
     private Participant createParticipant(String tenantId){
         if(tenantId != null){
             return new DefaultParticipant(tenantId,
-                                          "admin",
+                                          "kinotic",
                                           Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
                                                  ParticipantConstants.PARTICIPANT_TYPE_USER),
                                           List.of("ADMIN"));
