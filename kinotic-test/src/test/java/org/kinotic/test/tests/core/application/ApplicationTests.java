@@ -5,7 +5,7 @@ package org.kinotic.test.tests.core.application;
 import java.util.concurrent.CompletableFuture;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.core.api.domain.Application;
+import org.kinotic.core.api.model.Application;
 import org.kinotic.core.api.services.ApplicationService;
 import org.kinotic.test.support.elastic.ElasticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;

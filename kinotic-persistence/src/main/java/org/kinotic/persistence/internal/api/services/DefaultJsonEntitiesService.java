@@ -8,7 +8,7 @@ import org.kinotic.core.api.services.crud.Pageable;
 import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
 import org.kinotic.persistence.api.domain.FastestType;
 import org.kinotic.persistence.api.domain.QueryParameter;
-import org.kinotic.core.api.domain.RawJson;
+import org.kinotic.core.api.model.RawJson;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.api.services.JsonEntitiesService;
 import org.kinotic.persistence.internal.api.services.sql.ListParameterHolder;

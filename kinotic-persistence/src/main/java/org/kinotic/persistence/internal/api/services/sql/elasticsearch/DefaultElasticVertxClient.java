@@ -26,7 +26,7 @@ import org.kinotic.core.api.services.crud.Page;
 import org.kinotic.core.api.services.crud.Pageable;
 import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.persistence.api.domain.QueryOptions;
-import org.kinotic.core.api.domain.RawJson;
+import org.kinotic.core.api.model.RawJson;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.api.config.ElasticConnectionInfo;
 import org.slf4j.Logger;

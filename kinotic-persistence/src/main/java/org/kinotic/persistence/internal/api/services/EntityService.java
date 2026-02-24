@@ -4,7 +4,7 @@ import org.kinotic.core.api.services.crud.Page;
 import org.kinotic.core.api.services.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.domain.EntityContext;
-import org.kinotic.core.api.domain.RawJson;
+import org.kinotic.core.api.model.RawJson;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.TenantSpecificId;
 import org.kinotic.persistence.api.domain.ParameterHolder;

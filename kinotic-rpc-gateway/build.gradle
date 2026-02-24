@@ -5,7 +5,7 @@ plugins {
 dependencies {
     // Continuum Dependencies
     implementation project(':kinotic-boot')
-    implementation project(':kinotic-core')
+    implementation project(':kinotic-domain')
     implementation project(':kinotic-rpc')
 
     // reactive streams apis

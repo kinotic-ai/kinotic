@@ -12,7 +12,7 @@ import org.kinotic.core.api.services.crud.Sort;
 import org.kinotic.test.support.elastic.ElasticTestBase;
 import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
 import org.kinotic.persistence.api.domain.EntityContext;
-import org.kinotic.core.api.domain.RawJson;
+import org.kinotic.core.api.model.RawJson;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.sample.Car;
