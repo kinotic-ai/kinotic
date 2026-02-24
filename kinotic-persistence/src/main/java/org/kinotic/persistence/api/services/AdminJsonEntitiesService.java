@@ -1,7 +1,8 @@
 package org.kinotic.persistence.api.services;
 
-import org.kinotic.core.api.services.crud.Page;
-import org.kinotic.core.api.services.crud.Pageable;
+import org.kinotic.domain.api.model.RawJson;
+import org.kinotic.domain.api.services.crud.Page;
+import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.domain.*;
 import org.kinotic.rpc.api.annotations.Publish;
@@ -101,11 +102,11 @@ public interface AdminJsonEntitiesService {
      * @param participant     the participant of the logged-in user
      * @return {@link CompletableFuture} with the result of the query
      */
-    CompletableFuture<List<org.kinotic.core.api.model.RawJson>> namedQuery(String structureId,
-                                                                           String queryName,
-                                                                           List<QueryParameter> queryParameters,
-                                                                           List<String> tenantSelection,
-                                                                           Participant participant);
+    CompletableFuture<List<RawJson>> namedQuery(String structureId,
+                                                String queryName,
+                                                List<QueryParameter> queryParameters,
+                                                List<String> tenantSelection,
+                                                Participant participant);
 
     /**
      * Executes a named query and returns a {@link Page} of results.
@@ -118,12 +119,12 @@ public interface AdminJsonEntitiesService {
      * @param participant     the participant of the logged-in user
      * @return {@link CompletableFuture} with the result of the query
      */
-    CompletableFuture<Page<org.kinotic.core.api.model.RawJson>> namedQueryPage(String structureId,
-                                                                               String queryName,
-                                                                               List<QueryParameter> queryParameters,
-                                                                               List<String> tenantSelection,
-                                                                               Pageable pageable,
-                                                                               Participant participant);
+    CompletableFuture<Page<RawJson>> namedQueryPage(String structureId,
+                                                    String queryName,
+                                                    List<QueryParameter> queryParameters,
+                                                    List<String> tenantSelection,
+                                                    Pageable pageable,
+                                                    Participant participant);
 
     /**
      * Returns a {@link Page} of entities matching the search text and paging restriction provided in the {@code Pageable} object.

@@ -9,7 +9,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CorsHandler;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.NonNull;
-import org.kinotic.core.api.services.crud.*;
+import org.kinotic.domain.api.services.crud.*;
 import org.kinotic.rpc.api.exceptions.AuthenticationException;
 import org.kinotic.rpc.api.exceptions.AuthorizationException;
 import org.kinotic.persistence.api.config.StructuresProperties;

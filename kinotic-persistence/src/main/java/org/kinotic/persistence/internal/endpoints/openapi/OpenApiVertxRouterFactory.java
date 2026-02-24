@@ -12,8 +12,9 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.Nullable;
+import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.rpc.api.security.SecurityService;
-import org.kinotic.core.api.services.crud.Pageable;
+import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.rpc.api.security.AuthenticationHandler;
 import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.persistence.api.domain.*;
@@ -154,7 +155,7 @@ public class OpenApiVertxRouterFactory {
 
                   handleNoReturnValue(ctx, () ->
                           entitiesService.bulkSave(structureId,
-                                                   new org.kinotic.core.api.model.RawJson(ctx.body().buffer().getBytes()),
+                                                   new RawJson(ctx.body().buffer().getBytes()),
                                                    new RoutingContextToEntityContextAdapter(ctx))
                   );
 
@@ -171,7 +172,7 @@ public class OpenApiVertxRouterFactory {
 
                   handleNoReturnValue(ctx, () ->
                           entitiesService.bulkUpdate(structureId,
-                                                     new org.kinotic.core.api.model.RawJson(ctx.body().buffer().getBytes()),
+                                                     new RawJson(ctx.body().buffer().getBytes()),
                                                      new RoutingContextToEntityContextAdapter(ctx))
                   );
 
@@ -188,7 +189,7 @@ public class OpenApiVertxRouterFactory {
 
                   handleWithReturnValue(ctx, () ->
                           entitiesService.update(structureId,
-                                                 new org.kinotic.core.api.model.RawJson(ctx.body().buffer().getBytes()),
+                                                 new RawJson(ctx.body().buffer().getBytes()),
                                                  new RoutingContextToEntityContextAdapter(ctx))
                   );
 
@@ -205,7 +206,7 @@ public class OpenApiVertxRouterFactory {
 
                   handleWithReturnValue(ctx, () ->
                           entitiesService.save(structureId,
-                                               new org.kinotic.core.api.model.RawJson(ctx.body().buffer().getBytes()),
+                                               new RawJson(ctx.body().buffer().getBytes()),
                                                new RoutingContextToEntityContextAdapter(ctx))
                   );
 
@@ -300,7 +301,7 @@ public class OpenApiVertxRouterFactory {
                               entitiesService.namedQuery(structureId,
                                                          queryName,
                                                          extractParameters(ctx),
-                                                         org.kinotic.core.api.model.RawJson.class,
+                                                         RawJson.class,
                                                          new RoutingContextToEntityContextAdapter(ctx))
                       );
 
@@ -326,7 +327,7 @@ public class OpenApiVertxRouterFactory {
                                                              queryName,
                                                              extractParameters(ctx),
                                                              pageable,
-                                                             org.kinotic.core.api.model.RawJson.class,
+                                                             RawJson.class,
                                                              new RoutingContextToEntityContextAdapter(ctx))
                       );
 

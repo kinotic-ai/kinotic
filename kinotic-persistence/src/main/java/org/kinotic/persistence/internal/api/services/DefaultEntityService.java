@@ -13,10 +13,11 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.ObjectUtils;
-import org.kinotic.core.api.services.crud.CursorPage;
-import org.kinotic.core.api.services.crud.Page;
-import org.kinotic.core.api.services.crud.Pageable;
-import org.kinotic.core.internal.api.services.CrudServiceTemplate;
+import org.kinotic.domain.api.model.RawJson;
+import org.kinotic.domain.api.services.crud.CursorPage;
+import org.kinotic.domain.api.services.crud.Page;
+import org.kinotic.domain.api.services.crud.Pageable;
+import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.persistence.api.domain.*;
 import org.kinotic.persistence.api.domain.idl.decorators.MultiTenancyType;
@@ -213,7 +214,7 @@ public class DefaultEntityService implements EntityService {
                             return crudServiceTemplate
                                     .search(structure.getItemIndex(),
                                             pageable,
-                                            org.kinotic.core.api.model.RawJson.class,
+                                            RawJson.class,
                                             builder -> readPreProcessor.beforeFindAll(structure, builder, context),
                                             hit -> type.cast(new FastestType(hit.source())));
                         }
@@ -375,7 +376,7 @@ public class DefaultEntityService implements EntityService {
                             return crudServiceTemplate
                                     .search(structure.getItemIndex(),
                                             pageable,
-                                            org.kinotic.core.api.model.RawJson.class,
+                                            RawJson.class,
                                             builder -> readPreProcessor.beforeSearch(structure,
                                                                                      searchText,
                                                                                      builder,
@@ -569,7 +570,7 @@ public class DefaultEntityService implements EntityService {
                 return crudServiceTemplate
                         .findById(structure.getItemIndex(),
                                   id,
-                                  org.kinotic.core.api.model.RawJson.class,
+                                  RawJson.class,
                                   builder -> readPreProcessor.beforeFindById(structure, builder, context),
                                   result -> type.cast(new FastestType(result.source())));
             }
@@ -611,7 +612,7 @@ public class DefaultEntityService implements EntityService {
             }else{
                 return crudServiceTemplate
                         .multiGet(composedIds,
-                                  org.kinotic.core.api.model.RawJson.class,
+                                  RawJson.class,
                                   builder -> readPreProcessor.beforeFindByIds(structure, builder, context),
                                   result -> type.cast(new FastestType(result.source())));
             }
@@ -715,7 +716,7 @@ public class DefaultEntityService implements EntityService {
 
     private String extractTenant(Object object, String tenantIdFieldName){
         Object data = (object instanceof FastestType ? ((FastestType) object).data() : object);
-        if(data instanceof org.kinotic.core.api.model.RawJson rawJson){
+        if(data instanceof RawJson rawJson){
             try {
                 Map<?,?> converted = objectMapper.readValue(rawJson.data(), Map.class);
                 return (String) converted.get(tenantIdFieldName);
@@ -735,7 +736,7 @@ public class DefaultEntityService implements EntityService {
         try {
             if(data instanceof Map<?,?> map){
                 return objectMapper.convertValue(map, ObjectNode.class).toPrettyString();
-            }else if(data instanceof org.kinotic.core.api.model.RawJson rawJson){
+            }else if(data instanceof RawJson rawJson){
                 return objectMapper.readValue(rawJson.data(), ObjectNode.class).toPrettyString();
             }else{
                 return objectMapper.convertValue(data, ObjectNode.class).toPrettyString();
@@ -755,11 +756,11 @@ public class DefaultEntityService implements EntityService {
                                               primaryTerm,
                                               seqNo,
                                               entity instanceof TokenBuffer
-                                                      && entityHolder.entity() instanceof org.kinotic.core.api.model.RawJson
+                                                      && entityHolder.entity() instanceof RawJson
             );
         }else{
             if(entity instanceof TokenBuffer
-                    && entityHolder.entity() instanceof org.kinotic.core.api.model.RawJson json){
+                    && entityHolder.entity() instanceof RawJson json){
                 try {
                     ObjectNode node = (ObjectNode) objectMapper.readTree(json.data());
                     TokenBuffer buffer = new TokenBuffer(objectMapper._serializationContext(), false);
@@ -801,7 +802,7 @@ public class DefaultEntityService implements EntityService {
                 }
             }
             case Map map -> map.put(structure.getVersionFieldName(), versionValue);
-            case org.kinotic.core.api.model.RawJson rawJson -> {
+            case RawJson rawJson -> {
 
                 try {
                     ObjectNode node = (ObjectNode) objectMapper.readTree(rawJson.data());
@@ -817,7 +818,7 @@ public class DefaultEntityService implements EntityService {
                     } else {
 
                         byte[] updatedData = objectMapper.writeValueAsBytes(node);
-                        return (T) new org.kinotic.core.api.model.RawJson(updatedData);
+                        return (T) new RawJson(updatedData);
                     }
                 } catch (Exception e) {
                     throw new IllegalStateException("Failed to update version in RawJson", e);
