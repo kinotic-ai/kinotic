@@ -18,8 +18,8 @@ describe('Continuum Client Tests', () => {
                                                       port: port,
                                                       maxConnectionAttempts: 3,
                                                       connectHeaders: {
-                                                          login: 'guest',
-                                                          passcode: 'guest'
+                                                          login: 'kinotic',
+                                                          passcode: 'kinotic'
                                                       }
                                                   }),
                                 'Failed to connect to Continuum Gateway')

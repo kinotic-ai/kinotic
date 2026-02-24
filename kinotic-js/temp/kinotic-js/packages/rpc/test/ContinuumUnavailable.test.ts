@@ -19,7 +19,7 @@ describe('Continuum Unavailable Tests', () => {
                                            host:host,
                                            port:port,
                                            maxConnectionAttempts: 3,
-                                           connectHeaders:{login: 'guest', passcode: 'guest'}
+                                           connectHeaders:{login: 'kinotic', passcode: 'kinotic'}
                                        }))
             .rejects.toThrowError(
                 expect.stringMatching(
@@ -52,7 +52,7 @@ describe('Continuum Unavailable Tests', () => {
            connectionInfo.port = 58590
            connectionInfo.maxConnectionAttempts = 3
            connectionInfo.disableStickySession = false
-           connectionInfo.connectHeaders = async () => {return {login: 'guest', passcode: 'guest'}}
+           connectionInfo.connectHeaders = async () => {return {login: 'kinotic', passcode: 'kinotic'}}
            console.log(`Continuum Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
 
            const continuum = new ContinuumSingleton()

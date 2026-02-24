@@ -16,7 +16,7 @@ export class TestService implements ITestService {
 
     constructor(continuum?: ContinuumSingleton) {
         let toUse = continuum || Continuum
-        this.serviceProxy = toUse.serviceProxy('org.mindignited.continuum.gatewayserver.clienttest.ITestService')
+        this.serviceProxy = toUse.serviceProxy('org.kinotic.server.clienttest.ITestService')
     }
 
     testMethodWithString(value: string): Promise<string> {

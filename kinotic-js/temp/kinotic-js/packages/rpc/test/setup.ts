@@ -1,5 +1,6 @@
-import {GenericContainer, PullPolicy, StartedTestContainer, Wait} from 'testcontainers'
-import {TestProject} from 'vitest/node'
+import {GenericContainer, PullPolicy, Wait} from 'testcontainers'
+import type {StartedTestContainer} from 'testcontainers'
+import type {TestProject} from 'vitest/node'
 
 let container: StartedTestContainer
 

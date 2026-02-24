@@ -36,7 +36,7 @@ export function createConnectionInfo(disableStickySession: boolean = false,
     // @ts-ignore
     connectionInfo.port = inject('CONTINUUM_PORT')
     connectionInfo.maxConnectionAttempts = 3
-    connectionInfo.connectHeaders = connectHeaders || { login: 'guest', passcode: 'guest' }
+    connectionInfo.connectHeaders = connectHeaders || { login: 'kinotic', passcode: 'kinotic' }
     connectionInfo.disableStickySession = disableStickySession
     return connectionInfo
 }

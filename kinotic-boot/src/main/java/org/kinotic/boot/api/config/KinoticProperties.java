@@ -24,8 +24,8 @@ public interface KinoticProperties {
 
     /**
      * The public-facing hostname to be used for clustering.
-     * Sometimes, e.g., when running on certain clouds, the local address the server listens on for clustering is not the same address that other nodes connect to it at, as the OS / cloud infrastructure does some kind of proxying.
-     * If this is the case, you can specify a public hostname which is different from the hostname the server listens at.
+     * Sometimes, e.g., when running on certain clouds, the local address the server listens on for clustering is different from the address that other nodes connect to it at, as the OS / cloud infrastructure does some kind of proxying.
+     * If this is the case, you can specify a public hostname which is different from the hostname the server listens on.
      * The default value is null, which means use the same as the cluster hostname.
      * @return the cluster public host or null, which means use the same as the cluster host.
      */

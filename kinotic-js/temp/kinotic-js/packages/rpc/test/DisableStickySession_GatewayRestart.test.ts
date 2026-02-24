@@ -29,7 +29,7 @@ describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
         connectionInfo.port = 58599
         connectionInfo.maxConnectionAttempts = 0
         connectionInfo.disableStickySession = true
-        connectionInfo.connectHeaders = async () => {return {login: 'guest', passcode: 'guest'}}
+        connectionInfo.connectHeaders = async () => {return {login: 'kinotic', passcode: 'kinotic'}}
 
         console.log(`Continuum Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
     }, 1000 * 60 * 10) // 10 minutes
