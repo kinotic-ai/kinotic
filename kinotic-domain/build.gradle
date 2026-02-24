@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    implementation project(':kinotic-boot')
+    implementation project(':kinotic-core')
     implementation project(':kinotic-rpc')
 
     implementation 'co.elastic.clients:elasticsearch-java'

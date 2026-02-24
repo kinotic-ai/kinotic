@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    implementation project(':kinotic-boot')
+    implementation project(':kinotic-core')
 
     implementation "com.github.ben-manes.caffeine:caffeine"
     implementation 'commons-io:commons-io'
