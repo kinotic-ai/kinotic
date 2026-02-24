@@ -104,14 +104,14 @@ class EntityList extends Vue {
   toggleRowExpansion(rowId: string, fieldName: string) { this._expansion.toggleRowExpansion(rowId, fieldName) }
   toggleNestedObjectExpansion(fieldName: string, nestedProp: string) { this._expansion.toggleNestedObjectExpansion(fieldName, nestedProp) }
   toggleDeepNestedExpansion(fieldName: string, nestedProp: string, deepProp: string) { this._expansion.toggleDeepNestedExpansion(fieldName, nestedProp, deepProp) }
-  toggleVeryDeepNestedExpansion(fieldName: string, nestedProp: string, deepProp: string, veryDeepProp: string) { this._expansion.toggleVeryDeepNestedExpansion(fieldName, nestedProp, deepProp, veryDeepProp) }
+  toggleVeryDeepNestedExpansion(fieldName: string, nestedProp: string, deepProp: string, ...veryDeepPath: string[]) { this._expansion.toggleVeryDeepNestedExpansion(fieldName, nestedProp, deepProp, ...veryDeepPath) }
   toggleNestedArrayExpansion(rowId: string, parentPath: string, arrayField: string) { this._expansion.toggleNestedArrayExpansion(rowId, parentPath, arrayField) }
 
   isColumnExpanded(fieldName: string): boolean { return this._expansion.isColumnExpanded(fieldName) }
   isRowCellExpanded(rowId: string, fieldName: string): boolean { return this._expansion.isRowCellExpanded(rowId, fieldName) }
   isNestedObjectExpanded(fieldName: string, nestedProp: string): boolean { return this._expansion.isNestedObjectExpanded(fieldName, nestedProp) }
   isDeepNestedExpanded(fieldName: string, nestedProp: string, deepProp: string): boolean { return this._expansion.isDeepNestedExpanded(fieldName, nestedProp, deepProp) }
-  isVeryDeepNestedExpanded(fieldName: string, nestedProp: string, deepProp: string, veryDeepProp: string): boolean { return this._expansion.isVeryDeepNestedExpanded(fieldName, nestedProp, deepProp, veryDeepProp) }
+  isVeryDeepNestedExpanded(fieldName: string, nestedProp: string, deepProp: string, ...veryDeepPath: string[]): boolean { return this._expansion.isVeryDeepNestedExpanded(fieldName, nestedProp, deepProp, ...veryDeepPath) }
   isNestedArrayExpanded(rowId: string, parentPath: string, arrayField: string): boolean { return this._expansion.isNestedArrayExpanded(rowId, parentPath, arrayField) }
 
   isPrimitiveArray(fieldName: string): boolean { return this._inspector.isPrimitiveArray(fieldName) }

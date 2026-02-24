@@ -61,8 +61,8 @@ export class ExpansionStateManager {
     return this.expandedDeepNested.has(`${fieldName}.${nestedProp}.${deepProp}`)
   }
 
-  toggleVeryDeepNestedExpansion(fieldName: string, nestedProp: string, deepProp: string, veryDeepProp: string): void {
-    const key = `${fieldName}.${nestedProp}.${deepProp}.${veryDeepProp}`
+  toggleVeryDeepNestedExpansion(fieldName: string, nestedProp: string, deepProp: string, ...veryDeepPath: string[]): void {
+    const key = [fieldName, nestedProp, deepProp, ...veryDeepPath].join('.')
     if (this.expandedVeryDeepNested.has(key)) {
       this.expandedVeryDeepNested.delete(key)
     } else {
@@ -70,8 +70,8 @@ export class ExpansionStateManager {
     }
   }
 
-  isVeryDeepNestedExpanded(fieldName: string, nestedProp: string, deepProp: string, veryDeepProp: string): boolean {
-    return this.expandedVeryDeepNested.has(`${fieldName}.${nestedProp}.${deepProp}.${veryDeepProp}`)
+  isVeryDeepNestedExpanded(fieldName: string, nestedProp: string, deepProp: string, ...veryDeepPath: string[]): boolean {
+    return this.expandedVeryDeepNested.has([fieldName, nestedProp, deepProp, ...veryDeepPath].join('.'))
   }
 
   toggleNestedArrayExpansion(rowId: string, parentPath: string, arrayField: string): void {

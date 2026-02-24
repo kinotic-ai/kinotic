@@ -14,7 +14,7 @@ export interface EntityListContext {
   isRowCellExpanded(rowId: string, fieldName: string): boolean
   isNestedObjectExpanded(fieldName: string, nestedProp: string): boolean
   isDeepNestedExpanded(fieldName: string, nestedProp: string, deepProp: string): boolean
-  isVeryDeepNestedExpanded(fieldName: string, nestedProp: string, deepProp: string, veryDeepProp: string): boolean
+  isVeryDeepNestedExpanded(fieldName: string, nestedProp: string, deepProp: string, ...veryDeepPath: string[]): boolean
   isNestedArrayExpanded(rowId: string, parentPath: string, arrayField: string): boolean
 
   // Expansion state toggles
@@ -22,7 +22,7 @@ export interface EntityListContext {
   toggleRowExpansion(rowId: string, fieldName: string): void
   toggleNestedObjectExpansion(fieldName: string, nestedProp: string): void
   toggleDeepNestedExpansion(fieldName: string, nestedProp: string, deepProp: string): void
-  toggleVeryDeepNestedExpansion(fieldName: string, nestedProp: string, deepProp: string, veryDeepProp: string): void
+  toggleVeryDeepNestedExpansion(fieldName: string, nestedProp: string, deepProp: string, ...veryDeepPath: string[]): void
   toggleNestedArrayExpansion(rowId: string, parentPath: string, arrayField: string): void
 
   // Property inspection
