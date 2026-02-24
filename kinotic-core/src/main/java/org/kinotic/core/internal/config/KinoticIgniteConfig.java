@@ -1,8 +1,5 @@
+package org.kinotic.core.internal.config;
 
-
-package org.kinotic.boot.internal.config;
-
-import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ignite.IgniteSystemProperties;
@@ -20,9 +17,9 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.kubernetes.TcpDiscoveryKubernetesIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.sharedfs.TcpDiscoverySharedFsIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
-import org.kinotic.boot.api.config.KinoticProperties;
-import org.kinotic.boot.api.config.IgniteClusterDiscoveryType;
-import org.kinotic.boot.api.config.IgniteProperties;
+import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.core.api.config.IgniteClusterDiscoveryType;
+import org.kinotic.core.api.config.IgniteProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

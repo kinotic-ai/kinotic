@@ -8,7 +8,7 @@ import io.vertx.ext.stomp.lite.StompServerVerticle;
 import io.vertx.ext.stomp.lite.StompServerVerticleFactory;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.StaticHandler;
-import org.kinotic.boot.api.config.KinoticProperties;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.rpc.api.security.SecurityService;
 import org.kinotic.rpc.api.event.EventBusService;
 import org.kinotic.rpc.gateway.api.config.ContinuumGatewayProperties;

@@ -6,7 +6,7 @@ import io.vertx.core.Future;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.kinotic.boot.api.Kinotic;
+import org.kinotic.core.api.Kinotic;
 import org.kinotic.rpc.api.exceptions.RpcInvocationException;
 import org.kinotic.rpc.api.exceptions.RpcMissingMethodException;
 import org.kinotic.rpc.api.exceptions.RpcMissingServiceException;

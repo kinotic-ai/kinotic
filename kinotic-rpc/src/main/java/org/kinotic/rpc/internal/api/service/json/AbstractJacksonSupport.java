@@ -4,7 +4,7 @@ package org.kinotic.rpc.internal.api.service.json;
 
 
 import lombok.Getter;
-import org.kinotic.boot.api.config.KinoticProperties;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.rpc.api.event.Event;
 import org.kinotic.rpc.api.event.EventConstants;
 import org.kinotic.rpc.api.event.Metadata;

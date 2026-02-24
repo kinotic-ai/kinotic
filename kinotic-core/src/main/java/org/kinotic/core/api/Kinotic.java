@@ -1,4 +1,4 @@
-package org.kinotic.boot.api;
+package org.kinotic.core.api;
 
 /**
  * Contains information about this Kinotic process

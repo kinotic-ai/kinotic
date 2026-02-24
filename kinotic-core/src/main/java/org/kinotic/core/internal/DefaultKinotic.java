@@ -1,6 +1,4 @@
-
-
-package org.kinotic.boot.internal;
+package org.kinotic.core.internal;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -8,11 +6,11 @@ import io.vertx.core.spi.cluster.ClusterManager;
 import jakarta.annotation.PreDestroy;
 import org.apache.commons.text.WordUtils;
 import org.apache.ignite.internal.util.typedef.internal.U;
-import org.kinotic.boot.api.Kinotic;
-import org.kinotic.boot.api.ServerInfo;
-import org.kinotic.boot.api.config.IgniteProperties;
-import org.kinotic.boot.api.config.KinoticProperties;
-import org.kinotic.boot.internal.utils.KinoticUtil;
+import org.kinotic.core.api.Kinotic;
+import org.kinotic.core.api.ServerInfo;
+import org.kinotic.core.api.config.IgniteProperties;
+import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.core.internal.utils.KinoticUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

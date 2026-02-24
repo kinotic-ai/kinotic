@@ -6,7 +6,7 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.healthchecks.Status;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.boot.api.config.KinoticProperties;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.persistence.internal.endpoints.StructuresVerticleFactory;
 import org.slf4j.Logger;

@@ -1,4 +1,4 @@
-package org.kinotic.boot.api;
+package org.kinotic.core.api;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

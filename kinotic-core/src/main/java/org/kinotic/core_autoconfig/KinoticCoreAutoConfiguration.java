@@ -1,6 +1,6 @@
-package org.kinotic.boot_autoconfig;
+package org.kinotic.core_autoconfig;
 
-import org.kinotic.boot.KinoticBootLibrary;
+import org.kinotic.core.KinoticCoreLibrary;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Import;
 
@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Import;
  * It is defined in a separate package because it must not be scanned by the spring context
  */
 @AutoConfiguration
-@Import(KinoticBootLibrary.class)
-public class KinoticBootAutoConfiguration {
+@Import(KinoticCoreLibrary.class)
+public class KinoticCoreAutoConfiguration {
 
 }

@@ -1,4 +1,4 @@
-package org.kinotic.boot.api.config;
+package org.kinotic.core.api.config;
 
 /**
  * Ignite Cluster Configuration Properties

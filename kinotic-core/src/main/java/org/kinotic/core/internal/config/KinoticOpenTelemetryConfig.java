@@ -1,4 +1,4 @@
-package org.kinotic.boot.internal.config;
+package org.kinotic.core.internal.config;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.OpenTelemetry;

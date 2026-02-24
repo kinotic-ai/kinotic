@@ -1,4 +1,4 @@
-package org.kinotic.boot.internal.config;
+package org.kinotic.core.internal.config;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;

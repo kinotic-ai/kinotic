@@ -3,7 +3,7 @@
 package org.kinotic.domain.internal.api.services;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.boot.api.Kinotic;
+import org.kinotic.core.api.Kinotic;
 import org.kinotic.domain.api.model.log.*;
 import org.kinotic.domain.api.model.log.LogLevel;
 import org.kinotic.domain.api.services.LogManager;

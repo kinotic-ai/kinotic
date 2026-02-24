@@ -2,7 +2,7 @@
 
 package org.kinotic.rpc.internal.api.service.rpc.converters;
 
-import org.kinotic.boot.api.config.KinoticProperties;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.rpc.api.event.Event;
 import org.kinotic.rpc.internal.api.service.json.AbstractJacksonSupport;
 import org.kinotic.rpc.internal.api.service.rpc.RpcResponseConverter;

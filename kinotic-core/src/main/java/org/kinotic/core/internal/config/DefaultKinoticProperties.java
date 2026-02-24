@@ -1,12 +1,10 @@
-
-
-package org.kinotic.boot.internal.config;
+package org.kinotic.core.internal.config;
 
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.boot.api.config.IgniteProperties;
-import org.kinotic.boot.api.config.KinoticProperties;
+import org.kinotic.core.api.config.IgniteProperties;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.ignite.configuration.DataStorageConfiguration;

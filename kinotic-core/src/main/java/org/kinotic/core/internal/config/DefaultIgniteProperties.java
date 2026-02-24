@@ -1,13 +1,12 @@
-package org.kinotic.boot.internal.config;
+package org.kinotic.core.internal.config;
 
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
-import org.kinotic.boot.api.config.IgniteClusterDiscoveryType;
-import org.kinotic.boot.api.config.IgniteProperties;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.kinotic.core.api.config.IgniteClusterDiscoveryType;
+import org.kinotic.core.api.config.IgniteProperties;
 import org.springframework.stereotype.Component;
 
 import lombok.Getter;

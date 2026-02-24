@@ -5,7 +5,7 @@ package org.kinotic.rpc.internal.api;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.boot.api.Kinotic;
+import org.kinotic.core.api.Kinotic;
 import org.kinotic.rpc.api.annotations.Proxy;
 import org.kinotic.rpc.api.RpcServiceProxyHandle;
 import org.kinotic.rpc.api.ServiceRegistry;
@@ -21,7 +21,7 @@ import org.kinotic.rpc.internal.api.service.rpc.DefaultRpcServiceProxyHandle;
 import org.kinotic.rpc.internal.api.service.rpc.RpcArgumentConverter;
 import org.kinotic.rpc.internal.api.service.rpc.RpcArgumentConverterResolver;
 import org.kinotic.rpc.internal.api.service.rpc.RpcReturnValueHandlerFactory;
-import org.kinotic.boot.internal.utils.KinoticUtil;
+import org.kinotic.core.internal.utils.KinoticUtil;
 import org.kinotic.rpc.internal.utils.MetaUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ReactiveAdapterRegistry;

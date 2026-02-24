@@ -5,7 +5,7 @@ package org.kinotic.rpc.internal.config;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.configuration.CacheConfiguration;
-import org.kinotic.boot.api.config.KinoticProperties;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.rpc.api.security.SessionMetadata;
 import org.kinotic.rpc.internal.api.security.DefaultSessionMetadata;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

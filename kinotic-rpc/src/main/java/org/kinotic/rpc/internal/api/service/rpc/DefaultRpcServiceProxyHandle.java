@@ -13,7 +13,7 @@ import org.kinotic.rpc.api.RpcServiceProxy;
 import org.kinotic.rpc.api.RpcServiceProxyHandle;
 import org.kinotic.rpc.api.event.*;
 import org.kinotic.rpc.api.service.ServiceIdentifier;
-import org.kinotic.boot.internal.utils.KinoticUtil;
+import org.kinotic.core.internal.utils.KinoticUtil;
 import org.kinotic.rpc.internal.utils.MetaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

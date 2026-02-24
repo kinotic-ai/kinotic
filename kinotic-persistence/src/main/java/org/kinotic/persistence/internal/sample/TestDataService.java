@@ -9,7 +9,7 @@ import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.IntC3Type;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
-import org.kinotic.boot.internal.utils.KinoticUtil;
+import org.kinotic.core.internal.utils.KinoticUtil;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.decorators.*;
 import org.kinotic.domain.api.services.ApplicationService;

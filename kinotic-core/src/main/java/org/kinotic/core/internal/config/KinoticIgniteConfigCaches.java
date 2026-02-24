@@ -1,4 +1,4 @@
-package org.kinotic.boot.internal.config;
+package org.kinotic.core.internal.config;
 
 import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;

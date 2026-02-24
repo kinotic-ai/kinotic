@@ -6,7 +6,7 @@ import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.boot.api.config.KinoticProperties;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;

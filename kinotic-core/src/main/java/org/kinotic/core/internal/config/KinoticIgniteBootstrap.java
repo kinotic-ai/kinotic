@@ -1,6 +1,4 @@
-
-
-package org.kinotic.boot.internal.config;
+package org.kinotic.core.internal.config;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCheckedException;

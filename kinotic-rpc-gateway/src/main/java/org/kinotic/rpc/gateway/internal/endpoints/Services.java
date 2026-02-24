@@ -3,7 +3,7 @@
 package org.kinotic.rpc.gateway.internal.endpoints;
 
 import io.vertx.core.Vertx;
-import org.kinotic.boot.api.config.KinoticProperties;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.rpc.api.event.EventBusService;
 import org.kinotic.rpc.api.event.EventStreamService;
 import org.kinotic.rpc.api.security.SecurityService;

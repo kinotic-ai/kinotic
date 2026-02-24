@@ -7,7 +7,7 @@ import org.kinotic.rpc.api.annotations.Publish;
 import org.kinotic.rpc.api.RpcServiceProxy;
 import org.kinotic.rpc.api.ServiceRegistry;
 import org.kinotic.rpc.api.service.ServiceIdentifier;
-import org.kinotic.boot.internal.utils.KinoticUtil;
+import org.kinotic.core.internal.utils.KinoticUtil;
 import org.kinotic.rpc.internal.utils.MetaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
