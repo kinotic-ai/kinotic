@@ -4,13 +4,13 @@ package org.kinotic.rpc.gateway.internal.endpoints;
 
 import io.vertx.core.Vertx;
 import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.rpc.api.event.EventBusService;
-import org.kinotic.rpc.api.event.EventStreamService;
-import org.kinotic.rpc.api.security.SecurityService;
-import org.kinotic.rpc.api.security.SessionManager;
+import org.kinotic.core.api.event.EventBusService;
+import org.kinotic.core.api.event.EventStreamService;
+import org.kinotic.core.api.security.SecurityService;
+import org.kinotic.core.api.security.SessionManager;
 import org.kinotic.rpc.gateway.api.config.ContinuumGatewayProperties;
 import org.kinotic.rpc.gateway.internal.endpoints.stomp.DefaultStompServerHandler;
-import org.kinotic.rpc.internal.api.service.ExceptionConverter;
+import org.kinotic.core.internal.api.service.ExceptionConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;

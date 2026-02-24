@@ -2,7 +2,7 @@
 
 package org.kinotic.rpc.gateway.internal.endpoints.stomp;
 
-import org.kinotic.rpc.api.event.Event;
+import org.kinotic.core.api.event.Event;
 
 import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.stomp.lite.frame.Frame;

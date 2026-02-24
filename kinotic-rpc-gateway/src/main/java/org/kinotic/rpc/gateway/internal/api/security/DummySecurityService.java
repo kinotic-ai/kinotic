@@ -2,7 +2,7 @@
 
 package org.kinotic.rpc.gateway.internal.api.security;
 
-import org.kinotic.rpc.api.exceptions.AuthenticationException;
+import org.kinotic.core.api.exceptions.AuthenticationException;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -15,20 +15,20 @@ import java.util.concurrent.CompletableFuture;
  * WARNING: should not be used in production for any reason
  * Created by Navid Mitchell on 3/11/20
  */
-public class DummySecurityService implements org.kinotic.rpc.api.security.SecurityService {
+public class DummySecurityService implements org.kinotic.core.api.security.SecurityService {
 
     @Override
-    public CompletableFuture<org.kinotic.rpc.api.security.Participant> authenticate(Map<String, String> authenticationInfo) {
+    public CompletableFuture<org.kinotic.core.api.security.Participant> authenticate(Map<String, String> authenticationInfo) {
         // These are the headers the Continuum JS client sends
         if (authenticationInfo.containsKey("login") && authenticationInfo.containsKey("passcode")) {
             String login = authenticationInfo.get("login");
             String password = authenticationInfo.get("passcode");
             if (login.equals("guest") && password.equals("guest")) {
-                return CompletableFuture.completedFuture(new org.kinotic.rpc.api.security.DefaultParticipant("kinotic-test",
-                                                                                                             "guest",
-                                                                                                             Map.of(org.kinotic.rpc.api.security.ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
-                                                                                                                    org.kinotic.rpc.api.security.ParticipantConstants.PARTICIPANT_TYPE_USER),
-                                                                                                             List.of("ADMIN")));
+                return CompletableFuture.completedFuture(new org.kinotic.core.api.security.DefaultParticipant("kinotic-test",
+                                                                                                              "guest",
+                                                                                                              Map.of(org.kinotic.core.api.security.ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
+                                                                                                                     org.kinotic.core.api.security.ParticipantConstants.PARTICIPANT_TYPE_USER),
+                                                                                                              List.of("ADMIN")));
             }
 
         } else if (authenticationInfo.containsKey("authorization")) {
@@ -44,11 +44,11 @@ public class DummySecurityService implements org.kinotic.rpc.api.security.Securi
                     if (creds.length == 2) {
                         if (creds[0].equals("guest") && creds[1].equals("guest")) {
 
-                            return CompletableFuture.completedFuture(new org.kinotic.rpc.api.security.DefaultParticipant("kinotic",
-                                                                                                                         "guest",
-                                                                                                                         Map.of(org.kinotic.rpc.api.security.ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
-                                                                                                                                org.kinotic.rpc.api.security.ParticipantConstants.PARTICIPANT_TYPE_USER),
-                                                                                                                         List.of("ADMIN")));
+                            return CompletableFuture.completedFuture(new org.kinotic.core.api.security.DefaultParticipant("kinotic",
+                                                                                                                          "guest",
+                                                                                                                          Map.of(org.kinotic.core.api.security.ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
+                                                                                                                                 org.kinotic.core.api.security.ParticipantConstants.PARTICIPANT_TYPE_USER),
+                                                                                                                          List.of("ADMIN")));
                         }
                     }
                 }

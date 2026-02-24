@@ -2,8 +2,8 @@ package org.kinotic.domain.api.services;
 
 import java.util.concurrent.CompletableFuture;
 
-import org.kinotic.rpc.api.annotations.Proxy;
-import org.kinotic.rpc.api.annotations.Publish;
+import org.kinotic.core.api.annotations.Proxy;
+import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.domain.api.services.crud.IdentifiableCrudService;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.api.services.crud.Page;

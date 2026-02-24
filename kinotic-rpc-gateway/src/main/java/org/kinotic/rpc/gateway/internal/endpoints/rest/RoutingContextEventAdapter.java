@@ -4,10 +4,10 @@ package org.kinotic.rpc.gateway.internal.endpoints.rest;
 
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.rpc.api.event.CRI;
-import org.kinotic.rpc.api.event.Event;
-import org.kinotic.rpc.api.event.Metadata;
-import org.kinotic.rpc.internal.api.event.MultiMapMetadataAdapter;
+import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.event.Event;
+import org.kinotic.core.api.event.Metadata;
+import org.kinotic.core.internal.api.event.MultiMapMetadataAdapter;
 
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.ext.web.RoutingContext;

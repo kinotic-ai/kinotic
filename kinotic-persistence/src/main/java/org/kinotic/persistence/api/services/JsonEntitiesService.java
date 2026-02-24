@@ -7,8 +7,8 @@ import org.kinotic.persistence.api.domain.FastestType;
 import org.kinotic.persistence.api.domain.QueryParameter;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.persistence.api.domain.Structure;
-import org.kinotic.rpc.api.annotations.Publish;
-import org.kinotic.rpc.api.security.Participant;
+import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.security.Participant;
 import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.List;

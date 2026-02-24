@@ -1,8 +1,8 @@
 package org.kinotic.server.clienttest;
 
 
-import org.kinotic.rpc.api.annotations.Publish;
-import org.kinotic.rpc.api.annotations.Version;
+import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.annotations.Version;
 
 import java.util.UUID;
 

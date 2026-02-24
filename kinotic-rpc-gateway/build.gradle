@@ -6,7 +6,6 @@ dependencies {
     // Continuum Dependencies
     implementation project(':kinotic-core')
     implementation project(':kinotic-domain')
-    implementation project(':kinotic-rpc')
 
     // reactive streams apis
     implementation 'io.projectreactor:reactor-core'

@@ -2,7 +2,7 @@ package org.kinotic.test.tests.auth;
 
 import io.jsonwebtoken.security.Jwk;
 import org.junit.jupiter.api.Test;
-import org.kinotic.rpc.internal.api.security.JwksService;
+import org.kinotic.core.internal.api.security.JwksService;
 import org.kinotic.test.support.keycloak.KeycloakTestBase;
 import org.kinotic.test.support.keycloak.KeyloakTestConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;

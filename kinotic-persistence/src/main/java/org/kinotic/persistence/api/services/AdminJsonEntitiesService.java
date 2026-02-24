@@ -5,8 +5,8 @@ import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.domain.*;
-import org.kinotic.rpc.api.annotations.Publish;
-import org.kinotic.rpc.api.security.Participant;
+import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.security.Participant;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

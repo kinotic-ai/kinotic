@@ -2,7 +2,7 @@ package org.kinotic.test.tests.core.security.graphos;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.schema.ObjectC3Type;
-import org.kinotic.rpc.api.exceptions.AuthorizationException;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.persistence.api.domain.SecurityContext;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.decorators.EntityServiceDecoratorsConfig;

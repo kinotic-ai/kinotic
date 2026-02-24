@@ -1,6 +1,6 @@
 package org.kinotic.persistence.api.domain;
 
-import org.kinotic.rpc.api.security.Participant;
+import org.kinotic.core.api.security.Participant;
 
 import java.util.List;
 

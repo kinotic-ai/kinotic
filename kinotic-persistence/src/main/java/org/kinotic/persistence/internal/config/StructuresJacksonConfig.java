@@ -8,7 +8,7 @@ import tools.jackson.databind.module.SimpleAbstractTypeResolver;
 import tools.jackson.databind.module.SimpleModule;
 import org.apache.commons.lang3.tuple.Pair;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
-import org.kinotic.rpc.internal.utils.MetaUtil;
+import org.kinotic.core.internal.utils.MetaUtil;
 import org.kinotic.persistence.api.domain.FastestType;
 import org.kinotic.persistence.api.domain.TenantSpecificId;
 import org.kinotic.persistence.api.domain.idl.PageC3Type;

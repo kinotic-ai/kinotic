@@ -2,7 +2,7 @@
 
 package org.kinotic.rpc.gateway.internal.config;
 
-import org.kinotic.rpc.api.security.SecurityService;
+import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.rpc.gateway.internal.api.security.DummySecurityService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;

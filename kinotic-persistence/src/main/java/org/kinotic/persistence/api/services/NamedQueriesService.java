@@ -8,7 +8,7 @@ import org.kinotic.persistence.api.domain.EntityContext;
 import org.kinotic.persistence.api.domain.NamedQueriesDefinition;
 import org.kinotic.persistence.api.domain.ParameterHolder;
 import org.kinotic.persistence.api.domain.Structure;
-import org.kinotic.rpc.api.annotations.Publish;
+import org.kinotic.core.api.annotations.Publish;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

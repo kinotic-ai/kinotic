@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.services.insights;
 
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.rpc.api.security.Participant;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;

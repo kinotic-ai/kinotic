@@ -1,7 +1,7 @@
 package org.kinotic.persistence.api.services.insights;
 
-import org.kinotic.rpc.api.annotations.Publish;
-import org.kinotic.rpc.api.security.Participant;
+import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.persistence.api.domain.insights.InsightProgress;
 import org.kinotic.persistence.api.domain.insights.InsightRequest;
 

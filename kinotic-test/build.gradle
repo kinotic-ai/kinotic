@@ -8,7 +8,6 @@ dependencies {
 	implementation project(':kinotic-domain')
 	implementation project(':kinotic-idl')
 	implementation project(':kinotic-persistence')
-	implementation project(':kinotic-rpc')
 	implementation project(':kinotic-sql')
 
 	implementation 'io.jsonwebtoken:jjwt-api'

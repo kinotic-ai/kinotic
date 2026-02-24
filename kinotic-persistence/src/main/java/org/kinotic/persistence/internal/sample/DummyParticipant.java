@@ -5,8 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.rpc.api.security.ParticipantConstants;
-import org.kinotic.rpc.api.security.Participant;
+import org.kinotic.core.api.security.ParticipantConstants;
+import org.kinotic.core.api.security.Participant;
 
 import java.util.List;
 import java.util.Map;

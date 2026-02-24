@@ -2,10 +2,10 @@
 
 package org.kinotic.rpc.gateway.internal.endpoints.stomp;
 
-import org.kinotic.rpc.api.event.CRI;
-import org.kinotic.rpc.api.event.Event;
-import org.kinotic.rpc.api.event.Metadata;
-import org.kinotic.rpc.internal.api.event.MapMetadataAdapter;
+import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.event.Event;
+import org.kinotic.core.api.event.Metadata;
+import org.kinotic.core.internal.api.event.MapMetadataAdapter;
 import io.vertx.ext.stomp.lite.frame.Frame;
 
 /**

@@ -7,8 +7,8 @@ import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.rpc.api.security.SecurityService;
-import org.kinotic.rpc.api.security.AuthenticationHandler;
+import org.kinotic.core.api.security.SecurityService;
+import org.kinotic.core.api.security.AuthenticationHandler;
 import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.persistence.internal.utils.VertxWebUtil;
 

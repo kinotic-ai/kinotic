@@ -2,11 +2,11 @@
 
 package org.kinotic.test.config;
 
-import org.kinotic.rpc.api.exceptions.AuthenticationException;
-import org.kinotic.rpc.api.security.DefaultParticipant;
-import org.kinotic.rpc.api.security.Participant;
-import org.kinotic.rpc.api.security.ParticipantConstants;
-import org.kinotic.rpc.api.security.SecurityService;
+import org.kinotic.core.api.exceptions.AuthenticationException;
+import org.kinotic.core.api.security.DefaultParticipant;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.ParticipantConstants;
+import org.kinotic.core.api.security.SecurityService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 

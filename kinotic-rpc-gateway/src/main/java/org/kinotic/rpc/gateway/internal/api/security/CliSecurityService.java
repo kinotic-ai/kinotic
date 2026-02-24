@@ -1,9 +1,9 @@
 package org.kinotic.rpc.gateway.internal.api.security;
 
-import org.kinotic.rpc.api.security.DefaultParticipant;
-import org.kinotic.rpc.api.security.ParticipantConstants;
-import org.kinotic.rpc.api.security.Participant;
-import org.kinotic.rpc.api.security.SecurityService;
+import org.kinotic.core.api.security.DefaultParticipant;
+import org.kinotic.core.api.security.ParticipantConstants;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.SecurityService;
 
 import java.util.List;
 import java.util.Map;

@@ -1,6 +1,6 @@
 package org.kinotic.persistence.api.services.security.graphos;
 
-import org.kinotic.rpc.api.exceptions.AuthorizationException;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.domain.NamedQueryOperation;
 import org.kinotic.persistence.api.domain.SecurityContext;

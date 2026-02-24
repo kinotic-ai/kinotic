@@ -2,7 +2,7 @@ package org.kinotic.persistence.api.services;
 
 import org.kinotic.persistence.api.domain.MigrationRequest;
 import org.kinotic.persistence.api.domain.MigrationResult;
-import org.kinotic.rpc.api.annotations.Publish;
+import org.kinotic.core.api.annotations.Publish;
 
 import java.util.concurrent.CompletableFuture;
 

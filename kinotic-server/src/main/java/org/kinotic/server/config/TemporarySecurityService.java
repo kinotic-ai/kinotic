@@ -1,9 +1,9 @@
 package org.kinotic.server.config;
 
-import org.kinotic.rpc.api.security.DefaultParticipant;
-import org.kinotic.rpc.api.security.ParticipantConstants;
-import org.kinotic.rpc.api.security.Participant;
-import org.kinotic.rpc.api.security.SecurityService;
+import org.kinotic.core.api.security.DefaultParticipant;
+import org.kinotic.core.api.security.ParticipantConstants;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.SecurityService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;

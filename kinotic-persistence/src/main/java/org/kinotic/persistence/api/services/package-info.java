@@ -4,4 +4,4 @@
 @Version("1.0.0")
 package org.kinotic.persistence.api.services;
 
-import org.kinotic.rpc.api.annotations.Version;
+import org.kinotic.core.api.annotations.Version;

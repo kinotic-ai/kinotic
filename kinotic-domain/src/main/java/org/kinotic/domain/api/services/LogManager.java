@@ -3,7 +3,7 @@ package org.kinotic.domain.api.services;
 import org.kinotic.domain.api.model.log.LogLevel;
 import org.kinotic.domain.api.model.log.LoggerLevelsDescriptor;
 import org.kinotic.domain.api.model.log.LoggersDescriptor;
-import org.kinotic.rpc.api.annotations.Scope;
+import org.kinotic.core.api.annotations.Scope;
 
 /**
  * Interface providing the ability to work with runtime logging configuration per node

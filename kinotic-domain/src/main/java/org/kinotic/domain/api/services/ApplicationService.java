@@ -2,7 +2,7 @@ package org.kinotic.domain.api.services;
 
 import org.kinotic.domain.api.services.crud.IdentifiableCrudService;
 import org.kinotic.domain.api.model.Application;
-import org.kinotic.rpc.api.annotations.Publish;
+import org.kinotic.core.api.annotations.Publish;
 
 import java.util.concurrent.CompletableFuture;
 

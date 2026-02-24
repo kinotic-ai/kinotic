@@ -2,7 +2,7 @@
 
 package org.kinotic.rpc.gateway.internal.hft;
 
-import org.kinotic.rpc.api.event.Event;
+import org.kinotic.core.api.event.Event;
 import reactor.core.publisher.Mono;
 
 /**

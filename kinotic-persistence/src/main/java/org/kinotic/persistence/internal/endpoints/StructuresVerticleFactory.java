@@ -2,9 +2,9 @@ package org.kinotic.persistence.internal.endpoints;
 
 import io.vertx.ext.healthchecks.HealthChecks;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.rpc.api.security.SecurityService;
+import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.persistence.api.config.StructuresProperties;
-import org.kinotic.rpc.api.config.OidcSecurityServiceProperties;
+import org.kinotic.core.api.config.OidcSecurityServiceProperties;
 import org.kinotic.persistence.internal.endpoints.graphql.DelegatingGqlHandler;
 import org.kinotic.persistence.internal.endpoints.graphql.GqlVerticle;
 import org.kinotic.persistence.internal.endpoints.openapi.OpenApiVerticle;
