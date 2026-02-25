@@ -1,19 +1,41 @@
 package org.kinotic.core.api.config;
 
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
+import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.springframework.stereotype.Component;
+
 /**
- * Ignite Cluster Configuration Properties
+ * Properties for the Ignite cluster configuration
+ *
+ * @author Nic Padilla
+ * @since 1.0.0
+ * @version 1.0.0
+ * @see IgniteProperties
+ * @see IgniteClusterDiscoveryType
+ * @see TcpDiscoverySpi
+ * @see TcpCommunicationSpi
  */
-public interface IgniteProperties {
-    
+@Component
+@Getter
+@Setter
+@Accessors(chain = true)
+public class IgniteProperties {
+
+
     /**
      * Port used for Ignite node communication
      */
-    Integer getCommunicationPort();
+    private Integer communicationPort = TcpCommunicationSpi.DFLT_PORT;
 
     /**
      * Port used for Ignite discovery protocol
      */
-    Integer getDiscoveryPort();
+    private Integer discoveryPort = TcpDiscoverySpi.DFLT_PORT;
 
     /**
      * Cluster discovery type for Apache Ignite.
@@ -26,48 +48,43 @@ public interface IgniteProperties {
      * @see IgniteClusterDiscoveryType#SHAREDFS
      * @see IgniteClusterDiscoveryType#KUBERNETES
      */
-    IgniteClusterDiscoveryType getDiscoveryType();
-    
-    /**
-     * @return the work directory for Ignite
-     */
-    String getWorkDirectory();
-    
+    private IgniteClusterDiscoveryType discoveryType = IgniteClusterDiscoveryType.SHAREDFS;
+
     /**
      * Timeout in milliseconds for cluster formation/join
      */
-    Long getJoinTimeoutMs(); // 0 seconds (no timeout)
-    
+    private Long joinTimeoutMs = TcpDiscoverySpi.DFLT_JOIN_TIMEOUT; // 0 seconds (no timeout)
+
     /**
      * Kubernetes account token for API authentication.
      * If null, uses service account token from mounted secret.
      * Only used when clusterDiscoveryType = "kubernetes"
      */
-    String getKubernetesAccountToken();
+    private String kubernetesAccountToken = null;
 
     /**
      * Whether to include not ready addresses in the Kubernetes IP finder
      */
-    Boolean getKubernetesIncludeNotReadyAddresses();
-    
+    private Boolean kubernetesIncludeNotReadyAddresses = false;
+
     /**
      * Kubernetes master URL for API access.
      * If null, use in-cluster configuration.
      * Only used when clusterDiscoveryType = "kubernetes"
      */
-    String getKubernetesMasterUrl();
-    
+    private String kubernetesMasterUrl = null;
+
     /**
      * Kubernetes namespace where Structures pods are deployed.
      * Only used when clusterDiscoveryType = "kubernetes"
      */
-    String getKubernetesNamespace();
-    
+    private String kubernetesNamespace = "default";
+
     /**
      * Kubernetes service name for Ignite discovery (headless service).
      * Only used when clusterDiscoveryType = "kubernetes"
      */
-    String getKubernetesServiceName();
+    private String kubernetesServiceName = "structures";
 
     /**
      * Sets network addresses for the Discovery SPI.
@@ -84,18 +101,44 @@ public interface IgniteProperties {
      * 'IgniteConfiguration.getFailureDetectionTimeout() * 3 + getConnectionRecoveryTimeout()' milliseconds
      * for another node to detect a disconnect of the give node.
      */
-    String getLocalAddress();
-    
+    private String localAddress = null;
+
     /**
      * Comma-delimited string of network addresses that should be considered
      * when using LOCAL clustering. Should contain a proper discovery port for address.
      * must provide known node addresses.
      */
-    String getLocalAddresses();
+    private String localAddresses;
 
     /**
      * The path to a directory that is reachable by all nodes, that will be used for discovery data files.
      */
-    String getSharedFsPath();
-    
+    private String sharedFsPath = "/tmp/structures-sharedfs";
+
+    /**
+     * The work directory for Ignite
+     */
+    private String workDirectory = "/tmp/ignite";
+
+    @Override
+    public String toString() {
+        ToStringBuilder sb = new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
+                .append("discoveryType", discoveryType)
+                .append("localAddress", localAddress)
+                .append("joinTimeoutMs", joinTimeoutMs)
+                .append("discoveryPort", discoveryPort)
+                .append("communicationPort", communicationPort);
+
+        if (discoveryType == IgniteClusterDiscoveryType.SHAREDFS) {
+            sb.append("sharedFsPath", sharedFsPath);
+        }else if (discoveryType == IgniteClusterDiscoveryType.KUBERNETES) {
+            sb.append("kubernetesNamespace", kubernetesNamespace)
+              .append("kubernetesServiceName", kubernetesServiceName)
+              .append("kubernetesIncludeNotReadyAddresses", kubernetesIncludeNotReadyAddresses);
+        }else if (discoveryType == IgniteClusterDiscoveryType.LOCAL) {
+            sb.append("localAddresses", localAddresses);
+        }
+
+        return sb.toString();
+    }
 }

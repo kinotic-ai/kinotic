@@ -3,7 +3,7 @@ package org.kinotic.persistence.internal.idl.converters.elastic;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.domain.idl.decorators.EntityDecorator;
 import org.kinotic.persistence.api.domain.idl.decorators.EsIndexConfigurationDecorator;
 import org.kinotic.persistence.internal.idl.converters.common.BaseConversionState;
@@ -42,8 +42,8 @@ public class ElasticConversionState extends BaseConversionState {
      */
     private boolean shouldIndex = true;
 
-    public ElasticConversionState(StructuresProperties structuresProperties) {
-        super(structuresProperties);
+    public ElasticConversionState(PersistenceProperties persistenceProperties) {
+        super(persistenceProperties);
     }
 
 }

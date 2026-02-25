@@ -5,7 +5,7 @@ import java.util.concurrent.CompletableFuture;
 
 import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
@@ -21,16 +21,16 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
 
     private final ElasticVertxClient elasticVertxClient;
     private final String statement;
-    private final StructuresProperties structuresProperties;
+    private final PersistenceProperties persistenceProperties;
 
     public AggregateQueryExecutor(Structure structure,
                                   ElasticVertxClient elasticVertxClient,
                                   String statement,
-                                  StructuresProperties structuresProperties) {
+                                  PersistenceProperties persistenceProperties) {
         super(structure);
         this.elasticVertxClient = elasticVertxClient;
         this.statement = statement;
-        this.structuresProperties = structuresProperties;
+        this.persistenceProperties = persistenceProperties;
 
     }
 
@@ -106,7 +106,7 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
                 filter = new JsonObject().put("bool", new JsonObject()
                         .put("filter", new JsonArray()
                                 .add(new JsonObject().put("term", new JsonObject()
-                                        .put(structuresProperties.getTenantIdFieldName(), new JsonObject()
+                                        .put(persistenceProperties.getTenantIdFieldName(), new JsonObject()
                                                 .put("value", tenantId))))
                                 .add(new JsonObject().put("terms", new JsonObject()
                                         .put("_routing", new JsonArray().add(tenantId))))

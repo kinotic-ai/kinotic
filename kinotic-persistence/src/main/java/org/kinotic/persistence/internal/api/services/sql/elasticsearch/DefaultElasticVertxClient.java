@@ -24,7 +24,7 @@ import org.kinotic.domain.api.services.crud.CursorPage;
 import org.kinotic.domain.api.services.crud.CursorPageable;
 import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.domain.QueryOptions;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
@@ -62,7 +62,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
 
 
     public DefaultElasticVertxClient(ObjectMapper objectMapper,
-                                     StructuresProperties structuresProperties,
+                                     PersistenceProperties persistenceProperties,
                                      Vertx vertx,
                                      DefaultCaffeineCacheFactory cacheFactory) {
         this.objectMapper = objectMapper;
@@ -73,7 +73,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
                                         .build();
 
         WebClientOptions options = new WebClientOptions()
-                .setConnectTimeout((int) structuresProperties.getElasticConnectionTimeout().toMillis())
+                .setConnectTimeout((int) persistenceProperties.getElasticConnectionTimeout().toMillis())
                 .setTcpNoDelay(true)
                 .setTcpKeepAlive(true)
                 .setTracingPolicy(TracingPolicy.IGNORE);
@@ -84,18 +84,18 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
 
         this.webClient = WebClient.create(vertx, options, poolOptions);
 
-        Validate.notEmpty(structuresProperties.getElasticConnections(), "No Elastic connections defined");
+        Validate.notEmpty(persistenceProperties.getElasticConnections(), "No Elastic connections defined");
 
-        ElasticConnectionInfo elasticConnectionInfo = structuresProperties.getElasticConnections().getFirst();
+        ElasticConnectionInfo elasticConnectionInfo = persistenceProperties.getElasticConnections().getFirst();
 
         sqlQueryRequest = webClient.post(elasticConnectionInfo.getPort(),
                                          elasticConnectionInfo.getHost(), "/_sql");
         if(elasticConnectionInfo.getScheme().equalsIgnoreCase("https")){
             sqlQueryRequest.ssl(true);
         }
-        if(structuresProperties.hasElasticUsernameAndPassword()){
-            sqlQueryRequest.basicAuthentication(structuresProperties.getElasticUsername(),
-                                                structuresProperties.getElasticPassword());
+        if(persistenceProperties.hasElasticUsernameAndPassword()){
+            sqlQueryRequest.basicAuthentication(persistenceProperties.getElasticUsername(),
+                                                persistenceProperties.getElasticPassword());
         }
 
         sqlTranslateRequest = sqlQueryRequest.copy().uri("/_sql/translate");

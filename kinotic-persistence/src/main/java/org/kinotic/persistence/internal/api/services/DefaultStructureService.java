@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.services.StructureService;
@@ -32,7 +32,7 @@ public class DefaultStructureService implements StructureService {
     private final ElasticsearchAsyncClient esAsyncClient;
     private final StructureConversionService structureConversionService;
     private final StructureDAO structureDAO;
-    private final StructuresProperties structuresProperties;
+    private final PersistenceProperties persistenceProperties;
 
 
     @WithSpan
@@ -90,7 +90,7 @@ public class DefaultStructureService implements StructureService {
                     structure.setCreated(new Date());
                     structure.setUpdated(structure.getCreated());
                     // Store name of the elastic search index for items
-                    structure.setItemIndex(this.structuresProperties.getIndexPrefix() + logicalIndexName);
+                    structure.setItemIndex(this.persistenceProperties.getIndexPrefix() + logicalIndexName);
 
                     ElasticConversionResult result = structureConversionService.convertToElasticMapping(structure);
 
@@ -239,9 +239,9 @@ public class DefaultStructureService implements StructureService {
                     if (structure.isPublished()) {
                         if (!existingStructure.isMultiTenantSelectionEnabled()
                                 && structure.isMultiTenantSelectionEnabled()
-                                && !structuresProperties.getTenantIdFieldName().equals(structure.getTenantIdFieldName())) {
+                                && !persistenceProperties.getTenantIdFieldName().equals(structure.getTenantIdFieldName())) {
                             return CompletableFuture.failedFuture(
-                                    new IllegalArgumentException("When enabling multi-tenant selection for an existing published Structure, the tenantId field must be set to: " + structuresProperties.getTenantIdFieldName()));
+                                    new IllegalArgumentException("When enabling multi-tenant selection for an existing published Structure, the tenantId field must be set to: " + persistenceProperties.getTenantIdFieldName()));
                         }
 
                         if (!existingStructure.isStream() && structure.isStream()) {

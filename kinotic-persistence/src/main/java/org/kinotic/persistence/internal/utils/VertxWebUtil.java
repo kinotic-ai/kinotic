@@ -12,7 +12,7 @@ import org.jspecify.annotations.NonNull;
 import org.kinotic.domain.api.services.crud.*;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -131,7 +131,7 @@ public class VertxWebUtil {
     }
 
     public static @NonNull Router createRouterWithCors(Vertx vertx,
-                                                       StructuresProperties properties) {
+                                                       PersistenceProperties properties) {
         Router router = Router.router(vertx);
 
         router.route().failureHandler(VertxWebUtil.createExceptionConvertingFailureHandler());

@@ -4,7 +4,7 @@ import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.*;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.domain.EntityContext;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.decorators.MultiTenancyType;
@@ -26,10 +26,10 @@ import java.util.function.Consumer;
 public class ReadPreProcessor {
     private static final Logger log = LoggerFactory.getLogger(ReadPreProcessor.class);
 
-    private final StructuresProperties structuresProperties;
+    private final PersistenceProperties persistenceProperties;
 
-    public ReadPreProcessor(StructuresProperties structuresProperties) {
-        this.structuresProperties = structuresProperties;
+    public ReadPreProcessor(PersistenceProperties persistenceProperties) {
+        this.persistenceProperties = persistenceProperties;
     }
 
     public void beforeCount(Structure structure,
@@ -100,7 +100,7 @@ public class ReadPreProcessor {
             }else{
                 builder.routing(context.getParticipant().getTenantId());
                 if(!structure.isMultiTenantSelectionEnabled()) {
-                    builder.sourceExcludes(structuresProperties.getTenantIdFieldName());
+                    builder.sourceExcludes(persistenceProperties.getTenantIdFieldName());
                 }
             }
         }
@@ -117,7 +117,7 @@ public class ReadPreProcessor {
 
         if(structure.getMultiTenancyType() == MultiTenancyType.SHARED
             && !structure.isMultiTenantSelectionEnabled()){
-            builder.sourceExcludes(structuresProperties.getTenantIdFieldName());
+            builder.sourceExcludes(persistenceProperties.getTenantIdFieldName());
         }
 
         if(context.hasIncludedFieldsFilter()){
@@ -164,7 +164,7 @@ public class ReadPreProcessor {
                 routingConsumer.accept(context.getParticipant().getTenantId());
                 queryBuilder = new Query.Builder();
                 queryBuilder
-                        .bool(b -> b.filter(qb -> qb.term(tq -> tq.field(structuresProperties.getTenantIdFieldName())
+                        .bool(b -> b.filter(qb -> qb.term(tq -> tq.field(persistenceProperties.getTenantIdFieldName())
                                                                   .value(context.getParticipant().getTenantId()))));
             }
         }
@@ -201,7 +201,7 @@ public class ReadPreProcessor {
                     routingConsumer.accept(context.getParticipant().getTenantId());
                     queryBuilder
                             .bool(b -> b.must(must -> must.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
-                                        .filter(qb -> qb.term(tq -> tq.field(structuresProperties.getTenantIdFieldName())
+                                        .filter(qb -> qb.term(tq -> tq.field(persistenceProperties.getTenantIdFieldName())
                                                                       .value(context.getParticipant().getTenantId()))));
                 }
             }else{
@@ -232,7 +232,7 @@ public class ReadPreProcessor {
                 }
                 // TODO: remove this when above is put back
                 if(structure.getMultiTenancyType() == MultiTenancyType.SHARED) {
-                    sf.includes(structuresProperties.getTenantIdFieldName());
+                    sf.includes(persistenceProperties.getTenantIdFieldName());
                 }
             }
             return sf;

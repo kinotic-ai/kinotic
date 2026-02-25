@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 import org.kinotic.idl.api.schema.PropertyDefinition;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -18,7 +18,7 @@ public class BaseConversionState {
 
     private final Deque<String> propertyStack = new ArrayDeque<>();
     @Getter
-    private final StructuresProperties structuresProperties;
+    private final PersistenceProperties persistenceProperties;
     @Getter
     private String currentFieldName = null;
     @Getter

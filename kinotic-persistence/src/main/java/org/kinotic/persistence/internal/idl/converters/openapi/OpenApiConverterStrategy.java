@@ -5,7 +5,7 @@ import org.kinotic.idl.api.converter.C3TypeConverter;
 import org.kinotic.idl.api.converter.C3TypeConverterContainer;
 import org.kinotic.idl.api.converter.IdlConverterStrategy;
 import org.kinotic.idl.api.schema.*;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashSet;
@@ -60,8 +60,8 @@ public class OpenApiConverterStrategy implements IdlConverterStrategy<Schema<?>,
                                                  new PageC3TypeToOpenApi()));
     }
 
-    public OpenApiConverterStrategy(StructuresProperties structuresProperties) {
-        this.state = new OpenApiConversionState(structuresProperties);
+    public OpenApiConverterStrategy(PersistenceProperties persistenceProperties) {
+        this.state = new OpenApiConversionState(persistenceProperties);
     }
 
     @Override

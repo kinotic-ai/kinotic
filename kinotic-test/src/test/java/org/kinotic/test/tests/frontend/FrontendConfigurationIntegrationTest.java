@@ -3,7 +3,7 @@ package org.kinotic.test.tests.frontend;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.core.api.config.OidcSecurityServiceProperties;
 import org.kinotic.test.support.elastic.ElasticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +26,7 @@ public class FrontendConfigurationIntegrationTest extends ElasticTestBase {
     @Autowired
     private OidcSecurityServiceProperties oidcSecurityServiceProperties;
     @Autowired
-    private StructuresProperties structuresProperties;
+    private PersistenceProperties persistenceProperties;
 
     @DynamicPropertySource
     static void registerOidcSecurityServiceProperties(DynamicPropertyRegistry registry) {
@@ -34,7 +34,7 @@ public class FrontendConfigurationIntegrationTest extends ElasticTestBase {
     }
 
     private String getURL() {
-        return String.format("http://localhost:%d/%s", structuresProperties.getWebServerPort(), oidcSecurityServiceProperties.getFrontendConfigurationPath());
+        return String.format("http://localhost:%d/%s", persistenceProperties.getWebServerPort(), oidcSecurityServiceProperties.getFrontendConfigurationPath());
     }
 
     @Test

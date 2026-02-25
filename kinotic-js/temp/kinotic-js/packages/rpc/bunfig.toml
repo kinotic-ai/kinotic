@@ -1,8 +1,0 @@
-# https://bun.com/docs/test/configuration
-
-[test]
-preload = ["./test/setup.ts"]
-timeout = 600000  # 10 minutes (Docker pull + container startup)
-
-[test.reporter]
-junit = "allure-results/junit.xml"

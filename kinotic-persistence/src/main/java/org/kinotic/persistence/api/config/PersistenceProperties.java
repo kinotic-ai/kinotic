@@ -20,7 +20,7 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 @Component
 @ConfigurationProperties(prefix = "structures")
-public class StructuresProperties {
+public class PersistenceProperties {
 
     private String structuresBaseUrl = "http://localhost";
 
@@ -111,12 +111,6 @@ public class StructuresProperties {
     private boolean initializeWithSampleData = false;
 
     /**
-     * Root path for blob storage of insights data.
-     * Defaults to /tmp/blobs
-     */
-    private String blobStoreRoot = "/tmp/blobs";
-
-    /**
      * MCP server configuration
      */
     private Integer mcpPort = 3001;
@@ -131,7 +125,7 @@ public class StructuresProperties {
         return elasticUsername != null && !elasticUsername.isBlank() && elasticPassword != null && !elasticPassword.isBlank();
     }
 
-    public StructuresProperties setOpenApiAdminPath(String path){
+    public PersistenceProperties setOpenApiAdminPath(String path){
         Validate.notBlank(path, "openApiAdminPath must not be blank");
         if(path.endsWith("/")){
             this.openApiAdminPath = path;
@@ -142,7 +136,7 @@ public class StructuresProperties {
     }
 
 
-    public StructuresProperties setOpenApiPath(String path){
+    public PersistenceProperties setOpenApiPath(String path){
         Validate.notBlank(path, "openApiPath must not be blank");
         if(path.endsWith("/")){
             this.openApiPath = path;
@@ -152,7 +146,7 @@ public class StructuresProperties {
         return this;
     }
 
-    public StructuresProperties setGraphqlPath(String path) {
+    public PersistenceProperties setGraphqlPath(String path) {
         Validate.notBlank(path, "graphqlPath must not be blank");
         if(path.endsWith("/")){
             this.graphqlPath = path;

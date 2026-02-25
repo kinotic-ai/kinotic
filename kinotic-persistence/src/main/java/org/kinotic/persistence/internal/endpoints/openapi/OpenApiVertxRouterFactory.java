@@ -16,7 +16,7 @@ import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.core.api.security.AuthenticationHandler;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.domain.*;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.services.sql.MapParameterHolder;
@@ -52,7 +52,7 @@ public class OpenApiVertxRouterFactory {
     private final EntitiesService entitiesService;
     private final ObjectMapper objectMapper;
     private final OpenApiService openApiService;
-    private final StructuresProperties properties;
+    private final PersistenceProperties properties;
     private final SecurityService securityService;
     private final JavaType stringListType;
     private final JavaType tenantSpecificListType;
@@ -61,7 +61,7 @@ public class OpenApiVertxRouterFactory {
     public OpenApiVertxRouterFactory(EntitiesService entitiesService,
                                      ObjectMapper objectMapper,
                                      OpenApiService openApiService,
-                                     StructuresProperties properties,
+                                     PersistenceProperties properties,
                                      SecurityService securityService,
                                      Vertx vertx) {
         this.entitiesService = entitiesService;

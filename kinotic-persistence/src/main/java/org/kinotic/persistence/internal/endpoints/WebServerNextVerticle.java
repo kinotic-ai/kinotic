@@ -12,7 +12,7 @@ import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.StaticHandler;
 import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.core.api.config.OidcSecurityServiceProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +29,7 @@ public class WebServerNextVerticle extends VerticleBase {
 
     private final ObjectMapper objectMapper;
     private final HealthChecks healthChecks;
-    private final StructuresProperties properties;
+    private final PersistenceProperties properties;
     private final OidcSecurityServiceProperties oidcSecurityServiceProperties;
     private HttpServer server;
 

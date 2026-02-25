@@ -9,7 +9,7 @@ import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.security.AuthenticationHandler;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.internal.utils.VertxWebUtil;
 
 /**
@@ -21,7 +21,7 @@ public class GqlVerticle extends VerticleBase {
     public static final String APPLICATION_PATH_PARAMETER = "structureApplication";
 
     private final DelegatingGqlHandler gqlHandler;
-    private final StructuresProperties properties;
+    private final PersistenceProperties properties;
     private final SecurityService securityService;
     private HttpServer server;
 

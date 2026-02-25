@@ -7,7 +7,7 @@ import org.kinotic.idl.api.converter.C3TypeConverter;
 import org.kinotic.idl.api.converter.C3TypeConverterContainer;
 import org.kinotic.idl.api.converter.IdlConverterStrategy;
 import org.kinotic.idl.api.schema.*;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -33,7 +33,7 @@ public class GqlConverterStrategy implements IdlConverterStrategy<GqlTypeHolder,
     private static final GqlTypeHolder SHORT = new GqlTypeHolder(ExtendedScalars.GraphQLShort, ExtendedScalars.GraphQLShort);
     private static final GqlTypeHolder STRING = new GqlTypeHolder(GraphQLString, GraphQLString);
     private static final Set<C3TypeConverter<GqlTypeHolder, ? extends C3Type, GqlConversionState>> converters;
-    private final StructuresProperties structuresProperties;
+    private final PersistenceProperties persistenceProperties;
 
     static {
         C3TypeConverterContainer<GqlTypeHolder, GqlConversionState> container = new C3TypeConverterContainer<>();
@@ -77,7 +77,7 @@ public class GqlConverterStrategy implements IdlConverterStrategy<GqlTypeHolder,
 
     @Override
     public GqlConversionState initialState() {
-        return new GqlConversionState(this.structuresProperties);
+        return new GqlConversionState(this.persistenceProperties);
     }
 
     @Override

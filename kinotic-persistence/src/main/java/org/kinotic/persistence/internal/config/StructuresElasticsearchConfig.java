@@ -11,7 +11,7 @@ import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.hc.core5.util.Timeout;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tools.jackson.databind.json.JsonMapper;
@@ -26,32 +26,32 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class StructuresElasticsearchConfig {
 
-    private final StructuresProperties structuresProperties;
+    private final PersistenceProperties persistenceProperties;
 
-    public StructuresElasticsearchConfig(StructuresProperties structuresProperties) {
-        this.structuresProperties = structuresProperties;
+    public StructuresElasticsearchConfig(PersistenceProperties persistenceProperties) {
+        this.persistenceProperties = persistenceProperties;
     }
 
     @Bean
     public ElasticsearchAsyncClient elasticsearchAsyncClient(JsonpMapper jsonpMapper){
-        HttpHost[] hosts = structuresProperties.getElasticConnections()
-                                               .stream()
-                                               .map(v -> new HttpHost(v.getScheme(), v.getHost(), v.getPort()))
-                                               .toArray(HttpHost[]::new);
+        HttpHost[] hosts = persistenceProperties.getElasticConnections()
+                                                .stream()
+                                                .map(v -> new HttpHost(v.getScheme(), v.getHost(), v.getPort()))
+                                                .toArray(HttpHost[]::new);
 
         var builder = Rest5Client.builder(hosts);
 
-        if(structuresProperties.hasElasticUsernameAndPassword()){
-            String credentials = structuresProperties.getElasticUsername() + ":" + structuresProperties.getElasticPassword();
+        if(persistenceProperties.hasElasticUsernameAndPassword()){
+            String credentials = persistenceProperties.getElasticUsername() + ":" + persistenceProperties.getElasticPassword();
             String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
             builder.setDefaultHeaders(new Header[]{
                     new BasicHeader("Authorization", "Basic " + encodedCredentials)
             });
         }
 
-        Timeout connectTimeout = Timeout.of(structuresProperties.getElasticConnectionTimeout().toMillis(), TimeUnit.MILLISECONDS);
-        Timeout socketTimeout = Timeout.of(structuresProperties.getElasticSocketTimeout().toMillis(), TimeUnit.MILLISECONDS);
-        Timeout responseTimeout = Timeout.of(structuresProperties.getElasticSocketTimeout().toMillis(), TimeUnit.MILLISECONDS);
+        Timeout connectTimeout = Timeout.of(persistenceProperties.getElasticConnectionTimeout().toMillis(), TimeUnit.MILLISECONDS);
+        Timeout socketTimeout = Timeout.of(persistenceProperties.getElasticSocketTimeout().toMillis(), TimeUnit.MILLISECONDS);
+        Timeout responseTimeout = Timeout.of(persistenceProperties.getElasticSocketTimeout().toMillis(), TimeUnit.MILLISECONDS);
 
         builder.setConnectionConfigCallback(connectionConfig -> connectionConfig
                 .setConnectTimeout(connectTimeout)

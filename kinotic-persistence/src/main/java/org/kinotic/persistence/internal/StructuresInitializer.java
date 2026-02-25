@@ -7,7 +7,7 @@ import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.healthchecks.Status;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.internal.endpoints.StructuresVerticleFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +29,7 @@ public class StructuresInitializer {
     private final KinoticProperties kinoticProperties;
     private final ElasticsearchAsyncClient esAsyncClient;
     private final HealthChecks healthChecks;
-    private final StructuresProperties properties;
+    private final PersistenceProperties properties;
     private final StructuresVerticleFactory verticleFactory;
     private final Vertx vertx;
     private Throwable lastEsError = null;

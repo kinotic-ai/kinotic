@@ -7,7 +7,7 @@ import org.kinotic.idl.api.converter.C3TypeConverter;
 import org.kinotic.idl.api.converter.C3TypeConverterContainer;
 import org.kinotic.idl.api.converter.IdlConverterStrategy;
 import org.kinotic.idl.api.schema.*;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -58,7 +58,7 @@ public class ElasticConverterStrategy implements IdlConverterStrategy<Property, 
         = ShortNumberProperty.of(f -> f.index(false).docValues(false))._toProperty();
 
     private static final Set<C3TypeConverter<Property, ? extends C3Type, ElasticConversionState>> converters;
-    private final StructuresProperties structuresProperties;
+    private final PersistenceProperties persistenceProperties;
 
     static {
         // Basic types
@@ -101,7 +101,7 @@ public class ElasticConverterStrategy implements IdlConverterStrategy<Property, 
 
     @Override
     public ElasticConversionState initialState() {
-        return new ElasticConversionState(this.structuresProperties);
+        return new ElasticConversionState(this.persistenceProperties);
     }
 
     @Override

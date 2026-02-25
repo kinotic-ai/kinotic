@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.sample;
 
 import jakarta.annotation.PostConstruct;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
@@ -24,12 +24,12 @@ public class DataInitializer {
     private final TestDataService testDataService;
     private final ObjectMapper objectMapper;
     private final EntitiesService entitiesService;
-    private final StructuresProperties properties;
+    private final PersistenceProperties properties;
 
     public DataInitializer(TestDataService testDataService,
                            ObjectMapper objectMapper,
                            EntitiesService entitiesService,
-                           StructuresProperties properties) {
+                           PersistenceProperties properties) {
         this.testDataService = testDataService;
         this.objectMapper = objectMapper;
         this.entitiesService = entitiesService;

@@ -16,7 +16,7 @@ import org.apache.commons.text.WordUtils;
 import org.kinotic.idl.api.schema.*;
 import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.idl.api.converter.IdlConverter;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.domain.NamedQueriesDefinition;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.PageC3Type;
@@ -49,7 +49,7 @@ public class DefaultOpenApiService implements OpenApiService {
     private final NamedQueriesService namedQueriesService;
     private final StructureConversionService structureConversionService;
     private final StructureService structureService;
-    private final StructuresProperties structuresProperties;
+    private final PersistenceProperties persistenceProperties;
 
 
     private static ApiResponses getDefaultResponses(){
@@ -76,18 +76,18 @@ public class DefaultOpenApiService implements OpenApiService {
                             .description("Provides access to Structures Items for the " + applicationId + " application");
                     openAPI.setInfo(info);
 
-                    openAPI.addServersItem(new Server().url(structuresProperties.getStructuresBaseUrl() + ":"  + structuresProperties.getOpenApiPort()));
+                    openAPI.addServersItem(new Server().url(persistenceProperties.getStructuresBaseUrl() + ":"  + persistenceProperties.getOpenApiPort()));
 
                     Components components = new Components();
 
                     // security scheme
-                    if(structuresProperties.getOpenApiSecurityType() == OpenApiSecurityType.BASIC){
+                    if(persistenceProperties.getOpenApiSecurityType() == OpenApiSecurityType.BASIC){
                         SecurityScheme securityScheme = new SecurityScheme();
                         securityScheme.setType(SecurityScheme.Type.HTTP);
                         securityScheme.setScheme("basic");
                         components.addSecuritySchemes("BasicAuth", securityScheme);
                         openAPI.setSecurity(List.of(new SecurityRequirement().addList("BasicAuth")));
-                    } else if (structuresProperties.getOpenApiSecurityType() == OpenApiSecurityType.BEARER) {
+                    } else if (persistenceProperties.getOpenApiSecurityType() == OpenApiSecurityType.BEARER) {
                         SecurityScheme securityScheme = new SecurityScheme();
                         securityScheme.setType(SecurityScheme.Type.HTTP);
                         securityScheme.setScheme("bearer");
@@ -96,7 +96,7 @@ public class DefaultOpenApiService implements OpenApiService {
                     }
 
                     Paths paths = new Paths();
-                    String basePath = structuresProperties.getOpenApiPath();
+                    String basePath = persistenceProperties.getOpenApiPath();
 
                     IdlConverter<Schema<?>, OpenApiConversionState> converter
                             = structureConversionService.createOpenApiConverter();
@@ -160,7 +160,7 @@ public class DefaultOpenApiService implements OpenApiService {
     @WithSpan
     private void addAdminPathItems(Paths paths, Structure structure){
 
-        String basePath = structuresProperties.getOpenApiAdminPath();
+        String basePath = persistenceProperties.getOpenApiAdminPath();
         String lowercaseApplication = structure.getApplicationId().toLowerCase();
         String lowercaseName = structure.getName().toLowerCase();
         String structureName = WordUtils.capitalize(structure.getName());
@@ -290,7 +290,7 @@ public class DefaultOpenApiService implements OpenApiService {
     @WithSpan
     private void addDefaultPathItems(Paths paths, Structure structure){
 
-        String basePath = structuresProperties.getOpenApiPath();
+        String basePath = persistenceProperties.getOpenApiPath();
         String lowercaseApplication = structure.getApplicationId().toLowerCase();
         String lowercaseName = structure.getName().toLowerCase();
         String structureName = WordUtils.capitalize(structure.getName());
@@ -647,9 +647,9 @@ public class DefaultOpenApiService implements OpenApiService {
                                              .tags(List.of(structure.getName()))
                                              .operationId(operationId);
 
-        if (structuresProperties.getOpenApiSecurityType() == OpenApiSecurityType.BASIC) {
+        if (persistenceProperties.getOpenApiSecurityType() == OpenApiSecurityType.BASIC) {
             operation.security(List.of(new SecurityRequirement().addList("BasicAuth")));
-        } else if (structuresProperties.getOpenApiSecurityType() == OpenApiSecurityType.BEARER) {
+        } else if (persistenceProperties.getOpenApiSecurityType() == OpenApiSecurityType.BEARER) {
             operation.security(List.of(new SecurityRequirement().addList("BearerAuth")));
         }
 

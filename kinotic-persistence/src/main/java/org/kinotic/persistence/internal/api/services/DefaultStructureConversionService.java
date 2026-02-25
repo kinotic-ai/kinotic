@@ -7,7 +7,7 @@ import io.swagger.v3.oas.models.media.Schema;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.domain.idl.decorators.EntityType;
 import org.kinotic.persistence.internal.idl.converters.elastic.ElasticConversionState;
@@ -27,7 +27,7 @@ import org.springframework.stereotype.Component;
 public class DefaultStructureConversionService implements StructureConversionService {
 
     private final IdlConverterFactory idlConverterFactory;
-    private final StructuresProperties structuresProperties;
+    private final PersistenceProperties persistenceProperties;
 
     @WithSpan
     @Override
@@ -35,7 +35,7 @@ public class DefaultStructureConversionService implements StructureConversionSer
         ObjectProperty objectProperty;
 
         IdlConverter<Property, ElasticConversionState> converter = idlConverterFactory
-                .createConverter(new ElasticConverterStrategy(structuresProperties));
+                .createConverter(new ElasticConverterStrategy(persistenceProperties));
 
         ElasticConversionState state = converter.getConversionContext().state();
 
@@ -70,12 +70,12 @@ public class DefaultStructureConversionService implements StructureConversionSer
 
     @Override
     public IdlConverter<GqlTypeHolder, GqlConversionState> createGqlConverter() {
-        return idlConverterFactory.createConverter(new GqlConverterStrategy(structuresProperties));
+        return idlConverterFactory.createConverter(new GqlConverterStrategy(persistenceProperties));
     }
 
     @Override
     public IdlConverter<Schema<?>, OpenApiConversionState> createOpenApiConverter(){
-        return idlConverterFactory.createConverter(new OpenApiConverterStrategy(structuresProperties));
+        return idlConverterFactory.createConverter(new OpenApiConverterStrategy(persistenceProperties));
     }
 
 }

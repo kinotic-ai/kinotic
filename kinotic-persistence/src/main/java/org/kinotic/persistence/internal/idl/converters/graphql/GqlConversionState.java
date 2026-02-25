@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.internal.idl.converters.common.BaseConversionState;
 
 import graphql.schema.GraphQLType;
@@ -29,7 +29,7 @@ public class GqlConversionState extends BaseConversionState {
      */
     private Map<String, Pair<GraphQLUnionType, TypeResolver>> unionTypes = new HashMap<>();
 
-    public GqlConversionState(StructuresProperties structuresProperties) {
-        super(structuresProperties);
+    public GqlConversionState(PersistenceProperties persistenceProperties) {
+        super(persistenceProperties);
     }
 }

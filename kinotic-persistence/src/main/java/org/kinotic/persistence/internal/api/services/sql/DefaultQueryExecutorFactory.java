@@ -3,7 +3,7 @@ package org.kinotic.persistence.internal.api.services.sql;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.NotImplementedException;
 import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.domain.NamedQueriesDefinition;
 import org.kinotic.persistence.api.domain.NamedQueryOperation;
 import org.kinotic.persistence.api.domain.Structure;
@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
 public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
 
     private final ElasticVertxClient elasticVertxClient;
-    private final StructuresProperties structuresProperties;
+    private final PersistenceProperties persistenceProperties;
     private final AuthorizationServiceFactory authorizationServiceFactory;
 
     public QueryExecutor createQueryExecutor(Structure structure,
@@ -72,7 +72,7 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
             case AGGREGATE -> new AggregateQueryExecutor(structure,
                                                          elasticVertxClient,
                                                          statement,
-                                                         structuresProperties);
+                                                         persistenceProperties);
             case DELETE -> throw new NotImplementedException("Delete not supported yet");
             case INSERT -> throw new NotImplementedException("Insert not supported yet");
             case SELECT -> throw new NotImplementedException("Select without aggregate not supported yet");

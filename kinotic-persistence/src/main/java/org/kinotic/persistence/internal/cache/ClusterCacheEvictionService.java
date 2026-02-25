@@ -10,7 +10,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.cluster.ClusterGroup;
 import org.apache.ignite.lang.IgniteFuture;
 import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionSource;
 import org.springframework.context.event.EventListener;
@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class ClusterCacheEvictionService {
 
-    private final StructuresProperties structuresProperties;
+    private final PersistenceProperties persistenceProperties;
     private final KinoticProperties kinoticProperties;
     private final Ignite ignite;
 
@@ -42,11 +42,11 @@ public class ClusterCacheEvictionService {
     private final LongCounter retryCounter;
 
     public ClusterCacheEvictionService(KinoticProperties kinoticProperties,
-                                       StructuresProperties structuresProperties,
+                                       PersistenceProperties persistenceProperties,
                                        Ignite ignite,
                                        OpenTelemetry openTelemetry) {
         this.kinoticProperties = kinoticProperties;
-        this.structuresProperties = structuresProperties;
+        this.persistenceProperties = persistenceProperties;
         this.ignite = ignite;
 
         Meter meter = openTelemetry.getMeter("structures.cache.eviction");
@@ -129,8 +129,8 @@ public class ClusterCacheEvictionService {
 
         ClusterGroup servers = null;
 
-        for (int attempt = 1; attempt <= structuresProperties.getClusterEviction()
-                .getMaxCacheSyncRetryAttempts(); attempt++) {
+        for (int attempt = 1; attempt <= persistenceProperties.getClusterEviction()
+                                                              .getMaxCacheSyncRetryAttempts(); attempt++) {
             totalAttempts = attempt;
             try {
                 // Refresh cluster group on each attempt to handle topology changes
@@ -139,15 +139,15 @@ public class ClusterCacheEvictionService {
 
                 if (servers.nodes().isEmpty()) {
                     log.warn("No server nodes available for cluster cache eviction (attempt {}/{})",
-                            attempt, structuresProperties.getClusterEviction().getMaxCacheSyncRetryAttempts());
+                             attempt, persistenceProperties.getClusterEviction().getMaxCacheSyncRetryAttempts());
                     return; // No point retrying if no servers available
                 }
 
                 // Log cluster state for debugging
                 log.trace("Attempt {}/{}: Broadcasting to {} server nodes for {}:{}:{}",
-                        attempt, structuresProperties.getClusterEviction().getMaxCacheSyncRetryAttempts(),
-                        servers.nodes().size(), event.getApplicationId(),
-                        event.getStructureId(), event.getNamedQueryId());
+                          attempt, persistenceProperties.getClusterEviction().getMaxCacheSyncRetryAttempts(),
+                          servers.nodes().size(), event.getApplicationId(),
+                          event.getStructureId(), event.getNamedQueryId());
 
                 ClusterCacheEvictionTask task = new ClusterCacheEvictionTask(
                         event.getEvictionSourceType(),
@@ -162,13 +162,13 @@ public class ClusterCacheEvictionService {
                 IgniteFuture<Void> future = ignite.compute(servers).broadcastAsync(task);
 
                 // Wait for completion with timeout
-                future.get(structuresProperties.getClusterEviction().getCacheSyncTimeoutMs(), TimeUnit.MILLISECONDS);
+                future.get(persistenceProperties.getClusterEviction().getCacheSyncTimeoutMs(), TimeUnit.MILLISECONDS);
 
                 log.debug(
                         "{} cache eviction successfully completed on all {} cluster nodes for: {}:{}:{} (timestamp: {}, attempt {}/{})",
                         event.getEvictionSourceType(), servers.nodes().size(),
                         event.getApplicationId(), event.getStructureId(), event.getNamedQueryId(),
-                        timestamp, attempt, structuresProperties.getClusterEviction().getMaxCacheSyncRetryAttempts());
+                        timestamp, attempt, persistenceProperties.getClusterEviction().getMaxCacheSyncRetryAttempts());
 
                 success = true;
                 break; // Success - exit retry loop
@@ -176,17 +176,17 @@ public class ClusterCacheEvictionService {
             } catch (Exception e) {
                 lastException = e;
                 log.warn("{} cache eviction failed on cluster for: {}:{}:{} (timestamp: {}, attempt {}/{}): {}",
-                        event.getEvictionSourceType(), event.getApplicationId(),
-                        event.getStructureId(), event.getNamedQueryId(),
-                        timestamp, attempt, structuresProperties.getClusterEviction().getMaxCacheSyncRetryAttempts(),
-                        e.getMessage());
+                         event.getEvictionSourceType(), event.getApplicationId(),
+                         event.getStructureId(), event.getNamedQueryId(),
+                         timestamp, attempt, persistenceProperties.getClusterEviction().getMaxCacheSyncRetryAttempts(),
+                         e.getMessage());
 
                 // If this isn't the last attempt, wait before retrying
-                if (attempt < structuresProperties.getClusterEviction().getMaxCacheSyncRetryAttempts()) {
+                if (attempt < persistenceProperties.getClusterEviction().getMaxCacheSyncRetryAttempts()) {
                     try {
                         log.debug("Waiting {}ms before retry attempt {}",
-                                structuresProperties.getClusterEviction().getCacheSyncRetryDelayMs(), attempt + 1);
-                        Thread.sleep(structuresProperties.getClusterEviction().getCacheSyncRetryDelayMs());
+                                  persistenceProperties.getClusterEviction().getCacheSyncRetryDelayMs(), attempt + 1);
+                        Thread.sleep(persistenceProperties.getClusterEviction().getCacheSyncRetryDelayMs());
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         log.error("Retry interrupted for {} cache eviction: {}:{}:{} (timestamp: {})",
@@ -222,9 +222,9 @@ public class ClusterCacheEvictionService {
         if (!success) {
             // If we get here, all retry attempts failed
             log.error("Failed to complete {} cache eviction on cluster for: {}:{}:{} (timestamp: {}) after {} attempts",
-                    event.getEvictionSourceType(), event.getApplicationId(),
-                    event.getStructureId(), event.getNamedQueryId(),
-                    timestamp, structuresProperties.getClusterEviction().getMaxCacheSyncRetryAttempts(), lastException);
+                      event.getEvictionSourceType(), event.getApplicationId(),
+                      event.getStructureId(), event.getNamedQueryId(),
+                      timestamp, persistenceProperties.getClusterEviction().getMaxCacheSyncRetryAttempts(), lastException);
         }
     }
 

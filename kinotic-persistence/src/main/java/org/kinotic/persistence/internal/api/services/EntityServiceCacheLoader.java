@@ -5,7 +5,7 @@ import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.domain.Structure;
 import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
@@ -38,7 +38,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
     private final JsonMapper jsonMapper;
     private final ReadPreProcessor readPreProcessor;
     private final StructureDAO structureDAO;
-    private final StructuresProperties structuresProperties;
+    private final PersistenceProperties persistenceProperties;
     private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
 
 
@@ -49,7 +49,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
                                     JsonMapper jsonMapper,
                                     ReadPreProcessor readPreProcessor,
                                     StructureDAO structureDAO,
-                                    StructuresProperties structuresProperties,
+                                    PersistenceProperties persistenceProperties,
                                     List<UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors) {
         this.authServiceFactory = authServiceFactory;
         this.crudServiceTemplate = crudServiceTemplate;
@@ -58,7 +58,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
         this.jsonMapper = jsonMapper;
         this.readPreProcessor = readPreProcessor;
         this.structureDAO = structureDAO;
-        this.structuresProperties = structuresProperties;
+        this.persistenceProperties = persistenceProperties;
 
         this.upsertFieldPreProcessors = StructuresUtil.listToMap(upsertFieldPreProcessors,
                                                                  p -> p.implementsDecorator().getName());
@@ -103,7 +103,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
                                  .thenApply(authService -> new DefaultEntityService(
                                          authService,
                                          crudServiceTemplate,
-                                         new DelegatingUpsertPreProcessor(structuresProperties,
+                                         new DelegatingUpsertPreProcessor(persistenceProperties,
                                                                           jsonMapper,
                                                                           structure,
                                                                           fieldPreProcessors),
@@ -112,7 +112,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
                                          jsonMapper,
                                          readPreProcessor,
                                          structure,
-                                         structuresProperties));
+                                         persistenceProperties));
     }
 
 }

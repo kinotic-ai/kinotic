@@ -1,9 +1,9 @@
 package org.kinotic.persistence.internal.api.hooks;
 
 import org.apache.commons.lang3.Validate;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
-import org.kinotic.persistence.api.config.StructuresProperties;
 import org.kinotic.persistence.api.domain.EntityContext;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.persistence.api.domain.Structure;
@@ -28,23 +28,23 @@ public class DelegatingUpsertPreProcessor implements UpsertPreProcessor<Object, 
     private final MapUpsertPreProcessor mapUpsertPreProcessor;
     private final PojoUpsertPreProcessor pojoUpsertPreProcessor;
 
-    public DelegatingUpsertPreProcessor(StructuresProperties structuresProperties,
+    public DelegatingUpsertPreProcessor(PersistenceProperties persistenceProperties,
                                         JsonMapper jsonMapper,
                                         Structure structure,
                                         Map<String, DecoratorLogic> fieldPreProcessors) {
 
-        tokenBufferUpsertPreProcessor = new TokenBufferUpsertPreProcessor(structuresProperties,
+        tokenBufferUpsertPreProcessor = new TokenBufferUpsertPreProcessor(persistenceProperties,
                                                                           jsonMapper,
                                                                           structure,
                                                                           fieldPreProcessors);
 
-        rawJsonUpsertPreProcessor = new RawJsonUpsertPreProcessor(structuresProperties,
+        rawJsonUpsertPreProcessor = new RawJsonUpsertPreProcessor(persistenceProperties,
                                                                   jsonMapper,
                                                                   structure,
                                                                   fieldPreProcessors);
 
         mapUpsertPreProcessor = new MapUpsertPreProcessor(structure,
-                                                          structuresProperties,
+                                                          persistenceProperties,
                                                           fieldPreProcessors);
         pojoUpsertPreProcessor = new PojoUpsertPreProcessor();
     }

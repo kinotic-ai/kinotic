@@ -3,7 +3,7 @@ package org.kinotic.persistence.internal.endpoints;
 import io.vertx.ext.healthchecks.HealthChecks;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.security.SecurityService;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.core.api.config.OidcSecurityServiceProperties;
 import org.kinotic.persistence.internal.endpoints.graphql.DelegatingGqlHandler;
 import org.kinotic.persistence.internal.endpoints.graphql.GqlVerticle;
@@ -21,7 +21,7 @@ import tools.jackson.databind.ObjectMapper;
 public class StructuresVerticleFactory {
 
     // Common Deps
-    private final StructuresProperties properties;
+    private final PersistenceProperties properties;
     private final SecurityService securityService;
 
     // Open Api Deps

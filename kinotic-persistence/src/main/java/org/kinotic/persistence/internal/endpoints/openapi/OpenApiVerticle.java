@@ -6,7 +6,7 @@ import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.web.Router;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.persistence.api.config.StructuresProperties;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.domain.Structure;
 
 /**
@@ -16,7 +16,7 @@ import org.kinotic.persistence.api.domain.Structure;
 @RequiredArgsConstructor
 public class OpenApiVerticle extends VerticleBase {
 
-    private final StructuresProperties properties;
+    private final PersistenceProperties properties;
     private final Router router;
     private HttpServer server;
 
