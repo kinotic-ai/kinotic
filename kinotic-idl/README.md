@@ -1,3 +1,3 @@
-# Kinotic Persistence
+# Kinotic IDL
 
 [//]: # (FIXME: add docs)

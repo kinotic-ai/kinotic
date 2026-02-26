@@ -18,7 +18,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Component
 @RequiredArgsConstructor
-public class StructuresVerticleFactory {
+public class PersistenceVerticleFactory {
 
     // Common Deps
     private final PersistenceProperties properties;
@@ -44,7 +44,7 @@ public class StructuresVerticleFactory {
         return new OpenApiVerticle(properties, openApiVertxRouterFactory.createRouter());
     }
 
-    public WebServerNextVerticle createWebServerNextVerticle(){
-        return new WebServerNextVerticle(objectMapper, healthChecks, properties, oidcSecurityServiceProperties);
+    public WebServerVerticle createWebServerNextVerticle(){
+        return new WebServerVerticle(objectMapper, healthChecks, properties, oidcSecurityServiceProperties);
     }
 }

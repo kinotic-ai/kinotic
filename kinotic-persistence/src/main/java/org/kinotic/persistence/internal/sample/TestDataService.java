@@ -15,7 +15,7 @@ import org.kinotic.persistence.api.model.idl.decorators.*;
 import org.kinotic.domain.api.services.ApplicationService;
 import org.kinotic.persistence.api.services.StructureService;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
-import org.kinotic.persistence.internal.utils.StructuresUtil;
+import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
@@ -77,8 +77,8 @@ public class TestDataService {
      * @return a {@link CompletableFuture} that will return a {@link Pair} of the {@link Structure} and a {@link Boolean} indicating if the structure was created.
      */
     public CompletableFuture<Pair<Structure, Boolean>> createCarStructureIfNotExists(String structureNameSuffix){
-        String structureId = StructuresUtil.structureNameToId("org.kinotic.sample",
-                                                              "Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
+        String structureId = PersistenceUtil.structureNameToId("org.kinotic.sample",
+                                                               "Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
         return structureService.findById(structureId)
                                .thenCompose(structure -> {
                                    if(structure != null){
@@ -161,8 +161,8 @@ public class TestDataService {
      * @return a {@link CompletableFuture} that will return a {@link Pair} of the {@link Structure} and a {@link Boolean} indicating if the structure was created.
      */
     public CompletableFuture<Pair<Structure, Boolean>> createPersonStructureIfNotExists(String structureNameSuffix){
-        String structureId = StructuresUtil.structureNameToId("org.kinotic.sample",
-                                                              "Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
+        String structureId = PersistenceUtil.structureNameToId("org.kinotic.sample",
+                                                               "Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
         return structureService.findById(structureId)
                                .thenCompose(structure -> {
                                    if(structure != null){

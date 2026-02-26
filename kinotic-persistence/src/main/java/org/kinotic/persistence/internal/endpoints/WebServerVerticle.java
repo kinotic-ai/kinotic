@@ -19,13 +19,13 @@ import org.slf4j.LoggerFactory;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Web server verticle for serving the modern frontend (structures-frontend-next).
+ * Web server verticle for serving the frontend (kinotic-frontend).
  * Integrates with FrontendConfigurationService to provide dynamic configuration.
  */
 @RequiredArgsConstructor
-public class WebServerNextVerticle extends VerticleBase {
+public class WebServerVerticle extends VerticleBase {
 
-    private static final Logger logger = LoggerFactory.getLogger(WebServerNextVerticle.class);
+    private static final Logger logger = LoggerFactory.getLogger(WebServerVerticle.class);
 
     private final ObjectMapper objectMapper;
     private final HealthChecks healthChecks;

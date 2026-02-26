@@ -1,3 +1,3 @@
-# Kinotic Persistence
+# Kinotic SQL
 
 [//]: # (FIXME: add docs)

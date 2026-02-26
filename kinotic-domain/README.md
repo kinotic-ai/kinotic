@@ -1,3 +1,3 @@
-# Kinotic Persistence
+# Kinotic Domain
 
 [//]: # (FIXME: add docs)

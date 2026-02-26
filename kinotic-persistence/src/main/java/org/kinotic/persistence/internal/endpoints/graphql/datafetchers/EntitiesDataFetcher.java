@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.endpoints.openapi.RoutingContextToEntityContextAdapter;
-import org.kinotic.persistence.internal.utils.StructuresUtil;
+import org.kinotic.persistence.internal.utils.PersistenceUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,7 +42,7 @@ public class EntitiesDataFetcher implements DataFetcher<CompletableFuture<List<M
             for (Map<String, Object> representation : representations) {
                 String typename = (String) representation.get("__typename");
                 String id = (String) representation.get("id");
-                String structureId = StructuresUtil.structureNameToId(application, typename);
+                String structureId = PersistenceUtil.structureNameToId(application, typename);
                 futures.add(entitiesService.findById(structureId,
                                                      id,
                                                      Map.class,

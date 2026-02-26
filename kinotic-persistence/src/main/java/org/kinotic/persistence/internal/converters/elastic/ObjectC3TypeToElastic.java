@@ -8,7 +8,7 @@ import org.kinotic.idl.api.schema.*;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.model.DecoratedProperty;
 import org.kinotic.persistence.api.model.idl.decorators.*;
-import org.kinotic.persistence.internal.utils.StructuresUtil;
+import org.kinotic.persistence.internal.utils.PersistenceUtil;
 
 /**
  * Converts a {@link ObjectC3Type} to a {@link Property}
@@ -38,7 +38,7 @@ public class ObjectC3TypeToElastic implements C3TypeConverter<Property, ObjectC3
 
             String fieldName = property.getName();
             C3Type type = property.getType();
-            StructuresUtil.validatePropertyName(fieldName);
+            PersistenceUtil.validatePropertyName(fieldName);
 
             // Initialize state for processing this field
             state.beginProcessingField(property);

@@ -14,7 +14,7 @@ import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
 import org.kinotic.persistence.api.model.DecoratedProperty;
-import org.kinotic.persistence.internal.utils.StructuresUtil;
+import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -60,7 +60,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
         this.structureDAO = structureDAO;
         this.persistenceProperties = persistenceProperties;
 
-        this.upsertFieldPreProcessors = StructuresUtil.listToMap(upsertFieldPreProcessors,
+        this.upsertFieldPreProcessors = PersistenceUtil.listToMap(upsertFieldPreProcessors,
                                                                  p -> p.implementsDecorator().getName());
     }
 

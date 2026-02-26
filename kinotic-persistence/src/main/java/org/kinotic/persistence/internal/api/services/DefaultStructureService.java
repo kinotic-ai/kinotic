@@ -14,7 +14,7 @@ import org.kinotic.persistence.api.model.Structure;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.services.StructureService;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
-import org.kinotic.persistence.internal.utils.StructuresUtil;
+import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
@@ -59,12 +59,12 @@ public class DefaultStructureService implements StructureService {
         String logicalIndexName;
         try {
             // will throw an exception if invalid
-            StructuresUtil.validateStructure(structure);
+            PersistenceUtil.validateStructure(structure);
 
             structure.setApplicationId(structure.getApplicationId().trim());
             structure.setProjectId(structure.getProjectId().trim());
             structure.setName(structure.getName().trim());
-            logicalIndexName = StructuresUtil.structureNameToId(structure.getApplicationId(), structure.getName());
+            logicalIndexName = PersistenceUtil.structureNameToId(structure.getApplicationId(), structure.getName());
 
             if(logicalIndexName.length() > 255){
                 throw new IllegalArgumentException("Structure Id is too long, 'applicationId.name' must be less than 256 characters");
@@ -205,7 +205,7 @@ public class DefaultStructureService implements StructureService {
             if (structure.getId() == null || structure.getId().isBlank()) {
                 throw new IllegalArgumentException("Structure Id Invalid");
             }
-            StructuresUtil.validateStructure(structure);
+            PersistenceUtil.validateStructure(structure);
         } catch (IllegalArgumentException e) {
             return CompletableFuture.failedFuture(e);
         }

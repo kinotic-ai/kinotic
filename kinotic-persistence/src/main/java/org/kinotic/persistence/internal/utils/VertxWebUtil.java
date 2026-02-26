@@ -33,7 +33,7 @@ public class VertxWebUtil {
         Validate.notNull(structureApplication, "structureApplication must not be null");
         Validate.notNull(structureName, "structureName must not be null");
 
-        return StructuresUtil.structureNameToId(structureApplication, structureName);
+        return PersistenceUtil.structureNameToId(structureApplication, structureName);
     }
 
     public static String validateAndReturnPathParam(String pathParamName, RoutingContext ctx){

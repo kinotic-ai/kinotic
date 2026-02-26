@@ -21,7 +21,7 @@ import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEval
 import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEvaluatorWithoutOperation;
 import org.kinotic.persistence.internal.api.services.security.graphos.SharedPolicyManager;
 import org.kinotic.persistence.api.model.DecoratedProperty;
-import org.kinotic.persistence.internal.utils.StructuresUtil;
+import org.kinotic.persistence.internal.utils.PersistenceUtil;
 
 public class StructurePolicyAuthorizationService implements AuthorizationService<EntityOperation> {
 
@@ -32,7 +32,7 @@ public class StructurePolicyAuthorizationService implements AuthorizationService
     public StructurePolicyAuthorizationService(Structure structure,
                                                PolicyAuthorizer policyAuthorizer) {
 
-        this.structureId = StructuresUtil.structureNameToId(structure.getApplicationId(), structure.getName());
+        this.structureId = PersistenceUtil.structureNameToId(structure.getApplicationId(), structure.getName());
         ObjectC3Type entityDefinition = structure.getEntityDefinition();
 
         // Get any Policies to apply to the Entity and its fields

@@ -1,3 +1,3 @@
-# Kinotic Persistence
+# Kinotic Migration
 
 [//]: # (FIXME: add docs)

@@ -8,7 +8,7 @@ import io.vertx.ext.healthchecks.Status;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.internal.endpoints.StructuresVerticleFactory;
+import org.kinotic.persistence.internal.endpoints.PersistenceVerticleFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -23,14 +23,14 @@ import jakarta.annotation.PostConstruct;
  */
 @Component
 @RequiredArgsConstructor
-public class StructuresInitializer {
+public class PersistenceInitializer {
 
-    private static final Logger log = LoggerFactory.getLogger(StructuresInitializer.class);
+    private static final Logger log = LoggerFactory.getLogger(PersistenceInitializer.class);
     private final KinoticProperties kinoticProperties;
     private final ElasticsearchAsyncClient esAsyncClient;
     private final HealthChecks healthChecks;
     private final PersistenceProperties properties;
-    private final StructuresVerticleFactory verticleFactory;
+    private final PersistenceVerticleFactory verticleFactory;
     private final Vertx vertx;
     private Throwable lastEsError = null;
     private boolean lastEsStatus = true;

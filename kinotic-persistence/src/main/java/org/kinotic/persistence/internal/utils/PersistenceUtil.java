@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
-public class StructuresUtil {
+public class PersistenceUtil {
 
     private static final Pattern StructureNamePattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
 

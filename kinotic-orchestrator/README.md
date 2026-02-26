@@ -1,3 +1,3 @@
-# Kinotic Persistence
+# Kinotic Orchestrator
 
 [//]: # (FIXME: add docs)

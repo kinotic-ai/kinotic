@@ -1,3 +1,3 @@
-# Kinotic Persistence
+# Kinotic Gateway
 
 [//]: # (FIXME: add docs)
