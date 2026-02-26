@@ -6,7 +6,7 @@ import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.kinotic.persistence.api.domain.Structure;
+import org.kinotic.persistence.api.model.Structure;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;

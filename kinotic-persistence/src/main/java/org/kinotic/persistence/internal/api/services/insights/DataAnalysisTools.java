@@ -5,8 +5,8 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
-import org.kinotic.persistence.api.domain.EntityContext;
-import org.kinotic.persistence.api.domain.insights.InsightProgress;
+import org.kinotic.persistence.api.model.EntityContext;
+import org.kinotic.persistence.api.model.insights.InsightProgress;
 import org.kinotic.persistence.api.services.EntitiesService;
 import reactor.core.publisher.FluxSink;
 

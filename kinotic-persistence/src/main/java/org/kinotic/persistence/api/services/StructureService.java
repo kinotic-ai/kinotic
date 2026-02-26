@@ -4,7 +4,7 @@ package org.kinotic.persistence.api.services;
 import org.kinotic.domain.api.services.crud.IdentifiableCrudService;
 import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
-import org.kinotic.persistence.api.domain.Structure;
+import org.kinotic.persistence.api.model.Structure;
 import org.kinotic.core.api.annotations.Publish;
 
 import java.util.concurrent.CompletableFuture;

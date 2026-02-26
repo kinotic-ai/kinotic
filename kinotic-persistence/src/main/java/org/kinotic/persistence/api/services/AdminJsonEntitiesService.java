@@ -4,7 +4,7 @@ import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.persistence.api.domain.*;
+import org.kinotic.persistence.api.model.*;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.security.Participant;
 

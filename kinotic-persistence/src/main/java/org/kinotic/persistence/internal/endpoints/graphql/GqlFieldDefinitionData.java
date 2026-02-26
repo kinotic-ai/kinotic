@@ -8,12 +8,12 @@ import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.idl.api.schema.ObjectC3Type;
-import org.kinotic.persistence.api.domain.Structure;
-import org.kinotic.persistence.api.domain.idl.decorators.EntityServiceDecorator;
-import org.kinotic.persistence.api.domain.idl.decorators.EntityServiceDecoratorsDecorator;
-import org.kinotic.persistence.api.domain.EntityOperation;
-import org.kinotic.persistence.internal.idl.converters.graphql.GqlConversionState;
-import org.kinotic.persistence.internal.idl.converters.graphql.GqlTypeHolder;
+import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;
+import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsDecorator;
+import org.kinotic.persistence.api.model.EntityOperation;
+import org.kinotic.persistence.internal.converters.graphql.GqlConversionState;
+import org.kinotic.persistence.internal.converters.graphql.GqlTypeHolder;
 
 import java.util.List;
 import java.util.Map;

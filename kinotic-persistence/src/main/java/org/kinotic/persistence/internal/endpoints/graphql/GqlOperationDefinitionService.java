@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.endpoints.graphql;
 
-import org.kinotic.persistence.api.domain.Structure;
+import org.kinotic.persistence.api.model.Structure;
 
 import java.util.List;
 

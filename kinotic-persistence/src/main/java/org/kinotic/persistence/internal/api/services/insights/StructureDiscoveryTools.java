@@ -7,8 +7,8 @@ import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.PropertyDefinition;
-import org.kinotic.persistence.api.domain.Structure;
-import org.kinotic.persistence.api.domain.insights.InsightProgress;
+import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.insights.InsightProgress;
 import org.kinotic.persistence.api.services.StructureService;
 import reactor.core.publisher.FluxSink;
 

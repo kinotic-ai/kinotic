@@ -8,10 +8,10 @@ import graphql.scalars.ExtendedScalars;
 import graphql.schema.GraphQLFieldDefinition;
 import lombok.extern.slf4j.Slf4j;
 
-import org.kinotic.persistence.api.domain.EntityOperation;
-import org.kinotic.persistence.api.domain.Structure;
-import org.kinotic.persistence.api.domain.idl.decorators.EntityServiceDecorator;
-import org.kinotic.persistence.api.domain.idl.decorators.PolicyDecorator;
+import org.kinotic.persistence.api.model.EntityOperation;
+import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;
+import org.kinotic.persistence.api.model.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;

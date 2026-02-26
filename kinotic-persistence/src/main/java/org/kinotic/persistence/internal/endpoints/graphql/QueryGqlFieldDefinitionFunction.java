@@ -7,11 +7,11 @@ import graphql.schema.GraphQLOutputType;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ParameterDefinition;
-import org.kinotic.persistence.api.domain.idl.CursorPageC3Type;
-import org.kinotic.persistence.api.domain.idl.PageC3Type;
-import org.kinotic.persistence.api.domain.idl.PageableC3Type;
-import org.kinotic.persistence.api.domain.idl.decorators.PolicyDecorator;
-import org.kinotic.persistence.internal.idl.converters.graphql.GqlTypeHolder;
+import org.kinotic.persistence.api.model.idl.CursorPageC3Type;
+import org.kinotic.persistence.api.model.idl.PageC3Type;
+import org.kinotic.persistence.api.model.idl.PageableC3Type;
+import org.kinotic.persistence.api.model.idl.decorators.PolicyDecorator;
+import org.kinotic.persistence.internal.converters.graphql.GqlTypeHolder;
 import org.kinotic.persistence.internal.utils.GqlUtils;
 
 import static graphql.schema.GraphQLArgument.newArgument;

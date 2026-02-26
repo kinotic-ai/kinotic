@@ -4,9 +4,9 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.persistence.api.domain.MigrationDefinition;
-import org.kinotic.persistence.api.domain.MigrationRequest;
-import org.kinotic.persistence.api.domain.MigrationResult;
+import org.kinotic.persistence.api.model.MigrationDefinition;
+import org.kinotic.persistence.api.model.MigrationRequest;
+import org.kinotic.persistence.api.model.MigrationResult;
 import org.kinotic.persistence.api.services.MigrationService;
 import org.kinotic.persistence.sql.domain.Migration;
 import org.kinotic.persistence.sql.domain.MigrationContent;

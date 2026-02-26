@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.services.insights;
 
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.persistence.api.domain.insights.InsightRequest;
+import org.kinotic.persistence.api.model.insights.InsightRequest;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;

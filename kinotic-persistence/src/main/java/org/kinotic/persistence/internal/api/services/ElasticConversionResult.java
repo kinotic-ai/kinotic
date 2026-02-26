@@ -1,8 +1,8 @@
 package org.kinotic.persistence.internal.api.services;
 
 import co.elastic.clients.elasticsearch._types.mapping.ObjectProperty;
-import org.kinotic.persistence.api.domain.idl.decorators.EntityDecorator;
-import org.kinotic.persistence.api.domain.DecoratedProperty;
+import org.kinotic.persistence.api.model.idl.decorators.EntityDecorator;
+import org.kinotic.persistence.api.model.DecoratedProperty;
 
 import java.util.List;
 

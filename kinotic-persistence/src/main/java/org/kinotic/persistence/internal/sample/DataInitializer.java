@@ -2,7 +2,7 @@ package org.kinotic.persistence.internal.sample;
 
 import jakarta.annotation.PostConstruct;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.domain.Structure;
+import org.kinotic.persistence.api.model.Structure;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
 import org.slf4j.Logger;

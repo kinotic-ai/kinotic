@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.api.services.security.graphos;
 
-import org.kinotic.persistence.api.domain.SecurityContext;
+import org.kinotic.persistence.api.model.SecurityContext;
 
 import java.util.concurrent.CompletableFuture;
 

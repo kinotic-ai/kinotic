@@ -5,7 +5,7 @@ import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.persistence.api.domain.FastestType;
+import org.kinotic.persistence.api.model.FastestType;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.persistence.internal.utils.VertxWebUtil;
 import tools.jackson.core.JacksonException;

@@ -4,7 +4,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.core.JsonGenerator;
 import tools.jackson.databind.SerializationContext;
 import tools.jackson.databind.ValueSerializer;
-import org.kinotic.persistence.api.domain.FastestType;
+import org.kinotic.persistence.api.model.FastestType;
 
 /**
  * Created By Navíd Mitchell 🤪on 2/3/25

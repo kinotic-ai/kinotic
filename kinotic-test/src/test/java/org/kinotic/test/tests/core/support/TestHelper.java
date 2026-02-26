@@ -1,7 +1,7 @@
 package org.kinotic.test.tests.core.support;
 
-import org.kinotic.persistence.api.domain.EntityContext;
-import org.kinotic.persistence.api.domain.Structure;
+import org.kinotic.persistence.api.model.EntityContext;
+import org.kinotic.persistence.api.model.Structure;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
 import org.kinotic.persistence.internal.sample.Car;

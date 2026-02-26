@@ -3,11 +3,11 @@ package org.kinotic.persistence.internal.api.services;
 import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.persistence.api.domain.EntityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.persistence.api.domain.Structure;
-import org.kinotic.persistence.api.domain.TenantSpecificId;
-import org.kinotic.persistence.api.domain.ParameterHolder;
+import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.TenantSpecificId;
+import org.kinotic.persistence.api.model.ParameterHolder;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

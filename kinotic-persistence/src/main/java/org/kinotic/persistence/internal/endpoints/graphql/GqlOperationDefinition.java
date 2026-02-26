@@ -5,7 +5,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.GraphQLFieldDefinition;
 import lombok.Builder;
 import lombok.Getter;
-import org.kinotic.persistence.api.domain.Structure;
+import org.kinotic.persistence.api.model.Structure;
 
 import java.util.function.Function;
 

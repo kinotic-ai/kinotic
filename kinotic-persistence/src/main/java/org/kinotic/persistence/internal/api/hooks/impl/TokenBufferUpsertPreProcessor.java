@@ -2,9 +2,9 @@ package org.kinotic.persistence.internal.api.hooks.impl;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.domain.EntityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.persistence.api.domain.Structure;
+import org.kinotic.persistence.api.model.Structure;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
 import org.kinotic.persistence.internal.api.services.EntityHolder;
 import tools.jackson.databind.json.JsonMapper;

@@ -3,7 +3,7 @@ package org.kinotic.persistence.internal.endpoints.openapi;
 import io.vertx.ext.web.RoutingContext;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.event.EventConstants;
-import org.kinotic.persistence.api.domain.EntityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 
 import java.util.List;
 

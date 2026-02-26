@@ -8,15 +8,15 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.domain.Structure;
-import org.kinotic.persistence.api.domain.idl.decorators.EntityType;
-import org.kinotic.persistence.internal.idl.converters.elastic.ElasticConversionState;
-import org.kinotic.persistence.internal.idl.converters.elastic.ElasticConverterStrategy;
-import org.kinotic.persistence.internal.idl.converters.graphql.GqlConversionState;
-import org.kinotic.persistence.internal.idl.converters.graphql.GqlConverterStrategy;
-import org.kinotic.persistence.internal.idl.converters.graphql.GqlTypeHolder;
-import org.kinotic.persistence.internal.idl.converters.openapi.OpenApiConversionState;
-import org.kinotic.persistence.internal.idl.converters.openapi.OpenApiConverterStrategy;
+import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.idl.decorators.EntityType;
+import org.kinotic.persistence.internal.converters.elastic.ElasticConversionState;
+import org.kinotic.persistence.internal.converters.elastic.ElasticConverterStrategy;
+import org.kinotic.persistence.internal.converters.graphql.GqlConversionState;
+import org.kinotic.persistence.internal.converters.graphql.GqlConverterStrategy;
+import org.kinotic.persistence.internal.converters.graphql.GqlTypeHolder;
+import org.kinotic.persistence.internal.converters.openapi.OpenApiConversionState;
+import org.kinotic.persistence.internal.converters.openapi.OpenApiConverterStrategy;
 import org.springframework.stereotype.Component;
 
 /**

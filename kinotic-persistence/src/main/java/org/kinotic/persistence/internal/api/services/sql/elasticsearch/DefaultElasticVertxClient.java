@@ -25,7 +25,7 @@ import org.kinotic.domain.api.services.crud.CursorPageable;
 import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.domain.QueryOptions;
+import org.kinotic.persistence.api.model.QueryOptions;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.api.config.ElasticConnectionInfo;

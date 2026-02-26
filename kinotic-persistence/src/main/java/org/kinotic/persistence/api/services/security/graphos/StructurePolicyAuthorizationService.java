@@ -8,19 +8,19 @@ import java.util.concurrent.CompletableFuture;
 
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.idl.api.schema.ObjectC3Type;
-import org.kinotic.persistence.api.domain.EntityOperation;
-import org.kinotic.persistence.api.domain.SecurityContext;
-import org.kinotic.persistence.api.domain.Structure;
-import org.kinotic.persistence.api.domain.idl.decorators.EntityServiceDecorator;
-import org.kinotic.persistence.api.domain.idl.decorators.EntityServiceDecoratorsConfig;
-import org.kinotic.persistence.api.domain.idl.decorators.EntityServiceDecoratorsDecorator;
-import org.kinotic.persistence.api.domain.idl.decorators.PolicyDecorator;
+import org.kinotic.persistence.api.model.EntityOperation;
+import org.kinotic.persistence.api.model.SecurityContext;
+import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;
+import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsConfig;
+import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsDecorator;
+import org.kinotic.persistence.api.model.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEvaluator;
 import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEvaluatorWithOperation;
 import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEvaluatorWithoutOperation;
 import org.kinotic.persistence.internal.api.services.security.graphos.SharedPolicyManager;
-import org.kinotic.persistence.api.domain.DecoratedProperty;
+import org.kinotic.persistence.api.model.DecoratedProperty;
 import org.kinotic.persistence.internal.utils.StructuresUtil;
 
 public class StructurePolicyAuthorizationService implements AuthorizationService<EntityOperation> {

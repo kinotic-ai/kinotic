@@ -3,10 +3,10 @@ package org.kinotic.persistence.internal.api.services;
 import io.swagger.v3.oas.models.media.Schema;
 import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.idl.api.schema.C3Type;
-import org.kinotic.persistence.api.domain.Structure;
-import org.kinotic.persistence.internal.idl.converters.graphql.GqlConversionState;
-import org.kinotic.persistence.internal.idl.converters.graphql.GqlTypeHolder;
-import org.kinotic.persistence.internal.idl.converters.openapi.OpenApiConversionState;
+import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.internal.converters.graphql.GqlConversionState;
+import org.kinotic.persistence.internal.converters.graphql.GqlTypeHolder;
+import org.kinotic.persistence.internal.converters.openapi.OpenApiConversionState;
 /**
  * Handles converting {@link Structure}s to various mappings. Such as ElasticSearch, OpenAPI, GraphQL.
  * Created by Navíd Mitchell 🤪on 5/11/23.
