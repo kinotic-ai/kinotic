@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 /**
  * Configuration for cache eviction event handling
  * 
- * NOTE: Currently all event listeners are synchronous for simplicity.
+ * NOTE: Currently, all event listeners are synchronous for simplicity.
  * This configuration is available for future use if async processing is needed.
  */
 @Configuration

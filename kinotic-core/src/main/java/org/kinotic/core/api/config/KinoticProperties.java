@@ -8,14 +8,16 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 /**
  *
  * Created by Navíd Mitchell 🤪on 1/18/21
  */
-@Configuration
+@Component
 @ConfigurationProperties(prefix = "kinotic")
+@Primary
 @Getter
 @Setter
 @Accessors(chain = true)

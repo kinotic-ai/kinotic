@@ -18,8 +18,6 @@ import lombok.experimental.Accessors;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-@Component
-@ConfigurationProperties(prefix = "structures")
 public class PersistenceProperties {
 
     private String structuresBaseUrl = "http://localhost";

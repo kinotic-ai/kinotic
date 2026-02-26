@@ -31,13 +31,13 @@ import java.util.Set;
  * Created by Navíd Mitchell 🤪 on 5/9/23.
  */
 @Configuration
-public class StructuresJacksonConfig {
+public class PersistenceJacksonConfig {
 
-    private static final Logger log = LoggerFactory.getLogger(StructuresJacksonConfig.class);
+    private static final Logger log = LoggerFactory.getLogger(PersistenceJacksonConfig.class);
 
     @Bean
     public SimpleModule structuresJacksonModule(ApplicationContext applicationContext){
-        SimpleModule ret = new SimpleModule("StructuresModule", Version.unknownVersion());
+        SimpleModule ret = new SimpleModule("PersistenceModule", Version.unknownVersion());
 
         Set<MetadataReader> decoratorMetas = MetaUtil.findClassesAssignableToType(applicationContext,
                                                                                   List.of("org.kinotic.persistence.api.domain.idl.decorators"),
@@ -57,7 +57,8 @@ public class StructuresJacksonConfig {
                 }
             }
         }
-        // register additional needed types
+
+        // register additional needed C3Types
         ret.registerSubtypes(new NamedType(PageableC3Type.class, "pageable"));
         ret.registerSubtypes(new NamedType(PageC3Type.class, "page"));
         ret.registerSubtypes(new NamedType(TenantSelectionC3Type.class, "tenantSelection"));
