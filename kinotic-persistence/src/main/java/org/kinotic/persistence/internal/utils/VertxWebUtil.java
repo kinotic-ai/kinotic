@@ -27,13 +27,13 @@ public class VertxWebUtil {
     private static final Logger log = LoggerFactory.getLogger(VertxWebUtil.class);
 
     public static String validateAndReturnEntityDefinitionId(RoutingContext ctx){
-        String structureApplication = ctx.pathParam("structureApplication");
+        String application = ctx.pathParam("application");
         String structureName = ctx.pathParam("structureName");
 
-        Validate.notNull(structureApplication, "structureApplication must not be null");
+        Validate.notNull(application, "application must not be null");
         Validate.notNull(structureName, "structureName must not be null");
 
-        return PersistenceUtil.entityDefinitionNameToId(structureApplication, structureName);
+        return PersistenceUtil.entityDefinitionNameToId(application, structureName);
     }
 
     public static String validateAndReturnPathParam(String pathParamName, RoutingContext ctx){

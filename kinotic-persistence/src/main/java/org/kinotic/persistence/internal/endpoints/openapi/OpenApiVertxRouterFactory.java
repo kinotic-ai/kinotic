@@ -100,14 +100,14 @@ public class OpenApiVertxRouterFactory {
         bodyHandler.setBodyLimit(properties.getMaxHttpBodySize());
 
         // Open API Docs
-        router.get("/api-docs/:structureApplication/openapi.json")
+        router.get("/api-docs/:application/openapi.json")
               .produces("application/json")
               .handler(ctx -> {
 
-                  String structureApplication = ctx.pathParam("structureApplication");
-                  Validate.notNull(structureApplication, "structureApplication must not be null");
+                  String application = ctx.pathParam("application");
+                  Validate.notNull(application, "application must not be null");
 
-                  Future.fromCompletionStage(openApiService.getOpenApiSpec(structureApplication), vertx.getOrCreateContext())
+                  Future.fromCompletionStage(openApiService.getOpenApiSpec(application), vertx.getOrCreateContext())
                         .onComplete((result, failure) -> {
                             if(failure == null){
                                 try {
@@ -145,7 +145,7 @@ public class OpenApiVertxRouterFactory {
     private void addCreateUpdateRoutes(Router router,
                                        BodyHandler bodyHandler) {
         // Bulk save
-        router.post(apiBasePath + ":structureApplication/:structureName/bulk")
+        router.post(apiBasePath + ":application/:structureName/bulk")
               .consumes("application/json")
               .produces("application/json")
               .handler(bodyHandler)
@@ -162,7 +162,7 @@ public class OpenApiVertxRouterFactory {
               });
 
         // Bulk Update
-        router.post(apiBasePath + ":structureApplication/:structureName/bulk-update")
+        router.post(apiBasePath + ":application/:structureName/bulk-update")
               .consumes("application/json")
               .produces("application/json")
               .handler(bodyHandler)
@@ -179,7 +179,7 @@ public class OpenApiVertxRouterFactory {
               });
 
         // Update entity
-        router.post(apiBasePath + ":structureApplication/:structureName/update")
+        router.post(apiBasePath + ":application/:structureName/update")
               .consumes("application/json")
               .produces("application/json")
               .handler(bodyHandler)
@@ -196,7 +196,7 @@ public class OpenApiVertxRouterFactory {
               });
 
         // Save entity
-        router.post(apiBasePath + ":structureApplication/:structureName")
+        router.post(apiBasePath + ":application/:structureName")
               .consumes("application/json")
               .produces("application/json")
               .handler(bodyHandler)
@@ -213,7 +213,7 @@ public class OpenApiVertxRouterFactory {
               });
 
         // Sync Structure
-        router.get(apiBasePath + ":structureApplication/:structureName/util/sync")
+        router.get(apiBasePath + ":application/:structureName/util/sync")
               .handler(ctx -> {
 
                   String entityDefinitionId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
@@ -230,7 +230,7 @@ public class OpenApiVertxRouterFactory {
 
         if(admin){
             // Admin Delete Entity By ID
-            router.delete(adminApiBasePath + ":structureApplication/:structureName/:tenantId/:id")
+            router.delete(adminApiBasePath + ":application/:structureName/:tenantId/:id")
                   .handler(ctx -> {
 
                       String id = ctx.pathParam("id");
@@ -249,7 +249,7 @@ public class OpenApiVertxRouterFactory {
                   });
         }else{
             // Delete Entity By ID
-            router.delete(apiBasePath + ":structureApplication/:structureName/:id")
+            router.delete(apiBasePath + ":application/:structureName/:id")
                   .handler(ctx -> {
 
                       String id = ctx.pathParam("id");
@@ -266,7 +266,7 @@ public class OpenApiVertxRouterFactory {
         }
 
         // Delete Entity By Query
-        router.post((admin ? adminApiBasePath : apiBasePath) + ":structureApplication/:structureName/delete/by-query")
+        router.post((admin ? adminApiBasePath : apiBasePath) + ":application/:structureName/delete/by-query")
               .consumes((admin ? "application/json" : "text/plain"))
               .handler(bodyHandler)
               .handler(ctx -> {
@@ -287,7 +287,7 @@ public class OpenApiVertxRouterFactory {
 
     private void addNamedQueryRoutes(Router router, BodyHandler bodyHandler) {
         // Named Query
-        router.post(apiBasePath + ":structureApplication/:structureName/named-query/:queryName")
+        router.post(apiBasePath + ":application/:structureName/named-query/:queryName")
               .produces("application/json")
               .handler(bodyHandler)
               .handler(ctx -> {
@@ -311,7 +311,7 @@ public class OpenApiVertxRouterFactory {
               });
 
         // Named Query Page
-        router.post(apiBasePath + ":structureApplication/:structureName/named-query-page/:queryName")
+        router.post(apiBasePath + ":application/:structureName/named-query-page/:queryName")
               .produces("application/json")
               .handler(bodyHandler)
               .handler(ctx -> {
@@ -342,7 +342,7 @@ public class OpenApiVertxRouterFactory {
 
         // Find all entities
         Route findAllRoute
-                = router.route((admin ? HttpMethod.POST : HttpMethod.GET), basePath + ":structureApplication/:structureName")
+                = router.route((admin ? HttpMethod.POST : HttpMethod.GET), basePath + ":application/:structureName")
                         .produces("application/json");
         if(admin){
             findAllRoute.consumes("application/json")
@@ -375,7 +375,7 @@ public class OpenApiVertxRouterFactory {
 
         if(admin){
             // Admin Get Entity By ID
-            router.get(adminApiBasePath + ":structureApplication/:structureName/:tenantId/:id")
+            router.get(adminApiBasePath + ":application/:structureName/:tenantId/:id")
                   .produces("application/json")
                   .handler(ctx -> {
 
@@ -395,7 +395,7 @@ public class OpenApiVertxRouterFactory {
                   });
         }else {
             // Get Entity By ID
-            router.get(apiBasePath + ":structureApplication/:structureName/:id")
+            router.get(apiBasePath + ":application/:structureName/:id")
                   .produces("application/json")
                   .handler(ctx -> {
 
@@ -416,7 +416,7 @@ public class OpenApiVertxRouterFactory {
 
 
         // Get Total Count for entity
-        Route countRoute = router.route((admin ? HttpMethod.POST : HttpMethod.GET), basePath + ":structureApplication/:structureName/count/all")
+        Route countRoute = router.route((admin ? HttpMethod.POST : HttpMethod.GET), basePath + ":application/:structureName/count/all")
                                  .produces("application/json");
         if(admin){
             countRoute.consumes("application/json")
@@ -445,7 +445,7 @@ public class OpenApiVertxRouterFactory {
         });
 
         // Get Count for query against entity
-        router.post(basePath + ":structureApplication/:structureName/count/by-query")
+        router.post(basePath + ":application/:structureName/count/by-query")
               .consumes((admin ? "application/json" : "text/plain"))
               .produces("application/json")
               .handler(bodyHandler)
@@ -466,7 +466,7 @@ public class OpenApiVertxRouterFactory {
               });
 
         // Get Entity By IDs
-        router.post(basePath + ":structureApplication/:structureName/find/by-ids")
+        router.post(basePath + ":application/:structureName/find/by-ids")
               .consumes("application/json")
               .produces("application/json")
               .handler(bodyHandler)
@@ -499,7 +499,7 @@ public class OpenApiVertxRouterFactory {
               });
 
         // Search for entities
-        router.post(basePath + ":structureApplication/:structureName/search")
+        router.post(basePath + ":application/:structureName/search")
               .consumes((admin ? "application/json" : "text/plain"))
               .produces("application/json")
               .handler(bodyHandler)
