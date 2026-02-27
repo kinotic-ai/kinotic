@@ -42,8 +42,8 @@ public class EntitiesDataFetcher implements DataFetcher<CompletableFuture<List<M
             for (Map<String, Object> representation : representations) {
                 String typename = (String) representation.get("__typename");
                 String id = (String) representation.get("id");
-                String structureId = PersistenceUtil.entityDefinitionNameToId(application, typename);
-                futures.add(entitiesService.findById(structureId,
+                String entityDefinitionId = PersistenceUtil.entityDefinitionNameToId(application, typename);
+                futures.add(entitiesService.findById(entityDefinitionId,
                                                      id,
                                                      Map.class,
                                                      ec)

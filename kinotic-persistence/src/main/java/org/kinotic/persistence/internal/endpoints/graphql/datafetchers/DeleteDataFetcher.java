@@ -15,11 +15,11 @@ import java.util.concurrent.CompletableFuture;
  */
 public class DeleteDataFetcher implements DataFetcher<CompletableFuture<String>> {
 
-    private final String structureId;
+    private final String entityDefinitionId;
     private final EntitiesService entitiesService;
 
-    public DeleteDataFetcher(String structureId, EntitiesService entitiesService) {
-        this.structureId = structureId;
+    public DeleteDataFetcher(String entityDefinitionId, EntitiesService entitiesService) {
+        this.entityDefinitionId = entityDefinitionId;
         this.entitiesService = entitiesService;
     }
 
@@ -31,7 +31,7 @@ public class DeleteDataFetcher implements DataFetcher<CompletableFuture<String>>
 
         String id = environment.getArgument("id");
 
-        return entitiesService.deleteById(structureId, id, ec)
+        return entitiesService.deleteById(entityDefinitionId, id, ec)
                               .thenCompose(aVoid -> CompletableFuture.completedFuture(id));
     }
 }

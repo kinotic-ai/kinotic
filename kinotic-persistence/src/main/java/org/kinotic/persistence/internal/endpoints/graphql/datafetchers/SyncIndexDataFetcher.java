@@ -15,11 +15,11 @@ import java.util.concurrent.CompletableFuture;
  */
 public class SyncIndexDataFetcher implements DataFetcher<CompletableFuture<String>> {
 
-    private final String structureId;
+    private final String entityDefinitionId;
     private final EntitiesService entitiesService;
 
-    public SyncIndexDataFetcher(String structureId, EntitiesService entitiesService) {
-        this.structureId = structureId;
+    public SyncIndexDataFetcher(String entityDefinitionId, EntitiesService entitiesService) {
+        this.entityDefinitionId = entityDefinitionId;
         this.entitiesService = entitiesService;
     }
 
@@ -29,7 +29,7 @@ public class SyncIndexDataFetcher implements DataFetcher<CompletableFuture<Strin
         Objects.requireNonNull(rc);
         EntityContext ec = new RoutingContextToEntityContextAdapter(rc);
 
-        return entitiesService.syncIndex(structureId, ec)
-                              .thenCompose(aVoid -> CompletableFuture.completedFuture(structureId));
+        return entitiesService.syncIndex(entityDefinitionId, ec)
+                              .thenCompose(aVoid -> CompletableFuture.completedFuture(entityDefinitionId));
     }
 }

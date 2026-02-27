@@ -67,13 +67,13 @@ public class DefaultOpenApiService implements OpenApiService {
     public CompletableFuture<OpenAPI> getOpenApiSpec(@SpanAttribute("applicationId") String applicationId) {
         return entityDefinitionService
                 .findAllPublishedForApplication(applicationId, Pageable.ofSize(100))
-                .thenComposeAsync(structures -> {
+                .thenComposeAsync(entityDefinitionPage -> {
                     OpenAPI openAPI = new OpenAPI(SpecVersion.V30);
 
                     Info info = new Info()
-                            .title(applicationId + " Structures API")
+                            .title(applicationId + " API")
                             .version("1.0")
-                            .description("Provides access to Structures Items for the " + applicationId + " application");
+                            .description("Provides access to the " + applicationId + " application API");
                     openAPI.setInfo(info);
 
                     openAPI.addServersItem(new Server().url(persistenceProperties.getStructuresBaseUrl() + ":"  + persistenceProperties.getOpenApiPort()));
@@ -100,7 +100,7 @@ public class DefaultOpenApiService implements OpenApiService {
 
                     IdlConverter<Schema<?>, OpenApiConversionState> converter
                             = entityDefinitionConversionService.createOpenApiConverter();
-                    for(EntityDefinition entityDefinition : structures.getContent()){
+                    for(EntityDefinition entityDefinition : entityDefinitionPage.getContent()){
 
                         Schema<?> schema = converter.convert(entityDefinition.getSchema());
                         if(schema instanceof ObjectSchema){
@@ -111,11 +111,11 @@ public class DefaultOpenApiService implements OpenApiService {
                                 addAdminPathItems(paths, entityDefinition);
                             }
 
-                            // Add path items for the structure
+                            // Add path items for the EntityDefinition
                             addDefaultPathItems(paths, entityDefinition);
 
                         }else{
-                            log.error("Structure {} EntityDefinition did not convert to an OpenAPI ObjectSchema",
+                            log.error("EntityDefinition {} schema did not convert to an OpenAPI ObjectSchema",
                                       entityDefinition.getId());
                         }
 
@@ -163,7 +163,7 @@ public class DefaultOpenApiService implements OpenApiService {
         String basePath = persistenceProperties.getOpenApiAdminPath();
         String lowercaseApplication = entityDefinition.getApplicationId().toLowerCase();
         String lowercaseName = entityDefinition.getName().toLowerCase();
-        String structureName = WordUtils.capitalize(entityDefinition.getName());
+        String entityDefinitionName = WordUtils.capitalize(entityDefinition.getName());
 
         Schema<?> queryWithTenantSelectionRef = new Schema<>().$ref(Components.COMPONENTS_SCHEMAS_REF + "QueryWithTenantSelection");
         RequestBody querySelectionRequest = OpenApiUtils.createJsonRequest(queryWithTenantSelectionRef, "The Query and Tenant Selection to use for the operation.");
@@ -174,24 +174,24 @@ public class DefaultOpenApiService implements OpenApiService {
         PathItem byTenantAndIdPathItem = new PathItem();
 
         // Operation for get by id
-        Operation getByIdOperation = createOperation("Admin Get "+structureName+" by Id and Tenant",
-                                                     "Gets " + structureName + " entities by their id and tenant.",
-                                                     "get"+structureName+"ByIdAdmin",
+        Operation getByIdOperation = createOperation("Admin Get "+entityDefinitionName+" by Id and Tenant",
+                                                     "Gets " + entityDefinitionName + " entities by their id and tenant.",
+                                                     "get"+entityDefinitionName+"ByIdAdmin",
                                                      entityDefinition,
                                                      1)
-                .addParametersItem(OpenApiUtils.createPathParameter("tenantId", "The tenantId of the "+structureName+" to get."))
-                .addParametersItem(OpenApiUtils.createPathParameter("id","The id of the "+structureName+" to get."));
+                .addParametersItem(OpenApiUtils.createPathParameter("tenantId", "The tenantId of the "+entityDefinitionName+" to get."))
+                .addParametersItem(OpenApiUtils.createPathParameter("id","The id of the "+entityDefinitionName+" to get."));
 
         byTenantAndIdPathItem.get(getByIdOperation);
 
         // Operation for delete
-        Operation deleteOperation = createOperation("Admin Delete "+structureName + " by Id and Tenant",
-                                                    "Deletes " + structureName + " entities",
-                                                    "delete"+structureName+"Admin",
+        Operation deleteOperation = createOperation("Admin Delete "+entityDefinitionName + " by Id and Tenant",
+                                                    "Deletes " + entityDefinitionName + " entities",
+                                                    "delete"+entityDefinitionName+"Admin",
                                                     entityDefinition,
                                                     -1)
-                .addParametersItem(OpenApiUtils.createPathParameter("tenantId", "The tenantId of the "+structureName+" to delete."))
-                .addParametersItem(OpenApiUtils.createPathParameter("id","The id of the "+structureName+" to delete."));
+                .addParametersItem(OpenApiUtils.createPathParameter("tenantId", "The tenantId of the "+entityDefinitionName+" to delete."))
+                .addParametersItem(OpenApiUtils.createPathParameter("id","The id of the "+entityDefinitionName+" to delete."));
 
         byTenantAndIdPathItem.delete(deleteOperation);
 
@@ -201,9 +201,9 @@ public class DefaultOpenApiService implements OpenApiService {
 
         // Operation for delete by query
         PathItem deleteByQueryPathItem = new PathItem();
-        Operation deleteByQueryOperation = createOperation("Admin Delete "+structureName+" by query",
-                                                           "Delete " + structureName + " entities by query and tenant selection list",
-                                                           "delete"+structureName+"ByQueryAdmin",
+        Operation deleteByQueryOperation = createOperation("Admin Delete "+entityDefinitionName+" by query",
+                                                           "Delete " + entityDefinitionName + " entities by query and tenant selection list",
+                                                           "delete"+entityDefinitionName+"ByQueryAdmin",
                                                            entityDefinition,
                                                            -1)
                 .requestBody(querySelectionRequest);
@@ -213,9 +213,9 @@ public class DefaultOpenApiService implements OpenApiService {
 
         // Find by Ids Operation
         PathItem findByIdsPathItem = new PathItem();
-        Operation findByIdsOperation = createOperation("Admin Find "+structureName +" entities by ids",
-                                                       "Find " + structureName + " entities by their ids.",
-                                                       "find"+structureName+"ByIdsAdmin",
+        Operation findByIdsOperation = createOperation("Admin Find "+entityDefinitionName +" entities by ids",
+                                                       "Find " + entityDefinitionName + " entities by their ids.",
+                                                       "find"+entityDefinitionName+"ByIdsAdmin",
                                                        entityDefinition,
                                                        3)
                 .requestBody(OpenApiUtils.createArrayRequest(tenantSpecificIdRef,"The array of TenantSpecificId's"));
@@ -228,9 +228,9 @@ public class DefaultOpenApiService implements OpenApiService {
         PathItem adminFindAllPathItem = new PathItem();
 
         // Find All Operation
-        Operation findAllOperation = createOperation("Admin Find all "+structureName +" entities",
-                                                     "Finds all " + structureName + " entities for the given tenants. Supports paging and sorting.",
-                                                     "findAll"+structureName+"Admin",
+        Operation findAllOperation = createOperation("Admin Find all "+entityDefinitionName +" entities",
+                                                     "Finds all " + entityDefinitionName + " entities for the given tenants. Supports paging and sorting.",
+                                                     "findAll"+entityDefinitionName+"Admin",
                                                      entityDefinition,
                                                      2)
                 .requestBody(OpenApiUtils.createStringArrayRequest("The list of tenants to find all entities for"));
@@ -245,9 +245,9 @@ public class DefaultOpenApiService implements OpenApiService {
 
         // total count Operation
         PathItem countPathItem = new PathItem();
-        Operation countOperation = createOperation("Admin Get count for "+structureName,
-                                                   "Gets total count of " + structureName + " entities for the given tenants.",
-                                                   "count"+structureName+"Admin",
+        Operation countOperation = createOperation("Admin Get count for "+entityDefinitionName,
+                                                   "Gets total count of " + entityDefinitionName + " entities for the given tenants.",
+                                                   "count"+entityDefinitionName+"Admin",
                                                    entityDefinition,
                                                    0)
                 .requestBody(OpenApiUtils.createStringArrayRequest("The list of tenants to count all entities for"));
@@ -258,9 +258,9 @@ public class DefaultOpenApiService implements OpenApiService {
 
         // total count for query Operation
         PathItem countByQueryPathItem = new PathItem();
-        Operation countByQueryOperation = createOperation("Admin Get count by query for "+structureName,
-                                                          "Gets total count of "+structureName+" entities by query and tenant selection list",
-                                                          "count"+structureName+"ByQueryAdmin",
+        Operation countByQueryOperation = createOperation("Admin Get count by query for "+entityDefinitionName,
+                                                          "Gets total count of "+entityDefinitionName+" entities by query and tenant selection list",
+                                                          "count"+entityDefinitionName+"ByQueryAdmin",
                                                           entityDefinition,
                                                           0)
                 .requestBody(querySelectionRequest);
@@ -271,9 +271,9 @@ public class DefaultOpenApiService implements OpenApiService {
 
         // Create a path item for all the operations with basePath/structureApplication/structureName/search
         PathItem searchPathItem = new PathItem();
-        Operation searchOperation = createOperation("Admin Search for "+structureName +" entities",
-                                                    "Searches for " + structureName + " entities matching the search query and tenant selection list. Supports paging and sorting.",
-                                                    "search"+structureName+"Admin",
+        Operation searchOperation = createOperation("Admin Search for "+entityDefinitionName +" entities",
+                                                    "Searches for " + entityDefinitionName + " entities matching the search query and tenant selection list. Supports paging and sorting.",
+                                                    "search"+entityDefinitionName+"Admin",
                                                     entityDefinition,
                                                     2)
                 .requestBody(querySelectionRequest);

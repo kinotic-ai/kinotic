@@ -32,7 +32,7 @@ public class PagedQueryDataFetcher implements DataFetcher<CompletableFuture<Page
     private final ObjectMapper objectMapper;
     private final String pageableName;
     private final String queryName;
-    private final String structureId;
+    private final String entityDefinitionId;
 
     /**
      * Creates a {@link DataFetcher} that will execute a named query page and return the result as a {@link ExecutionResult}
@@ -40,18 +40,18 @@ public class PagedQueryDataFetcher implements DataFetcher<CompletableFuture<Page
      * @param objectMapper the {@link ObjectMapper} to use to deserialize the input parameters
      * @param queryDefinition the {@link FunctionDefinition} for the query to execute
      * @param defaultPageable the default {@link Pageable} to use if no pageable parameter is defined in the {@link FunctionDefinition}
-     * @param structureId the id of the {@link EntityDefinition} that the query is for
+     * @param entityDefinitionId the id of the {@link EntityDefinition} that the query is for
      */
     public PagedQueryDataFetcher(EntitiesService entitiesService,
                                  ObjectMapper objectMapper,
                                  FunctionDefinition queryDefinition,
                                  Pageable defaultPageable,
-                                 String structureId) {
+                                 String entityDefinitionId) {
         this.defaultPageable = defaultPageable;
         this.entitiesService = entitiesService;
         this.objectMapper = objectMapper;
         this.queryName = queryDefinition.getName();
-        this.structureId = structureId;
+        this.entityDefinitionId = entityDefinitionId;
 
         String pageParamName = null;
         for(ParameterDefinition parameter : queryDefinition.getParameters()){
@@ -78,7 +78,7 @@ public class PagedQueryDataFetcher implements DataFetcher<CompletableFuture<Page
         }else {
             pageable = defaultPageable;
         }
-        return entitiesService.namedQueryPage(structureId,
+        return entitiesService.namedQueryPage(entityDefinitionId,
                                               queryName,
                                               new MapParameterHolder(environment.getArguments()),
                                               pageable,

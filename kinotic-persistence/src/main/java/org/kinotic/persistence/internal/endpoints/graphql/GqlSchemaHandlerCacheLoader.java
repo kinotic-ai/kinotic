@@ -226,7 +226,7 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
 
                         return CompletableFuture.completedFuture(graphQLSchema);
                     }else{
-                        return CompletableFuture.failedFuture(new IllegalArgumentException("No published structures found for application: " + applicationId));
+                        return CompletableFuture.failedFuture(new IllegalArgumentException("No published Entity Definitions found for application: " + applicationId));
                     }
                 }, executor);
     }

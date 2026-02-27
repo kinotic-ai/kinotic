@@ -10,7 +10,7 @@ import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityDefinition;
 
 /**
- * We have one OpenApi spec for all {@link EntityDefinition}'s in a application. But this handles all applications and all structures.
+ * We have one OpenApi spec for all {@link EntityDefinition}'s in an application. But this handles all applications and all EntityDefinitions.
  * Created by Navíd Mitchell 🤪 on 5/29/23.
  */
 @RequiredArgsConstructor

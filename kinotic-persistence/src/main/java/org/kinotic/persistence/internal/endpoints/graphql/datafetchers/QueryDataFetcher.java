@@ -23,7 +23,7 @@ public class QueryDataFetcher implements DataFetcher<CompletableFuture<List<Map>
 
     private final EntitiesService entitiesService;
     private final String queryName;
-    private final String structureId;
+    private final String entityDefinitionId;
 
     @Override
     public CompletableFuture<List<Map>> get(DataFetchingEnvironment environment) throws Exception {
@@ -31,7 +31,7 @@ public class QueryDataFetcher implements DataFetcher<CompletableFuture<List<Map>
         Objects.requireNonNull(rc);
         EntityContext ec = new RoutingContextToEntityContextAdapter(rc);
 
-        return entitiesService.namedQuery(structureId,
+        return entitiesService.namedQuery(entityDefinitionId,
                                           queryName,
                                           new MapParameterHolder(environment.getArguments()),
                                           Map.class,

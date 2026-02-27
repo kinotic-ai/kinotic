@@ -10,7 +10,7 @@ import java.util.concurrent.CompletableFuture;
 public interface OpenApiService {
 
     /**
-     * Gets the OpenAPI spec for all the structures in the given application
+     * Gets the OpenAPI spec for a given application
      * @param applicationId the application to get the OpenAPI spec for
      * @return the OpenAPI spec
      */

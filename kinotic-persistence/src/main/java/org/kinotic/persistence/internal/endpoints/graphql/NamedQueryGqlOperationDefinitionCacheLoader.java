@@ -47,7 +47,7 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
     public CompletableFuture<? extends List<GqlOperationDefinition>> asyncLoad(String key, Executor executor) {
         return entityDefinitionDAO.findById(key)
                                   .thenApply(entityDefinition -> {
-                               Validate.notNull(entityDefinition, "No Structure found for key: " + key);
+                               Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
                                return entityDefinition;
                            })
                                   .thenComposeAsync(entityDefinition -> {
@@ -69,7 +69,7 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
 
                                            ret.addAll(definitions);
                                        }else{
-                                           log.debug("No QueryDecorator found for Named query {} in Structure {}. No GraphQL operation will be created.",
+                                           log.debug("No QueryDecorator found for Named query {} in EntityDefinition {}. No GraphQL operation will be created.",
                                                     queryDefinition.getName(),
                                                     entityDefinition.getName());
                                        }

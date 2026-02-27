@@ -21,14 +21,14 @@ import java.util.concurrent.CompletableFuture;
 @SuppressWarnings("rawtypes")
 public class SearchDataFetcher implements DataFetcher<CompletableFuture<Page<Map>>> {
 
-    private final String structureId;
+    private final String entityDefinitionId;
     private final EntitiesService entitiesService;
     private final ObjectMapper objectMapper;
 
-    public SearchDataFetcher(String structureId,
+    public SearchDataFetcher(String entityDefinitionId,
                              EntitiesService entitiesService,
                              ObjectMapper objectMapper) {
-        this.structureId = structureId;
+        this.entityDefinitionId = entityDefinitionId;
         this.entitiesService = entitiesService;
         this.objectMapper = objectMapper;
     }
@@ -46,7 +46,7 @@ public class SearchDataFetcher implements DataFetcher<CompletableFuture<Page<Map
 
         String searchText = environment.getArgument("searchText");
 
-        return entitiesService.search(structureId,
+        return entitiesService.search(entityDefinitionId,
                                       searchText,
                                       pageable,
                                       Map.class,

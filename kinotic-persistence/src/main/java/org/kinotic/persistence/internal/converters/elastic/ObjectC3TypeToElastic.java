@@ -29,7 +29,7 @@ public class ObjectC3TypeToElastic implements C3TypeConverter<Property, ObjectC3
             if(decorator != null){
                 state.setEntityDecorator(decorator);
             }else{
-                throw new IllegalArgumentException("Structure Entity Definition must have an EntityDecorator");
+                throw new IllegalArgumentException("Entity Definition must have an EntityDecorator");
             }
         }
 

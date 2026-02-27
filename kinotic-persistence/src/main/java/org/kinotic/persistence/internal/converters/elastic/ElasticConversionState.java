@@ -23,7 +23,7 @@ public class ElasticConversionState extends BaseConversionState {
     private final List<DecoratedProperty> decoratedProperties = new LinkedList<>();
 
     /**
-     * The {@link EntityDecorator} that was found while converting the structure
+     * The {@link EntityDecorator} that was found while converting the {@link EntityDefinition}
      */
     private EntityDecorator entityDecorator;
 

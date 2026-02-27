@@ -134,7 +134,7 @@ public class TestHelper {
                                                                            EntityContext entityContext,
                                                                            String structureNameSuffix){
         return Mono.fromFuture(() -> testDataService
-                .createPersonStructureIfNotExists(structureNameSuffix)
+                .createPersonEntityDefinitionIfNotExists(structureNameSuffix)
                 .thenCompose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
                                              .thenCompose(people -> {
                                                  EntityDefinition entityDefinition = pair.getLeft();
@@ -175,7 +175,7 @@ public class TestHelper {
                                                                                EntityContext entityContext,
                                                                                String structureNameSuffix){
         return Mono.fromFuture(() -> testDataService
-                .createPersonStructureIfNotExists(structureNameSuffix)
+                .createPersonEntityDefinitionIfNotExists(structureNameSuffix)
                 .thenCompose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
                                              .thenCompose(people -> {
                                                  EntityDefinition entityDefinition = pair.getLeft();

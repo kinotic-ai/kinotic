@@ -21,14 +21,14 @@ import java.util.concurrent.CompletableFuture;
 @SuppressWarnings("rawtypes")
 public class FindAllDataFetcher implements DataFetcher<CompletableFuture<Page<Map>>> {
 
-    private final String structureId;
+    private final String entityDefinitionId;
     private final EntitiesService entitiesService;
     private final ObjectMapper objectMapper;
 
-    public FindAllDataFetcher(String structureId,
+    public FindAllDataFetcher(String entityDefinitionId,
                               EntitiesService entitiesService,
                               ObjectMapper objectMapper) {
-        this.structureId = structureId;
+        this.entityDefinitionId = entityDefinitionId;
         this.entitiesService = entitiesService;
         this.objectMapper = objectMapper;
     }
@@ -44,7 +44,7 @@ public class FindAllDataFetcher implements DataFetcher<CompletableFuture<Page<Ma
                                                     Pageable.class,
                                                     objectMapper);
 
-        return entitiesService.findAll(structureId,
+        return entitiesService.findAll(entityDefinitionId,
                                        pageable,
                                        Map.class,
                                        ec);

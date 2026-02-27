@@ -14,11 +14,11 @@ import java.util.concurrent.CompletableFuture;
  */
 public class CountDataFetcher implements DataFetcher<CompletableFuture<Long>> {
 
-    private final String structureId;
+    private final String entityDefinitionId;
     private final EntitiesService entitiesService;
 
-    public CountDataFetcher(String structureId, EntitiesService entitiesService) {
-        this.structureId = structureId;
+    public CountDataFetcher(String entityDefinitionId, EntitiesService entitiesService) {
+        this.entityDefinitionId = entityDefinitionId;
         this.entitiesService = entitiesService;
     }
 
@@ -27,6 +27,6 @@ public class CountDataFetcher implements DataFetcher<CompletableFuture<Long>> {
         RoutingContext rc = environment.getGraphQlContext().get(RoutingContext.class);
         Objects.requireNonNull(rc);
 
-        return entitiesService.count(structureId, new RoutingContextToEntityContextAdapter(rc));
+        return entitiesService.count(entityDefinitionId, new RoutingContextToEntityContextAdapter(rc));
     }
 }

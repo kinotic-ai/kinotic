@@ -6,6 +6,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.graphql.GraphQLHandler;
 import lombok.extern.slf4j.Slf4j;
 
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.springframework.context.event.EventListener;
@@ -32,10 +33,10 @@ public class DefaultDelegatingGqlHandler implements DelegatingGqlHandler {
     }
 
     /**
-     * Evicts the caches for an application event. This can be an change to a named
-     * query or a structure.
+     * Evicts the caches for an application event. This can be a change to a named
+     * query or a {@link EntityDefinition}.
      * 
-     * @param cacheEvictionEvent the event containing the structure or named query to evict the
+     * @param cacheEvictionEvent the event containing the {@link EntityDefinition} or named query to evict the
      *              caches for
      */
     @EventListener

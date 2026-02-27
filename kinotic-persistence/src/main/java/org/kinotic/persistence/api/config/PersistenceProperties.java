@@ -104,11 +104,6 @@ public class PersistenceProperties {
     private boolean enableStaticFileServer = false;
 
     /**
-     * If true will initialize the EntityDefinitions with sample data
-     */
-    private boolean initializeWithSampleData = false;
-
-    /**
      * MCP server configuration
      */
     private Integer mcpPort = 3001;

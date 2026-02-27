@@ -17,11 +17,11 @@ import java.util.concurrent.CompletableFuture;
 @SuppressWarnings("rawtypes")
 public class SaveDataFetcher implements DataFetcher<CompletableFuture<Map>> {
 
-    private final String structureId;
+    private final String entityDefinitionId;
     private final EntitiesService entitiesService;
 
-    public SaveDataFetcher(String structureId, EntitiesService entitiesService) {
-        this.structureId = structureId;
+    public SaveDataFetcher(String entityDefinitionId, EntitiesService entitiesService) {
+        this.entityDefinitionId = entityDefinitionId;
         this.entitiesService = entitiesService;
     }
 
@@ -33,6 +33,6 @@ public class SaveDataFetcher implements DataFetcher<CompletableFuture<Map>> {
 
         Map entity = environment.getArgument("input");
 
-        return entitiesService.save(structureId, entity, ec);
+        return entitiesService.save(entityDefinitionId, entity, ec);
     }
 }
