@@ -8,7 +8,7 @@ import java.util.Set;
 
 /**
  * Provides configuration for the Elasticsearch index.
- * This can be used to override the default index settings and mappings used by Structures.
+ * This can be used to override the default index settings and mappings used by EntityDefinitions.
  * Created By Navíd Mitchell 🤪on 3/18/25
  */
 @Getter

@@ -37,7 +37,7 @@ public class PolicyExpressionUtil {
      */
     public static PolicyExpression createPolicyExpression(List<List<String>> policies) {
         if (policies == null || policies.isEmpty()) {
-            throw new IllegalArgumentException("Policy structure cannot be null or empty");
+            throw new IllegalArgumentException("Policy EntityDefinition cannot be null or empty");
         }
 
         List<PolicyExpression> orExpressions = new ArrayList<>();

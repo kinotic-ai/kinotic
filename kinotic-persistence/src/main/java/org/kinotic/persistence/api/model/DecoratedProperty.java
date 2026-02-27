@@ -17,7 +17,6 @@ import java.util.List;
 @Accessors(chain = true)
 @AllArgsConstructor
 @NoArgsConstructor
-// TODO: move back to structures core
 public class DecoratedProperty {
 
     private String jsonPath;

@@ -6,7 +6,7 @@ The `PolicyAuthorizationService` is the central class in Structures for managing
 
 1. **Policy Enforcement**: Ensures that only authorized operations, entities, and fields can be accessed.
 2. **Operation-Level Policies**: Evaluates policies applied to specific operations, such as `SAVE`, `READ`, or `DELETE`.
-3. **Entity-Level Policies**: Determines whether access to an entire entity (structure) is allowed.
+3. **Entity-Level Policies**: Determines whether access to an entire entity (entityDefinition) is allowed.
 4. **Field-Level Policies**: Checks individual field access based on the policies defined in the model.
 
 ## How It Works

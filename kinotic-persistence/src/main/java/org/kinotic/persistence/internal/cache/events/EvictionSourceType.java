@@ -4,7 +4,7 @@ import lombok.Getter;
 
 @Getter
 public enum EvictionSourceType {
-    STRUCTURE("Structure"),
+    ENTITY_DEFINITION("Entity Definition"),
     NAMED_QUERY("Named Query");
 
     private final String displayName;

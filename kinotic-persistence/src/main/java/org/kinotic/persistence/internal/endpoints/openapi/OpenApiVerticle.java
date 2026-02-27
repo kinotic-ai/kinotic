@@ -7,10 +7,10 @@ import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.web.Router;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 
 /**
- * We have one OpenApi spec for all {@link Structure}'s in a application. But this handles all applications and all structures.
+ * We have one OpenApi spec for all {@link EntityDefinition}'s in a application. But this handles all applications and all structures.
  * Created by Navíd Mitchell 🤪 on 5/29/23.
  */
 @RequiredArgsConstructor

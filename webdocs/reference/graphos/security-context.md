@@ -6,7 +6,7 @@ The `SecurityContext` provides contextual information about the user or system m
 
 - **Authorization Context**: Supplies data required to determine whether a policy should be authorized or denied.
 - **Flexibility**: Allows integration with custom security frameworks or identity providers.
-- **Consistency**: Ensures that authorization decisions are based on a standard structure for user and request data.
+- **Consistency**: Ensures that authorization decisions are based on a standard entityDefinition for user and request data.
 
 ## Key Responsibilities
 

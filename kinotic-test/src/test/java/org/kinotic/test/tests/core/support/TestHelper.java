@@ -1,7 +1,7 @@
 package org.kinotic.test.tests.core.support;
 
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
 import org.kinotic.persistence.internal.sample.Car;
@@ -52,11 +52,11 @@ public class TestHelper {
                                                                   entityContext,
                                                                   structureSuffix))
                     .expectNextMatches(structureAndPersonHolder -> {
-                        boolean matches = structureAndPersonHolder.getStructure() != null &&
-                                structureAndPersonHolder.getStructure().getId() != null &&
+                        boolean matches = structureAndPersonHolder.getEntityDefinition() != null &&
+                                structureAndPersonHolder.getEntityDefinition().getId() != null &&
                                 structureAndPersonHolder.getPersons().size() == numberOfPeopleToCreate;
                         if(matches){
-                            ret.setStructure(structureAndPersonHolder.getStructure());
+                            ret.setEntityDefinition(structureAndPersonHolder.getEntityDefinition());
                             ret.setPersons(structureAndPersonHolder.getPersons());
                         }
                         return matches;
@@ -65,34 +65,34 @@ public class TestHelper {
         return ret;
     }
 
-    public CompletableFuture<Void> bulkUpdateCarsAsRawJson(List<Car> cars, Structure structure, EntityContext entityContext){
+    public CompletableFuture<Void> bulkUpdateCarsAsRawJson(List<Car> cars, EntityDefinition entityDefinition, EntityContext entityContext){
         TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
         try {
             tokenBuffer.writePOJO(cars);
         } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
-        return entitiesService.bulkUpdate(structure.getId(), tokenBuffer, entityContext);
+        return entitiesService.bulkUpdate(entityDefinition.getId(), tokenBuffer, entityContext);
     }
 
-    public CompletableFuture<Void> bulkSaveCarsAsRawJson(List<Car> cars, Structure structure, EntityContext entityContext){
+    public CompletableFuture<Void> bulkSaveCarsAsRawJson(List<Car> cars, EntityDefinition entityDefinition, EntityContext entityContext){
         TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
         try {
             tokenBuffer.writePOJO(cars);
         } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
-        return entitiesService.bulkSave(structure.getId(), tokenBuffer, entityContext);
+        return entitiesService.bulkSave(entityDefinition.getId(), tokenBuffer, entityContext);
     }
 
-    public CompletableFuture<Car> saveCarAsRawJson(Car car, Structure structure, EntityContext entityContext){
+    public CompletableFuture<Car> saveCarAsRawJson(Car car, EntityDefinition entityDefinition, EntityContext entityContext){
         TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
         try {
             tokenBuffer.writePOJO(car);
         } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
-        return entitiesService.save(structure.getId(), tokenBuffer, entityContext)
+        return entitiesService.save(entityDefinition.getId(), tokenBuffer, entityContext)
                               .thenApply(saved -> {
                                   try (JsonParser parser = saved.asParser()) {
                                       return objectMapper.readValue(parser, Car.class);
@@ -103,7 +103,7 @@ public class TestHelper {
     }
 
 
-    public CompletableFuture<Car> updateCarAsRawJson(Car car, Structure structure, EntityContext entityContext){
+    public CompletableFuture<Car> updateCarAsRawJson(Car car, EntityDefinition entityDefinition, EntityContext entityContext){
         TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
         try {
             tokenBuffer.writePOJO(car);
@@ -111,7 +111,7 @@ public class TestHelper {
             return CompletableFuture.failedFuture(e);
         }
 
-        return entitiesService.update(structure.getId(), tokenBuffer, entityContext)
+        return entitiesService.update(entityDefinition.getId(), tokenBuffer, entityContext)
                               .thenApply(saved -> {
                                   try (JsonParser parser = saved.asParser()) {
                                       return objectMapper.readValue(parser, Car.class);
@@ -122,7 +122,7 @@ public class TestHelper {
     }
 
     /**
-     * Creates a {@link Structure} if it does not exist with the given name suffix and then creates the given number of people
+     * Creates a {@link EntityDefinition} if it does not exist with the given name suffix and then creates the given number of people
      * @param numberOfPeopleToCreate the number of people to create
      * @param randomPeople if true random people will be created, if false a static list of people will be created
      * @param entityContext the {@link EntityContext} to use when creating the entities
@@ -137,12 +137,12 @@ public class TestHelper {
                 .createPersonStructureIfNotExists(structureNameSuffix)
                 .thenCompose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
                                              .thenCompose(people -> {
-                                                 Structure structure = pair.getLeft();
+                                                 EntityDefinition entityDefinition = pair.getLeft();
                                                  List<CompletableFuture<Person>> completableFutures = new ArrayList<>();
                                                  for(Person person : people){
                                                      try (TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false)) {
                                                          tokenBuffer.writePOJO(person);
-                                                         completableFutures.add(entitiesService.save(structure.getId(),
+                                                         completableFutures.add(entitiesService.save(entityDefinition.getId(),
                                                                                                      tokenBuffer,
                                                                                                      entityContext)
                                                                                                .thenCompose(saved -> {
@@ -161,7 +161,7 @@ public class TestHelper {
                                                  return CompletableFuture.allOf(completableFutures.toArray(new CompletableFuture[0]))
                                                                          .thenApply(v -> {
                                                                              StructureAndPersonHolder holder = new StructureAndPersonHolder();
-                                                                             holder.setStructure(structure);
+                                                                             holder.setEntityDefinition(entityDefinition);
                                                                              for(CompletableFuture<Person> future : completableFutures){
                                                                                  holder.addPerson(future.join());
                                                                              }
@@ -178,7 +178,7 @@ public class TestHelper {
                 .createPersonStructureIfNotExists(structureNameSuffix)
                 .thenCompose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
                                              .thenCompose(people -> {
-                                                 Structure structure = pair.getLeft();
+                                                 EntityDefinition entityDefinition = pair.getLeft();
                                                  TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
                                                  try {
                                                      tokenBuffer.writePOJO(people);
@@ -186,12 +186,12 @@ public class TestHelper {
                                                      return CompletableFuture.failedFuture(e);
                                                  }
 
-                                                 return entitiesService.bulkSave(structure.getId(),
+                                                 return entitiesService.bulkSave(entityDefinition.getId(),
                                                                                  tokenBuffer,
                                                                                  entityContext)
                                                          .thenCompose(unused -> CompletableFuture
                                                                  .completedFuture(new StructureAndPersonHolder(
-                                                                         structure,
+                                                                         entityDefinition,
                                                                          people)));
                                              })));
     }

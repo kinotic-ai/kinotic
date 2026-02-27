@@ -8,7 +8,7 @@ This folder contains comprehensive documentation for configuring and troubleshoo
 
 #### [Microsoft Audience Configuration](./MICROSOFT_AUDIENCE_CONFIGURATION.md)
 - **Purpose**: Complete guide for configuring Microsoft OIDC audience settings
-- **Covers**: Frontend and backend configuration, JWT token structure, security best practices
+- **Covers**: Frontend and backend configuration, JWT token entityDefinition, security best practices
 - **Use Case**: Setting up Microsoft OIDC authentication with proper audience validation
 
 #### [Microsoft Client ID as Audience](./MICROSOFT_CLIENT_ID_AUDIENCE.md)

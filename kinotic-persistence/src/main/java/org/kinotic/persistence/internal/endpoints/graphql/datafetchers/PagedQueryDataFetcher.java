@@ -10,7 +10,7 @@ import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.PageableC3Type;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.services.sql.MapParameterHolder;
@@ -40,7 +40,7 @@ public class PagedQueryDataFetcher implements DataFetcher<CompletableFuture<Page
      * @param objectMapper the {@link ObjectMapper} to use to deserialize the input parameters
      * @param queryDefinition the {@link FunctionDefinition} for the query to execute
      * @param defaultPageable the default {@link Pageable} to use if no pageable parameter is defined in the {@link FunctionDefinition}
-     * @param structureId the id of the {@link Structure} that the query is for
+     * @param structureId the id of the {@link EntityDefinition} that the query is for
      */
     public PagedQueryDataFetcher(EntitiesService entitiesService,
                                  ObjectMapper objectMapper,

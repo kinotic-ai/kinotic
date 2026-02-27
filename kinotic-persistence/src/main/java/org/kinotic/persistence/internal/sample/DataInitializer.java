@@ -2,7 +2,7 @@ package org.kinotic.persistence.internal.sample;
 
 import jakarta.annotation.PostConstruct;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
 import org.slf4j.Logger;
@@ -58,7 +58,7 @@ public class DataInitializer {
         }
     }
 
-    private CompletableFuture<Void> createPeople(Structure structure,
+    private CompletableFuture<Void> createPeople(EntityDefinition entityDefinition,
                                                  int numberOfPeopleToCreate,
                                                  String tenantId,
                                                  String participantId){
@@ -66,7 +66,7 @@ public class DataInitializer {
                               .thenCompose(people -> {
                                   TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
                                   tokenBuffer.writePOJO(people);
-                                  return entitiesService.bulkSave(structure.getId(),
+                                  return entitiesService.bulkSave(entityDefinition.getId(),
                                                                   tokenBuffer,
                                                                   new DefaultEntityContext(new DummyParticipant(tenantId,
                                                                                                                 participantId)));

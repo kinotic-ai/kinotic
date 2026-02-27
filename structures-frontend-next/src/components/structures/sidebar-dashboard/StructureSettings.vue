@@ -16,14 +16,14 @@ export default class StructureSettings extends Vue {
   ]
 
   get entityType() {
-    const entityDecorator = this.structureStore.structure?.entityDefinition?.decorators?.find(
+    const entityDecorator = this.structureStore.entityDefinition?.entityDefinition?.decorators?.find(
       (d: any) => d.type === 'Entity'
     ) as any
     return entityDecorator?.entityType || 'TABLE'
   }
 
   set entityType(value: string) {
-    const entityDecorator = this.structureStore.structure?.entityDefinition?.decorators?.find(
+    const entityDecorator = this.structureStore.entityDefinition?.entityDefinition?.decorators?.find(
       (d: any) => d.type === 'Entity'
     ) as any
     if (entityDecorator) {
@@ -32,14 +32,14 @@ export default class StructureSettings extends Vue {
   }
 
   get multiTenancyType() {
-    const entityDecorator = this.structureStore.structure?.entityDefinition?.decorators?.find(
+    const entityDecorator = this.structureStore.entityDefinition?.entityDefinition?.decorators?.find(
       (d: any) => d.type === 'Entity'
     ) as any
     return entityDecorator?.multiTenancyType || 'NONE'
   }
 
   set multiTenancyType(value: string) {
-    const entityDecorator = this.structureStore.structure?.entityDefinition?.decorators?.find(
+    const entityDecorator = this.structureStore.entityDefinition?.entityDefinition?.decorators?.find(
       (d: any) => d.type === 'Entity'
     ) as any
     if (entityDecorator) {
@@ -48,19 +48,19 @@ export default class StructureSettings extends Vue {
   }
 
   get description() {
-    return this.structureStore.structure?.description || ''
+    return this.structureStore.entityDefinition?.description || ''
   }
 
   set description(value: string) {
-    if (this.structureStore.structure) {
-      this.structureStore.structure.description = value
+    if (this.structureStore.entityDefinition) {
+      this.structureStore.entityDefinition.description = value
     }
   }
 }
 </script>
 
 <template>
-  <div v-if="structureStore.structure">
+  <div v-if="structureStore.entityDefinition">
     <div class="border-b border-surface-200 p-6">
       <h3 class="text-sm font-semibold">Structure settings</h3>
     </div>

@@ -3,22 +3,22 @@ package org.kinotic.persistence.internal.api.services;
 import io.swagger.v3.oas.models.media.Schema;
 import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.idl.api.schema.C3Type;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.internal.converters.graphql.GqlConversionState;
 import org.kinotic.persistence.internal.converters.graphql.GqlTypeHolder;
 import org.kinotic.persistence.internal.converters.openapi.OpenApiConversionState;
 /**
- * Handles converting {@link Structure}s to various mappings. Such as ElasticSearch, OpenAPI, GraphQL.
+ * Handles converting {@link EntityDefinition}s to various mappings. Such as ElasticSearch, OpenAPI, GraphQL.
  * Created by Navíd Mitchell 🤪on 5/11/23.
  */
-public interface StructureConversionService {
+public interface EntityDefinitionConversionService {
 
     /**
-     * Converts the given {@link Structure#getEntityDefinition()} to an ElasticSearch ObjectProperty
-     * @param structure to convert
-     * @return the {@link ElasticConversionResult} created for the {@link Structure}
+     * Converts the given {@link EntityDefinition#getSchema()} to an ElasticSearch ObjectProperty
+     * @param entityDefinition to convert
+     * @return the {@link ElasticConversionResult} created for the {@link EntityDefinition}
      */
-    ElasticConversionResult convertToElasticMapping(Structure structure);
+    ElasticConversionResult convertToElasticMapping(EntityDefinition entityDefinition);
 
     /**
      * Creates a new {@link IdlConverter} for converting {@link C3Type}s to a GraphQL Schema

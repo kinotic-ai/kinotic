@@ -18,11 +18,12 @@ import java.util.concurrent.CompletableFuture;
 @SuppressWarnings("rawtypes")
 public class BulkSaveDataFetcher implements DataFetcher<CompletableFuture<Boolean>> {
 
-    private final String structureId;
+    private final String entityDefinitionId;
     private final EntitiesService entitiesService;
 
-    public BulkSaveDataFetcher(String structureId, EntitiesService entitiesService) {
-        this.structureId = structureId;
+    public BulkSaveDataFetcher(String entityDefinitionId,
+                               EntitiesService entitiesService) {
+        this.entityDefinitionId = entityDefinitionId;
         this.entitiesService = entitiesService;
     }
 
@@ -34,7 +35,7 @@ public class BulkSaveDataFetcher implements DataFetcher<CompletableFuture<Boolea
 
         List<Map> entity = environment.getArgument("input");
 
-        return entitiesService.bulkSave(structureId, entity, ec)
+        return entitiesService.bulkSave(entityDefinitionId, entity, ec)
                               .thenApply(v -> true);
     }
 }

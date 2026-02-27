@@ -62,7 +62,7 @@ pnpm dev
 #### Breakpoints Not Working?
 - Ensure source maps are enabled (they are in this config)
 - Check that the Chrome DevTools Sources panel shows your source files
-- Verify the webRoot path in launch.json matches your project structure
+- Verify the webRoot path in launch.json matches your project entityDefinition
 
 #### Can't See Variables?
 - Make sure you're paused at a breakpoint

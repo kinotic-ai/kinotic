@@ -13,7 +13,7 @@ import org.kinotic.test.support.elastic.ElasticTestBase;
 import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.sample.Car;
 import org.kinotic.persistence.internal.sample.DummyParticipant;
@@ -58,7 +58,7 @@ public class EntityCrudTests extends ElasticTestBase {
 
         Assertions.assertNotNull(holder);
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.deleteById(holder.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.deleteById(holder.getEntityDefinition().getId(),
                                                                        holder.getFirstPerson().getId(),
                                                                        new DefaultEntityContext(new DummyParticipant()))))
                     .verifyComplete();
@@ -72,21 +72,21 @@ public class EntityCrudTests extends ElasticTestBase {
 
         Assertions.assertNotNull(holder);
 
-        entitiesService.syncIndex(holder.getStructure().getId(), context).join();
+        entitiesService.syncIndex(holder.getEntityDefinition().getId(), context).join();
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.count(holder.getStructure().getId(), context)))
+        StepVerifier.create(Mono.fromFuture(entitiesService.count(holder.getEntityDefinition().getId(), context)))
                 .expectNext(20L)
                 .as("Verifying Tenant 1 has 20 entities")
                 .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.deleteByQuery(holder.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.deleteByQuery(holder.getEntityDefinition().getId(),
                         "lastName: A*",
                         context)))
                 .verifyComplete();
 
-        entitiesService.syncIndex(holder.getStructure().getId(), context).join();
+        entitiesService.syncIndex(holder.getEntityDefinition().getId(), context).join();
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.count(holder.getStructure().getId(), context)))
+        StepVerifier.create(Mono.fromFuture(entitiesService.count(holder.getEntityDefinition().getId(), context)))
                 .expectNext(18L)
                 .as("Verifying Tenant 1 has 18 entities after delete by query")
                 .verifyComplete();
@@ -100,7 +100,7 @@ public class EntityCrudTests extends ElasticTestBase {
 
         Assertions.assertNotNull(holder);
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.findById(holder.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findById(holder.getEntityDefinition().getId(),
                                                                      holder.getFirstPerson().getId(),
                                                                      RawJson.class,
                                                                      new DefaultEntityContext(new DummyParticipant()))))
@@ -140,7 +140,7 @@ public class EntityCrudTests extends ElasticTestBase {
             }
         }
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.findByIds(holder.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findByIds(holder.getEntityDefinition().getId(),
                         ids,
                         RawJson.class,
                         context)))
@@ -182,7 +182,7 @@ public class EntityCrudTests extends ElasticTestBase {
             }
         }
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.findByIds(holder.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findByIds(holder.getEntityDefinition().getId(),
                         ids,
                         RawJson.class,
                         context)))
@@ -205,15 +205,15 @@ public class EntityCrudTests extends ElasticTestBase {
 
         Assertions.assertNotNull(holder2);
 
-        entitiesService.syncIndex(holder1.getStructure().getId(), context1).join();
-        entitiesService.syncIndex(holder2.getStructure().getId(), context2).join();
+        entitiesService.syncIndex(holder1.getEntityDefinition().getId(), context1).join();
+        entitiesService.syncIndex(holder2.getEntityDefinition().getId(), context2).join();
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.count(holder1.getStructure().getId(), context1)))
+        StepVerifier.create(Mono.fromFuture(entitiesService.count(holder1.getEntityDefinition().getId(), context1)))
                     .expectNext(10L)
                     .as("Verifying Tenant 1 has 10 entities")
                     .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.count(holder2.getStructure().getId(), context2)))
+        StepVerifier.create(Mono.fromFuture(entitiesService.count(holder2.getEntityDefinition().getId(), context2)))
                     .expectNext(20L)
                     .as("Verifying Tenant 2 has 20 entities")
                     .verifyComplete();
@@ -233,20 +233,20 @@ public class EntityCrudTests extends ElasticTestBase {
 
         Assertions.assertNotNull(holder2);
 
-        entitiesService.syncIndex(holder1.getStructure().getId(), context1).join();
-        entitiesService.syncIndex(holder2.getStructure().getId(), context2).join();
+        entitiesService.syncIndex(holder1.getEntityDefinition().getId(), context1).join();
+        entitiesService.syncIndex(holder2.getEntityDefinition().getId(), context2).join();
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.countByQuery(holder1.getStructure().getId(), "lastName: Z*", context1)))
+        StepVerifier.create(Mono.fromFuture(entitiesService.countByQuery(holder1.getEntityDefinition().getId(), "lastName: Z*", context1)))
                 .expectNext(2L)
                 .as("Verifying Tenant 1 has 2 entities by search")
                 .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.countByQuery(holder2.getStructure().getId(), "lastName: A*", context2)))
+        StepVerifier.create(Mono.fromFuture(entitiesService.countByQuery(holder2.getEntityDefinition().getId(), "lastName: A*", context2)))
                 .expectNext(2L)
                 .as("Verifying Tenant 2 has 2 entities by search")
                 .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.countByQuery(holder2.getStructure().getId(), "lastName: a*", context2)))
+        StepVerifier.create(Mono.fromFuture(entitiesService.countByQuery(holder2.getEntityDefinition().getId(), "lastName: a*", context2)))
                 .expectNext(0L)
                 .as("Verifying Tenant 0 has 2 entities by search")
                 .verifyComplete();
@@ -268,11 +268,11 @@ public class EntityCrudTests extends ElasticTestBase {
 
         Assertions.assertNotNull(holder2);
 
-        entitiesService.syncIndex(holder1.getStructure().getId(), context1).join();
-        entitiesService.syncIndex(holder2.getStructure().getId(), context2).join();
+        entitiesService.syncIndex(holder1.getEntityDefinition().getId(), context1).join();
+        entitiesService.syncIndex(holder2.getEntityDefinition().getId(), context2).join();
 
         // TODO: verify all data items as well, not just sizes
-        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder1.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder1.getEntityDefinition().getId(),
                                                                     Pageable.ofSize(20), // make sure page size is larger than number of entities
                                                                     RawJson.class,
                                                                     context1)))
@@ -281,7 +281,7 @@ public class EntityCrudTests extends ElasticTestBase {
                     .as("Verifying Tenant 1 has 10 entities")
                     .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder2.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder2.getEntityDefinition().getId(),
                                                                     Pageable.ofSize(20), // make sure page size is larger than number of entities
                                                                     RawJson.class,
                                                                     context2)))
@@ -306,8 +306,8 @@ public class EntityCrudTests extends ElasticTestBase {
         Assertions.assertNotNull(holder2);
 
         // Make sure all data is indexed
-        entitiesService.syncIndex(holder1.getStructure().getId(), context1).join();
-        entitiesService.syncIndex(holder2.getStructure().getId(), context2).join();
+        entitiesService.syncIndex(holder1.getEntityDefinition().getId(), context1).join();
+        entitiesService.syncIndex(holder2.getEntityDefinition().getId(), context2).join();
 
         Thread.sleep(10000); // TODO: why does this still fail without a sleep? Sync index should be ensuring data is indexed.
 
@@ -315,7 +315,7 @@ public class EntityCrudTests extends ElasticTestBase {
         Sort sort = Sort.by("firstName");
         AtomicReference<String> cursorRef = new AtomicReference<>();
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder1.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder1.getEntityDefinition().getId(),
                                                                     Pageable.create("",
                                                                                     20,
                                                                                     Sort.by("firstName")),
@@ -336,7 +336,7 @@ public class EntityCrudTests extends ElasticTestBase {
 
         Assertions.assertNotNull(cursorRef.get(), "Cursor is null");
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder1.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder1.getEntityDefinition().getId(),
                                                                     Pageable.create(cursorRef.get(), 20, sort),
                                                                     RawJson.class,
                                                                     context1)))
@@ -356,7 +356,7 @@ public class EntityCrudTests extends ElasticTestBase {
 
         Assertions.assertNotNull(cursorRef.get(), "Cursor is null");
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder1.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder1.getEntityDefinition().getId(),
                                                                     Pageable.create(cursorRef.get(), 20, sort),
                                                                     RawJson.class,
                                                                     context1)))
@@ -378,7 +378,7 @@ public class EntityCrudTests extends ElasticTestBase {
 
         Assertions.assertNull(cursorRef.get(), "Cursor is not null");
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder2.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder2.getEntityDefinition().getId(),
                                                                     Pageable.create("", 10, sort),
                                                                     RawJson.class,
                                                                     context2)))
@@ -397,7 +397,7 @@ public class EntityCrudTests extends ElasticTestBase {
 
         Assertions.assertNotNull(cursorRef.get(), "Cursor is null");
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder2.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder2.getEntityDefinition().getId(),
                                                                     Pageable.create(cursorRef.get(), 10, sort),
                                                                     RawJson.class,
                                                                     context2)))
@@ -417,7 +417,7 @@ public class EntityCrudTests extends ElasticTestBase {
 
         Assertions.assertNotNull(cursorRef.get(), "Cursor is null");
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder2.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder2.getEntityDefinition().getId(),
                                                                     Pageable.create(cursorRef.get(), 10, sort),
                                                                     RawJson.class,
                                                                     context2)))
@@ -438,7 +438,7 @@ public class EntityCrudTests extends ElasticTestBase {
         Assertions.assertNotNull(cursorRef.get(), "Cursor is null");
 
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder2.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder2.getEntityDefinition().getId(),
                                                                     Pageable.create(cursorRef.get(), 10, sort),
                                                                     RawJson.class,
                                                                     context2)))
@@ -470,11 +470,11 @@ public class EntityCrudTests extends ElasticTestBase {
 
         Assertions.assertNotNull(holder2);
 
-        entitiesService.syncIndex(holder1.getStructure().getId(), context1).join();
-        entitiesService.syncIndex(holder2.getStructure().getId(), context2).join();
+        entitiesService.syncIndex(holder1.getEntityDefinition().getId(), context1).join();
+        entitiesService.syncIndex(holder2.getEntityDefinition().getId(), context2).join();
 
         // TODO: verify all data items as well, not just sizes
-        StepVerifier.create(Mono.fromFuture(entitiesService.search(holder1.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.search(holder1.getEntityDefinition().getId(),
                                                                    "lastName: Z*",
                                                                    Pageable.ofSize(20), // make sure page size is larger than number of entities
                                                                    RawJson.class,
@@ -490,7 +490,7 @@ public class EntityCrudTests extends ElasticTestBase {
                     .as("Verifying search for Tenant 1 has 2 entities")
                     .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.search(holder2.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.search(holder2.getEntityDefinition().getId(),
                                                                    "lastName: Z*",
                                                                    Pageable.ofSize(20), // make sure page size is larger than number of entities
                                                                    RawJson.class,
@@ -522,9 +522,9 @@ public class EntityCrudTests extends ElasticTestBase {
 
         contextMap.forEach((context, holder) -> {
 
-            entitiesService.syncIndex(holder.getStructure().getId(), context).join();
+            entitiesService.syncIndex(holder.getEntityDefinition().getId(), context).join();
 
-            StepVerifier.create(Mono.fromFuture(entitiesService.search(holder.getStructure().getId(),
+            StepVerifier.create(Mono.fromFuture(entitiesService.search(holder.getEntityDefinition().getId(),
                             "lastName: *",
                             Pageable.ofSize(20), // make sure page size is larger than number of entities
                             RawJson.class,
@@ -549,7 +549,7 @@ public class EntityCrudTests extends ElasticTestBase {
 
         Assertions.assertNotNull(holder);
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.findById(holder.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findById(holder.getEntityDefinition().getId(),
                                                                      "missing",
                                                                      RawJson.class,
                                                                      new DefaultEntityContext(new DummyParticipant()))))
@@ -559,7 +559,7 @@ public class EntityCrudTests extends ElasticTestBase {
     @Test
     public void testPartialUpdate() throws Exception {
         EntityContext entityContext = new DefaultEntityContext(new DummyParticipant());
-        CompletableFuture<Pair<Structure, Boolean>> createStructure = testDataService.createCarStructureIfNotExists("_partialUpdate");
+        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = testDataService.createCarStructureIfNotExists("_partialUpdate");
 
         StepVerifier.create(Mono.fromFuture(createStructure))
                     .expectNextMatches(pair -> {
@@ -571,7 +571,7 @@ public class EntityCrudTests extends ElasticTestBase {
                     })
                     .verifyComplete();
 
-        Structure structure = createStructure.join().getLeft();
+        EntityDefinition entityDefinition = createStructure.join().getLeft();
 
         Car car = new Car();
         car.setId(UUID.randomUUID().toString());
@@ -579,13 +579,13 @@ public class EntityCrudTests extends ElasticTestBase {
         car.setModel("Civic");
         car.setYear(2019);
 
-        Car result = testHelper.saveCarAsRawJson(car, structure, entityContext).join();
+        Car result = testHelper.saveCarAsRawJson(car, entityDefinition, entityContext).join();
 
         Assertions.assertEquals(car.getId(), result.getId(), "Car id does not match");
 
-        entitiesService.syncIndex(structure.getId(), entityContext).join();
+        entitiesService.syncIndex(entityDefinition.getId(), entityContext).join();
 
-        Page<RawJson> page = entitiesService.findAll(structure.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
+        Page<RawJson> page = entitiesService.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
 
         Assertions.assertEquals(1, page.getTotalElements(), "Wrong number of entities");
 
@@ -601,13 +601,13 @@ public class EntityCrudTests extends ElasticTestBase {
            .setYear(null)
            .setOwner(person);
 
-        Car result2 = testHelper.updateCarAsRawJson(car, structure, entityContext).join();
+        Car result2 = testHelper.updateCarAsRawJson(car, entityDefinition, entityContext).join();
 
         Assertions.assertEquals(car.getId(), result2.getId(), "Car id does not match after partial update");
 
-        entitiesService.syncIndex(structure.getId(), entityContext).join();
+        entitiesService.syncIndex(entityDefinition.getId(), entityContext).join();
 
-        Page<RawJson> page2 = entitiesService.findAll(structure.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
+        Page<RawJson> page2 = entitiesService.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
 
         Assertions.assertEquals(1, page2.getTotalElements(), "Wrong number of entities after partial update");
 

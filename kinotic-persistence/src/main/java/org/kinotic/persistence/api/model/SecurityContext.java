@@ -22,7 +22,7 @@ public interface SecurityContext {
 
     /**
      * Gets the tenant selection for the current operation
-     * NOTE: This should only be set if {@link Structure#isMultiTenantSelectionEnabled()} is true
+     * NOTE: This should only be set if {@link EntityDefinition#isMultiTenantSelectionEnabled()} is true
      *
      * @return the lists of tenants that data is being requested for
      */
@@ -30,7 +30,7 @@ public interface SecurityContext {
 
     /**
      * Sets the tenant selection for the current operation
-     * NOTE: This should only be set if {@link Structure#isMultiTenantSelectionEnabled()} is true
+     * NOTE: This should only be set if {@link EntityDefinition#isMultiTenantSelectionEnabled()} is true
      *
      * @param tenantSelection the lists of tenants that data is being requested for
      */

@@ -49,7 +49,7 @@ public class InsightProgress {
     public enum ProgressType {
         STARTED,           // Analysis has started
         ANALYZING,         // Analyzing the request
-        DISCOVERING_DATA,  // Discovering relevant structures and data
+        DISCOVERING_DATA,  // Discovering relevant EntityDefinitions and data
         GENERATING_CODE,   // Generating web component code
         COMPONENTS_READY,  // All components have been generated
         COMPLETED,         // All components are ready

@@ -151,7 +151,7 @@ public class OpenApiVertxRouterFactory {
               .handler(bodyHandler)
               .handler(ctx -> {
 
-                  String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                  String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                   handleNoReturnValue(ctx, () ->
                           entitiesService.bulkSave(structureId,
@@ -168,7 +168,7 @@ public class OpenApiVertxRouterFactory {
               .handler(bodyHandler)
               .handler(ctx -> {
 
-                  String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                  String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                   handleNoReturnValue(ctx, () ->
                           entitiesService.bulkUpdate(structureId,
@@ -185,7 +185,7 @@ public class OpenApiVertxRouterFactory {
               .handler(bodyHandler)
               .handler(ctx -> {
 
-                  String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                  String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                   handleWithReturnValue(ctx, () ->
                           entitiesService.update(structureId,
@@ -202,7 +202,7 @@ public class OpenApiVertxRouterFactory {
               .handler(bodyHandler)
               .handler(ctx -> {
 
-                  String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                  String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                   handleWithReturnValue(ctx, () ->
                           entitiesService.save(structureId,
@@ -216,7 +216,7 @@ public class OpenApiVertxRouterFactory {
         router.get(apiBasePath + ":structureApplication/:structureName/util/sync")
               .handler(ctx -> {
 
-                  String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                  String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                   handleNoReturnValue(ctx, () ->
                           entitiesService.syncIndex(structureId,
@@ -238,7 +238,7 @@ public class OpenApiVertxRouterFactory {
                       String tenantID = ctx.pathParam("tenantId");
                       Validate.notBlank(tenantID, "tenantId must not be null or blank");
 
-                      String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                      String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                       handleNoReturnValue(ctx, () ->
                               entitiesService.deleteById(structureId,
@@ -255,7 +255,7 @@ public class OpenApiVertxRouterFactory {
                       String id = ctx.pathParam("id");
                       Validate.notNull(id, "id must not be null");
 
-                      String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                      String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                       handleNoReturnValue(ctx, () ->
                               entitiesService.deleteById(structureId,
@@ -271,7 +271,7 @@ public class OpenApiVertxRouterFactory {
               .handler(bodyHandler)
               .handler(ctx -> {
 
-                  String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                  String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
                   String query;
                   EntityContext ec = new RoutingContextToEntityContextAdapter(ctx);
 
@@ -292,7 +292,7 @@ public class OpenApiVertxRouterFactory {
               .handler(bodyHandler)
               .handler(ctx -> {
 
-                  String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                  String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
                   String queryName = VertxWebUtil.validateAndReturnPathParam("queryName", ctx);
 
                   try {
@@ -316,7 +316,7 @@ public class OpenApiVertxRouterFactory {
               .handler(bodyHandler)
               .handler(ctx -> {
 
-                  String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                  String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
                   String queryName = VertxWebUtil.validateAndReturnPathParam("queryName", ctx);
                   Pageable pageable = VertxWebUtil.getPageableOrDefaultCursorPageable(ctx);
 
@@ -350,7 +350,7 @@ public class OpenApiVertxRouterFactory {
         }
         findAllRoute.handler(ctx -> {
 
-            String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+            String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
             Pageable pageable = VertxWebUtil.getPageableOrDefaultOffsetPageable(ctx);
             EntityContext ec = new RoutingContextToEntityContextAdapter(ctx);
 
@@ -384,7 +384,7 @@ public class OpenApiVertxRouterFactory {
                       String tenantID = ctx.pathParam("tenantId");
                       Validate.notBlank(tenantID, "tenantId must not be null or blank");
 
-                      String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                      String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                       handleWithReturnValue(ctx, () ->
                                                     entitiesService.findById(structureId,
@@ -402,7 +402,7 @@ public class OpenApiVertxRouterFactory {
                       String id = ctx.pathParam("id");
                       Validate.notNull(id, "id must not be null");
 
-                      String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                      String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                       handleWithReturnValue(ctx, () ->
                                                     entitiesService.findById(structureId,
@@ -424,7 +424,7 @@ public class OpenApiVertxRouterFactory {
         }
         countRoute.handler(ctx -> {
 
-            String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+            String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
             EntityContext ec = new RoutingContextToEntityContextAdapter(ctx);
 
             try {
@@ -451,7 +451,7 @@ public class OpenApiVertxRouterFactory {
               .handler(bodyHandler)
               .handler(ctx -> {
 
-                  String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                  String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
                   String query;
                   EntityContext ec = new RoutingContextToEntityContextAdapter(ctx);
 
@@ -472,7 +472,7 @@ public class OpenApiVertxRouterFactory {
               .handler(bodyHandler)
               .handler(ctx -> {
 
-                  String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                  String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
                   try {
                       if(admin){
                           List<TenantSpecificId> ids = this.objectMapper.readValue(ctx.body().buffer().getBytes(), tenantSpecificListType);
@@ -505,7 +505,7 @@ public class OpenApiVertxRouterFactory {
               .handler(bodyHandler)
               .handler(ctx -> {
 
-                  String structureId = VertxWebUtil.validateAndReturnStructureId(ctx);
+                  String structureId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
                   Pageable pageable = VertxWebUtil.getPageableOrDefaultOffsetPageable(ctx);
                   String query;
                   EntityContext ec = new RoutingContextToEntityContextAdapter(ctx);

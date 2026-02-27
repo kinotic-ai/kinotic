@@ -6,7 +6,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
@@ -37,7 +37,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
     private final NamedQueriesService namedQueriesService;
     private final JsonMapper jsonMapper;
     private final ReadPreProcessor readPreProcessor;
-    private final StructureDAO structureDAO;
+    private final EntityDefinitionDAO entityDefinitionDAO;
     private final PersistenceProperties persistenceProperties;
     private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
 
@@ -48,7 +48,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
                                     NamedQueriesService namedQueriesService,
                                     JsonMapper jsonMapper,
                                     ReadPreProcessor readPreProcessor,
-                                    StructureDAO structureDAO,
+                                    EntityDefinitionDAO entityDefinitionDAO,
                                     PersistenceProperties persistenceProperties,
                                     List<UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors) {
         this.authServiceFactory = authServiceFactory;
@@ -57,7 +57,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
         this.namedQueriesService = namedQueriesService;
         this.jsonMapper = jsonMapper;
         this.readPreProcessor = readPreProcessor;
-        this.structureDAO = structureDAO;
+        this.entityDefinitionDAO = entityDefinitionDAO;
         this.persistenceProperties = persistenceProperties;
 
         this.upsertFieldPreProcessors = PersistenceUtil.listToMap(upsertFieldPreProcessors,
@@ -67,27 +67,27 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
 
     @Override
     public CompletableFuture<? extends EntityService> asyncLoad(String key, Executor executor) throws Exception {
-        return structureDAO.findById(key)
-                           .thenApply(structure -> {
-                               Validate.notNull(structure, "No Structure found for key: " + key);
-                               return structure;
+        return entityDefinitionDAO.findById(key)
+                                  .thenApply(entityDefinition -> {
+                               Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
+                               return entityDefinition;
                            })
-                           .thenComposeAsync(this::createEntityService, executor);
+                                  .thenComposeAsync(this::createEntityService, executor);
     }
 
     @SuppressWarnings("unchecked")
-    public CompletableFuture<EntityService> createEntityService(Structure structure) {
+    public CompletableFuture<EntityService> createEntityService(EntityDefinition entityDefinition) {
 
-        if(structure == null){
-            return CompletableFuture.failedFuture(new IllegalArgumentException("Structure must not be null"));
-        } else if (!structure.isPublished()) {
-            return CompletableFuture.failedFuture(new IllegalArgumentException("Structure must be published"));
+        if(entityDefinition == null){
+            return CompletableFuture.failedFuture(new IllegalArgumentException("EntityDefinition must not be null"));
+        } else if (!entityDefinition.isPublished()) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("EntityDefinition must be published"));
         }
 
         // Map of jsonPath to DecoratorLogic
         Map<String, DecoratorLogic> fieldPreProcessors = new LinkedHashMap<>();
 
-        for(DecoratedProperty decoratedProperty : structure.getDecoratedProperties()){
+        for(DecoratedProperty decoratedProperty : entityDefinition.getDecoratedProperties()){
 
             for(C3Decorator decorator : decoratedProperty.getDecorators()){
 
@@ -99,19 +99,19 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
             }
         }
 
-        return authServiceFactory.createStructureAuthorizationService(structure)
+        return authServiceFactory.createEntityDefinitionAuthorizationService(entityDefinition)
                                  .thenApply(authService -> new DefaultEntityService(
                                          authService,
                                          crudServiceTemplate,
                                          new DelegatingUpsertPreProcessor(persistenceProperties,
                                                                           jsonMapper,
-                                                                          structure,
+                                                                          entityDefinition,
                                                                           fieldPreProcessors),
                                          esAsyncClient,
                                          namedQueriesService,
                                          jsonMapper,
                                          readPreProcessor,
-                                         structure,
+                                         entityDefinition,
                                          persistenceProperties));
     }
 

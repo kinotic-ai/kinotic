@@ -31,7 +31,7 @@ public class EvictionEventRecorder {
     private final ExecutorService writeExecutor = Executors.newSingleThreadExecutor();
 
     public EvictionEventRecorder(
-        @Value("${structures.cache.eviction.csv.path:./eviction-events.csv}") String path) {
+        @Value("${kinotic.cache.eviction.csv.path:./eviction-events.csv}") String path) {
         this.outputPath = Path.of(path);
         log.info("Eviction event recorder initialized, writing to: {}", outputPath.toAbsolutePath());
     }

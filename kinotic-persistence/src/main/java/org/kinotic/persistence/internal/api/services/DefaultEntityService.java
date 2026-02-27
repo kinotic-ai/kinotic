@@ -53,7 +53,7 @@ public class DefaultEntityService implements EntityService {
     private final NamedQueriesService namedQueriesService;
     private final ObjectMapper objectMapper;
     private final ReadPreProcessor readPreProcessor;
-    private final Structure structure;
+    private final EntityDefinition entityDefinition;
     private final PersistenceProperties persistenceProperties;
 
     @WithSpan
@@ -67,24 +67,24 @@ public class DefaultEntityService implements EntityService {
                                  // We do this since there is no way to set an initial primary_term / seq_no combination
                                  // Or if using streams since this is the only supported operation
                                  ElasticVersion elasticVersion = entityHolder.getElasticVersionIfPresent();
-                                 if((structure.isOptimisticLockingEnabled()
+                                 if((entityDefinition.isOptimisticLockingEnabled()
                                          && elasticVersion == null)
-                                     || structure.isStream()
+                                     || entityDefinition.isStream()
                                  ){
 
                                      return b.create(c ->
-                                                             c.index(structure.getItemIndex())
+                                                             c.index(entityDefinition.getItemIndex())
                                                               .id(entityHolder.getDocumentId())
                                                               .routing(entityHolder.tenantId())
                                                               .document(entityHolder.entity()));
                                  }else{
                                      return b.index(i -> {
-                                         i.index(structure.getItemIndex())
+                                         i.index(entityDefinition.getItemIndex())
                                           .id(entityHolder.getDocumentId())
                                           .routing(entityHolder.tenantId())
                                           .document(entityHolder.entity());
 
-                                         if(structure.isOptimisticLockingEnabled()
+                                         if(entityDefinition.isOptimisticLockingEnabled()
                                                  && elasticVersion != null){
                                              i.ifPrimaryTerm(elasticVersion.primaryTerm());
                                              i.ifSeqNo(elasticVersion.seqNo());
@@ -105,7 +105,7 @@ public class DefaultEntityService implements EntityService {
                                      .update(u -> {
 
                                                  ElasticVersion elasticVersion = entityHolder.getElasticVersionIfPresent();
-                                                 u.index(structure.getItemIndex())
+                                                 u.index(entityDefinition.getItemIndex())
                                                   .id(entityHolder.getDocumentId())
                                                   .routing(entityHolder.tenantId())
                                                   .action(upB -> {
@@ -118,12 +118,12 @@ public class DefaultEntityService implements EntityService {
                                                       return upB;
                                                   });
 
-                                                 if(structure.isOptimisticLockingEnabled()
+                                                 if(entityDefinition.isOptimisticLockingEnabled()
                                                          && elasticVersion != null) {
 
                                                      u.ifPrimaryTerm(elasticVersion.primaryTerm())
                                                       .ifSeqNo(elasticVersion.seqNo());
-                                                 } else if (structure.isOptimisticLockingEnabled()) {
+                                                 } else if (entityDefinition.isOptimisticLockingEnabled()) {
                                                      throw new IllegalArgumentException("A Version must be provided when calling update");
                                                  }
                                                  return u;
@@ -137,8 +137,8 @@ public class DefaultEntityService implements EntityService {
         return validateContext(context)
                 .thenCompose(un -> authService.authorize(EntityOperation.COUNT, context))
                 .thenCompose(un -> crudServiceTemplate
-                        .count(structure.getItemIndex(),
-                               builder -> readPreProcessor.beforeCount(structure, null, builder, context)));
+                        .count(entityDefinition.getItemIndex(),
+                               builder -> readPreProcessor.beforeCount(entityDefinition, null, builder, context)));
     }
 
     @WithSpan
@@ -147,8 +147,8 @@ public class DefaultEntityService implements EntityService {
         return validateContext(context)
                 .thenCompose(un -> authService.authorize(EntityOperation.COUNT_BY_QUERY, context))
                 .thenCompose(un -> crudServiceTemplate
-                        .count(structure.getItemIndex(),
-                               builder -> readPreProcessor.beforeCount(structure, query, builder, context)));
+                        .count(entityDefinition.getItemIndex(),
+                               builder -> readPreProcessor.beforeCount(entityDefinition, query, builder, context)));
     }
 
     @WithSpan
@@ -158,9 +158,9 @@ public class DefaultEntityService implements EntityService {
                 .thenCompose(un -> authService.authorize(EntityOperation.DELETE_BY_ID, context))
                 .thenApply(un -> composeId(id, context))
                 .thenCompose(composedId -> crudServiceTemplate
-                        .deleteById(structure.getItemIndex(),
+                        .deleteById(entityDefinition.getItemIndex(),
                                     composedId,
-                                    builder -> readPreProcessor.beforeDelete(structure, builder, context))
+                                    builder -> readPreProcessor.beforeDelete(entityDefinition, builder, context))
                         .thenApply(deleteResponse -> null));
     }
 
@@ -174,9 +174,9 @@ public class DefaultEntityService implements EntityService {
                 .thenCompose(un -> authService.authorize(EntityOperation.DELETE_BY_ID, context))
                 .thenApply(un -> composeId(id))
                 .thenCompose(composedId -> crudServiceTemplate
-                        .deleteById(structure.getItemIndex(),
+                        .deleteById(entityDefinition.getItemIndex(),
                                     composedId,
-                                    builder -> readPreProcessor.beforeDelete(structure, builder, context))
+                                    builder -> readPreProcessor.beforeDelete(entityDefinition, builder, context))
                         .thenApply(deleteResponse -> null));
     }
 
@@ -186,8 +186,8 @@ public class DefaultEntityService implements EntityService {
         return validateContext(context)
                 .thenCompose(un -> authService.authorize(EntityOperation.DELETE_BY_QUERY, context))
                 .thenCompose(un -> crudServiceTemplate
-                        .deleteByQuery(structure.getItemIndex(),
-                                       builder -> readPreProcessor.beforeDeleteByQuery(structure, query, builder, context))
+                        .deleteByQuery(entityDefinition.getItemIndex(),
+                                       builder -> readPreProcessor.beforeDeleteByQuery(entityDefinition, query, builder, context))
                         .thenApply(deleteResponse -> null));
     }
 
@@ -200,42 +200,42 @@ public class DefaultEntityService implements EntityService {
 
                     if(FastestType.class.isAssignableFrom(type)){
 
-                        if(structure.isOptimisticLockingEnabled()){
+                        if(entityDefinition.isOptimisticLockingEnabled()){
                             return crudServiceTemplate
-                                    .search(structure.getItemIndex(),
+                                    .search(entityDefinition.getItemIndex(),
                                             pageable,
                                             Map.class,
-                                            builder -> readPreProcessor.beforeFindAll(structure, builder, context),
+                                            builder -> readPreProcessor.beforeFindAll(entityDefinition, builder, context),
                                             hit -> type.cast(new FastestType(updateVersionForEntity(hit.source(),
                                                                                               hit.primaryTerm(),
                                                                                               hit.seqNo()
                                             ))));
                         }else{
                             return crudServiceTemplate
-                                    .search(structure.getItemIndex(),
+                                    .search(entityDefinition.getItemIndex(),
                                             pageable,
                                             RawJson.class,
-                                            builder -> readPreProcessor.beforeFindAll(structure, builder, context),
+                                            builder -> readPreProcessor.beforeFindAll(entityDefinition, builder, context),
                                             hit -> type.cast(new FastestType(hit.source())));
                         }
                     }else{
 
-                        if(structure.isOptimisticLockingEnabled()){
+                        if(entityDefinition.isOptimisticLockingEnabled()){
                             return crudServiceTemplate
-                                    .search(structure.getItemIndex(),
+                                    .search(entityDefinition.getItemIndex(),
                                             pageable,
                                             type,
-                                            builder -> readPreProcessor.beforeFindAll(structure, builder, context),
+                                            builder -> readPreProcessor.beforeFindAll(entityDefinition, builder, context),
                                             hit -> updateVersionForEntity(hit.source(),
                                                                           hit.primaryTerm(),
                                                                           hit.seqNo()
                                             ));
                         }else{
                             return crudServiceTemplate
-                                    .search(structure.getItemIndex(),
+                                    .search(entityDefinition.getItemIndex(),
                                             pageable,
                                             type,
-                                            builder -> readPreProcessor.beforeFindAll(structure, builder, context));
+                                            builder -> readPreProcessor.beforeFindAll(entityDefinition, builder, context));
                         }
                     }
                 }).thenApply(createParanoidCheck(context, "FindAll"));
@@ -288,7 +288,7 @@ public class DefaultEntityService implements EntityService {
                                                      EntityContext context) {
         // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
         return validateContext(context)
-                .thenCompose(unused -> namedQueriesService.executeNamedQuery(structure,
+                .thenCompose(unused -> namedQueriesService.executeNamedQuery(entityDefinition,
                                                                              queryName,
                                                                              parameterHolder,
                                                                              type,
@@ -304,7 +304,7 @@ public class DefaultEntityService implements EntityService {
                                                          EntityContext context) {
         // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
         return validateContext(context)
-                .thenCompose(unused -> namedQueriesService.executeNamedQueryPage(structure,
+                .thenCompose(unused -> namedQueriesService.executeNamedQueryPage(entityDefinition,
                                                                                  queryName,
                                                                                  parameterHolder,
                                                                                  pageable,
@@ -320,7 +320,7 @@ public class DefaultEntityService implements EntityService {
                          context,
                          entityHolder -> esAsyncClient.index(i -> {
                              i.routing(entityHolder.tenantId())
-                              .index(structure.getItemIndex())
+                              .index(entityDefinition.getItemIndex())
                               .id(entityHolder.getDocumentId())
                               .document(entityHolder.entity())
                               .refresh(Refresh.True);
@@ -329,14 +329,14 @@ public class DefaultEntityService implements EntityService {
                              // We do this since there is no way to set an initial primary_term / seq_no combination
                              // Or if using streams since this is the only supported operation
                              ElasticVersion elasticVersion = entityHolder.getElasticVersionIfPresent();
-                             if((structure.isOptimisticLockingEnabled()
+                             if((entityDefinition.isOptimisticLockingEnabled()
                                      && elasticVersion == null)
-                                 || structure.isStream()
+                                 || entityDefinition.isStream()
                              ){
 
                                  i.opType(OpType.Create);
 
-                             }else if(structure.isOptimisticLockingEnabled()
+                             }else if(entityDefinition.isOptimisticLockingEnabled()
                                      && elasticVersion != null){
 
                                  i.ifPrimaryTerm(elasticVersion.primaryTerm());
@@ -359,12 +359,12 @@ public class DefaultEntityService implements EntityService {
 
                     if(FastestType.class.isAssignableFrom(type)){
 
-                        if(structure.isOptimisticLockingEnabled()){
+                        if(entityDefinition.isOptimisticLockingEnabled()){
                             return crudServiceTemplate
-                                    .search(structure.getItemIndex(),
+                                    .search(entityDefinition.getItemIndex(),
                                             pageable,
                                             Map.class,
-                                            builder -> readPreProcessor.beforeSearch(structure,
+                                            builder -> readPreProcessor.beforeSearch(entityDefinition,
                                                                                      searchText,
                                                                                      builder,
                                                                                      context),
@@ -374,10 +374,10 @@ public class DefaultEntityService implements EntityService {
                                             ))));
                         }else{
                             return crudServiceTemplate
-                                    .search(structure.getItemIndex(),
+                                    .search(entityDefinition.getItemIndex(),
                                             pageable,
                                             RawJson.class,
-                                            builder -> readPreProcessor.beforeSearch(structure,
+                                            builder -> readPreProcessor.beforeSearch(entityDefinition,
                                                                                      searchText,
                                                                                      builder,
                                                                                      context),
@@ -385,12 +385,12 @@ public class DefaultEntityService implements EntityService {
                         }
                     }else{
 
-                        if(structure.isOptimisticLockingEnabled()){
+                        if(entityDefinition.isOptimisticLockingEnabled()){
                             return crudServiceTemplate
-                                    .search(structure.getItemIndex(),
+                                    .search(entityDefinition.getItemIndex(),
                                             pageable,
                                             type,
-                                            builder -> readPreProcessor.beforeSearch(structure,
+                                            builder -> readPreProcessor.beforeSearch(entityDefinition,
                                                                                      searchText,
                                                                                      builder,
                                                                                      context),
@@ -400,10 +400,10 @@ public class DefaultEntityService implements EntityService {
                                             ));
                         }else{
                             return crudServiceTemplate
-                                    .search(structure.getItemIndex(),
+                                    .search(entityDefinition.getItemIndex(),
                                             pageable,
                                             type,
-                                            builder -> readPreProcessor.beforeSearch(structure,
+                                            builder -> readPreProcessor.beforeSearch(entityDefinition,
                                                                                      searchText,
                                                                                      builder,
                                                                                      context));
@@ -417,7 +417,7 @@ public class DefaultEntityService implements EntityService {
     public CompletableFuture<Void> syncIndex(EntityContext context) {
         return authService.authorize(EntityOperation.SYNC_INDEX, context)
                           .thenCompose(un -> esAsyncClient.indices().refresh(
-                                  b -> b.index(structure.getItemIndex())))
+                                  b -> b.index(entityDefinition.getItemIndex())))
                           .thenApply(unused -> null);
     }
 
@@ -431,19 +431,19 @@ public class DefaultEntityService implements EntityService {
 
                              UpdateRequest<?,?> request = UpdateRequest.of(u -> {
                                  u.routing(entityHolder.tenantId())
-                                  .index(structure.getItemIndex())
+                                  .index(entityDefinition.getItemIndex())
                                   .id(entityHolder.getDocumentId())
                                   .doc(entityHolder.entity())
                                   .refresh(Refresh.True);
 
                                  ElasticVersion elasticVersion = entityHolder.getElasticVersionIfPresent();
-                                 if(structure.isOptimisticLockingEnabled()
+                                 if(entityDefinition.isOptimisticLockingEnabled()
                                          && elasticVersion != null) {
 
                                      u.ifPrimaryTerm(elasticVersion.primaryTerm())
                                       .ifSeqNo(elasticVersion.seqNo());
 
-                                 } else if (structure.isOptimisticLockingEnabled()) {
+                                 } else if (entityDefinition.isOptimisticLockingEnabled()) {
                                      throw new IllegalArgumentException("A Version must be provided when calling update");
                                  }else{
                                      u.docAsUpsert(true);
@@ -462,7 +462,7 @@ public class DefaultEntityService implements EntityService {
 
     private String composeId(final String id, final EntityContext context){
         String ret;
-        if(structure.getMultiTenancyType() == MultiTenancyType.SHARED){
+        if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED){
             String tenantId = context.getParticipant().getTenantId();
             ret = tenantId + "-" + id;
         }else{
@@ -477,12 +477,12 @@ public class DefaultEntityService implements EntityService {
 
     private List<MultiGetOperation> composeIds(final List<String> ids, final EntityContext context){
         List<MultiGetOperation> ret = new ArrayList<>(ids.size());
-        boolean multiTenancyShared = structure.getMultiTenancyType() == MultiTenancyType.SHARED;
+        boolean multiTenancyShared = entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED;
 
         String tenantId = context.getParticipant().getTenantId();
         for (String id : ids){
             MultiGetOperation.Builder builder =  new MultiGetOperation.Builder();
-            builder.index(structure.getItemIndex());
+            builder.index(entityDefinition.getItemIndex());
             if(multiTenancyShared){
                 builder.id(tenantId + "-" + id)
                        .routing(tenantId);
@@ -498,10 +498,10 @@ public class DefaultEntityService implements EntityService {
     private <T> Function<Page<T>, Page<T>> createParanoidCheck(EntityContext context, String what){
         return page -> {
             // This is a temporary bit of code to make sure multi tenancy is working properly
-            if(structure.getMultiTenancyType() == MultiTenancyType.SHARED){
+            if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED){
                 String tenantIdFieldName
-                        = structure.isMultiTenantSelectionEnabled()
-                        ? structure.getTenantIdFieldName() : persistenceProperties.getTenantIdFieldName();
+                        = entityDefinition.isMultiTenantSelectionEnabled()
+                        ? entityDefinition.getTenantIdFieldName() : persistenceProperties.getTenantIdFieldName();
 
                 List<Object> result = new ArrayList<>(page.getContent().size());
                 Set<String> tenantIds = Collections.emptySet();
@@ -517,9 +517,9 @@ public class DefaultEntityService implements EntityService {
                             result.add(object);
                         }else{
                             log.error(
-                                    "{} Multi tenancy is not working properly for structure: {} and expected one of: {} got: {}\nData:\n{}",
+                                    "{} Multi tenancy is not working properly for EntityDefinition: {} and expected one of: {} got: {}\nData:\n{}",
                                     what,
-                                    structure,
+                                    entityDefinition,
                                     String.join(",", tenantIds),
                                     tenant,
                                     formatToPrintJson(object));
@@ -529,9 +529,9 @@ public class DefaultEntityService implements EntityService {
                             result.add(object);
                         }else{
                             log.error(
-                                    "{} Multi tenancy is not working properly for structure: {} and expected tenant: {} got: {}\nData:\n{}",
+                                    "{} Multi tenancy is not working properly for EntityDefinition: {} and expected tenant: {} got: {}\nData:\n{}",
                                     what,
-                                    structure,
+                                    entityDefinition,
                                     context.getParticipant().getTenantId(),
                                     tenant,
                                     formatToPrintJson(object));
@@ -556,42 +556,42 @@ public class DefaultEntityService implements EntityService {
 
     private <T> CompletableFuture<T> doFindById(String id, Class<T> type, EntityContext context) {
         if(FastestType.class.isAssignableFrom(type)){
-            if(structure.isOptimisticLockingEnabled()){
+            if(entityDefinition.isOptimisticLockingEnabled()){
                 return crudServiceTemplate
-                        .findById(structure.getItemIndex(),
+                        .findById(entityDefinition.getItemIndex(),
                                   id,
                                   Map.class,
-                                  builder -> readPreProcessor.beforeFindById(structure, builder, context),
+                                  builder -> readPreProcessor.beforeFindById(entityDefinition, builder, context),
                                   result -> type.cast(new FastestType(updateVersionForEntity(result.source(),
                                                                                      result.primaryTerm(),
                                                                                      result.seqNo()
                                   ))));
             }else{
                 return crudServiceTemplate
-                        .findById(structure.getItemIndex(),
+                        .findById(entityDefinition.getItemIndex(),
                                   id,
                                   RawJson.class,
-                                  builder -> readPreProcessor.beforeFindById(structure, builder, context),
+                                  builder -> readPreProcessor.beforeFindById(entityDefinition, builder, context),
                                   result -> type.cast(new FastestType(result.source())));
             }
         }else{
 
-            if(structure.isOptimisticLockingEnabled()){
+            if(entityDefinition.isOptimisticLockingEnabled()){
                 return crudServiceTemplate
-                        .findById(structure.getItemIndex(),
+                        .findById(entityDefinition.getItemIndex(),
                                   id,
                                   type,
-                                  builder -> readPreProcessor.beforeFindById(structure, builder, context),
+                                  builder -> readPreProcessor.beforeFindById(entityDefinition, builder, context),
                                   result -> updateVersionForEntity(result.source(),
                                                                    result.primaryTerm(),
                                                                    result.seqNo()
                                   ));
             }else{
                 return crudServiceTemplate
-                        .findById(structure.getItemIndex(),
+                        .findById(entityDefinition.getItemIndex(),
                                   id,
                                   type,
-                                  builder -> readPreProcessor.beforeFindById(structure, builder, context));
+                                  builder -> readPreProcessor.beforeFindById(entityDefinition, builder, context));
             }
         }
     }
@@ -600,11 +600,11 @@ public class DefaultEntityService implements EntityService {
                                                        Class<T> type,
                                                        EntityContext context) {
         if(FastestType.class.isAssignableFrom(type)){
-            if(structure.isOptimisticLockingEnabled()){
+            if(entityDefinition.isOptimisticLockingEnabled()){
                 return crudServiceTemplate
                         .multiGet(composedIds,
                                   Map.class,
-                                  builder -> readPreProcessor.beforeFindByIds(structure, builder, context),
+                                  builder -> readPreProcessor.beforeFindByIds(entityDefinition, builder, context),
                                   result -> type.cast(new FastestType(updateVersionForEntity(result.source(),
                                                                                      result.primaryTerm(),
                                                                                      result.seqNo()
@@ -613,16 +613,16 @@ public class DefaultEntityService implements EntityService {
                 return crudServiceTemplate
                         .multiGet(composedIds,
                                   RawJson.class,
-                                  builder -> readPreProcessor.beforeFindByIds(structure, builder, context),
+                                  builder -> readPreProcessor.beforeFindByIds(entityDefinition, builder, context),
                                   result -> type.cast(new FastestType(result.source())));
             }
         }else{
 
-            if(structure.isOptimisticLockingEnabled()){
+            if(entityDefinition.isOptimisticLockingEnabled()){
                 return crudServiceTemplate
                         .multiGet(composedIds,
                                   type,
-                                  builder -> readPreProcessor.beforeFindByIds(structure, builder, context),
+                                  builder -> readPreProcessor.beforeFindByIds(entityDefinition, builder, context),
                                   result -> updateVersionForEntity(result.source(),
                                                                    result.primaryTerm(),
                                                                    result.seqNo()
@@ -631,7 +631,7 @@ public class DefaultEntityService implements EntityService {
                 return crudServiceTemplate
                         .multiGet(composedIds,
                                   type,
-                                  builder -> readPreProcessor.beforeFindByIds(structure, builder, context),
+                                  builder -> readPreProcessor.beforeFindByIds(entityDefinition, builder, context),
                                   null);
             }
         }
@@ -643,7 +643,7 @@ public class DefaultEntityService implements EntityService {
                                                Function<EntityHolder<?>, CompletableFuture<T>> persistLogic){
         // We do this since ideally processing data before auth is not ideal
         // However, in the case of Multi-tenant access we must extract tenant ids prior to calling auth
-        if(structure.isMultiTenantSelectionEnabled()){
+        if(entityDefinition.isMultiTenantSelectionEnabled()){
 
             return validateContext(context)
                     .thenCompose(un -> delegatingUpsertPreProcessor.process(entity, context))
@@ -664,7 +664,7 @@ public class DefaultEntityService implements EntityService {
                                                       Function<EntityHolder<?>, BulkOperation> persistLogic){
         // We do this since ideally processing data before auth is not ideal
         // However, in the case of Multi-tenant access we must extract tenant ids prior to calling auth
-        if(structure.isMultiTenantSelectionEnabled()){
+        if(entityDefinition.isMultiTenantSelectionEnabled()){
 
             return validateContext(context)
                     .thenCompose(un -> delegatingUpsertPreProcessor.processArray(entities, context))
@@ -751,7 +751,7 @@ public class DefaultEntityService implements EntityService {
         // All token buffers received will be converted to RawJson in the upsert preprocessor
         // This is done since it uses less memory for bulk operations
         // So we convert those cases back to a TokenBuffer before returning
-        if(structure.isOptimisticLockingEnabled()){
+        if(entityDefinition.isOptimisticLockingEnabled()){
             return (T) updateVersionForEntity(entityHolder.entity(),
                                               primaryTerm,
                                               seqNo,
@@ -790,7 +790,7 @@ public class DefaultEntityService implements EntityService {
                     JsonNode node = objectMapper.readTree(buffer.asParser(objectMapper._deserializationContext()));
 
                     node.withObject(JsonPointer.empty())
-                        .put(structure.getVersionFieldName(), versionValue);
+                        .put(entityDefinition.getVersionFieldName(), versionValue);
 
                     // Serialize back to TokenBuffer
                     TokenBuffer updatedBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
@@ -801,12 +801,12 @@ public class DefaultEntityService implements EntityService {
                     throw new IllegalStateException("Failed to update version in TokenBuffer", e);
                 }
             }
-            case Map map -> map.put(structure.getVersionFieldName(), versionValue);
+            case Map map -> map.put(entityDefinition.getVersionFieldName(), versionValue);
             case RawJson rawJson -> {
 
                 try {
                     ObjectNode node = (ObjectNode) objectMapper.readTree(rawJson.data());
-                    node.put(structure.getVersionFieldName(), versionValue);
+                    node.put(entityDefinition.getVersionFieldName(), versionValue);
 
                     // All token buffers passed to save or update will receive a RawJson object do to how the upsert pre processor works
                     // So we convert if need be
@@ -830,15 +830,16 @@ public class DefaultEntityService implements EntityService {
     }
 
     private CompletableFuture<Void> validateContext(final EntityContext context){
-        if(structure.getMultiTenancyType() == MultiTenancyType.SHARED){
+        if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED){
             if(context.getParticipant() != null && context.getParticipant().getTenantId() != null) {
 
                 // Check if tenant selection is trying to be used but not enabled
                 if (ObjectUtils.isNotEmpty(context.getTenantSelection())
-                        && !structure.isMultiTenantSelectionEnabled()) {
+                        && !entityDefinition.isMultiTenantSelectionEnabled()) {
 
                     return CompletableFuture.failedFuture(
-                            new IllegalArgumentException("Multi-tenant access for this Structure %s is not enabled".formatted(structure.getName()))
+                            new IllegalArgumentException("Multi-tenant access for this EntityDefinition %s is not enabled".formatted(
+                                    entityDefinition.getName()))
                     );
                 } else {
                     return CompletableFuture.completedFuture(null);
@@ -848,10 +849,11 @@ public class DefaultEntityService implements EntityService {
             }
         }else if(ObjectUtils.isNotEmpty(context.getTenantSelection())){
             // This check is here since continuum will allow any published service to be called.
-            // So someone could call the admin service even though it is not enabled for this Structure
+            // So someone could call the admin service even though it is not enabled for this EntityDefinition
             // Multitenant access can only be enabled if MultiTenancyType.SHARED
             return CompletableFuture.failedFuture(
-                    new IllegalArgumentException("Multi-tenant access for this Structure %s is not enabled".formatted(structure.getName()))
+                    new IllegalArgumentException("Multi-tenant access for this EntityDefinition %s is not enabled".formatted(
+                            entityDefinition.getName()))
             );
         }else{
             return CompletableFuture.completedFuture(null);
@@ -859,8 +861,8 @@ public class DefaultEntityService implements EntityService {
     }
 
     private CompletableFuture<List<MultiGetOperation>> validate_ComposeIds_AddTenantsToContext(final List<TenantSpecificId> ids, EntityContext entityContext){
-        if(structure.getMultiTenancyType() == MultiTenancyType.SHARED
-                && structure.isMultiTenantSelectionEnabled()){
+        if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED
+                && entityDefinition.isMultiTenantSelectionEnabled()){
 
             if(entityContext.getParticipant() != null && entityContext.getParticipant().getTenantId() != null) {
 
@@ -868,7 +870,7 @@ public class DefaultEntityService implements EntityService {
                 List<String> tenants = new ArrayList<>(ids.size());
                 for (TenantSpecificId id : ids) {
                     MultiGetOperation.Builder builder = new MultiGetOperation.Builder();
-                    builder.index(structure.getItemIndex())
+                    builder.index(entityDefinition.getItemIndex())
                            .id(id.tenantId() + "-" + id.entityId())
                            .routing(id.tenantId());
 
@@ -884,7 +886,8 @@ public class DefaultEntityService implements EntityService {
             }
         }else{
             return CompletableFuture.failedFuture(
-                    new IllegalArgumentException("Multi-tenant access for this Structure %s is not enabled".formatted(structure.getName()))
+                    new IllegalArgumentException("Multi-tenant access for this EntityDefinition %s is not enabled".formatted(
+                            entityDefinition.getName()))
             );
         }
     }

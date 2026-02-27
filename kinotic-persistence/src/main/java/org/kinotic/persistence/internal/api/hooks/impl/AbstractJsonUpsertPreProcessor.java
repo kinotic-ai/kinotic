@@ -11,7 +11,7 @@ import tools.jackson.core.util.ByteArrayBuilder;
 import tools.jackson.databind.json.JsonMapper;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.*;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
@@ -33,14 +33,14 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
 
     /** Mapper with FAIL_ON_TRAILING_TOKENS disabled for stream reads (Jackson 3; not needed in Jackson 2). */
     protected final JsonMapper jsonMapper;
-    protected final Structure structure;
+    protected final EntityDefinition entityDefinition;
     protected final PersistenceProperties persistenceProperties;
     // Map of json path to decorator logic
     private final Map<String, DecoratorLogic> fieldPreProcessors;
 
     public AbstractJsonUpsertPreProcessor(PersistenceProperties persistenceProperties,
                                           JsonMapper jsonMapper,
-                                          Structure structure,
+                                          EntityDefinition entityDefinition,
                                           Map<String, DecoratorLogic> fieldPreProcessors) {
         this.persistenceProperties = persistenceProperties;
         // Jackson 3 fails on trailing tokens by default; we stream-parse and readValue() one field at a time,
@@ -48,7 +48,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
         this.jsonMapper = jsonMapper.rebuild()
                 .disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                 .build();
-        this.structure = structure;
+        this.entityDefinition = entityDefinition;
         this.fieldPreProcessors = fieldPreProcessors;
     }
 
@@ -117,7 +117,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         C3Decorator decorator = preProcessorLogic.getDecorator();
                         UpsertFieldPreProcessor<C3Decorator, Object, Object> preProcessor = preProcessorLogic.getProcessor();
                         Object input = jsonMapper.readValue(jsonParser, preProcessor.supportsFieldType());
-                        Object value = preProcessor.process(structure, fieldName, decorator, input, context);
+                        Object value = preProcessor.process(entityDefinition, fieldName, decorator, input, context);
 
                         // We exclude the version field from the data to be persisted
                         if(!(decorator instanceof VersionDecorator)) {
@@ -138,7 +138,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                                 throw new IllegalArgumentException("Id field cannot be null or blank");
                             }
 
-                            if(currentId != null){ // should never happen, because the structure is validated when published
+                            if(currentId != null){ // should never happen, because the EntityDefinition is validated when published
                                 throw new IllegalArgumentException("Found multiple id fields in entity");
                             }
 
@@ -147,14 +147,14 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
 
                         }else if(objectDepth == 1 && decorator instanceof VersionDecorator) {
 
-                            if (currentVersion != null) { // should never happen, because the structure is validated when published
+                            if (currentVersion != null) { // should never happen, because the EntityDefinition is validated when published
                                 throw new IllegalArgumentException("Found multiple Version fields in entity");
                             }
 
                             currentVersion = (String) value;
                         }else if(objectDepth == 1 && decorator instanceof TenantIdDecorator){
 
-                            if(currentTenantId != null){ // should never happen, because the structure is validated when published
+                            if(currentTenantId != null){ // should never happen, because the EntityDefinition is validated when published
                                 throw new IllegalArgumentException("Found multiple id fields in entity");
                             }
                             // field exists but is null so we can throw early
@@ -174,8 +174,8 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         }
                     }else{
                         // Check if this is the tenant id if MultiTenancyType.SHARED is enabled
-                        if(structure.getMultiTenancyType() == MultiTenancyType.SHARED
-                                && !structure.isMultiTenantSelectionEnabled() // just in case there is a field with the same name as the configured prop
+                        if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED
+                                && !entityDefinition.isMultiTenantSelectionEnabled() // just in case there is a field with the same name as the configured prop
                                 && currentJsonPath.equals(persistenceProperties.getTenantIdFieldName())){
 
                             // since the tenant id field is already present check its value to make sure it is null
@@ -203,16 +203,16 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         }
 
                         // If this is enabled a tenant id should always be present in the data
-                        if(structure.isMultiTenantSelectionEnabled() && currentTenantId == null){
+                        if(entityDefinition.isMultiTenantSelectionEnabled() && currentTenantId == null){
 
                             throw new IllegalArgumentException("Could not find TenantId for Entity");
 
-                        } else if (structure.isMultiTenantSelectionEnabled() && currentTenantId != null) {
+                        } else if (entityDefinition.isMultiTenantSelectionEnabled() && currentTenantId != null) {
                             tenantsSelected.add(currentTenantId);
                         }
 
-                        // If this is a multi tenant structure and multi tenant selection is not enabled, add the tenant if necessary
-                        if(structure.getMultiTenancyType() == MultiTenancyType.SHARED
+                        // If this is a multi tenant EntityDefinition and multi tenant selection is not enabled, add the tenant if necessary
+                        if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED
                                 && currentTenantId == null){
                             currentTenantId = context.getParticipant().getTenantId();
                             jsonGenerator.writeStringProperty(persistenceProperties.getTenantIdFieldName(), currentTenantId);
@@ -223,7 +223,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         jsonGenerator.flush();
                         ret.add(new EntityHolder<>(new RawJson(byteArrayBuilder.toByteArray()),
                                                    currentId,
-                                                   structure.getMultiTenancyType(),
+                                                   entityDefinition.getMultiTenancyType(),
                                                    currentTenantId,
                                                    currentVersion
                         ));
@@ -259,7 +259,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
 
             // We always blow away tenant selection on save/update since the only tenants that mater are the ones in the data
             // This is a sanity check, in case somehow it was already provided. We want to make sure auth services see the correct list.
-            if(structure.isMultiTenantSelectionEnabled()){
+            if(entityDefinition.isMultiTenantSelectionEnabled()){
                 context.setTenantSelection(tenantsSelected);
             }
 

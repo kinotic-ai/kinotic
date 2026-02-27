@@ -1,5 +1,6 @@
 package org.kinotic.persistence.internal.endpoints.graphql;
 
+import org.kinotic.persistence.api.model.EntityDefinition;
 import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import graphql.language.OperationDefinition;
@@ -9,12 +10,11 @@ import org.apache.commons.text.WordUtils;
 import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
-import org.kinotic.persistence.api.model.Structure;
 import org.kinotic.persistence.api.model.idl.PageC3Type;
 import org.kinotic.persistence.api.model.idl.decorators.QueryDecorator;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.api.services.NamedQueriesService;
-import org.kinotic.persistence.internal.api.services.StructureDAO;
+import org.kinotic.persistence.internal.api.services.EntityDefinitionDAO;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.PagedQueryDataFetcher;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.QueryDataFetcher;
 import org.kinotic.persistence.internal.utils.QueryUtils;
@@ -41,18 +41,18 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
     private final EntitiesService entitiesService;
     private final NamedQueriesService namedQueriesService;
     private final ObjectMapper objectMapper;
-    private final StructureDAO structureDAO;
+    private final EntityDefinitionDAO entityDefinitionDAO;
 
     @Override
     public CompletableFuture<? extends List<GqlOperationDefinition>> asyncLoad(String key, Executor executor) {
-        return structureDAO.findById(key)
-                           .thenApply(structure -> {
-                               Validate.notNull(structure, "No Structure found for key: " + key);
-                               return structure;
+        return entityDefinitionDAO.findById(key)
+                                  .thenApply(entityDefinition -> {
+                               Validate.notNull(entityDefinition, "No Structure found for key: " + key);
+                               return entityDefinition;
                            })
-                           .thenComposeAsync(structure -> {
-                               NamedQueriesDefinition namedQueriesDefinition = namedQueriesService.findByApplicationAndStructure(structure.getApplicationId(),
-                                                                                                                               structure.getName())
+                                  .thenComposeAsync(entityDefinition -> {
+                               NamedQueriesDefinition namedQueriesDefinition = namedQueriesService.findByApplicationAndEntityDefinition(entityDefinition.getApplicationId(),
+                                                                                                                                        entityDefinition.getName())
                                                                                                   .join();
                                List<GqlOperationDefinition> ret;
                                if(namedQueriesDefinition != null) {
@@ -63,7 +63,7 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
                                        QueryDecorator queryDecorator = queryDefinition.findDecorator(QueryDecorator.class);
                                        if(queryDecorator != null) {
 
-                                           List<GqlOperationDefinition> definitions = buildGqlOperationDefinitions(structure,
+                                           List<GqlOperationDefinition> definitions = buildGqlOperationDefinitions(entityDefinition,
                                                                                                                    queryDefinition,
                                                                                                                    queryDecorator);
 
@@ -71,7 +71,7 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
                                        }else{
                                            log.debug("No QueryDecorator found for Named query {} in Structure {}. No GraphQL operation will be created.",
                                                     queryDefinition.getName(),
-                                                    structure.getName());
+                                                    entityDefinition.getName());
                                        }
                                    }
                                }else{
@@ -81,7 +81,7 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
                            }, executor);
     }
 
-    private List<GqlOperationDefinition> buildGqlOperationDefinitions(Structure structure,
+    private List<GqlOperationDefinition> buildGqlOperationDefinitions(EntityDefinition entityDefinition,
                                                                       FunctionDefinition queryDefinition,
                                                                       QueryDecorator queryDecorator) {
         List<GqlOperationDefinition> ret = new ArrayList<>();
@@ -92,11 +92,11 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
         if(queryDefinition.getReturnType() instanceof PageC3Type) {
             switch (queryType) {
                 case AGGREGATE:
-                    ret.add(createForCursorPageQuery(structure, queryDefinition, queryName, ""));
+                    ret.add(createForCursorPageQuery(entityDefinition, queryDefinition, queryName, ""));
                     break;
                 case SELECT:
-                    ret.add(createForCursorPageQuery(structure, queryDefinition, queryName, "WithCursor"));
-                    ret.add(createForOffsetPageQuery(structure, queryDefinition, queryName));
+                    ret.add(createForCursorPageQuery(entityDefinition, queryDefinition, queryName, "WithCursor"));
+                    ret.add(createForOffsetPageQuery(entityDefinition, queryDefinition, queryName));
                     break;
                 default:
                     log.warn("The Page Return type is not valid for a {} query. Query {} will be skipped.", queryType, queryName);
@@ -104,7 +104,7 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
             }
         }else{
             GqlOperationDefinition.GqlOperationDefinitionBuilder builder = GqlOperationDefinition.builder();
-            builder.operationName(queryName + WordUtils.capitalize(structure.getName()))
+            builder.operationName(queryName + WordUtils.capitalize(entityDefinition.getName()))
                    .operationType(getGqlOperationType(queryType))
                    .fieldDefinitionFunction(new QueryGqlFieldDefinitionFunction(queryDefinition, false))
                    .dataFetcherDefinitionFunction(struct -> new QueryDataFetcher(entitiesService, queryName, struct.getId()));
@@ -113,12 +113,12 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
         return ret;
     }
 
-    private GqlOperationDefinition createForCursorPageQuery(Structure structure,
+    private GqlOperationDefinition createForCursorPageQuery(EntityDefinition entityDefinition,
                                                             FunctionDefinition queryDefinition,
                                                             String queryName,
                                                             String suffix) {
         GqlOperationDefinition.GqlOperationDefinitionBuilder builder = GqlOperationDefinition.builder();
-        builder.operationName(queryName + suffix + WordUtils.capitalize(structure.getName()))
+        builder.operationName(queryName + suffix + WordUtils.capitalize(entityDefinition.getName()))
                .operationType(OperationDefinition.Operation.QUERY)
                .fieldDefinitionFunction(new QueryGqlFieldDefinitionFunction(queryDefinition, true))
                .dataFetcherDefinitionFunction(struct -> new PagedQueryDataFetcher(entitiesService,
@@ -129,11 +129,11 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
         return builder.build();
     }
 
-    private GqlOperationDefinition createForOffsetPageQuery(Structure structure,
+    private GqlOperationDefinition createForOffsetPageQuery(EntityDefinition entityDefinition,
                                                             FunctionDefinition queryDefinition,
                                                             String queryName) {
         GqlOperationDefinition.GqlOperationDefinitionBuilder builder = GqlOperationDefinition.builder();
-        builder.operationName(queryName + WordUtils.capitalize(structure.getName()))
+        builder.operationName(queryName + WordUtils.capitalize(entityDefinition.getName()))
                .operationType(OperationDefinition.Operation.QUERY)
                .fieldDefinitionFunction(new QueryGqlFieldDefinitionFunction(queryDefinition, false))
                .dataFetcherDefinitionFunction(struct -> new PagedQueryDataFetcher(entitiesService,

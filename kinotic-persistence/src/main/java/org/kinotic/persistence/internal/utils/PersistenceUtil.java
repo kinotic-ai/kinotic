@@ -2,7 +2,7 @@ package org.kinotic.persistence.internal.utils;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.utils.CoreUtil;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -12,50 +12,50 @@ import java.util.regex.Pattern;
 
 public class PersistenceUtil {
 
-    private static final Pattern StructureNamePattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
+    private static final Pattern EntityDefinitionNamePattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
 
     /**
-     * Function will convert a structure applicationId and name to a valid
-     * @param structureApplicationId to convert
-     * @param structureName to convert
-     * @return a valid structure id
+     * Function will convert a {@link EntityDefinition} applicationId and name to a valid
+     * @param applicationId to convert
+     * @param entityDefinitionName to convert
+     * @return a valid {@link EntityDefinition} id
      */
-    public static String structureNameToId(String structureApplicationId, String structureName){
-        return (structureApplicationId + "." + structureName).toLowerCase();
+    public static String entityDefinitionNameToId(String applicationId, String entityDefinitionName){
+        return (applicationId + "." + entityDefinitionName).toLowerCase();
     }
 
     /**
-     * Function will validate a structure
+     * Function will validate a {@link EntityDefinition}
      *
-     * @param structure to validate
-     * @throws IllegalArgumentException will be thrown if the structure is invalid
+     * @param entityDefinition to validate
+     * @throws IllegalArgumentException will be thrown if the {@link EntityDefinition} is invalid
      */
-    public static void validateStructure(Structure structure){
+    public static void validateEntityDefinition(EntityDefinition entityDefinition){
 
-        validateStructureName(structure.getName());
+        validateEntityDefinitionName(entityDefinition.getName());
 
-        CoreUtil.validateApplicationId(structure.getApplicationId());
+        CoreUtil.validateApplicationId(entityDefinition.getApplicationId());
 
-        CoreUtil.validateProjectId(structure.getProjectId());
+        CoreUtil.validateProjectId(entityDefinition.getProjectId());
 
-        if (structure.getEntityDefinition() == null) {
-            throw new IllegalArgumentException("Structure entityDefinition must not be null");
+        if (entityDefinition.getSchema() == null) {
+            throw new IllegalArgumentException("EntityDefinition schema must not be null");
         }
     }
 
     /**
-     * Function will validate the structure name
+     * Function will validate the {@link EntityDefinition} name
      *
-     * @param structureName to validate
-     * @throws IllegalArgumentException will be thrown if the structure name is invalid
+     * @param entityDefinitionName to validate
+     * @throws IllegalArgumentException will be thrown if the {@link EntityDefinition} name is invalid
      */
-    public static void validateStructureName(String structureName){
-        if(structureName == null){
-            throw new IllegalArgumentException("Structure name must not be null");
+    public static void validateEntityDefinitionName(String entityDefinitionName){
+        if(entityDefinitionName == null){
+            throw new IllegalArgumentException("EntityDefinition name must not be null");
         }
-        if (!StructureNamePattern.matcher(structureName).matches()){
-            throw new IllegalArgumentException("Structure Name Invalid, first character must be a " +
-                                               "letter, number or underscore. And contain only letters, numbers or underscores. Got "+ structureName);
+        if (!EntityDefinitionNamePattern.matcher(entityDefinitionName).matches()){
+            throw new IllegalArgumentException("EntityDefinition Name Invalid, first character must be a " +
+                                               "letter, number or underscore. And contain only letters, numbers or underscores. Got "+ entityDefinitionName);
         }
     }
 
@@ -73,7 +73,7 @@ public class PersistenceUtil {
         if(propertyName.length() > 255){
             throw new IllegalArgumentException("Property Name cannot have more than 255 characters");
         }
-        if(!StructureNamePattern.matcher(propertyName).matches()){
+        if(!EntityDefinitionNamePattern.matcher(propertyName).matches()){
             throw new IllegalArgumentException("Property Name Invalid, first character must be a " +
                                                "letter, number or underscore. And contain only letters, numbers or underscores. Got "+ propertyName);
         }

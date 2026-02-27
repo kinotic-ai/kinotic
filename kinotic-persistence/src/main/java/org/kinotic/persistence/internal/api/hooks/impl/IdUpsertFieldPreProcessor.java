@@ -1,9 +1,9 @@
 package org.kinotic.persistence.internal.api.hooks.impl;
 
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.IdDecorator;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.model.Structure;
 import org.springframework.stereotype.Component;
 
 /**
@@ -23,7 +23,7 @@ public class IdUpsertFieldPreProcessor implements UpsertFieldPreProcessor<IdDeco
     }
 
     @Override
-    public String process(Structure structure, String fieldName, IdDecorator decorator, String fieldValue, EntityContext context) {
+    public String process(EntityDefinition entityDefinition, String fieldName, IdDecorator decorator, String fieldValue, EntityContext context) {
         if(fieldValue == null || fieldValue.isBlank()){
             throw new IllegalArgumentException("Id field cannot be null or blank");
         }

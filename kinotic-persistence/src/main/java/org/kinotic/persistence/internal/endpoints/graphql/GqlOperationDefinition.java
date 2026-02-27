@@ -5,7 +5,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.GraphQLFieldDefinition;
 import lombok.Builder;
 import lombok.Getter;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 
 import java.util.function.Function;
 
@@ -37,6 +37,6 @@ public class GqlOperationDefinition {
     /**
      * The function that will define the {@link DataFetcher} for this operation
      */
-    private final Function<Structure, DataFetcher<?>> dataFetcherDefinitionFunction;
+    private final Function<EntityDefinition, DataFetcher<?>> dataFetcherDefinitionFunction;
 
 }

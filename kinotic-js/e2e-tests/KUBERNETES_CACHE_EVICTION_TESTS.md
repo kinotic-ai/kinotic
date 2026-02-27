@@ -201,16 +201,16 @@ K8S_TEST_ENABLED=true npm test -- k8s-cache-eviction.test.ts
 ```
 ✓ K8s Cache Eviction Tests > should propagate cache eviction across all pods (15s)
 
-Step 1: Creating structure on pod 0
-Created structure: k8stest.cacheevictiontest
+Step 1: Creating entityDefinition on pod 0
+Created entityDefinition: k8stest.cacheevictiontest
 
 Step 2: Warming caches on all pods
 Pod 0: Structure cached with description: "Initial description 1734142800000"
 Pod 1: Structure cached with description: "Initial description 1734142800000"
 Pod 2: Structure cached with description: "Initial description 1734142800000"
 
-Step 3: Updating structure on pod 0 to trigger cache eviction
-Updated structure with description: "Updated description 1734142805000"
+Step 3: Updating entityDefinition on pod 0 to trigger cache eviction
+Updated entityDefinition with description: "Updated description 1734142805000"
 
 Step 4: Waiting for cache eviction to propagate (5 seconds)
 

@@ -10,7 +10,7 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.persistence.api.model.EntityOperation;
 import org.kinotic.persistence.api.model.SecurityContext;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsConfig;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsDecorator;
@@ -23,23 +23,23 @@ import org.kinotic.persistence.internal.api.services.security.graphos.SharedPoli
 import org.kinotic.persistence.api.model.DecoratedProperty;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 
-public class StructurePolicyAuthorizationService implements AuthorizationService<EntityOperation> {
+public class EntityDefinitionPolicyAuthorizationService implements AuthorizationService<EntityOperation> {
 
     private final Map<EntityOperation, PolicyEvaluator> operationEvaluators = new HashMap<>();
     private final PolicyEvaluatorWithoutOperation sharedEvaluator;
-    private final String structureId;
+    private final String entityDefinitionId;
 
-    public StructurePolicyAuthorizationService(Structure structure,
-                                               PolicyAuthorizer policyAuthorizer) {
+    public EntityDefinitionPolicyAuthorizationService(EntityDefinition entityDefinition,
+                                                      PolicyAuthorizer policyAuthorizer) {
 
-        this.structureId = PersistenceUtil.structureNameToId(structure.getApplicationId(), structure.getName());
-        ObjectC3Type entityDefinition = structure.getEntityDefinition();
+        this.entityDefinitionId = PersistenceUtil.entityDefinitionNameToId(entityDefinition.getApplicationId(), entityDefinition.getName());
+        ObjectC3Type schema = entityDefinition.getSchema();
 
         // Get any Policies to apply to the Entity and its fields
-        PolicyDecorator entityPolicies = entityDefinition.findDecorator(PolicyDecorator.class);
+        PolicyDecorator entityPolicies = schema.findDecorator(PolicyDecorator.class);
 
         Map<String, List<List<String>>> fieldPolicies = new HashMap<>();
-        for(DecoratedProperty property : structure.getDecoratedProperties()){
+        for(DecoratedProperty property : entityDefinition.getDecoratedProperties()){
             PolicyDecorator propertyPolicies = property.findDecorator(PolicyDecorator.class);
             if(propertyPolicies != null){
                 fieldPolicies.put(property.getJsonPath(), propertyPolicies.getPolicies());
@@ -51,7 +51,7 @@ public class StructurePolicyAuthorizationService implements AuthorizationService
         sharedEvaluator = new PolicyEvaluatorWithoutOperation(policyAuthorizer, sharedPolicyManager);
 
         // Check if we have any policy decorators to apply to operations
-        EntityServiceDecoratorsDecorator decorators = entityDefinition.findDecorator(EntityServiceDecoratorsDecorator.class);
+        EntityServiceDecoratorsDecorator decorators = schema.findDecorator(EntityServiceDecoratorsDecorator.class);
 
         if(decorators != null){
             EntityServiceDecoratorsConfig config = decorators.getConfig();
@@ -84,7 +84,8 @@ public class StructurePolicyAuthorizationService implements AuthorizationService
 
                 } else if (!result.entityAllowed()) { // Check if access to the entity is allowed
 
-                    return CompletableFuture.failedFuture(new AuthorizationException("Structure %s Entity access not allowed.".formatted(structureId)));
+                    return CompletableFuture.failedFuture(new AuthorizationException("%s Entity access not allowed.".formatted(
+                            entityDefinitionId)));
 
                 } else { // Check if access to the individual fields are allowed
 
@@ -95,7 +96,8 @@ public class StructurePolicyAuthorizationService implements AuthorizationService
                         }
                     }
                     if(!deniedFields.isEmpty()){
-                        return CompletableFuture.failedFuture(new AuthorizationException("Structure %s Fields %s access not allowed.".formatted(structureId, deniedFields)));
+                        return CompletableFuture.failedFuture(new AuthorizationException("%s Fields %s access not allowed.".formatted(
+                                entityDefinitionId, deniedFields)));
                     }else{
                         return CompletableFuture.completedFuture(null);
                     }

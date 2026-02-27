@@ -6,8 +6,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 
 @SpringBootApplication()
 @EnableConfigurationProperties
-public class StructuresMigrationApplication {
+public class KinoticMigrationApplication {
 	public static void main(String[] args) {
-		SpringApplication.run(StructuresMigrationApplication.class, args);
+		SpringApplication.run(KinoticMigrationApplication.class, args);
 	}
 }

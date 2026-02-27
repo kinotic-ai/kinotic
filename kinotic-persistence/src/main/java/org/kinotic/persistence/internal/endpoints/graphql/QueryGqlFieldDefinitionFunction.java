@@ -31,7 +31,7 @@ public class QueryGqlFieldDefinitionFunction implements GqlFieldDefinitionFuncti
     @Override
     public GraphQLFieldDefinition apply(GqlFieldDefinitionData data) {
         GraphQLFieldDefinition.Builder builder
-                = newFieldDefinition().name(queryDefinition.getName() + data.getStructureName());
+                = newFieldDefinition().name(queryDefinition.getName() + data.getEntityDefinitionName());
 
         PolicyDecorator policyDecorator = queryDefinition.findDecorator(PolicyDecorator.class);
         if(policyDecorator != null){

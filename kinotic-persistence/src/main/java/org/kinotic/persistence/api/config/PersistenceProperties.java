@@ -22,7 +22,7 @@ public class PersistenceProperties {
 
     private String structuresBaseUrl = "http://localhost";
 
-    private final String indexPrefix = "struct_";
+    private final String indexPrefix = "kinotic_";
 
     @NotNull
     private String tenantIdFieldName = "tenantId";
@@ -104,7 +104,7 @@ public class PersistenceProperties {
     private boolean enableStaticFileServer = false;
 
     /**
-     * If true will initialize the Structures with sample data
+     * If true will initialize the EntityDefinitions with sample data
      */
     private boolean initializeWithSampleData = false;
 

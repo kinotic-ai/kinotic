@@ -13,7 +13,7 @@ import org.kinotic.idl.api.schema.FunctionDefinition;
 import java.util.List;
 
 /**
- * Provides Metadata that represents Named Queries for a Applicat
+ * Provides Metadata that represents Named Queries for an Application
  * Created by Navíd Mitchell 🤪 on 3/18/24.
  */
 @Getter
@@ -25,18 +25,18 @@ public class NamedQueriesDefinition implements Identifiable<String> {
     private String id = null;
 
     /**
-     * The id of the application that this structure belongs to.
+     * The id of the application that this EntityDefinition belongs to.
      * All application ids are unique throughout the entire system.
      */
     private String applicationId = null;
 
     /**
-     * The id of the project that this structure belongs to.
+     * The id of the project that this EntityDefinition belongs to.
      * All project ids are unique throughout the entire system.
      */
     private String projectId = null;
 
-    private String structure = null;
+    private String entityDefinitionName = null;
 
     private List<FunctionDefinition> namedQueries = null;
 
@@ -62,7 +62,7 @@ public class NamedQueriesDefinition implements Identifiable<String> {
                 .append("id", id)
                 .append("applicationId", applicationId)
                 .append("projectId", projectId)
-                .append("structure", structure)
+                .append("entityDefinitionName", entityDefinitionName)
                 .toString();
     }
 }

@@ -101,7 +101,7 @@ docker compose -f compose.cluster-test.yml up
 1. **Cluster Formation** - Verify all nodes start and join cluster
 2. **Cache Eviction Propagation** - Modify on node1, verify eviction on all nodes
 3. **Node Failure Handling** - Kill node during eviction, verify retry succeeds
-4. **Deletion Propagation** - Delete structure/query, verify cluster-wide cleanup
+4. **Deletion Propagation** - Delete entityDefinition/query, verify cluster-wide cleanup
 5. **Metrics Recording** - Verify OpenTelemetry metrics are emitted
 
 ## Architecture

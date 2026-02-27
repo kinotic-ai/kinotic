@@ -3,13 +3,13 @@ package org.kinotic.test.tests.core.security.graphos;
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.core.api.exceptions.AuthorizationException;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.SecurityContext;
-import org.kinotic.persistence.api.model.Structure;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsConfig;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsDecorator;
 import org.kinotic.persistence.api.model.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizationRequest;
-import org.kinotic.persistence.api.services.security.graphos.StructurePolicyAuthorizationService;
+import org.kinotic.persistence.api.services.security.graphos.EntityDefinitionPolicyAuthorizationService;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizer;
 import org.kinotic.persistence.api.model.EntityOperation;
 import org.kinotic.persistence.api.model.DecoratedProperty;
@@ -26,14 +26,14 @@ public class PolicyAuthorizationServiceTest {
 
     @Test
     public void testAuthorizeWithNoPoliciesOnStructure() {
-        Structure structure = new Structure();
+        EntityDefinition structure = new EntityDefinition();
         structure.setApplicationId("testApplication");
         structure.setName("testName");
 
         ObjectC3Type entityDefinition = new ObjectC3Type();
-        structure.setEntityDefinition(entityDefinition);
+        structure.setSchema(entityDefinition);
 
-        StructurePolicyAuthorizationService service = new StructurePolicyAuthorizationService(structure, authorizer);
+        EntityDefinitionPolicyAuthorizationService service = new EntityDefinitionPolicyAuthorizationService(structure, authorizer);
 
         CompletableFuture<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
 
@@ -42,15 +42,15 @@ public class PolicyAuthorizationServiceTest {
 
     @Test
     public void testAuthorizeWithEntityOnlyPolicies(){
-        Structure structure = new Structure();
+        EntityDefinition structure = new EntityDefinition();
         structure.setApplicationId("testApplication");
         structure.setName("testName");
 
         ObjectC3Type entityDefinition = new ObjectC3Type();
         entityDefinition.addDecorator(new PolicyDecorator().setPolicies(List.of(List.of("policy1"))));
-        structure.setEntityDefinition(entityDefinition);
+        structure.setSchema(entityDefinition);
 
-        StructurePolicyAuthorizationService service = new StructurePolicyAuthorizationService(structure, authorizer);
+        EntityDefinitionPolicyAuthorizationService service = new EntityDefinitionPolicyAuthorizationService(structure, authorizer);
 
         CompletableFuture<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
 
@@ -59,15 +59,15 @@ public class PolicyAuthorizationServiceTest {
 
     @Test
     public void testAuthorizeDeniedWithEntityOnlyPolicies(){
-        Structure structure = new Structure();
+        EntityDefinition structure = new EntityDefinition();
         structure.setApplicationId("testApplication");
         structure.setName("testName");
 
         ObjectC3Type entityDefinition = new ObjectC3Type();
         entityDefinition.addDecorator(new PolicyDecorator().setPolicies(List.of(List.of("policy2"))));
-        structure.setEntityDefinition(entityDefinition);
+        structure.setSchema(entityDefinition);
 
-        StructurePolicyAuthorizationService service = new StructurePolicyAuthorizationService(structure, authorizer);
+        EntityDefinitionPolicyAuthorizationService service = new EntityDefinitionPolicyAuthorizationService(structure, authorizer);
 
         CompletableFuture<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
 
@@ -78,8 +78,8 @@ public class PolicyAuthorizationServiceTest {
 
     @Test
     public void testAuthorizeReadOperationWithNoFieldPolicies() {
-        Structure structure = createStructureWithNoFieldPolicies();
-        StructurePolicyAuthorizationService service = new StructurePolicyAuthorizationService(structure, authorizer);
+        EntityDefinition entityDefinition = createStructureWithNoFieldPolicies();
+        EntityDefinitionPolicyAuthorizationService service = new EntityDefinitionPolicyAuthorizationService(entityDefinition, authorizer);
 
         CompletableFuture<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
 
@@ -88,8 +88,8 @@ public class PolicyAuthorizationServiceTest {
 
     @Test
     public void testAuthorizeWriteOperationFails() {
-        Structure structure = createStructureWithNoFieldPolicies();
-        StructurePolicyAuthorizationService service = new StructurePolicyAuthorizationService(structure, authorizer);
+        EntityDefinition entityDefinition = createStructureWithNoFieldPolicies();
+        EntityDefinitionPolicyAuthorizationService service = new EntityDefinitionPolicyAuthorizationService(entityDefinition, authorizer);
 
         CompletableFuture<Void> result = service.authorize(EntityOperation.SAVE, null);
 
@@ -100,8 +100,8 @@ public class PolicyAuthorizationServiceTest {
 
     @Test
     public void testAuthorizeReadFailsDueToFieldPolicy() {
-        Structure structure = createStructureWithFieldPolicies();
-        StructurePolicyAuthorizationService service = new StructurePolicyAuthorizationService(structure, authorizer);
+        EntityDefinition entityDefinition = createStructureWithFieldPolicies();
+        EntityDefinitionPolicyAuthorizationService service = new EntityDefinitionPolicyAuthorizationService(entityDefinition, authorizer);
 
         CompletableFuture<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
 
@@ -112,8 +112,8 @@ public class PolicyAuthorizationServiceTest {
 
     @Test
     public void testAuthorizeWriteFailsDueToOperationPolicy() {
-        Structure structure = createStructureWithFieldPolicies();
-        StructurePolicyAuthorizationService service = new StructurePolicyAuthorizationService(structure, authorizer);
+        EntityDefinition entityDefinition = createStructureWithFieldPolicies();
+        EntityDefinitionPolicyAuthorizationService service = new EntityDefinitionPolicyAuthorizationService(entityDefinition, authorizer);
 
         CompletableFuture<Void> result = service.authorize(EntityOperation.SAVE, null);
 
@@ -122,13 +122,13 @@ public class PolicyAuthorizationServiceTest {
         assertTrue(exception.getCause().getMessage().contains("Operation SAVE not allowed."));
     }
 
-    private Structure createStructureWithNoFieldPolicies() {
-        Structure structure = new Structure();
+    private EntityDefinition createStructureWithNoFieldPolicies() {
+        EntityDefinition structure = new EntityDefinition();
         structure.setApplicationId("testApplication");
         structure.setName("testName");
 
         ObjectC3Type entityDefinition = new ObjectC3Type();
-        structure.setEntityDefinition(entityDefinition);
+        structure.setSchema(entityDefinition);
 
         // No field policies
         structure.setDecoratedProperties(List.of());
@@ -154,14 +154,14 @@ public class PolicyAuthorizationServiceTest {
         return structure;
     }
 
-    private Structure createStructureWithFieldPolicies() {
-        Structure structure = new Structure();
+    private EntityDefinition createStructureWithFieldPolicies() {
+        EntityDefinition structure = new EntityDefinition();
         structure.setApplicationId("testApplication");
         structure.setName("testName");
 
 
         ObjectC3Type entityDefinition = new ObjectC3Type();
-        structure.setEntityDefinition(entityDefinition);
+        structure.setSchema(entityDefinition);
 
         // Add field-level policies
         DecoratedProperty firstNameProperty = new DecoratedProperty();

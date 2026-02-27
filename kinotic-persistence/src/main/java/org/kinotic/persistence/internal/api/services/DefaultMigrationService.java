@@ -20,7 +20,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Implementation of MigrationService that allows external clients to execute migrations
- * through the Structures API using the existing MigrationExecutor infrastructure.
+ * through the Kinotic Persistence API using the existing MigrationExecutor infrastructure.
  */
 @Component
 @RequiredArgsConstructor

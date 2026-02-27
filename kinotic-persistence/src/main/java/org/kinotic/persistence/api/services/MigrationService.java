@@ -7,7 +7,7 @@ import org.kinotic.core.api.annotations.Publish;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Service for executing project-specific migrations through the Structures API.
+ * Service for executing project-specific migrations through the Persistence API.
  * This service allows external clients to apply their own migrations to projects.
  */
 @Publish

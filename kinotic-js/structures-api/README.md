@@ -1,12 +1,12 @@
 # Structures API Overview
 
-The Structures API provides a robust framework for managing data structures within the C3 Interface Definition Language (IDL) environment. Designed to facilitate efficient data operations, the API offers a comprehensive suite of services that cater to structure and entity management across diverse application namespaces.
+The Structures API provides a robust framework for managing data structures within the C3 Interface Definition Language (IDL) environment. Designed to facilitate efficient data operations, the API offers a comprehensive suite of services that cater to entityDefinition and entity management across diverse application namespaces.
 
 ## Key Features
 
 - **Structure Management**: The API allows for seamless handling of data structures. Through dedicated services, users can publish, unpublish, find, and count structures within specific namespaces, enabling precise control over data configurations.
 
-- **Entity Operations**: Offering full CRUD capabilities, the API enables the management of entities within a structure. Users can save, update, delete, and query entities, with support for batch operations that enhance performance in high-volume scenarios.
+- **Entity Operations**: Offering full CRUD capabilities, the API enables the management of entities within a entityDefinition. Users can save, update, delete, and query entities, with support for batch operations that enhance performance in high-volume scenarios.
 
 - **Advanced Querying**: With built-in support for named queries and pagination, the API facilitates efficient data retrieval. Users can execute complex queries and manage datasets with ease, leveraging the API's pagination mechanisms for optimized data flow.
 
@@ -16,11 +16,11 @@ The Structures API provides a robust framework for managing data structures with
 
 - **Service Integration**: The API integrates several services, such as Namespace, Structure, and Entities services, to provide a seamless experience for managing and interacting with data structures, streamlining workflow efficiency across the application.
 
-- **Customizable Utilities**: A variety of utilities and decorators are available for defining and enforcing data structure properties. These tools support configurations like auto-generated IDs and property constraints, ensuring precise data operation controls.
+- **Customizable Utilities**: A variety of utilities and decorators are available for defining and enforcing data entityDefinition properties. These tools support configurations like auto-generated IDs and property constraints, ensuring precise data operation controls.
 
 
 ## Details
-In the Structures API for TypeScript, decorators like `@Entity` are used to annotate classes and properties to define entities and configure their behavior within the C3 IDL framework. Here's a breakdown of how some of these decorators are used to define a structure:
+In the Structures API for TypeScript, decorators like `@Entity` are used to annotate classes and properties to define entities and configure their behavior within the C3 IDL framework. Here's a breakdown of how some of these decorators are used to define a entityDefinition:
 
 ### `@Entity` Decorator
 - **Purpose**: Signifies that a class is an entity, and optionally specifies multi-tenancy behavior.

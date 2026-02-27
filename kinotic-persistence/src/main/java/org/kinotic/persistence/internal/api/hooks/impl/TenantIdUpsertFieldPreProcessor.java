@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.hooks.impl;
 
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.TenantIdDecorator;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.UpsertPreProcessor;
@@ -25,7 +25,7 @@ public class TenantIdUpsertFieldPreProcessor implements UpsertFieldPreProcessor<
     }
 
     @Override
-    public String process(Structure structure, String fieldName, TenantIdDecorator decorator, String fieldValue, EntityContext context) {
+    public String process(EntityDefinition entityDefinition, String fieldName, TenantIdDecorator decorator, String fieldValue, EntityContext context) {
         return fieldValue;
     }
 }

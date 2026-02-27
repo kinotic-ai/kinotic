@@ -1,15 +1,15 @@
 package org.kinotic.persistence.internal.api.services.sql.executors;
 
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/29/24.
  */
 public abstract class AbstractQueryExecutor implements QueryExecutor {
 
-    protected final Structure structure;
+    protected final EntityDefinition entityDefinition;
 
-    public AbstractQueryExecutor(Structure structure) {
-        this.structure = structure;
+    public AbstractQueryExecutor(EntityDefinition entityDefinition) {
+        this.entityDefinition = entityDefinition;
     }
 }

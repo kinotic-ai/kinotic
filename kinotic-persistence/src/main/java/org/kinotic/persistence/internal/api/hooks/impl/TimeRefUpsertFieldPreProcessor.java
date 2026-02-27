@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.hooks.impl;
 
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.TimeReferenceDecorator;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.UpsertPreProcessor;
@@ -27,7 +27,7 @@ public class TimeRefUpsertFieldPreProcessor implements UpsertFieldPreProcessor<T
     }
 
     @Override
-    public Date process(Structure structure, String fieldName, TimeReferenceDecorator decorator, Date fieldValue, EntityContext context) {
+    public Date process(EntityDefinition entityDefinition, String fieldName, TimeReferenceDecorator decorator, Date fieldValue, EntityContext context) {
         return fieldValue;
     }
 }

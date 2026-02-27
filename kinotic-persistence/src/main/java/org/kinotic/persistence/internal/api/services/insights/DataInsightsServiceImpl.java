@@ -27,7 +27,7 @@ public class DataInsightsServiceImpl implements DataInsightsService {
   //  private final ChatClient chatClient;
     // private final InsightsContextService contextService;
     // private final EntitiesService entitiesService;
-    // private final StructureService structureService;
+    // private final EntityDefinitionService entityDefinitionService;
     // private final ObjectMapper objectMapper;
 
     // FIXME: Needs spring ai 2 with spring boot 4 support

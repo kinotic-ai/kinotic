@@ -7,11 +7,11 @@ import org.kinotic.persistence.api.model.DecoratedProperty;
 import java.util.List;
 
 /**
- * This is the result produced by the {@link StructureConversionService}
+ * This is the result produced by the {@link EntityDefinitionConversionService}
  * Created by Navíd Mitchell 🤪 on 5/11/23.
  *
  * @param decoratedProperties A list of all {@link DecoratedProperty} that were found during the conversion process
- * @param entityDecorator     The {@link EntityDecorator} that was found while converting the structure
+ * @param entityDecorator     The {@link EntityDecorator} that was found while converting the {@link EntityDefinition}
  * @param objectProperty      The root object property that represents the converted C3Type
  * @param versionFieldName    The name of the field that will be used for optimistic locking or null if optimistic locking is not enabled
  * @param tenantIdFieldName   The name of the field that will be used to hold the tenant id for an entity

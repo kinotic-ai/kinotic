@@ -6,7 +6,7 @@ import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
@@ -15,12 +15,12 @@ import java.util.concurrent.CompletableFuture;
  * Created by Navíd Mitchell 🤪on 6/25/23.
  */
 @Component
-public class DefaultStructureDAO extends AbstractCrudService<Structure> implements StructureDAO {
+public class DefaultEntityDefinitionDAO extends AbstractCrudService<EntityDefinition> implements EntityDefinitionDAO {
 
-    public DefaultStructureDAO(ElasticsearchAsyncClient esAsyncClient,
-                               CrudServiceTemplate crudServiceTemplate) {
-        super("struct_structure",
-              Structure.class,
+    public DefaultEntityDefinitionDAO(ElasticsearchAsyncClient esAsyncClient,
+                                      CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_entity_definition",
+              EntityDefinition.class,
               esAsyncClient,
               crudServiceTemplate);
     }
@@ -45,7 +45,7 @@ public class DefaultStructureDAO extends AbstractCrudService<Structure> implemen
     }
 
     @Override
-    public CompletableFuture<Page<Structure>> findAllPublishedForApplication(String applicationId, Pageable pageable) {
+    public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId, Pageable pageable) {
         return crudServiceTemplate.search(indexName, pageable, type, builder -> builder
                 .query(q -> q
                         .bool(b -> b
@@ -56,7 +56,7 @@ public class DefaultStructureDAO extends AbstractCrudService<Structure> implemen
     }
 
     @Override
-    public CompletableFuture<Page<Structure>> findAllForApplication(String applicationId, Pageable pageable) {
+    public CompletableFuture<Page<EntityDefinition>> findAllForApplication(String applicationId, Pageable pageable) {
         return crudServiceTemplate.search(indexName, pageable, type, builder -> builder
                 .query(q -> q
                         .bool(b -> b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery())
@@ -65,7 +65,7 @@ public class DefaultStructureDAO extends AbstractCrudService<Structure> implemen
     }
 
     @Override
-    public CompletableFuture<Page<Structure>> findAllForProject(String projectId, Pageable pageable) {
+    public CompletableFuture<Page<EntityDefinition>> findAllForProject(String projectId, Pageable pageable) {
         return crudServiceTemplate.search(indexName, pageable, type, builder -> builder
                 .query(q -> q
                         .bool(b -> b.filter(TermQuery.of(tq -> tq.field("projectId").value(projectId))._toQuery())
@@ -74,10 +74,10 @@ public class DefaultStructureDAO extends AbstractCrudService<Structure> implemen
     }
 
     @Override
-    public CompletableFuture<Page<Structure>> search(String searchText, Pageable pageable) {
+    public CompletableFuture<Page<EntityDefinition>> search(String searchText, Pageable pageable) {
         return crudServiceTemplate.search(indexName,
                                           pageable,
-                                          Structure.class,
+                                          EntityDefinition.class,
                                           builder -> builder.q(searchText));
     }
 

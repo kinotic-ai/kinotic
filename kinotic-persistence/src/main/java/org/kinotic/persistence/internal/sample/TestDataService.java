@@ -1,5 +1,6 @@
 package org.kinotic.persistence.internal.sample;
 
+import org.kinotic.persistence.api.model.EntityDefinition;
 import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.CacheLoader;
@@ -10,10 +11,9 @@ import org.kinotic.idl.api.schema.IntC3Type;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.core.internal.utils.KinoticUtil;
-import org.kinotic.persistence.api.model.Structure;
 import org.kinotic.persistence.api.model.idl.decorators.*;
 import org.kinotic.domain.api.services.ApplicationService;
-import org.kinotic.persistence.api.services.StructureService;
+import org.kinotic.persistence.api.services.EntityDefinitionService;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.springframework.core.io.ResourceLoader;
@@ -37,18 +37,18 @@ public class TestDataService {
     private static final String PEOPLE_WITH_ID_KEY = "people-with-id";
 
     private final ApplicationService applicationService;
-    private final StructureService structureService;
+    private final EntityDefinitionService entityDefinitionService;
 
     private final AsyncLoadingCache<String, List<Person>> peopleCache;
 
     public TestDataService(ApplicationService applicationService,
-                           StructureService structureService,
+                           EntityDefinitionService entityDefinitionService,
                            ResourceLoader resourceLoader,
                            ObjectMapper objectMapper,
                            DefaultCaffeineCacheFactory cacheFactory) {
 
         this.applicationService = applicationService;
-        this.structureService = structureService;
+        this.entityDefinitionService = entityDefinitionService;
 
         peopleCache = cacheFactory.<String, List<Person>>newBuilder()
                               .name("peopleCache")
@@ -73,14 +73,14 @@ public class TestDataService {
     }
 
     /**
-     * Creates a {@link Car} {@link Structure} if it does not exist.
-     * @return a {@link CompletableFuture} that will return a {@link Pair} of the {@link Structure} and a {@link Boolean} indicating if the structure was created.
+     * Creates a {@link Car} {@link EntityDefinition} if it does not exist.
+     * @return a {@link CompletableFuture} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
      */
-    public CompletableFuture<Pair<Structure, Boolean>> createCarStructureIfNotExists(String structureNameSuffix){
-        String structureId = PersistenceUtil.structureNameToId("org.kinotic.sample",
-                                                               "Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
-        return structureService.findById(structureId)
-                               .thenCompose(structure -> {
+    public CompletableFuture<Pair<EntityDefinition, Boolean>> createCarStructureIfNotExists(String structureNameSuffix){
+        String structureId = PersistenceUtil.entityDefinitionNameToId("org.kinotic.sample",
+                                                                      "Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
+        return entityDefinitionService.findById(structureId)
+                                      .thenCompose(structure -> {
                                    if(structure != null){
                                        return CompletableFuture.completedFuture(Pair.of(structure, false));
                                    }else{
@@ -90,25 +90,25 @@ public class TestDataService {
     }
 
     /**
-     * Creates a {@link Car} {@link Structure} and publishes it.
+     * Creates a {@link Car} {@link EntityDefinition} and publishes it.
      * @param structureNameSuffix if not null will be appended to the structure name.
-     * @return a {@link CompletableFuture} that will return the {@link Structure} that was created.
+     * @return a {@link CompletableFuture} that will return the {@link EntityDefinition} that was created.
      */
-    public CompletableFuture<Structure> createCarStructure(String structureNameSuffix) {
-        Structure structure = new Structure();
-        structure.setName("Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
-        structure.setApplicationId("org.kinotic.sample");
-        structure.setProjectId("org.kinotic.sample_default");
-        structure.setDescription("Defines a Car");
+    public CompletableFuture<EntityDefinition> createCarStructure(String structureNameSuffix) {
+        EntityDefinition entityDefinition = new EntityDefinition();
+        entityDefinition.setName("Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
+        entityDefinition.setApplicationId("org.kinotic.sample");
+        entityDefinition.setProjectId("org.kinotic.sample_default");
+        entityDefinition.setDescription("Defines a Car");
 
         ObjectC3Type carType = createCarSchema(MultiTenancyType.SHARED);
 
-        structure.setEntityDefinition(carType);
+        entityDefinition.setSchema(carType);
 
         return applicationService.createApplicationIfNotExist("org.kinotic.sample", "Sample application")
-                               .thenCompose(v -> structureService.create(structure)
-                                                                 .thenCompose(saved -> structureService.publish(saved.getId())
-                                                                                                       .thenApply(published -> saved)));
+                               .thenCompose(v -> entityDefinitionService.create(entityDefinition)
+                                                                        .thenCompose(saved -> entityDefinitionService.publish(saved.getId())
+                                                                                                                     .thenApply(published -> saved)));
     }
 
 
@@ -152,19 +152,19 @@ public class TestDataService {
         return ret;
     }
 
-    public CompletableFuture<Pair<Structure, Boolean>> createPersonStructureIfNotExists(){
+    public CompletableFuture<Pair<EntityDefinition, Boolean>> createPersonStructureIfNotExists(){
         return createPersonStructureIfNotExists(null);
     }
 
     /**
      * Creates a person structure if it does not exist.
-     * @return a {@link CompletableFuture} that will return a {@link Pair} of the {@link Structure} and a {@link Boolean} indicating if the structure was created.
+     * @return a {@link CompletableFuture} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
      */
-    public CompletableFuture<Pair<Structure, Boolean>> createPersonStructureIfNotExists(String structureNameSuffix){
-        String structureId = PersistenceUtil.structureNameToId("org.kinotic.sample",
-                                                               "Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
-        return structureService.findById(structureId)
-                               .thenCompose(structure -> {
+    public CompletableFuture<Pair<EntityDefinition, Boolean>> createPersonStructureIfNotExists(String structureNameSuffix){
+        String structureId = PersistenceUtil.entityDefinitionNameToId("org.kinotic.sample",
+                                                                      "Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
+        return entityDefinitionService.findById(structureId)
+                                      .thenCompose(structure -> {
                                    if(structure != null){
                                        return CompletableFuture.completedFuture(Pair.of(structure, false));
                                    }else{
@@ -174,25 +174,25 @@ public class TestDataService {
     }
 
     /**
-     * Creates a {@link Person} {@link Structure} and publishes it.
+     * Creates a {@link Person} {@link EntityDefinition} and publishes it.
      * @param structureNameSuffix if not null will be appended to the structure name.
-     * @return a {@link CompletableFuture} that will return the {@link Structure} that was created.
+     * @return a {@link CompletableFuture} that will return the {@link EntityDefinition} that was created.
      */
-    public CompletableFuture<Structure> createPersonStructure(String structureNameSuffix) {
-        Structure structure = new Structure();
-        structure.setName("Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
-        structure.setApplicationId("org.kinotic.sample");
-        structure.setProjectId("org.kinotic.sample_default");
-        structure.setDescription("Defines a Person");
+    public CompletableFuture<EntityDefinition> createPersonStructure(String structureNameSuffix) {
+        EntityDefinition entityDefinition = new EntityDefinition();
+        entityDefinition.setName("Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
+        entityDefinition.setApplicationId("org.kinotic.sample");
+        entityDefinition.setProjectId("org.kinotic.sample_default");
+        entityDefinition.setDescription("Defines a Person");
 
         ObjectC3Type personType = createPersonSchema(MultiTenancyType.SHARED);
 
-        structure.setEntityDefinition(personType);
+        entityDefinition.setSchema(personType);
 
         return applicationService.createApplicationIfNotExist("org.kinotic.sample", "Sample application")
-                               .thenCompose(v -> structureService.create(structure)
-                                                                 .thenCompose(saved -> structureService.publish(saved.getId())
-                                                                                                       .thenApply(published -> saved)));
+                               .thenCompose(v -> entityDefinitionService.create(entityDefinition)
+                                                                        .thenCompose(saved -> entityDefinitionService.publish(saved.getId())
+                                                                                                                     .thenApply(published -> saved)));
     }
 
     /**

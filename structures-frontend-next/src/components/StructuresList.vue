@@ -117,9 +117,9 @@ export default class StructuresList extends Vue {
     const query = { ...this.$route.query };
 
     if (newSearch) {
-      query["search-structure"] = newSearch;
+      query["search-entityDefinition"] = newSearch;
     } else {
-      delete query["search-structure"];
+      delete query["search-entityDefinition"];
     }
 
     this.$router.replace({ query }).catch(() => {});
@@ -212,7 +212,7 @@ export default class StructuresList extends Vue {
       delete item["publishing"];
     } catch (error: any) {
       delete item["publishing"];
-      debug('Error publishing structure: %O', error);
+      debug('Error publishing entityDefinition: %O', error);
       // You could add a toast notification here if needed
     }
   }
@@ -234,7 +234,7 @@ export default class StructuresList extends Vue {
       delete item["publishing"];
     } catch (error: any) {
       delete item["publishing"];
-      debug('Error unpublishing structure: %O', error);
+      debug('Error unpublishing entityDefinition: %O', error);
     }
   }
 
@@ -353,7 +353,7 @@ export default class StructuresList extends Vue {
       </template>
       <div class="mb-6">
         <p class="text-gray-700">
-          The structure must be published before it can contain data. Would you like to publish it?
+          The entityDefinition must be published before it can contain data. Would you like to publish it?
         </p>
       </div>
       
@@ -401,9 +401,9 @@ export default class StructuresList extends Vue {
             </svg>
           </div>
           <div>
-            <p class="text-gray-700 font-medium mb-2">Are you sure you want to unpublish this structure?</p>
+            <p class="text-gray-700 font-medium mb-2">Are you sure you want to unpublish this entityDefinition?</p>
             <p class="text-gray-600 text-sm">
-              All data saved under this structure will be permanently deleted. This action cannot be undone.
+              All data saved under this entityDefinition will be permanently deleted. This action cannot be undone.
             </p>
           </div>
         </div>

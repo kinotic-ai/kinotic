@@ -24,11 +24,11 @@ import java.util.concurrent.TimeUnit;
  * Created by Navíd Mitchell 🤪 on 4/26/23.
  */
 @Configuration
-public class StructuresElasticsearchConfig {
+public class KinoticElasticsearchConfig {
 
     private final PersistenceProperties persistenceProperties;
 
-    public StructuresElasticsearchConfig(PersistenceProperties persistenceProperties) {
+    public KinoticElasticsearchConfig(PersistenceProperties persistenceProperties) {
         this.persistenceProperties = persistenceProperties;
     }
 

@@ -23,19 +23,20 @@ import java.util.List;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class Structure implements Identifiable<String> {
+public class EntityDefinition implements Identifiable<String> {
 
     private String id = null; // do not ever set, system managed
 
     private String name = null;
+
     /**
-     * The id of the application that this structure belongs to.
+     * The id of the application that this {@link EntityDefinition} belongs to.
      * All application ids are unique throughout the entire system.
      */
     private String applicationId = null;
 
     /**
-     * The id of the project that this structure belongs to.
+     * The id of the project that this {@link EntityDefinition} belongs to.
      * All project ids are unique throughout the entire system.
      */
     private String projectId = null;
@@ -46,7 +47,7 @@ public class Structure implements Identifiable<String> {
 
     private EntityType entityType = null;
 
-    private ObjectC3Type entityDefinition = null;
+    private ObjectC3Type schema = null;
 
     // TODO: move these to separate metadata class. Especially decoratedProperties since it has nothing to do with the API.
     private Date created = null; // do not ever set, system managed
@@ -69,7 +70,7 @@ public class Structure implements Identifiable<String> {
 
     /**
      * The name of the field that will be used to hold the tenant id for an entity.
-     * If this is set then Structures will provide "Admin" services to access Entities for multiple tenants.
+     * If this is set then EntityDefinitions will provide "Admin" services to access Entities for multiple tenants.
      */
     private String tenantIdFieldName = null; // do not ever set, system managed
 
@@ -84,9 +85,9 @@ public class Structure implements Identifiable<String> {
 
         if (o == null || getClass() != o.getClass()) return false;
 
-        Structure structure = (Structure) o;
+        EntityDefinition entityDefinition = (EntityDefinition) o;
 
-        return new EqualsBuilder().append(id, structure.id).isEquals();
+        return new EqualsBuilder().append(id, entityDefinition.id).isEquals();
     }
 
     @Override

@@ -1,8 +1,8 @@
 package org.kinotic.persistence.api.services.security;
 
 import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.NamedQueryOperation;
-import org.kinotic.persistence.api.model.Structure;
 import org.kinotic.persistence.api.model.EntityOperation;
 
 import java.util.concurrent.CompletableFuture;
@@ -15,11 +15,11 @@ import java.util.concurrent.CompletableFuture;
 public interface AuthorizationServiceFactory {
 
     /**
-     * Creates an AuthorizationService for the given structure
-     * @param structure to create the AuthorizationService for
+     * Creates an AuthorizationService for the given EntityDefinition
+     * @param entityDefinition to create the AuthorizationService for
      * @return a CompletableFuture that will complete with the AuthorizationService
      */
-    CompletableFuture<AuthorizationService<EntityOperation>> createStructureAuthorizationService(Structure structure);
+    CompletableFuture<AuthorizationService<EntityOperation>> createEntityDefinitionAuthorizationService(EntityDefinition entityDefinition);
 
     /**
      * Creates an AuthorizationService for the given named query

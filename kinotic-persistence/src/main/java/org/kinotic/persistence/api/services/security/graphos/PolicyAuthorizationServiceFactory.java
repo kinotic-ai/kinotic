@@ -2,9 +2,9 @@ package org.kinotic.persistence.api.services.security.graphos;
 
 import lombok.RequiredArgsConstructor;
 import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.EntityOperation;
 import org.kinotic.persistence.api.model.NamedQueryOperation;
-import org.kinotic.persistence.api.model.Structure;
 import org.kinotic.persistence.api.model.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
@@ -22,8 +22,8 @@ public class PolicyAuthorizationServiceFactory implements AuthorizationServiceFa
     private final NoopAuthorizationService<NamedQueryOperation> noopAuthorizationService = new NoopAuthorizationService<>();
 
     @Override
-    public CompletableFuture<AuthorizationService<EntityOperation>> createStructureAuthorizationService(Structure structure) {
-        return CompletableFuture.completedFuture(new StructurePolicyAuthorizationService(structure, policyAuthorizer));
+    public CompletableFuture<AuthorizationService<EntityOperation>> createEntityDefinitionAuthorizationService(EntityDefinition entityDefinition) {
+        return CompletableFuture.completedFuture(new EntityDefinitionPolicyAuthorizationService(entityDefinition, policyAuthorizer));
     }
 
     @Override

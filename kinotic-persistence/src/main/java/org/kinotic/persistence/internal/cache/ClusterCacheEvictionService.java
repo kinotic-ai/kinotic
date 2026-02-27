@@ -49,7 +49,7 @@ public class ClusterCacheEvictionService {
         this.persistenceProperties = persistenceProperties;
         this.ignite = ignite;
 
-        Meter meter = openTelemetry.getMeter("structures.cache.eviction");
+        Meter meter = openTelemetry.getMeter("kinotic.cache.eviction");
 
         evictionRequestCounter = meter.counterBuilder("cache.eviction.requests")
                 .setDescription("Total cache eviction requests received")
@@ -76,7 +76,7 @@ public class ClusterCacheEvictionService {
     /**
      * Handle cache eviction event for cluster-wide cache eviction.
      *
-     * @param event the event containing the structure or named query to evict the
+     * @param event the event containing the entity definition or named query to evict the
      *              caches for
      */
     @EventListener
@@ -124,8 +124,8 @@ public class ClusterCacheEvictionService {
         evictionRequestCounter.add(1, requestAttributes);
 
         log.trace("Starting {} cache eviction for: {}:{}:{} with timestamp: {}",
-                event.getEvictionSourceType(), event.getApplicationId(),
-                event.getStructureId(), event.getNamedQueryId(), timestamp);
+                  event.getEvictionSourceType(), event.getApplicationId(),
+                  event.getEntityDefinitionId(), event.getNamedQueryId(), timestamp);
 
         ClusterGroup servers = null;
 
@@ -147,13 +147,13 @@ public class ClusterCacheEvictionService {
                 log.trace("Attempt {}/{}: Broadcasting to {} server nodes for {}:{}:{}",
                           attempt, persistenceProperties.getClusterEviction().getMaxCacheSyncRetryAttempts(),
                           servers.nodes().size(), event.getApplicationId(),
-                          event.getStructureId(), event.getNamedQueryId());
+                          event.getEntityDefinitionId(), event.getNamedQueryId());
 
                 ClusterCacheEvictionTask task = new ClusterCacheEvictionTask(
                         event.getEvictionSourceType(),
                         event.getEvictionOperation(),
                         event.getApplicationId(),
-                        event.getStructureId(),
+                        event.getEntityDefinitionId(),
                         event.getNamedQueryId(),
                         timestamp);
 
@@ -167,7 +167,7 @@ public class ClusterCacheEvictionService {
                 log.debug(
                         "{} cache eviction successfully completed on all {} cluster nodes for: {}:{}:{} (timestamp: {}, attempt {}/{})",
                         event.getEvictionSourceType(), servers.nodes().size(),
-                        event.getApplicationId(), event.getStructureId(), event.getNamedQueryId(),
+                        event.getApplicationId(), event.getEntityDefinitionId(), event.getNamedQueryId(),
                         timestamp, attempt, persistenceProperties.getClusterEviction().getMaxCacheSyncRetryAttempts());
 
                 success = true;
@@ -177,7 +177,7 @@ public class ClusterCacheEvictionService {
                 lastException = e;
                 log.warn("{} cache eviction failed on cluster for: {}:{}:{} (timestamp: {}, attempt {}/{}): {}",
                          event.getEvictionSourceType(), event.getApplicationId(),
-                         event.getStructureId(), event.getNamedQueryId(),
+                         event.getEntityDefinitionId(), event.getNamedQueryId(),
                          timestamp, attempt, persistenceProperties.getClusterEviction().getMaxCacheSyncRetryAttempts(),
                          e.getMessage());
 
@@ -190,8 +190,8 @@ public class ClusterCacheEvictionService {
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         log.error("Retry interrupted for {} cache eviction: {}:{}:{} (timestamp: {})",
-                                event.getEvictionSourceType(), event.getApplicationId(),
-                                event.getStructureId(), event.getNamedQueryId(), timestamp);
+                                  event.getEvictionSourceType(), event.getApplicationId(),
+                                  event.getEntityDefinitionId(), event.getNamedQueryId(), timestamp);
                         break;
                     }
                 }
@@ -223,7 +223,7 @@ public class ClusterCacheEvictionService {
             // If we get here, all retry attempts failed
             log.error("Failed to complete {} cache eviction on cluster for: {}:{}:{} (timestamp: {}) after {} attempts",
                       event.getEvictionSourceType(), event.getApplicationId(),
-                      event.getStructureId(), event.getNamedQueryId(),
+                      event.getEntityDefinitionId(), event.getNamedQueryId(),
                       timestamp, persistenceProperties.getClusterEviction().getMaxCacheSyncRetryAttempts(), lastException);
         }
     }

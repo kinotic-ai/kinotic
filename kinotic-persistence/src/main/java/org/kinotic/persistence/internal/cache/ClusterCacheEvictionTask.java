@@ -52,10 +52,10 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
     /**
      * Properties injected by Ignite during construction on external nodes. 
      */
-    private final EvictionSourceType evictionSourceType; // "STRUCTURE" or "NAMED_QUERY"
+    private final EvictionSourceType evictionSourceType; // "ENTITY_DEFINITION" or "NAMED_QUERY"
     private final EvictionSourceOperation evictionOperation; // "MODIFY" or "DELETE"
     private final String applicationId;
-    private final String structureId;
+    private final String entityDefinitionId;
     private final String namedQueryId;
     private final long timestamp; // Timestamp to prevent duplicate processing
 
@@ -65,9 +65,9 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
         // Create unique key for this eviction request
         String evictionKey = "";
         if(namedQueryId != null){
-            evictionKey = evictionSourceType + ":" + evictionOperation + ":" + applicationId + ":" + structureId + ":" + namedQueryId + ":" + timestamp;
+            evictionKey = evictionSourceType + ":" + evictionOperation + ":" + applicationId + ":" + entityDefinitionId + ":" + namedQueryId + ":" + timestamp;
         } else {
-            evictionKey = evictionSourceType + ":" + evictionOperation + ":" + applicationId + ":" + structureId + ":" + timestamp;
+            evictionKey = evictionSourceType + ":" + evictionOperation + ":" + applicationId + ":" + entityDefinitionId + ":" + timestamp;
         }
 
         try {
@@ -88,25 +88,27 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                 return; // Skip duplicate processing
             }
             
-            if (EvictionSourceType.STRUCTURE == evictionSourceType) {
-                log.trace("Executing Structure cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
+            if (EvictionSourceType.ENTITY_DEFINITION == evictionSourceType) {
+                log.trace("Executing EntityDefinition cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
                 
-                if (structureId != null) {
+                if (entityDefinitionId != null) {
 
                     if(evictionOperation == EvictionSourceOperation.MODIFY){
-                        eventPublisher.publishEvent(CacheEvictionEvent.clusterModifiedStructure(applicationId, structureId));
+                        eventPublisher.publishEvent(CacheEvictionEvent.clusterModifiedEntityDefinition(applicationId,
+                                                                                                       entityDefinitionId));
                     } else if(evictionOperation == EvictionSourceOperation.DELETE){
-                        eventPublisher.publishEvent(CacheEvictionEvent.clusterDeletedStructure(applicationId, structureId));
+                        eventPublisher.publishEvent(CacheEvictionEvent.clusterDeletedEntityDefinition(applicationId,
+                                                                                                      entityDefinitionId));
                     } else {
                         throw new IllegalArgumentException("Invalid eviction operation for key: " + evictionKey);
                     }
                     
                     // Mark as processed
                     processedEvictionsCache.put(evictionKey, timestamp);
-                    log.trace("Successfully processed Structure cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
+                    log.trace("Successfully processed EntityDefinition cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
                 } else {
-                    log.warn("Structure not found for cache eviction: {} {}", applicationId, structureId);
-                    throw new RuntimeException("Structure for eviction key: " + evictionKey + " not found");
+                    log.warn("EntityDefinition not found for cache eviction: {} {}", applicationId, entityDefinitionId);
+                    throw new RuntimeException("EntityDefinition for eviction key: " + evictionKey + " not found");
                 }
                 
             } else if (EvictionSourceType.NAMED_QUERY == evictionSourceType) {
@@ -115,9 +117,11 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                 if (namedQueryId != null) {
 
                     if(evictionOperation == EvictionSourceOperation.MODIFY){
-                        eventPublisher.publishEvent(CacheEvictionEvent.clusterModifiedNamedQuery(applicationId, structureId, namedQueryId));
+                        eventPublisher.publishEvent(CacheEvictionEvent.clusterModifiedNamedQuery(applicationId,
+                                                                                                 entityDefinitionId, namedQueryId));
                     } else if(evictionOperation == EvictionSourceOperation.DELETE){
-                        eventPublisher.publishEvent(CacheEvictionEvent.clusterDeletedNamedQuery(applicationId, structureId, namedQueryId));
+                        eventPublisher.publishEvent(CacheEvictionEvent.clusterDeletedNamedQuery(applicationId,
+                                                                                                entityDefinitionId, namedQueryId));
                     } else {
                         throw new IllegalArgumentException("Invalid eviction operation: " + evictionOperation);
                     }

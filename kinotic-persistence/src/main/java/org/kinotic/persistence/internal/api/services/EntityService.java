@@ -5,7 +5,7 @@ import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.TenantSpecificId;
 import org.kinotic.persistence.api.model.ParameterHolder;
 
@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Provides functionality to query data for a single "Entity" for a given {@link Structure}.
+ * Provides functionality to query data for a single "Entity" for a given {@link EntityDefinition}.
  * Created by Navíd Mitchell 🤪 on 5/2/23.
  */
 public interface EntityService {
@@ -63,7 +63,7 @@ public interface EntityService {
 
     /**
      * Deletes the entity with the given id.
-     * NOTE: this method is only allowed if the {@link Structure#isMultiTenantSelectionEnabled()} is true
+     * NOTE: this method is only allowed if the {@link EntityDefinition#isMultiTenantSelectionEnabled()} is true
      *
      * @param id      must not be {@literal null}
      * @param context the context for this operation
@@ -102,7 +102,7 @@ public interface EntityService {
 
     /**
      * Retrieves an entity by its id.
-     * NOTE: this method is only allowed if the {@link Structure#isMultiTenantSelectionEnabled()} is true
+     * NOTE: this method is only allowed if the {@link EntityDefinition#isMultiTenantSelectionEnabled()} is true
      *
      * @param id      must not be {@literal null}
      * @param type    the type of the entity
@@ -123,7 +123,7 @@ public interface EntityService {
 
     /**
      * Retrieves a list of entities by their id.
-     * NOTE: this method is only allowed if the {@link Structure#isMultiTenantSelectionEnabled()} is true
+     * NOTE: this method is only allowed if the {@link EntityDefinition#isMultiTenantSelectionEnabled()} is true
      *
      * @param ids         must not be {@literal null}
      * @param type        the type of the entity

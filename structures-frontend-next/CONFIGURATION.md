@@ -14,7 +14,7 @@ The application will look for configuration files in the following order, with o
 
 ## Configuration File Format
 
-Create a JSON file with the following structure:
+Create a JSON file with the following entityDefinition:
 
 ```json
 {

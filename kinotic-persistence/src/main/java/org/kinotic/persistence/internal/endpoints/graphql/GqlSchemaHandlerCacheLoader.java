@@ -14,13 +14,13 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.text.WordUtils;
 import org.kinotic.domain.api.services.crud.Pageable;
 import org.kinotic.idl.api.converter.IdlConverter;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsDecorator;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
-import org.kinotic.persistence.internal.api.services.StructureConversionService;
-import org.kinotic.persistence.internal.api.services.StructureDAO;
+import org.kinotic.persistence.internal.api.services.EntityDefinitionConversionService;
+import org.kinotic.persistence.internal.api.services.EntityDefinitionDAO;
 import org.kinotic.persistence.api.model.EntityOperation;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.EntitiesDataFetcher;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.EntitiesTypeResolver;
@@ -82,8 +82,8 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
 
     private final DefaultCaffeineCacheFactory cacheFactory;
     private final EntitiesService entitiesService;
-    private final StructureDAO structureDAO;
-    private final StructureConversionService structureConversionService;
+    private final EntityDefinitionDAO entityDefinitionDAO;
+    private final EntityDefinitionConversionService entityDefinitionConversionService;
     private final GqlOperationDefinitionService gqlOperationDefinitionService;
 
     @Override
@@ -108,10 +108,10 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
     private CompletableFuture<GraphQLSchema> createGraphQlSchema(@SpanAttribute("applicationId")
                                                                  String applicationId,
                                                                  Executor executor) {
-        return structureDAO
+        return entityDefinitionDAO
                 .findAllPublishedForApplication(applicationId, Pageable.ofSize(500))
-                .thenComposeAsync(structuresPage -> {
-                    if(structuresPage.getTotalElements() > 0) {
+                .thenComposeAsync(entityDefinitionPage -> {
+                    if(entityDefinitionPage.getTotalElements() > 0) {
                         log.debug("Creating GraphQL Schema for application: {}", applicationId);
 
                         // Create the pageable types that are used in all queries
@@ -130,33 +130,33 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
                         GraphQLCodeRegistry.Builder codeRegistryBuilder = GraphQLCodeRegistry.newCodeRegistry();
 
                         IdlConverter<GqlTypeHolder, GqlConversionState> converter
-                                = structureConversionService.createGqlConverter();
+                                = entityDefinitionConversionService.createGqlConverter();
 
-                        for (Structure structure : structuresPage.getContent()) {
+                        for (EntityDefinition entityDefinition : entityDefinitionPage.getContent()) {
 
-                            GqlTypeHolder structureType = converter.convert(structure.getEntityDefinition());
+                            GqlTypeHolder gqlTypeHolder = converter.convert(entityDefinition.getSchema());
                             GraphQLObjectType outputType;
-                            if (structureType.outputType() instanceof GraphQLObjectType) {
-                                outputType = (GraphQLObjectType) structureType.outputType();
+                            if (gqlTypeHolder.outputType() instanceof GraphQLObjectType) {
+                                outputType = (GraphQLObjectType) gqlTypeHolder.outputType();
                             } else {
                                 throw new IllegalStateException("Output type must be a GraphQLObjectType");
                             }
 
-                            GraphQLInputObjectType inputType = getGraphQLInputObjectType(structureType);
+                            GraphQLInputObjectType inputType = getGraphQLInputObjectType(gqlTypeHolder);
 
                             GraphQLTypeReference graphQLTypeReference = new GraphQLTypeReference(outputType.getName());
                             GraphQLNamedOutputType pageResponseType = GqlUtils.wrapTypeWithPage(graphQLTypeReference);
                             GraphQLNamedOutputType cursorPageResponseType = GqlUtils.wrapTypeWithCursorPage(graphQLTypeReference);
 
 
-                            EntityServiceDecoratorsDecorator esdDecorator = structure.getEntityDefinition()
-                                                                                     .findDecorator(EntityServiceDecoratorsDecorator.class);
+                            EntityServiceDecoratorsDecorator esdDecorator = entityDefinition.getSchema()
+                                                                                            .findDecorator(EntityServiceDecoratorsDecorator.class);
                             Map<EntityOperation, List<EntityServiceDecorator>> entityOperationsMap = Map.of();
                             if(esdDecorator != null){
                                 entityOperationsMap = esdDecorator.getConfig().getOperationDecoratorMap();
                             }
 
-                            String structureName = WordUtils.capitalize(structure.getName());
+                            String entityDefinitionName = WordUtils.capitalize(entityDefinition.getName());
                             GqlFieldDefinitionData fieldDefinitionData
                                     = GqlFieldDefinitionData.builder()
                                                             .converter(converter)
@@ -166,12 +166,13 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
                                                             .cursorPageableReference(cursorPageableReference)
                                                             .pageResponseType(pageResponseType)
                                                             .cursorPageResponseType(cursorPageResponseType)
-                                                            .structureName(structureName)
+                                                            .entityDefinitionName(entityDefinitionName)
                                                             .entityOperationsMap(entityOperationsMap)
                                                             .build();
 
                             // Add all graphQL operations to the schema
-                            addOperations(fieldDefinitionData, codeRegistryBuilder, mutationBuilder, queryBuilder, structure);
+                            addOperations(fieldDefinitionData, codeRegistryBuilder, mutationBuilder, queryBuilder,
+                                          entityDefinition);
                         }
 
                         // Add all type resolvers to the schema
@@ -240,16 +241,16 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
                                GraphQLCodeRegistry.Builder codeRegistryBuilder,
                                GraphQLObjectType.Builder mutationBuilder,
                                GraphQLObjectType.Builder queryBuilder,
-                               Structure structure) {
+                               EntityDefinition entityDefinition) {
 
         // Add built in operations
         for (GqlOperationDefinition definition : gqlOperationDefinitionService.getBuiltInOperationDefinitions()) {
-            addOperation(definition, fieldDefinitionData, codeRegistryBuilder, mutationBuilder, queryBuilder, structure);
+            addOperation(definition, fieldDefinitionData, codeRegistryBuilder, mutationBuilder, queryBuilder, entityDefinition);
         }
 
         // Add named query operations
-        for(GqlOperationDefinition definition : gqlOperationDefinitionService.getNamedQueryOperationDefinitions(structure)){
-            addOperation(definition, fieldDefinitionData, codeRegistryBuilder, mutationBuilder, queryBuilder, structure);
+        for(GqlOperationDefinition definition : gqlOperationDefinitionService.getNamedQueryOperationDefinitions(entityDefinition)){
+            addOperation(definition, fieldDefinitionData, codeRegistryBuilder, mutationBuilder, queryBuilder, entityDefinition);
         }
     }
 
@@ -258,7 +259,7 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
                                      GraphQLCodeRegistry.Builder codeRegistryBuilder,
                                      GraphQLObjectType.Builder mutationBuilder,
                                      GraphQLObjectType.Builder queryBuilder,
-                                     Structure structure) {
+                                     EntityDefinition entityDefinition) {
 
         Function<GqlFieldDefinitionData, GraphQLFieldDefinition> function = definition.getFieldDefinitionFunction();
 
@@ -269,7 +270,7 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
             queryBuilder.field(queryFieldDefinition);
 
             codeRegistryBuilder.dataFetcher(FieldCoordinates.coordinates("Query", queryFieldDefinition.getName()),
-                                            definition.getDataFetcherDefinitionFunction().apply(structure));
+                                            definition.getDataFetcherDefinitionFunction().apply(entityDefinition));
 
         } else if (definition.getOperationType() == OperationDefinition.Operation.MUTATION) {
 
@@ -280,7 +281,7 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
                 mutationBuilder.field(mutationFieldDefinition);
 
                 codeRegistryBuilder.dataFetcher(FieldCoordinates.coordinates("Mutation", mutationFieldDefinition.getName()),
-                                                definition.getDataFetcherDefinitionFunction().apply(structure));
+                                                definition.getDataFetcherDefinitionFunction().apply(entityDefinition));
             }
 
         } else {

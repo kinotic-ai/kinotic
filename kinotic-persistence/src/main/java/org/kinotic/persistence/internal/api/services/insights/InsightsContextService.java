@@ -7,10 +7,11 @@ import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+
 /**
  * Service responsible for building context and managing prompts for Spring AI.
  * This service creates the necessary context information that helps Spring AI
- * understand the Structures platform and user's specific data models.
+ * understand the EntityDefinitions platform and user's specific data models.
  * 
  * 
  */
@@ -27,24 +28,22 @@ public class InsightsContextService {
         
         context.append("Application ID: ").append(request.getApplicationId()).append("\n");
         
-        if (request.getFocusStructureId() != null) {
-            context.append("Focus Structure ID: ").append(request.getFocusStructureId()).append("\n");
-            context.append("NOTE: Use the getStructureSchema() tool to get detailed schema information.\n\n");
+        if (request.getFocusEntityDefinitionId() != null) {
+            context.append("Focus EntityDefinition ID: ").append(request.getFocusEntityDefinitionId()).append("\n");
+            context.append("NOTE: Use the getEntityDefinitionSchema() tool to get detailed schema information.\n\n");
         } else {
-            context.append("NOTE: Use the getApplicationStructures() tool to discover available structures.\n\n");
+            context.append("NOTE: Use the getApplicationEntityDefinitions() tool to discover available EntityDefinitions.\n\n");
         }
         
         return context.toString();
     }
     
     /**
-     * Builds context for a specific structure analysis.
+     * Builds context for a specific entityDefinition analysis.
      */
-    public String buildStructureContext(String structureId, Participant participant) {
-        StringBuilder context = new StringBuilder();
-        context.append("Structure ID: ").append(structureId).append("\n");
-        context.append("NOTE: Use the getStructureSchema() tool to get detailed schema information.\n\n");
-        return context.toString();
+    public String buildEntityDefinitionContext(String entityDefinitionId, Participant participant) {
+        return "EntityDefinition ID: " + entityDefinitionId + "\n" +
+                "NOTE: Use the getEntityDefinitionSchema() tool to get detailed schema information.\n\n";
     }
     
     
@@ -53,19 +52,19 @@ public class InsightsContextService {
      */
     public String getHtmlGenerationSystemPrompt() {
         return """
-            You are an expert data analyst and web developer working with the Structures platform.
-            The Structures platform allows users to model ANY type of business entity using C3 Interface Definition Language (C3 IDL).
+            You are an expert data analyst and web developer working with the Kinotic Persistence platform.
+            The Kinotic Persistence platform allows users to model ANY type of business entity using C3 Interface Definition Language (C3 IDL).
             
             ================================================================================
             CORE CONCEPTS
             ================================================================================
             
-            1. STRUCTURES PLATFORM:
-               - A Structure is a user-defined data model (like a database table or class)
-               - Each Structure has an 'entityDefinition' which is an ObjectC3Type
-               - Users can create Structures for anything: products, customers, vehicles, healthcare data, etc.
-               - Structures belong to applications and can be published for data operations
-               - Structure ID format: "applicationId.structureName"
+            1. Kinotic Persistence PLATFORM:
+               - A EntityDefinition is a user-defined data model (like a database table or class)
+               - Each EntityDefinition has a 'schema' which is an ObjectC3Type
+               - Users can create EntityDefinitions for anything: products, customers, vehicles, healthcare data, etc.
+               - EntityDefinitions belong to applications and can be published for data operations
+               - EntityDefinition ID format: "applicationId.entityDefinitionName"
             
             2. C3 TYPES - SCHEMA DEFINITION SYSTEM:
                - C3 types define the shape and constraints of data fields
@@ -99,14 +98,14 @@ public class InsightsContextService {
             - rawHtml: the complete JavaScript code for the web component
             - applicationId: the application ID
             - modifiedAt: timestamp
-            - supportsDateRangeFiltering: boolean (true only if structure has DateC3Type fields)
+            - supportsDateRangeFiltering: boolean (true only if schema has DateC3Type fields)
             
             ================================================================================
             ANALYSIS WORKFLOW
             ================================================================================
             
             1. SCHEMA ANALYSIS:
-               - FIRST: Use getStructureSchema() tool to analyze the structure
+               - FIRST: Use getEntityDefinitionSchema() tool to analyze the schema
                - SECOND: Identify all DateC3Type fields in the schema
                - THIRD: Determine which fields can be used for date filtering
                - FOURTH: Plan appropriate visualizations based on field types
@@ -131,11 +130,11 @@ public class InsightsContextService {
                - Include ALL CSS inline within each component's shadow DOM
                - Use ECharts CDN for chart library (dynamically loaded)
                - Each component should be completely self-contained and work without any attributes
-               - HARDCODE the structure ID and application ID in each component's data loading logic
+               - HARDCODE the entityDefinition ID and application ID in each component's data loading logic
                - Components should work when dropped into any page without configuration
             
             2. DATA FETCHING:
-               - Use the Structures API directly from JavaScript
+               - Use the EntityDefinitions API directly from JavaScript
                - Include proper error handling and loading states
                - CRITICAL: Each component MUST have a unique tag name and name in the JSON
                - Use descriptive, unique names like 'customer-age-chart', 'order-status-pie', 'revenue-trend-line'
@@ -178,7 +177,7 @@ public class InsightsContextService {
             ================================================================================
             
             COMPONENTS WITH DATE FIELDS:
-            - Set supportsDateRangeFiltering: true only if structure has DateC3Type fields
+            - Set supportsDateRangeFiltering: true only if schema has DateC3Type fields
             - Hardcode the actual DateC3Type field name from schema analysis
             - Subscribe to window.globalDateRangeObservable for date range changes
             - Use Lucene date queries: 'dateField:[2024-01-01 TO 2024-12-31]'
@@ -205,23 +204,23 @@ public class InsightsContextService {
                 this.currentDateRange = { startDate: null, endDate: null };
                 this.unsubscribe = null;
                 this.applicationId = 'org.kinotic.sample';
-                this.structureName = 'sales_data';
-                this.structureId = 'org.kinotic.sample.sales_data';
+                this.entityDefinitionName = 'sales_data';
+                this.entityDefinitionId = 'org.kinotic.sample.sales_data';
                 this.dateField = 'orderDate'; // Hardcoded from schema analysis
               }
-              
+          
               connectedCallback() {
                 this.render();
                 this.subscribeToDateRange();
                 this.loadChartLibrary();
               }
-              
+            
               disconnectedCallback() {
                 if (this.unsubscribe) {
                   this.unsubscribe();
                 }
               }
-              
+           
               subscribeToDateRange() {
                 if (window.globalDateRangeObservable) {
                   this.unsubscribe = window.globalDateRangeObservable.subscribe((dateRange) => {
@@ -230,12 +229,12 @@ public class InsightsContextService {
                   });
                 }
               }
-              
+            
               buildDateFilter() {
                 if (!this.currentDateRange.startDate && !this.currentDateRange.endDate) {
                   return '';
                 }
-                
+            
                 let filter = '';
                 if (this.currentDateRange.startDate && this.currentDateRange.endDate) {
                   const startStr = this.currentDateRange.startDate.toISOString().split('T')[0];
@@ -250,10 +249,10 @@ public class InsightsContextService {
                 }
                 return filter;
               }
-              
+            
               async loadData() {
                 try {
-                  const entityService = Structures.createEntityService(this.applicationId, this.structureName);
+                  const entityService = Kinotic.createEntityService(this.applicationId, this.entityDefinitionName);
                   const dateFilter = this.buildDateFilter();
                   
                   console.log('Date filter:', dateFilter);
@@ -308,7 +307,7 @@ public class InsightsContextService {
               showNoDataMessage() {
                 const container = this.shadowRoot.querySelector('.chart-container');
                 if (container) {
-                  container.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;"><i class="pi pi-info-circle" style="font-size: 2rem; margin-bottom: 1rem;"></i><p>No data available for this visualization</p><p style="font-size: 0.875rem; margin-top: 0.5rem;">Try adjusting your date range or check if data exists for this structure.</p></div>';
+                  container.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;"><i class="pi pi-info-circle" style="font-size: 2rem; margin-bottom: 1rem;"></i><p>No data available for this visualization</p><p style="font-size: 0.875rem; margin-top: 0.5rem;">Try adjusting your date range or check if data exists for this Entity.</p></div>';
                 }
               }
               
@@ -323,8 +322,8 @@ public class InsightsContextService {
                 super();
                 this.attachShadow({ mode: 'open' });
                 this.applicationId = 'org.kinotic.sample';
-                this.structureName = 'person_datainsightstest';
-                this.structureId = 'org.kinotic.sample.person_datainsightstest';
+                this.entityDefinitionName = 'person_datainsightstest';
+                this.entityDefinitionId = 'org.kinotic.sample.person_datainsightstest';
               }
               
               connectedCallback() {
@@ -334,7 +333,7 @@ public class InsightsContextService {
               
               async loadData() {
                 try {
-                  const entityService = Structures.createEntityService(this.applicationId, this.structureName);
+                  const entityService = Kinotic.createEntityService(this.applicationId, this.entityDefinitionName);
                   const response = await entityService.findAll({ pageNumber: 0, pageSize: 1000 });
                   
                   // Handle case where response.content might be undefined (no data)
@@ -363,7 +362,7 @@ public class InsightsContextService {
               showNoDataMessage() {
                 const container = this.shadowRoot.querySelector('.chart-container');
                 if (container) {
-                  container.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;"><i class="pi pi-info-circle" style="font-size: 2rem; margin-bottom: 1rem;"></i><p>No data available for this visualization</p><p style="font-size: 0.875rem; margin-top: 0.5rem;">Check if data exists for this structure.</p></div>';
+                  container.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;"><i class="pi pi-info-circle" style="font-size: 2rem; margin-bottom: 1rem;"></i><p>No data available for this visualization</p><p style="font-size: 0.875rem; margin-top: 0.5rem;">Check if data exists for this entityDefinition.</p></div>';
                 }
               }
               
@@ -380,7 +379,7 @@ public class InsightsContextService {
                 - rawHtml: the complete JavaScript code for the web component
                 - applicationId: the application ID
                 - modifiedAt: timestamp
-                - supportsDateRangeFiltering: boolean (true only if structure has DateC3Type fields)
+                - supportsDateRangeFiltering: boolean (true only if schema has DateC3Type fields)
             ```json
             [
               {
@@ -451,7 +450,7 @@ public class InsightsContextService {
             
             If the request is NEW_VISUALIZATION:
             - Extract any specific requirements or preferences
-            - Note any particular structures or data mentioned
+            - Note any particular EntityDefinition or data mentioned
             
             OUTPUT FORMAT:
             You must respond with ONLY a JSON object in this exact format:
@@ -483,13 +482,13 @@ public class InsightsContextService {
             You will be provided with:
             1. The existing web component JavaScript code
             2. The user's modification request
-            3. Context about the data and structures
+            3. Context about the data and entityDefinitions
             
             MODIFICATION GUIDELINES:
             
             1. PRESERVE EXISTING FUNCTIONALITY:
                - Keep the same data loading and processing logic
-               - Maintain the same structure and component architecture
+               - Maintain the same entityDefinition and component architecture
                - Preserve existing styling and layout patterns
                - Keep the same chart library usage (ECharts)
             
@@ -518,10 +517,10 @@ public class InsightsContextService {
             - Return ONLY the complete modified JavaScript code
             - Include all necessary imports and dependencies
             - Ensure the component is self-contained and functional
-            - Test that the modifications work with the existing data structure
+            - Test that the modifications work with the existing data entityDefinition
             
             Remember: You are modifying an existing component, not creating a new one.
-            Make minimal, targeted changes while preserving the overall structure and functionality.
+            Make minimal, targeted changes while preserving the overall entityDefinition and functionality.
             """;
     }
 }

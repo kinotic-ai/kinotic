@@ -51,7 +51,7 @@ Each node is accessible on different ports:
 
 ### Scenario 1: Structure Modification
 
-1. **Create a structure on Node 1**:
+1. **Create a entityDefinition on Node 1**:
    ```bash
    curl -X POST http://localhost:8081/api/structures \
      -u admin:admin \
@@ -63,7 +63,7 @@ Each node is accessible on different ports:
      }'
    ```
 
-2. **Query the structure on all nodes** to populate caches:
+2. **Query the entityDefinition on all nodes** to populate caches:
    ```bash
    # Node 1
    curl http://localhost:8081/api/structures/testApp.TestStructure -u admin:admin
@@ -75,12 +75,12 @@ Each node is accessible on different ports:
    curl http://localhost:8083/api/structures/testApp.TestStructure -u admin:admin
    ```
 
-3. **Modify the structure on Node 1** (triggers cache eviction):
+3. **Modify the entityDefinition on Node 1** (triggers cache eviction):
    ```bash
    curl -X PUT http://localhost:8081/api/structures/testApp.TestStructure \
      -u admin:admin \
      -H "Content-Type: application/json" \
-     -d '{...modified structure...}'
+     -d '{...modified entityDefinition...}'
    ```
 
 4. **Check logs on all nodes** for cache eviction messages:
@@ -93,7 +93,7 @@ Each node is accessible on different ports:
 
    You should see messages like:
    ```
-   Successfully completed cache eviction for structure: testApp.TestStructure due to Modify
+   Successfully completed cache eviction for entityDefinition: testApp.TestStructure due to Modify
    STRUCTURE cache eviction successfully completed on all 3 cluster nodes
    ```
 
@@ -107,7 +107,7 @@ Each node is accessible on different ports:
 
 ### Scenario 2: Structure Deletion
 
-1. **Delete a structure on Node 1**:
+1. **Delete a entityDefinition on Node 1**:
    ```bash
    curl -X DELETE http://localhost:8081/api/structures/testApp.TestStructure \
      -u admin:admin
@@ -115,7 +115,7 @@ Each node is accessible on different ports:
 
 2. **Verify cache eviction** on all nodes (check logs as above)
 
-3. **Verify structure is gone** on all nodes:
+3. **Verify entityDefinition is gone** on all nodes:
    ```bash
    # All should return 404
    curl http://localhost:8081/api/structures/testApp.TestStructure -u admin:admin
@@ -146,7 +146,7 @@ Each node is accessible on different ports:
    docker stop structures-node2
    ```
 
-3. **Trigger cache eviction** on Node 1 (modify a structure)
+3. **Trigger cache eviction** on Node 1 (modify a entityDefinition)
 
 4. **Check logs** on Node 1:
    - Should see retry attempts
@@ -411,9 +411,9 @@ The test will:
 ```
 === Starting K8s cache eviction propagation test ===
 Verifying all 3 pods are healthy
-Creating test structure on pod 0
+Creating test entityDefinition on pod 0
 Warming caches on all 3 pods
-Modifying structure on pod 0 to trigger cache eviction
+Modifying entityDefinition on pod 0 to trigger cache eviction
 Waiting for cache eviction to propagate across cluster (5 seconds)
 Verifying cache eviction propagated to all 3 pods
 === Cache eviction propagation test PASSED ===
@@ -489,7 +489,7 @@ curl http://localhost:8083/api/structures/k8stest.CacheEvictionTest -u admin:str
 ### 5. Modify Structure on Pod 0
 
 ```bash
-# First get the structure
+# First get the entityDefinition
 STRUCTURE=$(curl -s http://localhost:8081/api/structures/k8stest.CacheEvictionTest -u admin:structures)
 
 # Update the description
@@ -522,7 +522,7 @@ kubectl logs -l app.kubernetes.io/name=structures --tail=50 | grep "cache evicti
 
 You should see messages like:
 ```
-Successfully completed cache eviction for structure: k8stest.CacheEvictionTest due to Modify
+Successfully completed cache eviction for entityDefinition: k8stest.CacheEvictionTest due to Modify
 STRUCTURE cache eviction successfully completed on all 3 cluster nodes
 ```
 

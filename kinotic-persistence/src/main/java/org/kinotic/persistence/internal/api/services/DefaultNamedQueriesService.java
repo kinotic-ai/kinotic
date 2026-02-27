@@ -12,7 +12,7 @@ import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.api.model.ParameterHolder;
@@ -58,16 +58,16 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
                         .name("namedQueriesCache")
                         .expireAfterAccess(Duration.ofHours(20))
                         .maximumSize(10_000) 
-                        .buildAsync((key, executor) -> findByApplicationAndStructure(key.structure().getApplicationId(),
-                                                                                     key.structure().getName())
+                        .buildAsync((key, executor) -> findByApplicationAndEntityDefinition(key.entityDefinition().getApplicationId(),
+                                                                                            key.entityDefinition().getName())
                                 .thenApplyAsync(namedQueriesDefinition -> {
  
-                                    Validate.notNull(namedQueriesDefinition, "No Named Query found for Structure: "
-                                            + key.structure()
+                                    Validate.notNull(namedQueriesDefinition, "No Named Query found for EntityDefinition: "
+                                            + key.entityDefinition()
                                             + " and Query: "
                                             + key.queryName());
 
-                                    QueryExecutor ret = queryExecutorFactory.createQueryExecutor(key.structure(),
+                                    QueryExecutor ret = queryExecutorFactory.createQueryExecutor(key.entityDefinition(),
                                                                                                  key.queryName(),
                                                                                                  namedQueriesDefinition);
 
@@ -113,35 +113,35 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
     }
 
     @Override
-    public <T> CompletableFuture<List<T>> executeNamedQuery(Structure structure,
+    public <T> CompletableFuture<List<T>> executeNamedQuery(EntityDefinition entityDefinition,
                                                             String queryName,
                                                             ParameterHolder parameterHolder,
                                                             Class<T> type,
                                                             EntityContext context) {
         // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
-        return cache.get(new CacheKey(queryName, structure))
+        return cache.get(new CacheKey(queryName, entityDefinition))
                     .thenCompose(queryExecutor -> queryExecutor.execute(new QueryContext(context, parameterHolder), type));
     }
 
     @Override
-    public <T> CompletableFuture<Page<T>> executeNamedQueryPage(Structure structure,
+    public <T> CompletableFuture<Page<T>> executeNamedQueryPage(EntityDefinition entityDefinition,
                                                                 String queryName,
                                                                 ParameterHolder parameterHolder,
                                                                 Pageable pageable,
                                                                 Class<T> type,
                                                                 EntityContext context) {
         // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
-        return cache.get(new CacheKey(queryName, structure))
+        return cache.get(new CacheKey(queryName, entityDefinition))
                     .thenCompose(queryExecutor -> queryExecutor.executePage(new QueryContext(context, parameterHolder), pageable, type));
     }
 
     @Override
-    public CompletableFuture<NamedQueriesDefinition> findByApplicationAndStructure(String applicationId, String structure) {
+    public CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId, String entityDefinitionName) {
         return crudServiceTemplate.search(indexName, Pageable.ofSize(1), type, builder -> builder
                 .query(q -> q
                         .bool(b -> b
                                 .filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery(),
-                                        TermQuery.of(tq -> tq.field("structure").value(structure))._toQuery())
+                                        TermQuery.of(tq -> tq.field("entityDefinitionName").value(entityDefinitionName))._toQuery())
                         )
                 )).thenApply(page -> page.getContent() != null && !page.getContent().isEmpty()
                 ? page.getContent().getFirst()
@@ -149,12 +149,12 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
     }
 
     @Override
-    public CompletableFuture<NamedQueriesDefinition> save(NamedQueriesDefinition entity) {
+    public CompletableFuture<NamedQueriesDefinition> save(NamedQueriesDefinition definition) {
         // TODO: preprocess queries to correct index name and add Metadata about query type to be used by other parts of the system
         //       The Query type information will speed up other areas the need this as well
-        return super.save(entity)
+        return super.save(definition)
                     .thenApply(namedQueriesDefinition -> {
-                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedNamedQuery(entity.getApplicationId(), entity.getStructure(), entity.getId()));
+                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedNamedQuery(definition.getApplicationId(), definition.getEntityDefinitionName(), definition.getId()));
                         return namedQueriesDefinition;
                     });
     }
@@ -173,7 +173,7 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
                                 this.eventPublisher.publishEvent(
                                         CacheEvictionEvent.localDeletedNamedQuery(
                                                 namedQuery.getApplicationId(), 
-                                                namedQuery.getStructure(), 
+                                                namedQuery.getEntityDefinitionName(),
                                                 namedQuery.getId()));
                                 return null;
                             });
@@ -195,5 +195,5 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
                             .thenApply(unused -> null);
     }
 
-    private record CacheKey(String queryName, Structure structure) {}
+    private record CacheKey(String queryName, EntityDefinition entityDefinition) {}
 }

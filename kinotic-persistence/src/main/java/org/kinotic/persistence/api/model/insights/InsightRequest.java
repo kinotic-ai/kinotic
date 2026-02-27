@@ -3,6 +3,7 @@ package org.kinotic.persistence.api.model.insights;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import org.kinotic.persistence.api.model.EntityDefinition;
 
 /**
  * Represents a request for AI-powered data analysis and visualization generation.
@@ -24,17 +25,17 @@ public class InsightRequest {
     private String query;
     
     /**
-     * The application ID to search for structures within.
-     * All analysis will be limited to structures in this application.
+     * The application ID to search for {@link EntityDefinition}s within.
+     * All analysis will be limited to {@link EntityDefinition}s in this application.
      */
     private String applicationId;
     
     /**
-     * Optional: Specific structure ID to focus the analysis on.
-     * If provided, will prioritize this structure in the analysis.
-     * Format: "applicationId.structureName"
+     * Optional: Specific {@link EntityDefinition} ID to focus the analysis on.
+     * If provided, will prioritize this {@link EntityDefinition} in the analysis.
+     * Format: "applicationId.entityDefinitionName"
      */
-    private String focusStructureId;
+    private String focusEntityDefinitionId;
     
     /**
      * Optional: Preferred visualization type if user has a preference.

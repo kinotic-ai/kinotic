@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 import jakarta.annotation.PostConstruct;
 
 /**
- * This class is responsible for initializing the structures endpoints.
+ * This class is responsible for initializing the Persistence endpoints.
  * Created by Navíd Mitchell 🤪 on 5/30/23.
  */
 @Component
@@ -38,7 +38,7 @@ public class PersistenceInitializer {
     @PostConstruct
     public void init(){
         int numToDeploy = kinoticProperties.getMaxNumberOfCoresToUse();
-        log.info("{} Cores will be used for Structures Endpoints", numToDeploy);
+        log.info("{} Cores will be used for Persistence Endpoints", numToDeploy);
         DeploymentOptions options = new DeploymentOptions().setInstances(numToDeploy);
 
         vertx.deployVerticle(verticleFactory::createOpenApiVerticle, options);
@@ -61,7 +61,7 @@ public class PersistenceInitializer {
                           event -> esAsyncClient
                                   .cluster()
                                   .health(builder -> builder.index(properties.getIndexPrefix() + "application")
-                                                            .index(properties.getIndexPrefix() + "structure"))
+                                                            .index(properties.getIndexPrefix() + "entity_definition"))
                                   .whenComplete((health, throwable) -> {
                                       if(throwable != null){
                                           log.error("Elasticsearch cluster health check failed", throwable);

@@ -18,11 +18,11 @@ import java.util.concurrent.CompletableFuture;
 @SuppressWarnings("rawtypes")
 public class BulkUpdateDataFetcher implements DataFetcher<CompletableFuture<Boolean>> {
 
-    private final String structureId;
+    private final String entityDefinitionId;
     private final EntitiesService entitiesService;
 
-    public BulkUpdateDataFetcher(String structureId, EntitiesService entitiesService) {
-        this.structureId = structureId;
+    public BulkUpdateDataFetcher(String entityDefinitionId, EntitiesService entitiesService) {
+        this.entityDefinitionId = entityDefinitionId;
         this.entitiesService = entitiesService;
     }
 
@@ -34,7 +34,7 @@ public class BulkUpdateDataFetcher implements DataFetcher<CompletableFuture<Bool
 
         List<Map> entity = environment.getArgument("input");
 
-        return entitiesService.bulkUpdate(structureId, entity, ec)
+        return entitiesService.bulkUpdate(entityDefinitionId, entity, ec)
                               .thenApply(v -> true);
     }
 }

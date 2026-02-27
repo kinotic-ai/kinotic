@@ -7,11 +7,11 @@ This document outlines the design and implementation of cache eviction in the St
 ## Problem Statement
 
 The Structures platform uses multiple local caches (Caffeine) for performance optimization:
-- **Entity Service Cache**: Caches entity services by structure ID
+- **Entity Service Cache**: Caches entity services by entityDefinition ID
 - **GraphQL Handler Cache**: Caches GraphQL handlers by application ID  
 - **GQL Operation Definition Cache**: Caches GraphQL operation definitions
 
-When data changes occur (structure updates, named query modifications), these caches need to be evicted with proper ordering to maintain consistency.
+When data changes occur (entityDefinition updates, named query modifications), these caches need to be evicted with proper ordering to maintain consistency.
 
 ## Key Challenges
 
@@ -31,13 +31,13 @@ Local API Call                          Cluster Message
 ┌─────────────────────────────────────────────────────────┐
 │ DefaultCacheEvictionService                             │
 │                                                         │
-│ evictCachesFor(structure) ──┐    ┌── @EventListener     │
+│ evictCachesFor(entityDefinition) ──┐    ┌── @EventListener     │
 │ evictCachesFor(namedQuery) ─┼────┼── handleStructure... │
 │                             │    │                     │
 │                             ▼    ▼                     │
 │ ┌─────────────────────────────────────────────────────┐ │
 │ │ Private Methods (Shared Core Logic)                 │ │
-│ │ - evictStructure(structure)                         │ │
+│ │ - evictStructure(entityDefinition)                         │ │
 │ │ - evictNamedQuery(namedQuery)                       │ │
 │ └─────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────┘
@@ -45,9 +45,9 @@ Local API Call                          Cluster Message
                               ▼
 ┌─────────────────────────────────────────────────────────┐
 │ Ordered Cache Service Calls                             │
-│ 1. EntitiesService.evictCachesFor(structure)           │
+│ 1. EntitiesService.evictCachesFor(entityDefinition)           │
 │ 2. GqlOperationDefinitionService.evictCachesFor(...)   │
-│ 3. DelegatingGqlHandler.evictCachesFor(structure)      │
+│ 3. DelegatingGqlHandler.evictCachesFor(entityDefinition)      │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -65,12 +65,12 @@ public class DefaultCacheEvictionService implements CacheEvictionService {
     private final EntitiesService entitiesService;
     private final GqlOperationDefinitionService gqlOperationDefinitionService;
     private final DelegatingGqlHandler delegatingGqlHandler;
-    private final StructureDAO structureDAO;
+    private final StructureDAO entityDefinitionDAO;
 
     // Public API - performs local eviction + broadcasts to cluster
-    public void evictCachesFor(Structure structure) {
-        evictStructure(structure);           // Local eviction
-        broadcastToCluster(structure);       // Cluster-wide eviction via Ignite Compute Grid
+    public void evictCachesFor(Structure entityDefinition) {
+        evictStructure(entityDefinition);           // Local eviction
+        broadcastToCluster(entityDefinition);       // Cluster-wide eviction via Ignite Compute Grid
     }
 
     public void evictCachesFor(NamedQueriesDefinition namedQuery) {
@@ -90,18 +90,18 @@ public class DefaultCacheEvictionService implements CacheEvictionService {
     }
 
     // Private methods with proper ordering
-    private void evictStructure(Structure structure) {
-        entitiesService.evictCachesFor(structure);              // Step 1
-        gqlOperationDefinitionService.evictCachesFor(structure); // Step 2
-        delegatingGqlHandler.evictCachesFor(structure);          // Step 3
+    private void evictStructure(Structure entityDefinition) {
+        entitiesService.evictCachesFor(entityDefinition);              // Step 1
+        gqlOperationDefinitionService.evictCachesFor(entityDefinition); // Step 2
+        delegatingGqlHandler.evictCachesFor(entityDefinition);          // Step 3
     }
 
     private void evictNamedQuery(NamedQueriesDefinition namedQuery) {
         String structureId = StructuresUtil.structureNameToId(namedQuery.getApplicationId(), namedQuery.getStructure());
-        structureDAO.findById(structureId)
-                    .thenAccept(structure -> {
-                        gqlOperationDefinitionService.evictCachesFor(structure);
-                        delegatingGqlHandler.evictCachesFor(structure);
+        entityDefinitionDAO.findById(structureId)
+                    .thenAccept(entityDefinition -> {
+                        gqlOperationDefinitionService.evictCachesFor(entityDefinition);
+                        delegatingGqlHandler.evictCachesFor(entityDefinition);
                     }).join();
     }
 }
@@ -126,8 +126,8 @@ Cluster-wide cache eviction is now implemented using Apache Ignite Compute Grid:
 
 ```java
 @Override
-public void evictCachesFor(Structure structure) {
-    evictStructure(structure);                    // ← Local eviction
+public void evictCachesFor(Structure entityDefinition) {
+    evictStructure(entityDefinition);                    // ← Local eviction
     
     // Cluster eviction using Ignite Compute Grid with validation
     try {
@@ -135,13 +135,13 @@ public void evictCachesFor(Structure structure) {
         ClusterGroup servers = ignite.cluster().forServers();
         
         // Broadcast to all server nodes and collect results
-        IgniteFuture<Void> future = ignite.compute(servers).broadcastAsync(new ClusterCacheEvictionTask("STRUCTURE", structure.getId()));
+        IgniteFuture<Void> future = ignite.compute(servers).broadcastAsync(new ClusterCacheEvictionTask("STRUCTURE", entityDefinition.getId()));
         future.get(); // Wait for completion and throw exception if any node failed
         
         log.info("Structure cache eviction successfully completed on all {} cluster nodes for: {}", 
-                servers.nodes().size(), structure.getId());
+                servers.nodes().size(), entityDefinition.getId());
     } catch (Exception e) {
-        log.error("Failed to complete structure cache eviction on cluster for: {}", structure.getId(), e);
+        log.error("Failed to complete entityDefinition cache eviction on cluster for: {}", entityDefinition.getId(), e);
     }
 }
 
@@ -241,8 +241,8 @@ private static final long CLUSTER_TIMEOUT_MS = 30000; // 30 seconds
 
 ### Structure Updates
 ```java
-// When a structure is modified
-cacheEvictionService.evictCachesFor(structure);
+// When a entityDefinition is modified
+cacheEvictionService.evictCachesFor(entityDefinition);
 // → Executes ordered local eviction
 // → Broadcasts eviction to all cluster nodes via Ignite Compute Grid
 ```
@@ -251,7 +251,7 @@ cacheEvictionService.evictCachesFor(structure);
 ```java
 // When a named query is modified
 cacheEvictionService.evictCachesFor(namedQuery);
-// → Looks up structure
+// → Looks up entityDefinition
 // → Executes ordered eviction
 // → Broadcasts eviction to all cluster nodes via Ignite Compute Grid
 ```
@@ -382,7 +382,7 @@ See `docker-compose/CLUSTER_TESTING.md` for detailed testing procedures.
 - `testClusterFormation()` - Verify all nodes start and join cluster
 - `testCacheEvictionPropagatesAcrossCluster()` - Modify on node1, verify eviction on node2/node3
 - `testNodeFailureHandling()` - Kill node during eviction, verify retry succeeds
-- `testDeletionPropagation()` - Delete structure/named query, verify cluster-wide eviction
+- `testDeletionPropagation()` - Delete entityDefinition/named query, verify cluster-wide eviction
 - `testMetricsRecorded()` - Verify OpenTelemetry metrics are emitted correctly
 
 **Manual Test Procedures**:

@@ -76,10 +76,10 @@ The tests verify that when a Structure is modified on one pod:
 This test establishes the fundamental cache eviction verification:
 
 1. **Setup** - Clear eviction files, discover pods, create port-forwards
-2. **Create Structure** - Create a Vehicle structure on pod 0
+2. **Create Structure** - Create a Vehicle entityDefinition on pod 0
 3. **Create Entities** - Save test vehicles to populate entity data
 4. **Warm Caches** - Call `findAll()` and `search()` on each pod to populate caches
-5. **Modify Structure** - Update structure on pod 0 (triggers eviction)
+5. **Modify Structure** - Update entityDefinition on pod 0 (triggers eviction)
 6. **Verify CSV Files** - Check eviction records in `evictions-{pod}.csv`
 7. **Verify Consistency** - Confirm all pods see the updated Structure
 
@@ -89,7 +89,7 @@ This test provides a foundation for load testing and HA scenarios:
 
 1. **Setup** - Same as Test 1 but with more entities (10 vehicles)
 2. **Warm Caches** - Populate caches on all pods
-3. **Concurrent Operations** - Rapid reads during structure modification
+3. **Concurrent Operations** - Rapid reads during entityDefinition modification
 4. **Track Performance** - Record timing metrics for each operation
 5. **Verify No Stale Data** - Ensure final reads all see updated data
 6. **Report Metrics** - Print performance summary
@@ -133,7 +133,7 @@ Fields:
 
 | Cause | Description |
 |-------|-------------|
-| `EXPLICIT` | `cache.invalidate()` was called (structure modification) |
+| `EXPLICIT` | `cache.invalidate()` was called (entityDefinition modification) |
 | `REPLACED` | Entry was replaced with a new value |
 | `EXPIRED` | Entry expired due to TTL or access-based expiration |
 | `SIZE` | Evicted due to cache size limits |
@@ -167,7 +167,7 @@ const evictions = await waitForEvictions({
 const summary = summarizeEvictions(evictions);
 console.log(summary.totalRecords, summary.byCause, summary.byPod);
 
-// Filter by structure
+// Filter by entityDefinition
 const structureEvictions = filterByStructureId(evictions, 'myapp.vehicle');
 ```
 

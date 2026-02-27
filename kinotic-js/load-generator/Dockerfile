@@ -14,7 +14,7 @@ RUN corepack enable
 RUN groupmod -g 999 node && usermod -u 999 -g 999 node
 USER node
 WORKDIR /app
-# Copy only what we need, maintaining the same structure as dev
+# Copy only what we need, maintaining the same entityDefinition as dev
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/pnpm-lock.yaml ./

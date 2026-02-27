@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS struct_named_query_service_definition (
     id KEYWORD,
     applicationId KEYWORD,
     projectId KEYWORD,
-    structure KEYWORD,
+    entityDefinition KEYWORD,
     namedQueries JSON NOT INDEXED
 ); 
 
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS struct_project (
     updated DATE
 );
 
--- Create the structure table if it does not exist
+-- Create the entityDefinition table if it does not exist
 CREATE TABLE IF NOT EXISTS struct_structure (
     id KEYWORD,
     name KEYWORD,
@@ -75,7 +75,7 @@ WITH (SCRIPT == 'ctx._source.applicationId = ctx._source.id;
       WAIT == TRUE);
 
 -- Reindex data from structures index to struct_structure table
-REINDEX structure INTO struct_structure 
+REINDEX entityDefinition INTO struct_structure
 WITH (SCRIPT == 'ctx._source.applicationId = ctx._source.namespace;
                  ctx._source.projectId = ctx._source.namespace + "_default";
                  ctx._source.remove("namespace");',

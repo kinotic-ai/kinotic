@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.endpoints.graphql;
 
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 
 import java.util.List;
 
@@ -18,10 +18,10 @@ public interface GqlOperationDefinitionService {
     List<GqlOperationDefinition> getBuiltInOperationDefinitions();
 
     /**
-     * Returns all the named query operations that are available for the given {@link Structure}
-     * @param structure to get the named query operations for
-     * @return all the {@link GqlOperationDefinition} available for the given {@link Structure}
+     * Returns all the named query operations that are available for the given {@link EntityDefinition}
+     * @param entityDefinition to get the named query operations for
+     * @return all the {@link GqlOperationDefinition} available for the given {@link EntityDefinition}
      */
-    List<GqlOperationDefinition> getNamedQueryOperationDefinitions(Structure structure);
+    List<GqlOperationDefinition> getNamedQueryOperationDefinitions(EntityDefinition entityDefinition);
 
 }

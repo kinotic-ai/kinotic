@@ -16,7 +16,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
- * Spring AI Tools for analyzing actual data from structures using EntitiesService.
+ * Spring AI Tools for analyzing actual data from EntityDefinitions using EntitiesService.
  * These tools allow the AI to understand data patterns, distributions, and content
  * to make informed visualization recommendations.
  */
@@ -36,7 +36,7 @@ public class DataAnalysisTools {
 
     // FIXME: Needs spring ai 2 with spring boot 4 support
     /**
-     * Tool that allows Spring AI to get sample data from any structure.
+     * Tool that allows Spring AI to get sample data from any EntityDefinition.
      * This helps the AI understand the actual content and patterns in the data.
      * 
      * Note: This is a simplified synchronous wrapper for the async EntitiesService.
@@ -44,12 +44,12 @@ public class DataAnalysisTools {
      */
    // @Tool
     @SuppressWarnings("unchecked")
-    public String getSampleData(String structureId, int sampleSize) {
-        log.debug("AI requesting {} sample records from structure: {}", sampleSize, structureId);
+    public String getSampleData(String entityDefinitionId, int sampleSize) {
+        log.debug("AI requesting {} sample records from EntityDefinition: {}", sampleSize, entityDefinitionId);
         
         progressSink.next(InsightProgress.builder()
             .type(InsightProgress.ProgressType.DISCOVERING_DATA)
-            .message("Analyzing data from: " + structureId)
+            .message("Analyzing data from: " + entityDefinitionId)
             .timestamp(Instant.now())
             .build());
         
@@ -61,16 +61,16 @@ public class DataAnalysisTools {
             EntityContext context = createEntityContext();
             
             Pageable pageable = Pageable.ofSize(limitedSampleSize);
-            CompletableFuture<Page<Map>> future = entitiesService.findAll(structureId, pageable, Map.class, context);
+            CompletableFuture<Page<Map>> future = entitiesService.findAll(entityDefinitionId, pageable, Map.class, context);
             Page<Map> dataPage = future.join(); // Blocking wait - not ideal but needed for tool interface
             
             if (dataPage.getContent().isEmpty()) {
-                return String.format("No data found in structure: %s", structureId);
+                return String.format("No data found in EntityDefinition: %s", entityDefinitionId);
             }
             
             StringBuilder result = new StringBuilder();
-            result.append(String.format("Sample Data from Structure '%s' (%d of %d records):\n\n", 
-                structureId, dataPage.getContent().size(), dataPage.getTotalElements()));
+            result.append(String.format("Sample Data from EntityDefinition '%s' (%d of %d records):\n\n",
+                entityDefinitionId, dataPage.getContent().size(), dataPage.getTotalElements()));
             
             List<Map> content = dataPage.getContent();
             for (int i = 0; i < content.size(); i++) {
@@ -81,50 +81,50 @@ public class DataAnalysisTools {
             }
             
             // Add data summary
-            result.append(String.format("\nData Summary:\n"));
+            result.append("\nData Summary:\n");
             result.append(String.format("- Total records available: %d\n", dataPage.getTotalElements()));
             result.append(String.format("- Sample size: %d\n", content.size()));
             result.append(String.format("- Fields detected: %s\n", detectFields(content)));
             
             progressSink.next(InsightProgress.builder()
                 .type(InsightProgress.ProgressType.DISCOVERING_DATA)
-                .message("Data analysis completed creating visualizations: " + structureId)
+                .message("Data analysis completed creating visualizations: " + entityDefinitionId)
                 .timestamp(Instant.now())
                 .build());
             
             return result.toString();
             
         } catch (Exception e) {
-            log.error("Error getting sample data for structure {}: {}", structureId, e.getMessage());
-            return String.format("Error retrieving sample data for structure %s: %s", structureId, e.getMessage());
+            log.error("Error getting sample data for EntityDefinition {}: {}", entityDefinitionId, e.getMessage());
+            return String.format("Error retrieving sample data for EntityDefinition %s: %s", entityDefinitionId, e.getMessage());
         }
     }
 
     /**
-     * Tool that allows Spring AI to get statistical information about data in a structure.
+     * Tool that allows Spring AI to get statistical information about data in a EntityDefinition.
      */
    // @Tool
-    public String getDataStatistics(String structureId) {
-        log.debug("AI requesting data statistics for structure: {}", structureId);
+    public String getDataStatistics(String entityDefinitionId) {
+        log.debug("AI requesting data statistics for EntityDefinition: {}", entityDefinitionId);
         
         try {
             EntityContext context = createEntityContext();
             
             // Get total count
-            CompletableFuture<Long> countFuture = entitiesService.count(structureId, context);
+            CompletableFuture<Long> countFuture = entitiesService.count(entityDefinitionId, context);
             long totalCount = countFuture.join();
             
             if (totalCount == 0) {
-                return String.format("Structure '%s' contains no data.", structureId);
+                return String.format("EntityDefinition '%s' contains no data.", entityDefinitionId);
             }
             
             // Get sample for field analysis
             Pageable pageable = Pageable.ofSize(Math.min(100, (int) totalCount));
-            CompletableFuture<Page<Map>> dataFuture = entitiesService.findAll(structureId, pageable, Map.class, context);
+            CompletableFuture<Page<Map>> dataFuture = entitiesService.findAll(entityDefinitionId, pageable, Map.class, context);
             Page<Map> sampleData = dataFuture.join();
             
             StringBuilder result = new StringBuilder();
-            result.append(String.format("Data Statistics for Structure '%s':\n\n", structureId));
+            result.append(String.format("Data Statistics for EntityDefinition '%s':\n\n", entityDefinitionId));
             result.append(String.format("Total Records: %d\n", totalCount));
             result.append(String.format("Sample Size for Analysis: %d\n\n", sampleData.getContent().size()));
             
@@ -141,8 +141,8 @@ public class DataAnalysisTools {
             return result.toString();
             
         } catch (Exception e) {
-            log.error("Error getting statistics for structure {}: {}", structureId, e.getMessage());
-            return String.format("Error retrieving statistics for structure %s: %s", structureId, e.getMessage());
+            log.error("Error getting statistics for EntityDefinition {}: {}", entityDefinitionId, e.getMessage());
+            return String.format("Error retrieving statistics for EntityDefinition %s: %s", entityDefinitionId, e.getMessage());
         }
     }
 
@@ -151,19 +151,19 @@ public class DataAnalysisTools {
      */
   //  @Tool
     @SuppressWarnings("unchecked")
-    public String searchAndAnalyze(String structureId, String searchQuery, int limit) {
-        log.debug("AI searching structure {} with query: '{}'", structureId, searchQuery);
+    public String searchAndAnalyze(String entityDefinitionId, String searchQuery, int limit) {
+        log.debug("AI searching EntityDefinition {} with query: '{}'", entityDefinitionId, searchQuery);
         
         try {
             int limitedSize = Math.min(limit, 50);
             EntityContext context = createEntityContext();
             Pageable pageable = Pageable.ofSize(limitedSize);
             
-            CompletableFuture<Page<Map>> searchFuture = entitiesService.search(structureId, searchQuery, pageable, Map.class, context);
+            CompletableFuture<Page<Map>> searchFuture = entitiesService.search(entityDefinitionId, searchQuery, pageable, Map.class, context);
             Page<Map> searchResults = searchFuture.join();
             
             StringBuilder result = new StringBuilder();
-            result.append(String.format("Search Results for '%s' in Structure '%s':\n\n", searchQuery, structureId));
+            result.append(String.format("Search Results for '%s' in EntityDefinition '%s':\n\n", searchQuery, entityDefinitionId));
             
             if (searchResults.getContent().isEmpty()) {
                 result.append("No matching records found.\n");
@@ -188,8 +188,8 @@ public class DataAnalysisTools {
             return result.toString();
             
         } catch (Exception e) {
-            log.error("Error searching structure {} with query '{}': {}", structureId, searchQuery, e.getMessage());
-            return String.format("Error searching structure %s: %s", structureId, e.getMessage());
+            log.error("Error searching EntityDefinition {} with query '{}': {}", entityDefinitionId, searchQuery, e.getMessage());
+            return String.format("Error searching EntityDefinition %s: %s", entityDefinitionId, e.getMessage());
         }
     }
 
@@ -198,22 +198,22 @@ public class DataAnalysisTools {
      */
   //  @Tool
     @SuppressWarnings("unchecked")
-    public String analyzeFieldDistribution(String structureId, String fieldName) {
-        log.debug("AI analyzing distribution of field '{}' in structure: {}", fieldName, structureId);
+    public String analyzeFieldDistribution(String entityDefinitionId, String fieldName) {
+        log.debug("AI analyzing distribution of field '{}' in EntityDefinition: {}", fieldName, entityDefinitionId);
         
         try {
             // Get sample data to analyze the field
             EntityContext context = createEntityContext();
             Pageable pageable = Pageable.ofSize(100);
-            CompletableFuture<Page<Map>> dataFuture = entitiesService.findAll(structureId, pageable, Map.class, context);
+            CompletableFuture<Page<Map>> dataFuture = entitiesService.findAll(entityDefinitionId, pageable, Map.class, context);
             Page<Map> sampleData = dataFuture.join();
             
             if (sampleData.getContent().isEmpty()) {
-                return String.format("No data available to analyze field '%s' in structure '%s'", fieldName, structureId);
+                return String.format("No data available to analyze field '%s' in EntityDefinition '%s'", fieldName, entityDefinitionId);
             }
             
             StringBuilder result = new StringBuilder();
-            result.append(String.format("Field Distribution Analysis for '%s' in Structure '%s':\n\n", fieldName, structureId));
+            result.append(String.format("Field Distribution Analysis for '%s' in EntityDefinition '%s':\n\n", fieldName, entityDefinitionId));
             
             Map<Object, Integer> valueDistribution = new HashMap<>();
             int nullValues = 0;
@@ -250,7 +250,7 @@ public class DataAnalysisTools {
                 });
             
             // Determine field characteristics
-            result.append(String.format("\nField Characteristics:\n"));
+            result.append("\nField Characteristics:\n");
             result.append(String.format("- Unique values: %d\n", valueDistribution.size()));
             result.append(String.format("- Data type: %s\n", determineFieldType(valueDistribution.keySet())));
             result.append(String.format("- Suitable for categorical analysis: %s\n", valueDistribution.size() <= 20 ? "Yes" : "No"));
@@ -258,7 +258,7 @@ public class DataAnalysisTools {
             return result.toString();
             
         } catch (Exception e) {
-            log.error("Error analyzing field distribution for '{}' in structure {}: {}", fieldName, structureId, e.getMessage());
+            log.error("Error analyzing field distribution for '{}' in EntityDefinition {}: {}", fieldName, entityDefinitionId, e.getMessage());
             return String.format("Error analyzing field '%s': %s", fieldName, e.getMessage());
         }
     }

@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.internal.sample.Person;
 
 import java.util.ArrayList;
@@ -21,7 +21,7 @@ import java.util.List;
 @NoArgsConstructor
 public class StructureAndPersonHolder {
 
-    private Structure structure;
+    private EntityDefinition entityDefinition;
 
     private List<Person> persons = new ArrayList<>();
 

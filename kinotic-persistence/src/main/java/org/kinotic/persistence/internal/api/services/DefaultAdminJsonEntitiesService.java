@@ -27,47 +27,47 @@ public class DefaultAdminJsonEntitiesService implements AdminJsonEntitiesService
     private final EntitiesService entitiesService;
 
     @Override
-    public CompletableFuture<Long> count(String structureId, List<String> tenantSelection, Participant participant) {
-        return entitiesService.count(structureId,
+    public CompletableFuture<Long> count(String entityDefinitionId, List<String> tenantSelection, Participant participant) {
+        return entitiesService.count(entityDefinitionId,
                                      new DefaultEntityContext(participant)
                                              .setTenantSelection(tenantSelection));
     }
 
     @Override
-    public CompletableFuture<Long> countByQuery(String structureId,
+    public CompletableFuture<Long> countByQuery(String entityDefinitionId,
                                                 String query,
                                                 List<String> tenantSelection,
                                                 Participant participant) {
-        return entitiesService.countByQuery(structureId,
+        return entitiesService.countByQuery(entityDefinitionId,
                                             query,
                                             new DefaultEntityContext(participant)
                                                     .setTenantSelection(tenantSelection));
     }
 
     @Override
-    public CompletableFuture<Void> deleteById(String structureId, TenantSpecificId id, Participant participant) {
-        return entitiesService.deleteById(structureId,
+    public CompletableFuture<Void> deleteById(String entityDefinitionId, TenantSpecificId id, Participant participant) {
+        return entitiesService.deleteById(entityDefinitionId,
                                           id,
                                           new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<Void> deleteByQuery(String structureId,
+    public CompletableFuture<Void> deleteByQuery(String entityDefinitionId,
                                                  String query,
                                                  List<String> tenantSelection,
                                                  Participant participant) {
-        return entitiesService.deleteByQuery(structureId,
+        return entitiesService.deleteByQuery(entityDefinitionId,
                                              query,
                                              new DefaultEntityContext(participant)
                                                      .setTenantSelection(tenantSelection));
     }
 
     @Override
-    public CompletableFuture<Page<FastestType>> findAll(String structureId,
+    public CompletableFuture<Page<FastestType>> findAll(String entityDefinitionId,
                                                         List<String> tenantSelection,
                                                         Pageable pageable,
                                                         Participant participant) {
-        return entitiesService.findAll(structureId,
+        return entitiesService.findAll(entityDefinitionId,
                                        pageable,
                                        FastestType.class,
                                        new DefaultEntityContext(participant)
@@ -75,30 +75,30 @@ public class DefaultAdminJsonEntitiesService implements AdminJsonEntitiesService
     }
 
     @Override
-    public CompletableFuture<FastestType> findById(String structureId, TenantSpecificId id, Participant participant) {
-        return entitiesService.findById(structureId,
+    public CompletableFuture<FastestType> findById(String entityDefinitionId, TenantSpecificId id, Participant participant) {
+        return entitiesService.findById(entityDefinitionId,
                                         id,
                                         FastestType.class,
                                         new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<List<FastestType>> findByIds(String structureId,
+    public CompletableFuture<List<FastestType>> findByIds(String entityDefinitionId,
                                                           List<TenantSpecificId> ids,
                                                           Participant participant) {
-        return entitiesService.findByIdsWithTenant(structureId,
+        return entitiesService.findByIdsWithTenant(entityDefinitionId,
                                                    ids,
                                                    FastestType.class,
                                                    new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<List<RawJson>> namedQuery(String structureId,
+    public CompletableFuture<List<RawJson>> namedQuery(String entityDefinitionId,
                                                        String queryName,
                                                        List<QueryParameter> queryParameters,
                                                        List<String> tenantSelection,
                                                        Participant participant) {
-        return entitiesService.namedQuery(structureId,
+        return entitiesService.namedQuery(entityDefinitionId,
                                           queryName,
                                           new ListParameterHolder(queryParameters),
                                           RawJson.class,
@@ -107,13 +107,13 @@ public class DefaultAdminJsonEntitiesService implements AdminJsonEntitiesService
     }
 
     @Override
-    public CompletableFuture<Page<RawJson>> namedQueryPage(String structureId,
+    public CompletableFuture<Page<RawJson>> namedQueryPage(String entityDefinitionId,
                                                            String queryName,
                                                            List<QueryParameter> queryParameters,
                                                            List<String> tenantSelection,
                                                            Pageable pageable,
                                                            Participant participant) {
-        return entitiesService.namedQueryPage(structureId,
+        return entitiesService.namedQueryPage(entityDefinitionId,
                                               queryName,
                                               new ListParameterHolder(queryParameters),
                                               pageable,
@@ -123,12 +123,12 @@ public class DefaultAdminJsonEntitiesService implements AdminJsonEntitiesService
     }
 
     @Override
-    public CompletableFuture<Page<FastestType>> search(String structureId,
+    public CompletableFuture<Page<FastestType>> search(String entityDefinitionId,
                                                        String searchText,
                                                        List<String> tenantSelection,
                                                        Pageable pageable,
                                                        Participant participant) {
-        return entitiesService.search(structureId,
+        return entitiesService.search(entityDefinitionId,
                                       searchText,
                                       pageable,
                                       FastestType.class,

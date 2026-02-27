@@ -9,7 +9,7 @@ import reactor.core.publisher.Flux;
 
 /**
  * Provides AI-powered data analysis and visualization code generation capabilities.
- * This service analyzes user queries about their structures and generates appropriate
+ * This service analyzes user queries about their EntityDefinitions and generates appropriate
  * web components with charts and visualizations.
  * 
  */

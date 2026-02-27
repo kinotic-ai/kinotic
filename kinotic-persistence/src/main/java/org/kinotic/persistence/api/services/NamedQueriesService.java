@@ -7,7 +7,7 @@ import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 import org.kinotic.persistence.api.model.ParameterHolder;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.core.api.annotations.Publish;
 
 import java.util.List;
@@ -22,14 +22,14 @@ public interface NamedQueriesService extends IdentifiableCrudService<NamedQuerie
     /**
      * Executes a named query.
      *
-     * @param structure       the {@link Structure} that this named query is defined for
+     * @param entityDefinition       the {@link EntityDefinition} that this named query is defined for
      * @param queryName       the name of {@link FunctionDefinition} that defines the query
      * @param parameterHolder the parameters to pass to the query
      * @param type            the type of the entity
      * @param context         the context for this operation
      * @return {@link CompletableFuture} with the result of the query
      */
-    <T> CompletableFuture<List<T>> executeNamedQuery(Structure structure,
+    <T> CompletableFuture<List<T>> executeNamedQuery(EntityDefinition entityDefinition,
                                                      String queryName,
                                                      ParameterHolder parameterHolder,
                                                      Class<T> type,
@@ -38,7 +38,7 @@ public interface NamedQueriesService extends IdentifiableCrudService<NamedQuerie
     /**
      * Executes a named query and returns a {@link Page} of results.
      *
-     * @param structure       the {@link Structure} that this named query is defined for
+     * @param entityDefinition       the {@link EntityDefinition} that this named query is defined for
      * @param queryName       the name of {@link FunctionDefinition} that defines the query
      * @param parameterHolder the parameters to pass to the query
      * @param pageable        the page settings to be used
@@ -46,7 +46,7 @@ public interface NamedQueriesService extends IdentifiableCrudService<NamedQuerie
      * @param context         the context for this operation
      * @return {@link CompletableFuture} with the result of the query
      */
-    <T> CompletableFuture<Page<T>> executeNamedQueryPage(Structure structure,
+    <T> CompletableFuture<Page<T>> executeNamedQueryPage(EntityDefinition entityDefinition,
                                                          String queryName,
                                                          ParameterHolder parameterHolder,
                                                          Pageable pageable,
@@ -54,12 +54,12 @@ public interface NamedQueriesService extends IdentifiableCrudService<NamedQuerie
                                                          EntityContext context);
 
     /**
-     * Finds all {@link NamedQueriesDefinition} for a given application and structure.
-     * @param applicationId the id of the application that the structure belongs to
-     * @param structure the name of the structure that this {@link NamedQueriesDefinition} is defined for
+     * Finds all {@link NamedQueriesDefinition} for a given application and {@link EntityDefinition}.
+     * @param applicationId the id of the application that the {@link EntityDefinition} belongs to
+     * @param entityDefinitionName the name of the {@link EntityDefinition} that this {@link NamedQueriesDefinition} is defined for
      * @return {@link CompletableFuture} with the {@link NamedQueriesDefinition} or null if not found
      */
-    CompletableFuture<NamedQueriesDefinition> findByApplicationAndStructure(String applicationId, String structure);
+    CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId, String entityDefinitionName);
 
     /**
      * This operation makes all the recent writes immediately available for search.

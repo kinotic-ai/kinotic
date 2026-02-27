@@ -1,5 +1,6 @@
 package org.kinotic.persistence.internal.endpoints.graphql;
 
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.*;
 import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
@@ -9,7 +10,6 @@ import graphql.schema.GraphQLFieldDefinition;
 import lombok.extern.slf4j.Slf4j;
 
 import org.kinotic.persistence.api.model.EntityOperation;
-import org.kinotic.persistence.api.model.Structure;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;
 import org.kinotic.persistence.api.model.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.api.services.EntitiesService;
@@ -58,7 +58,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                       .fieldDefinitionFunction(args -> {
 
                                           GraphQLFieldDefinition.Builder builder = newFieldDefinition()
-                                                  .name(EntityOperation.BULK_SAVE.methodName() + args.getStructureName())
+                                                  .name(EntityOperation.BULK_SAVE.methodName() + args.getEntityDefinitionName())
                                                   .type(GraphQLBoolean)
                                                   .argument(newArgument().name("input")
                                                                          .type(nonNull(list(nonNull(args.getInputType())))));
@@ -75,7 +75,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                       .fieldDefinitionFunction(args -> {
 
                                           GraphQLFieldDefinition.Builder builder = newFieldDefinition()
-                                                  .name(EntityOperation.BULK_UPDATE.methodName() + args.getStructureName())
+                                                  .name(EntityOperation.BULK_UPDATE.methodName() + args.getEntityDefinitionName())
                                                   .type(GraphQLBoolean)
                                                   .argument(newArgument().name("input")
                                                                          .type(nonNull(list(nonNull(args.getInputType())))));
@@ -92,7 +92,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                       .fieldDefinitionFunction(args -> {
 
                                           GraphQLFieldDefinition.Builder builder = newFieldDefinition()
-                                                  .name(EntityOperation.COUNT.methodName() + args.getStructureName())
+                                                  .name(EntityOperation.COUNT.methodName() + args.getEntityDefinitionName())
                                                   .type(ExtendedScalars.GraphQLLong);
 
                                           builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.COUNT));
@@ -107,7 +107,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                       .fieldDefinitionFunction(args -> {
 
                                           GraphQLFieldDefinition.Builder builder = newFieldDefinition()
-                                                  .name("delete" + args.getStructureName())
+                                                  .name("delete" + args.getEntityDefinitionName())
                                                   .type(GraphQLID)
                                                   .argument(newArgument().name("id")
                                                                          .type(nonNull(GraphQLID)));
@@ -124,7 +124,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                       .fieldDefinitionFunction(args -> {
 
                                           GraphQLFieldDefinition.Builder builder = newFieldDefinition()
-                                                  .name(EntityOperation.FIND_BY_ID.methodName() + args.getStructureName())
+                                                  .name(EntityOperation.FIND_BY_ID.methodName() + args.getEntityDefinitionName())
                                                   .type(args.getOutputType())
                                                   .argument(newArgument().name("id")
                                                                          .type(nonNull(GraphQLID)));
@@ -141,7 +141,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                       .fieldDefinitionFunction(args -> {
 
                                           GraphQLFieldDefinition.Builder builder = newFieldDefinition()
-                                                  .name(EntityOperation.FIND_ALL.methodName() + args.getStructureName())
+                                                  .name(EntityOperation.FIND_ALL.methodName() + args.getEntityDefinitionName())
                                                   .type(nonNull(args.getPageResponseType()))
                                                   .argument(newArgument().name("pageable")
                                                                          .type(nonNull(args.getOffsetPageableReference())));
@@ -158,7 +158,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                       .fieldDefinitionFunction(args -> {
 
                                           GraphQLFieldDefinition.Builder builder = newFieldDefinition()
-                                                  .name("findAllWithCursor" + args.getStructureName())
+                                                  .name("findAllWithCursor" + args.getEntityDefinitionName())
                                                   .type(nonNull(args.getCursorPageResponseType()))
                                                   .argument(newArgument().name("pageable")
                                                                          .type(nonNull(args.getCursorPageableReference())));
@@ -175,7 +175,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                       .fieldDefinitionFunction(args -> {
 
                                           GraphQLFieldDefinition.Builder builder = newFieldDefinition()
-                                                  .name(EntityOperation.SAVE.methodName() + args.getStructureName())
+                                                  .name(EntityOperation.SAVE.methodName() + args.getEntityDefinitionName())
                                                   .type(args.getOutputType())
                                                   .argument(newArgument().name("input")
                                                                          .type(nonNull(args.getInputType())));
@@ -192,7 +192,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                       .fieldDefinitionFunction(args -> {
 
                                           GraphQLFieldDefinition.Builder builder = newFieldDefinition()
-                                                  .name(EntityOperation.SEARCH.methodName() + args.getStructureName())
+                                                  .name(EntityOperation.SEARCH.methodName() + args.getEntityDefinitionName())
                                                   .type(nonNull(args.getPageResponseType()))
                                                   .argument(newArgument().name("searchText")
                                                                          .type(nonNull(GraphQLString)))
@@ -211,7 +211,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                       .fieldDefinitionFunction(args -> {
 
                                           GraphQLFieldDefinition.Builder builder = newFieldDefinition()
-                                                  .name("searchWithCursor" + args.getStructureName())
+                                                  .name("searchWithCursor" + args.getEntityDefinitionName())
                                                   .type(nonNull(args.getCursorPageResponseType()))
                                                   .argument(newArgument().name("searchText")
                                                                          .type(nonNull(GraphQLString)))
@@ -231,7 +231,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                       .fieldDefinitionFunction(args -> {
 
                                           GraphQLFieldDefinition.Builder builder = newFieldDefinition()
-                                                  .name("sync" + args.getStructureName())
+                                                  .name("sync" + args.getEntityDefinitionName())
                                                   .type(GraphQLID);
 
                                           builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.SYNC_INDEX));
@@ -247,7 +247,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                       .fieldDefinitionFunction(args -> {
 
                                           GraphQLFieldDefinition.Builder builder = newFieldDefinition()
-                                                  .name(EntityOperation.UPDATE.methodName() + args.getStructureName())
+                                                  .name(EntityOperation.UPDATE.methodName() + args.getEntityDefinitionName())
                                                   .type(args.getOutputType())
                                                   .argument(newArgument().name("input")
                                                                          .type(nonNull(args.getInputType())));
@@ -269,8 +269,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
     public void handleCacheEviction(CacheEvictionEvent cacheEvictionEvent) {
         try {
 
-            if(cacheEvictionEvent.getStructureId() != null){
-                namedQueryOperationDefinitionCache.asMap().remove(cacheEvictionEvent.getStructureId());
+            if(cacheEvictionEvent.getEntityDefinitionId() != null){
+                namedQueryOperationDefinitionCache.asMap().remove(cacheEvictionEvent.getEntityDefinitionId());
             }
         } catch (Exception e) {
             log.error("Failed to handle cache eviction (source: {})",
@@ -284,8 +284,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
     }
 
     @Override
-    public List<GqlOperationDefinition> getNamedQueryOperationDefinitions(final Structure structure) {
-        return namedQueryOperationDefinitionCache.get(structure.getId()).join();
+    public List<GqlOperationDefinition> getNamedQueryOperationDefinitions(final EntityDefinition entityDefinition) {
+        return namedQueryOperationDefinitionCache.get(entityDefinition.getId()).join();
     }
 
     private GraphQLFieldDefinition.Builder addPolicyIfPresent(GraphQLFieldDefinition.Builder builder,

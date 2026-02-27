@@ -5,11 +5,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.test.support.elastic.ElasticTestBase;
 import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.persistence.api.model.Structure;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.sample.Car;
 import org.kinotic.persistence.internal.sample.DummyParticipant;
@@ -49,11 +49,11 @@ public class BulkUpdateTests extends ElasticTestBase {
                                                                             entityContext,
                                                                             structureSuffix))
                     .expectNextMatches(structureAndPersonHolder -> {
-                        boolean matches = structureAndPersonHolder.getStructure() != null &&
-                                structureAndPersonHolder.getStructure().getId() != null &&
+                        boolean matches = structureAndPersonHolder.getEntityDefinition() != null &&
+                                structureAndPersonHolder.getEntityDefinition().getId() != null &&
                                 structureAndPersonHolder.getPersons().size() == numberOfPeopleToCreate;
                         if(matches){
-                            ret.setStructure(structureAndPersonHolder.getStructure());
+                            ret.setEntityDefinition(structureAndPersonHolder.getEntityDefinition());
                             ret.setPersons(structureAndPersonHolder.getPersons());
                         }
                         return matches;
@@ -77,11 +77,11 @@ public class BulkUpdateTests extends ElasticTestBase {
         Assertions.assertNotNull(holder2);
 
         // Sync Index since bulk updates are not queryable until they are indexed
-        entitiesService.syncIndex(holder1.getStructure().getId(), context1).join();
-        entitiesService.syncIndex(holder2.getStructure().getId(), context2).join();
+        entitiesService.syncIndex(holder1.getEntityDefinition().getId(), context1).join();
+        entitiesService.syncIndex(holder2.getEntityDefinition().getId(), context2).join();
 
         // TODO: verify all data items as well, not just sizes
-        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder1.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder1.getEntityDefinition().getId(),
                                                                     Pageable.ofSize(numberOfPeopleToCreate * 2),// make sure page size is larger than number of entities
                                                                     RawJson.class,
                                                                     context1)))
@@ -90,7 +90,7 @@ public class BulkUpdateTests extends ElasticTestBase {
                     .as("Verifying Tenant 1 has "+numberOfPeopleToCreate+" entities")
                     .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder2.getStructure().getId(),
+        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder2.getEntityDefinition().getId(),
                                                                     Pageable.ofSize(numberOfPeopleToCreate * 2), // make sure page size is larger than number of entities
                                                                     RawJson.class,
                                                                     context2)))
@@ -103,13 +103,13 @@ public class BulkUpdateTests extends ElasticTestBase {
     @Test
     public void bulkSaveObjectWithMultipleIds() throws Exception{
         EntityContext entityContext = new DefaultEntityContext(new DummyParticipant());
-        CompletableFuture<Pair<Structure, Boolean>> createStructure = testDataService.createCarStructureIfNotExists("_bulkSaveMultipleIds");
+        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = testDataService.createCarStructureIfNotExists("_bulkSaveMultipleIds");
 
         StepVerifier.create(Mono.fromFuture(createStructure))
                     .expectNextMatches(pair -> pair.getLeft() != null && pair.getRight())
                     .verifyComplete();
 
-        Structure structure = createStructure.join().getLeft();
+        EntityDefinition entityDefinition = createStructure.join().getLeft();
 
         List<Person> personList = testDataService.createRandomTestPeopleWithId(50).join();
 
@@ -127,12 +127,12 @@ public class BulkUpdateTests extends ElasticTestBase {
             cars.add(car);
         }
 
-        testHelper.bulkSaveCarsAsRawJson(cars, structure, entityContext).join();
+        testHelper.bulkSaveCarsAsRawJson(cars, entityDefinition, entityContext).join();
 
         // Sync Index since bulk updates are not queryable until they are indexed
-        entitiesService.syncIndex(structure.getId(), entityContext).join();
+        entitiesService.syncIndex(entityDefinition.getId(), entityContext).join();
 
-        Page<RawJson> page = entitiesService.findAll(structure.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
+        Page<RawJson> page = entitiesService.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
 
         Assertions.assertEquals(50, page.getTotalElements(), "Wrong number of entities");
     }
@@ -140,13 +140,13 @@ public class BulkUpdateTests extends ElasticTestBase {
     @Test
     public void bulkUpdateObjectWithMultipleIds() throws Exception{
         EntityContext entityContext = new DefaultEntityContext(new DummyParticipant());
-        CompletableFuture<Pair<Structure, Boolean>> createStructure = testDataService.createCarStructureIfNotExists("_bulkUpdateMultipleIds");
+        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = testDataService.createCarStructureIfNotExists("_bulkUpdateMultipleIds");
 
         StepVerifier.create(Mono.fromFuture(createStructure))
                     .expectNextMatches(pair -> pair.getLeft() != null && pair.getRight())
                     .verifyComplete();
 
-        Structure structure = createStructure.join().getLeft();
+        EntityDefinition entityDefinition = createStructure.join().getLeft();
 
         List<Person> personList = testDataService.createRandomTestPeopleWithId(50).join();
 
@@ -164,12 +164,12 @@ public class BulkUpdateTests extends ElasticTestBase {
             cars.add(car);
         }
 
-        testHelper.bulkUpdateCarsAsRawJson(cars, structure, entityContext).join();
+        testHelper.bulkUpdateCarsAsRawJson(cars, entityDefinition, entityContext).join();
 
         // Sync Index since bulk updates are not queryable until they are indexed
-        entitiesService.syncIndex(structure.getId(), entityContext).join();
+        entitiesService.syncIndex(entityDefinition.getId(), entityContext).join();
 
-        Page<RawJson> page = entitiesService.findAll(structure.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
+        Page<RawJson> page = entitiesService.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
 
         Assertions.assertEquals(50, page.getTotalElements(), "Wrong number of entities");
     }

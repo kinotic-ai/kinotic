@@ -36,7 +36,7 @@ public class PersistenceJacksonConfig {
     private static final Logger log = LoggerFactory.getLogger(PersistenceJacksonConfig.class);
 
     @Bean
-    public SimpleModule structuresJacksonModule(ApplicationContext applicationContext){
+    public SimpleModule persistenceJacksonModule(ApplicationContext applicationContext){
         SimpleModule ret = new SimpleModule("PersistenceModule", Version.unknownVersion());
 
         Set<MetadataReader> decoratorMetas = MetaUtil.findClassesAssignableToType(applicationContext,

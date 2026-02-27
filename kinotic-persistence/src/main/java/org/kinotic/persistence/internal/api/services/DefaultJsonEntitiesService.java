@@ -27,58 +27,58 @@ public class DefaultJsonEntitiesService implements JsonEntitiesService {
     private final EntitiesService entitiesService;
 
     @Override
-    public CompletableFuture<Void> bulkSave(String structureId, TokenBuffer entities, Participant participant) {
-        return entitiesService.bulkSave(structureId, entities, new DefaultEntityContext(participant));
+    public CompletableFuture<Void> bulkSave(String entityDefinitionId, TokenBuffer entities, Participant participant) {
+        return entitiesService.bulkSave(entityDefinitionId, entities, new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<Void> bulkUpdate(String structureId, TokenBuffer entities, Participant participant) {
-        return entitiesService.bulkUpdate(structureId, entities, new DefaultEntityContext(participant));
+    public CompletableFuture<Void> bulkUpdate(String entityDefinitionId, TokenBuffer entities, Participant participant) {
+        return entitiesService.bulkUpdate(entityDefinitionId, entities, new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<Long> count(String structureId, Participant participant) {
-        return entitiesService.count(structureId, new DefaultEntityContext(participant));
+    public CompletableFuture<Long> count(String entityDefinitionId, Participant participant) {
+        return entitiesService.count(entityDefinitionId, new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<Long> countByQuery(String structureId, String query, Participant participant) {
-        return entitiesService.countByQuery(structureId, query, new DefaultEntityContext(participant));
+    public CompletableFuture<Long> countByQuery(String entityDefinitionId, String query, Participant participant) {
+        return entitiesService.countByQuery(entityDefinitionId, query, new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<Void> deleteById(String structureId, String id, Participant participant) {
-        return entitiesService.deleteById(structureId, id, new DefaultEntityContext(participant));
+    public CompletableFuture<Void> deleteById(String entityDefinitionId, String id, Participant participant) {
+        return entitiesService.deleteById(entityDefinitionId, id, new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<Void> deleteByQuery(String structureId, String query, Participant participant) {
-        return entitiesService.deleteByQuery(structureId, query, new DefaultEntityContext(participant));
+    public CompletableFuture<Void> deleteByQuery(String entityDefinitionId, String query, Participant participant) {
+        return entitiesService.deleteByQuery(entityDefinitionId, query, new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<Page<FastestType>> findAll(String structureId,
+    public CompletableFuture<Page<FastestType>> findAll(String entityDefinitionId,
                                                         Pageable pageable,
                                                         Participant participant) {
-        return entitiesService.findAll(structureId, pageable, FastestType.class, new DefaultEntityContext(participant));
+        return entitiesService.findAll(entityDefinitionId, pageable, FastestType.class, new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<FastestType> findById(String structureId, String id, Participant participant) {
-        return entitiesService.findById(structureId, id, FastestType.class, new DefaultEntityContext(participant));
+    public CompletableFuture<FastestType> findById(String entityDefinitionId, String id, Participant participant) {
+        return entitiesService.findById(entityDefinitionId, id, FastestType.class, new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<List<FastestType>> findByIds(String structureId, List<String> ids, Participant participant) {
-        return entitiesService.findByIds(structureId, ids, FastestType.class, new DefaultEntityContext(participant));
+    public CompletableFuture<List<FastestType>> findByIds(String entityDefinitionId, List<String> ids, Participant participant) {
+        return entitiesService.findByIds(entityDefinitionId, ids, FastestType.class, new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<List<RawJson>> namedQuery(String structureId,
+    public CompletableFuture<List<RawJson>> namedQuery(String entityDefinitionId,
                                                        String queryName,
                                                        List<QueryParameter> queryParameters,
                                                        Participant participant) {
-        return entitiesService.namedQuery(structureId,
+        return entitiesService.namedQuery(entityDefinitionId,
                                           queryName,
                                           new ListParameterHolder(queryParameters),
                                           RawJson.class,
@@ -86,12 +86,12 @@ public class DefaultJsonEntitiesService implements JsonEntitiesService {
     }
 
     @Override
-    public CompletableFuture<Page<RawJson>> namedQueryPage(String structureId,
+    public CompletableFuture<Page<RawJson>> namedQueryPage(String entityDefinitionId,
                                                            String queryName,
                                                            List<QueryParameter> queryParameters,
                                                            Pageable pageable,
                                                            Participant participant) {
-        return entitiesService.namedQueryPage(structureId,
+        return entitiesService.namedQueryPage(entityDefinitionId,
                                               queryName,
                                               new ListParameterHolder(queryParameters),
                                               pageable,
@@ -100,26 +100,26 @@ public class DefaultJsonEntitiesService implements JsonEntitiesService {
     }
 
     @Override
-    public CompletableFuture<Void> syncIndex(String structureId, Participant participant) {
-        return entitiesService.syncIndex(structureId, new DefaultEntityContext(participant));
+    public CompletableFuture<Void> syncIndex(String entityDefinitionId, Participant participant) {
+        return entitiesService.syncIndex(entityDefinitionId, new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<TokenBuffer> save(String structureId, TokenBuffer entity, Participant participant) {
-        return entitiesService.save(structureId, entity, new DefaultEntityContext(participant));
+    public CompletableFuture<TokenBuffer> save(String entityDefinitionId, TokenBuffer entity, Participant participant) {
+        return entitiesService.save(entityDefinitionId, entity, new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<Page<FastestType>> search(String structureId,
+    public CompletableFuture<Page<FastestType>> search(String entityDefinitionId,
                                                        String searchText,
                                                        Pageable pageable,
                                                        Participant participant) {
-        return entitiesService.search(structureId, searchText, pageable, FastestType.class, new DefaultEntityContext(participant));
+        return entitiesService.search(entityDefinitionId, searchText, pageable, FastestType.class, new DefaultEntityContext(participant));
     }
 
     @Override
-    public CompletableFuture<TokenBuffer> update(String structureId, TokenBuffer entity, Participant participant) {
-        return entitiesService.update(structureId, entity, new DefaultEntityContext(participant));
+    public CompletableFuture<TokenBuffer> update(String entityDefinitionId, TokenBuffer entity, Participant participant) {
+        return entitiesService.update(entityDefinitionId, entity, new DefaultEntityContext(participant));
     }
 
 }

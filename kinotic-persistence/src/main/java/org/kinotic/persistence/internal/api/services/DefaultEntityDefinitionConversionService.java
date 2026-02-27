@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.model.Structure;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.EntityType;
 import org.kinotic.persistence.internal.converters.elastic.ElasticConversionState;
 import org.kinotic.persistence.internal.converters.elastic.ElasticConverterStrategy;
@@ -24,14 +24,14 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @RequiredArgsConstructor
-public class DefaultStructureConversionService implements StructureConversionService {
+public class DefaultEntityDefinitionConversionService implements EntityDefinitionConversionService {
 
     private final IdlConverterFactory idlConverterFactory;
     private final PersistenceProperties persistenceProperties;
 
     @WithSpan
     @Override
-    public ElasticConversionResult convertToElasticMapping(Structure structure) {
+    public ElasticConversionResult convertToElasticMapping(EntityDefinition entityDefinition) {
         ObjectProperty objectProperty;
 
         IdlConverter<Property, ElasticConversionState> converter = idlConverterFactory
@@ -39,7 +39,7 @@ public class DefaultStructureConversionService implements StructureConversionSer
 
         ElasticConversionState state = converter.getConversionContext().state();
 
-        Property esProperty = converter.convert(structure.getEntityDefinition());
+        Property esProperty = converter.convert(entityDefinition.getSchema());
 
         if(esProperty.isObject()){
             objectProperty = esProperty.object();
