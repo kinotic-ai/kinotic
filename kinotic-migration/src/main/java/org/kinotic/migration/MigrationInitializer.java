@@ -1,9 +1,9 @@
 package org.kinotic.migration;
 
 import lombok.RequiredArgsConstructor;
-import org.kinotic.persistence.sql.SystemMigrator;
-import org.kinotic.persistence.sql.executor.MigrationExecutor;
-import org.kinotic.persistence.sql.parsers.MigrationParser;
+import org.kinotic.sql.SystemMigrator;
+import org.kinotic.sql.executor.MigrationExecutor;
+import org.kinotic.sql.parsers.MigrationParser;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;

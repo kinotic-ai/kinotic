@@ -5,6 +5,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.idl.decorators.EntityDecorator;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.EsIndexConfigurationDecorator;
 import org.kinotic.persistence.internal.converters.common.BaseConversionState;
 import org.kinotic.persistence.api.model.DecoratedProperty;

@@ -6,9 +6,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.junit.jupiter.api.BeforeEach;
-import org.kinotic.persistence.sql.SystemMigrator;
-import org.kinotic.persistence.sql.executor.MigrationExecutor;
-import org.kinotic.persistence.sql.parsers.MigrationParser;
+import org.kinotic.sql.SystemMigrator;
+import org.kinotic.sql.executor.MigrationExecutor;
+import org.kinotic.sql.parsers.MigrationParser;
 
 @ContextConfiguration(initializers = ElasticsearchTestContextInitializer.class)
 @SpringBootTest

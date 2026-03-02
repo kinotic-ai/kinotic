@@ -6,11 +6,11 @@ plugins {
 
 // Configure ANTLR plugin
 generateGrammarSource {
-	arguments += ['-package', 'org.kinotic.persistence.sql.parser']
+	arguments += ['-package', 'org.kinotic.sql.parser']
 	arguments += ['-visitor']
 
 	// Output directly to the parser package
-	outputDirectory = file("${projectDir}/src/main/java/org/kinotic/persistence/sql/parser")
+	outputDirectory = file("${projectDir}/src/main/java/org/kinotic/sql/parser")
 	enabled = project.gradle.startParameter.taskNames.contains(':kinotic-sql:generateGrammarSource')
 }
 
@@ -19,6 +19,10 @@ tasks.withType(Javadoc) {
     exclude '**/parser/StructuresSQL*.java'
     exclude '**/parser/StructuresSQL*.interp'
     exclude '**/parser/StructuresSQL*.tokens'
+}
+
+tasks.named('sourcesJar') {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 dependencies {

@@ -19,7 +19,13 @@ import org.springframework.stereotype.Component;
 public class KinoticPersistenceProperties extends KinoticProperties {
 
     /**
+     * If true persistence functionality will not be loaded.
+     */
+    private boolean disablePersistence = false;
+
+    /**
      * Persistence properties configuration
+     * NOTE: will be ignored if {@link KinoticPersistenceProperties#disablePersistence} = true
      */
     private PersistenceProperties persistence = new PersistenceProperties();
 

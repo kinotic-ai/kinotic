@@ -10,10 +10,10 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.test.support.elastic.ElasticTestBase;
-import org.kinotic.persistence.sql.domain.Migration;
-import org.kinotic.persistence.sql.domain.MigrationContent;
-import org.kinotic.persistence.sql.executor.MigrationExecutor;
-import org.kinotic.persistence.sql.parsers.MigrationParser;
+import org.kinotic.sql.domain.Migration;
+import org.kinotic.sql.domain.MigrationContent;
+import org.kinotic.sql.executor.MigrationExecutor;
+import org.kinotic.sql.parsers.MigrationParser;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;

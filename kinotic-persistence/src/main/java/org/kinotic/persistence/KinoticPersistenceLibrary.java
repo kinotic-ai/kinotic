@@ -1,5 +1,6 @@
 package org.kinotic.persistence;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -10,5 +11,6 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ComponentScan
 @EnableConfigurationProperties
+@ConditionalOnProperty(value = "kinotic.disablePersistence", havingValue = "false", matchIfMissing = true)
 public class KinoticPersistenceLibrary {
 }
