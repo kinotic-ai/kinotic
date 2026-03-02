@@ -29,7 +29,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: 21
+          java-version: 25
           gpg-private-key: ${{ secrets.GPG_KEY_NEW }}
           gpg-passphrase: ${{ secrets.GPG_KEY_PASS_NEW }}
 
