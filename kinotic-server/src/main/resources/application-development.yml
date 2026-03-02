@@ -1,19 +1,29 @@
 
 # YAML Reference http://www.yaml.org/refcard.html
-continuum:
-  discovery: sharedfs
+kinotic:
   debug: true
   maxNumberOfCoresToUse: 4
+  ignite:
+    discoveryType: SHAREDFS
+  persistence:
+    corsAllowedOriginPattern: "https:\\/\\/studio.apollographql.com|http:\\/\\/localhost:\\d+|http:\\/\\/121.0.0.1:\\d+"
+    corsAllowedHeaders:
+      - "*"
+    corsAllowCredentials: true
+    elastic-connections:
+      - scheme: "http"
+        host: "localhost"
+        port: "9200"
 
 logging:
   level:
     org:
       kinotic: TRACE
-    io:
-      vertx: WARN
-      netty:
-        util: DEBUG
-        buffer: DEBUG
+#    io:
+#      vertx: WARN
+#      netty:
+#        util: DEBUG
+#        buffer: DEBUG
 
 spring:
   ai:
@@ -23,17 +33,6 @@ spring:
       chat:
         options:
           model: grok-4
-
-structures:
-  initializeWithSampleData: true
-  corsAllowedOriginPattern: "https:\\/\\/studio.apollographql.com|http:\\/\\/localhost:\\d+|http:\\/\\/121.0.0.1:\\d+"
-  corsAllowedHeaders:
-    - "*"
-  corsAllowCredentials: true
-  elastic-connections:
-   - scheme: "http"
-     host: "localhost"
-     port: "9200"
 
 
 # OIDC security service configuration

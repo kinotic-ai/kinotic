@@ -5,14 +5,11 @@ package org.kinotic.core.api.config;
  */
 public enum IgniteClusterDiscoveryType {
     /**
-     * Local/single-node mode - no clustering
-     * Use for development and single-instance deployments
+     * Uses a static list if IP addresses for cluster discovery
      */
-    LOCAL,
+    LOCAL, //FIXME: change to name that more correctly describes the discovery type. This is actually using the TcpDiscoveryVmIpFinder
     /**
-     * Shared filesystem discovery - uses static IP addresses
-     * Use for Docker Compose, Docker Swarm, or VM environments
-     * Requires clusterSharedFsAddresses to be configured
+     * Shared filesystem discovery
      */
     SHAREDFS,
     /**

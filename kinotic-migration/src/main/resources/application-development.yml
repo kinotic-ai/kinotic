@@ -8,7 +8,7 @@ logging:
     org:
       kinotic: TRACE
 
-structures-migration:
+kinotic-migration:
   elasticScheme: "http"
   elasticHost: "localhost"
   elasticPort: "9200"

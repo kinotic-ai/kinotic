@@ -47,7 +47,6 @@ public class DefaultKinotic implements Kinotic {
     private static final Logger log = LoggerFactory.getLogger(DefaultKinotic.class);
     private static final SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yy HH:mm:ss z");
     private final KinoticProperties kinoticProperties;
-    private final IgniteProperties igniteProperties;
     private final ServerInfo serverInfo;
     private final Vertx vertx;
 
@@ -56,7 +55,6 @@ public class DefaultKinotic implements Kinotic {
                           ClusterManager clusterManager,
                           Vertx vertx,
                           KinoticProperties kinoticProperties,
-                          IgniteProperties igniteProperties,
                           ReactiveAdapterRegistry reactiveAdapterRegistry) throws IOException {
         String nodeName;
 
@@ -76,7 +74,6 @@ public class DefaultKinotic implements Kinotic {
         }
         this.vertx = vertx;
         this.kinoticProperties = kinoticProperties;
-        this.igniteProperties = igniteProperties;
         String nodeId = (clusterManager != null  ?  clusterManager.getNodeId() : UUID.randomUUID().toString());
         this.serverInfo = new ServerInfo(nodeId, nodeName);
 
@@ -124,7 +121,7 @@ public class DefaultKinotic implements Kinotic {
         info.append("\n\n");
         info.append(kinoticProperties.toString());
         info.append("\n\nIgnite Cluster Properties:");
-        info.append(igniteProperties.toString());
+        info.append(kinoticProperties.getIgnite().toString());
 
         log.info(info.toString());
     }

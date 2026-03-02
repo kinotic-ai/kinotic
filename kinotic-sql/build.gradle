@@ -11,7 +11,7 @@ generateGrammarSource {
 
 	// Output directly to the parser package
 	outputDirectory = file("${projectDir}/src/main/java/org/kinotic/persistence/sql/parser")
-	enabled = project.gradle.startParameter.taskNames.contains(':kinotic-persistence-sql:generateGrammarSource')
+	enabled = project.gradle.startParameter.taskNames.contains(':kinotic-sql:generateGrammarSource')
 }
 
 // Configure Javadoc to exclude generated files

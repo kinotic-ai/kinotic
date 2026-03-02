@@ -1,7 +1,7 @@
-import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, Continuum, ContinuumSingleton, Event, EventConstants, ParticipantConstants} from '../src'
-import {TEST_SERVICE, TestService} from './ITestService.js'
+import {ConnectedInfo, ContinuumSingleton, Event, EventConstants, ParticipantConstants} from '../src'
+import {TestService} from './ITestService.js'
 import {createConnectionInfo, logFailure, validateConnectedInfo} from './TestHelper'
 
 // This is required when running Continuum from node

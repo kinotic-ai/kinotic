@@ -19,7 +19,7 @@ import org.springframework.validation.annotation.Validated;
 @Accessors(chain = true)
 @NoArgsConstructor
 @Component
-@ConfigurationProperties(prefix = "structures-migration")
+@ConfigurationProperties(prefix = "kinotic-migration")
 @Validated
 public class MirationProperties {
 

@@ -20,12 +20,10 @@ import org.springframework.stereotype.Component;
  * @see TcpDiscoverySpi
  * @see TcpCommunicationSpi
  */
-@Component
 @Getter
 @Setter
 @Accessors(chain = true)
 public class IgniteProperties {
-
 
     /**
      * Port used for Ignite node communication
@@ -40,8 +38,8 @@ public class IgniteProperties {
     /**
      * Cluster discovery type for Apache Ignite.
      * Valid values: LOCAL, SHAREDFS, KUBERNETES
-     * - LOCAL: Single-node, no clustering (default for development)
-     * - SHAREDFS: Shared filesystem discovery (Docker/VM environments)
+     * - LOCAL: Uses a static list of IP addresses for cluster discovery
+     * - SHAREDFS: Shared filesystem discovery
      * - KUBERNETES: Kubernetes discovery via K8s API
      * @see IgniteClusterDiscoveryType
      * @see IgniteClusterDiscoveryType#LOCAL
@@ -58,7 +56,7 @@ public class IgniteProperties {
     /**
      * Kubernetes account token for API authentication.
      * If null, uses service account token from mounted secret.
-     * Only used when clusterDiscoveryType = "kubernetes"
+     * Only used when clusterDiscoveryType = {@link IgniteClusterDiscoveryType#KUBERNETES}
      */
     private String kubernetesAccountToken = null;
 
@@ -70,21 +68,21 @@ public class IgniteProperties {
     /**
      * Kubernetes master URL for API access.
      * If null, use in-cluster configuration.
-     * Only used when clusterDiscoveryType = "kubernetes"
+     * Only used when clusterDiscoveryType = {@link IgniteClusterDiscoveryType#KUBERNETES}
      */
     private String kubernetesMasterUrl = null;
 
     /**
      * Kubernetes namespace where Structures pods are deployed.
-     * Only used when clusterDiscoveryType = "kubernetes"
+     * Only used when clusterDiscoveryType = {@link IgniteClusterDiscoveryType#KUBERNETES}
      */
     private String kubernetesNamespace = "default";
 
     /**
      * Kubernetes service name for Ignite discovery (headless service).
-     * Only used when clusterDiscoveryType = "kubernetes"
+     * Only used when clusterDiscoveryType = {@link IgniteClusterDiscoveryType#KUBERNETES}
      */
-    private String kubernetesServiceName = "structures";
+    private String kubernetesServiceName = "kinotic";
 
     /**
      * Sets network addresses for the Discovery SPI.

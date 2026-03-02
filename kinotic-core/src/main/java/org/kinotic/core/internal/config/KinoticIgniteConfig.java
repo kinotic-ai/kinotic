@@ -45,10 +45,7 @@ import static org.apache.ignite.failure.FailureType.*;
 public class KinoticIgniteConfig {
 
     @Autowired
-    private KinoticProperties kinoticProperties;
-
-    @Autowired
-    private IgniteProperties igniteProperties;
+    private KinoticProperties properties;
 
     @Autowired(required = false)
     private List<CacheConfiguration<?, ?>> caches;
@@ -64,7 +61,7 @@ public class KinoticIgniteConfig {
     public DiscoverySpi tcpDiscoverySpi() {
         TcpDiscoverySpi discoverySpi = new TcpDiscoverySpi();
 
-        IgniteClusterDiscoveryType discoveryType = igniteProperties.getDiscoveryType();
+        IgniteClusterDiscoveryType discoveryType = properties.getIgnite().getDiscoveryType();
         switch (discoveryType) {
             case IgniteClusterDiscoveryType.LOCAL:
                 discoverySpi.setIpFinder(createLocalIpFinder());
@@ -80,11 +77,11 @@ public class KinoticIgniteConfig {
                 discoverySpi.setIpFinder(createLocalIpFinder());
         }
 
-        discoverySpi.setJoinTimeout(igniteProperties.getJoinTimeoutMs());
-        discoverySpi.setLocalPort(igniteProperties.getDiscoveryPort());
+        discoverySpi.setJoinTimeout(properties.getIgnite().getJoinTimeoutMs());
+        discoverySpi.setLocalPort(properties.getIgnite().getDiscoveryPort());
 
-        if(StringUtils.isNotBlank(igniteProperties.getLocalAddress())){
-            discoverySpi.setLocalAddress(igniteProperties.getLocalAddress());
+        if(StringUtils.isNotBlank(properties.getIgnite().getLocalAddress())){
+            discoverySpi.setLocalAddress(properties.getIgnite().getLocalAddress());
         }
 
         return discoverySpi;
@@ -97,7 +94,7 @@ public class KinoticIgniteConfig {
     @Bean
     public TcpCommunicationSpi tcpCommunicationSpi() {
         TcpCommunicationSpi communicationSpi = new TcpCommunicationSpi();
-        communicationSpi.setLocalPort(igniteProperties.getCommunicationPort());
+        communicationSpi.setLocalPort(properties.getIgnite().getCommunicationPort());
         return communicationSpi;
     }
 
@@ -140,8 +137,8 @@ public class KinoticIgniteConfig {
 
         // setup default memory region based on continuum config
         dataStorageConfiguration.getDefaultDataRegionConfiguration()
-                .setInitialSize(kinoticProperties.getMaxOffHeapMemory() / 2)
-                .setMaxSize(kinoticProperties.getMaxOffHeapMemory());
+                .setInitialSize(properties.getMaxOffHeapMemory() / 2)
+                .setMaxSize(properties.getMaxOffHeapMemory());
 
         if (dataRegions != null && !dataRegions.isEmpty()) {
             // Add other configured data regions
@@ -159,7 +156,7 @@ public class KinoticIgniteConfig {
 
         cfg.setFailureHandler(failureHandler);
 
-        cfg.setWorkDirectory(kinoticProperties.getIgnite().getWorkDirectory());
+        cfg.setWorkDirectory(properties.getIgnite().getWorkDirectory());
 
         cfg.setAsyncContinuationExecutor(Runnable::run);
 
@@ -185,26 +182,26 @@ public class KinoticIgniteConfig {
     }
 
     /**
-     * Create local/VM IP finder for single-node or testing
+     * Create local/VM IP finder
      */
     private TcpDiscoveryIpFinder createLocalIpFinder() {
-        log.info("Configuring LOCAL discovery (single-node mode)");
+        log.info("Configuring LOCAL discovery");
 
         TcpDiscoveryVmIpFinder ipFinder = new TcpDiscoveryVmIpFinder();
-        if(StringUtils.isNotBlank(igniteProperties.getLocalAddresses())){
-            ipFinder.setAddresses(List.of(igniteProperties.getLocalAddresses().split(",")));
+        if(StringUtils.isNotBlank(properties.getIgnite().getLocalAddresses())){
+            ipFinder.setAddresses(List.of(properties.getIgnite().getLocalAddresses().split(",")));
         } else {
-            ipFinder.setAddresses(List.of("127.0.0.1:" + igniteProperties.getDiscoveryPort()));
+            ipFinder.setAddresses(List.of("127.0.0.1:" + properties.getIgnite().getDiscoveryPort()));
         }
 
         return ipFinder;
     }
 
     /**
-     * Create shared filesystem (static IP) IP finder for Docker/VM environments
+     * Create shared filesystem
      */
     private TcpDiscoveryIpFinder createSharedFsIpFinder() {
-        String configuredPath = igniteProperties.getSharedFsPath();
+        String configuredPath = properties.getIgnite().getSharedFsPath();
         log.info("Configuring SHAREDFS discovery with path: {}", configuredPath);
 
         TcpDiscoverySharedFsIpFinder ipFinder = new TcpDiscoverySharedFsIpFinder();
@@ -234,6 +231,8 @@ public class KinoticIgniteConfig {
      * Create Kubernetes IP finder for K8s deployments.
      */
     private TcpDiscoveryIpFinder createKubernetesIpFinder() {
+        IgniteProperties igniteProperties = properties.getIgnite();
+
         log.info("Configuring Kubernetes discovery with namespace: {}, service: {}, include not ready addresses: {}",
                  igniteProperties.getKubernetesNamespace(), igniteProperties.getKubernetesServiceName(),
                  igniteProperties.getKubernetesIncludeNotReadyAddresses());

@@ -10,6 +10,6 @@ import org.springframework.context.annotation.Configuration;
  * Created by navid on 2/10/20
  */
 @Configuration
-@ComponentScan({"org.kinotic.continuum.gateway.internal", "org.kinotic.continuum.gateway.api.config"})
+@ComponentScan({"org.kinotic.rpc.gateway.internal", "org.kinotic.rpc.gateway.api.config"})
 public class ContinuumGatewayConfiguration {
 }

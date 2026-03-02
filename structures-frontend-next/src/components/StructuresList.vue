@@ -353,7 +353,7 @@ export default class StructuresList extends Vue {
       </template>
       <div class="mb-6">
         <p class="text-gray-700">
-          The entityDefinition must be published before it can contain data. Would you like to publish it?
+          The EntityDefinition must be published before it can contain data. Would you like to publish it?
         </p>
       </div>
       
@@ -403,7 +403,7 @@ export default class StructuresList extends Vue {
           <div>
             <p class="text-gray-700 font-medium mb-2">Are you sure you want to unpublish this entityDefinition?</p>
             <p class="text-gray-600 text-sm">
-              All data saved under this entityDefinition will be permanently deleted. This action cannot be undone.
+              All data saved under this EntityDefinition will be permanently deleted. This action cannot be undone.
             </p>
           </div>
         </div>

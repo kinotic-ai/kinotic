@@ -23,7 +23,7 @@ public class DefaultProjectService extends AbstractCrudService<Project> implemen
 
     public DefaultProjectService(CrudServiceTemplate crudServiceTemplate,
                                  ElasticsearchAsyncClient esAsyncClient) {
-        super("struct_project", 
+        super("kinotic_project",
               Project.class, 
               esAsyncClient, 
               crudServiceTemplate);

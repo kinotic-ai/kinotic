@@ -47,7 +47,7 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
                                       QueryExecutorFactory queryExecutorFactory,
                                       ApplicationEventPublisher eventPublisher,
                                       DefaultCaffeineCacheFactory cacheFactory) {
-        super("struct_named_query_service_definition",
+        super("kinotic_named_query_service_definition",
               NamedQueriesDefinition.class,
               esAsyncClient,
               crudServiceTemplate);
