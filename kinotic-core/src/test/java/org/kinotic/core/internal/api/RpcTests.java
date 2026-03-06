@@ -385,7 +385,7 @@ public class RpcTests {
             // When the original exception class cannot be instantiated you wll get a RpcInvocationException
             if(throwable instanceof RpcInvocationException){
                 ret = Objects.equals(((RpcInvocationException) throwable).getOriginalClassName(),
-                                     "org.kinotic.continuum.internal.core.api.support.DefaultRpcTestService$UnknownThrowable");
+                                     "org.kinotic.core.internal.api.support.DefaultRpcTestService$UnknownThrowable");
             }
             return ret;
         }).verify();
