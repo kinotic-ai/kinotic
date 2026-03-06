@@ -559,7 +559,7 @@ public class EntityCrudTests extends ElasticTestBase {
     @Test
     public void testPartialUpdate() throws Exception {
         EntityContext entityContext = new DefaultEntityContext(new DummyParticipant());
-        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = testDataService.createCarStructureIfNotExists("_partialUpdate");
+        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = testDataService.createCarEntityDefinitionIfNotExists("_partialUpdate");
 
         StepVerifier.create(Mono.fromFuture(createStructure))
                     .expectNextMatches(pair -> {

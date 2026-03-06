@@ -63,7 +63,7 @@ public class BulkUpdateTests extends ElasticTestBase {
     }
 
     @Test
-    public void testBulk() throws InterruptedException{
+    public void testBulk(){
         int numberOfPeopleToCreate = 50;
         EntityContext context1 = new DefaultEntityContext(new DummyParticipant("tenant1", "user1"));
         EntityContext context2 = new DefaultEntityContext(new DummyParticipant("tenant2", "user2"));
@@ -103,7 +103,7 @@ public class BulkUpdateTests extends ElasticTestBase {
     @Test
     public void bulkSaveObjectWithMultipleIds() throws Exception{
         EntityContext entityContext = new DefaultEntityContext(new DummyParticipant());
-        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = testDataService.createCarStructureIfNotExists("_bulkSaveMultipleIds");
+        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = testDataService.createCarEntityDefinitionIfNotExists("_bulkSaveMultipleIds");
 
         StepVerifier.create(Mono.fromFuture(createStructure))
                     .expectNextMatches(pair -> pair.getLeft() != null && pair.getRight())
@@ -140,7 +140,7 @@ public class BulkUpdateTests extends ElasticTestBase {
     @Test
     public void bulkUpdateObjectWithMultipleIds() throws Exception{
         EntityContext entityContext = new DefaultEntityContext(new DummyParticipant());
-        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = testDataService.createCarStructureIfNotExists("_bulkUpdateMultipleIds");
+        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = testDataService.createCarEntityDefinitionIfNotExists("_bulkUpdateMultipleIds");
 
         StepVerifier.create(Mono.fromFuture(createStructure))
                     .expectNextMatches(pair -> pair.getLeft() != null && pair.getRight())
