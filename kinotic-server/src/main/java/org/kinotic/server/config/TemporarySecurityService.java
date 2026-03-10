@@ -39,7 +39,7 @@ public class TemporarySecurityService implements SecurityService {
      *
      * This also supports Basic Auth. The username and password are base64 encoded and sent in the Authorization header
      * {
-     *   "Authorization":"Basic YWRtaW46c3RydWN0dXJlcw=="
+     *   "Authorization":"Basic a2lub3RpYzpraW5vdGlj"
      * }
      *
      * @param authenticationInfo a map of authentication information. The keys and values are specific to the implementation
@@ -60,7 +60,7 @@ public class TemporarySecurityService implements SecurityService {
         }else if (authenticationInfo.containsKey("authorization")){
             String authorizationHeader = authenticationInfo.get("authorization");
             // Header looks something like
-            // "Authorization: Basic YWRtaW46c3RydWN0dXJlcw=="
+            // "Authorization: Basic a2lub3RpYzpraW5vdGlj"
             String[] parts = authorizationHeader.split(" ");
             if (parts.length == 2 && "Basic".equalsIgnoreCase(parts[0])) {
                 String credentials = new String(Base64.getDecoder().decode(parts[1]), StandardCharsets.UTF_8);

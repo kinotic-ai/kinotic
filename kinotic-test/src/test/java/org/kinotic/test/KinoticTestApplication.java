@@ -1,5 +1,6 @@
 package org.kinotic.test;
 
+import org.kinotic.core.api.annotations.EnableKinotic;
 import org.kinotic.test.support.keycloak.KeycloakTestContextInitializer;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -12,8 +13,9 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, classes = KeycloakTestContextInitializer.class)
 @EnableConfigurationProperties
+@EnableKinotic
 public class KinoticTestApplication {
-    public static void main(String[] args) {
+    static void main(String[] args) {
 		SpringApplication.run(KinoticTestApplication.class, args);
 	}
 

@@ -9,13 +9,9 @@ import io.vertx.ext.stomp.lite.StompServerVerticleFactory;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.StaticHandler;
 import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.core.api.security.SecurityService;
-import org.kinotic.core.api.event.EventBusService;
-import org.kinotic.rpc.gateway.api.config.ContinuumGatewayProperties;
-import org.kinotic.rpc.gateway.internal.endpoints.rest.RestServerVerticle;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.kinotic.rpc.gateway.api.config.KinoticRpcGatewayProperties;
+import org.kinotic.rpc.gateway.api.config.RpcGatewayProperties;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
 
@@ -24,30 +20,21 @@ import java.util.List;
  * Created by Navíd Mitchell 🤪 on 3/6/24.
  */
 @Component
-public class ContinuumVertcleFactory {
+public class RpcGatewayVertcleFactory {
 
     private final KinoticProperties kinoticProperties;
-    private final ContinuumGatewayProperties gatewayProperties;
+    private final RpcGatewayProperties gatewayProperties;
     private final StompServerHandlerFactory stompServerHandlerFactory;
-    private final EventBusService eventService;
-    private final SecurityService securityService;
-    private final JsonMapper jsonMapper;
     private final Vertx vertx;
 
-    public ContinuumVertcleFactory(KinoticProperties kinoticProperties,
-                                   ContinuumGatewayProperties gatewayProperties,
-                                   StompServerHandlerFactory stompServerHandlerFactory,
-                                   EventBusService eventService,
-                                   JsonMapper jsonMapper,
-                                   Vertx vertx,
-                                   @Autowired(required = false) SecurityService securityService) {
+    public RpcGatewayVertcleFactory(KinoticProperties kinoticProperties,
+                                    KinoticRpcGatewayProperties kinoticRpcGatewayProperties,
+                                    StompServerHandlerFactory stompServerHandlerFactory,
+                                    Vertx vertx) {
         this.kinoticProperties = kinoticProperties;
-        this.gatewayProperties = gatewayProperties;
+        this.gatewayProperties = kinoticRpcGatewayProperties.getRpcGateway();
         this.stompServerHandlerFactory = stompServerHandlerFactory;
-        this.eventService = eventService;
-        this.jsonMapper = jsonMapper;
         this.vertx = vertx;
-        this.securityService = securityService;
     }
 
     public StompServerVerticle createStompServerVerticle(){
@@ -64,10 +51,6 @@ public class ContinuumVertcleFactory {
         serverOptions.setMaxWebSocketFrameSize(kinoticProperties.getMaxEventPayloadSize());
 
         return StompServerVerticleFactory.create(serverOptions, stompServerOptions, stompServerHandlerFactory, router);
-    }
-
-    public RestServerVerticle createRestServerVerticle(){
-       return new RestServerVerticle(gatewayProperties, eventService, securityService, jsonMapper);
     }
 
 }

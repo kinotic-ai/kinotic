@@ -4,7 +4,7 @@
     <option name="ALTERNATIVE_JRE_PATH" value="graalvm-ce-25" />
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
     <module name="kinotic.kinotic-migration.main" />
-    <option name="SPRING_BOOT_MAIN_CLASS" value="org.kinotic.KinoticMigrationApplication" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="org.kinotic.migration.KinoticMigrationApplication" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

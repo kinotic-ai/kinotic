@@ -1,3 +1,3 @@
-# Kinotic Gateway
+# Kinotic RPC Gateway
 
 [//]: # (FIXME: add docs)

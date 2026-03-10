@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS kinotic_entity_definition (
     description TEXT,
     multiTenancyType KEYWORD,
     entityType KEYWORD,
-    entityDefinition JSON NOT INDEXED,
+    schema JSON NOT INDEXED,
     created DATE,
     updated DATE,
     published BOOLEAN,

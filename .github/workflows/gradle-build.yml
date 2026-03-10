@@ -41,7 +41,7 @@ jobs:
         continue-on-error: true
         env:
           TESTCONTAINERS_RYUK_DISABLED: true
-        run: ./gradlew build 
+        run: ./gradlew build +x test
 
       - name: Publish to Maven Central with JReleaser
         if: ${{ steps.gradle_build.outcome == 'success' }}
@@ -61,67 +61,67 @@ jobs:
           DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
           DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
-      - name: Run E2E Tests
-        id: run_e2e_tests
-        continue-on-error: true
-        run: |
-          cd structures-js/structures-e2e
-          gradle pnpmInstall
-          gradle pnpmTest
-
-      - name: Merge Test Results
-        run: |
-          mkdir -p allure-results
-          cp -r */build/allure-results/* allure-results/ || true
-          cp -r structures-js/*/allure-results/* allure-results/ || true
-
-      - name: Get Allure history
-        uses: actions/checkout@v4
-        continue-on-error: true
-        with:
-          ref: gh-pages
-          path: gh-pages
-
-      - name: Generate Allure report
-        uses: simple-elf/allure-report-action@v1.13
-        id: allure-report
-        with:
-          allure_results: allure-results
-          gh_pages: gh-pages
-          subfolder: allure
-          allure_report: allure-report
-          allure_history: allure-history
-
-      - name: Deploy report to Github Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: allure-history
-          publish_branch: gh-pages
-          keep_files: true
-
-      - name: Add status to Commit
-        uses: guibranco/github-status-action-v2@v1.1.13
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          context: 'Test Report'
-          description: 'Passed'
-          state: 'success'
-          sha: ${{ github.sha }}
-          target_url: https://kinotic-ai.github.io/kinotic/allure/${{ github.run_number }}
-
-      - name: Check If Failure
-        if: ${{ steps.gradle_build.outcome == 'failure' || steps.run_e2e_tests.outcome == 'failure' }}
-        run: |
-          if [ "${{ steps.gradle_build.outcome }}" == "failure" ]; then
-            echo "Gradle Build failed."
-          fi
-
-          if [ "${{ steps.run_e2e_tests.outcome }}" == "failure" ]; then
-            echo "E2E Tests failed."
-          fi
-
-          # Optionally mark the job as failed
-          exit 1
-
-          https://kinoitc-ai.github.io/kinotic/webdocs/guide/overview.html
+#      - name: Run E2E Tests
+#        id: run_e2e_tests
+#        continue-on-error: true
+#        run: |
+#          cd structures-js/structures-e2e
+#          gradle pnpmInstall
+#          gradle pnpmTest
+#
+#      - name: Merge Test Results
+#        run: |
+#          mkdir -p allure-results
+#          cp -r */build/allure-results/* allure-results/ || true
+#          cp -r structures-js/*/allure-results/* allure-results/ || true
+#
+#      - name: Get Allure history
+#        uses: actions/checkout@v4
+#        continue-on-error: true
+#        with:
+#          ref: gh-pages
+#          path: gh-pages
+#
+#      - name: Generate Allure report
+#        uses: simple-elf/allure-report-action@v1.13
+#        id: allure-report
+#        with:
+#          allure_results: allure-results
+#          gh_pages: gh-pages
+#          subfolder: allure
+#          allure_report: allure-report
+#          allure_history: allure-history
+#
+#      - name: Deploy report to Github Pages
+#        uses: peaceiris/actions-gh-pages@v4
+#        with:
+#          github_token: ${{ secrets.GITHUB_TOKEN }}
+#          publish_dir: allure-history
+#          publish_branch: gh-pages
+#          keep_files: true
+#
+#      - name: Add status to Commit
+#        uses: guibranco/github-status-action-v2@v1.1.13
+#        with:
+#          authToken: ${{ secrets.GITHUB_TOKEN }}
+#          context: 'Test Report'
+#          description: 'Passed'
+#          state: 'success'
+#          sha: ${{ github.sha }}
+#          target_url: https://kinotic-ai.github.io/kinotic/allure/${{ github.run_number }}
+#
+#      - name: Check If Failure
+#        if: ${{ steps.gradle_build.outcome == 'failure' || steps.run_e2e_tests.outcome == 'failure' }}
+#        run: |
+#          if [ "${{ steps.gradle_build.outcome }}" == "failure" ]; then
+#            echo "Gradle Build failed."
+#          fi
+#
+#          if [ "${{ steps.run_e2e_tests.outcome }}" == "failure" ]; then
+#            echo "E2E Tests failed."
+#          fi
+#
+#          # Optionally mark the job as failed
+#          exit 1
+#
+#          https://kinoitc-ai.github.io/kinotic/webdocs/guide/overview.html

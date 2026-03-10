@@ -2,6 +2,7 @@
 
 package org.kinotic.orchestrator;
 
+import org.kinotic.core.api.annotations.EnableKinotic;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jmx.JmxAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -13,5 +14,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 @SpringBootApplication(exclude = {
         JmxAutoConfiguration.class})
 @EnableConfigurationProperties
+@EnableKinotic
 public class TestOrchestratorApplication {
 }

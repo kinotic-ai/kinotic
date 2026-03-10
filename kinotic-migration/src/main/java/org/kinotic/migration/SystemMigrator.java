@@ -1,4 +1,4 @@
-package org.kinotic.sql;
+package org.kinotic.migration;
 
 import org.kinotic.sql.domain.Migration;
 import org.kinotic.sql.domain.ResourceMigration;

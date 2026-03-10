@@ -6,16 +6,16 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation to be used on a Spring Boot Application / Library to enable Kinotic RPC
+ * Annotation to be used on a Spring Boot Application / Library to enable Kinotic package scanning
  *
- * You should only include one {@link EnableKinoticRpc} annotation per application or library
+ * You should only include one {@link EnableKinotic} annotation per application or library
  *
  * Created by Navid Mitchell 🤪 on 11/28/18.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@KinoticRpcPackage
-public @interface EnableKinoticRpc {
+@KinoticPackage
+public @interface EnableKinotic {
 
     /**
      * The default version to use for all published services.

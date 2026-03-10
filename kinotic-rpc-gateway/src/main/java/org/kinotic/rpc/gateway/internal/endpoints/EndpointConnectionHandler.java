@@ -48,7 +48,7 @@ public class EndpointConnectionHandler {
     public EndpointConnectionHandler(Services services) {
         this.services = services;
 
-        if(services.continuumGatewayProperties.isEnableCLIConnections()){
+        if(services.rpcGatewayProperties.isEnableCLIConnections()){
             this.securityService = new CliSecurityService(services.securityService);
         }else{
             this.securityService = services.securityService;

@@ -8,7 +8,7 @@ import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventStreamService;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.security.SessionManager;
-import org.kinotic.rpc.gateway.api.config.ContinuumGatewayProperties;
+import org.kinotic.rpc.gateway.api.config.RpcGatewayProperties;
 import org.kinotic.rpc.gateway.internal.endpoints.stomp.DefaultStompServerHandler;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +23,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 public class Services {
     @Autowired
-    public ContinuumGatewayProperties continuumGatewayProperties;
+    public RpcGatewayProperties rpcGatewayProperties;
     @Autowired
     public KinoticProperties kinoticProperties;
     @Autowired

@@ -3,7 +3,7 @@
 package org.kinotic.core.internal;
 
 import org.apache.commons.lang3.ClassUtils;
-import org.kinotic.core.api.annotations.KinoticRpcPackages;
+import org.kinotic.core.api.annotations.KinoticPackages;
 import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.slf4j.Logger;
@@ -52,7 +52,7 @@ public class ProxyRegistrationBeanDefinitionRegistryPostProcessor implements Bea
         }
 
         // scan classpath for all Classes annotated with @Proxy
-        List<String> packages = KinoticRpcPackages.get(this.applicationContext);
+        List<String> packages = KinoticPackages.get(this.applicationContext);
         packages.add("org.kinotic.rpc.internal"); // core kinotic rpc proxies
 
         Set<MetadataReader> readers = MetaUtil.findClassesWithAnnotation(applicationContext, packages, Proxy.class);

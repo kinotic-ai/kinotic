@@ -18,25 +18,21 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @RequiredArgsConstructor
-public class ContinuumGatewayEndpointInitializer {
-    private static final Logger log = LoggerFactory.getLogger(ContinuumGatewayEndpointInitializer.class);
+public class RpcGatewayEndpointInitializer {
+    private static final Logger log = LoggerFactory.getLogger(RpcGatewayEndpointInitializer.class);
 
-    private final ContinuumVertcleFactory continuumVertcleFactory;
+    private final RpcGatewayVertcleFactory rpcGatewayVertcleFactory;
     private final KinoticProperties kinoticProperties;
     private final Vertx vertx;
 
     @PostConstruct
     public void init(){
-        // If production deploy one verticle of each per core
         int numToDeploy = kinoticProperties.getMaxNumberOfCoresToUse();
         log.info("{} Cores will be used for Continuum Endpoints", numToDeploy);
         DeploymentOptions options = new DeploymentOptions().setInstances(numToDeploy);
 
         log.info("Deploying {} Stomp Server Endpoint(s)", numToDeploy);
-        vertx.deployVerticle(continuumVertcleFactory::createStompServerVerticle, options);
-
-        log.info("Deploying {} REST Server Endpoint(s)", numToDeploy);
-        vertx.deployVerticle(continuumVertcleFactory::createRestServerVerticle, options);
+        vertx.deployVerticle(rpcGatewayVertcleFactory::createStompServerVerticle, options);
     }
 
 }

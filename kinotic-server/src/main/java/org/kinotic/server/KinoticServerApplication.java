@@ -1,15 +1,13 @@
 package org.kinotic.server;
 
-import org.kinotic.core.api.annotations.EnableKinoticRpc;
-import org.kinotic.rpc.gateway.api.annotations.EnableContinuumGateway;
+import org.kinotic.core.api.annotations.EnableKinotic;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication()
-@EnableKinoticRpc
-@EnableContinuumGateway
+@EnableKinotic
 public class KinoticServerApplication {
-	public static void main(String[] args) {
+	static void main(String[] args) {
 		SpringApplication.run(KinoticServerApplication.class, args);
 	}
 }
