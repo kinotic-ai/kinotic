@@ -2,7 +2,7 @@ package org.kinotic.sql.parsers;
 
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.statements.InsertStatement;
-import org.kinotic.sql.parser.StructuresSQLParser;
+import org.kinotic.sql.parser.KinoticSQLParser;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -17,13 +17,13 @@ import java.util.List;
 public class InsertStatementParser implements StatementParser {
 
     @Override
-    public boolean supports(StructuresSQLParser.StatementContext ctx) {
+    public boolean supports(KinoticSQLParser.StatementContext ctx) {
         return ctx.insertStatement() != null;
     }
 
     @Override
-    public Statement parse(StructuresSQLParser.StatementContext ctx) {
-        StructuresSQLParser.InsertStatementContext insertContext = ctx.insertStatement();
+    public Statement parse(KinoticSQLParser.StatementContext ctx) {
+        KinoticSQLParser.InsertStatementContext insertContext = ctx.insertStatement();
         
         String tableName = insertContext.tableName().getText();
         List<String> columns = new ArrayList<>();

@@ -1,17 +1,17 @@
 package org.kinotic.sql.parsers;
 
 import org.kinotic.sql.domain.Expression;
-import org.kinotic.sql.parser.StructuresSQLBaseVisitor;
-import org.kinotic.sql.parser.StructuresSQLParser;
+import org.kinotic.sql.parser.KinoticSQLBaseVisitor;
+import org.kinotic.sql.parser.KinoticSQLParser;
 
 /**
  * Visitor for parsing SQL-like expressions (e.g., literals, binary expressions).
  * Reusable across statement parsers like UPDATE and DELETE.
  * Created by Navíd Mitchell 🤝 Grok on 3/31/25.
  */
-public class ExpressionVisitor extends StructuresSQLBaseVisitor<Expression> {
+public class ExpressionVisitor extends KinoticSQLBaseVisitor<Expression> {
     @Override
-    public Expression visitExpression(StructuresSQLParser.ExpressionContext ctx) {
+    public Expression visitExpression(KinoticSQLParser.ExpressionContext ctx) {
         if (ctx.PARAMETER() != null) {
             return new Expression.Literal(ctx.PARAMETER().getText());
         } else if (ctx.STRING() != null) {
@@ -24,7 +24,7 @@ public class ExpressionVisitor extends StructuresSQLBaseVisitor<Expression> {
             // Binary expression: ID operator expression
             String left = ctx.ID().getText();
             String operator = ctx.operator().getText();
-            StructuresSQLParser.ExpressionContext rightCtx = ctx.expression();
+            KinoticSQLParser.ExpressionContext rightCtx = ctx.expression();
             String right = rightCtx.PARAMETER() != null ? rightCtx.PARAMETER().getText()
                     : rightCtx.STRING() != null ? rightCtx.STRING().getText()
                     : rightCtx.INTEGER_LITERAL() != null ? rightCtx.INTEGER_LITERAL().getText()

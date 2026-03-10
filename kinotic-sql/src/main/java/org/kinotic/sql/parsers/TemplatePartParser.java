@@ -6,7 +6,7 @@ import java.util.List;
 import org.kinotic.sql.domain.statements.ColumnTemplatePart;
 import org.kinotic.sql.domain.statements.SettingTemplatePart;
 import org.kinotic.sql.domain.statements.TemplatePart;
-import org.kinotic.sql.parser.StructuresSQLParser;
+import org.kinotic.sql.parser.KinoticSQLParser;
 
 /**
  * Helper class for parsing template parts from SQL statements.
@@ -14,7 +14,7 @@ import org.kinotic.sql.parser.StructuresSQLParser;
  */
 public class TemplatePartParser {
     
-    public static List<TemplatePart> parseTemplateParts(List<StructuresSQLParser.TemplatePartContext> parts) {
+    public static List<TemplatePart> parseTemplateParts(List<KinoticSQLParser.TemplatePartContext> parts) {
         var result = new ArrayList<TemplatePart>();
         
         for (var part : parts) {

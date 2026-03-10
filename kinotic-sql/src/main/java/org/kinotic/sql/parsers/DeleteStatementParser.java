@@ -3,7 +3,7 @@ package org.kinotic.sql.parsers;
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.WhereClause;
 import org.kinotic.sql.domain.statements.DeleteStatement;
-import org.kinotic.sql.parser.StructuresSQLParser;
+import org.kinotic.sql.parser.KinoticSQLParser;
 import org.springframework.stereotype.Component;
 
 /**
@@ -16,13 +16,13 @@ public class DeleteStatementParser implements StatementParser {
     private final WhereClauseVisitor whereClauseVisitor = new WhereClauseVisitor();
 
     @Override
-    public boolean supports(StructuresSQLParser.StatementContext ctx) {
+    public boolean supports(KinoticSQLParser.StatementContext ctx) {
         return ctx.deleteStatement() != null;
     }
 
     @Override
-    public Statement parse(StructuresSQLParser.StatementContext ctx) {
-        StructuresSQLParser.DeleteStatementContext deleteContext = ctx.deleteStatement();
+    public Statement parse(KinoticSQLParser.StatementContext ctx) {
+        KinoticSQLParser.DeleteStatementContext deleteContext = ctx.deleteStatement();
         String tableName = deleteContext.ID().getText();
         WhereClause whereClause = whereClauseVisitor.visit(deleteContext.whereClause());
 

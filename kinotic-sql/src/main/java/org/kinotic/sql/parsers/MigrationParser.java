@@ -9,9 +9,9 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.kinotic.sql.domain.MigrationContent;
 import org.kinotic.sql.domain.Statement;
-import org.kinotic.sql.parser.StructuresSQLBaseVisitor;
-import org.kinotic.sql.parser.StructuresSQLLexer;
-import org.kinotic.sql.parser.StructuresSQLParser;
+import org.kinotic.sql.parser.KinoticSQLBaseVisitor;
+import org.kinotic.sql.parser.KinoticSQLLexer;
+import org.kinotic.sql.parser.KinoticSQLParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
@@ -44,14 +44,14 @@ public class MigrationParser {
     }
 
     private MigrationContent parse(CharStream input) {
-        StructuresSQLLexer lexer = new StructuresSQLLexer(input);
+        KinoticSQLLexer lexer = new KinoticSQLLexer(input);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
-        StructuresSQLParser parser = new StructuresSQLParser(tokens);
-        StructuresSQLParser.MigrationsContext tree = parser.migrations();
+        KinoticSQLParser parser = new KinoticSQLParser(tokens);
+        KinoticSQLParser.MigrationsContext tree = parser.migrations();
         return new MigrationVisitor(statementParsers).visit(tree);
     }
 
-    private static class MigrationVisitor extends StructuresSQLBaseVisitor<MigrationContent> {
+    private static class MigrationVisitor extends KinoticSQLBaseVisitor<MigrationContent> {
         private final List<StatementParser> statementParsers;
 
         MigrationVisitor(List<StatementParser> statementParsers) {
@@ -59,11 +59,11 @@ public class MigrationParser {
         }
 
         @Override
-        public MigrationContent visitMigrations(StructuresSQLParser.MigrationsContext ctx) {
-            List<StructuresSQLParser.StatementContext> statements = ctx.statement();
+        public MigrationContent visitMigrations(KinoticSQLParser.MigrationsContext ctx) {
+            List<KinoticSQLParser.StatementContext> statements = ctx.statement();
             log.debug("Found {} statements in migration file", statements.size());
             List<Statement> parsedStatements = new java.util.ArrayList<>();
-            for (StructuresSQLParser.StatementContext stmtCtx : statements) {
+            for (KinoticSQLParser.StatementContext stmtCtx : statements) {
                 Statement stmt = parseStatement(stmtCtx);
                 if (stmt != null) {
                     parsedStatements.add(stmt);
@@ -72,7 +72,7 @@ public class MigrationParser {
             return new MigrationContent(parsedStatements);
         }
 
-        private Statement parseStatement(StructuresSQLParser.StatementContext stmtCtx) {
+        private Statement parseStatement(KinoticSQLParser.StatementContext stmtCtx) {
             String statementText = stmtCtx.getText();
             log.debug("Parsing statement: {}", statementText);
             

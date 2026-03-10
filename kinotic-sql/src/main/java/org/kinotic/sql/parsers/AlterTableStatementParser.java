@@ -2,7 +2,7 @@ package org.kinotic.sql.parsers;
 
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.statements.AlterTableStatement;
-import org.kinotic.sql.parser.StructuresSQLParser;
+import org.kinotic.sql.parser.KinoticSQLParser;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,13 +13,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class AlterTableStatementParser implements StatementParser {
     @Override
-    public boolean supports(StructuresSQLParser.StatementContext ctx) {
+    public boolean supports(KinoticSQLParser.StatementContext ctx) {
         return ctx.alterTableStatement() != null;
     }
 
     @Override
-    public Statement parse(StructuresSQLParser.StatementContext ctx) {
-        StructuresSQLParser.AlterTableStatementContext alterCtx = ctx.alterTableStatement();
+    public Statement parse(KinoticSQLParser.StatementContext ctx) {
+        KinoticSQLParser.AlterTableStatementContext alterCtx = ctx.alterTableStatement();
         String tableName = alterCtx.ID(0).getText();
         String columnName = alterCtx.ID(1).getText();
         return new AlterTableStatement(tableName, TypeParser.parseColumnType(columnName, alterCtx.type()));

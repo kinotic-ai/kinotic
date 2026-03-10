@@ -6,7 +6,7 @@ import java.util.List;
 import org.kinotic.sql.domain.Column;
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.statements.CreateTableStatement;
-import org.kinotic.sql.parser.StructuresSQLParser;
+import org.kinotic.sql.parser.KinoticSQLParser;
 import org.springframework.stereotype.Component;
 
 /**
@@ -18,18 +18,18 @@ import org.springframework.stereotype.Component;
 public class CreateTableStatementParser implements StatementParser {
 
     @Override
-    public boolean supports(StructuresSQLParser.StatementContext ctx) {
+    public boolean supports(KinoticSQLParser.StatementContext ctx) {
         return ctx.createTableStatement() != null;
     }
 
     @Override
-    public Statement parse(StructuresSQLParser.StatementContext ctx) {
-        StructuresSQLParser.CreateTableStatementContext createContext = ctx.createTableStatement();
+    public Statement parse(KinoticSQLParser.StatementContext ctx) {
+        KinoticSQLParser.CreateTableStatementContext createContext = ctx.createTableStatement();
         String tableName = createContext.ID().getText();
         List<Column> columns = new ArrayList<>();
 
         // Parse column definitions
-        for (StructuresSQLParser.ColumnDefinitionContext columnDef : createContext.columnDefinition()) {
+        for (KinoticSQLParser.ColumnDefinitionContext columnDef : createContext.columnDefinition()) {
             String name = columnDef.ID().getText();
             columns.add(TypeParser.parseColumnType(name, columnDef.type()));
         }

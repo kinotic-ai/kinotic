@@ -1,4 +1,4 @@
-grammar StructuresSQL;
+grammar KinoticSQL;
 
 migrations
     : statement* EOF

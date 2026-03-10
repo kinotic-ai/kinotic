@@ -1,9 +1,9 @@
-// Generated from StructuresSQL.g4 by ANTLR 4.13.2
+// Generated from KinoticSQL.g4 by ANTLR 4.13.2
 package org.kinotic.sql.parser;
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 
 /**
- * This class provides an empty implementation of {@link StructuresSQLVisitor},
+ * This class provides an empty implementation of {@link KinoticSQLVisitor},
  * which can be extended to create a visitor which only needs to handle a subset
  * of the available methods.
  *
@@ -11,187 +11,187 @@ import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
  * operations with no return type.
  */
 @SuppressWarnings("CheckReturnValue")
-public class StructuresSQLBaseVisitor<T> extends AbstractParseTreeVisitor<T> implements StructuresSQLVisitor<T> {
+public class KinoticSQLBaseVisitor<T> extends AbstractParseTreeVisitor<T> implements KinoticSQLVisitor<T> {
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitMigrations(StructuresSQLParser.MigrationsContext ctx) { return visitChildren(ctx); }
+	@Override public T visitMigrations(KinoticSQLParser.MigrationsContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitStatement(StructuresSQLParser.StatementContext ctx) { return visitChildren(ctx); }
+	@Override public T visitStatement(KinoticSQLParser.StatementContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitCreateTableStatement(StructuresSQLParser.CreateTableStatementContext ctx) { return visitChildren(ctx); }
+	@Override public T visitCreateTableStatement(KinoticSQLParser.CreateTableStatementContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitCreateComponentTemplateStatement(StructuresSQLParser.CreateComponentTemplateStatementContext ctx) { return visitChildren(ctx); }
+	@Override public T visitCreateComponentTemplateStatement(KinoticSQLParser.CreateComponentTemplateStatementContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitCreateIndexTemplateStatement(StructuresSQLParser.CreateIndexTemplateStatementContext ctx) { return visitChildren(ctx); }
+	@Override public T visitCreateIndexTemplateStatement(KinoticSQLParser.CreateIndexTemplateStatementContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitTemplatePart(StructuresSQLParser.TemplatePartContext ctx) { return visitChildren(ctx); }
+	@Override public T visitTemplatePart(KinoticSQLParser.TemplatePartContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitAlterTableStatement(StructuresSQLParser.AlterTableStatementContext ctx) { return visitChildren(ctx); }
+	@Override public T visitAlterTableStatement(KinoticSQLParser.AlterTableStatementContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitReindexStatement(StructuresSQLParser.ReindexStatementContext ctx) { return visitChildren(ctx); }
+	@Override public T visitReindexStatement(KinoticSQLParser.ReindexStatementContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitReindexOptions(StructuresSQLParser.ReindexOptionsContext ctx) { return visitChildren(ctx); }
+	@Override public T visitReindexOptions(KinoticSQLParser.ReindexOptionsContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitReindexOption(StructuresSQLParser.ReindexOptionContext ctx) { return visitChildren(ctx); }
+	@Override public T visitReindexOption(KinoticSQLParser.ReindexOptionContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitUpdateStatement(StructuresSQLParser.UpdateStatementContext ctx) { return visitChildren(ctx); }
+	@Override public T visitUpdateStatement(KinoticSQLParser.UpdateStatementContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitDeleteStatement(StructuresSQLParser.DeleteStatementContext ctx) { return visitChildren(ctx); }
+	@Override public T visitDeleteStatement(KinoticSQLParser.DeleteStatementContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitInsertStatement(StructuresSQLParser.InsertStatementContext ctx) { return visitChildren(ctx); }
+	@Override public T visitInsertStatement(KinoticSQLParser.InsertStatementContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitValueList(StructuresSQLParser.ValueListContext ctx) { return visitChildren(ctx); }
+	@Override public T visitValueList(KinoticSQLParser.ValueListContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitValue(StructuresSQLParser.ValueContext ctx) { return visitChildren(ctx); }
+	@Override public T visitValue(KinoticSQLParser.ValueContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitAssignment(StructuresSQLParser.AssignmentContext ctx) { return visitChildren(ctx); }
+	@Override public T visitAssignment(KinoticSQLParser.AssignmentContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitExpression(StructuresSQLParser.ExpressionContext ctx) { return visitChildren(ctx); }
+	@Override public T visitExpression(KinoticSQLParser.ExpressionContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitOperator(StructuresSQLParser.OperatorContext ctx) { return visitChildren(ctx); }
+	@Override public T visitOperator(KinoticSQLParser.OperatorContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitWhereClause(StructuresSQLParser.WhereClauseContext ctx) { return visitChildren(ctx); }
+	@Override public T visitWhereClause(KinoticSQLParser.WhereClauseContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitCondition(StructuresSQLParser.ConditionContext ctx) { return visitChildren(ctx); }
+	@Override public T visitCondition(KinoticSQLParser.ConditionContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitComparisonOperator(StructuresSQLParser.ComparisonOperatorContext ctx) { return visitChildren(ctx); }
+	@Override public T visitComparisonOperator(KinoticSQLParser.ComparisonOperatorContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitTableName(StructuresSQLParser.TableNameContext ctx) { return visitChildren(ctx); }
+	@Override public T visitTableName(KinoticSQLParser.TableNameContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitColumnName(StructuresSQLParser.ColumnNameContext ctx) { return visitChildren(ctx); }
+	@Override public T visitColumnName(KinoticSQLParser.ColumnNameContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitColumnDefinition(StructuresSQLParser.ColumnDefinitionContext ctx) { return visitChildren(ctx); }
+	@Override public T visitColumnDefinition(KinoticSQLParser.ColumnDefinitionContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitType(StructuresSQLParser.TypeContext ctx) { return visitChildren(ctx); }
+	@Override public T visitType(KinoticSQLParser.TypeContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
-	@Override public T visitComment(StructuresSQLParser.CommentContext ctx) { return visitChildren(ctx); }
+	@Override public T visitComment(KinoticSQLParser.CommentContext ctx) { return visitChildren(ctx); }
 }

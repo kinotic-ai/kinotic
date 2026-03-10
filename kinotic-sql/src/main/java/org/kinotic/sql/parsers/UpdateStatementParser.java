@@ -4,7 +4,7 @@ import org.kinotic.sql.domain.Expression;
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.WhereClause;
 import org.kinotic.sql.domain.statements.UpdateStatement;
-import org.kinotic.sql.parser.StructuresSQLParser;
+import org.kinotic.sql.parser.KinoticSQLParser;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -21,17 +21,17 @@ public class UpdateStatementParser implements StatementParser {
     private final WhereClauseVisitor whereClauseVisitor = new WhereClauseVisitor();
 
     @Override
-    public boolean supports(StructuresSQLParser.StatementContext ctx) {
+    public boolean supports(KinoticSQLParser.StatementContext ctx) {
         return ctx.updateStatement() != null;
     }
 
     @Override
-    public Statement parse(StructuresSQLParser.StatementContext ctx) {
-        StructuresSQLParser.UpdateStatementContext updateCtx = ctx.updateStatement();
+    public Statement parse(KinoticSQLParser.StatementContext ctx) {
+        KinoticSQLParser.UpdateStatementContext updateCtx = ctx.updateStatement();
         String tableName = updateCtx.ID().getText();
 
         Map<String, Expression> assignments = new LinkedHashMap<>();
-        for (StructuresSQLParser.AssignmentContext assignment : updateCtx.assignment()) {
+        for (KinoticSQLParser.AssignmentContext assignment : updateCtx.assignment()) {
             String field = assignment.ID().getText();
             Expression expression = expressionVisitor.visit(assignment.expression());
             assignments.put(field, expression);

@@ -1,7 +1,7 @@
 package org.kinotic.sql.parsers;
 
 import org.kinotic.sql.domain.Statement;
-import org.kinotic.sql.parser.StructuresSQLParser;
+import org.kinotic.sql.parser.KinoticSQLParser;
 
 /**
  * Interface for parsing SQL-like statements from the ANTLR-generated parse tree.
@@ -9,6 +9,6 @@ import org.kinotic.sql.parser.StructuresSQLParser;
  * Created by Navíd Mitchell 🤝 Grok on 3/31/25.
  */
 public interface StatementParser {
-    boolean supports(StructuresSQLParser.StatementContext ctx);
-    Statement parse(StructuresSQLParser.StatementContext ctx);
+    boolean supports(KinoticSQLParser.StatementContext ctx);
+    Statement parse(KinoticSQLParser.StatementContext ctx);
 }

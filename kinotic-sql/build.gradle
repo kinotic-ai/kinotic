@@ -16,9 +16,9 @@ generateGrammarSource {
 
 // Configure Javadoc to exclude generated files
 tasks.withType(Javadoc) {
-    exclude '**/parser/StructuresSQL*.java'
-    exclude '**/parser/StructuresSQL*.interp'
-    exclude '**/parser/StructuresSQL*.tokens'
+    exclude '**/parser/KinoticSQL*.java'
+    exclude '**/parser/KinoticSQL*.interp'
+    exclude '**/parser/KinoticSQL*.tokens'
 }
 
 tasks.named('sourcesJar') {

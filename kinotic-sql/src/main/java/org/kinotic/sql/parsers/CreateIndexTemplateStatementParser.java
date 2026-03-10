@@ -5,7 +5,7 @@ import java.util.List;
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.statements.CreateIndexTemplateStatement;
 import org.kinotic.sql.domain.statements.TemplatePart;
-import org.kinotic.sql.parser.StructuresSQLParser;
+import org.kinotic.sql.parser.KinoticSQLParser;
 import org.springframework.stereotype.Component;
 
 /**
@@ -16,13 +16,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class CreateIndexTemplateStatementParser implements StatementParser {
     @Override
-    public boolean supports(StructuresSQLParser.StatementContext ctx) {
+    public boolean supports(KinoticSQLParser.StatementContext ctx) {
         return ctx.createIndexTemplateStatement() != null;
     }
 
     @Override
-    public Statement parse(StructuresSQLParser.StatementContext ctx) {
-        StructuresSQLParser.CreateIndexTemplateStatementContext templateCtx = ctx.createIndexTemplateStatement();
+    public Statement parse(KinoticSQLParser.StatementContext ctx) {
+        KinoticSQLParser.CreateIndexTemplateStatementContext templateCtx = ctx.createIndexTemplateStatement();
         String templateName = templateCtx.ID().getText();
         String indexPattern = templateCtx.STRING(0).getText().replaceAll("'", "");
         String componentTemplate = templateCtx.STRING(1).getText().replaceAll("'", "");

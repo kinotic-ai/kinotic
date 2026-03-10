@@ -2,7 +2,7 @@ package org.kinotic.sql.parsers;
 
 import org.kinotic.sql.domain.Column;
 import org.kinotic.sql.domain.ColumnType;
-import org.kinotic.sql.parser.StructuresSQLParser;
+import org.kinotic.sql.parser.KinoticSQLParser;
 
 /**
  * Utility class for parsing column types from SQL grammar contexts.
@@ -19,7 +19,7 @@ public class TypeParser {
      * @param typeContext The type context from the parser
      * @return A complete Column with name, type, and indexed flag
      */
-    public static Column parseColumnType(String name, StructuresSQLParser.TypeContext typeContext) {
+    public static Column parseColumnType(String name, KinoticSQLParser.TypeContext typeContext) {
         // Get the base type name
         String baseType = typeContext.getChild(0).getText();
         

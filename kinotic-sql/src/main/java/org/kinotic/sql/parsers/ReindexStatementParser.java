@@ -2,7 +2,7 @@ package org.kinotic.sql.parsers;
 
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.statements.ReindexStatement;
-import org.kinotic.sql.parser.StructuresSQLParser;
+import org.kinotic.sql.parser.KinoticSQLParser;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,13 +13,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class ReindexStatementParser implements StatementParser {
     @Override
-    public boolean supports(StructuresSQLParser.StatementContext ctx) {
+    public boolean supports(KinoticSQLParser.StatementContext ctx) {
         return ctx.reindexStatement() != null;
     }
 
     @Override
-    public Statement parse(StructuresSQLParser.StatementContext ctx) {
-        StructuresSQLParser.ReindexStatementContext reindexCtx = ctx.reindexStatement();
+    public Statement parse(KinoticSQLParser.StatementContext ctx) {
+        KinoticSQLParser.ReindexStatementContext reindexCtx = ctx.reindexStatement();
         String source = reindexCtx.ID(0).getText();
         String dest = reindexCtx.ID(1).getText();
         String conflicts = null;

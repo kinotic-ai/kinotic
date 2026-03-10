@@ -1,17 +1,17 @@
 package org.kinotic.sql.parsers;
 
 import org.kinotic.sql.domain.WhereClause;
-import org.kinotic.sql.parser.StructuresSQLParser;
-import org.kinotic.sql.parser.StructuresSQLBaseVisitor;
+import org.kinotic.sql.parser.KinoticSQLParser;
+import org.kinotic.sql.parser.KinoticSQLBaseVisitor;
 
 /**
  * Visitor for parsing SQL-like WHERE clauses (e.g., conditions, AND/OR combinations).
  * Reusable across statement parsers like UPDATE and DELETE.
  * Created by Navíd Mitchell 🤝 Grok on 3/31/25.
  */
-public class WhereClauseVisitor extends StructuresSQLBaseVisitor<WhereClause> {
+public class WhereClauseVisitor extends KinoticSQLBaseVisitor<WhereClause> {
     @Override
-    public WhereClause visitWhereClause(StructuresSQLParser.WhereClauseContext ctx) {
+    public WhereClause visitWhereClause(KinoticSQLParser.WhereClauseContext ctx) {
         if (ctx.condition() != null) {
             String field = ctx.condition().ID().getText();
             String operator = ctx.condition().comparisonOperator().getText();

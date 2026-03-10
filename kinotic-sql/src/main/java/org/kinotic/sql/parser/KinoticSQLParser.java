@@ -1,13 +1,16 @@
-// Generated from StructuresSQL.g4 by ANTLR 4.13.2
+// Generated from KinoticSQL.g4 by ANTLR 4.13.2
 package org.kinotic.sql.parser;
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
 import org.antlr.v4.runtime.*;
+import org.antlr.v4.runtime.misc.*;
 import org.antlr.v4.runtime.tree.*;
 import java.util.List;
+import java.util.Iterator;
+import java.util.ArrayList;
 
 @SuppressWarnings({"all", "warnings", "unchecked", "unused", "cast", "CheckReturnValue", "this-escape"})
-public class StructuresSQLParser extends Parser {
+public class KinoticSQLParser extends Parser {
 	static { RuntimeMetaData.checkVersion("4.13.2", RuntimeMetaData.VERSION); }
 
 	protected static final DFA[] _decisionToDFA;
@@ -116,7 +119,7 @@ public class StructuresSQLParser extends Parser {
 	}
 
 	@Override
-	public String getGrammarFileName() { return "StructuresSQL.g4"; }
+	public String getGrammarFileName() { return "KinoticSQL.g4"; }
 
 	@Override
 	public String[] getRuleNames() { return ruleNames; }
@@ -127,14 +130,14 @@ public class StructuresSQLParser extends Parser {
 	@Override
 	public ATN getATN() { return _ATN; }
 
-	public StructuresSQLParser(TokenStream input) {
+	public KinoticSQLParser(TokenStream input) {
 		super(input);
 		_interp = new ParserATNSimulator(this,_ATN,_decisionToDFA,_sharedContextCache);
 	}
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class MigrationsContext extends ParserRuleContext {
-		public TerminalNode EOF() { return getToken(StructuresSQLParser.EOF, 0); }
+		public TerminalNode EOF() { return getToken(KinoticSQLParser.EOF, 0); }
 		public List<StatementContext> statement() {
 			return getRuleContexts(StatementContext.class);
 		}
@@ -147,15 +150,15 @@ public class StructuresSQLParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_migrations; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterMigrations(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterMigrations(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitMigrations(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitMigrations(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitMigrations(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitMigrations(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -231,15 +234,15 @@ public class StructuresSQLParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_statement; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterStatement(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitStatement(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitStatement(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitStatement(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -329,24 +332,24 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class CreateTableStatementContext extends ParserRuleContext {
-		public TerminalNode CREATE() { return getToken(StructuresSQLParser.CREATE, 0); }
-		public TerminalNode TABLE() { return getToken(StructuresSQLParser.TABLE, 0); }
-		public TerminalNode ID() { return getToken(StructuresSQLParser.ID, 0); }
-		public TerminalNode LPAREN() { return getToken(StructuresSQLParser.LPAREN, 0); }
+		public TerminalNode CREATE() { return getToken(KinoticSQLParser.CREATE, 0); }
+		public TerminalNode TABLE() { return getToken(KinoticSQLParser.TABLE, 0); }
+		public TerminalNode ID() { return getToken(KinoticSQLParser.ID, 0); }
+		public TerminalNode LPAREN() { return getToken(KinoticSQLParser.LPAREN, 0); }
 		public List<ColumnDefinitionContext> columnDefinition() {
 			return getRuleContexts(ColumnDefinitionContext.class);
 		}
 		public ColumnDefinitionContext columnDefinition(int i) {
 			return getRuleContext(ColumnDefinitionContext.class,i);
 		}
-		public TerminalNode RPAREN() { return getToken(StructuresSQLParser.RPAREN, 0); }
-		public TerminalNode SEMICOLON() { return getToken(StructuresSQLParser.SEMICOLON, 0); }
-		public TerminalNode IF() { return getToken(StructuresSQLParser.IF, 0); }
-		public TerminalNode NOT() { return getToken(StructuresSQLParser.NOT, 0); }
-		public TerminalNode EXISTS() { return getToken(StructuresSQLParser.EXISTS, 0); }
-		public List<TerminalNode> COMMA() { return getTokens(StructuresSQLParser.COMMA); }
+		public TerminalNode RPAREN() { return getToken(KinoticSQLParser.RPAREN, 0); }
+		public TerminalNode SEMICOLON() { return getToken(KinoticSQLParser.SEMICOLON, 0); }
+		public TerminalNode IF() { return getToken(KinoticSQLParser.IF, 0); }
+		public TerminalNode NOT() { return getToken(KinoticSQLParser.NOT, 0); }
+		public TerminalNode EXISTS() { return getToken(KinoticSQLParser.EXISTS, 0); }
+		public List<TerminalNode> COMMA() { return getTokens(KinoticSQLParser.COMMA); }
 		public TerminalNode COMMA(int i) {
-			return getToken(StructuresSQLParser.COMMA, i);
+			return getToken(KinoticSQLParser.COMMA, i);
 		}
 		public CreateTableStatementContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
@@ -354,15 +357,15 @@ public class StructuresSQLParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_createTableStatement; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterCreateTableStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterCreateTableStatement(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitCreateTableStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitCreateTableStatement(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitCreateTableStatement(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitCreateTableStatement(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -433,22 +436,22 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class CreateComponentTemplateStatementContext extends ParserRuleContext {
-		public TerminalNode CREATE() { return getToken(StructuresSQLParser.CREATE, 0); }
-		public TerminalNode COMPONENT() { return getToken(StructuresSQLParser.COMPONENT, 0); }
-		public TerminalNode TEMPLATE() { return getToken(StructuresSQLParser.TEMPLATE, 0); }
-		public TerminalNode ID() { return getToken(StructuresSQLParser.ID, 0); }
-		public TerminalNode LPAREN() { return getToken(StructuresSQLParser.LPAREN, 0); }
+		public TerminalNode CREATE() { return getToken(KinoticSQLParser.CREATE, 0); }
+		public TerminalNode COMPONENT() { return getToken(KinoticSQLParser.COMPONENT, 0); }
+		public TerminalNode TEMPLATE() { return getToken(KinoticSQLParser.TEMPLATE, 0); }
+		public TerminalNode ID() { return getToken(KinoticSQLParser.ID, 0); }
+		public TerminalNode LPAREN() { return getToken(KinoticSQLParser.LPAREN, 0); }
 		public List<TemplatePartContext> templatePart() {
 			return getRuleContexts(TemplatePartContext.class);
 		}
 		public TemplatePartContext templatePart(int i) {
 			return getRuleContext(TemplatePartContext.class,i);
 		}
-		public TerminalNode RPAREN() { return getToken(StructuresSQLParser.RPAREN, 0); }
-		public TerminalNode SEMICOLON() { return getToken(StructuresSQLParser.SEMICOLON, 0); }
-		public List<TerminalNode> COMMA() { return getTokens(StructuresSQLParser.COMMA); }
+		public TerminalNode RPAREN() { return getToken(KinoticSQLParser.RPAREN, 0); }
+		public TerminalNode SEMICOLON() { return getToken(KinoticSQLParser.SEMICOLON, 0); }
+		public List<TerminalNode> COMMA() { return getTokens(KinoticSQLParser.COMMA); }
 		public TerminalNode COMMA(int i) {
-			return getToken(StructuresSQLParser.COMMA, i);
+			return getToken(KinoticSQLParser.COMMA, i);
 		}
 		public CreateComponentTemplateStatementContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
@@ -456,15 +459,15 @@ public class StructuresSQLParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_createComponentTemplateStatement; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterCreateComponentTemplateStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterCreateComponentTemplateStatement(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitCreateComponentTemplateStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitCreateComponentTemplateStatement(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitCreateComponentTemplateStatement(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitCreateComponentTemplateStatement(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -523,29 +526,29 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class CreateIndexTemplateStatementContext extends ParserRuleContext {
-		public TerminalNode CREATE() { return getToken(StructuresSQLParser.CREATE, 0); }
-		public TerminalNode INDEX() { return getToken(StructuresSQLParser.INDEX, 0); }
-		public TerminalNode TEMPLATE() { return getToken(StructuresSQLParser.TEMPLATE, 0); }
-		public TerminalNode ID() { return getToken(StructuresSQLParser.ID, 0); }
-		public TerminalNode FOR() { return getToken(StructuresSQLParser.FOR, 0); }
-		public List<TerminalNode> STRING() { return getTokens(StructuresSQLParser.STRING); }
+		public TerminalNode CREATE() { return getToken(KinoticSQLParser.CREATE, 0); }
+		public TerminalNode INDEX() { return getToken(KinoticSQLParser.INDEX, 0); }
+		public TerminalNode TEMPLATE() { return getToken(KinoticSQLParser.TEMPLATE, 0); }
+		public TerminalNode ID() { return getToken(KinoticSQLParser.ID, 0); }
+		public TerminalNode FOR() { return getToken(KinoticSQLParser.FOR, 0); }
+		public List<TerminalNode> STRING() { return getTokens(KinoticSQLParser.STRING); }
 		public TerminalNode STRING(int i) {
-			return getToken(StructuresSQLParser.STRING, i);
+			return getToken(KinoticSQLParser.STRING, i);
 		}
-		public TerminalNode USING() { return getToken(StructuresSQLParser.USING, 0); }
-		public TerminalNode SEMICOLON() { return getToken(StructuresSQLParser.SEMICOLON, 0); }
-		public TerminalNode WITH() { return getToken(StructuresSQLParser.WITH, 0); }
-		public TerminalNode LPAREN() { return getToken(StructuresSQLParser.LPAREN, 0); }
+		public TerminalNode USING() { return getToken(KinoticSQLParser.USING, 0); }
+		public TerminalNode SEMICOLON() { return getToken(KinoticSQLParser.SEMICOLON, 0); }
+		public TerminalNode WITH() { return getToken(KinoticSQLParser.WITH, 0); }
+		public TerminalNode LPAREN() { return getToken(KinoticSQLParser.LPAREN, 0); }
 		public List<TemplatePartContext> templatePart() {
 			return getRuleContexts(TemplatePartContext.class);
 		}
 		public TemplatePartContext templatePart(int i) {
 			return getRuleContext(TemplatePartContext.class,i);
 		}
-		public TerminalNode RPAREN() { return getToken(StructuresSQLParser.RPAREN, 0); }
-		public List<TerminalNode> COMMA() { return getTokens(StructuresSQLParser.COMMA); }
+		public TerminalNode RPAREN() { return getToken(KinoticSQLParser.RPAREN, 0); }
+		public List<TerminalNode> COMMA() { return getTokens(KinoticSQLParser.COMMA); }
 		public TerminalNode COMMA(int i) {
-			return getToken(StructuresSQLParser.COMMA, i);
+			return getToken(KinoticSQLParser.COMMA, i);
 		}
 		public CreateIndexTemplateStatementContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
@@ -553,15 +556,15 @@ public class StructuresSQLParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_createIndexTemplateStatement; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterCreateIndexTemplateStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterCreateIndexTemplateStatement(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitCreateIndexTemplateStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitCreateIndexTemplateStatement(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitCreateIndexTemplateStatement(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitCreateIndexTemplateStatement(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -638,10 +641,10 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class TemplatePartContext extends ParserRuleContext {
-		public TerminalNode NUMBER_OF_SHARDS() { return getToken(StructuresSQLParser.NUMBER_OF_SHARDS, 0); }
-		public TerminalNode EQUALS() { return getToken(StructuresSQLParser.EQUALS, 0); }
-		public TerminalNode INTEGER_LITERAL() { return getToken(StructuresSQLParser.INTEGER_LITERAL, 0); }
-		public TerminalNode NUMBER_OF_REPLICAS() { return getToken(StructuresSQLParser.NUMBER_OF_REPLICAS, 0); }
+		public TerminalNode NUMBER_OF_SHARDS() { return getToken(KinoticSQLParser.NUMBER_OF_SHARDS, 0); }
+		public TerminalNode EQUALS() { return getToken(KinoticSQLParser.EQUALS, 0); }
+		public TerminalNode INTEGER_LITERAL() { return getToken(KinoticSQLParser.INTEGER_LITERAL, 0); }
+		public TerminalNode NUMBER_OF_REPLICAS() { return getToken(KinoticSQLParser.NUMBER_OF_REPLICAS, 0); }
 		public ColumnDefinitionContext columnDefinition() {
 			return getRuleContext(ColumnDefinitionContext.class,0);
 		}
@@ -651,15 +654,15 @@ public class StructuresSQLParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_templatePart; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterTemplatePart(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterTemplatePart(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitTemplatePart(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitTemplatePart(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitTemplatePart(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitTemplatePart(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -717,33 +720,33 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class AlterTableStatementContext extends ParserRuleContext {
-		public TerminalNode ALTER() { return getToken(StructuresSQLParser.ALTER, 0); }
-		public TerminalNode TABLE() { return getToken(StructuresSQLParser.TABLE, 0); }
-		public List<TerminalNode> ID() { return getTokens(StructuresSQLParser.ID); }
+		public TerminalNode ALTER() { return getToken(KinoticSQLParser.ALTER, 0); }
+		public TerminalNode TABLE() { return getToken(KinoticSQLParser.TABLE, 0); }
+		public List<TerminalNode> ID() { return getTokens(KinoticSQLParser.ID); }
 		public TerminalNode ID(int i) {
-			return getToken(StructuresSQLParser.ID, i);
+			return getToken(KinoticSQLParser.ID, i);
 		}
-		public TerminalNode ADD() { return getToken(StructuresSQLParser.ADD, 0); }
-		public TerminalNode COLUMN() { return getToken(StructuresSQLParser.COLUMN, 0); }
+		public TerminalNode ADD() { return getToken(KinoticSQLParser.ADD, 0); }
+		public TerminalNode COLUMN() { return getToken(KinoticSQLParser.COLUMN, 0); }
 		public TypeContext type() {
 			return getRuleContext(TypeContext.class,0);
 		}
-		public TerminalNode SEMICOLON() { return getToken(StructuresSQLParser.SEMICOLON, 0); }
+		public TerminalNode SEMICOLON() { return getToken(KinoticSQLParser.SEMICOLON, 0); }
 		public AlterTableStatementContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_alterTableStatement; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterAlterTableStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterAlterTableStatement(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitAlterTableStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitAlterTableStatement(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitAlterTableStatement(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitAlterTableStatement(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -785,13 +788,13 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class ReindexStatementContext extends ParserRuleContext {
-		public TerminalNode REINDEX() { return getToken(StructuresSQLParser.REINDEX, 0); }
-		public List<TerminalNode> ID() { return getTokens(StructuresSQLParser.ID); }
+		public TerminalNode REINDEX() { return getToken(KinoticSQLParser.REINDEX, 0); }
+		public List<TerminalNode> ID() { return getTokens(KinoticSQLParser.ID); }
 		public TerminalNode ID(int i) {
-			return getToken(StructuresSQLParser.ID, i);
+			return getToken(KinoticSQLParser.ID, i);
 		}
-		public TerminalNode INTO() { return getToken(StructuresSQLParser.INTO, 0); }
-		public TerminalNode SEMICOLON() { return getToken(StructuresSQLParser.SEMICOLON, 0); }
+		public TerminalNode INTO() { return getToken(KinoticSQLParser.INTO, 0); }
+		public TerminalNode SEMICOLON() { return getToken(KinoticSQLParser.SEMICOLON, 0); }
 		public ReindexOptionsContext reindexOptions() {
 			return getRuleContext(ReindexOptionsContext.class,0);
 		}
@@ -801,15 +804,15 @@ public class StructuresSQLParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_reindexStatement; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterReindexStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterReindexStatement(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitReindexStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitReindexStatement(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitReindexStatement(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitReindexStatement(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -856,18 +859,18 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class ReindexOptionsContext extends ParserRuleContext {
-		public TerminalNode WITH() { return getToken(StructuresSQLParser.WITH, 0); }
-		public TerminalNode LPAREN() { return getToken(StructuresSQLParser.LPAREN, 0); }
+		public TerminalNode WITH() { return getToken(KinoticSQLParser.WITH, 0); }
+		public TerminalNode LPAREN() { return getToken(KinoticSQLParser.LPAREN, 0); }
 		public List<ReindexOptionContext> reindexOption() {
 			return getRuleContexts(ReindexOptionContext.class);
 		}
 		public ReindexOptionContext reindexOption(int i) {
 			return getRuleContext(ReindexOptionContext.class,i);
 		}
-		public TerminalNode RPAREN() { return getToken(StructuresSQLParser.RPAREN, 0); }
-		public List<TerminalNode> COMMA() { return getTokens(StructuresSQLParser.COMMA); }
+		public TerminalNode RPAREN() { return getToken(KinoticSQLParser.RPAREN, 0); }
+		public List<TerminalNode> COMMA() { return getTokens(KinoticSQLParser.COMMA); }
 		public TerminalNode COMMA(int i) {
-			return getToken(StructuresSQLParser.COMMA, i);
+			return getToken(KinoticSQLParser.COMMA, i);
 		}
 		public ReindexOptionsContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
@@ -875,15 +878,15 @@ public class StructuresSQLParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_reindexOptions; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterReindexOptions(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterReindexOptions(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitReindexOptions(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitReindexOptions(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitReindexOptions(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitReindexOptions(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -934,38 +937,38 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class ReindexOptionContext extends ParserRuleContext {
-		public TerminalNode CONFLICTS() { return getToken(StructuresSQLParser.CONFLICTS, 0); }
-		public TerminalNode EQUALS() { return getToken(StructuresSQLParser.EQUALS, 0); }
-		public TerminalNode ABORT() { return getToken(StructuresSQLParser.ABORT, 0); }
-		public TerminalNode PROCEED() { return getToken(StructuresSQLParser.PROCEED, 0); }
-		public TerminalNode MAX_DOCS() { return getToken(StructuresSQLParser.MAX_DOCS, 0); }
-		public TerminalNode INTEGER_LITERAL() { return getToken(StructuresSQLParser.INTEGER_LITERAL, 0); }
-		public TerminalNode SLICES() { return getToken(StructuresSQLParser.SLICES, 0); }
-		public TerminalNode AUTO() { return getToken(StructuresSQLParser.AUTO, 0); }
-		public TerminalNode SIZE() { return getToken(StructuresSQLParser.SIZE, 0); }
-		public TerminalNode SOURCE_FIELDS() { return getToken(StructuresSQLParser.SOURCE_FIELDS, 0); }
-		public TerminalNode STRING() { return getToken(StructuresSQLParser.STRING, 0); }
-		public TerminalNode QUERY() { return getToken(StructuresSQLParser.QUERY, 0); }
-		public TerminalNode SCRIPT() { return getToken(StructuresSQLParser.SCRIPT, 0); }
-		public TerminalNode WAIT() { return getToken(StructuresSQLParser.WAIT, 0); }
-		public TerminalNode TRUE() { return getToken(StructuresSQLParser.TRUE, 0); }
-		public TerminalNode FALSE() { return getToken(StructuresSQLParser.FALSE, 0); }
-		public TerminalNode SKIP_IF_NO_SOURCE() { return getToken(StructuresSQLParser.SKIP_IF_NO_SOURCE, 0); }
+		public TerminalNode CONFLICTS() { return getToken(KinoticSQLParser.CONFLICTS, 0); }
+		public TerminalNode EQUALS() { return getToken(KinoticSQLParser.EQUALS, 0); }
+		public TerminalNode ABORT() { return getToken(KinoticSQLParser.ABORT, 0); }
+		public TerminalNode PROCEED() { return getToken(KinoticSQLParser.PROCEED, 0); }
+		public TerminalNode MAX_DOCS() { return getToken(KinoticSQLParser.MAX_DOCS, 0); }
+		public TerminalNode INTEGER_LITERAL() { return getToken(KinoticSQLParser.INTEGER_LITERAL, 0); }
+		public TerminalNode SLICES() { return getToken(KinoticSQLParser.SLICES, 0); }
+		public TerminalNode AUTO() { return getToken(KinoticSQLParser.AUTO, 0); }
+		public TerminalNode SIZE() { return getToken(KinoticSQLParser.SIZE, 0); }
+		public TerminalNode SOURCE_FIELDS() { return getToken(KinoticSQLParser.SOURCE_FIELDS, 0); }
+		public TerminalNode STRING() { return getToken(KinoticSQLParser.STRING, 0); }
+		public TerminalNode QUERY() { return getToken(KinoticSQLParser.QUERY, 0); }
+		public TerminalNode SCRIPT() { return getToken(KinoticSQLParser.SCRIPT, 0); }
+		public TerminalNode WAIT() { return getToken(KinoticSQLParser.WAIT, 0); }
+		public TerminalNode TRUE() { return getToken(KinoticSQLParser.TRUE, 0); }
+		public TerminalNode FALSE() { return getToken(KinoticSQLParser.FALSE, 0); }
+		public TerminalNode SKIP_IF_NO_SOURCE() { return getToken(KinoticSQLParser.SKIP_IF_NO_SOURCE, 0); }
 		public ReindexOptionContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_reindexOption; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterReindexOption(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterReindexOption(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitReindexOption(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitReindexOption(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitReindexOption(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitReindexOption(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -1126,41 +1129,41 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class UpdateStatementContext extends ParserRuleContext {
-		public TerminalNode UPDATE() { return getToken(StructuresSQLParser.UPDATE, 0); }
-		public TerminalNode ID() { return getToken(StructuresSQLParser.ID, 0); }
-		public TerminalNode SET() { return getToken(StructuresSQLParser.SET, 0); }
+		public TerminalNode UPDATE() { return getToken(KinoticSQLParser.UPDATE, 0); }
+		public TerminalNode ID() { return getToken(KinoticSQLParser.ID, 0); }
+		public TerminalNode SET() { return getToken(KinoticSQLParser.SET, 0); }
 		public List<AssignmentContext> assignment() {
 			return getRuleContexts(AssignmentContext.class);
 		}
 		public AssignmentContext assignment(int i) {
 			return getRuleContext(AssignmentContext.class,i);
 		}
-		public TerminalNode WHERE() { return getToken(StructuresSQLParser.WHERE, 0); }
+		public TerminalNode WHERE() { return getToken(KinoticSQLParser.WHERE, 0); }
 		public WhereClauseContext whereClause() {
 			return getRuleContext(WhereClauseContext.class,0);
 		}
-		public TerminalNode SEMICOLON() { return getToken(StructuresSQLParser.SEMICOLON, 0); }
-		public List<TerminalNode> COMMA() { return getTokens(StructuresSQLParser.COMMA); }
+		public TerminalNode SEMICOLON() { return getToken(KinoticSQLParser.SEMICOLON, 0); }
+		public List<TerminalNode> COMMA() { return getTokens(KinoticSQLParser.COMMA); }
 		public TerminalNode COMMA(int i) {
-			return getToken(StructuresSQLParser.COMMA, i);
+			return getToken(KinoticSQLParser.COMMA, i);
 		}
-		public TerminalNode WITH() { return getToken(StructuresSQLParser.WITH, 0); }
-		public TerminalNode REFRESH() { return getToken(StructuresSQLParser.REFRESH, 0); }
+		public TerminalNode WITH() { return getToken(KinoticSQLParser.WITH, 0); }
+		public TerminalNode REFRESH() { return getToken(KinoticSQLParser.REFRESH, 0); }
 		public UpdateStatementContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_updateStatement; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterUpdateStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterUpdateStatement(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitUpdateStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitUpdateStatement(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitUpdateStatement(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitUpdateStatement(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -1229,31 +1232,31 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class DeleteStatementContext extends ParserRuleContext {
-		public TerminalNode DELETE() { return getToken(StructuresSQLParser.DELETE, 0); }
-		public TerminalNode FROM() { return getToken(StructuresSQLParser.FROM, 0); }
-		public TerminalNode ID() { return getToken(StructuresSQLParser.ID, 0); }
-		public TerminalNode WHERE() { return getToken(StructuresSQLParser.WHERE, 0); }
+		public TerminalNode DELETE() { return getToken(KinoticSQLParser.DELETE, 0); }
+		public TerminalNode FROM() { return getToken(KinoticSQLParser.FROM, 0); }
+		public TerminalNode ID() { return getToken(KinoticSQLParser.ID, 0); }
+		public TerminalNode WHERE() { return getToken(KinoticSQLParser.WHERE, 0); }
 		public WhereClauseContext whereClause() {
 			return getRuleContext(WhereClauseContext.class,0);
 		}
-		public TerminalNode SEMICOLON() { return getToken(StructuresSQLParser.SEMICOLON, 0); }
-		public TerminalNode WITH() { return getToken(StructuresSQLParser.WITH, 0); }
-		public TerminalNode REFRESH() { return getToken(StructuresSQLParser.REFRESH, 0); }
+		public TerminalNode SEMICOLON() { return getToken(KinoticSQLParser.SEMICOLON, 0); }
+		public TerminalNode WITH() { return getToken(KinoticSQLParser.WITH, 0); }
+		public TerminalNode REFRESH() { return getToken(KinoticSQLParser.REFRESH, 0); }
 		public DeleteStatementContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_deleteStatement; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterDeleteStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterDeleteStatement(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitDeleteStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitDeleteStatement(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitDeleteStatement(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitDeleteStatement(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -1304,35 +1307,35 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class InsertStatementContext extends ParserRuleContext {
-		public TerminalNode INSERT() { return getToken(StructuresSQLParser.INSERT, 0); }
-		public TerminalNode INTO() { return getToken(StructuresSQLParser.INTO, 0); }
+		public TerminalNode INSERT() { return getToken(KinoticSQLParser.INSERT, 0); }
+		public TerminalNode INTO() { return getToken(KinoticSQLParser.INTO, 0); }
 		public TableNameContext tableName() {
 			return getRuleContext(TableNameContext.class,0);
 		}
-		public TerminalNode VALUES() { return getToken(StructuresSQLParser.VALUES, 0); }
-		public List<TerminalNode> LPAREN() { return getTokens(StructuresSQLParser.LPAREN); }
+		public TerminalNode VALUES() { return getToken(KinoticSQLParser.VALUES, 0); }
+		public List<TerminalNode> LPAREN() { return getTokens(KinoticSQLParser.LPAREN); }
 		public TerminalNode LPAREN(int i) {
-			return getToken(StructuresSQLParser.LPAREN, i);
+			return getToken(KinoticSQLParser.LPAREN, i);
 		}
 		public ValueListContext valueList() {
 			return getRuleContext(ValueListContext.class,0);
 		}
-		public List<TerminalNode> RPAREN() { return getTokens(StructuresSQLParser.RPAREN); }
+		public List<TerminalNode> RPAREN() { return getTokens(KinoticSQLParser.RPAREN); }
 		public TerminalNode RPAREN(int i) {
-			return getToken(StructuresSQLParser.RPAREN, i);
+			return getToken(KinoticSQLParser.RPAREN, i);
 		}
-		public TerminalNode SEMICOLON() { return getToken(StructuresSQLParser.SEMICOLON, 0); }
+		public TerminalNode SEMICOLON() { return getToken(KinoticSQLParser.SEMICOLON, 0); }
 		public List<ColumnNameContext> columnName() {
 			return getRuleContexts(ColumnNameContext.class);
 		}
 		public ColumnNameContext columnName(int i) {
 			return getRuleContext(ColumnNameContext.class,i);
 		}
-		public TerminalNode WITH() { return getToken(StructuresSQLParser.WITH, 0); }
-		public TerminalNode REFRESH() { return getToken(StructuresSQLParser.REFRESH, 0); }
-		public List<TerminalNode> COMMA() { return getTokens(StructuresSQLParser.COMMA); }
+		public TerminalNode WITH() { return getToken(KinoticSQLParser.WITH, 0); }
+		public TerminalNode REFRESH() { return getToken(KinoticSQLParser.REFRESH, 0); }
+		public List<TerminalNode> COMMA() { return getTokens(KinoticSQLParser.COMMA); }
 		public TerminalNode COMMA(int i) {
-			return getToken(StructuresSQLParser.COMMA, i);
+			return getToken(KinoticSQLParser.COMMA, i);
 		}
 		public InsertStatementContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
@@ -1340,15 +1343,15 @@ public class StructuresSQLParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_insertStatement; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterInsertStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterInsertStatement(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitInsertStatement(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitInsertStatement(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitInsertStatement(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitInsertStatement(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -1439,9 +1442,9 @@ public class StructuresSQLParser extends Parser {
 		public ValueContext value(int i) {
 			return getRuleContext(ValueContext.class,i);
 		}
-		public List<TerminalNode> COMMA() { return getTokens(StructuresSQLParser.COMMA); }
+		public List<TerminalNode> COMMA() { return getTokens(KinoticSQLParser.COMMA); }
 		public TerminalNode COMMA(int i) {
-			return getToken(StructuresSQLParser.COMMA, i);
+			return getToken(KinoticSQLParser.COMMA, i);
 		}
 		public ValueListContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
@@ -1449,15 +1452,15 @@ public class StructuresSQLParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_valueList; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterValueList(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterValueList(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitValueList(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitValueList(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitValueList(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitValueList(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -1502,25 +1505,25 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class ValueContext extends ParserRuleContext {
-		public TerminalNode STRING() { return getToken(StructuresSQLParser.STRING, 0); }
-		public TerminalNode INTEGER_LITERAL() { return getToken(StructuresSQLParser.INTEGER_LITERAL, 0); }
-		public TerminalNode BOOLEAN_LITERAL() { return getToken(StructuresSQLParser.BOOLEAN_LITERAL, 0); }
-		public TerminalNode PARAMETER() { return getToken(StructuresSQLParser.PARAMETER, 0); }
+		public TerminalNode STRING() { return getToken(KinoticSQLParser.STRING, 0); }
+		public TerminalNode INTEGER_LITERAL() { return getToken(KinoticSQLParser.INTEGER_LITERAL, 0); }
+		public TerminalNode BOOLEAN_LITERAL() { return getToken(KinoticSQLParser.BOOLEAN_LITERAL, 0); }
+		public TerminalNode PARAMETER() { return getToken(KinoticSQLParser.PARAMETER, 0); }
 		public ValueContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_value; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterValue(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterValue(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitValue(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitValue(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitValue(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitValue(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -1557,8 +1560,8 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class AssignmentContext extends ParserRuleContext {
-		public TerminalNode ID() { return getToken(StructuresSQLParser.ID, 0); }
-		public TerminalNode EQUALS() { return getToken(StructuresSQLParser.EQUALS, 0); }
+		public TerminalNode ID() { return getToken(KinoticSQLParser.ID, 0); }
+		public TerminalNode EQUALS() { return getToken(KinoticSQLParser.EQUALS, 0); }
 		public ExpressionContext expression() {
 			return getRuleContext(ExpressionContext.class,0);
 		}
@@ -1568,15 +1571,15 @@ public class StructuresSQLParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_assignment; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterAssignment(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterAssignment(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitAssignment(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitAssignment(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitAssignment(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitAssignment(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -1608,34 +1611,34 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class ExpressionContext extends ParserRuleContext {
-		public TerminalNode PARAMETER() { return getToken(StructuresSQLParser.PARAMETER, 0); }
-		public TerminalNode STRING() { return getToken(StructuresSQLParser.STRING, 0); }
-		public TerminalNode INTEGER_LITERAL() { return getToken(StructuresSQLParser.INTEGER_LITERAL, 0); }
-		public TerminalNode BOOLEAN_LITERAL() { return getToken(StructuresSQLParser.BOOLEAN_LITERAL, 0); }
-		public TerminalNode ID() { return getToken(StructuresSQLParser.ID, 0); }
+		public TerminalNode PARAMETER() { return getToken(KinoticSQLParser.PARAMETER, 0); }
+		public TerminalNode STRING() { return getToken(KinoticSQLParser.STRING, 0); }
+		public TerminalNode INTEGER_LITERAL() { return getToken(KinoticSQLParser.INTEGER_LITERAL, 0); }
+		public TerminalNode BOOLEAN_LITERAL() { return getToken(KinoticSQLParser.BOOLEAN_LITERAL, 0); }
+		public TerminalNode ID() { return getToken(KinoticSQLParser.ID, 0); }
 		public OperatorContext operator() {
 			return getRuleContext(OperatorContext.class,0);
 		}
 		public ExpressionContext expression() {
 			return getRuleContext(ExpressionContext.class,0);
 		}
-		public TerminalNode LPAREN() { return getToken(StructuresSQLParser.LPAREN, 0); }
-		public TerminalNode RPAREN() { return getToken(StructuresSQLParser.RPAREN, 0); }
+		public TerminalNode LPAREN() { return getToken(KinoticSQLParser.LPAREN, 0); }
+		public TerminalNode RPAREN() { return getToken(KinoticSQLParser.RPAREN, 0); }
 		public ExpressionContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_expression; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterExpression(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterExpression(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitExpression(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitExpression(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitExpression(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitExpression(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -1714,26 +1717,26 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class OperatorContext extends ParserRuleContext {
-		public TerminalNode PLUS() { return getToken(StructuresSQLParser.PLUS, 0); }
-		public TerminalNode MINUS() { return getToken(StructuresSQLParser.MINUS, 0); }
-		public TerminalNode MULTIPLY() { return getToken(StructuresSQLParser.MULTIPLY, 0); }
-		public TerminalNode DIVIDE() { return getToken(StructuresSQLParser.DIVIDE, 0); }
-		public TerminalNode EQUALS() { return getToken(StructuresSQLParser.EQUALS, 0); }
+		public TerminalNode PLUS() { return getToken(KinoticSQLParser.PLUS, 0); }
+		public TerminalNode MINUS() { return getToken(KinoticSQLParser.MINUS, 0); }
+		public TerminalNode MULTIPLY() { return getToken(KinoticSQLParser.MULTIPLY, 0); }
+		public TerminalNode DIVIDE() { return getToken(KinoticSQLParser.DIVIDE, 0); }
+		public TerminalNode EQUALS() { return getToken(KinoticSQLParser.EQUALS, 0); }
 		public OperatorContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_operator; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterOperator(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterOperator(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitOperator(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitOperator(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitOperator(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitOperator(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -1773,31 +1776,31 @@ public class StructuresSQLParser extends Parser {
 		public ConditionContext condition() {
 			return getRuleContext(ConditionContext.class,0);
 		}
-		public TerminalNode LPAREN() { return getToken(StructuresSQLParser.LPAREN, 0); }
+		public TerminalNode LPAREN() { return getToken(KinoticSQLParser.LPAREN, 0); }
 		public List<WhereClauseContext> whereClause() {
 			return getRuleContexts(WhereClauseContext.class);
 		}
 		public WhereClauseContext whereClause(int i) {
 			return getRuleContext(WhereClauseContext.class,i);
 		}
-		public TerminalNode RPAREN() { return getToken(StructuresSQLParser.RPAREN, 0); }
-		public TerminalNode AND() { return getToken(StructuresSQLParser.AND, 0); }
-		public TerminalNode OR() { return getToken(StructuresSQLParser.OR, 0); }
+		public TerminalNode RPAREN() { return getToken(KinoticSQLParser.RPAREN, 0); }
+		public TerminalNode AND() { return getToken(KinoticSQLParser.AND, 0); }
+		public TerminalNode OR() { return getToken(KinoticSQLParser.OR, 0); }
 		public WhereClauseContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_whereClause; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterWhereClause(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterWhereClause(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitWhereClause(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitWhereClause(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitWhereClause(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitWhereClause(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -1897,29 +1900,29 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class ConditionContext extends ParserRuleContext {
-		public TerminalNode ID() { return getToken(StructuresSQLParser.ID, 0); }
+		public TerminalNode ID() { return getToken(KinoticSQLParser.ID, 0); }
 		public ComparisonOperatorContext comparisonOperator() {
 			return getRuleContext(ComparisonOperatorContext.class,0);
 		}
-		public TerminalNode PARAMETER() { return getToken(StructuresSQLParser.PARAMETER, 0); }
-		public TerminalNode STRING() { return getToken(StructuresSQLParser.STRING, 0); }
-		public TerminalNode INTEGER_LITERAL() { return getToken(StructuresSQLParser.INTEGER_LITERAL, 0); }
-		public TerminalNode BOOLEAN_LITERAL() { return getToken(StructuresSQLParser.BOOLEAN_LITERAL, 0); }
+		public TerminalNode PARAMETER() { return getToken(KinoticSQLParser.PARAMETER, 0); }
+		public TerminalNode STRING() { return getToken(KinoticSQLParser.STRING, 0); }
+		public TerminalNode INTEGER_LITERAL() { return getToken(KinoticSQLParser.INTEGER_LITERAL, 0); }
+		public TerminalNode BOOLEAN_LITERAL() { return getToken(KinoticSQLParser.BOOLEAN_LITERAL, 0); }
 		public ConditionContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_condition; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterCondition(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterCondition(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitCondition(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitCondition(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitCondition(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitCondition(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -1960,27 +1963,27 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class ComparisonOperatorContext extends ParserRuleContext {
-		public TerminalNode EQUALS() { return getToken(StructuresSQLParser.EQUALS, 0); }
-		public TerminalNode NOT_EQUALS() { return getToken(StructuresSQLParser.NOT_EQUALS, 0); }
-		public TerminalNode LESS_THAN() { return getToken(StructuresSQLParser.LESS_THAN, 0); }
-		public TerminalNode GREATER_THAN() { return getToken(StructuresSQLParser.GREATER_THAN, 0); }
-		public TerminalNode LESS_THAN_EQUALS() { return getToken(StructuresSQLParser.LESS_THAN_EQUALS, 0); }
-		public TerminalNode GREATER_THAN_EQUALS() { return getToken(StructuresSQLParser.GREATER_THAN_EQUALS, 0); }
+		public TerminalNode EQUALS() { return getToken(KinoticSQLParser.EQUALS, 0); }
+		public TerminalNode NOT_EQUALS() { return getToken(KinoticSQLParser.NOT_EQUALS, 0); }
+		public TerminalNode LESS_THAN() { return getToken(KinoticSQLParser.LESS_THAN, 0); }
+		public TerminalNode GREATER_THAN() { return getToken(KinoticSQLParser.GREATER_THAN, 0); }
+		public TerminalNode LESS_THAN_EQUALS() { return getToken(KinoticSQLParser.LESS_THAN_EQUALS, 0); }
+		public TerminalNode GREATER_THAN_EQUALS() { return getToken(KinoticSQLParser.GREATER_THAN_EQUALS, 0); }
 		public ComparisonOperatorContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_comparisonOperator; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterComparisonOperator(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterComparisonOperator(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitComparisonOperator(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitComparisonOperator(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitComparisonOperator(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitComparisonOperator(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -2017,22 +2020,22 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class TableNameContext extends ParserRuleContext {
-		public TerminalNode ID() { return getToken(StructuresSQLParser.ID, 0); }
+		public TerminalNode ID() { return getToken(KinoticSQLParser.ID, 0); }
 		public TableNameContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_tableName; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterTableName(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterTableName(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitTableName(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitTableName(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitTableName(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitTableName(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -2060,22 +2063,22 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class ColumnNameContext extends ParserRuleContext {
-		public TerminalNode ID() { return getToken(StructuresSQLParser.ID, 0); }
+		public TerminalNode ID() { return getToken(KinoticSQLParser.ID, 0); }
 		public ColumnNameContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_columnName; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterColumnName(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterColumnName(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitColumnName(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitColumnName(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitColumnName(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitColumnName(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -2103,7 +2106,7 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class ColumnDefinitionContext extends ParserRuleContext {
-		public TerminalNode ID() { return getToken(StructuresSQLParser.ID, 0); }
+		public TerminalNode ID() { return getToken(KinoticSQLParser.ID, 0); }
 		public TypeContext type() {
 			return getRuleContext(TypeContext.class,0);
 		}
@@ -2113,15 +2116,15 @@ public class StructuresSQLParser extends Parser {
 		@Override public int getRuleIndex() { return RULE_columnDefinition; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterColumnDefinition(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterColumnDefinition(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitColumnDefinition(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitColumnDefinition(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitColumnDefinition(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitColumnDefinition(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -2151,37 +2154,37 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class TypeContext extends ParserRuleContext {
-		public TerminalNode TEXT() { return getToken(StructuresSQLParser.TEXT, 0); }
-		public TerminalNode KEYWORD() { return getToken(StructuresSQLParser.KEYWORD, 0); }
-		public TerminalNode NOT() { return getToken(StructuresSQLParser.NOT, 0); }
-		public TerminalNode INDEXED() { return getToken(StructuresSQLParser.INDEXED, 0); }
-		public TerminalNode INTEGER() { return getToken(StructuresSQLParser.INTEGER, 0); }
-		public TerminalNode LONG() { return getToken(StructuresSQLParser.LONG, 0); }
-		public TerminalNode FLOAT() { return getToken(StructuresSQLParser.FLOAT, 0); }
-		public TerminalNode DOUBLE() { return getToken(StructuresSQLParser.DOUBLE, 0); }
-		public TerminalNode BOOLEAN() { return getToken(StructuresSQLParser.BOOLEAN, 0); }
-		public TerminalNode DATE() { return getToken(StructuresSQLParser.DATE, 0); }
-		public TerminalNode JSON() { return getToken(StructuresSQLParser.JSON, 0); }
-		public TerminalNode BINARY() { return getToken(StructuresSQLParser.BINARY, 0); }
-		public TerminalNode GEO_POINT() { return getToken(StructuresSQLParser.GEO_POINT, 0); }
-		public TerminalNode GEO_SHAPE() { return getToken(StructuresSQLParser.GEO_SHAPE, 0); }
-		public TerminalNode UUID() { return getToken(StructuresSQLParser.UUID, 0); }
-		public TerminalNode DECIMAL() { return getToken(StructuresSQLParser.DECIMAL, 0); }
+		public TerminalNode TEXT() { return getToken(KinoticSQLParser.TEXT, 0); }
+		public TerminalNode KEYWORD() { return getToken(KinoticSQLParser.KEYWORD, 0); }
+		public TerminalNode NOT() { return getToken(KinoticSQLParser.NOT, 0); }
+		public TerminalNode INDEXED() { return getToken(KinoticSQLParser.INDEXED, 0); }
+		public TerminalNode INTEGER() { return getToken(KinoticSQLParser.INTEGER, 0); }
+		public TerminalNode LONG() { return getToken(KinoticSQLParser.LONG, 0); }
+		public TerminalNode FLOAT() { return getToken(KinoticSQLParser.FLOAT, 0); }
+		public TerminalNode DOUBLE() { return getToken(KinoticSQLParser.DOUBLE, 0); }
+		public TerminalNode BOOLEAN() { return getToken(KinoticSQLParser.BOOLEAN, 0); }
+		public TerminalNode DATE() { return getToken(KinoticSQLParser.DATE, 0); }
+		public TerminalNode JSON() { return getToken(KinoticSQLParser.JSON, 0); }
+		public TerminalNode BINARY() { return getToken(KinoticSQLParser.BINARY, 0); }
+		public TerminalNode GEO_POINT() { return getToken(KinoticSQLParser.GEO_POINT, 0); }
+		public TerminalNode GEO_SHAPE() { return getToken(KinoticSQLParser.GEO_SHAPE, 0); }
+		public TerminalNode UUID() { return getToken(KinoticSQLParser.UUID, 0); }
+		public TerminalNode DECIMAL() { return getToken(KinoticSQLParser.DECIMAL, 0); }
 		public TypeContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_type; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterType(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterType(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitType(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitType(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitType(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitType(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -2429,22 +2432,22 @@ public class StructuresSQLParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class CommentContext extends ParserRuleContext {
-		public TerminalNode COMMENT() { return getToken(StructuresSQLParser.COMMENT, 0); }
+		public TerminalNode COMMENT() { return getToken(KinoticSQLParser.COMMENT, 0); }
 		public CommentContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_comment; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).enterComment(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).enterComment(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof StructuresSQLListener ) ((StructuresSQLListener)listener).exitComment(this);
+			if ( listener instanceof KinoticSQLListener ) ((KinoticSQLListener)listener).exitComment(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof StructuresSQLVisitor ) return ((StructuresSQLVisitor<? extends T>)visitor).visitComment(this);
+			if ( visitor instanceof KinoticSQLVisitor ) return ((KinoticSQLVisitor<? extends T>)visitor).visitComment(this);
 			else return visitor.visitChildren(this);
 		}
 	}

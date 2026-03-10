@@ -1,4 +1,4 @@
-// Generated from StructuresSQL.g4 by ANTLR 4.13.2
+// Generated from KinoticSQL.g4 by ANTLR 4.13.2
 package org.kinotic.sql.parser;
 
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -6,324 +6,324 @@ import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 /**
- * This class provides an empty implementation of {@link StructuresSQLListener},
+ * This class provides an empty implementation of {@link KinoticSQLListener},
  * which can be extended to create a listener which only needs to handle a subset
  * of the available methods.
  */
 @SuppressWarnings("CheckReturnValue")
-public class StructuresSQLBaseListener implements StructuresSQLListener {
+public class KinoticSQLBaseListener implements KinoticSQLListener {
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterMigrations(StructuresSQLParser.MigrationsContext ctx) { }
+	@Override public void enterMigrations(KinoticSQLParser.MigrationsContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitMigrations(StructuresSQLParser.MigrationsContext ctx) { }
+	@Override public void exitMigrations(KinoticSQLParser.MigrationsContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterStatement(StructuresSQLParser.StatementContext ctx) { }
+	@Override public void enterStatement(KinoticSQLParser.StatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitStatement(StructuresSQLParser.StatementContext ctx) { }
+	@Override public void exitStatement(KinoticSQLParser.StatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterCreateTableStatement(StructuresSQLParser.CreateTableStatementContext ctx) { }
+	@Override public void enterCreateTableStatement(KinoticSQLParser.CreateTableStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitCreateTableStatement(StructuresSQLParser.CreateTableStatementContext ctx) { }
+	@Override public void exitCreateTableStatement(KinoticSQLParser.CreateTableStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterCreateComponentTemplateStatement(StructuresSQLParser.CreateComponentTemplateStatementContext ctx) { }
+	@Override public void enterCreateComponentTemplateStatement(KinoticSQLParser.CreateComponentTemplateStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitCreateComponentTemplateStatement(StructuresSQLParser.CreateComponentTemplateStatementContext ctx) { }
+	@Override public void exitCreateComponentTemplateStatement(KinoticSQLParser.CreateComponentTemplateStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterCreateIndexTemplateStatement(StructuresSQLParser.CreateIndexTemplateStatementContext ctx) { }
+	@Override public void enterCreateIndexTemplateStatement(KinoticSQLParser.CreateIndexTemplateStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitCreateIndexTemplateStatement(StructuresSQLParser.CreateIndexTemplateStatementContext ctx) { }
+	@Override public void exitCreateIndexTemplateStatement(KinoticSQLParser.CreateIndexTemplateStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterTemplatePart(StructuresSQLParser.TemplatePartContext ctx) { }
+	@Override public void enterTemplatePart(KinoticSQLParser.TemplatePartContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitTemplatePart(StructuresSQLParser.TemplatePartContext ctx) { }
+	@Override public void exitTemplatePart(KinoticSQLParser.TemplatePartContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterAlterTableStatement(StructuresSQLParser.AlterTableStatementContext ctx) { }
+	@Override public void enterAlterTableStatement(KinoticSQLParser.AlterTableStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitAlterTableStatement(StructuresSQLParser.AlterTableStatementContext ctx) { }
+	@Override public void exitAlterTableStatement(KinoticSQLParser.AlterTableStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterReindexStatement(StructuresSQLParser.ReindexStatementContext ctx) { }
+	@Override public void enterReindexStatement(KinoticSQLParser.ReindexStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitReindexStatement(StructuresSQLParser.ReindexStatementContext ctx) { }
+	@Override public void exitReindexStatement(KinoticSQLParser.ReindexStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterReindexOptions(StructuresSQLParser.ReindexOptionsContext ctx) { }
+	@Override public void enterReindexOptions(KinoticSQLParser.ReindexOptionsContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitReindexOptions(StructuresSQLParser.ReindexOptionsContext ctx) { }
+	@Override public void exitReindexOptions(KinoticSQLParser.ReindexOptionsContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterReindexOption(StructuresSQLParser.ReindexOptionContext ctx) { }
+	@Override public void enterReindexOption(KinoticSQLParser.ReindexOptionContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitReindexOption(StructuresSQLParser.ReindexOptionContext ctx) { }
+	@Override public void exitReindexOption(KinoticSQLParser.ReindexOptionContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterUpdateStatement(StructuresSQLParser.UpdateStatementContext ctx) { }
+	@Override public void enterUpdateStatement(KinoticSQLParser.UpdateStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitUpdateStatement(StructuresSQLParser.UpdateStatementContext ctx) { }
+	@Override public void exitUpdateStatement(KinoticSQLParser.UpdateStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterDeleteStatement(StructuresSQLParser.DeleteStatementContext ctx) { }
+	@Override public void enterDeleteStatement(KinoticSQLParser.DeleteStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitDeleteStatement(StructuresSQLParser.DeleteStatementContext ctx) { }
+	@Override public void exitDeleteStatement(KinoticSQLParser.DeleteStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterInsertStatement(StructuresSQLParser.InsertStatementContext ctx) { }
+	@Override public void enterInsertStatement(KinoticSQLParser.InsertStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitInsertStatement(StructuresSQLParser.InsertStatementContext ctx) { }
+	@Override public void exitInsertStatement(KinoticSQLParser.InsertStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterValueList(StructuresSQLParser.ValueListContext ctx) { }
+	@Override public void enterValueList(KinoticSQLParser.ValueListContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitValueList(StructuresSQLParser.ValueListContext ctx) { }
+	@Override public void exitValueList(KinoticSQLParser.ValueListContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterValue(StructuresSQLParser.ValueContext ctx) { }
+	@Override public void enterValue(KinoticSQLParser.ValueContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitValue(StructuresSQLParser.ValueContext ctx) { }
+	@Override public void exitValue(KinoticSQLParser.ValueContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterAssignment(StructuresSQLParser.AssignmentContext ctx) { }
+	@Override public void enterAssignment(KinoticSQLParser.AssignmentContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitAssignment(StructuresSQLParser.AssignmentContext ctx) { }
+	@Override public void exitAssignment(KinoticSQLParser.AssignmentContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterExpression(StructuresSQLParser.ExpressionContext ctx) { }
+	@Override public void enterExpression(KinoticSQLParser.ExpressionContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitExpression(StructuresSQLParser.ExpressionContext ctx) { }
+	@Override public void exitExpression(KinoticSQLParser.ExpressionContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterOperator(StructuresSQLParser.OperatorContext ctx) { }
+	@Override public void enterOperator(KinoticSQLParser.OperatorContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitOperator(StructuresSQLParser.OperatorContext ctx) { }
+	@Override public void exitOperator(KinoticSQLParser.OperatorContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterWhereClause(StructuresSQLParser.WhereClauseContext ctx) { }
+	@Override public void enterWhereClause(KinoticSQLParser.WhereClauseContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitWhereClause(StructuresSQLParser.WhereClauseContext ctx) { }
+	@Override public void exitWhereClause(KinoticSQLParser.WhereClauseContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterCondition(StructuresSQLParser.ConditionContext ctx) { }
+	@Override public void enterCondition(KinoticSQLParser.ConditionContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitCondition(StructuresSQLParser.ConditionContext ctx) { }
+	@Override public void exitCondition(KinoticSQLParser.ConditionContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterComparisonOperator(StructuresSQLParser.ComparisonOperatorContext ctx) { }
+	@Override public void enterComparisonOperator(KinoticSQLParser.ComparisonOperatorContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitComparisonOperator(StructuresSQLParser.ComparisonOperatorContext ctx) { }
+	@Override public void exitComparisonOperator(KinoticSQLParser.ComparisonOperatorContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterTableName(StructuresSQLParser.TableNameContext ctx) { }
+	@Override public void enterTableName(KinoticSQLParser.TableNameContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitTableName(StructuresSQLParser.TableNameContext ctx) { }
+	@Override public void exitTableName(KinoticSQLParser.TableNameContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterColumnName(StructuresSQLParser.ColumnNameContext ctx) { }
+	@Override public void enterColumnName(KinoticSQLParser.ColumnNameContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitColumnName(StructuresSQLParser.ColumnNameContext ctx) { }
+	@Override public void exitColumnName(KinoticSQLParser.ColumnNameContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterColumnDefinition(StructuresSQLParser.ColumnDefinitionContext ctx) { }
+	@Override public void enterColumnDefinition(KinoticSQLParser.ColumnDefinitionContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitColumnDefinition(StructuresSQLParser.ColumnDefinitionContext ctx) { }
+	@Override public void exitColumnDefinition(KinoticSQLParser.ColumnDefinitionContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterType(StructuresSQLParser.TypeContext ctx) { }
+	@Override public void enterType(KinoticSQLParser.TypeContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitType(StructuresSQLParser.TypeContext ctx) { }
+	@Override public void exitType(KinoticSQLParser.TypeContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterComment(StructuresSQLParser.CommentContext ctx) { }
+	@Override public void enterComment(KinoticSQLParser.CommentContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitComment(StructuresSQLParser.CommentContext ctx) { }
+	@Override public void exitComment(KinoticSQLParser.CommentContext ctx) { }
 
 	/**
 	 * {@inheritDoc}
