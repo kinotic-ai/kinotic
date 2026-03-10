@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Component
+@SuppressWarnings("resource")
 public class KeyloakTestConfiguration {
     private static final Logger log = LoggerFactory.getLogger(KeyloakTestConfiguration.class);
 
@@ -76,7 +77,7 @@ public class KeyloakTestConfiguration {
             log.info("Shutting down TestContainers...");
             try {
                 if (KEYCLOAK_CONTAINER != null && KEYCLOAK_CONTAINER.isRunning()) {
-                    KEYCLOAK_CONTAINER.stop();
+                    KEYCLOAK_CONTAINER.close();
                     log.info("Keycloak container stopped");
                 }
             } catch (Exception e) {
@@ -257,7 +258,7 @@ public class KeyloakTestConfiguration {
         try {
 
             if (KEYCLOAK_CONTAINER != null && KEYCLOAK_CONTAINER.isRunning()) {
-                KEYCLOAK_CONTAINER.stop();
+                KEYCLOAK_CONTAINER.close();
                 log.info("Keycloak container stopped");
             }
             

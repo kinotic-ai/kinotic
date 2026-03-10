@@ -2,12 +2,11 @@
 
 package org.kinotic.rpc.gateway.api.config;
 
+import org.kinotic.core.api.config.KinoticProperties;
+
 import io.vertx.ext.stomp.lite.StompServerOptions;
 import lombok.Getter;
 import lombok.Setter;
-import org.kinotic.core.api.config.KinoticProperties;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 /**
  * Created by Navid Mitchell on 7/19/17.

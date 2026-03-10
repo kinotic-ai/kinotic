@@ -53,9 +53,34 @@ public class ContainerHealthChecker {
     }
     
     /**
+     * Check if Kinotic server is healthy and ready
+     */
+    public static boolean isKinoticServerHealthy(String host, int port) {
+        String healthUrl = String.format("http://%s:%d/health", host, port);
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(healthUrl))
+                .GET()
+                .timeout(Duration.ofSeconds(10))
+                .build();
+            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            boolean isHealthy = response.statusCode() == 200;
+            if (isHealthy) {
+                log.debug("Kinotic server health check successful");
+            } else {
+                log.debug("Kinotic server health check returned status: {}", response.statusCode());
+            }
+            return isHealthy;
+        } catch (Exception e) {
+            log.debug("Kinotic server health check failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Check if Keycloak is healthy and ready
      */
-public static boolean isKeycloakHealthy(String host, int port) {
+    public static boolean isKeycloakHealthy(String host, int port) {
         String healthUrl = String.format("http://%s:%d/health/ready", host, port);
         
         try {

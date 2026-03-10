@@ -16,6 +16,14 @@
 
 package org.kinotic.core.internal.utils;
 
+import java.io.IOException;
+import java.lang.annotation.Annotation;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanDefinitionStoreException;
@@ -40,14 +48,9 @@ import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.core.type.filter.AssignableTypeFilter;
 import org.springframework.core.type.filter.TypeFilter;
-import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Indexed;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
-
-import java.io.IOException;
-import java.lang.annotation.Annotation;
-import java.util.*;
 
 /**
  * Basically the same as the {@link org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider}
@@ -69,19 +72,14 @@ public class ClassPathScanningMetadataReaderProvider implements EnvironmentCapab
 
 	private final List<TypeFilter> excludeFilters = new LinkedList<>();
 
-	@Nullable
 	private Environment environment;
 
-	@Nullable
 	private ConditionEvaluator conditionEvaluator;
 
-	@Nullable
 	private ResourcePatternResolver resourcePatternResolver;
 
-	@Nullable
 	private MetadataReaderFactory metadataReaderFactory;
 
-	@Nullable
 	private CandidateComponentsIndex componentsIndex;
 
 
@@ -158,7 +156,6 @@ public class ClassPathScanningMetadataReaderProvider implements EnvironmentCapab
 	/**
 	 * Return the {@link BeanDefinitionRegistry} used by this scanner, if any.
 	 */
-	@Nullable
 	protected BeanDefinitionRegistry getRegistry() {
 		return null;
 	}
@@ -172,7 +169,7 @@ public class ClassPathScanningMetadataReaderProvider implements EnvironmentCapab
 	 * @see PathMatchingResourcePatternResolver
 	 */
 	@Override
-	public void setResourceLoader(@Nullable ResourceLoader resourceLoader) {
+	public void setResourceLoader( ResourceLoader resourceLoader) {
 		this.resourcePatternResolver = ResourcePatternUtils.getResourcePatternResolver(resourceLoader);
 		this.metadataReaderFactory = new CachingMetadataReaderFactory(resourceLoader);
 		this.componentsIndex = CandidateComponentsIndexLoader.loadIndex(this.resourcePatternResolver.getClassLoader());
@@ -270,7 +267,6 @@ public class ClassPathScanningMetadataReaderProvider implements EnvironmentCapab
 	 * @since 5.0
 	 * @see #indexSupportsIncludeFilter(TypeFilter)
 	 */
-	@Nullable
 	private String extractStereotype(TypeFilter filter) {
 		if (filter instanceof AnnotationTypeFilter) {
 			return ((AnnotationTypeFilter) filter).getAnnotationType().getName();

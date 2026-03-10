@@ -141,6 +141,6 @@ public class AdminProviderAccessControlTest extends KeycloakTestBase {
         }
         
         tools.jackson.databind.JsonNode node = new tools.jackson.databind.ObjectMapper().readTree(response.body());
-        return node.get("access_token").asText();
+        return node.get("access_token").asString();
     }
 }

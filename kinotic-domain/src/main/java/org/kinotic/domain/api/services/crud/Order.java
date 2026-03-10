@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 package org.kinotic.domain.api.services.crud;
-import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
 
 /**
@@ -40,7 +39,7 @@ public class Order {
      * @param direction can be {@literal null}, will default to {@link Sort#DEFAULT_DIRECTION}
      * @param property must not be {@literal null} or empty.
      */
-    public Order(@Nullable Direction direction, String property) {
+    public Order(Direction direction, String property) {
         this(direction, property, DEFAULT_IGNORE_CASE, DEFAULT_NULL_HANDLING);
     }
 
@@ -52,7 +51,7 @@ public class Order {
      * @param property must not be {@literal null} or empty.
      * @param nullHandlingHint must not be {@literal null}.
      */
-    public Order(@Nullable Direction direction, String property, NullHandling nullHandlingHint) {
+    public Order(Direction direction, String property, NullHandling nullHandlingHint) {
         this(direction, property, DEFAULT_IGNORE_CASE, nullHandlingHint);
     }
 
@@ -95,7 +94,7 @@ public class Order {
      * @param ignoreCase true if sorting should be case-insensitive. false if sorting should be case-sensitive.
      * @param nullHandling must not be {@literal null}.
      */
-    private Order(@Nullable Direction direction, String property, boolean ignoreCase, NullHandling nullHandling) {
+    private Order(Direction direction, String property, boolean ignoreCase, NullHandling nullHandling) {
 
         if (!StringUtils.hasText(property)) {
             throw new IllegalArgumentException("Property must not be null or empty");
@@ -243,7 +242,7 @@ public class Order {
      * @see java.lang.Object#equals(java.lang.Object)
      */
     @Override
-    public boolean equals(@Nullable Object obj) {
+    public boolean equals(Object obj) {
 
         if (this == obj) {
             return true;

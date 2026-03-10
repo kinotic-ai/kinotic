@@ -65,8 +65,8 @@ public class FrontendConfigurationIntegrationTest extends ElasticTestBase {
         JsonNode keycloakProvider = findProviderByName(oidcProviders, "keycloak");
         assertNotNull(keycloakProvider, "Keycloak provider should be present");
         assertTrue(keycloakProvider.get("enabled").asBoolean(), "Keycloak provider should be enabled");
-        assertEquals("test-keycloak-client", keycloakProvider.get("clientId").asText(), "Keycloak client ID should match test config");
-        assertEquals("http://localhost:8888/auth/realms/test", keycloakProvider.get("authority").asText(), "Keycloak authority should match test config");
+        assertEquals("test-keycloak-client", keycloakProvider.get("clientId").asString(), "Keycloak client ID should match test config");
+        assertEquals("http://localhost:8888/auth/realms/test", keycloakProvider.get("authority").asString(), "Keycloak authority should match test config");
         
         // Validate debug flag (should match test configuration)
         assertTrue(config.get("debug").asBoolean(), "Debug should be enabled based on test config");
@@ -74,9 +74,9 @@ public class FrontendConfigurationIntegrationTest extends ElasticTestBase {
         // Validate redirect URIs for enabled providers
         String expectedBaseUrl = "http://localhost:8989";
         
-        assertEquals(expectedBaseUrl + "/login", keycloakProvider.get("redirectUri").asText(), "Keycloak redirect URI should be correct");
-        assertEquals(expectedBaseUrl, keycloakProvider.get("postLogoutRedirectUri").asText(), "Keycloak post-logout redirect URI should be correct");
-        assertEquals(expectedBaseUrl + "/login/silent-renew", keycloakProvider.get("silentRedirectUri").asText(), "Keycloak silent redirect URI should be correct");
+        assertEquals(expectedBaseUrl + "/login", keycloakProvider.get("redirectUri").asString(), "Keycloak redirect URI should be correct");
+        assertEquals(expectedBaseUrl, keycloakProvider.get("postLogoutRedirectUri").asString(), "Keycloak post-logout redirect URI should be correct");
+        assertEquals(expectedBaseUrl + "/login/silent-renew", keycloakProvider.get("silentRedirectUri").asString(), "Keycloak silent redirect URI should be correct");
     }
 
     @Test
@@ -169,7 +169,7 @@ public class FrontendConfigurationIntegrationTest extends ElasticTestBase {
      */
     private JsonNode findProviderByName(JsonNode oidcProviders, String providerName) {
         for (JsonNode provider : oidcProviders) {
-            if (providerName.equals(provider.get("provider").asText())) {
+            if (providerName.equals(provider.get("provider").asString())) {
                 return provider;
             }
         }

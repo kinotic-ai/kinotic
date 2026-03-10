@@ -16,12 +16,14 @@
 package org.kinotic.domain.api.services.crud;
 
 
-import org.springframework.lang.Nullable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Sort option for queries. You have to provide at least a list of properties to sort for that must not include
@@ -176,7 +178,6 @@ public class Sort implements Iterable<Order>{
      * @param property must not be {@literal null}.
      * @return the order registered for the given property or null if none registered.
      */
-    @Nullable
     public Order getOrderFor(String property) {
 
         for (Order order : orders) {
@@ -201,7 +202,7 @@ public class Sort implements Iterable<Order>{
      * @see java.lang.Object#equals(java.lang.Object)
      */
     @Override
-    public boolean equals(@Nullable Object obj) {
+    public boolean equals(Object obj) {
 
         if (this == obj) {
             return true;

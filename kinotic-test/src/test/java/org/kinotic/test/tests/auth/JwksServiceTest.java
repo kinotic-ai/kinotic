@@ -102,7 +102,7 @@ public class JwksServiceTest extends KeycloakTestBase {
             throw new IllegalStateException("Keycloak token endpoint returned status " + response.statusCode());
         }
         tools.jackson.databind.JsonNode node = new tools.jackson.databind.ObjectMapper().readTree(response.body());
-        return node.get("access_token").asText();
+        return node.get("access_token").asString();
     }
     
 } 

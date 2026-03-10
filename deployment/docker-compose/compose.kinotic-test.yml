@@ -1,6 +1,13 @@
 # Minimal compose for kinotic-test: EK stack + kinotic-server only (no otel, gen-schemas).
-# Use with compose.test.override.yml and optionally compose.ek-transient.override.yml,
-# compose.ek-m4.override.yml (Mac ARM).
 include:
   - compose.ek-stack.yml
   - compose.kinotic-server.yml
+
+services:
+  kinotic-elasticsearch:
+    volumes: !reset []
+  kinotic-server:
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m # remove otel javaagent for test
+      SPRING_PROFILES_ACTIVE: test
+      SPRING_AI_OPENAI_API-KEY: "noop"

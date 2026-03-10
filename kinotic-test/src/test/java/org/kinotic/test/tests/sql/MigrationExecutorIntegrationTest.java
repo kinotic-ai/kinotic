@@ -8,15 +8,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Map;
 
-import jakarta.annotation.PostConstruct;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.kinotic.test.support.elastic.ElasticTestBase;
 import org.kinotic.sql.domain.Migration;
 import org.kinotic.sql.domain.MigrationContent;
 import org.kinotic.sql.executor.MigrationExecutor;
 import org.kinotic.sql.parsers.MigrationParser;
+import org.kinotic.test.support.elastic.ElasticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
@@ -27,6 +24,7 @@ import co.elastic.clients.elasticsearch.core.CountResponse;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.indices.GetIndexTemplateResponse;
 import co.elastic.clients.elasticsearch.indices.GetMappingResponse;
+import jakarta.annotation.PostConstruct;
 
 class MigrationExecutorIntegrationTest extends ElasticTestBase {
 
