@@ -38,7 +38,7 @@ public class ContainerHealthChecker {
             
             if (response.statusCode() == 200) {
                 String body = response.body();
-                // Check if cluster is in a healthy state (green or yellow)
+                // Check if the cluster is in a healthy state (green or yellow)
                 return body.contains("\"status\":\"green\"") || 
                        body.contains("\"status\":\"yellow\"");
             }

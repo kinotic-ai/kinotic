@@ -1,4 +1,3 @@
-
 # YAML Reference http://www.yaml.org/refcard.html
 kinotic:
   debug: true
@@ -34,8 +33,3 @@ spring:
         options:
           model: grok-4
 
-
-# OIDC security service configuration
-# oidc-security-service:
-#   enabled: false
-#   debug: false

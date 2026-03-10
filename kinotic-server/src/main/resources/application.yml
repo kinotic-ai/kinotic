@@ -1,14 +1,13 @@
 # General properties shared by all profiles
-spring:
-  main:
-    web-application-type: none
+kinotic:
+  persistence:
+    openApiSecurityType: BASIC
+    enableStaticFileServer: true
 
 logging:
   level:
     com:
       kinotic: INFO
 
-structures:
-  openApiSecurityType: BASIC
-  enableStaticFileServer: true
+
   

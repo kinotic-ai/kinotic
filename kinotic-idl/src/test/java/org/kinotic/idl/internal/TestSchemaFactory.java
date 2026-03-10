@@ -1,11 +1,11 @@
-package org.kinotic.continuum.idl.internal;
+package org.kinotic.idl.internal;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
-import org.kinotic.continuum.idl.internal.support.TestService;
+import org.kinotic.idl.internal.support.TestService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

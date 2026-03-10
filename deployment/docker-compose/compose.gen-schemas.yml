@@ -1,13 +1,13 @@
 services:
   load-generator:
-    image: kinoticai/structures-load-generator:latest
+    image: kinoticai/kinotic-load-generator:latest
     pull_policy: always
-    container_name: structures-gen-schemas
+    container_name: kinotic-gen-schemas
     environment:
       # Connection settings
-      - STRUCTURES_HOST=structures-server
-      - STRUCTURES_PORT=58503
-      - STRUCTURES_USE_SSL=false
+      - KINOTIC_HOST=kinotic-server
+      - KINOTIC_PORT=58503
+      - KINOTIC_USE_SSL=false
       
       # Load test configuration
       - TEST_NAME=generateComplexStructures
@@ -21,9 +21,9 @@ services:
       - OTEL_EXPORTER_TYPE=OTLP
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
-      structures-elasticsearch:
+      kinotic-elasticsearch:
         condition: service_healthy
-      structures-server:
+      kinotic-server:
         condition: service_healthy
       otel-collector:
         condition: service_started

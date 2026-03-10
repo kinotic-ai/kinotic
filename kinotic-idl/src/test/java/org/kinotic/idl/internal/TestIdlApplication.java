@@ -1,6 +1,6 @@
 
 
-package org.kinotic.continuum.idl.internal;
+package org.kinotic.idl.internal;
 
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -11,5 +11,5 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
  */
 @SpringBootApplication
 @EnableConfigurationProperties
-public class TestContinuumIdlApplication {
+public class TestIdlApplication {
 }

@@ -1,6 +1,6 @@
 
 
-package org.kinotic.continuum.idl.internal.support;
+package org.kinotic.idl.internal.support;
 
 /**
  *

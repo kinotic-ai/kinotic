@@ -4,7 +4,7 @@ set -euo pipefail
 REPO="${STRUCTURES_REPO:-kinotic-ai/kinotic}"
 BRANCH="${STRUCTURES_BRANCH:-main}"
 BASE_URL="https://raw.githubusercontent.com/${REPO}/${BRANCH}/docker-compose"
-INSTALL_DIR="${STRUCTURES_INSTALL:-$HOME/.structures}"
+INSTALL_DIR="${STRUCTURES_INSTALL:-$HOME/.kinotic}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'

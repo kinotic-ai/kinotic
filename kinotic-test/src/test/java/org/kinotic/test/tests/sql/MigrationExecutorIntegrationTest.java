@@ -8,6 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.annotation.PostConstruct;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.test.support.elastic.ElasticTestBase;
 import org.kinotic.sql.domain.Migration;
@@ -40,7 +43,7 @@ class MigrationExecutorIntegrationTest extends ElasticTestBase {
     private MigrationParser migrationParser;
 
     // Simple in-memory Migration implementation for tests
-    class TestMigration implements Migration {
+    static class TestMigration implements Migration {
         private final Integer version;
         private final String name;
         private final String sql;
@@ -64,6 +67,11 @@ class MigrationExecutorIntegrationTest extends ElasticTestBase {
 
     private Migration migration(Integer version, String name, String sql) {
         return new TestMigration(version, name, sql, migrationParser);
+    }
+
+    @PostConstruct
+    void setup() throws Exception{
+        migrationExecutor.ensureMigrationIndexExists().get();
     }
 
     @Test

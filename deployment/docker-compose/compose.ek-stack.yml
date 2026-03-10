@@ -1,7 +1,7 @@
 services:
-  structures-elasticsearch:
+  kinotic-elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.2.4
-    container_name: structures-elasticsearch
+    container_name: kinotic-elasticsearch
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
@@ -23,12 +23,12 @@ services:
         limits:
           memory: 4G
     volumes:
-      - ~/structures/elastic-data:/usr/share/elasticsearch/data
-  structures-kibana:
+      - ~/kinotic/elastic-data:/usr/share/elasticsearch/data
+  kinotic-kibana:
     image: docker.elastic.co/kibana/kibana:9.2.4
-    container_name: structures-kibana
+    container_name: kinotic-kibana
     depends_on:
-      structures-elasticsearch:
+      kinotic-elasticsearch:
         condition: service_healthy
     deploy:
       resources:

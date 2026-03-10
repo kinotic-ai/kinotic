@@ -1,5 +1,5 @@
 services:
-  structures-server:
+  kinotic-server:
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m # remove otel javaagent for test
       SPRING_PROFILES_ACTIVE: test

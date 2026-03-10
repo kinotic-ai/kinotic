@@ -1,4 +1,4 @@
-package org.kinotic.continuum.idl.internal;
+package org.kinotic.idl.internal;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

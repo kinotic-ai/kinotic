@@ -90,8 +90,8 @@
   },
   "clients": [
     {
-      "id": "structures-client",
-      "clientId": "structures-client",
+      "id": "kinotic-client",
+      "clientId": "kinotic-client",
       "name": "Structures Application",
       "description": "Structures frontend application",
       "enabled": true,
@@ -122,8 +122,8 @@
         "http://localhost:3000/auth/callback",
         "https://localhost/*",
         "https://localhost/silent-renew.html",
-        "https://structures.local/*",
-        "https://structures.local/silent-renew.html"
+        "https://kinotic.local/*",
+        "https://kinotic.local/silent-renew.html"
       ],
       "webOrigins": [
         "http://localhost:9090",
@@ -131,7 +131,7 @@
         "http://localhost:5173",
         "http://localhost:3000",
         "https://localhost",
-        "https://structures.local",
+        "https://kinotic.local",
         "+"
       ],
       "protocolMappers": [
@@ -220,7 +220,7 @@
             "access.token.claim": "true",
             "userinfo.token.claim": "true",
             "claim.name": "aud",
-            "claim.value": "structures-client",
+            "claim.value": "kinotic-client",
             "jsonType.label": "String"
           }
         },

@@ -1,5 +1,5 @@
 {
-  "name": "rpc",
+  "name": "@kinotic-ai/rpc",
   "version": "0.1.0",
   "description": "Kinotic RPC client",
   "homepage": "https://github.com/kinotic-ai/kinotic",

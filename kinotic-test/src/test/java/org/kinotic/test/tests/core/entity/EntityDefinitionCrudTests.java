@@ -1,6 +1,6 @@
 
 
-package org.kinotic.test.tests.core.structure;
+package org.kinotic.test.tests.core.entity;
 
 import java.util.concurrent.CompletableFuture;
 

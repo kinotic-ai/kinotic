@@ -49,4 +49,4 @@ If you get connection errors:
 
 ## Complete Documentation
 
-For full Keycloak setup instructions, see: [Keycloak Setup Guide](../structures-auth/oidc-docs/README_KEYCLOAK_SETUP.md)
+For full Keycloak setup instructions, see: [Keycloak Setup Guide](../kinotic-auth/oidc-docs/README_KEYCLOAK_SETUP.md)
