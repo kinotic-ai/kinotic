@@ -37,13 +37,13 @@ public class ElasticsearchTestContextInitializer implements ApplicationContextIn
             ElasticsearchTestConfiguration.ensureContainersReady();
   
             // Elasticsearch properties
-            TestPropertyValues.of("structures.elastic-connections[0].host=" + ElasticsearchTestConfiguration.ELASTICSEARCH_CONTAINER.getHost())
+            TestPropertyValues.of("kinotic.persistence.elastic-connections[0].host=" + ElasticsearchTestConfiguration.ELASTICSEARCH_CONTAINER.getHost())
                     .applyTo(applicationContext);
             TestPropertyValues.of("structures.elastic-connections[0].port=" + ElasticsearchTestConfiguration.ELASTICSEARCH_CONTAINER.getMappedPort(9200))
                     .applyTo(applicationContext);
-            TestPropertyValues.of("structures.elastic-connections[0].scheme=http")
+            TestPropertyValues.of("kinotic.persistence.elastic-connections[0].scheme=http")
                     .applyTo(applicationContext);
-            TestPropertyValues.of("spring.elasticsearch.uris=http://"+ElasticsearchTestConfiguration.ELASTICSEARCH_CONTAINER.getHost()+":"+ElasticsearchTestConfiguration.ELASTICSEARCH_CONTAINER.getMappedPort(9200))
+            TestPropertyValues.of("kinotic.persistence.elasticsearch.uris=http://"+ElasticsearchTestConfiguration.ELASTICSEARCH_CONTAINER.getHost()+":"+ElasticsearchTestConfiguration.ELASTICSEARCH_CONTAINER.getMappedPort(9200))
                     .applyTo(applicationContext);
 
         } catch (Exception e) {

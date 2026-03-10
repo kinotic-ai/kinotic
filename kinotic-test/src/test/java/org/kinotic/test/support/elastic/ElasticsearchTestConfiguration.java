@@ -22,11 +22,11 @@ public class ElasticsearchTestConfiguration {
     static {
         log.info("Starting TestContainers...");
         
-        // Start Elasticsearch container with proper wait strategy
+        // Start an Elasticsearch container with a proper wait strategy
         String osName = System.getProperty("os.name");
         String osArch = System.getProperty("os.arch");
 
-        ELASTICSEARCH_CONTAINER = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:9.2.1");
+        ELASTICSEARCH_CONTAINER = new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:9.2.4");
         ELASTICSEARCH_CONTAINER.withEnv("discovery.type", "single-node")
                                .withEnv("xpack.security.enabled", "false");
 
@@ -44,7 +44,7 @@ public class ElasticsearchTestConfiguration {
         // Start containers synchronously to ensure they're ready before class loading completes
         startContainersSynchronously();
         
-        // Add shutdown hook to ensure containers are cleaned up
+        // Add a shutdown hook to ensure containers are cleaned up
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.info("Shutting down TestContainers...");
             try {
@@ -87,7 +87,7 @@ public class ElasticsearchTestConfiguration {
         try {
             log.info("Waiting for Elasticsearch to be fully operational...");
             
-            // Wait for Elasticsearch cluster to be healthy using the health checker
+            // Wait for the Elasticsearch cluster to be healthy using the health checker
             boolean elasticsearchReady = ContainerHealthChecker.waitForContainerHealth(
                 "Elasticsearch",
                 () -> ContainerHealthChecker.isElasticsearchHealthy(

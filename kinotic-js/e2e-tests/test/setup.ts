@@ -17,7 +17,7 @@ function isOSX_M1() {
 // Run once before all tests
 export async function setup(project: TestProject) {
     // @ts-ignore
-    if(import.meta.env.VITE_USE_STRUCTURES_DOCKER === 'true') {
+    if(import.meta.env.VITE_USE_KINOTIC_DOCKER === 'true') {
         console.log('Starting Structures...')
 
         const resolvedPath = path.resolve('../../docker-compose/')
@@ -34,32 +34,32 @@ export async function setup(project: TestProject) {
         const container = environment.getContainer('structures-server')
 
         // @ts-ignore
-        project.provide('STRUCTURES_HOST', container.getHost())
+        project.provide('KINOTIC_HOST', container.getHost())
         // @ts-ignore
-        project.provide('STRUCTURES_PORT', container.getMappedPort(58503))
+        project.provide('KINOTIC_PORT', container.getMappedPort(58503))
         // @ts-ignore
-        project.provide('STRUCTURES_OPENAPI_PORT', container.getMappedPort(8080))
+        project.provide('KINOTIC_OPENAPI_PORT', container.getMappedPort(8080))
 
         console.log('Structures started.')
     }else{
         // @ts-ignore
-        project.provide('STRUCTURES_HOST', '127.0.0.1')
+        project.provide('KINOTIC_HOST', '127.0.0.1')
         // @ts-ignore
-        project.provide('STRUCTURES_PORT', 58503)
+        project.provide('KINOTIC_PORT', 58503)
         // @ts-ignore
-        project.provide('STRUCTURES_OPENAPI_PORT', 8080)
-        console.log('Skipping Structures setup because VITE_USE_STRUCTURES_DOCKER is false')
+        project.provide('KINOTIC_OPENAPI_PORT', 8080)
+        console.log('Skipping Structures setup because VITE_USE_KINOTIC_DOCKER is false')
     }
 }
 
 // Run once after all tests
 export async function teardown() {
     // @ts-ignore
-    if(import.meta.env.VITE_USE_STRUCTURES_DOCKER === 'true') {
+    if(import.meta.env.VITE_USE_KINOTIC_DOCKER === 'true') {
         console.log('Shutting down Structures...')
         await environment?.down()
         console.log('Structures shut down.')
     }else{
-        console.log('Skipping Structures teardown because VITE_USE_STRUCTURES_DOCKER is false')
+        console.log('Skipping Structures teardown because VITE_USE_KINOTIC_DOCKER is false')
     }
 }
