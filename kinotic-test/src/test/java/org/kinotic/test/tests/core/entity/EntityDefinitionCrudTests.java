@@ -2,27 +2,26 @@
 
 package org.kinotic.test.tests.core.entity;
 
-import java.util.concurrent.CompletableFuture;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.persistence.api.model.EntityDefinition;
-import org.kinotic.test.support.elastic.ElasticTestBase;
-import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.api.services.EntityDefinitionService;
+import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
 import org.kinotic.persistence.internal.sample.DummyParticipant;
 import org.kinotic.persistence.internal.sample.TestDataService;
+import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.util.concurrent.CompletableFuture;
+
 // FIXME: Migrate to E2E tests
 @SpringBootTest
-public class EntityDefinitionCrudTests extends ElasticTestBase {
+public class EntityDefinitionCrudTests extends KinoticTestBase {
 
 	@Autowired
 	private EntityDefinitionService entityDefinitionService;

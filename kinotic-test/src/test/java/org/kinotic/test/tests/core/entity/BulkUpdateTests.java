@@ -3,18 +3,18 @@ package org.kinotic.test.tests.core.entity;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.domain.api.services.crud.Page;
 import org.kinotic.domain.api.services.crud.Pageable;
-import org.kinotic.persistence.api.model.EntityDefinition;
-import org.kinotic.test.support.elastic.ElasticTestBase;
-import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.domain.api.model.RawJson;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
 import org.kinotic.persistence.internal.sample.Car;
 import org.kinotic.persistence.internal.sample.DummyParticipant;
 import org.kinotic.persistence.internal.sample.Person;
 import org.kinotic.persistence.internal.sample.TestDataService;
+import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.kinotic.test.tests.core.support.StructureAndPersonHolder;
 import org.kinotic.test.tests.core.support.TestHelper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
 
 
 @SpringBootTest
-public class BulkUpdateTests extends ElasticTestBase {
+public class BulkUpdateTests extends KinoticTestBase {
 
     @Autowired
     private EntitiesService entitiesService;

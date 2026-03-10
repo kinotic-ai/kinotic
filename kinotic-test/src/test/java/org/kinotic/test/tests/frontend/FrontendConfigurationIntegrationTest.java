@@ -1,16 +1,16 @@
 package org.kinotic.test.tests.frontend;
 
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.core.api.config.OidcSecurityServiceProperties;
-import org.kinotic.test.support.elastic.ElasticTestBase;
+import org.kinotic.persistence.api.config.PersistenceProperties;
+import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.client.RestTemplate;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Integration test for frontend configuration generation.
  * This test boots up the actual application and tests the real configuration endpoint.
  */
-public class FrontendConfigurationIntegrationTest extends ElasticTestBase {
+public class FrontendConfigurationIntegrationTest extends KinoticTestBase {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
