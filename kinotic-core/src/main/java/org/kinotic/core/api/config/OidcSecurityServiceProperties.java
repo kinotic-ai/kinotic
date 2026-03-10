@@ -32,7 +32,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 @NoArgsConstructor
 @Component
-@ConfigurationProperties(prefix = "oidc-security-service")
+@ConfigurationProperties(prefix = "oidc-security-service") // FIXME: work into new property structure
 public class OidcSecurityServiceProperties {
 
     /**
