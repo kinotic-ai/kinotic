@@ -2,89 +2,107 @@
 
 ### **Vibe Coding at Scale**
 
-**Kinotic** is a complete, deployable system for modern software development. We believe that a framework like the one provided by **Kinotic OS** allows AI and developers to rapidly prototype and build enterprise applications that can operate at internet scale. 
+Kinotic is a next-generation Operating System for the Cloud. Just as traditional OSs (like Linux or Windows) abstracted away the complexity of hardware, **Kinotic OS abstracts away the complexity of modern cloud-based applications.** We believe that by removing the friction of infrastructure, networking, and deployment, we enable AI to rapidly prototype and build enterprise-grade applications that can operate at internet scale.
 
-Just as traditional Operating Systems abstracted away the complexity of hardware, **Kinotic OS abstracts away the complexity of modern cloud-based applications.**
+
 
 ---
 
-## 📖 Definitions
+## 🚀 The Vision
 
-| Term | Definition |
+Modern cloud development is bogged down by "plumbing"—IAM roles, VPCs, CI/CD pipelines, and service meshes. Kinotic OS handles this underlying complexity, allowing developers (and AI agents) to focus on the **vibe**: the core logic, user experience, and business value.
+
+* **Rapid Prototyping:** Move from idea to a scalable Kubernetes deployment in minutes.
+* **Enterprise Ready:** Built-in RBAC, SBOM support, and observability from day one.
+* **Internet Scale:** Designed to handle massive throughput with automated dependency management and Firecracker VM isolation.
+
+---
+
+## 🏗️ Core Components
+
+| Component | Description |
 | :--- | :--- |
-| **Kinotic OS** | The complete deployable system, architected for Kubernetes. |
-| **Kinotic OS Cloud** | Our managed SaaS offering for rapid application delivery. |
-| **Forward Deployment** | The ability to deploy Kinotic OS directly into a customer’s private environment. |
+| **Kinotic OS** | The complete system, deployable to any Kubernetes cluster or forward-deployed to customer environments. |
+| **Kinotic OS Cloud** | Our managed SaaS offering for teams who want to start building immediately without managing infrastructure. |
+| **Kinotic CLI** | The developer's primary tool for scaffolding, local development, and rapid cloud iteration. |
 
 ---
 
-## 🛠️ Feature Set (MVP)
+## 🛠️ Feature Set
 
 ### **1. Application Scaffolding & Artifacts**
-Manage your entire ecosystem through a unified CLI or UI. Applications are comprised of one or many Projects, which contribute the following Artifacts:
+Kinotic organizes work into **Applications** (logical containers) and **Projects** (functional units). Projects contribute specific **Artifacts**:
 
-* **Microservices:** Code that runs continuously in a pod/VM, including an automatically generated Proxy for all published services.
-* **Persistence:** Define domain models; Kinotic provides automatic CRUD services and Named Queries.
-* **Batch Jobs:** Code that will run on a pre-defined schedule.
-* **UI Components:** Atomic building blocks for shared use across the platform.
-* **Frontend:** Complete UIs deployable as high-performance static sites.
+* **Microservices:** Continuous code running in pods/VMs with automatic proxy generation.
+* **Persistence:** Domain models, CRUD services, and named queries.
+* **Batch Jobs:** Scheduled code execution.
+* **UI Components:** Atomic building blocks for shared use.
+* **Frontends:** Complete UI that can be deployed as a static site.
 
 ### **2. Service Directory**
-A centralized registry for all services built and provided per Project. Each record includes:
-* Service/Project names.
+A centralized registry providing a source of truth for all services within an application:
 * Function definitions and input schemas.
-* **RBAC Policies** required for access.
-* Rich metadata for documentation and AI discovery.
+* RBAC policies required for access.
+* Metadata for AI-agent discovery and documentation.
 
-### **3. Authentication & Authorization**
-Kinotic provides a multi-tier security hierarchy:
-* **System Level:** For those managing the Kinotic OS deployment.
-* **Organization Level:** For teams developing applications to run on Kinotic.
-* **Application Level:** For end-users or machines connecting to developed apps.
+### **3. Security & Identity (Powered by Cedar)**
+We use the **Cedar Policy Language** for fine-grained, high-performance authorization across three hierarchies:
+* **System Level:** For Kinotic OS administrators.
+* **Organization Level:** For development teams.
+* **Application Level:** For end-users and machine-to-machine connections.
+* *Support for OIDC (Google, GitHub, etc.) and native email/password management.*
 
-> **Key Features:** OIDC support (Google, GitHub, etc.), Role-Based Access Control (RBAC), and granular Policy Management using Cedar.
+### **4. Intelligent CI/CD & Dependency Management**
+* **Vibe-to-Code Workflow:** Feature-based development where every branch gets its own development pod.
+* **Firecracker Isolation:** Builds are executed in isolated Firecracker VMs for speed and security.
+* **Promotion Pipeline:** Automated flow from Dev → Staging (Vulnerability scanning & Migration tests) → Production.
 
-### **4. Dependency & Deployment**
-* **Automated Builds:** Dependency graph resolution ensures packages are built in the correct order using Firecracker VMs.
-* **Rapid Iteration:** Changes in "Dev" are automatically deployed for immediate testing.
-* **Production Guardrails:** Staging flows include vulnerability scanning, migration test execution, and "human-in-the-loop" production clearance.
 
----
-
-## 📊 Observability Dashboard
-
-Kinotic aggregates data at multiple levels to ensure system health and cost-efficiency:
-
-* **Metrics:** Data throughput, App memory/CPU usage, and total active connections.
-* **Traces & Spans:** Drill from high-level overviews into detailed execution info.
-* **LLM Observability:** Trace user interactions with LLMs and track token utilization for cost analysis.
-* **Logging:** View application and microservice logs with the ability to adjust logging levels temporarily.
 
 ---
 
-## 💸 Marketplace & Monetization
-Provide Organizations the ability to automatically monetize their applications.
-* **Merchant of Record:** Kinotic handles the heavy lifting via Stripe Connect.
-* **Flexible Billing:** Support for flat rates or percentage-based billing based on application metrics.
+## 📊 Observability & LLM Insights
+
+Kinotic provides deep visibility into your application's health and AI interactions:
+* **Metrics:** Real-time CPU, Memory, and Data Throughput.
+* **Traces & Spans:** Drill down from high-level overviews to detailed execution logs.
+* **LLM Observability:** Trace user interactions with LLMs, track token utilization for cost analysis, and index chats via **Loki**.
+* **Audit Logs:** Detailed history of logins and configuration changes.
 
 ---
 
-## 🚀 Roadmap (Post-MVP)
+## 💰 The Kinotic Marketplace
+Kinotic OS isn't just a development platform; it is a **SaaS Launchpad**. Developers can build full-scale SaaS applications and instantly monetize them by deploying to **Kinotic OS Cloud**.
 
+* **Zero-Config Monetization:** Kinotic acts as the Merchant of Record, handling the complexities of global payments and subscription lifecycles.
+* **Flexible Revenue Models:** Set your pricing based on the metrics that matter most—whether that’s a flat rate per user, data throughput, storage, or custom application-specific usage.
+* **Enterprise Availability:** Deploying to the Kinotic OS cloud makes your application instantly accessible to users on a production-hardened foundation that is ready to grow and scale with you.
+
+---
+
+## 🛣️ Roadmap
+
+### **Post-MVP Goals**
 * **Automated QA:** Integrated testing suites for the post-staging phase.
-* **Custom Domains:** Ability to tie your custom domain to your deployed service.
-* **Zero-Downtime Migration:** Move from Kinotic Cloud to Self-Hosted Kinotic seamlessly.
-* **Real-time Co-browsing:** Built-in tools for Organizations to support their users via OpenReplay integration.
+* **Zero-Downtime Migration:** Seamlessly move from Kinotic Cloud to Self-Hosted environments.
+* **Real-time Co-browsing:** Built-in support for Organizations to assist their users directly in the browser.
 
 ---
 
-## 💻 Technical Implementation Concepts
+## 💻 Technical Stack
 
-* **Policy Engine:** Powered by [Cedar](https://www.cedarpolicy.com/).
-* **Isomorphic TypeScript:** Native TypeScript API support for seamless full-stack development.
-* **Storage:** High-performance indexing via Loki for LLM chat history.
-* **CI/CD:** Firecracker-isolated builds with automated dependency resolution.
+* **Orchestration:** Kinotic OS / Kubernetes
+* **Policy Engine:** [Cedar](https://www.cedarpolicy.com/)
+* **Runtimes:** Firecracker VM, Bun
+* **Database:** Postgres (Hibernate Reactive)
+* **Logging:** Grafana Loki
+* **Payments:** Stripe Connect
 
 ---
 
-> **Kinotic OS:** Stop building infrastructure. Start coding the vibe.
+## 🤝 Contributing
+We welcome contributions, just create PR. 
+
+---
+
+> **Kinotic OS:** Stop building infrastructure. Start shipping the vision..
