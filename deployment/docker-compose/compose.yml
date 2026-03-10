@@ -1,12 +1,12 @@
 include:
   - compose.ek-stack.yml
   - compose-otel.yml
-  - compose.gen-schemas.yml
+#  - compose.gen-schemas.yml
 services:
   kinotic-migration:
     container_name: kinotic-migration
     pull_policy: always
-    image: kinoticai/kinotic-migration:${kinoticVersion:-4.2.0}
+    image: kinoticai/kinotic-migration:${kinoticVersion:-4.2.0-SNAPSHOT}
     depends_on:
       kinotic-elasticsearch:
         condition: service_healthy
@@ -17,7 +17,7 @@ services:
   kinotic-server:
     container_name: kinotic-server
     pull_policy: always
-    image: kinoticai/kinotic-server:${kinoticVersion:-4.2.0}
+    image: kinoticai/kinotic-server:${kinoticVersion:-4.2.0-SNAPSHOT}
     depends_on:
       kinotic-elasticsearch:
         condition: service_healthy
