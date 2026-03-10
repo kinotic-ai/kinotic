@@ -1,14 +1,14 @@
 package org.kinotic.test.support.kinotic;
 
-import java.io.File;
-import java.time.Duration;
-
-import org.springframework.stereotype.Component;
-import org.testcontainers.containers.ComposeContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.kinotic.test.support.ContainerHealthChecker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import org.testcontainers.containers.ComposeContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
+
+import java.io.File;
+import java.time.Duration;
 
 /**
  * Test configuration that starts the Kinotic stack (Elasticsearch + kinotic-server)
@@ -65,7 +65,7 @@ public class KinoticTestConfiguration {
     }
 
     private static File resolveComposeDir() {
-        return new File("deployment/docker-compose").getAbsoluteFile();
+        return new File("../deployment/docker-compose").getAbsoluteFile();
     }
 
     public static void startContainersSynchronously() {
