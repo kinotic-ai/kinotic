@@ -20,18 +20,18 @@ export async function setup(project: TestProject) {
     if(import.meta.env.VITE_USE_KINOTIC_DOCKER === 'true') {
         console.log('Starting Structures...')
 
-        const resolvedPath = path.resolve('../../docker-compose/')
-        const files = ['compose.yml', 'compose.ek-transient.override.yml', 'compose.test.override.yml']
+        const resolvedPath = path.resolve('../../deployment/docker-compose/')
+        const files = ['compose.kinotic-test.yml']
         if (isOSX_M1()) {
             files.push('compose.ek-m4.override.yml')
         }
         environment = await new DockerComposeEnvironment(resolvedPath, files)
-            .withWaitStrategy('structures-elasticsearch', Wait.forHttp('/_cluster/health', 9200))
-            .withWaitStrategy('structures-server', Wait.forHttp('/health', 9090))
+            .withWaitStrategy('kinotic-elasticsearch', Wait.forHttp('/_cluster/health', 9200))
+            .withWaitStrategy('kinotic-server', Wait.forHttp('/health', 9090))
             .withEnvironmentFile(path.resolve('../../', 'gradle.properties'))
-            .up(['structures-elasticsearch', 'structures-server'])
+            .up(['kinotic-elasticsearch', 'kinotic-server'])
 
-        const container = environment.getContainer('structures-server')
+        const container = environment.getContainer('kinotic-server')
 
         // @ts-ignore
         project.provide('KINOTIC_HOST', container.getHost())

@@ -117,8 +117,6 @@ public class OidcAuthVerifierTest extends KeycloakTestBase {
     @Test
     public void testValidTokenFromKeycloak() throws Exception {
         // Use testcontainer Keycloak started by TestConfiguration
-        org.junit.jupiter.api.Assumptions.assumeTrue(KeyloakTestConfiguration.KEYCLOAK_CONTAINER != null,
-                "Keycloak container not available");
         String token = fetchKeycloakAccessToken("testuser@example.com", "password123");
         assertNotNull(token);
         Map<String, String> authInfo = Map.of("authorization", "Bearer " + token);
