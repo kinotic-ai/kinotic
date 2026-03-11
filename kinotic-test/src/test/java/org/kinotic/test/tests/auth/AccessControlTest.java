@@ -38,9 +38,6 @@ public class AccessControlTest extends KeycloakTestBase {
 
     @Test
     public void testValidAudienceWithUserRole() throws Exception {
-        org.junit.jupiter.api.Assumptions.assumeTrue(KeyloakTestConfiguration.KEYCLOAK_CONTAINER != null,
-                "Keycloak container not available");
-        
         String token = fetchKeycloakAccessToken("testuser@example.com", "password123", "structures-client");
         assertNotNull(token);
         
@@ -54,9 +51,6 @@ public class AccessControlTest extends KeycloakTestBase {
 
     @Test
     public void testValidAudienceWithAdminRole() throws Exception {
-        org.junit.jupiter.api.Assumptions.assumeTrue(KeyloakTestConfiguration.KEYCLOAK_CONTAINER != null,
-                "Keycloak container not available");
-        
         String token = fetchKeycloakAccessToken("adminuser@example.com", "admin123", "structures-client");
         assertNotNull(token);
         
@@ -71,9 +65,6 @@ public class AccessControlTest extends KeycloakTestBase {
 
     @Test
     public void testValidAudienceWithPowerUserRole() throws Exception {
-        org.junit.jupiter.api.Assumptions.assumeTrue(KeyloakTestConfiguration.KEYCLOAK_CONTAINER != null,
-                "Keycloak container not available");
-        
         String token = fetchKeycloakAccessToken("poweruser@example.com", "power123", "structures-client");
         assertNotNull(token);
         
@@ -91,8 +82,6 @@ public class AccessControlTest extends KeycloakTestBase {
 
     @Test
     public void testValidAudienceWithNoRoles() throws Exception {
-        org.junit.jupiter.api.Assumptions.assumeTrue(KeyloakTestConfiguration.KEYCLOAK_CONTAINER != null,
-                "Keycloak container not available");
         
         String token = fetchKeycloakAccessToken("noroles@example.com", "nopass123", "structures-client");
         assertNotNull(token);

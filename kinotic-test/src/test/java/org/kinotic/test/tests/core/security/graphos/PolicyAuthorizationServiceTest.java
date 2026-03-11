@@ -107,7 +107,7 @@ public class PolicyAuthorizationServiceTest {
 
         Throwable exception = assertThrows(CompletionException.class, result::join);
         assertInstanceOf(AuthorizationException.class, exception.getCause());
-        assertEquals("Structure testapplication.testname Fields [lastName] access not allowed.", exception.getCause().getMessage());
+        assertEquals("testapplication.testname Fields [lastName] access not allowed.", exception.getCause().getMessage());
     }
 
     @Test
