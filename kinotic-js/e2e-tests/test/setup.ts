@@ -21,7 +21,7 @@ export async function setup(project: TestProject) {
         console.log('Starting Structures...')
 
         const resolvedPath = path.resolve('../../deployment/docker-compose/')
-        const files = ['compose.kinotic-test.yml']
+        const files = ['compose.kinotic-e2e-test.yml']
         if (isOSX_M1()) {
             files.push('compose.ek-m4.override.yml')
         }

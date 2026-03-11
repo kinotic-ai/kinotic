@@ -1,25 +1,26 @@
 package org.kinotic.test.support.kinotic;
 
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.exception.NotFoundException;
 import org.kinotic.test.support.ContainerHealthChecker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.ComposeContainer;
 
 import java.io.File;
 
 /**
- * Test configuration that starts the Kinotic stack (Elasticsearch + kinotic-server)
+ * Test configuration that starts the Kinotic stack (Elasticsearch + kinotic-migration)
  * via Docker Compose using compose.kinotic-test.yml.
- * Uses Local Compose mode (requires docker compose on the host).
  */
 @Component
 public class KinoticTestConfiguration {
     private static final Logger log = LoggerFactory.getLogger(KinoticTestConfiguration.class);
 
     private static final int ELASTICSEARCH_PORT = 9200;
-    private static final int KINOTIC_SERVER_UI_PORT = 9090;
-    private static final int KINOTIC_SERVER_STOMP_PORT = 58503;
 
     private static volatile boolean containersReady = false;
     private static final Object containerLock = new Object();
@@ -81,16 +82,7 @@ public class KinoticTestConfiguration {
                 throw new RuntimeException("kinotic-elasticsearch failed to become ready");
             }
 
-            String serverHost = KinoticTestConfiguration.getKinoticServerHost();
-            int serverPort = KinoticTestConfiguration.getKinoticServerUiPort();
-            boolean serverReady = ContainerHealthChecker.waitForContainerHealth(
-                "kinotic-server",
-                () -> ContainerHealthChecker.isKinoticServerHealthy(serverHost, serverPort),
-                60, 2000
-            );
-            if (!serverReady) {
-                throw new RuntimeException("kinotic-server failed to become ready");
-            }
+            waitForKinoticMigrationToComplete();
 
             synchronized (containerLock) {
                 containersReady = true;
@@ -101,6 +93,55 @@ public class KinoticTestConfiguration {
             log.error("Failed waiting for containers", e);
             throw new RuntimeException("Failed waiting for Kinotic Compose", e);
         }
+    }
+
+    private static void waitForKinoticMigrationToComplete() {
+        final String containerName = "kinotic-migration";
+        final long timeoutMs = 600_000L; // 10 minutes
+        final long pollIntervalMs = 2_000L;
+
+        log.info("Waiting for '{}' container to complete migrations...", containerName);
+
+        DockerClient dockerClient = DockerClientFactory.instance().client();
+        long deadline = System.currentTimeMillis() + timeoutMs;
+
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                InspectContainerResponse inspect =
+                    dockerClient.inspectContainerCmd(containerName).exec();
+
+                InspectContainerResponse.ContainerState state = inspect.getState();
+                if (state == null) {
+                    log.debug("Container '{}' has no state yet, retrying...", containerName);
+                } else if (Boolean.TRUE.equals(state.getRunning())) {
+                    log.debug("Container '{}' is still running...", containerName);
+                } else {
+                    Integer exitCode = state.getExitCode();
+                    if (exitCode != null && exitCode == 0) {
+                        log.info("Container '{}' completed successfully", containerName);
+                        return;
+                    } else {
+                        throw new RuntimeException(
+                            "kinotic-migration container exited with code " + exitCode);
+                    }
+                }
+            } catch (NotFoundException e) {
+                log.debug("Container '{}' not found yet, retrying...", containerName);
+            } catch (Exception e) {
+                log.warn("Error while inspecting '{}' container: {}", containerName, e.getMessage());
+            }
+
+            try {
+                Thread.sleep(pollIntervalMs);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(
+                    "Interrupted while waiting for kinotic-migration container to complete", ie);
+            }
+        }
+
+        throw new RuntimeException(
+            "Timed out waiting for kinotic-migration container to complete");
     }
 
     public static void waitForContainersReady() {
@@ -136,14 +177,6 @@ public class KinoticTestConfiguration {
 
     public static int getElasticsearchPort() {
         return ELASTICSEARCH_PORT;
-    }
-
-    public static String getKinoticServerHost() {
-        return "127.0.0.1";
-    }
-
-    public static int getKinoticServerUiPort() {
-        return KINOTIC_SERVER_UI_PORT;
     }
 
 }

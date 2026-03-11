@@ -14,7 +14,7 @@ spring:
     allow-bean-definition-overriding: true
 
 
-continuum:
+kinotic:
   debug: true
   maxNumberOfCoresToUse: 4
 

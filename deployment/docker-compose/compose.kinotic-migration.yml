@@ -1,0 +1,12 @@
+services:
+  kinotic-migration:
+    container_name: kinotic-migration
+    pull_policy: always
+    image: kinoticai/kinotic-migration:${kinoticVersion:-4.2.0-SNAPSHOT}
+    depends_on:
+      kinotic-elasticsearch:
+        condition: service_healthy
+    environment:
+      KINOTIC_MIGRATION_ELASTIC_SCHEME: http
+      KINOTIC_MIGRATION_ELASTIC_HOST: kinotic-elasticsearch
+      KINOTIC_MIGRATION_ELASTIC_PORT: 9200

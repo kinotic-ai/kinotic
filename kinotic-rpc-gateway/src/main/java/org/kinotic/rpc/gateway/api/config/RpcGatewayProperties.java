@@ -16,9 +16,6 @@ import lombok.Setter;
 public class RpcGatewayProperties {
     public static int DEFAULT_STOMP_PORT = 58503;
     public static String DEFAULT_STOMP_WEBSOCKET_PATH = "/v1";
-    public static int DEFAULT_REST_PORT = 58504;
-    public static String DEFAULT_REST_PATH = "/api";
-    public static long DEFAULT_REST_BODY_LIMIT_SIZE = 2048;
 
     private StompServerOptions stomp;
 
