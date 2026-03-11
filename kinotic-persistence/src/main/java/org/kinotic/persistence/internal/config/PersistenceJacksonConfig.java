@@ -40,7 +40,7 @@ public class PersistenceJacksonConfig {
         SimpleModule ret = new SimpleModule("PersistenceModule", Version.unknownVersion());
 
         Set<MetadataReader> decoratorMetas = MetaUtil.findClassesAssignableToType(applicationContext,
-                                                                                  List.of("org.kinotic.persistence.api.domain.idl.decorators"),
+                                                                                  List.of("org.kinotic.persistence.api.model.idl.decorators"),
                                                                                   C3Decorator.class);
         // Register all C3Decorator's with Jackson
         for(MetadataReader decoratorMeta : decoratorMetas){

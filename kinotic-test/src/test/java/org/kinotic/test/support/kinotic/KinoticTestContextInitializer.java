@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * TestContextInitializer that starts the Kinotic Docker Compose stack
- * compose.kinotic-test.yml before Spring context initialization,
+ * compose.kinotic-test.yml before Spring context initialization
  * and injects connection properties for Elasticsearch (syncs compose ports with real Spring properties).
  */
 public class KinoticTestContextInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
@@ -33,18 +33,15 @@ public class KinoticTestContextInitializer implements ApplicationContextInitiali
             String esHost = KinoticTestConfiguration.getElasticsearchHost();
             int esPort = KinoticTestConfiguration.getElasticsearchPort();
 
-            // Elasticsearch properties - sync compose kinotic-elasticsearch ports with real Spring properties
-            // (aligned with ElasticsearchTestContextInitializer)
             TestPropertyValues.of("kinotic.persistence.elastic-connections[0].host=" + esHost)
                 .applyTo(applicationContext);
             TestPropertyValues.of("kinotic.persistence.elastic-connections[0].port=" + esPort)
                 .applyTo(applicationContext);
             TestPropertyValues.of("kinotic.persistence.elastic-connections[0].scheme=http")
                 .applyTo(applicationContext);
-            TestPropertyValues.of("kinotic.persistence.elasticsearch.uris=http://" + esHost + ":" + esPort)
-                .applyTo(applicationContext);
 
             log.info("KinoticTestContextInitializer: Kinotic stack ready, elasticsearch={}:{}", esHost, esPort);
+
         } catch (Exception e) {
             log.error("KinoticTestContextInitializer: Failed to ensure Kinotic Compose is ready", e);
             throw new RuntimeException("Kinotic Compose failed to start during context initialization", e);

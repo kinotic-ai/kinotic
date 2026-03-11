@@ -43,8 +43,6 @@ public class ElasticsearchTestContextInitializer implements ApplicationContextIn
                     .applyTo(applicationContext);
             TestPropertyValues.of("kinotic.persistence.elastic-connections[0].scheme=http")
                     .applyTo(applicationContext);
-            TestPropertyValues.of("kinotic.persistence.elasticsearch.uris=http://"+ElasticsearchTestConfiguration.ELASTICSEARCH_CONTAINER.getHost()+":"+ElasticsearchTestConfiguration.ELASTICSEARCH_CONTAINER.getMappedPort(9200))
-                    .applyTo(applicationContext);
 
         } catch (Exception e) {
             log.error("ElasticsearchTestContextInitializer: Failed to ensure TestContainers are ready", e);

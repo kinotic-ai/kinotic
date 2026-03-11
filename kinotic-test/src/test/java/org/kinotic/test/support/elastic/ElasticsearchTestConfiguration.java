@@ -1,13 +1,13 @@
 package org.kinotic.test.support.elastic;
 
-import java.time.Duration;
-
-import org.springframework.stereotype.Component;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.kinotic.test.support.ContainerHealthChecker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.elasticsearch.ElasticsearchContainer;
+
+import java.time.Duration;
 
 @Component
 public class ElasticsearchTestConfiguration {
@@ -41,14 +41,11 @@ public class ElasticsearchTestConfiguration {
                 .withStartupTimeout(Duration.ofMinutes(3))
         );
         
-        // Start containers synchronously to ensure they're ready before class loading completes
-        startContainersSynchronously();
-        
         // Add a shutdown hook to ensure containers are cleaned up
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.info("Shutting down TestContainers...");
             try {
-                if (ELASTICSEARCH_CONTAINER != null && ELASTICSEARCH_CONTAINER.isRunning()) {
+                if (ELASTICSEARCH_CONTAINER.isRunning()) {
                     ELASTICSEARCH_CONTAINER.stop();
                     log.info("Elasticsearch container stopped");
                 }
@@ -168,33 +165,16 @@ public class ElasticsearchTestConfiguration {
         
         try {
             // Check if Elasticsearch is healthy
-            boolean elasticsearchHealthy = ContainerHealthChecker.isElasticsearchHealthy(
+
+            return ContainerHealthChecker.isElasticsearchHealthy(
                 ELASTICSEARCH_CONTAINER.getHost(),
                 ELASTICSEARCH_CONTAINER.getMappedPort(9200)
             );
-            
-            return elasticsearchHealthy;
             
         } catch (Exception e) {
             log.warn("Error checking container health", e);
             return false;
         }
-    }
-    
-    /**
-     * Wait for containers to be healthy, blocking until they are
-     */
-    public static void waitForContainersHealthy() {
-        while (!areContainersHealthy()) {
-            try {
-                log.info("Waiting for containers to become healthy...");
-                Thread.sleep(10000); // Wait 10 seconds between checks
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException("Interrupted while waiting for containers to become healthy", e);
-            }
-        }
-        log.info("All containers are healthy and ready for testing");
     }
     
     /**
@@ -220,35 +200,6 @@ public class ElasticsearchTestConfiguration {
         
         return status.toString();
     }
-    
-    /**
-     * Shutdown all TestContainers
-     */
-    public static void shutdownContainers() {
-        log.info("Shutting down TestContainers...");
-        
-        try {
-            if (ELASTICSEARCH_CONTAINER != null && ELASTICSEARCH_CONTAINER.isRunning()) {
-                ELASTICSEARCH_CONTAINER.stop();
-                log.info("Elasticsearch container stopped");
-            }
-            
-            synchronized (containerLock) {
-                containersReady = false;
-            }
-            
-            log.info("All TestContainers stopped successfully");
-            
-        } catch (Exception e) {
-            log.warn("Error during container shutdown", e);
-        }
-    }
-    
-    /**
-     * Get the Elasticsearch URL
-     */
-    public static String getElasticsearchUrl() {
-        return "http://" + ELASTICSEARCH_CONTAINER.getHost() + ":" + ELASTICSEARCH_CONTAINER.getMappedPort(9200);
-    }
+
 
 }

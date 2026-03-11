@@ -1,18 +1,16 @@
 package org.kinotic.test.support.keycloak;
 
-import java.time.Duration;
-import java.io.File;
-
+import dasniko.testcontainers.keycloak.KeycloakContainer;
+import org.kinotic.test.support.ContainerHealthChecker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ResourceUtils;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.wait.strategy.Wait;
 
-import dasniko.testcontainers.keycloak.KeycloakContainer;
-
-import org.kinotic.test.support.ContainerHealthChecker;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.io.File;
+import java.time.Duration;
 
 @Component
 @SuppressWarnings("resource")
@@ -69,14 +67,11 @@ public class KeyloakTestConfiguration {
                 .withStartupTimeout(Duration.ofMinutes(3))
         );
         
-        // Start containers synchronously to ensure they're ready before class loading completes
-        startContainersSynchronously();
-        
         // Add shutdown hook to ensure containers are cleaned up
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.info("Shutting down TestContainers...");
             try {
-                if (KEYCLOAK_CONTAINER != null && KEYCLOAK_CONTAINER.isRunning()) {
+                if (KEYCLOAK_CONTAINER.isRunning()) {
                     KEYCLOAK_CONTAINER.close();
                     log.info("Keycloak container stopped");
                 }
@@ -196,12 +191,10 @@ public class KeyloakTestConfiguration {
         try {
             
             // Check if Keycloak is healthy
-            boolean keycloakHealthy = ContainerHealthChecker.isKeycloakHealthy(
+            return ContainerHealthChecker.isKeycloakHealthy(
                 KEYCLOAK_CONTAINER.getHost(),
                 KEYCLOAK_CONTAINER.getMappedPort(9000)
             );
-            
-            return keycloakHealthy;
             
         } catch (Exception e) {
             log.warn("Error checking container health", e);
@@ -248,30 +241,7 @@ public class KeyloakTestConfiguration {
         
         return status.toString();
     }
-    
-    /**
-     * Shutdown all TestContainers
-     */
-    public static void shutdownContainers() {
-        log.info("Shutting down TestContainers...");
-        
-        try {
 
-            if (KEYCLOAK_CONTAINER != null && KEYCLOAK_CONTAINER.isRunning()) {
-                KEYCLOAK_CONTAINER.close();
-                log.info("Keycloak container stopped");
-            }
-            
-            synchronized (containerLock) {
-                containersReady = false;
-            }
-            
-            log.info("All TestContainers stopped successfully");
-            
-        } catch (Exception e) {
-            log.warn("Error during container shutdown", e);
-        }
-    }
     
     public static String getKeycloakUrl() {
         return "http://" + KEYCLOAK_CONTAINER.getHost() + ":" + KEYCLOAK_CONTAINER.getMappedPort(8888);

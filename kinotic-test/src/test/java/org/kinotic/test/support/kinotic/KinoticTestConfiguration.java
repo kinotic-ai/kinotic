@@ -5,10 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.testcontainers.containers.ComposeContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.File;
-import java.time.Duration;
 
 /**
  * Test configuration that starts the Kinotic stack (Elasticsearch + kinotic-server)
@@ -16,7 +14,6 @@ import java.time.Duration;
  * Uses Local Compose mode (requires docker compose on the host).
  */
 @Component
-@SuppressWarnings("resource")
 public class KinoticTestConfiguration {
     private static final Logger log = LoggerFactory.getLogger(KinoticTestConfiguration.class);
 
@@ -41,16 +38,8 @@ public class KinoticTestConfiguration {
             : new File[] { mainCompose };
 
         COMPOSE_CONTAINER = new ComposeContainer(composeFiles)
-            .withExposedService(
-                "kinotic-elasticsearch",
-                ELASTICSEARCH_PORT,
-                Wait.forHttp("/_cluster/health").forPort(ELASTICSEARCH_PORT).withStartupTimeout(Duration.ofMinutes(5))
-            )
-            .withExposedService(
-                "kinotic-server",
-                KINOTIC_SERVER_UI_PORT,
-                Wait.forHttp("/health").forPort(KINOTIC_SERVER_UI_PORT).withStartupTimeout(Duration.ofMinutes(5))
-            );
+                .withOptions("--project-name", "kinotic-test");
+
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.info("Shutting down Kinotic Compose containers...");
@@ -81,8 +70,8 @@ public class KinoticTestConfiguration {
 
     private static void waitForContainersToBeReady() {
         try {
-            String esHost = COMPOSE_CONTAINER.getServiceHost("kinotic-elasticsearch", ELASTICSEARCH_PORT);
-            int esPort = COMPOSE_CONTAINER.getServicePort("kinotic-elasticsearch", ELASTICSEARCH_PORT);
+            String esHost = KinoticTestConfiguration.getElasticsearchHost();
+            int esPort = KinoticTestConfiguration.getElasticsearchPort();
             boolean esReady = ContainerHealthChecker.waitForContainerHealth(
                 "kinotic-elasticsearch",
                 () -> ContainerHealthChecker.isElasticsearchHealthy(esHost, esPort),
@@ -92,8 +81,8 @@ public class KinoticTestConfiguration {
                 throw new RuntimeException("kinotic-elasticsearch failed to become ready");
             }
 
-            String serverHost = COMPOSE_CONTAINER.getServiceHost("kinotic-server", KINOTIC_SERVER_UI_PORT);
-            int serverPort = COMPOSE_CONTAINER.getServicePort("kinotic-server", KINOTIC_SERVER_UI_PORT);
+            String serverHost = KinoticTestConfiguration.getKinoticServerHost();
+            int serverPort = KinoticTestConfiguration.getKinoticServerUiPort();
             boolean serverReady = ContainerHealthChecker.waitForContainerHealth(
                 "kinotic-server",
                 () -> ContainerHealthChecker.isKinoticServerHealthy(serverHost, serverPort),
@@ -142,35 +131,19 @@ public class KinoticTestConfiguration {
     }
 
     public static String getElasticsearchHost() {
-        return COMPOSE_CONTAINER.getServiceHost("kinotic-elasticsearch", ELASTICSEARCH_PORT);
+        return "127.0.0.1";
     }
 
     public static int getElasticsearchPort() {
-        return COMPOSE_CONTAINER.getServicePort("kinotic-elasticsearch", ELASTICSEARCH_PORT);
+        return ELASTICSEARCH_PORT;
     }
 
     public static String getKinoticServerHost() {
-        return COMPOSE_CONTAINER.getServiceHost("kinotic-server", KINOTIC_SERVER_UI_PORT);
+        return "127.0.0.1";
     }
 
-    public static int getKinoticServerStompPort() {
-        return COMPOSE_CONTAINER.getServicePort("kinotic-server", KINOTIC_SERVER_STOMP_PORT);
+    public static int getKinoticServerUiPort() {
+        return KINOTIC_SERVER_UI_PORT;
     }
 
-    public static String getElasticsearchUrl() {
-        return "http://" + getElasticsearchHost() + ":" + getElasticsearchPort();
-    }
-
-    public static void shutdownContainers() {
-        try {
-            if (containersReady) {
-                COMPOSE_CONTAINER.close();
-            }
-            synchronized (containerLock) {
-                containersReady = false;
-            }
-        } catch (Exception e) {
-            log.warn("Error during compose shutdown", e);
-        }
-    }
 }

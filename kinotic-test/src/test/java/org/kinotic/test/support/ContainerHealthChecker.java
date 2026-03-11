@@ -112,33 +112,33 @@ public class ContainerHealthChecker {
      * Wait for a container to become healthy with retry logic
      */
     public static boolean waitForContainerHealth(
-            String containerName,
+            String serviceName,
             HealthCheckFunction healthCheck,
             int maxAttempts,
             long delayMs) {
         
-        log.info("Waiting for {} to become healthy...", containerName);
+        log.info("Waiting for {} to become healthy...", serviceName);
         
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             if (healthCheck.check()) {
-                log.info("{} is healthy after {} attempts", containerName, attempt);
+                log.info("{} is healthy after {} attempts", serviceName, attempt);
                 return true;
             }
             
             if (attempt < maxAttempts) {
                 log.debug("{} health check attempt {} failed, retrying in {} ms...", 
-                    containerName, attempt, delayMs);
+                    serviceName, attempt, delayMs);
                 try {
                     Thread.sleep(delayMs);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    log.error("Interrupted while waiting for {} to become healthy", containerName);
+                    log.error("Interrupted while waiting for {} to become healthy", serviceName);
                     return false;
                 }
             }
         }
         
-        log.error("{} failed to become healthy after {} attempts", containerName, maxAttempts);
+        log.error("{} failed to become healthy after {} attempts", serviceName, maxAttempts);
         return false;
     }
     
