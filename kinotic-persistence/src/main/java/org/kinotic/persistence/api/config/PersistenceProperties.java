@@ -1,18 +1,15 @@
 package org.kinotic.persistence.api.config;
 
-import java.time.Duration;
-import java.util.List;
-import java.util.Set;
-
-import org.apache.commons.lang3.Validate;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
-
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.apache.commons.lang3.Validate;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -101,7 +98,7 @@ public class PersistenceProperties {
     /**
      * If true, static files are served from resources/webroot
      */
-    private boolean enableStaticFileServer = false;
+    private boolean enableStaticFileServer = true;
 
     /**
      * MCP server configuration
