@@ -128,7 +128,6 @@ dependencies {
     testImplementation "io.qameta.allure:allure-junit5"
     testImplementation 'org.junit.jupiter:junit-jupiter-api'
     testImplementation 'org.junit.jupiter:junit-jupiter-engine'
-    //testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 test {

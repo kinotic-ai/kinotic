@@ -116,7 +116,7 @@ public class KinoticTestConfiguration {
                 } else if (Boolean.TRUE.equals(state.getRunning())) {
                     log.debug("Container '{}' is still running...", containerName);
                 } else {
-                    Integer exitCode = state.getExitCode();
+                    Long exitCode = state.getExitCodeLong();
                     if (exitCode != null && exitCode == 0) {
                         log.info("Container '{}' completed successfully", containerName);
                         return;
