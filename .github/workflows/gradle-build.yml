@@ -47,6 +47,7 @@ jobs:
         continue-on-error: true
         env:
           TESTCONTAINERS_RYUK_DISABLED: true
+          DOCKER_COMPOSE_LOCATION: /usr/local/bin/docker-compose
           TESTCONTAINERS_LOG_LEVEL: DEBUG
         run: ./gradlew build
 
