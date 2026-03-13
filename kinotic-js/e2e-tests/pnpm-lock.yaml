@@ -8,21 +8,15 @@ importers:
 
   .:
     dependencies:
-      '@kinotic/continuum-client':
-        specifier: 2.14.10
-        version: 2.14.10(reflect-metadata@0.2.2)
-      '@kinotic/continuum-idl':
-        specifier: ^2.0.4
-        version: 2.0.4
+      '@kinotic-ai/core':
+        specifier: 1.0.0-beta.0
+        version: 1.0.0-beta.0(typescript@5.9.3)
+      '@kinotic-ai/idl':
+        specifier: 1.0.0-beta.0
+        version: 1.0.0-beta.0(typescript@5.9.3)
       '@kinotic/structures-api':
         specifier: ^3.5.0
         version: 3.5.0(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))
-      '@stomp/rx-stomp':
-        specifier: 2.1.0
-        version: 2.1.0(@stomp/stompjs@7.2.1)(rxjs@7.8.2)(uuid@13.0.0)
-      '@stomp/stompjs':
-        specifier: 7.2.1
-        version: 7.2.1
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -615,6 +609,22 @@ packages:
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
 
+  '@kinotic-ai/core@1.0.0-beta.0':
+    resolution: {integrity: sha512-7zGAaY8cBqTTHyxcIUyUObsK6bzWqpQZVyo1UvvkriaCGz24vOCFzgNRfh4JyyZvkv8kn8G52jnL18IjYVl9qQ==}
+    peerDependencies:
+      typescript: '*'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  '@kinotic-ai/idl@1.0.0-beta.0':
+    resolution: {integrity: sha512-BVBot+XzyLAxGBZo87jCYBjYs/mIC0lSfJJY1wwknTWTLktHCewGu2IPkRTG1HlS3rUbCwrgKrBiURiEDRnWMA==}
+    peerDependencies:
+      typescript: '*'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   '@kinotic/continuum-client@2.14.10':
     resolution: {integrity: sha512-W+o2karVVqaWwyWwgobHfWR54m5weUivc5+H0JuLrXng71jat4Q/S/TAieCTJlVBMCx+PZ86P+zs7qDyMiplAA==}
     peerDependencies:
@@ -671,6 +681,10 @@ packages:
 
   '@opentelemetry/semantic-conventions@1.38.0':
     resolution: {integrity: sha512-kocjix+/sSggfJhwXqClZ3i9Y/MI0fp7b+g7kCRm6psy2dsf8uApTRclwG18h8Avm7C9+fnt+O36PspJ/OzoWg==}
+    engines: {node: '>=14'}
+
+  '@opentelemetry/semantic-conventions@1.40.0':
+    resolution: {integrity: sha512-cifvXDhcqMwwTlTK04GBNeIe7yyo28Mfby85QXFe1Yk8nmi36Ab/5UQwptOx84SsoGNRg+EVSjwzfSZMy6pmlw==}
     engines: {node: '>=14'}
 
   '@pkgjs/parseargs@0.11.0':
@@ -832,13 +846,6 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@stomp/rx-stomp@2.1.0':
-    resolution: {integrity: sha512-bDdVDHZaJ232gSXqdHLG1ANiZaqbVcPvKVKPTWLMHwkq8oBs9F4KFRmW8n1j66i3vE5sfojsQJz3u3enEUgWwA==}
-    peerDependencies:
-      '@stomp/stompjs': ^7.2.0
-      rxjs: ^7.2.0
-      uuid: '>=9.0.0 <12.0.0'
-
   '@stomp/rx-stomp@2.3.0':
     resolution: {integrity: sha512-Vt6CNHm0GuEeDz6iTb+fH1E1Vw8s5hEGqlhFMuqfkFdgoiJMVqsPUpIfF8POSYYjIHd/AJ/P55v6JgPsrFOKhA==}
     peerDependencies:
@@ -848,6 +855,9 @@ packages:
 
   '@stomp/stompjs@7.2.1':
     resolution: {integrity: sha512-DLd/WeicnHS5SsWWSk3x6/pcivqchNaEvg9UEGVqAcfYEBVmS9D6980ckXjTtfpXLjdLDsd96M7IuX4w7nzq5g==}
+
+  '@stomp/stompjs@7.3.0':
+    resolution: {integrity: sha512-nKMLoFfJhrQAqkvvKd1vLq/cVBGCMwPRCD0LqW7UT1fecRx9C3GoKEIR2CYwVuErGeZu8w0kFkl2rlhPlqHVgQ==}
 
   '@szmarczak/http-timer@5.0.1':
     resolution: {integrity: sha512-+PmQX0PiAYPMeVYe237LJAYvOMYW1j2rH5YROyS3b4CTVJum34HfRvKvAzozHAQG0TnHNdUfY9nCeUyRAs//cw==}
@@ -3151,6 +3161,29 @@ snapshots:
 
   '@js-sdsl/ordered-map@4.4.2': {}
 
+  '@kinotic-ai/core@1.0.0-beta.0(typescript@5.9.3)':
+    dependencies:
+      '@opentelemetry/api': 1.9.0
+      '@opentelemetry/semantic-conventions': 1.40.0
+      '@stomp/rx-stomp': 2.3.0(@stomp/stompjs@7.3.0)(rxjs@7.8.2)(uuid@13.0.0)
+      '@stomp/stompjs': 7.3.0
+      '@types/debug': 4.1.12
+      debug: 4.4.3(supports-color@8.1.1)
+      p-tap: 4.0.0
+      rxjs: 7.8.2
+      typescript-optional: 3.0.0-alpha.3
+      uuid: 13.0.0
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@kinotic-ai/idl@1.0.0-beta.0(typescript@5.9.3)':
+    dependencies:
+      reflect-metadata: 0.2.2
+    optionalDependencies:
+      typescript: 5.9.3
+
   '@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2)':
     dependencies:
       '@opentelemetry/api': 1.9.0
@@ -3319,6 +3352,8 @@ snapshots:
 
   '@opentelemetry/semantic-conventions@1.38.0': {}
 
+  '@opentelemetry/semantic-conventions@1.40.0': {}
+
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
@@ -3425,19 +3460,21 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@stomp/rx-stomp@2.1.0(@stomp/stompjs@7.2.1)(rxjs@7.8.2)(uuid@13.0.0)':
-    dependencies:
-      '@stomp/stompjs': 7.2.1
-      rxjs: 7.8.2
-      uuid: 13.0.0
-
   '@stomp/rx-stomp@2.3.0(@stomp/stompjs@7.2.1)(rxjs@7.8.2)(uuid@13.0.0)':
     dependencies:
       '@stomp/stompjs': 7.2.1
       rxjs: 7.8.2
       uuid: 13.0.0
 
+  '@stomp/rx-stomp@2.3.0(@stomp/stompjs@7.3.0)(rxjs@7.8.2)(uuid@13.0.0)':
+    dependencies:
+      '@stomp/stompjs': 7.3.0
+      rxjs: 7.8.2
+      uuid: 13.0.0
+
   '@stomp/stompjs@7.2.1': {}
+
+  '@stomp/stompjs@7.3.0': {}
 
   '@szmarczak/http-timer@5.0.1':
     dependencies:

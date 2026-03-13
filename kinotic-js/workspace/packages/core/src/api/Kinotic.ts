@@ -11,7 +11,6 @@ import {ServiceRegistry} from '@/core/api/ServiceRegistry'
 
 interface IKinotic {
     serviceRegistry: IServiceRegistry
-    crudServiceProxyFactory: CrudServiceProxyFactory
     eventBus: IEventBus
 
     /**
@@ -34,11 +33,6 @@ interface IKinotic {
      */
     serviceProxy(serviceIdentifier: string): IServiceProxy
 
-    /**
-     * Returns a {@link ICrudServiceProxy} for the given service identifier
-     * @param serviceIdentifier the identifier of the service to be accessed
-     */
-    crudServiceProxy<T extends Identifiable<string>>(serviceIdentifier: string): ICrudServiceProxy<T>
 }
 
 /**
@@ -50,19 +44,15 @@ export class KinoticSingleton implements IKinotic {
      * The {@link IEventBus} that is used to communicate with the Kinotic server
      */
     private _eventBus!: IEventBus
+
     /**
      * The {@link ServiceRegistry} that is used to manage the services that are available
      */
     readonly serviceRegistry!: ServiceRegistry
-    /**
-     * The {@link CrudServiceProxyFactory} that is used to create {@link ICrudServiceProxy} instances
-     */
-    readonly crudServiceProxyFactory!: CrudServiceProxyFactory
 
     constructor() {
         this._eventBus = new EventBus()
         this.serviceRegistry = new ServiceRegistry(this._eventBus)
-        this.crudServiceProxyFactory = new CrudServiceProxyFactory(this.serviceRegistry)
     }
 
     get eventBus(): IEventBus {
@@ -98,14 +88,6 @@ export class KinoticSingleton implements IKinotic {
      */
     serviceProxy(serviceIdentifier: string): IServiceProxy {
         return this.serviceRegistry.serviceProxy(serviceIdentifier)
-    }
-
-    /**
-     * Returns a {@link ICrudServiceProxy} for the given service identifier
-     * @param serviceIdentifier the identifier of the service to be accessed
-     */
-    crudServiceProxy<T extends Identifiable<string>>(serviceIdentifier: string): ICrudServiceProxy<T> {
-        return this.crudServiceProxyFactory.crudServiceProxy<T>(serviceIdentifier)
     }
 
 }

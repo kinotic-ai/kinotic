@@ -3,7 +3,7 @@ import * as allure from 'allure-js-commons'
 import axios from 'axios'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
 import {PersonWithTenant} from '../domain/PersonWithTenant.js'
-import {createPersonStructureIfNotExist, createSchema, initContinuumClient, shutdownContinuumClient} from '../TestHelpers.js'
+import {createPersonStructureIfNotExist, createSchema, initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
 import {
     buildFirstNameQuery,
     bulkSavePeople,
@@ -37,7 +37,7 @@ describe('End To End Tests', () => {
     let baseUrl: string
 
     beforeAll(async () => {
-        await initContinuumClient()
+        await initKinoticClient()
 
         context.personWithTenantStructure = await createPersonStructureIfNotExist(applicationId, projectName, true)
         expect(context.personWithTenantStructure).toBeDefined()
@@ -54,7 +54,7 @@ describe('End To End Tests', () => {
     }, 300000)
 
     afterAll(async () => {
-        await shutdownContinuumClient()
+        await shutdownKinoticClient()
     }, 60000)
 
     describe('OpenAPI Client', () => {

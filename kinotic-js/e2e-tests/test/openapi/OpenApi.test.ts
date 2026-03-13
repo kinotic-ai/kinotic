@@ -1,7 +1,7 @@
 import {Structure,} from '@kinotic/structures-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
-import {createPersonStructureIfNotExist, initContinuumClient, shutdownContinuumClient} from '../TestHelpers.js'
+import {createPersonStructureIfNotExist, initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
 import {loadOpenAPISchema} from './OpenApiHelpers.js'
 
 
@@ -20,7 +20,7 @@ describe('OpenApi Tests', () => {
 
     beforeAll(async () => {
         await allure.parentSuite('End To End Tests')
-        await initContinuumClient()
+        await initKinoticClient()
 
         context.personStructure = await createPersonStructureIfNotExist(applicationId, projectName)
         expect(context.personStructure).toBeDefined()
@@ -30,7 +30,7 @@ describe('OpenApi Tests', () => {
 
     afterAll(async () => {
         // await expect(deleteStructure(context.personStructure.id as string)).resolves.toBeUndefined()
-        await shutdownContinuumClient()
+        await shutdownKinoticClient()
     }, 60000)
 
 

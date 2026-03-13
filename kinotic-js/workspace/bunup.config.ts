@@ -5,8 +5,8 @@ import { defineWorkspace } from 'bunup'
 export default defineWorkspace(
 	[
 		{
-			name: 'rpc',
-			root: 'packages/rpc'
+			name: 'core',
+			root: 'packages/core'
 		},
 		{
 			name: 'idl',

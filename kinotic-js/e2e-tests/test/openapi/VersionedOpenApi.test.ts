@@ -1,7 +1,7 @@
 import {Structure,} from '@kinotic/structures-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
-import {createVehicleStructureIfNotExist, initContinuumClient, shutdownContinuumClient} from '../TestHelpers.js'
+import {createVehicleStructureIfNotExist, initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
 import {loadOpenAPISchema} from './OpenApiHelpers.js'
 
 
@@ -20,7 +20,7 @@ describe('Versioned OpenApi Tests', () => {
 
     beforeAll(async () => {
         await allure.parentSuite('End To End Tests')
-        await initContinuumClient()
+        await initKinoticClient()
 
         context.vehicleStructure = await createVehicleStructureIfNotExist(applicationId, projectName)
         expect(context.vehicleStructure).toBeDefined()
@@ -29,7 +29,7 @@ describe('Versioned OpenApi Tests', () => {
 
     afterAll(async () => {
         // await expect(deleteStructure(context.vehicleStructure.id as string)).resolves.toBeUndefined()
-        await shutdownContinuumClient()
+        await shutdownKinoticClient()
     }, 60000)
 
 

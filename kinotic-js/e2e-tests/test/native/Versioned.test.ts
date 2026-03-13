@@ -10,9 +10,9 @@ import {
     createVehicleStructureIfNotExist,
     deleteStructure,
     generateRandomString,
-    initContinuumClient,
+    initKinoticClient,
     logFailure,
-    shutdownContinuumClient
+    shutdownKinoticClient
 } from '../TestHelpers.js'
 
 Object.assign(global, { WebSocket})
@@ -27,11 +27,11 @@ describe('End To End Tests', () => {
     beforeAll(async () => {
         await allure.suite('Typescript Client')
         await allure.subSuite('Versioned Tests')
-        await initContinuumClient()
+        await initKinoticClient()
     }, 300000)
 
     afterAll(async () => {
-        await shutdownContinuumClient()
+        await shutdownKinoticClient()
     }, 60000)
 
     beforeEach<LocalTestContext>(async (context) => {

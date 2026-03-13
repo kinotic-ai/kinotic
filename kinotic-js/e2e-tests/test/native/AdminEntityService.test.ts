@@ -17,9 +17,9 @@ import {
     createTestPersonWithTenant,
     deleteStructure,
     generateRandomString,
-    initContinuumClient,
+    initKinoticClient,
     logFailure,
-    shutdownContinuumClient,
+    shutdownKinoticClient,
 } from '../TestHelpers.js'
 import * as allure from "allure-js-commons";
 
@@ -36,11 +36,11 @@ describe('End To End Tests', () => {
     beforeAll(async () => {
         await allure.suite('Typescript Client')
         await allure.subSuite('Admin EntityService Tests')
-        await initContinuumClient()
+        await initKinoticClient()
     }, 300000)
 
     afterAll(async () => {
-        await shutdownContinuumClient()
+        await shutdownKinoticClient()
     }, 60000)
 
     beforeEach<LocalTestContext>(async (context) => {

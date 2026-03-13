@@ -1,14 +1,13 @@
 import {faker} from '@faker-js/faker/locale/en'
 import {CodeGenerationService} from '@kinotic/structures-cli/dist/internal/CodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic/structures-cli/dist/internal/Logger.js'
-import {Continuum, Direction, Order, Pageable} from '@kinotic/continuum-client'
+import {Kinotic, Direction, Order, Pageable, IterablePage} from '@kinotic-ai/core'
 import {
     ObjectC3Type,
     FunctionDefinition
-} from '@kinotic/continuum-idl'
+} from '@kinotic-ai/idl'
 import {randomUUID} from 'node:crypto'
 import {expect} from 'vitest'
-import {IterablePage} from '@kinotic/continuum-client'
 import {
     Structures,
     Structure,
@@ -35,31 +34,31 @@ type SchemaCreationResult ={
 }
 let schemas: Map<string, SchemaCreationResult> = new Map<string, SchemaCreationResult>()
 
-export async function initContinuumClient(): Promise<void> {
+export async function initKinoticClient(): Promise<void> {
     try {
         // @ts-ignore
-        const host = inject('STRUCTURES_HOST')
+        const host = inject('KINOTIC_HOST')
         // @ts-ignore
-        const port = inject('STRUCTURES_PORT')
+        const port = inject('KINOTIC_PORT')
 
-        console.log('Connecting to continuum at ' + host)
+        console.log('Connecting to Kinotic at ' + host)
 
-        await Continuum.connect({
+        await Kinotic.connect({
                                     host:host,
                                     port:port,
-                                    connectHeaders:{login: 'admin', passcode: 'structures'}
+                                    connectHeaders:{login: 'kinotic', passcode: 'kinotic'}
                                 })
 
-        console.log('Connected to continuum')
+        console.log('Connected to Kinotic')
     } catch (e) {
         console.error(e)
         throw e
     }
 }
 
-export async function shutdownContinuumClient(): Promise<void> {
+export async function shutdownKinoticClient(): Promise<void> {
     try {
-        await Continuum.disconnect()
+        await Kinotic.disconnect()
     } catch (e) {
         console.error(e)
         throw e
