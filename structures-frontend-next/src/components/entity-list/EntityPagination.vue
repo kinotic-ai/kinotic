@@ -28,7 +28,7 @@ import Button from 'primevue/button'
   components: { Button },
   emits: ['page']
 })
-export class EntityPagination extends Vue {
+export default class EntityPagination extends Vue {
   @Prop({ type: Number, required: true }) first!: number
   @Prop({ type: Number, required: true }) rows!: number
   @Prop({ type: Number, required: true }) totalItems!: number

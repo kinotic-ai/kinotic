@@ -33,6 +33,7 @@ export interface IStructureStore {
     renameProperty(parentId: string, oldName: string, newName: string): void
     updatePropertyType(parentId: string, propertyName: string, typeCode: string): void
     updateStructureName(newName: string): void
+    findObjectById(obj: ObjectC3Type, id: string): ObjectC3Type | null
 }
 
 class StructureStore implements IStructureStore {
@@ -147,7 +148,7 @@ class StructureStore implements IStructureStore {
         this.edges = edges
     }
 
-    private findObjectById(obj: ObjectC3Type, id: string): ObjectC3Type | null {
+    findObjectById(obj: ObjectC3Type, id: string): ObjectC3Type | null {
         if (obj.name === id) return obj
 
         for (const prop of obj.properties) {

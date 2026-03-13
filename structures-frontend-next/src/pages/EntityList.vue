@@ -100,6 +100,9 @@ class EntityList extends Vue {
   get expandedVeryDeepNested() { return this._expansion.expandedVeryDeepNested }
   get expandedNestedArrays() { return this._expansion.expandedNestedArrays }
 
+  togglePathExpansion(...path: string[]) { this._expansion.togglePathExpansion(...path) }
+  isPathExpanded(...path: string[]): boolean { return this._expansion.isPathExpanded(...path) }
+
   toggleColumnExpansion(fieldName: string) { this._expansion.toggleColumnExpansion(fieldName) }
   toggleRowExpansion(rowId: string, fieldName: string) { this._expansion.toggleRowExpansion(rowId, fieldName) }
   toggleNestedObjectExpansion(fieldName: string, nestedProp: string) { this._expansion.toggleNestedObjectExpansion(fieldName, nestedProp) }
@@ -114,6 +117,8 @@ class EntityList extends Vue {
   isVeryDeepNestedExpanded(fieldName: string, nestedProp: string, deepProp: string, ...veryDeepPath: string[]): boolean { return this._expansion.isVeryDeepNestedExpanded(fieldName, nestedProp, deepProp, ...veryDeepPath) }
   isNestedArrayExpanded(rowId: string, parentPath: string, arrayField: string): boolean { return this._expansion.isNestedArrayExpanded(rowId, parentPath, arrayField) }
 
+  isPrimitiveArrayAtPath(...path: string[]): boolean { return this._inspector.isPrimitiveArrayAtPath(...path) }
+  getPropertiesAtPath(...path: string[]): any[] { return this._inspector.getPropertiesAtPath(...path) }
   isPrimitiveArray(fieldName: string): boolean { return this._inspector.isPrimitiveArray(fieldName) }
   isNestedPrimitiveArray(fieldName: string, nestedPropName: string): boolean { return this._inspector.isNestedPrimitiveArray(fieldName, nestedPropName) }
   isDeepNestedPrimitiveArray(fieldName: string, nestedProp: string, deepProp: string): boolean { return this._inspector.isDeepNestedPrimitiveArray(fieldName, nestedProp, deepProp) }
@@ -128,6 +133,59 @@ class EntityList extends Vue {
   getNestedObjectSubColumnWidth(fieldName: string, nestedProp: string, subPropName: string): number { void this.resizeVersion; return this._widthCalc.getNestedObjectSubColumnWidth(fieldName, nestedProp, subPropName) }
   getDeepNestedSubColumnWidth(fieldName: string, nestedProp: string, arrayProp: string, subPropName: string): number { void this.resizeVersion; return this._widthCalc.getDeepNestedSubColumnWidth(fieldName, nestedProp, arrayProp, subPropName) }
   getUltraDeepNestedSubColumnWidth(fieldName: string, nestedProp: string, arrayProp: string, subArrayProp: string, ultraDeepPropName: string): number { void this.resizeVersion; return this._widthCalc.getUltraDeepNestedSubColumnWidth(fieldName, nestedProp, arrayProp, subArrayProp, ultraDeepPropName) }
+  getWidthAtPath(...path: string[]): number { void this.resizeVersion; return this._widthCalc.getWidthAtPath(...path) }
+
+  startPathResize(event: MouseEvent, path: string[], prop: any) {
+    this.resizingColumn = { path, prop, level: 'path' }
+    this.startX = event.pageX
+    this.startWidth = this._widthCalc.getWidthAtPath(...path, prop.name)
+    const onMove = (e: MouseEvent) => {
+      const diff = e.pageX - this.startX
+      const newWidth = Math.max(80, this.startWidth + diff)
+      this._widthCalc.columnWidths.set([...path, prop.name].join('.'), newWidth)
+      this._recalcParentWidths(path)
+      this.resizeVersion++
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      this.resizingColumn = null
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
+
+  private _recalcParentWidths(path: string[]) {
+    for (let depth = path.length; depth >= 2; depth--) {
+      const parentPath = path.slice(0, depth)
+      const parentKey = parentPath.join('.')
+      const childProps = this.getPropertiesAtPath(...parentPath)
+      let total = 0
+      for (const child of childProps) {
+        const childPath = [...parentPath, child.name]
+        if ((child.isObject || child.isArray) && this.isPathExpanded(...childPath)) {
+          total += this._widthCalc.getWidthAtPath(...childPath)
+        } else {
+          total += this._widthCalc.getWidthAtPath(...childPath)
+        }
+      }
+      this._widthCalc.columnWidths.set(parentKey, total)
+    }
+    const headerField = path[0]
+    const headerIndex = this.headers.findIndex((h: any) => h.field === headerField)
+    if (headerIndex !== -1) {
+      const nestedProps = this.getPropertiesAtPath(headerField)
+      let parentTotalWidth = 0
+      for (const prop of nestedProps) {
+        parentTotalWidth += this._widthCalc.getNestedPropWidth(headerField, prop)
+      }
+      this.headers[headerIndex] = { ...this.headers[headerIndex], expandedWidth: parentTotalWidth }
+    }
+  }
 
   startColumnResize(event: MouseEvent, header: any) {
     this.resizingColumn = header

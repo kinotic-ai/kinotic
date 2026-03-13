@@ -7,6 +7,7 @@ import PropertyType from "@/components/structures/flow-components/PropertyType.v
 import { useStructureStore } from "@/stores/editor.ts"
 import {usePropertyTypes} from "@/composables/structure/usePropertyTypes.ts";
 import {Handle, Position} from "@vue-flow/core";
+import type { PropertyDefinition } from "@kinotic/continuum-idl";
 import type {FieldData} from "@/util/graph.ts";
 
 interface INodeData {
@@ -84,7 +85,7 @@ export default class StructureNode extends Vue {
     // 2. Duplicate check (exclude current property)
     if (!this.errors.name) {
       const exists = this.properties.some(
-          (p, i) => i !== index && p.name === newName
+          (p: PropertyDefinition, i: number) => i !== index && p.name === newName
       );
       if (exists) {
         this.errors.name = `Name already exists`;
@@ -130,7 +131,7 @@ export default class StructureNode extends Vue {
     // 3. Name uniqueness check (only if not empty)
     if (!this.errors.name) {
       const exists = this.properties.some(
-          (p) => p.name === this.newPropertyName
+          (p: PropertyDefinition) => p.name === this.newPropertyName
       );
       if (exists) {
         this.errors.name = `Name already exists`;
