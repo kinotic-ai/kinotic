@@ -32,9 +32,9 @@ export function createConnectionInfo(disableStickySession: boolean = false,
                                            connectHeaders?: ConnectHeaders | (() => Promise<ConnectHeaders>)): ConnectionInfo {
     const connectionInfo = new ConnectionInfo()
     // @ts-ignore
-    connectionInfo.host = inject('CONTINUUM_HOST')
+    connectionInfo.host = inject('KINOTIC_HOST')
     // @ts-ignore
-    connectionInfo.port = inject('CONTINUUM_PORT')
+    connectionInfo.port = inject('KINOTIC_PORT')
     connectionInfo.maxConnectionAttempts = 3
     connectionInfo.connectHeaders = connectHeaders || { login: 'kinotic', passcode: 'kinotic' }
     connectionInfo.disableStickySession = disableStickySession

@@ -1,11 +1,11 @@
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, ConnectionInfo, ContinuumSingleton} from '../src'
+import {ConnectedInfo, ConnectionInfo, KinoticSingleton} from '../src'
 import {GenericContainer, PullPolicy, StartedTestContainer, Wait} from 'testcontainers'
 import { logFailure, validateConnectedInfo } from './TestHelper'
 import { TestService } from './ITestService'
 
-// This is required when running Continuum from node
+// This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
 
 describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
@@ -13,8 +13,8 @@ describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
     let connectionInfo: ConnectionInfo = new ConnectionInfo()
 
     beforeAll(async () => {
-        // Start the Continuum Gateway container
-        console.log('Starting Continuum Gateway for sticky session gateway restart reconnection test')
+        // Start the Kinotic Gateway container
+        console.log('Starting Kinotic Gateway for sticky session gateway restart reconnection test')
 
         container = await new GenericContainer('mindignited/continuum-gateway-server:latest')
             .withExposedPorts({container: 58503, host: 58599})
@@ -31,7 +31,7 @@ describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
         connectionInfo.disableStickySession = true
         connectionInfo.connectHeaders = async () => {return {login: 'kinotic', passcode: 'kinotic'}}
 
-        console.log(`Continuum Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
+        console.log(`Kinotic Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
     }, 1000 * 60 * 10) // 10 minutes
 
     afterAll(async () => {
@@ -42,11 +42,11 @@ describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
     it('should handle gateway restart with disableStickySession and reconnect', {"timeout": 1000 * 60 * 5}, async () => {
 
         // First connection and RPC call
-        const continuum = new ContinuumSingleton()
+        const continuum = new KinoticSingleton()
         let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(connectionInfo),
-                                                            'Failed to connect to Continuum Gateway')
+                                                            'Failed to connect to Kinotic Gateway')
         validateConnectedInfo(connectedInfo)
-        console.log(`Continuum connected at ${connectionInfo.host}:${connectionInfo.port}`)
+        console.log(`Kinotic connected at ${connectionInfo.host}:${connectionInfo.port}`)
 
         const testService = new TestService(continuum)
 
@@ -54,11 +54,11 @@ describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
         expect(firstResult).toBe("Hello FirstCall")
 
         // Stop the gateway
-        console.log('Stopping Continuum Gateway...')
+        console.log('Stopping Kinotic Gateway...')
         await container.stop({timeout: 60000, remove: true, removeVolumes: true})
         // Wait a moment for cleanup
         await new Promise(resolve => setTimeout(resolve, 10000))
-        console.log('Starting Continuum Gateway again...')
+        console.log('Starting Kinotic Gateway again...')
         container = await new GenericContainer('mindignited/continuum-gateway-server:latest')
             .withExposedPorts({container: 58503, host: 58599})
             .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
@@ -68,15 +68,15 @@ describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
             .start()
 
         // Update connection info with new port mapping
-        console.log(`Continuum Gateway restarted`)
+        console.log(`Kinotic Gateway restarted`)
 
         // Connect again and make another RPC call
         while(!continuum.eventBus.isConnected()){
             await new Promise(resolve => setTimeout(resolve, 5000))
-            console.log('Waiting for Continuum Gateway to restart...')
+            console.log('Waiting for Kinotic Gateway to restart...')
         }
 
-        console.log('Continuum Gateway restarted')
+        console.log('Kinotic Gateway restarted')
 
         const secondResult = await testService.testMethodWithString("SecondCall")
         expect(secondResult).toBe("Hello SecondCall")

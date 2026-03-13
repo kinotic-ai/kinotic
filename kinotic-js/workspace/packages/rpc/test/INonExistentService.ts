@@ -1,4 +1,4 @@
-import {Continuum, IServiceProxy} from '../src'
+import {Kinotic, IServiceProxy} from '../src'
 
 export interface INonExistentService {
 
@@ -11,7 +11,7 @@ class NonExistentService implements INonExistentService {
     private readonly serviceProxy: IServiceProxy
 
     constructor() {
-        this.serviceProxy = Continuum.serviceProxy('com.namespace.NonExistentService')
+        this.serviceProxy = Kinotic.serviceProxy('com.namespace.NonExistentService')
     }
 
     probablyNotHome(): Promise<void> {

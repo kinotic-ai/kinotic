@@ -8,7 +8,7 @@ let container: StartedTestContainer
 export async function setup(project: TestProject) {
     // @ts-ignore
     if(import.meta.env.VITE_USE_GATEWAY_DOCKER === 'true') {
-        console.log('Starting Continuum Gateway')
+        console.log('Starting Kinotic Gateway')
 
         container = await new GenericContainer(`kinoticai/kinotic-server:latest`)
             .withExposedPorts(58503)
@@ -18,25 +18,25 @@ export async function setup(project: TestProject) {
             .start()
 
         // @ts-ignore
-        project.provide('CONTINUUM_HOST', container.getHost())
+        project.provide('KINOTIC_HOST', container.getHost())
         // @ts-ignore
-        project.provide('CONTINUUM_PORT', container.getMappedPort(58503))
+        project.provide('KINOTIC_PORT', container.getMappedPort(58503))
 
-        console.log(`Continuum Gateway started at ${container.getHost()}:${container.getMappedPort(58503)} `)
+        console.log(`Kinotic Gateway started at ${container.getHost()}:${container.getMappedPort(58503)} `)
     }else{
         // @ts-ignore
-        project.provide('CONTINUUM_HOST', '127.0.0.1')
+        project.provide('KINOTIC_HOST', '127.0.0.1')
         // @ts-ignore
-        project.provide('CONTINUUM_PORT', 58503)
-        console.log('Skipping Continuum Gateway start because VITE_USE_GATEWAY_DOCKER is false')
+        project.provide('KINOTIC_PORT', 58503)
+        console.log('Skipping Kinotic Gateway start because VITE_USE_GATEWAY_DOCKER is false')
     }
 }
 
 // Run once after all tests
 export async function teardown() {
-    console.log('Shutting down Continuum Gateway...')
+    console.log('Shutting down Kinotic Gateway...')
     await container.stop()
-    console.log('Continuum Gateway shut down.')
+    console.log('Kinotic Gateway shut down.')
 }
 
 

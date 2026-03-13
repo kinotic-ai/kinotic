@@ -13,7 +13,7 @@ export default defineConfig({
             reporter: ['text', 'json', 'html'],
         },
         env: {
-            DEBUG: 'continuum:*'
+            DEBUG: 'kinotic:*'
         },
         globalSetup: './test/setup.ts',
         setupFiles: ["allure-vitest/setup"],

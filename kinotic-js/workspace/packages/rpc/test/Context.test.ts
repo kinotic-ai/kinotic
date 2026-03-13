@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
-import { ConnectedInfo, Continuum, Event, EventConstants, IEvent } from "../src"
+import { ConnectedInfo, Kinotic, Event, EventConstants, IEvent } from "../src"
 import { TestServiceWithContext } from "./TestServiceWithContext"
 import { createConnectionInfo, logFailure, validateConnectedInfo } from "./TestHelper"
 import { firstValueFrom, Observable } from "rxjs"
@@ -19,8 +19,8 @@ describe("Context Injection", () => {
     beforeAll(async () => {
         const connectionInfo = createConnectionInfo()
         const connectedInfo: ConnectedInfo = await logFailure(
-            Continuum.connect(connectionInfo),
-            "Failed to connect to Continuum Gateway"
+            Kinotic.connect(connectionInfo),
+            "Failed to connect to Kinotic Gateway"
         )
         validateConnectedInfo(connectedInfo)
         replyToId = connectedInfo.replyToId
@@ -42,11 +42,11 @@ describe("Context Injection", () => {
         }
 
         // Set up valid interceptor
-        Continuum.serviceRegistry.registerContextInterceptor(testInterceptor)
+        Kinotic.serviceRegistry.registerContextInterceptor(testInterceptor)
     }, 1000 * 60 * 10) // 10 minutes
 
     afterAll(async () => {
-        await expect(Continuum.disconnect()).resolves.toBeUndefined()
+        await expect(Kinotic.disconnect()).resolves.toBeUndefined()
     })
 
     const createTestEvent = (cri: string, replyTo: string, args?: any[] | null, headers?: Map<string, string>): IEvent => {
@@ -63,9 +63,9 @@ describe("Context Injection", () => {
     const sendAndReceiveEvent = async (cri: string, args?: any[] | null, headers?: Map<string, string>): Promise<any> => {
         const replyTo = `${EventConstants.SERVICE_DESTINATION_PREFIX}${replyToId}:${uuidv4()}@continuum.js.EventBus/replyHandler`
         const event = createTestEvent(cri, replyTo, args, headers)
-        const response: Observable<IEvent> = Continuum.eventBus.observe(replyTo)
+        const response: Observable<IEvent> = Kinotic.eventBus.observe(replyTo)
         const resultPromise = firstValueFrom(response)
-        Continuum.eventBus.send(event)
+        Kinotic.eventBus.send(event)
         const result = await resultPromise
         if (result.hasHeader(EventConstants.ERROR_HEADER)) {
             throw new Error(result.getHeader(EventConstants.ERROR_HEADER))
@@ -93,7 +93,7 @@ describe("Context Injection", () => {
 
         it("should propagate interceptor error", async () => {
             // Set up failing interceptor
-            Continuum.serviceRegistry.registerContextInterceptor({
+            Kinotic.serviceRegistry.registerContextInterceptor({
                 async intercept(event: IEvent, context: any) {
                     throw new Error("Interceptor failure")
                 }
@@ -101,7 +101,7 @@ describe("Context Injection", () => {
             await expect(sendAndReceiveEvent("srv://com.example.TestServiceWithContext/greetWithContext", ["Charlie"])).rejects.toThrow("Internal server error")
 
             // Restore valid interceptor
-            Continuum.serviceRegistry.registerContextInterceptor(testInterceptor)
+            Kinotic.serviceRegistry.registerContextInterceptor(testInterceptor)
         })
     })
 })

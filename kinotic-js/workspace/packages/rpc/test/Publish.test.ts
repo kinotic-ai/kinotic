@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
-import { ConnectedInfo, Continuum, Event, EventConstants, IEvent } from "../src"
+import { ConnectedInfo, Kinotic, Event, EventConstants, IEvent } from "../src"
 import { TestServiceNoScope } from "./TestServiceNoScope"
 import { TestServiceWithScope } from "./TestServiceWithScope"
 import { createConnectionInfo, logFailure, validateConnectedInfo } from "./TestHelper"
@@ -20,8 +20,8 @@ describe("Publish Mechanism", () => {
     beforeAll(async () => {
         const connectionInfo = createConnectionInfo()
         const connectedInfo: ConnectedInfo = await logFailure(
-            Continuum.connect(connectionInfo),
-            "Failed to connect to Continuum Gateway"
+            Kinotic.connect(connectionInfo),
+            "Failed to connect to Kinotic Gateway"
         )
         validateConnectedInfo(connectedInfo)
         replyToId = connectedInfo.replyToId // Capture the replyToId from the server
@@ -32,7 +32,7 @@ describe("Publish Mechanism", () => {
     }, 1000 * 60 * 10) // 10 minutes
 
     afterAll(async () => {
-        await expect(Continuum.disconnect()).resolves.toBeUndefined()
+        await expect(Kinotic.disconnect()).resolves.toBeUndefined()
     })
 
     const createTestEvent = (cri: string, replyTo: string, args?: any[] | null): IEvent => {
@@ -49,9 +49,9 @@ describe("Publish Mechanism", () => {
     const sendAndReceiveEvent = async (cri: string, args?: any[] | null): Promise<any> => {
         const replyTo = `${EventConstants.SERVICE_DESTINATION_PREFIX}${replyToId}:${uuidv4()}@continuum.js.EventBus/replyHandler`
         const event = createTestEvent(cri, replyTo, args)
-        const response: Observable<IEvent> = Continuum.eventBus.observe(replyTo)
+        const response: Observable<IEvent> = Kinotic.eventBus.observe(replyTo)
         const resultPromise = firstValueFrom(response)
-        Continuum.eventBus.send(event)
+        Kinotic.eventBus.send(event)
         const result = await resultPromise
         if (result.hasHeader(EventConstants.ERROR_HEADER)) {
             throw new Error(result.getHeader(EventConstants.ERROR_HEADER))

@@ -1,22 +1,22 @@
 import {v4 as uuidv4} from 'uuid'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, Continuum, Event, EventConstants, IEvent} from '../src'
+import {ConnectedInfo, Kinotic, Event, EventConstants, IEvent} from '../src'
 import {createConnectionInfo, logFailure, validateConnectedInfo} from './TestHelper'
 
-// This is required when running Continuum from node
+// This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
 
-describe('Continuum RPC Tests', () => {
+describe('Kinotic RPC Tests', () => {
 
     beforeAll(async () => {
         const connectionInfo = createConnectionInfo()
-        let connectedInfo: ConnectedInfo = await logFailure(Continuum.connect(connectionInfo), 'Failed to connect to Continuum Gateway')
+        let connectedInfo: ConnectedInfo = await logFailure(Kinotic.connect(connectionInfo), 'Failed to connect to Kinotic Gateway')
         validateConnectedInfo(connectedInfo)
     }, 1000 * 60 * 10) // 10 minutes
 
     afterAll(async () =>{
-        await expect(Continuum.disconnect()).resolves.toBeUndefined()
+        await expect(Kinotic.disconnect()).resolves.toBeUndefined()
     })
 
     it('should fail invalid service request', async () => {
@@ -28,16 +28,16 @@ describe('Continuum RPC Tests', () => {
         toSend.setDataString('["Bob"]')
 
         let errorEncountered = new Promise<Error>((resolve, reject) => {
-            Continuum.eventBus.fatalErrors.subscribe((error: Error) => {
+            Kinotic.eventBus.fatalErrors.subscribe((error: Error) => {
                 reject(error)
             })
         })
 
-        Continuum.eventBus.send(toSend)
+        Kinotic.eventBus.send(toSend)
 
         await expect(errorEncountered).rejects.toThrowError('reply-to header invalid, scheme: null is not valid for service requests')
 
-        expect(Continuum.eventBus.isConnectionActive()).toBeFalsy()
+        expect(Kinotic.eventBus.isConnectionActive()).toBeFalsy()
 
     })
 

@@ -14,7 +14,7 @@ import { Resource } from '@opentelemetry/resources'
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node'
 export const otelTracerProvider = new NodeTracerProvider({
                                             resource: new Resource({
-                                                                       [ATTR_SERVICE_NAME]: 'ContinuumTests'
+                                                                       [ATTR_SERVICE_NAME]: 'KinoticTests'
                                                                    }),
                                         })
 

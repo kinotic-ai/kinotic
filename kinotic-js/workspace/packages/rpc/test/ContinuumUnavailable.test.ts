@@ -1,21 +1,21 @@
 import {describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, ConnectionInfo, Continuum, ContinuumSingleton} from '../src'
+import {ConnectedInfo, ConnectionInfo, Kinotic, KinoticSingleton} from '../src'
 import { GenericContainer, PullPolicy, StartedTestContainer, Wait } from 'testcontainers'
 import {TestService} from './ITestService.js'
 import { logFailure, validateConnectedInfo } from './TestHelper'
 
-// This is required when running Continuum from node
+// This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
 
 // These tests live in their own fle because if working improperly, the can cause the test to hang
-describe('Continuum Unavailable Tests', () => {
+describe('Kinotic Unavailable Tests', () => {
 
     it('should fail fast on connection attempt', async () => {
         const host: string = 'notavailable'
         const port: number = 58503
-        console.log(`Trying to Connecting to Unavailable Continuum Gateway`)
-        await expect(Continuum.connect({
+        console.log(`Trying to Connecting to Unavailable Kinotic Gateway`)
+        await expect(Kinotic.connect({
                                            host:host,
                                            port:port,
                                            maxConnectionAttempts: 3,
@@ -27,7 +27,7 @@ describe('Continuum Unavailable Tests', () => {
                 )
             )
 
-        await expect(Continuum.disconnect()).resolves.toBeUndefined()
+        await expect(Kinotic.disconnect()).resolves.toBeUndefined()
     }, 1000 * 60 * 10) // 10 minutes
 
     it('should connect to gateway and then fail after reconnection attempts after gateway is offline',
@@ -36,8 +36,8 @@ describe('Continuum Unavailable Tests', () => {
            let container: StartedTestContainer
            let connectionInfo: ConnectionInfo = new ConnectionInfo()
 
-           // Start the Continuum Gateway container
-           console.log('Starting Continuum Gateway for sticky session gateway restart reconnection test')
+           // Start the Kinotic Gateway container
+           console.log('Starting Kinotic Gateway for sticky session gateway restart reconnection test')
 
            container = await new GenericContainer('mindignited/continuum-gateway-server:latest')
                .withExposedPorts({container: 58503, host: 58590})
@@ -53,13 +53,13 @@ describe('Continuum Unavailable Tests', () => {
            connectionInfo.maxConnectionAttempts = 3
            connectionInfo.disableStickySession = false
            connectionInfo.connectHeaders = async () => {return {login: 'kinotic', passcode: 'kinotic'}}
-           console.log(`Continuum Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
+           console.log(`Kinotic Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
 
-           const continuum = new ContinuumSingleton()
+           const continuum = new KinoticSingleton()
            let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(connectionInfo),
-                                                               'Failed to connect to Continuum Gateway')
+                                                               'Failed to connect to Kinotic Gateway')
            validateConnectedInfo(connectedInfo)
-           console.log(`Continuum Gateway started at ${connectionInfo.host}:${connectionInfo.port}`)
+           console.log(`Kinotic Gateway started at ${connectionInfo.host}:${connectionInfo.port}`)
 
            const testService = new TestService(continuum)
 

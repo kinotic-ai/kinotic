@@ -1,23 +1,23 @@
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, Continuum} from '../src'
+import {ConnectedInfo, Kinotic} from '../src'
 import {NON_EXISTENT_SERVICE} from './INonExistentService'
 import {TEST_SERVICE} from './ITestService'
 import {createConnectionInfo, logFailure, validateConnectedInfo} from './TestHelper'
 
-// This is required when running Continuum from node
+// This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
 
-describe('Continuum RPC Tests', () => {
+describe('Kinotic RPC Tests', () => {
 
     beforeAll(async () => {
         const connectionInfo =  createConnectionInfo()
-        let connectedInfo: ConnectedInfo = await logFailure(Continuum.connect(connectionInfo), 'Failed to connect to Continuum Gateway')
+        let connectedInfo: ConnectedInfo = await logFailure(Kinotic.connect(connectionInfo), 'Failed to connect to Kinotic Gateway')
         validateConnectedInfo(connectedInfo)
     }, 1000 * 60 * 10) // 10 minutes
 
     afterAll(async () =>{
-        await expect(Continuum.disconnect()).resolves.toBeUndefined()
+        await expect(Kinotic.disconnect()).resolves.toBeUndefined()
     })
 
 
