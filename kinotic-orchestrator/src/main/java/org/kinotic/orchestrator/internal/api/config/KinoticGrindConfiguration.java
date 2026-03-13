@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @ComponentScan("org.kinotic.orchestrator.internal")
-public class ContinuumGrindConfiguration {
+public class KinoticGrindConfiguration {
 
 
 }
