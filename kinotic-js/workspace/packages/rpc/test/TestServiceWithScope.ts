@@ -1,5 +1,3 @@
-
-
 import { Publish, Scope } from "../src"
 
 @Publish("com.example")

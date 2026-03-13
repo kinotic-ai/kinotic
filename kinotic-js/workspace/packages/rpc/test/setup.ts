@@ -2,21 +2,23 @@ import {GenericContainer, PullPolicy, Wait} from 'testcontainers'
 import type {StartedTestContainer} from 'testcontainers'
 import type {TestProject} from 'vitest/node'
 import {KINOTIC_DOCKER_IMAGE} from './TestHelper.js'
+import {config} from 'dotenv'
+
+// Load .env files
+config()
 
 let container: StartedTestContainer
 
-
 // Run once before all tests
 export async function setup(project: TestProject) {
-    // @ts-ignore
-    if(import.meta.env.VITE_USE_GATEWAY_DOCKER === 'true') {
+    if(process.env.USE_GATEWAY_DOCKER === 'true') {
         console.log('Starting Kinotic Gateway')
 
         container = await new GenericContainer(KINOTIC_DOCKER_IMAGE)
             .withExposedPorts(58503)
             .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
             .withPullPolicy(PullPolicy.alwaysPull())
-            .withWaitStrategy(Wait.forHttp('/', 58503))
+            .withWaitStrategy(Wait.forHttp('/', 58503).forStatusCode(200))
             .start()
 
         // @ts-ignore
@@ -30,7 +32,7 @@ export async function setup(project: TestProject) {
         project.provide('KINOTIC_HOST', '127.0.0.1')
         // @ts-ignore
         project.provide('KINOTIC_PORT', 58503)
-        console.log('Skipping Kinotic Gateway start because VITE_USE_GATEWAY_DOCKER is false')
+        console.log('Skipping Kinotic Gateway start because USE_GATEWAY_DOCKER is not set to true')
     }
 }
 

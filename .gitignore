@@ -107,3 +107,4 @@ dev-tools/kind/eviction-data/
 eviction-data/
 **/eviction-events*.csv
 eviction-events.csv
+kinotic-js/workspace/packages/rpc/allure-report/
