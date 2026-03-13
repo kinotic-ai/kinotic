@@ -12,4 +12,9 @@ export default defineWorkspace(
 			name: 'idl',
 			root: 'packages/idl'
 		}
-	])
+	],
+	{
+		format: ["esm", "cjs"],
+		exports: true,
+	}
+)

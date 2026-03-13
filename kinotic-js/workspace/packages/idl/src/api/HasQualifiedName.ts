@@ -4,7 +4,7 @@
 export interface HasQualifiedName {
 
     /**
-     * This is the namespace of this such as "org.kinotic.continuum.idl.api.schema"
+     * This is the namespace of this such as "org.kinotic.kinotic.idl.api.schema"
      */
     namespace: string
 
@@ -14,7 +14,7 @@ export interface HasQualifiedName {
     name: string
 
     /**
-     * The fully qualified name of this such as "org.kinotic.continuum.idl.api.schema.Person"
+     * The fully qualified name of this such as "org.kinotic.kinotic.idl.api.schema.Person"
      * @return the fully qualified name of this
      */
     getQualifiedName(): string

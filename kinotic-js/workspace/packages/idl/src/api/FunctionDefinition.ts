@@ -6,7 +6,7 @@ import {MetadataType} from '@/api/HasMetadata'
 import { VoidC3Type } from '@/api/VoidC3Type'
 
 /**
- * Provides functionality to define a function with a Continuum schema.
+ * Provides functionality to define a function with a Kinotic schema.
  * Created by navid on 2023-4-13
  */
 export class FunctionDefinition extends AbstractDefinition {

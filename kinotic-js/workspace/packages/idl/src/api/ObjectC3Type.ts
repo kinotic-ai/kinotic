@@ -5,7 +5,7 @@ import {MetadataType} from '@/api/HasMetadata'
 import {PropertyDefinition} from '@/api/PropertyDefinition'
 
 /**
- * ObjectC3Type is used to define a complex object type in the Continuum IDL.
+ * ObjectC3Type is used to define a complex object type in the Kinotic IDL.
  * Properties are defined with {@link PropertyDefinition}s
  * The context for equality here is the namespace and name.
  * Given no two object types can have the same namespace and name this is the only context needed for equality.

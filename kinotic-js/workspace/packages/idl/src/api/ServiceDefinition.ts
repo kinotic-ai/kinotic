@@ -4,7 +4,7 @@ import { FunctionDefinition } from '@/api/FunctionDefinition'
 import {HasQualifiedName} from '@/api/HasQualifiedName'
 
 /**
- * Provides functionality to define an interface with a Continuum schema.
+ * Provides functionality to define an interface with a Kinotic schema.
  * <p>
  * Created by navid on 2023-4-13.
  */
