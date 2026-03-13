@@ -1,31 +1,14 @@
-/*
- *
- * Copyright 2008-2021 Kinotic and the original author or authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License")
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import {ConnectionInfo, ServerInfo} from '@/api/ConnectionInfo'
-import {ContinuumError} from '@/api/errors/ContinuumError'
+import {KinoticError} from '@/api/errors/KinoticError.js'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {StompConnectionManager} from '@/core/api/StompConnectionManager'
 import {context, propagation} from '@opentelemetry/api';
-import {IFrame, IMessage} from '@stomp/rx-stomp'
-import {ConnectableObservable, firstValueFrom, Observable, Subject, Subscription, throwError, Unsubscribable} from 'rxjs'
+import type {IFrame, IMessage} from '@stomp/rx-stomp';
+import {ConnectableObservable, firstValueFrom, Observable, Subject, Subscription, throwError, type Unsubscribable} from 'rxjs'
 import {filter, map, multicast} from 'rxjs/operators'
 import {Optional} from 'typescript-optional'
 import {v4 as uuidv4} from 'uuid'
-import {EventConstants, IEvent, IEventBus} from './IEventBus'
+import {EventConstants, type IEvent, type IEventBus} from './IEventBus'
 
 /**
  * Default IEvent implementation
@@ -108,8 +91,8 @@ export class EventBus implements IEventBus {
                                                console.error('Error disconnecting from Stomp: ' + error)
                                            }
                                        })
-                                   // TODO: map to continuum error
-                                   return new ContinuumError(frame.headers['message'])
+                                   // TODO: map to kinoitc error
+                                   return new KinoticError(frame.headers['message'] as string)
                                }))
         this.stompConnectionManager.deactivationHandler = () => {
             this.cleanup()
@@ -300,7 +283,7 @@ export class EventBus implements IEventBus {
     }
 
     /**
-     * This is internal impl of observe that creates a cold observable.
+     * This is an internal impl of observe that creates a cold observable.
      * The public variants transform this to some type of hot observable depending on the need
      * @param cri to observe
      * @return the cold {@link Observable<IEvent>} for the given destination
@@ -317,9 +300,9 @@ export class EventBus implements IEventBus {
                            let destination: string = ''
                            for (const prop of Object.keys(message.headers)) {
                                if (prop === 'destination') {
-                                   destination = message.headers[prop]
+                                   destination = message.headers[prop] as string
                                }else{
-                                   headers.set(prop, message.headers[prop])
+                                   headers.set(prop, message.headers[prop] as string)
                                }
                            }
 

@@ -3,11 +3,11 @@
 import { Optional } from 'typescript-optional'
 import { Observable } from 'rxjs'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
-import {ContinuumError} from '@/api/errors/ContinuumError'
+import {KinoticError} from '@/api/errors/KinoticError.js'
 import {ConnectionInfo, ServerInfo} from '@/api/ConnectionInfo'
 
 /**
- * Part of the low level portion of continuum representing data to be processed
+ * Part of the low level portion of kinoitc representing data to be processed
  *
  * This is similar to a Stomp Frame but with more required information and no control plane semantics.
  *
@@ -74,7 +74,7 @@ export interface IEvent {
 }
 
 /**
- * Part of the low level portion of continuum representing a connection to a continuum server
+ * Part of the low level portion of kinoitc representing a connection to a kinoitc server
  * This is similar to a Stomp Client but with more required information and no control plane semantics.
  *
  * Created by Navid Mitchell on 2019-01-04.
@@ -85,7 +85,7 @@ export interface IEventBus {
      * Any errors emitted by this observable will be fatal and the connection will be closed.
      * You will need to resolve the problem and reconnect.
      */
-    fatalErrors: Observable<ContinuumError>
+    fatalErrors: Observable<KinoticError>
 
     /**
      * The {@link ServerInfo} used when connecting, if connected or null
@@ -94,7 +94,7 @@ export interface IEventBus {
 
     /**
      * Requests a connection to the given Stomp url
-     * @param connectionInfo provides the information needed to connect to the continuum server
+     * @param connectionInfo provides the information needed to connect to the kinoitc server
      * @return Promise containing the result of the initial connection attempt
      */
     connect(connectionInfo: ConnectionInfo): Promise<ConnectedInfo>
@@ -112,7 +112,7 @@ export interface IEventBus {
 
     /**
      * Determines if the connection is connected.
-     * This means that there is an open connection to the Continuum server
+     * This means that there is an open connection to the Kinoitc server
      * @return true if the connection is active false if not
      */
     isConnected(): boolean

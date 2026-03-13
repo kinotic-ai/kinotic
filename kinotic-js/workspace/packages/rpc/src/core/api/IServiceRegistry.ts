@@ -1,9 +1,7 @@
-
-
-import {ContextInterceptor, ServiceContext} from '@/core/api/ContextInterceptor.js'
+import type {ContextInterceptor, ServiceContext} from '@/core/api/ContextInterceptor.js'
 import {ServiceIdentifier} from '@/core/api/ServiceIdentifier.js'
 import { Observable } from 'rxjs'
-import { IEvent } from './IEventBus'
+import type {IEvent} from './IEventBus'
 
 /**
  * Provides an interface to allow the {@link IServiceProxy} creator the ability to have fine grain control of the outgoing {@link IEvent}

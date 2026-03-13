@@ -1,6 +1,6 @@
 
 
-import {Identifiable} from '@/api/Identifiable'
+import type {Identifiable} from '@/api/Identifiable'
 
 /**
  * Created by Navíd Mitchell 🤪on 6/16/23.

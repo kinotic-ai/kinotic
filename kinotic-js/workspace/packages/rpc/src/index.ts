@@ -3,13 +3,13 @@
  */
 
 export * from './api/ConnectionInfo'
-export * from './api/Continuum'
-export * from './api/ContinuumDecorators'
+export * from './api/Kinotic'
+export * from './api/KinoticDecorators'
 export * from './api/Identifiable'
 export * from './api/ILogManager'
 export * from './api/LogManager'
 
-export * from './api/errors/ContinuumError'
+export * from './api/errors/KinoticError'
 export * from './api/errors/AuthenticationError'
 export * from './api/errors/AuthorizationError'
 

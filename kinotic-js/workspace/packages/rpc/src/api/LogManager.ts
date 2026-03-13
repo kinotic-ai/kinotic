@@ -1,19 +1,18 @@
-
-
-import { ILogManager,
+import {
+    type ILogManager,
     LogLevel,
     LoggersDescriptor,
     LoggerLevelsDescriptor,
     SingleLoggerLevelsDescriptor,
     GroupLoggerLevelsDescriptor} from './ILogManager'
-import { IServiceProxy } from '@/core/api/IServiceRegistry'
-import { Continuum } from '@/api/Continuum'
+import type {IServiceProxy} from '@/core/api/IServiceRegistry'
+import { Kinotic } from '@/api/Kinotic'
 
 export class LogManager implements ILogManager {
     private readonly serviceProxy: IServiceProxy
 
     constructor() {
-        this.serviceProxy = Continuum.serviceProxy('org.kinotic.continuum.api.log.LogManager')
+        this.serviceProxy = Kinotic.serviceProxy('org.kinotic.kinoitc.api.log.LogManager')
     }
 
     loggers(nodeId: string): Promise<LoggersDescriptor> {
@@ -39,4 +38,4 @@ export class LogManager implements ILogManager {
     }
 }
 
-export const logManager = new LogManager()
+export const logManager: ILogManager = new LogManager()

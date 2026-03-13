@@ -1,10 +1,4 @@
-/*
- * Copyright 2008-2021 Kinotic and the original author or authors.
- * Licensed under the Apache License, Version 2.0 (the "License")
- * See https://www.apache.org/licenses/LICENSE-2.0
- */
-
-import { IEvent } from './IEventBus.js'
+import type {IEvent} from './IEventBus.js';
 
 /**
  * Interface for the service context, extendable by users for type-safe context data.

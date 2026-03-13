@@ -1,7 +1,5 @@
-
-
-import {IterablePage} from '@/core/api/crud/IterablePage'
-import {Page} from '@/core/api/crud/Page'
+import type {IterablePage} from '@/core/api/crud/IterablePage'
+import type {Page} from '@/core/api/crud/Page'
 import {CursorPageable, OffsetPageable, Pageable} from '@/core/api/crud/Pageable'
 
 export abstract class AbstractIterablePage<T> implements IterablePage<T> {

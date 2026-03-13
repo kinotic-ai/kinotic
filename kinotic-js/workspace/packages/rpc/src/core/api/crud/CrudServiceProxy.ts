@@ -1,11 +1,9 @@
-
-
 import {FindAllIterablePage} from '@/internal/core/api/crud/FindAllIterablePage'
 import {SearchIterablePage} from '@/internal/core/api/crud/SearchIterablePage'
-import { ICrudServiceProxy } from './ICrudServiceProxy'
-import { IServiceProxy } from '../IServiceRegistry'
-import {Identifiable, IterablePage} from '@/index'
-import { Page } from './Page'
+import type {ICrudServiceProxy} from './ICrudServiceProxy'
+import type {IServiceProxy} from '../IServiceRegistry'
+import type {Identifiable, IterablePage} from '@/index'
+import type {Page} from './Page'
 import { Pageable } from './Pageable'
 
 export class CrudServiceProxy<T extends Identifiable<string>> implements ICrudServiceProxy<T> {

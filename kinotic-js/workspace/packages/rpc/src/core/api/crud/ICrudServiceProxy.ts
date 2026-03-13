@@ -1,9 +1,7 @@
-
-
-import {Identifiable, IterablePage} from '@/index'
-import {Page} from './Page'
+import type {Identifiable, IterablePage} from '@/index';
+import type {Page} from './Page';
 import {Pageable} from './Pageable'
-import {IEditableDataSource} from "./IDataSource";
+import type {IEditableDataSource} from "./IDataSource";
 
 /**
  * A {@link ICrudServiceProxy} is a proxy for a remote CRUD service

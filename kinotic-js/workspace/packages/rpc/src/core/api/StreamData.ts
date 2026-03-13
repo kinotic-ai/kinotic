@@ -1,6 +1,4 @@
-
-
-import { Identifiable } from '@/index'
+import type {Identifiable} from '@/index'
 
 export enum StreamOperation {
     EXISTING = 'EXISTING',

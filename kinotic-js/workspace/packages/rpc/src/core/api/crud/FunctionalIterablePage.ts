@@ -1,5 +1,5 @@
 import {AbstractIterablePage} from "./AbstractIterablePage"
-import {Page} from "./Page"
+import type {Page} from "./Page"
 import {Pageable} from "./Pageable"
 
 export class FunctionalIterablePage<T> extends AbstractIterablePage<T> {

@@ -1,8 +1,6 @@
+import { KinoticError } from './KinoticError.js'
 
-
-import { ContinuumError } from './ContinuumError'
-
-export class AuthenticationError extends ContinuumError {
+export class AuthenticationError extends KinoticError {
 
     constructor(message: string) {
         super(message);

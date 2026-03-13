@@ -1,10 +1,8 @@
-
-
-import { ICrudServiceProxyFactory } from './ICrudServiceProxyFactory'
-import { ICrudServiceProxy } from './ICrudServiceProxy'
+import type {ICrudServiceProxyFactory} from './ICrudServiceProxyFactory'
+import type {ICrudServiceProxy} from './ICrudServiceProxy'
 import { CrudServiceProxy } from './CrudServiceProxy'
-import { Identifiable } from '@/index'
-import { IServiceRegistry } from '@/core/api/IServiceRegistry'
+import type {Identifiable} from '@/index'
+import type {IServiceRegistry} from '@/core/api/IServiceRegistry'
 
 
 /**

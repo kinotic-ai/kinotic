@@ -1,22 +1,16 @@
-/*
- * Copyright 2008-2021 Kinotic and the original author or authors.
- * Licensed under the Apache License, Version 2.0 (the "License")
- * See https://www.apache.org/licenses/LICENSE-2.0
- */
-
 import { createCRI } from '@/core/api/CRI.js'
-import { EventConstants, IEvent, IEventBus } from '@/core/api/IEventBus.js'
+import { EventConstants, type IEvent, type IEventBus } from '@/core/api/IEventBus.js'
 import { ServiceIdentifier } from '@/core/api/ServiceIdentifier.js'
-import { ArgumentResolver, JsonArgumentResolver } from './ArgumentResolver.js'
+import {type ArgumentResolver, JsonArgumentResolver } from './ArgumentResolver.js'
 import { EventUtil } from './EventUtil.js'
-import { BasicReturnValueConverter, ReturnValueConverter } from './ReturnValueConverter.js'
+import { BasicReturnValueConverter, type ReturnValueConverter } from './ReturnValueConverter.js'
 import { Subscription } from "rxjs"
-import { createDebugLogger, Logger } from "./Logger.js"
-import { ContextInterceptor, ServiceContext } from '@/core/api/ContextInterceptor.js'
-import { CONTEXT_METADATA_KEY } from '@/api/ContinuumDecorators.js'
+import { createDebugLogger, type Logger } from "./Logger.js"
+import type {ContextInterceptor, ServiceContext} from '@/core/api/ContextInterceptor.js'
+import { CONTEXT_METADATA_KEY } from '@/api/KinoticDecorators.js'
 
 /**
- * Handles invoking services registered with Continuum in TypeScript.
+ * Handles invoking services registered with Kinoitc in TypeScript.
  *
  * @author Navid Mitchell 🤝Grok
  * @since 3/25/2025
@@ -54,7 +48,7 @@ export class ServiceInvocationSupervisor {
         this._eventBus = eventBusService
         this.interceptorProvider = interceptorProvider
 
-        this.log = options.logger || createDebugLogger("continuum:ServiceInvocationSupervisor")
+        this.log = options.logger || createDebugLogger("kinoitc:ServiceInvocationSupervisor")
         this.argumentResolver = options.argumentResolver || new JsonArgumentResolver()
         this.returnValueConverter = options.returnValueConverter || new BasicReturnValueConverter()
 

@@ -1,9 +1,7 @@
-
-
-import {Identifiable} from '@/api/Identifiable'
+import type {Identifiable} from '@/api/Identifiable'
 import {AbstractIterablePage} from '@/core/api/crud/AbstractIterablePage'
 import {CrudServiceProxy} from '@/core/api/crud/CrudServiceProxy'
-import {Page} from '@/core/api/crud/Page'
+import type {Page} from '@/core/api/crud/Page'
 import {Pageable} from '@/core/api/crud/Pageable'
 
 /**

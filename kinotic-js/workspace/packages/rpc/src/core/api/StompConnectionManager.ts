@@ -1,7 +1,7 @@
 import {ConnectionInfo} from '@/api/ConnectionInfo'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {EventConstants} from '@/core/api/IEventBus'
-import {IFrame, RxStomp, RxStompConfig, StompHeaders} from '@stomp/rx-stomp'
+import {type IFrame, RxStomp, RxStompConfig, StompHeaders} from '@stomp/rx-stomp'
 import {ReconnectionTimeMode} from '@stomp/stompjs'
 import {Subscription} from 'rxjs'
 import {v4 as uuidv4} from 'uuid'
@@ -24,10 +24,10 @@ export class StompConnectionManager {
     private readonly JITTER_MAX: number = 5000
     private connectionAttempts: number = 0
     private initialConnectionSuccessful: boolean = false
-    private debugLogger = debug('continuum:stomp')
+    private debugLogger = debug('kinoitc:stomp')
     private readonly uuidv4 = uuidv4()
     private replyToId = uuidv4()
-    public _replyToCri =  EventConstants.SERVICE_DESTINATION_PREFIX + this.replyToId + ':' + this.uuidv4 + '@continuum.js.EventBus/replyHandler'
+    public _replyToCri: string =  EventConstants.SERVICE_DESTINATION_PREFIX + this.replyToId + ':' + this.uuidv4 + '@kinoitc.js.EventBus/replyHandler'
     public deactivationHandler: (() => void) | null = null
 
     /**
@@ -92,7 +92,7 @@ export class StompConnectionManager {
                     if(typeof connectionInfo.connectHeaders === 'function'){
                         const headers = await connectionInfo.connectHeaders()
                         for(const key in headers) {
-                            connectHeadersInternal[key] = headers[key]
+                            connectHeadersInternal[key] = headers[key] as string
                         }
                     }
 
@@ -103,7 +103,7 @@ export class StompConnectionManager {
                     // use replyToId if provided in connectionInfo, otherwise set it
                     if(connectHeadersInternal[EventConstants.REPLY_TO_ID_HEADER]){
                         this.replyToId = connectHeadersInternal[EventConstants.REPLY_TO_ID_HEADER]
-                        this._replyToCri =  EventConstants.SERVICE_DESTINATION_PREFIX + this.replyToId + ':' + this.uuidv4 + '@continuum.js.EventBus/replyHandler'
+                        this._replyToCri =  EventConstants.SERVICE_DESTINATION_PREFIX + this.replyToId + ':' + this.uuidv4 + '@kinoitc.js.EventBus/replyHandler'
                     }else{
                         connectHeadersInternal[EventConstants.REPLY_TO_ID_HEADER] = this.replyToId
                     }

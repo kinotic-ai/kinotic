@@ -1,11 +1,5 @@
-/*
- * Copyright 2008-2021 Kinotic and the original author or authors.
- * Licensed under the Apache License, Version 2.0 (the "License")
- * See https://www.apache.org/licenses/LICENSE-2.0
- */
-
 /**
- * Logging utilities for the Continuum library.
+ * Logging utilities for the Kinoitc library.
  *
  * @author Navid Mitchell 🤝Grok
  * @since 3/25/2025

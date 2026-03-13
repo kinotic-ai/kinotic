@@ -1,9 +1,7 @@
-
-
 import {Participant} from '@/api/security/Participant'
 
 /**
- * Contains
+ * Contains information about the connection that was established
  */
 export class ConnectedInfo {
 

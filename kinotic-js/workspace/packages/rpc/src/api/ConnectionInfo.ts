@@ -1,7 +1,7 @@
 
 
 /**
- * ConnectHeaders to use during connection to the continuum server
+ * ConnectHeaders to use during connection to the kinoitc server
  * These headers will be sent as part of the STOMP CONNECT frame
  * This is typically used for authentication information, but any data can be sent
  */
@@ -16,11 +16,11 @@ export class ServerInfo {
 }
 
 /**
- * ConnectionInfo provides the information needed to connect to the continuum server
+ * ConnectionInfo provides the information needed to connect to the kinoitc server
  */
 export class ConnectionInfo extends ServerInfo {
     /**
-     * The headers to send during the connection to the continuum server.
+     * The headers to send during the connection to the kinoitc server.
      * If a function is provided, it will be called to get the headers each time the connection is established.
      * This is useful for providing dynamic headers, such as a JWT token that expires.
      */

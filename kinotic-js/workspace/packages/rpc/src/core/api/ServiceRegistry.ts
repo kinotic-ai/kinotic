@@ -1,14 +1,7 @@
-/*
- * Copyright 2008-2021 Kinotic and the original author or authors.
- * Licensed under the Apache License, Version 2.0 (the "License")
- * See https://www.apache.org/licenses/LICENSE-2.0
- */
-
-import { ContinuumContextStack } from '@/api/Continuum'
 import debug from 'debug'
 import { ServiceIdentifier } from './ServiceIdentifier.js'
 import { ServiceInvocationSupervisor } from '@/internal/core/api/ServiceInvocationSupervisor.js'
-import opentelemetry, { SpanKind, SpanStatusCode, Tracer } from '@opentelemetry/api'
+import opentelemetry, { SpanKind, SpanStatusCode, type Tracer } from '@opentelemetry/api'
 import {
     ATTR_SERVER_ADDRESS,
     ATTR_SERVER_PORT,
@@ -17,9 +10,9 @@ import { Observable } from 'rxjs'
 import { first, map } from 'rxjs/operators'
 import info from '../../../package.json' assert { type: 'json' }
 import { Event } from './EventBus'
-import { EventConstants, IEvent, IEventBus } from './IEventBus'
-import { IEventFactory, IServiceProxy, IServiceRegistry } from './IServiceRegistry'
-import { ContextInterceptor, ServiceContext } from './ContextInterceptor'
+import { EventConstants, type IEvent, type IEventBus } from './IEventBus'
+import type {IEventFactory, IServiceProxy, IServiceRegistry} from './IServiceRegistry'
+import type {ContextInterceptor, ServiceContext} from './ContextInterceptor'
 
 /**
  * An implementation of a {@link IEventFactory} which uses JSON content
@@ -67,7 +60,7 @@ export class ServiceRegistry implements IServiceRegistry {
     private _eventBus: IEventBus
     private supervisors: Map<string, ServiceInvocationSupervisor> = new Map()
     private contextInterceptor: ContextInterceptor<any> | null = null
-    private debugLogger = debug('continuum:serviceRegistry')
+    private debugLogger = debug('kinoitc:serviceRegistry')
 
     constructor(eventBus: IEventBus) {
         this._eventBus = eventBus
@@ -139,7 +132,7 @@ class ServiceProxy implements IServiceProxy {
         this.serviceIdentifier = serviceIdentifier
         this.serviceRegistry = serviceRegistry
         this.tracer = opentelemetry.trace.getTracer(
-            'continuum.client',
+            'kinoitc.client',
             info.version
         )
     }
@@ -155,9 +148,9 @@ class ServiceProxy implements IServiceProxy {
             },
             async (span) => {
                 if (scope) {
-                    span.setAttribute('continuum.scope', scope)
+                    span.setAttribute('kinoitc.scope', scope)
                 }
-                span.setAttribute('rpc.system', 'continuum')
+                span.setAttribute('rpc.system', 'kinoitc')
                 span.setAttribute('rpc.service', this.serviceIdentifier)
                 span.setAttribute('rpc.method', methodIdentifier)
 
@@ -194,14 +187,9 @@ class ServiceProxy implements IServiceProxy {
         let eventFactoryToUse = defaultEventFactory
         if (eventFactory) {
             eventFactoryToUse = eventFactory
-        } else if (ContinuumContextStack.getEventFactory()) {
-            eventFactoryToUse = ContinuumContextStack.getEventFactory()!
         }
 
         let eventBusToUse = this.serviceRegistry.eventBus
-        if (ContinuumContextStack.getContinuumInstance()) {
-            eventBusToUse = ContinuumContextStack.getContinuumInstance()!.eventBus
-        }
 
         // store additional attribute if there is an active span
         const span = opentelemetry.trace.getActiveSpan()

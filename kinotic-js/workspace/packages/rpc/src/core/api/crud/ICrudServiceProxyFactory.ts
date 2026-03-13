@@ -1,7 +1,5 @@
-
-
-import { ICrudServiceProxy } from './ICrudServiceProxy'
-import { Identifiable } from '@/index'
+import type {ICrudServiceProxy} from './ICrudServiceProxy'
+import type {Identifiable} from '@/index'
 
 /**
  * Produces {@link ICrudServiceProxy} Proxies for a known remote CRUD service

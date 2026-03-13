@@ -1,6 +1,4 @@
-
-
-import {Page} from '@/core/api/crud/Page'
+import type {Page} from '@/core/api/crud/Page'
 
 /**
  * Defines a page that is also an async iterator.

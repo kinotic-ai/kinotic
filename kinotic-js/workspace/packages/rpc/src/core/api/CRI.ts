@@ -1,26 +1,9 @@
-/*
- *
- * Copyright 2008-2021 Kinotic and the original author or authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License")
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import {DefaultCRI} from './DefaultCRI.js'
 
 /**
- * `CRI` is a Continuum Resource Identifier used by Continuum to route requests appropriately.
+ * `CRI` is a Kinoitc Resource Identifier used by Kinoitc to route requests appropriately.
  *
- * The `CRI` is a URI where the parts are named differently for clarity as to their purpose within Continuum.
+ * The `CRI` is a URI where the parts are named differently for clarity as to their purpose within Kinoitc.
  *
  * Will be in a format as follows where anything surrounded with `[]` is optional:
  *
