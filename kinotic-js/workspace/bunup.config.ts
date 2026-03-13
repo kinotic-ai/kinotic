@@ -2,9 +2,14 @@ import { defineWorkspace } from 'bunup'
 
 // https://bunup.dev/docs/guide/workspaces
 
-export default defineWorkspace([
-	{
-		name: 'rpc',
-		root: 'packages/rpc'
-	}
-])
+export default defineWorkspace(
+	[
+		{
+			name: 'rpc',
+			root: 'packages/rpc'
+		},
+		{
+			name: 'idl',
+			root: 'packages/idl'
+		}
+	])
