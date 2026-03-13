@@ -4,6 +4,7 @@ import {ConnectedInfo, ConnectionInfo, Kinotic, KinoticSingleton} from '../src'
 import { GenericContainer, PullPolicy, StartedTestContainer, Wait } from 'testcontainers'
 import {TestService} from './ITestService.js'
 import { logFailure, validateConnectedInfo } from './TestHelper'
+import {KINOTIC_DOCKER_IMAGE} from './TestHelper.js'
 
 // This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
@@ -39,7 +40,7 @@ describe('Kinotic Unavailable Tests', () => {
            // Start the Kinotic Gateway container
            console.log('Starting Kinotic Gateway for sticky session gateway restart reconnection test')
 
-           container = await new GenericContainer('mindignited/continuum-gateway-server:latest')
+           container = await new GenericContainer(KINOTIC_DOCKER_IMAGE)
                .withExposedPorts({container: 58503, host: 58590})
                .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
                .withPullPolicy(PullPolicy.alwaysPull())

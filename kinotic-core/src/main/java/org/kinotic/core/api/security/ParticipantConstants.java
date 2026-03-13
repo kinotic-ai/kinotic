@@ -18,7 +18,7 @@ public class ParticipantConstants {
 
     public static final String PARTICIPANT_TYPE_NODE = "node";
 
-    public static final String CLI_PARTICIPANT_ID = "-42-Continuum-CLI-42-";
+    public static final String CLI_PARTICIPANT_ID = "-42-Kinotic-CLI-42-";
 
 }
 

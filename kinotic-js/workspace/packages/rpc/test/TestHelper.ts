@@ -1,5 +1,22 @@
 import {ConnectedInfo, ConnectHeaders, ConnectionInfo} from '../src'
 import { expect, inject } from 'vitest'
+import * as fs from 'fs'
+import * as path from 'path'
+
+/**
+ * Returns the Kinotic Docker image string with version from gradle.properties
+ */
+export function getKinoticDockerImage(): string {
+    const gradlePropsPath = path.resolve(__dirname, '../../../../../gradle.properties')
+    const content = fs.readFileSync(gradlePropsPath, 'utf-8')
+    const versionMatch = content.match(/kinoticVersion=(.+)/)
+    if (!versionMatch) {
+        throw new Error('Could not find kinoticVersion in gradle.properties')
+    }
+    return `kinoticai/kinotic-server:${versionMatch[1].trim()}`
+}
+
+export const KINOTIC_DOCKER_IMAGE: string = getKinoticDockerImage()
 
 /**
  * Logs the failure of a promise and then rethrows the error

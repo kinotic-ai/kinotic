@@ -1,8 +1,10 @@
 import {GenericContainer, PullPolicy, Wait} from 'testcontainers'
 import type {StartedTestContainer} from 'testcontainers'
 import type {TestProject} from 'vitest/node'
+import {KINOTIC_DOCKER_IMAGE} from './TestHelper.js'
 
 let container: StartedTestContainer
+
 
 // Run once before all tests
 export async function setup(project: TestProject) {
@@ -10,7 +12,7 @@ export async function setup(project: TestProject) {
     if(import.meta.env.VITE_USE_GATEWAY_DOCKER === 'true') {
         console.log('Starting Kinotic Gateway')
 
-        container = await new GenericContainer(`kinoticai/kinotic-server:latest`)
+        container = await new GenericContainer(KINOTIC_DOCKER_IMAGE)
             .withExposedPorts(58503)
             .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
             .withPullPolicy(PullPolicy.alwaysPull())

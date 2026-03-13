@@ -39,7 +39,7 @@ public class RpcGatewayVertcleFactory {
 
     public StompServerVerticle createStompServerVerticle(){
         Router router = Router.router(vertx);
-        router.route().handler(StaticHandler.create("continuum-gateway-static"));
+        router.route().handler(StaticHandler.create("rpc-gateway-static"));
 
         // FIXME: check CORS, see if it is protected or actually allowing any..?
         StompServerOptions stompServerOptions = gatewayProperties.getStomp();
