@@ -9,7 +9,14 @@ import type {IServiceProxy, IServiceRegistry} from '@/core/api/IServiceRegistry'
 import {ServiceRegistry} from '@/core/api/ServiceRegistry'
 
 
-interface IKinotic {
+/**
+ * A plugin that can be installed into a {@link IKinotic} instance to extend it with additional services.
+ */
+export interface KinoticPlugin<TExtension extends object> {
+    install(kinotic: IKinotic): TExtension
+}
+
+export interface IKinotic {
     serviceRegistry: IServiceRegistry
     eventBus: IEventBus
 
@@ -33,7 +40,15 @@ interface IKinotic {
      */
     serviceProxy(serviceIdentifier: string): IServiceProxy
 
+    /**
+     * Installs a plugin into this Kinotic instance, extending it with additional typed properties.
+     * @param plugin the plugin to install
+     * @return this instance extended with the plugin's properties
+     */
+    use<TExtension extends object>(plugin: KinoticPlugin<TExtension>): this & TExtension
+
 }
+
 
 /**
  * Provides a simplified way to connect to Kinotic and access services.
@@ -90,9 +105,19 @@ export class KinoticSingleton implements IKinotic {
         return this.serviceRegistry.serviceProxy(serviceIdentifier)
     }
 
+    /**
+     * Installs a plugin into this Kinotic instance, extending it with additional typed properties.
+     * @param plugin the plugin to install
+     * @return this instance extended with the plugin's properties
+     */
+    use<TExtension extends object>(plugin: KinoticPlugin<TExtension>): this & TExtension {
+        const extension = plugin.install(this)
+        return Object.assign(this, extension) as this & TExtension
+    }
+
 }
 
 /**
  * The default {@link IKinotic} instance that can be used to access Kinotic services
  */
-export const Kinotic: IKinotic = new KinoticSingleton()
+export const Kinotic: KinoticSingleton = new KinoticSingleton()

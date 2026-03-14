@@ -1,5 +1,6 @@
 import 'reflect-metadata'
 import { Kinotic } from '@/api/Kinotic.js'
+
 import { ServiceIdentifier } from '@/core/api/ServiceIdentifier.js'
 
 /**
@@ -53,7 +54,7 @@ export function Publish(namespace: string, name?: string) {
                 serviceIdentifier.scope = typeof scopeValue === 'function' ? scopeValue.call(instance) : scopeValue
             }
 
-            // Register with the singleton Kinotic's ServiceRegistry
+            // Register with the default Kinotic's ServiceRegistry
             Kinotic.serviceRegistry.register(serviceIdentifier, instance)
 
             return instance

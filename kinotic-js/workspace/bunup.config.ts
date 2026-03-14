@@ -11,6 +11,18 @@ export default defineWorkspace(
 		{
 			name: 'idl',
 			root: 'packages/idl'
+		},
+		{
+			name: 'domain',
+			root: 'packages/domain'
+		},
+		{
+			name: 'persistence',
+			root: 'packages/persistence'
+		},
+		{
+			name: 'kinotic',
+			root: 'packages/kinotic'
 		}
 	],
 	{

@@ -10,27 +10,8 @@
         "typescript": "^5.9.3",
       },
     },
-    "packages/idl": {
-      "name": "@kinotic-ai/idl",
-      "version": "1.0.0-beta.0",
-      "dependencies": {
-        "reflect-metadata": "^0.2.2",
-      },
-      "devDependencies": {
-        "@types/node": "^25.3.2",
-        "@types/ws": "^8.18.1",
-        "@vitest/coverage-v8": "^4.0.18",
-        "@vitest/runner": "^4.0.18",
-        "@vitest/ui": "^4.0.18",
-        "allure": "^3.3.1",
-        "allure-vitest": "^3.5.0",
-        "tslib": "^2.8.1",
-        "typescript": "^5.9.3",
-        "vitest": "^4.0.18",
-      },
-    },
-    "packages/rpc": {
-      "name": "@kinotic-ai/rpc",
+    "packages/core": {
+      "name": "@kinotic-ai/core",
       "version": "1.0.0-beta.0",
       "dependencies": {
         "@opentelemetry/api": "^1.9.0",
@@ -65,6 +46,78 @@
         "typescript": "^5.9.3",
         "vitest": "^4.0.18",
         "ws": "^8.19.0",
+      },
+    },
+    "packages/domain": {
+      "name": "@kinotic-ai/domain",
+      "version": "1.0.0-beta.0",
+      "dependencies": {
+        "@kinotic-ai/core": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/node": "^25.3.2",
+        "@vitest/coverage-v8": "^4.0.18",
+        "@vitest/runner": "^4.0.18",
+        "@vitest/ui": "^4.0.18",
+        "tslib": "^2.8.1",
+        "typescript": "^5.9.3",
+        "vitest": "^4.0.18",
+      },
+    },
+    "packages/idl": {
+      "name": "@kinotic-ai/idl",
+      "version": "1.0.0-beta.0",
+      "dependencies": {
+        "reflect-metadata": "^0.2.2",
+      },
+      "devDependencies": {
+        "@types/node": "^25.3.2",
+        "@types/ws": "^8.18.1",
+        "@vitest/coverage-v8": "^4.0.18",
+        "@vitest/runner": "^4.0.18",
+        "@vitest/ui": "^4.0.18",
+        "allure": "^3.3.1",
+        "allure-vitest": "^3.5.0",
+        "tslib": "^2.8.1",
+        "typescript": "^5.9.3",
+        "vitest": "^4.0.18",
+      },
+    },
+    "packages/kinotic": {
+      "name": "@kinotic-ai/kinotic",
+      "version": "1.0.0-beta.0",
+      "dependencies": {
+        "@kinotic-ai/core": "workspace:*",
+        "@kinotic-ai/domain": "workspace:*",
+        "@kinotic-ai/idl": "workspace:*",
+        "@kinotic-ai/persistence": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/node": "^25.3.2",
+        "@vitest/coverage-v8": "^4.0.18",
+        "@vitest/runner": "^4.0.18",
+        "@vitest/ui": "^4.0.18",
+        "tslib": "^2.8.1",
+        "typescript": "^5.9.3",
+        "vitest": "^4.0.18",
+      },
+    },
+    "packages/persistence": {
+      "name": "@kinotic-ai/persistence",
+      "version": "1.0.0-beta.0",
+      "dependencies": {
+        "@kinotic-ai/core": "workspace:*",
+        "@kinotic-ai/idl": "workspace:*",
+        "rxjs": "^7.8.2",
+      },
+      "devDependencies": {
+        "@types/node": "^25.3.2",
+        "@vitest/coverage-v8": "^4.0.18",
+        "@vitest/runner": "^4.0.18",
+        "@vitest/ui": "^4.0.18",
+        "tslib": "^2.8.1",
+        "typescript": "^5.9.3",
+        "vitest": "^4.0.18",
       },
     },
   },
@@ -227,9 +280,15 @@
 
     "@js-sdsl/ordered-map": ["@js-sdsl/ordered-map@4.4.2", "", {}, "sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw=="],
 
+    "@kinotic-ai/core": ["@kinotic-ai/core@workspace:packages/core"],
+
+    "@kinotic-ai/domain": ["@kinotic-ai/domain@workspace:packages/domain"],
+
     "@kinotic-ai/idl": ["@kinotic-ai/idl@workspace:packages/idl"],
 
-    "@kinotic-ai/rpc": ["@kinotic-ai/rpc@workspace:packages/rpc"],
+    "@kinotic-ai/kinotic": ["@kinotic-ai/kinotic@workspace:packages/kinotic"],
+
+    "@kinotic-ai/persistence": ["@kinotic-ai/persistence@workspace:packages/persistence"],
 
     "@kwsites/file-exists": ["@kwsites/file-exists@1.1.1", "", { "dependencies": { "debug": "^4.1.1" } }, "sha512-m9/5YGR18lIwxSFDwfE3oA7bWuq9kdau6ugN4H2rJeyhFQZcG9AgSHkQtSD15a8WvTgfz9aikZMrKPHvbpqFiw=="],
 

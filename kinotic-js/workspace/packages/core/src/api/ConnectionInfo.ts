@@ -1,5 +1,3 @@
-
-
 /**
  * ConnectHeaders to use during connection to the kinoitc server
  * These headers will be sent as part of the STOMP CONNECT frame
