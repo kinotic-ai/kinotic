@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.services.sql.executors;
 
-import org.kinotic.domain.api.services.crud.Page;
-import org.kinotic.domain.api.services.crud.Pageable;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 
 import java.util.List;

@@ -5,7 +5,7 @@ import com.github.benmanes.caffeine.cache.CacheLoader;
 import org.apache.commons.lang3.tuple.Pair;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.kinotic.core.internal.utils.KinoticUtil;
-import org.kinotic.domain.api.services.ApplicationService;
+import org.kinotic.os.api.services.ApplicationService;
 import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.IntC3Type;
 import org.kinotic.idl.api.schema.ObjectC3Type;

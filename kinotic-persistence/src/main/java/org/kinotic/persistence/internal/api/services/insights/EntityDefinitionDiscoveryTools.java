@@ -1,8 +1,8 @@
 package org.kinotic.persistence.internal.api.services.insights;
 
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.domain.api.services.crud.Page;
-import org.kinotic.domain.api.services.crud.Pageable;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.ObjectC3Type;

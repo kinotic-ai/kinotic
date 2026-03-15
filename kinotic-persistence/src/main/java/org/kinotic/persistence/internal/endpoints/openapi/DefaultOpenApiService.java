@@ -14,7 +14,7 @@ import io.swagger.v3.oas.models.servers.Server;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.text.WordUtils;
 import org.kinotic.idl.api.schema.*;
-import org.kinotic.domain.api.services.crud.Pageable;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityDefinition;

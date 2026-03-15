@@ -9,7 +9,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CorsHandler;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.NonNull;
-import org.kinotic.domain.api.services.crud.*;
+import org.kinotic.core.api.crud.*;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.persistence.api.config.PersistenceProperties;
@@ -80,8 +80,8 @@ public class VertxWebUtil {
      * @return a {@link Pageable} or null if neither a cursor nor page number is present
      */
     public static Pageable getPageableIfExits(RoutingContext ctx,
-                                              boolean createIfOnlySortPresent,
-                                              Class<? extends Pageable> defaultPageableClass){
+                                                                                    boolean createIfOnlySortPresent,
+                                                                                    Class<? extends Pageable> defaultPageableClass){
         Pageable ret = null;
         String sizeString = ctx.request().getParam("size");
         int size = (sizeString != null && !sizeString.isEmpty()) ? Integer.parseInt(sizeString) : 25;

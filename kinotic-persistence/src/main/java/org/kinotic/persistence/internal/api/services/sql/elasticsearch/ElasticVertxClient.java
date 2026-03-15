@@ -2,8 +2,8 @@ package org.kinotic.persistence.internal.api.services.sql.elasticsearch;
 
 import co.elastic.clients.elasticsearch.sql.TranslateResponse;
 import io.vertx.core.json.JsonObject;
-import org.kinotic.domain.api.services.crud.Page;
-import org.kinotic.domain.api.services.crud.Pageable;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.persistence.api.model.QueryOptions;
 
 import java.util.List;

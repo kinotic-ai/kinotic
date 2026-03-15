@@ -1,5 +1,4 @@
-import type { IKinotic } from '@kinotic-ai/core'
-import { CrudServiceProxy, FunctionalIterablePage, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
+import { CrudServiceProxy, FunctionalIterablePage, type IKinotic, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import type { EntityDefinition } from '@/api/domain/EntityDefinition'
 
 

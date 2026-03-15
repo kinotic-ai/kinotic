@@ -12,7 +12,7 @@ sourceSets {
 
 dependencies {
 	implementation project(':kinotic-core')
-	implementation project(':kinotic-domain')
+	implementation project(':kinotic-os-api')
 	implementation project(':kinotic-persistence')
     implementation project(':kinotic-rpc-gateway')
 

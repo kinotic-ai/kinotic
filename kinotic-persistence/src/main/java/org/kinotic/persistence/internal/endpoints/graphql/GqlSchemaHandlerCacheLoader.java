@@ -12,7 +12,7 @@ import io.vertx.ext.web.handler.graphql.GraphQLHandler;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.text.WordUtils;
-import org.kinotic.domain.api.services.crud.Pageable;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;

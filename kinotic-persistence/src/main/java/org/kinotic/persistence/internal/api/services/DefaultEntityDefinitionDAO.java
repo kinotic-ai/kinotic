@@ -2,10 +2,10 @@ package org.kinotic.persistence.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
-import org.kinotic.domain.api.services.crud.Page;
-import org.kinotic.domain.api.services.crud.Pageable;
-import org.kinotic.domain.internal.api.services.AbstractCrudService;
-import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.os.internal.api.services.AbstractCrudService;
+import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.springframework.stereotype.Component;
 

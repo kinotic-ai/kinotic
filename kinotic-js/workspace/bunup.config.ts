@@ -13,16 +13,12 @@ export default defineWorkspace(
 			root: 'packages/idl'
 		},
 		{
-			name: 'domain',
-			root: 'packages/domain'
+			name: 'os-api',
+			root: 'packages/os-api'
 		},
 		{
 			name: 'persistence',
 			root: 'packages/persistence'
-		},
-		{
-			name: 'kinotic',
-			root: 'packages/kinotic'
 		}
 	],
 	{

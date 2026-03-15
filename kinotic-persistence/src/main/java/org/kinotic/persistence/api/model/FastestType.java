@@ -1,6 +1,6 @@
 package org.kinotic.persistence.api.model;
 
-import org.kinotic.domain.api.model.RawJson;
+import org.kinotic.os.api.model.RawJson;
 
 /**
  * Fastest type allows for the system to work with the fastest type possible while converting data to and from elastic.

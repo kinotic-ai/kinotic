@@ -10,7 +10,7 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.core.util.ByteArrayBuilder;
 import tools.jackson.databind.json.JsonMapper;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.domain.api.model.RawJson;
+import org.kinotic.os.api.model.RawJson;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.*;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
