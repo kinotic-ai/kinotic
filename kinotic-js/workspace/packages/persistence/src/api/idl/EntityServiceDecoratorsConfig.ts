@@ -1,4 +1,4 @@
-import type { EntityServiceDecorator } from '@/api/decorators/EntityServiceDecorator'
+import type { EntityServiceDecorator } from './EntityServiceDecorator'
 import type { IEntityService } from '@/api/IEntityService'
 
 // Helper type to determine if a type is a function

@@ -1,13 +1,13 @@
-import { createCRI } from '@/core/api/CRI.js'
-import { EventConstants, type IEvent, type IEventBus } from '@/core/api/IEventBus.js'
-import { ServiceIdentifier } from '@/core/api/ServiceIdentifier.js'
-import {type ArgumentResolver, JsonArgumentResolver } from './ArgumentResolver.js'
-import { EventUtil } from './EventUtil.js'
-import { BasicReturnValueConverter, type ReturnValueConverter } from './ReturnValueConverter.js'
+import { createCRI } from '@/api/event/CRI'
+import { EventConstants, type IEvent, type IEventBus } from '@/api/event/IEventBus'
+import { ServiceIdentifier } from '@/api/ServiceIdentifier'
+import {type ArgumentResolver, JsonArgumentResolver } from './ArgumentResolver'
+import { EventUtil } from './EventUtil'
+import { BasicReturnValueConverter, type ReturnValueConverter } from './ReturnValueConverter'
 import { Subscription } from "rxjs"
-import { createDebugLogger, type Logger } from "./Logger.js"
-import type {ContextInterceptor, ServiceContext} from '@/core/api/ContextInterceptor.js'
-import { CONTEXT_METADATA_KEY } from '@/api/KinoticDecorators.js'
+import { createDebugLogger, type Logger } from "./Logger"
+import type {ContextInterceptor, ServiceContext} from '@/api/ContextInterceptor'
+import { CONTEXT_METADATA_KEY } from '@/api/KinoticDecorators'
 
 /**
  * Handles invoking services registered with Kinoitc in TypeScript.

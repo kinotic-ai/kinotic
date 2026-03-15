@@ -1,4 +1,4 @@
-import { EntityServiceDecorator } from '@/api/decorators/EntityServiceDecorator'
+import { EntityServiceDecorator } from '@/api/model/idl/decorators/EntityServiceDecorator'
 
 export class RoleDecorator extends EntityServiceDecorator {
 

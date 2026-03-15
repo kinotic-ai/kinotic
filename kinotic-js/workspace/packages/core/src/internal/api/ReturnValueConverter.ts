@@ -1,5 +1,5 @@
-import {EventConstants, type IEvent} from '@/core/api/IEventBus.js'
-import {EventUtil} from '@/internal/core/api/EventUtil.js'
+import {EventConstants, type IEvent} from '@/api/event/IEventBus'
+import {EventUtil} from './EventUtil'
 
 /**
  * Return value conversion utilities for service responses.

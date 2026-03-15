@@ -1,7 +1,7 @@
 import 'reflect-metadata'
 import { Kinotic } from '@/api/Kinotic.js'
 
-import { ServiceIdentifier } from '@/core/api/ServiceIdentifier.js'
+import { ServiceIdentifier } from '@/api/ServiceIdentifier.js'
 
 /**
  * Decorator for registering services with the Kinotic ServiceRegistry.

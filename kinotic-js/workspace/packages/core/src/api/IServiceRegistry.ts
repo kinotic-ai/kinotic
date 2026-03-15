@@ -1,5 +1,5 @@
-import type {ContextInterceptor, ServiceContext} from '@/core/api/ContextInterceptor.js'
-import {ServiceIdentifier} from '@/core/api/ServiceIdentifier.js'
+import type {ContextInterceptor, ServiceContext} from '@/api/ContextInterceptor.js'
+import {ServiceIdentifier} from '@/api/ServiceIdentifier.js'
 import { Observable } from 'rxjs'
 import type {IEvent} from './IEventBus'
 

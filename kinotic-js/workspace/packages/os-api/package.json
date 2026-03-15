@@ -32,7 +32,10 @@
     "ui-test": "vitest --ui --coverage.enabled=true --mode development"
   },
   "dependencies": {
-    "@kinotic-ai/core": "workspace:*"
+    "@kinotic-ai/core": "workspace:*",
+    "@kinotic-ai/idl": "workspace:*",
+    "@kinotic-ai/persistence": "workspace:*",
+    "rxjs": "^7.8.2"
   },
   "devDependencies": {
     "@types/node": "^25.3.2",

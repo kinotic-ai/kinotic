@@ -1,4 +1,4 @@
-import { MultiTenancyType } from '@/api/decorators/MultiTenancyType'
+import { MultiTenancyType } from '@kinotic-ai/persistence'
 import { CalculatedPropertyConfiguration } from './CalculatedPropertyConfiguration'
 import { OverrideConfiguration } from './OverrideConfiguration'
 import { TransformConfiguration } from './TransformConfiguration'

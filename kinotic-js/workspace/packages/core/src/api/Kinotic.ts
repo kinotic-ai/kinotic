@@ -1,12 +1,9 @@
 import {ConnectionInfo} from '@/api/ConnectionInfo'
-import type {Identifiable} from '@/api/Identifiable'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
-import {CrudServiceProxyFactory} from '@/core/api/crud/CrudServiceProxyFactory'
-import type {ICrudServiceProxy} from '@/core/api/crud/ICrudServiceProxy'
-import {EventBus} from '@/core/api/EventBus'
-import type {IEventBus} from '@/core/api/IEventBus'
-import type {IServiceProxy, IServiceRegistry} from '@/core/api/IServiceRegistry'
-import {ServiceRegistry} from '@/core/api/ServiceRegistry'
+import {EventBus} from '@/api/event/EventBus'
+import type {IEventBus} from '@/api/event/IEventBus'
+import type {IServiceProxy, IServiceRegistry} from '@/api/IServiceRegistry'
+import {ServiceRegistry} from '@/api/ServiceRegistry'
 
 
 /**

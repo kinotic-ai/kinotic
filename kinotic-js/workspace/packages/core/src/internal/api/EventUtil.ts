@@ -1,5 +1,5 @@
-import {EventConstants, type IEvent} from '@/core/api/IEventBus.js'
-import {Event} from '@/core/api/EventBus.js'
+import {EventConstants, type IEvent} from '@/api/event/IEventBus'
+import {Event} from '@/api/event/EventBus'
 
 /**
  * Utility functions for working with events in the Kinoitc framework.

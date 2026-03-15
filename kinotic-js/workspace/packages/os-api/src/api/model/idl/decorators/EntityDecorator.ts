@@ -1,6 +1,6 @@
-import { EntityType } from '@/api/decorators/EntityType'
+import { EntityType } from '@/api/model/idl/decorators/EntityType'
 import { C3Decorator } from '@kinotic-ai/idl'
-import { MultiTenancyType } from '@/api/decorators/MultiTenancyType'
+import { MultiTenancyType } from '@/api/model/idl/decorators/MultiTenancyType'
 
 /**
  * Signifies that a class is an entity.

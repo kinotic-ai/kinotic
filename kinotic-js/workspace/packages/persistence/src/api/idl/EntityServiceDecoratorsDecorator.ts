@@ -1,4 +1,4 @@
-import type { EntityServiceDecoratorsConfig } from '@/api/decorators/EntityServiceDecoratorsConfig'
+import type { EntityServiceDecoratorsConfig } from './EntityServiceDecoratorsConfig'
 import { C3Decorator } from '@kinotic-ai/idl'
 
 /**
