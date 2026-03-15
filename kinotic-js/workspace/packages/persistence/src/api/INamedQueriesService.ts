@@ -1,6 +1,6 @@
 import type { IKinotic } from '@kinotic-ai/core'
 import { CrudServiceProxy, type ICrudServiceProxy } from '@kinotic-ai/core'
-import type { NamedQueriesDefinition } from '@/api/domain/NamedQueriesDefinition'
+import type { NamedQueriesDefinition } from '@/api/model/NamedQueriesDefinition'
 
 export interface INamedQueriesService extends ICrudServiceProxy<NamedQueriesDefinition> {
 

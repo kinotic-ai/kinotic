@@ -1,4 +1,4 @@
-import type { QueryParameter } from '@/api/domain/QueryParameter'
+import type { QueryParameter } from '@/api/model/QueryParameter'
 import type { IKinotic } from '@kinotic-ai/core'
 import {
     type IServiceProxy,

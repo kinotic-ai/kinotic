@@ -1,5 +1,5 @@
-import type { QueryParameter } from '@/api/domain/QueryParameter'
-import type { TenantSpecificId } from '@/api/domain/TenantSpecificId'
+import type { QueryParameter } from '@/api/model/QueryParameter'
+import type { TenantSpecificId } from '@/api/model/TenantSpecificId'
 import type { IKinotic } from '@kinotic-ai/core'
 import {
     type IServiceProxy,

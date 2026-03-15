@@ -1,4 +1,4 @@
-import type { QueryParameter } from '@/api/domain/QueryParameter'
+import type { QueryParameter } from '@/api/model/QueryParameter'
 import { Kinotic } from '@kinotic-ai/core'
 import { type Page, type Pageable, type IterablePage } from '@kinotic-ai/core'
 import { EntitiesService, type IEntitiesService } from '@/api/IEntitiesService'

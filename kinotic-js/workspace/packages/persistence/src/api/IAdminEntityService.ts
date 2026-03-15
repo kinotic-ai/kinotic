@@ -1,5 +1,5 @@
-import type { QueryParameter } from '@/api/domain/QueryParameter'
-import type { TenantSpecificId } from '@/api/domain/TenantSpecificId'
+import type { QueryParameter } from '@/api/model/QueryParameter'
+import type { TenantSpecificId } from '@/api/model/TenantSpecificId'
 import { Kinotic } from '@kinotic-ai/core'
 import { type Page, type Pageable, type IterablePage } from '@kinotic-ai/core'
 import { AdminEntitiesService, type IAdminEntitiesService, type TenantSelection } from '@/api/IAdminEntitiesService'

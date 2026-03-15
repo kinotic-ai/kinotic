@@ -1,6 +1,6 @@
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
-import type { InsightRequest } from '@/api/domain/insights/InsightRequest'
-import type { InsightProgress } from '@/api/domain/insights/InsightProgress'
+import type { InsightRequest } from '@/api/model/insights/InsightRequest'
+import type { InsightProgress } from '@/api/model/insights/InsightProgress'
 import type { Observable } from 'rxjs'
 
 /**

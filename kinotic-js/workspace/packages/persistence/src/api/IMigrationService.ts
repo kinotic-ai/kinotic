@@ -1,7 +1,7 @@
 import type { IKinotic } from '@kinotic-ai/core'
 import type { IServiceProxy } from '@kinotic-ai/core'
-import type { MigrationRequest } from '@/api/domain/MigrationRequest'
-import type { MigrationResult } from '@/api/domain/MigrationResult'
+import type { MigrationRequest } from '@/api/model/MigrationRequest'
+import type { MigrationResult } from '@/api/model/MigrationResult'
 
 /**
  * Service for executing project-specific migrations through the Persistence API.
