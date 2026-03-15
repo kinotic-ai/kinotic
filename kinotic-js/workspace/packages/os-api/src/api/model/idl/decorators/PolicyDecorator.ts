@@ -1,4 +1,4 @@
-import { EntityServiceDecorator } from '@/api/model/idl/decorators/EntityServiceDecorator'
+import { EntityServiceDecorator } from '@kinotic-ai/persistence'
 
 export class PolicyDecorator extends EntityServiceDecorator {
 

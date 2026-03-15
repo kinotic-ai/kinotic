@@ -1,6 +1,5 @@
 {
   "name": "@kinotic-ai/persistence",
-  "version": "1.0.0-beta.0",
   "type": "module",
   "files": [
     "dist"
