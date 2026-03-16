@@ -1,4 +1,4 @@
-import {ArrayC3Type, C3Type} from '@kinotic/continuum-idl'
+import {ArrayC3Type, C3Type} from '@kinotic-ai/idl'
 import {ITypeConverter} from '../ITypeConverter.js'
 import {IConversionContext} from '../IConversionContext.js'
 import {

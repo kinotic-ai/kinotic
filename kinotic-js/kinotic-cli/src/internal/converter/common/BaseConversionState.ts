@@ -1,6 +1,6 @@
-import {PropertyDefinition} from '@kinotic/continuum-idl'
+import {PropertyDefinition} from '@kinotic-ai/idl'
 import {FunctionDeclaration} from 'ts-morph'
-import {CalculatedPropertyConfiguration, EntityConfiguration, OverrideConfiguration, TransformConfiguration} from '@kinotic/structures-api'
+import {CalculatedPropertyConfiguration, EntityConfiguration, OverrideConfiguration, TransformConfiguration} from '@kinotic-ai/os-api'
 import {UtilFunctionLocator} from '../../UtilFunctionLocator.js'
 
 export class BaseConversionState {

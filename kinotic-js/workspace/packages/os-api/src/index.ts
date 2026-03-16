@@ -43,12 +43,15 @@ export * from '@/api/services/ILogManager'
 export * from '@/api/services/IProjectService'
 export * from '@/api/services/LogManager'
 export * from '@/api/services/IEntityDefinitionService'
-export * from '@/api/services/INamedQueriesService'
+export * from '@/api/services/INamedQueriesDefinitionService'
 export * from '@/api/services/IMigrationService'
 export * from '@/api/services/IDataInsightsService'
 
 // Plugin
 export * from '@/api/OsApiPlugin'
+
+// Re-export Kinotic core so consumers only need one import
+export { Kinotic, KinoticSingleton, type IKinotic, type KinoticPlugin } from '@kinotic-ai/core'
 
 import type { IOsApiExtension } from '@/api/OsApiPlugin'
 

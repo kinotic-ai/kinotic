@@ -12,9 +12,9 @@ export class Generate extends Command {
     static description = 'This will generate all Entity Service classes.'
 
     static examples = [
-        '$ structures generate',
-        '$ structures gen',
-        '$ structures gen -v',
+        '$ kinotic generate',
+        '$ kinotic gen',
+        '$ kinotic gen -v',
     ]
 
     static flags = {
@@ -25,7 +25,7 @@ export class Generate extends Command {
         const {flags} = await this.parse(Generate)
 
         if(!(await isStructuresProject())){
-            this.error('The working directory is not a Structures Project')
+            this.error('The working directory is not a Kinotic Project')
         }
 
         const structuresProjectConfig = await loadStructuresProjectConfig()

@@ -1,4 +1,4 @@
-import {BooleanC3Type, C3Type, EnumC3Type, ObjectC3Type, StringC3Type, UnionC3Type} from '@kinotic/continuum-idl'
+import {BooleanC3Type, C3Type, EnumC3Type, ObjectC3Type, StringC3Type, UnionC3Type} from '@kinotic-ai/idl'
 import {Type} from 'ts-morph'
 import {TypescriptConversionState} from './TypescriptConversionState.js'
 import {ITypeConverter} from '../ITypeConverter.js'

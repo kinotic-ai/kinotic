@@ -32,12 +32,12 @@ function validateApplicationName(name: string): true | string {
 export class Initialize extends Command {
     static aliases = ['init']
 
-    static description = 'This will initialize a new Structures Project for use with the Structures CLI.'
+    static description = 'This will initialize a new Kinotic Project for use with the Kinotic CLI.'
 
     static examples = [
-        '$ structures initialize --application my.app --entities path/to/entities --generated path/to/services',
-        '$ structures init --application my.app --entities path/to/entities --generated path/to/services',
-        '$ structures init -a my.app -e path/to/entities -g path/to/services',
+        '$ kinotic initialize --application my.app --entities path/to/entities --generated path/to/services',
+        '$ kinotic init --application my.app --entities path/to/entities --generated path/to/services',
+        '$ kinotic init -a my.app -e path/to/entities -g path/to/services',
     ]
 
     static flags = {
@@ -50,7 +50,7 @@ export class Initialize extends Command {
         const {flags} = await this.parse(Initialize)
 
         if(await isStructuresProject()){
-            this.log(chalk.red('Error: ') + ' The working directory is already a Structures Project')
+            this.log(chalk.red('Error: ') + ' The working directory is already a Kinotic Project')
             return
         }
 

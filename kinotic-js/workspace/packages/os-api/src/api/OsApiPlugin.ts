@@ -4,7 +4,7 @@ import type { IKinotic, KinoticPlugin } from '@kinotic-ai/core'
 import { ApplicationService, type IApplicationService } from '@/api/services/IApplicationService'
 import { ProjectService, type IProjectService } from '@/api/services/IProjectService'
 import { EntityDefinitionService, type IEntityDefinitionService } from '@/api/services/IEntityDefinitionService'
-import {type INamedQueriesDefinitionService, NamedQueriesDefinitionService} from '@/api/services/INamedQueriesService'
+import {type INamedQueriesDefinitionService, NamedQueriesDefinitionService} from '@/api/services/INamedQueriesDefinitionService'
 import { MigrationService, type IMigrationService } from '@/api/services/IMigrationService'
 import { DataInsightsService, type IDataInsightsService } from '@/api/services/IDataInsightsService'
 

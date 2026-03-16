@@ -1,15 +1,15 @@
-import {Continuum} from '@kinotic/continuum-client'
-import {FunctionDefinition, ObjectC3Type} from '@kinotic/continuum-idl'
-import {INamedQueriesService,
-        IStructureService,
+import {FunctionDefinition, ObjectC3Type} from '@kinotic-ai/idl'
+import {EntityDefinition,
+        IEntityDefinitionService,
+        INamedQueriesDefinitionService,
+        Kinotic,
         NamedQueriesDefinition,
+        OsApiPlugin,
         Project,
         ProjectType,
-        Structure,
-        Structures,
         TypescriptExternalProjectConfig,
-        TypescriptProjectConfig} from '@kinotic/structures-api'
-import {Args, Command, Flags} from '@oclif/core'
+        TypescriptProjectConfig} from '@kinotic-ai/os-api'
+import {Command, Flags} from '@oclif/core'
 import chalk from 'chalk'
 import {WebSocket} from 'ws'
 import {CodeGenerationService} from '../internal/CodeGenerationService.js'
@@ -18,23 +18,24 @@ import {resolveServer} from '../internal/state/Environment.js'
 import {isStructuresProject, loadStructuresProjectConfig} from '../internal/state/StructuresProject.js'
 import {connectAndUpgradeSession} from '../internal/Utils.js'
 
-// This is required when running Continuum from node
+// This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
+Kinotic.use(OsApiPlugin)
 
 export class Synchronize extends Command {
     static aliases = ['sync']
 
-    static description = 'Synchronize the local Entity definitions with the Structures Server'
+    static description = 'Synchronize the local Entity definitions with the Kinotic Server'
 
     static examples = [
-        '$ structures synchronize',
-        '$ structures sync',
-        '$ structures synchronize --server http://localhost:9090 --publish --verbose',
-        '$ structures sync -p -v -s http://localhost:9090'
+        '$ kinotic synchronize',
+        '$ kinotic sync',
+        '$ kinotic synchronize --server http://localhost:9090 --publish --verbose',
+        '$ kinotic sync -p -v -s http://localhost:9090'
     ]
 
     static flags = {
-        server:     Flags.string({char: 's', description: 'The structures server to connect to'}),
+        server:     Flags.string({char: 's', description: 'The Kinotic server to connect to'}),
         publish:    Flags.boolean({char: 'p', description: 'Publish each Entity after save/update'}),
         verbose:    Flags.boolean({char: 'v', description: 'Enable verbose logging'}),
         authHeaderFile: Flags.string({char: 'f', description: 'JSON File containing authentication headers', required: false}),
@@ -48,7 +49,7 @@ export class Synchronize extends Command {
         try {
 
             if(!(await isStructuresProject())){
-                this.error('The working directory is not a Structures Project')
+                this.error('The working directory is not a Kinotic Project')
             }
 
             const structuresProjectConfig = await loadStructuresProjectConfig()
@@ -64,13 +65,13 @@ export class Synchronize extends Command {
 
                     let project: Project | null = null
                     if(!flags.dryRun) {
-                        await Structures.getApplicationService().createApplicationIfNotExist(structuresProjectConfig.application, '')
+                        await Kinotic.applications.createApplicationIfNotExist(structuresProjectConfig.application, '')
                         project = new Project(null,
                                               structuresProjectConfig.application,
                                               structuresProjectConfig.name as string,
                                               structuresProjectConfig.description)
                         project.sourceOfTruth = ProjectType.TYPESCRIPT
-                        project = await Structures.getProjectService().createProjectIfNotExist(project)
+                        project = await Kinotic.projects.createProjectIfNotExist(project)
                     }
 
                     const codeGenerationService = new CodeGenerationService(structuresProjectConfig.application,
@@ -119,14 +120,14 @@ export class Synchronize extends Command {
                     }
                 }
             }
-            await Continuum.disconnect()
+            await Kinotic.disconnect()
         } catch (e) {
             if(e instanceof Error){
                 this.log(chalk.red('Error: ') + e.message)
             }else{
                 this.log(chalk.red('Error: ') + e as string)
             }
-            await Continuum.disconnect()
+            await Kinotic.disconnect()
         }
         return
     }
@@ -145,51 +146,51 @@ export class Synchronize extends Command {
                                     entity:  ObjectC3Type,
                                     publish: boolean,
                                     verbose: boolean): Promise<void> {
-        const structureService: IStructureService = Structures.getStructureService()
+        const structureService: IEntityDefinitionService = Kinotic.entityDefinitions
         const application = entity.namespace
         const name = entity.name
         const structureId = (application + '.' + name).toLowerCase()
 
-        this.log(`Synchronizing Structure: ${application}.${name}`)
+        this.log(`Synchronizing Entity: ${application}.${name}`)
 
         try {
             let structure = await structureService.findById(structureId)
             if (structure) {
                 if (structure.published) {
-                    this.log(chalk.bold(`Structure ${chalk.blue(application + '.' + name)} is Published. ${chalk.yellow('(Supported Modifications: New Fields. Un-Publish for all other changes.)')}`))
+                    this.log(chalk.bold(`Entity ${chalk.blue(application + '.' + name)} is Published. ${chalk.yellow('(Supported Modifications: New Fields. Un-Publish for all other changes.)')}`))
                 }
-                // update existing structure
+                // update existing entity
                 structure.entityDefinition = entity
-                this.logVerbose(`Updating Structure: ${application}.${name}`, verbose)
+                this.logVerbose(`Updating Entity: ${application}.${name}`, verbose)
 
                 structure = await structureService.save(structure)
             } else {
-                structure = new Structure(application, projectId, name, entity)
-                this.logVerbose(`Creating Structure: ${application}.${name}`, verbose)
+                structure = new EntityDefinition(application, projectId, name, entity)
+                this.logVerbose(`Creating Entity: ${application}.${name}`, verbose)
 
                 structure = await structureService.create(structure)
             }
             // publish if we need to
             if(!structure.published && publish && structure?.id){
-                this.logVerbose(`Publishing Structure: ${application}.${name}`, verbose)
+                this.logVerbose(`Publishing Entity: ${application}.${name}`, verbose)
 
                 await structureService.publish(structure.id)
             }
         } catch (e: any) {
             const message = e?.message || e
-            this.log(chalk.red('Error') + ` Synchronizing Structure: ${structureId}, Exception: ${message}`)
+            this.log(chalk.red('Error') + ` Synchronizing Entity: ${structureId}, Exception: ${message}`)
         }
     }
 
     private async synchronizeNamedQueries(projectId: string,
                                           entity:       ObjectC3Type,
                                           namedQueries: FunctionDefinition[]): Promise<void> {
-        const namedQueriesService: INamedQueriesService = Structures.getNamedQueriesService()
+        const namedQueriesService: INamedQueriesDefinitionService = Kinotic.namedQueriesDefinitions
         const application = entity.namespace
         const structure = entity.name
         const id = (application + '.' + structure).toLowerCase()
 
-        this.log(`Synchronizing Named Queries for Structure: ${application}.${structure}`)
+        this.log(`Synchronizing Named Queries for Entity: ${application}.${structure}`)
 
         try {
             const namedQueriesDefinition = new NamedQueriesDefinition(id,
@@ -200,7 +201,7 @@ export class Synchronize extends Command {
             await namedQueriesService.save(namedQueriesDefinition)
         } catch (e: any) {
             const message = e?.message || e
-            this.log(chalk.red('Error') + ` Synchronizing Named Queries for Structure: ${id}, Exception: ${message}`)
+            this.log(chalk.red('Error') + ` Synchronizing Named Queries for Entity: ${id}, Exception: ${message}`)
         }
     }
 }

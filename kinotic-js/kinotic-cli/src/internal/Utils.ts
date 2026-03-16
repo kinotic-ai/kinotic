@@ -1,14 +1,14 @@
 import {
     ConnectedInfo,
     ConnectionInfo,
-    Continuum,
+    Kinotic,
     Event,
     EventConstants,
     IEvent,
     ParticipantConstants
-} from '@kinotic/continuum-client'
-import {C3Type, FunctionDefinition, ObjectC3Type} from '@kinotic/continuum-idl'
-import {EntityConfiguration, EntityDecorator} from '@kinotic/structures-api'
+} from '@kinotic-ai/core'
+import {C3Type, FunctionDefinition, ObjectC3Type} from '@kinotic-ai/idl'
+import {EntityConfiguration, EntityDecorator} from '@kinotic-ai/os-api'
 import fs from 'fs'
 import fsPromises from 'fs/promises'
 import { confirm } from '@inquirer/prompts'
@@ -97,13 +97,13 @@ export async function connectAndUpgradeSession(server: string, logger: Logger, a
                 logger.log(`Authentication header file ${authHeadersFile} does not exist. Please provide a valid file.`)
                 return false
             }else{
-                logger.log(`Authentication header file ${authHeadersFile} loaded successfully. Using authentication headers to connect to the Structures Server.`)
+                logger.log(`Authentication header file ${authHeadersFile} loaded successfully. Using authentication headers to connect to the Kinotic Server.`)
             }
             const authHeaders = JSON.parse(fs.readFileSync(authHeadersFile, 'utf8'))
             connectionInfo.connectHeaders = authHeaders
-            const connectedInfo: ConnectedInfo = await pTimeout(Continuum.connect(connectionInfo), {
+            const connectedInfo: ConnectedInfo = await pTimeout(Kinotic.connect(connectionInfo), {
                 milliseconds: 60000,
-                message: 'Connection timeout trying to connect to the Structures Server'
+                message: 'Connection timeout trying to connect to the Kinotic Server'
             })
             if(connectedInfo){
                 return true
@@ -115,9 +115,9 @@ export async function connectAndUpgradeSession(server: string, logger: Logger, a
             connectionInfo.connectHeaders = {
                 login: ParticipantConstants.CLI_PARTICIPANT_ID
             }
-            const connectedInfo: ConnectedInfo = await pTimeout(Continuum.connect(connectionInfo), {
+            const connectedInfo: ConnectedInfo = await pTimeout(Kinotic.connect(connectionInfo), {
                 milliseconds: 60000,
-                message: 'Connection timeout trying to connect to the Structures Server'
+                message: 'Connection timeout trying to connect to the Kinotic Server'
             })
 
             if (connectedInfo) {
@@ -139,7 +139,7 @@ export async function connectAndUpgradeSession(server: string, logger: Logger, a
 
                 const sessionMetadata = await receiveSessionId(scope)
 
-                await Continuum.disconnect()
+                await Kinotic.disconnect()
 
                 connectionInfo.connectHeaders = {
                     session: sessionMetadata.sessionId
@@ -147,16 +147,16 @@ export async function connectAndUpgradeSession(server: string, logger: Logger, a
                 // Provide this so the continuum client will use the same replyToId as the session
                 connectionInfo.connectHeaders[EventConstants.REPLY_TO_ID_HEADER] = sessionMetadata.replyToId
 
-                await Continuum.connect(connectionInfo)
+                await Kinotic.connect(connectionInfo)
                 logger.log('Authenticated successfully\n')
                 return true
             }else{
-                logger.log("Could not connect to the Structures Server. Please check the server is running and the URL is correct.")
+                logger.log("Could not connect to the Kinotic Server. Please check the server is running and the URL is correct.")
                 return false
             }
         }
     } catch (e) {
-        logger.log("Could not connect to the Structures Server. Please check the server is running and the URL is correct.", e)
+        logger.log("Could not connect to the Kinotic Server. Please check the server is running and the URL is correct.", e)
         return false
     }
 }
@@ -165,7 +165,7 @@ function receiveSessionId(scope: string): Promise<SessionMetadata> {
     const subscribeCRI = EventConstants.SERVICE_DESTINATION_PREFIX + scope + '@continuum.cli.SessionUpgradeService'
 
     return new Promise<SessionMetadata>((resolve, reject) => {
-        const subscription = Continuum.eventBus.observe(subscribeCRI).subscribe((value: IEvent) => {
+        const subscription = Kinotic.eventBus.observe(subscribeCRI).subscribe((value: IEvent) => {
             // send reply to user
             const replyTo = value.getHeader(EventConstants.REPLY_TO_HEADER)
             if (replyTo) {
@@ -175,7 +175,7 @@ function receiveSessionId(scope: string): Promise<SessionMetadata> {
                     replyEvent.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
                 }
                 replyEvent.setHeader(EventConstants.CONTENT_TYPE_HEADER, EventConstants.CONTENT_JSON)
-                Continuum.eventBus.send(replyEvent)
+                Kinotic.eventBus.send(replyEvent)
             }
 
             subscription.unsubscribe()

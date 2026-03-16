@@ -1,4 +1,4 @@
-import { IMigrationService, MigrationDefinition, MigrationRequest, Structures } from '@kinotic/structures-api'
+import { IMigrationService, Kinotic, MigrationDefinition, MigrationRequest } from '@kinotic-ai/os-api'
 import { readdir, readFile, access } from 'fs/promises'
 import { join } from 'path'
 import { constants } from 'fs'
@@ -13,7 +13,7 @@ export class ProjectMigrationService {
     private readonly logger: Logger
 
     constructor(logger: Logger) {
-        this.migrationService = Structures.getMigrationService()
+        this.migrationService = Kinotic.migrations
         this.logger = logger
     }
 

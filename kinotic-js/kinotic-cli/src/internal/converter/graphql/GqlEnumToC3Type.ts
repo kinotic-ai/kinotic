@@ -2,7 +2,7 @@ import {GraphQLType, GraphQLEnumType} from 'graphql/type/index.js'
 import {ITypeConverter} from '../ITypeConverter.js'
 import {IConversionContext} from '../IConversionContext.js'
 import {GqlConversionState} from './GqlConversionState.js'
-import {EnumC3Type, C3Type} from '@kinotic/continuum-idl'
+import {EnumC3Type, C3Type} from '@kinotic-ai/idl'
 
 export class GqlEnumToC3Type implements ITypeConverter<GraphQLType, C3Type, GqlConversionState> {
 
