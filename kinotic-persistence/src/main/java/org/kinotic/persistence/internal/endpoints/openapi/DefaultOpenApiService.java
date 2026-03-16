@@ -13,23 +13,23 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.text.WordUtils;
-import org.kinotic.idl.api.schema.*;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.converter.IdlConverter;
+import org.kinotic.idl.api.schema.*;
+import org.kinotic.persistence.api.config.OpenApiSecurityType;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 import org.kinotic.persistence.api.model.idl.PageC3Type;
 import org.kinotic.persistence.api.model.idl.PageableC3Type;
 import org.kinotic.persistence.api.model.idl.decorators.QueryDecorator;
-import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.EntityDefinitionService;
+import org.kinotic.persistence.api.services.NamedQueriesDefinitionService;
 import org.kinotic.persistence.internal.api.services.EntityDefinitionConversionService;
-import org.kinotic.persistence.api.config.OpenApiSecurityType;
+import org.kinotic.persistence.internal.api.services.sql.SqlQueryType;
 import org.kinotic.persistence.internal.converters.openapi.OpenApiConversionState;
 import org.kinotic.persistence.internal.utils.OpenApiUtils;
 import org.kinotic.persistence.internal.utils.QueryUtils;
-import org.kinotic.persistence.internal.api.services.sql.SqlQueryType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -46,7 +46,7 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultOpenApiService implements OpenApiService {
     private static final Logger log = LoggerFactory.getLogger(DefaultOpenApiService.class);
 
-    private final NamedQueriesService namedQueriesService;
+    private final NamedQueriesDefinitionService namedQueriesDefinitionService;
     private final EntityDefinitionConversionService entityDefinitionConversionService;
     private final EntityDefinitionService entityDefinitionService;
     private final PersistenceProperties persistenceProperties;
@@ -468,9 +468,9 @@ public class DefaultOpenApiService implements OpenApiService {
 
         String lowercaseApplication = entityDefinition.getApplicationId().toLowerCase();
         String lowercaseName = entityDefinition.getName().toLowerCase();
-        NamedQueriesDefinition namedQueriesDefinition = namedQueriesService.findByApplicationAndEntityDefinition(entityDefinition.getApplicationId(),
-                                                                                                                 entityDefinition.getName())
-                                                                           .join();
+        NamedQueriesDefinition namedQueriesDefinition = namedQueriesDefinitionService.findByApplicationAndEntityDefinition(entityDefinition.getApplicationId(),
+                                                                                                                           entityDefinition.getName())
+                                                                                     .join();
         if(namedQueriesDefinition != null){
 
             // For any FunctionDefinition create a Named Query path item
