@@ -11,20 +11,20 @@ import { AdminEntitiesService, type IAdminEntitiesService, type TenantSelection 
 export interface IAdminEntityService<T> {
 
     /**
-     * The application id of the structure this service is for
+     * The application id of the Entity this service is for
      */
-    structureApplicationId: string
+    entityApplicationId: string
 
     /**
-     * The name of the structure this service is for
+     * The name of the Entity this service is for
      */
-    structureName: string
+    entityName: string
 
     /**
-     * The id of the structure this service is for
+     * The id of the Entity this service is for
      * Which is the applicationId + '.' + name
      */
-    structureId: string
+    entityId: string
 
     /**
      * Returns the number of entities available.
@@ -127,62 +127,62 @@ export interface IAdminEntityService<T> {
  */
 export class AdminEntityService<T> implements IAdminEntityService<T> {
 
-    public structureApplicationId: string
-    public structureName: string
-    public structureId: string
+    public entityApplicationId: string
+    public entityName: string
+    public entityId: string
 
     private readonly adminEntitiesService: IAdminEntitiesService
 
     public constructor(structureApplicationId: string,
                        structureName: string,
                        adminEntitiesService?: IAdminEntitiesService) {
-        this.structureApplicationId = structureApplicationId
-        this.structureName = structureName
-        this.structureId = (structureApplicationId + '.' + structureName).toLowerCase()
+        this.entityApplicationId = structureApplicationId
+        this.entityName = structureName
+        this.entityId = (structureApplicationId + '.' + structureName).toLowerCase()
         this.adminEntitiesService = adminEntitiesService ?? new AdminEntitiesService(Kinotic)
     }
 
     public count(tenantSelection: TenantSelection): Promise<number> {
-        return this.adminEntitiesService.count(this.structureId, tenantSelection)
+        return this.adminEntitiesService.count(this.entityId, tenantSelection)
     }
 
     public countByQuery(query: string, tenantSelection: TenantSelection): Promise<number> {
-        return this.adminEntitiesService.countByQuery(this.structureId, query, tenantSelection)
+        return this.adminEntitiesService.countByQuery(this.entityId, query, tenantSelection)
     }
 
     public deleteById(id: TenantSpecificId): Promise<void> {
-        return this.adminEntitiesService.deleteById(this.structureId, id)
+        return this.adminEntitiesService.deleteById(this.entityId, id)
     }
 
     public deleteByQuery(query: string, tenantSelection: TenantSelection): Promise<void> {
-        return this.adminEntitiesService.deleteByQuery(this.structureId, query, tenantSelection)
+        return this.adminEntitiesService.deleteByQuery(this.entityId, query, tenantSelection)
     }
 
     public findAll(tenantSelection: TenantSelection, pageable: Pageable): Promise<IterablePage<T>> {
-        return this.adminEntitiesService.findAll(this.structureId, tenantSelection, pageable)
+        return this.adminEntitiesService.findAll(this.entityId, tenantSelection, pageable)
     }
 
     public findById(id: TenantSpecificId): Promise<T> {
-        return this.adminEntitiesService.findById(this.structureId, id)
+        return this.adminEntitiesService.findById(this.entityId, id)
     }
 
     public findByIds(ids: TenantSpecificId[]): Promise<T[]> {
-        return this.adminEntitiesService.findByIds(this.structureId, ids)
+        return this.adminEntitiesService.findByIds(this.entityId, ids)
     }
 
     public namedQuery<U>(queryName: string,
                          queryParameters: QueryParameter[]): Promise<U> {
-        return this.adminEntitiesService.namedQuery(this.structureId, queryName, queryParameters)
+        return this.adminEntitiesService.namedQuery(this.entityId, queryName, queryParameters)
     }
 
     public namedQueryPage<U>(queryName: string,
                              queryParameters: QueryParameter[],
                              pageable: Pageable): Promise<IterablePage<U>> {
-        return this.adminEntitiesService.namedQueryPage(this.structureId, queryName, queryParameters, pageable)
+        return this.adminEntitiesService.namedQueryPage(this.entityId, queryName, queryParameters, pageable)
     }
 
     public search(searchText: string, tenantSelection: TenantSelection, pageable: Pageable): Promise<IterablePage<T>> {
-        return this.adminEntitiesService.search(this.structureId, searchText, tenantSelection, pageable)
+        return this.adminEntitiesService.search(this.entityId, searchText, tenantSelection, pageable)
     }
 
 }

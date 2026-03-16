@@ -10,20 +10,20 @@ import { EntitiesService, type IEntitiesService } from '@/api/IEntitiesService'
 export interface IEntityService<T> {
 
     /**
-     * The applicationId of the structure this service is for
+     * The applicationId of the Entity this service is for
      */
-    structureApplicationId: string
+    entityApplicationId: string
 
     /**
-     * The name of the structure this service is for
+     * The name of the Entity this service is for
      */
-    structureName: string
+    entityName: string
 
     /**
-     * The id of the structure this service is for
+     * The id of the Entity this service is for
      * Which is the applicationId + '.' + name
      */
-    structureId: string
+    entityId: string
 
     /**
      * Saves all given entities.
@@ -159,83 +159,83 @@ export interface IEntityService<T> {
  */
 export class EntityService<T> implements IEntityService<T> {
 
-    public structureApplicationId: string
-    public structureName: string
-    public structureId: string
+    public entityApplicationId: string
+    public entityName: string
+    public entityId: string
 
     private readonly entitiesService: IEntitiesService
 
     public constructor(structureApplicationId: string,
                        structureName: string,
                        entitiesService?: IEntitiesService) {
-        this.structureApplicationId = structureApplicationId
-        this.structureName = structureName
-        this.structureId = (structureApplicationId + '.' + structureName).toLowerCase()
+        this.entityApplicationId = structureApplicationId
+        this.entityName = structureName
+        this.entityId = (structureApplicationId + '.' + structureName).toLowerCase()
         this.entitiesService = entitiesService ?? new EntitiesService(Kinotic)
     }
 
     public async bulkSave(entities: T[]): Promise<void> {
         const entitiesToSave = await this.beforeBulkSaveOrUpdate(entities)
-        return this.entitiesService.bulkSave(this.structureId, entitiesToSave)
+        return this.entitiesService.bulkSave(this.entityId, entitiesToSave)
     }
 
     public async bulkUpdate(entities: T[]): Promise<void> {
         const entitiesToSave = await this.beforeBulkSaveOrUpdate(entities)
-        return this.entitiesService.bulkUpdate(this.structureId, entitiesToSave)
+        return this.entitiesService.bulkUpdate(this.entityId, entitiesToSave)
     }
 
     public count(): Promise<number> {
-        return this.entitiesService.count(this.structureId)
+        return this.entitiesService.count(this.entityId)
     }
 
     public countByQuery(query: string): Promise<number> {
-        return this.entitiesService.countByQuery(this.structureId, query)
+        return this.entitiesService.countByQuery(this.entityId, query)
     }
 
     public deleteById(id: string): Promise<void> {
-        return this.entitiesService.deleteById(this.structureId, id)
+        return this.entitiesService.deleteById(this.entityId, id)
     }
 
     public deleteByQuery(query: string): Promise<void> {
-        return this.entitiesService.deleteByQuery(this.structureId, query)
+        return this.entitiesService.deleteByQuery(this.entityId, query)
     }
 
     public findAll(pageable: Pageable): Promise<IterablePage<T>> {
-        return this.entitiesService.findAll(this.structureId, pageable)
+        return this.entitiesService.findAll(this.entityId, pageable)
     }
 
     public findById(id: string): Promise<T> {
-        return this.entitiesService.findById(this.structureId, id)
+        return this.entitiesService.findById(this.entityId, id)
     }
 
     public findByIds(ids: string[]): Promise<T[]> {
-        return this.entitiesService.findByIds(this.structureId, ids)
+        return this.entitiesService.findByIds(this.entityId, ids)
     }
 
     public namedQuery<U>(queryName: string, queryParameters: QueryParameter[]): Promise<U> {
-        return this.entitiesService.namedQuery(this.structureId, queryName, queryParameters)
+        return this.entitiesService.namedQuery(this.entityId, queryName, queryParameters)
     }
 
     public namedQueryPage<U>(queryName: string, queryParameters: QueryParameter[], pageable: Pageable): Promise<IterablePage<U>> {
-        return this.entitiesService.namedQueryPage(this.structureId, queryName, queryParameters, pageable)
+        return this.entitiesService.namedQueryPage(this.entityId, queryName, queryParameters, pageable)
     }
 
     public async save(entity: T): Promise<T> {
         const entityToSave = await this.beforeSaveOrUpdate(entity)
-        return this.entitiesService.save(this.structureId, entityToSave)
+        return this.entitiesService.save(this.entityId, entityToSave)
     }
 
     public search(searchText: string, pageable: Pageable): Promise<IterablePage<T>> {
-        return this.entitiesService.search(this.structureId, searchText, pageable)
+        return this.entitiesService.search(this.entityId, searchText, pageable)
     }
 
     public async syncIndex(): Promise<void> {
-        return this.entitiesService.syncIndex(this.structureId)
+        return this.entitiesService.syncIndex(this.entityId)
     }
 
     public async update(entity: T): Promise<T> {
         const entityToSave = await this.beforeSaveOrUpdate(entity)
-        return this.entitiesService.update(this.structureId, entityToSave)
+        return this.entitiesService.update(this.entityId, entityToSave)
     }
 
     protected async beforeBulkSaveOrUpdate(entities: T[]): Promise<T[]> {
