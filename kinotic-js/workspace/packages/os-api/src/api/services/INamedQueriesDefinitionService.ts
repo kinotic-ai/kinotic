@@ -2,7 +2,7 @@ import type { IKinotic } from '@kinotic-ai/core'
 import { CrudServiceProxy, type ICrudServiceProxy } from '@kinotic-ai/core'
 import type { NamedQueriesDefinition } from '@/api/model/NamedQueriesDefinition'
 
-export interface INamedQueriesService extends ICrudServiceProxy<NamedQueriesDefinition> {
+export interface INamedQueriesDefinitionService extends ICrudServiceProxy<NamedQueriesDefinition> {
 
     /**
      * This operation makes all the recent writes immediately available for search.
@@ -12,10 +12,10 @@ export interface INamedQueriesService extends ICrudServiceProxy<NamedQueriesDefi
 
 }
 
-export class NamedQueriesService extends CrudServiceProxy<NamedQueriesDefinition> implements INamedQueriesService {
+export class NamedQueriesDefinitionService extends CrudServiceProxy<NamedQueriesDefinition> implements INamedQueriesDefinitionService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy('org.kinotic.persistence.api.services.NamedQueriesService'))
+        super(kinotic.serviceProxy('org.kinotic.persistence.api.services.NamedQueriesDefinitionService'))
     }
 
     public syncIndex(): Promise<void> {

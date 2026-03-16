@@ -1,7 +1,5 @@
 package org.kinotic.persistence.internal.endpoints.graphql;
 
-import org.kinotic.persistence.api.model.EntityDefinition;
-import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import graphql.language.OperationDefinition;
 import lombok.RequiredArgsConstructor;
@@ -9,19 +7,21 @@ import org.apache.commons.lang3.Validate;
 import org.apache.commons.text.WordUtils;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 import org.kinotic.persistence.api.model.idl.PageC3Type;
 import org.kinotic.persistence.api.model.idl.decorators.QueryDecorator;
 import org.kinotic.persistence.api.services.EntitiesService;
-import org.kinotic.persistence.api.services.NamedQueriesService;
+import org.kinotic.persistence.api.services.NamedQueriesDefinitionService;
 import org.kinotic.persistence.internal.api.services.EntityDefinitionDAO;
+import org.kinotic.persistence.internal.api.services.sql.SqlQueryType;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.PagedQueryDataFetcher;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.QueryDataFetcher;
 import org.kinotic.persistence.internal.utils.QueryUtils;
-import org.kinotic.persistence.internal.api.services.sql.SqlQueryType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +39,7 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
     private static final Pageable OFFSET_PAGEABLE = Pageable.create(0, 25, null);
 
     private final EntitiesService entitiesService;
-    private final NamedQueriesService namedQueriesService;
+    private final NamedQueriesDefinitionService namedQueriesDefinitionService;
     private final ObjectMapper objectMapper;
     private final EntityDefinitionDAO entityDefinitionDAO;
 
@@ -47,38 +47,39 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
     public CompletableFuture<? extends List<GqlOperationDefinition>> asyncLoad(String key, Executor executor) {
         return entityDefinitionDAO.findById(key)
                                   .thenApply(entityDefinition -> {
-                               Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
-                               return entityDefinition;
-                           })
+                                      Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
+                                      return entityDefinition;
+                                  })
                                   .thenComposeAsync(entityDefinition -> {
-                               NamedQueriesDefinition namedQueriesDefinition = namedQueriesService.findByApplicationAndEntityDefinition(entityDefinition.getApplicationId(),
-                                                                                                                                        entityDefinition.getName())
-                                                                                                  .join();
-                               List<GqlOperationDefinition> ret;
-                               if(namedQueriesDefinition != null) {
+                                      NamedQueriesDefinition namedQueriesDefinition = namedQueriesDefinitionService
+                                              .findByApplicationAndEntityDefinition(entityDefinition.getApplicationId(),
+                                                                                    entityDefinition.getName())
+                                              .join();
+                                      List<GqlOperationDefinition> ret;
+                                      if(namedQueriesDefinition != null) {
 
-                                   ret = new ArrayList<>(namedQueriesDefinition.getNamedQueries().size());
-                                   for (FunctionDefinition queryDefinition : namedQueriesDefinition.getNamedQueries()) {
+                                          ret = new ArrayList<>(namedQueriesDefinition.getNamedQueries().size());
+                                          for (FunctionDefinition queryDefinition : namedQueriesDefinition.getNamedQueries()) {
 
-                                       QueryDecorator queryDecorator = queryDefinition.findDecorator(QueryDecorator.class);
-                                       if(queryDecorator != null) {
+                                              QueryDecorator queryDecorator = queryDefinition.findDecorator(QueryDecorator.class);
+                                              if(queryDecorator != null) {
 
-                                           List<GqlOperationDefinition> definitions = buildGqlOperationDefinitions(entityDefinition,
-                                                                                                                   queryDefinition,
-                                                                                                                   queryDecorator);
+                                                  List<GqlOperationDefinition> definitions = buildGqlOperationDefinitions(entityDefinition,
+                                                                                                                          queryDefinition,
+                                                                                                                          queryDecorator);
 
-                                           ret.addAll(definitions);
-                                       }else{
-                                           log.debug("No QueryDecorator found for Named query {} in EntityDefinition {}. No GraphQL operation will be created.",
-                                                    queryDefinition.getName(),
-                                                    entityDefinition.getName());
-                                       }
-                                   }
-                               }else{
-                                   ret = List.of();
-                               }
-                               return CompletableFuture.completedFuture(ret);
-                           }, executor);
+                                                  ret.addAll(definitions);
+                                              }else{
+                                                  log.debug("No QueryDecorator found for Named query {} in EntityDefinition {}. No GraphQL operation will be created.",
+                                                            queryDefinition.getName(),
+                                                            entityDefinition.getName());
+                                              }
+                                          }
+                                      }else{
+                                          ret = List.of();
+                                      }
+                                      return CompletableFuture.completedFuture(ret);
+                                  }, executor);
     }
 
     private List<GqlOperationDefinition> buildGqlOperationDefinitions(EntityDefinition entityDefinition,

@@ -69,7 +69,7 @@ The following shows how to write an entity persistence test that relies on the f
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.persistence.api.services.EntitiesService;
-import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
+import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.internal.sample.DummyParticipant;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.kinotic.test.tests.core.support.StructureAndPersonHolder;

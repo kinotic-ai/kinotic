@@ -2,6 +2,7 @@ package org.kinotic.persistence.internal.api.hooks.impl;
 
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.config.PersistenceProperties;
+import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 import tools.jackson.core.JsonEncoding;
 import tools.jackson.core.JsonGenerator;
 import tools.jackson.core.JsonParser;

@@ -7,6 +7,8 @@ import org.kinotic.idl.api.converter.Cacheable;
 import org.kinotic.idl.api.schema.*;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.model.DecoratedProperty;
+import org.kinotic.persistence.api.model.idl.decorators.EntityType;
+import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.model.idl.decorators.*;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 

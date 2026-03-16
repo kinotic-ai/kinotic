@@ -1,27 +1,21 @@
 package org.kinotic.persistence.internal.api.services;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
-import lombok.extern.slf4j.Slf4j;
-
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.os.internal.api.services.AbstractCrudService;
-import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 import org.kinotic.persistence.api.model.EntityDefinition;
-import org.kinotic.persistence.api.services.NamedQueriesService;
-import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.api.model.ParameterHolder;
+import org.kinotic.persistence.api.services.NamedQueriesDefinitionService;
+import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 import org.kinotic.persistence.internal.api.services.sql.QueryExecutorFactory;
 import org.kinotic.persistence.internal.api.services.sql.executors.QueryExecutor;
+import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.cache.events.EvictionSourceType;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -36,51 +30,43 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Component
-public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueriesDefinition> implements NamedQueriesService {
+public class DefaultNamedQueriesService implements NamedQueriesService {
 
     private final AsyncLoadingCache<CacheKey, QueryExecutor> cache;
     private final ConcurrentHashMap<String, List<CacheKey>> cacheKeyTracker = new ConcurrentHashMap<>();
-    private final ApplicationEventPublisher eventPublisher;
 
-    public DefaultNamedQueriesService(CrudServiceTemplate crudServiceTemplate,
-                                      ElasticsearchAsyncClient esAsyncClient,
-                                      QueryExecutorFactory queryExecutorFactory,
-                                      ApplicationEventPublisher eventPublisher,
-                                      DefaultCaffeineCacheFactory cacheFactory) {
-        super("kinotic_named_query_service_definition",
-              NamedQueriesDefinition.class,
-              esAsyncClient,
-              crudServiceTemplate);
-
-        this.eventPublisher = eventPublisher;
+    public DefaultNamedQueriesService(DefaultCaffeineCacheFactory cacheFactory,
+                                      NamedQueriesDefinitionService namedQueriesDefinitionService,
+                                      QueryExecutorFactory queryExecutorFactory) {
 
         cache = cacheFactory.<CacheKey, QueryExecutor>newBuilder()
-                        .name("namedQueriesCache")
-                        .expireAfterAccess(Duration.ofHours(20))
-                        .maximumSize(10_000) 
-                        .buildAsync((key, executor) -> findByApplicationAndEntityDefinition(key.entityDefinition().getApplicationId(),
-                                                                                            key.entityDefinition().getName())
-                                .thenApplyAsync(namedQueriesDefinition -> {
- 
-                                    Validate.notNull(namedQueriesDefinition, "No Named Query found for EntityDefinition: "
-                                            + key.entityDefinition()
-                                            + " and Query: "
-                                            + key.queryName());
+                            .name("namedQueriesCache")
+                            .expireAfterAccess(Duration.ofHours(20))
+                            .maximumSize(10_000)
+                            .buildAsync((key, executor) -> namedQueriesDefinitionService
+                                    .findByApplicationAndEntityDefinition(key.entityDefinition().getApplicationId(),
+                                                                          key.entityDefinition().getName())
+                                    .thenApplyAsync(namedQueriesDefinition -> {
 
-                                    QueryExecutor ret = queryExecutorFactory.createQueryExecutor(key.entityDefinition(),
-                                                                                                 key.queryName(),
-                                                                                                 namedQueriesDefinition);
+                                        Validate.notNull(namedQueriesDefinition, "No Named Query found for EntityDefinition: "
+                                                + key.entityDefinition()
+                                                + " and Query: "
+                                                + key.queryName());
 
-                                    // Track the cache key so, we can invalidate it when the named query is updated
-                                    cacheKeyTracker.compute(namedQueriesDefinition.getId(), (s, cacheKeys) -> {
-                                        if(cacheKeys == null){
-                                            cacheKeys = new ArrayList<>();
-                                        }
-                                        cacheKeys.add(key);
-                                        return cacheKeys;
-                                    });
-                                    return ret;
-                                }, executor));
+                                        QueryExecutor ret = queryExecutorFactory.createQueryExecutor(key.entityDefinition(),
+                                                                                                     key.queryName(),
+                                                                                                     namedQueriesDefinition);
+
+                                        // Track the cache key so, we can invalidate it when the named query is updated
+                                        cacheKeyTracker.compute(namedQueriesDefinition.getId(), (s, cacheKeys) -> {
+                                            if(cacheKeys == null){
+                                                cacheKeys = new ArrayList<>();
+                                            }
+                                            cacheKeys.add(key);
+                                            return cacheKeys;
+                                        });
+                                        return ret;
+                                    }, executor));
 
     }
 
@@ -91,7 +77,7 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
      */
     @EventListener
     public void handleNamedQueryCacheEviction(CacheEvictionEvent event) {
-        
+
         try {
 
             if(event.getEvictionSourceType() == EvictionSourceType.NAMED_QUERY){
@@ -101,14 +87,14 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
                     }
                     return null;
                 });
-                        
-                log.info("successfully completed cache eviction for named query: {} due to {}", 
-                                event.getNamedQueryId(), event.getEvictionSource().getDisplayName());
+
+                log.info("successfully completed cache eviction for named query: {} due to {}",
+                         event.getNamedQueryId(), event.getEvictionSource().getDisplayName());
             }
 
         } catch (Exception e) {
-            log.error("failed to handle named query cache eviction (source: {})", 
-                     event.getEvictionSource().getDisplayName(), e);
+            log.error("failed to handle named query cache eviction (source: {})",
+                      event.getEvictionSource().getDisplayName(), e);
         }
     }
 
@@ -133,66 +119,6 @@ public class DefaultNamedQueriesService extends AbstractCrudService<NamedQueries
         // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
         return cache.get(new CacheKey(queryName, entityDefinition))
                     .thenCompose(queryExecutor -> queryExecutor.executePage(new QueryContext(context, parameterHolder), pageable, type));
-    }
-
-    @Override
-    public CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId, String entityDefinitionName) {
-        return crudServiceTemplate.search(indexName, Pageable.ofSize(1), type, builder -> builder
-                .query(q -> q
-                        .bool(b -> b
-                                .filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery(),
-                                        TermQuery.of(tq -> tq.field("entityDefinitionName").value(entityDefinitionName))._toQuery())
-                        )
-                )).thenApply(page -> page.getContent() != null && !page.getContent().isEmpty()
-                ? page.getContent().getFirst()
-                : null);
-    }
-
-    @Override
-    public CompletableFuture<NamedQueriesDefinition> save(NamedQueriesDefinition definition) {
-        // TODO: preprocess queries to correct index name and add Metadata about query type to be used by other parts of the system
-        //       The Query type information will speed up other areas the need this as well
-        return super.save(definition)
-                    .thenApply(namedQueriesDefinition -> {
-                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedNamedQuery(definition.getApplicationId(), definition.getEntityDefinitionName(), definition.getId()));
-                        return namedQueriesDefinition;
-                    });
-    }
-
-    @Override
-    public CompletableFuture<Void> deleteById(String id) {
-        return findById(id)
-                .thenCompose(namedQuery -> {
-                    if (namedQuery == null) {
-                        return CompletableFuture.failedFuture(
-                                new IllegalArgumentException("NamedQuery cannot be found for id: " + id));
-                    }
-                    
-                    return super.deleteById(id)
-                            .thenApply(v -> {
-                                this.eventPublisher.publishEvent(
-                                        CacheEvictionEvent.localDeletedNamedQuery(
-                                                namedQuery.getApplicationId(), 
-                                                namedQuery.getEntityDefinitionName(),
-                                                namedQuery.getId()));
-                                return null;
-                            });
-                });
-    }
-
-    @Override
-    public CompletableFuture<Page<NamedQueriesDefinition>> search(String searchText, Pageable pageable) {
-        return crudServiceTemplate.search(indexName,
-                                          pageable,
-                                          NamedQueriesDefinition.class,
-                                          builder -> builder.q(searchText));
-    }
-
-    @Override
-    public CompletableFuture<Void> syncIndex() {
-        return esAsyncClient.indices()
-                            .refresh(b -> b.index(indexName))
-                            .thenApply(unused -> null);
     }
 
     private record CacheKey(String queryName, EntityDefinition entityDefinition) {}

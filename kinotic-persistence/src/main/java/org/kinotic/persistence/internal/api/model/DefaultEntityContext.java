@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.api.domain;
+package org.kinotic.persistence.internal.api.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

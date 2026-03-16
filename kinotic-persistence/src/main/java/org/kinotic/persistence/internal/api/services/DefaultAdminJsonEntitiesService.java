@@ -10,7 +10,7 @@ import org.kinotic.os.api.model.RawJson;
 import org.kinotic.persistence.api.model.TenantSpecificId;
 import org.kinotic.persistence.api.services.AdminJsonEntitiesService;
 import org.kinotic.persistence.api.services.EntitiesService;
-import org.kinotic.persistence.internal.api.domain.DefaultEntityContext;
+import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.internal.api.services.sql.ListParameterHolder;
 import org.springframework.stereotype.Component;
 

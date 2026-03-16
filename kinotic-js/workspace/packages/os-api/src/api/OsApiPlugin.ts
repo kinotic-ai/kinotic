@@ -4,7 +4,7 @@ import type { IKinotic, KinoticPlugin } from '@kinotic-ai/core'
 import { ApplicationService, type IApplicationService } from '@/api/services/IApplicationService'
 import { ProjectService, type IProjectService } from '@/api/services/IProjectService'
 import { EntityDefinitionService, type IEntityDefinitionService } from '@/api/services/IEntityDefinitionService'
-import { NamedQueriesService, type INamedQueriesService } from '@/api/services/INamedQueriesService'
+import {type INamedQueriesDefinitionService, NamedQueriesDefinitionService} from '@/api/services/INamedQueriesService'
 import { MigrationService, type IMigrationService } from '@/api/services/IMigrationService'
 import { DataInsightsService, type IDataInsightsService } from '@/api/services/IDataInsightsService'
 
@@ -13,7 +13,7 @@ export interface IOsApiExtension {
     projects: IProjectService
     logManager: ILogManager
     entityDefinitions: IEntityDefinitionService
-    namedQueries: INamedQueriesService
+    namedQueriesDefinitions: INamedQueriesDefinitionService
     migrations: IMigrationService
     dataInsights: IDataInsightsService
 }
@@ -25,7 +25,7 @@ export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
             projects: new ProjectService(kinotic),
             logManager: new LogManager(kinotic),
             entityDefinitions: new EntityDefinitionService(kinotic),
-            namedQueries: new NamedQueriesService(kinotic),
+            namedQueriesDefinitions: new NamedQueriesDefinitionService(kinotic),
             migrations: new MigrationService(kinotic),
             dataInsights: new DataInsightsService(kinotic),
         }
