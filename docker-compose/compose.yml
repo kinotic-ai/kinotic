@@ -33,7 +33,7 @@ services:
       - "127.0.0.1:9090:9090" # UI PORT
       - "127.0.0.1:9091:9091" # UI PORT
       - "127.0.0.1:4000:4000" # GraphQL Port
-      - "127.0.0.1:8081:8080" # OpenAPI Port (host 8080 is already in use on this machine)
+      - "127.0.0.1:8080:8080" # OpenAPI Port
       - "127.0.0.1:58503:58503" # Continuum Stomp Port
       - "127.0.0.1:58504:58504" # Continuum REST Port
     environment:

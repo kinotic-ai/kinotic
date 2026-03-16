@@ -136,7 +136,7 @@ class EntityList extends Vue {
   getWidthAtPath(...path: string[]): number { void this.resizeVersion; return this._widthCalc.getWidthAtPath(...path) }
 
   startPathResize(event: MouseEvent, path: string[], prop: any) {
-    console.log('Starting path resize for', path, prop)
+    
     this.resizingColumn = { path, prop, level: 'path' }
     this.startX = event.pageX
     this.startWidth = this._widthCalc.getWidthAtPath(...path, prop.name)
