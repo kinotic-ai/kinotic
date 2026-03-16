@@ -1,10 +1,12 @@
 <script lang="ts">
-import { Component, Vue, Prop, Ref, Watch } from "vue-facing-decorator";
+import { defineComponent } from "vue";
 import CrudTable from "@/components/CrudTable.vue";
 import StructureDataViewModal from "@/components/modals/StructureDataViewModal.vue";
 import StructureItemModal from "@/components/modals/StructureItemModal.vue";
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
+import Menu from "primevue/menu";
+import Tag from "primevue/tag";
 import type {
   Identifiable,
   IterablePage,
@@ -14,254 +16,252 @@ import { APPLICATION_STATE } from "@/states/IApplicationState";
 import { Structure, Structures, type IStructureService } from "@kinotic/structures-api";
 import type { CrudHeader } from "@/types/CrudHeader";
 import DatetimeUtil from "@/util/DatetimeUtil";
-import { createDebug } from '@/util/debug';
+import { createDebug } from "@/util/debug";
 
-const debug = createDebug('structures-list');
+const debug = createDebug("structures-list");
 
-@Component({
-  components: { CrudTable, StructureDataViewModal, StructureItemModal, Dialog, Button },
-})
-export default class StructuresList extends Vue {
-  @Prop({ required: true }) applicationId!: string;
-  @Prop({ required: false, default: undefined }) projectId?: string;
-  @Prop({ required: false, default: "" }) initialSearch!: string;
-  @Prop({ required: false, default: false }) showNewStructureButton!: boolean;
-  @Prop({ required: false, default: "New Structure" }) newStructureButtonText!: string;
+export default defineComponent({
+  name: "StructuresList",
+  components: {
+    Button,
+    CrudTable,
+    Dialog,
+    Menu,
+    StructureDataViewModal,
+    StructureItemModal,
+    Tag,
+  },
+  props: {
+    applicationId: {
+      type: String,
+      required: true,
+    },
+    projectId: {
+      type: String,
+      required: false,
+      default: undefined,
+    },
+    initialSearch: {
+      type: String,
+      required: false,
+      default: "",
+    },
+    showNewStructureButton: {
+      type: Boolean,
+      required: false,
+      default: false,
+    },
+    newStructureButtonText: {
+      type: String,
+      required: false,
+      default: "New Structure",
+    },
+  },
+  data() {
+    return {
+      DatetimeUtil,
+      actionMenus: {} as Record<string | number, any>,
+      currentActionItem: null as Structure | null,
+      dataSource1: Structures.getStructureService() as IStructureService,
+      isInitialized: false,
+      searchText: "",
+      selectedStructure: null as Structure | null,
+      showItemModal: false,
+      showModal: false,
+      showPublishModal: false,
+      showUnpublishModal: false,
+      structureTableHeaders: [
+        { field: "name", header: "Structure name", sortable: true },
+        { field: "projectId", header: "Project", sortable: true },
+        { field: "description", header: "Description", sortable: false },
+        { field: "created", header: "Created", sortable: false },
+        { field: "updated", header: "Updated", sortable: false },
+        { field: "published", header: "Status", sortable: false, centered: true },
+      ] as CrudHeader[],
+    };
+  },
+  computed: {
+    dataSource() {
+      return {
+        findAll: async (pageable: Pageable): Promise<IterablePage<Structure>> => {
+          const service = Structures.getStructureService();
+          const result = this.projectId
+            ? await service.findAllForProject(this.projectId, pageable)
+            : await service.findAllForApplication(this.applicationId, pageable);
 
-  @Ref("crudTable") crudTable!: InstanceType<typeof CrudTable>;
-
-  structureTableHeaders: CrudHeader[] = [
-    { field: "name", header: "Structure name", sortable: true },
-    { field: "projectId", header: "Project", sortable: true },
-    { field: "description", header: "Description", sortable: false },
-    { field: "created", header: "Created", sortable: false },
-    { field: "updated", header: "Updated", sortable: false },
-  { field: "published", header: "Status", sortable: false, centered: true },
-
-  ];
-
-  showModal = false;
-  showItemModal = false;
-  showPublishModal = false;
-  showUnpublishModal = false;
-  selectedStructure: Structure | null = null;
-  searchText = "";
-  isInitialized = false;
-
-  actionMenus: any[] = [];
-  currentActionItem: Structure | null = null;
-
-  mounted(): void {
+          APPLICATION_STATE.structuresCount = result.totalElements ?? 0;
+          return result;
+        },
+        search: async (
+          _searchText: string,
+          pageable: Pageable
+        ): Promise<IterablePage<Structure>> => {
+          const filter = this.projectId
+            ? `projectId:${this.projectId}`
+            : `applicationId:${this.applicationId}`;
+          const query = `${filter} && ${this.searchText}`;
+          return Structures.getStructureService().search(query, pageable);
+        },
+      };
+    },
+    isPublishing(): boolean {
+      return (this.selectedStructure as any)?.publishing || false;
+    },
+    structuresCount(): number {
+      return APPLICATION_STATE.structuresCount;
+    },
+  },
+  watch: {
+    applicationId() {
+      this.refreshTable();
+    },
+    initialSearch(newVal: string) {
+      if (this.isInitialized) {
+        this.searchText = newVal || "";
+        this.refreshTable();
+      }
+    },
+    projectId() {
+      this.refreshTable();
+    },
+  },
+  mounted() {
     this.searchText = this.initialSearch || "";
     this.isInitialized = true;
-  }
+  },
+  methods: {
+    refreshTable(): void {
+      const crudTable = this.$refs.crudTable as InstanceType<typeof CrudTable> | undefined;
+      crudTable?.find?.();
+    },
+    updateRouteQuery(newSearch: string): void {
+      this.searchText = newSearch;
+      const query = { ...this.$route.query };
 
-  @Watch("initialSearch")
-  onInitialSearchChanged(newVal: string) {
-    if (this.isInitialized) {
-      this.searchText = newVal || "";
+      if (newSearch) {
+        query["search-structure"] = newSearch;
+      } else {
+        delete query["search-structure"];
+      }
+
+      this.$router.replace({ query }).catch(() => {});
       this.refreshTable();
-    }
-  }
+    },
+    openModal(item: Structure): void {
+      this.selectedStructure = item;
+      this.showModal = true;
+    },
+    closeModal(): void {
+      this.showModal = false;
+      this.selectedStructure = null;
+    },
+    openItemModal(item: Structure): void {
+      this.selectedStructure = item;
+      this.showItemModal = true;
+    },
+    closeItemModal(): void {
+      this.showItemModal = false;
+      this.selectedStructure = null;
+    },
+    openPublishModal(item: Structure): void {
+      this.selectedStructure = item;
+      this.showPublishModal = true;
+    },
+    closePublishModal(): void {
+      this.showPublishModal = false;
+      this.selectedStructure = null;
+    },
+    openUnpublishModal(item: Structure): void {
+      this.selectedStructure = item;
+      this.showUnpublishModal = true;
+    },
+    closeUnpublishModal(): void {
+      this.showUnpublishModal = false;
+      this.selectedStructure = null;
+    },
+    handleRowClick(item: Structure): void {
+      if (item.published) {
+        this.openModal(item);
+      } else {
+        this.openPublishModal(item);
+      }
+    },
+    onEditItem(item: Identifiable<string>): void {
+      this.$router.push(`${this.$route.path}/edit/${item.id}`);
+    },
+    toggleMenu(event: Event, item: Structure, index: string | number): void {
+      this.currentActionItem = item;
+      const menu = this.actionMenus[index];
+      menu?.toggle?.(event);
+    },
+    async publish(item: any): Promise<void> {
+      item["publishing"] = true;
+      const table = this.$refs?.crudTable as any;
+      try {
+        await this.dataSource1.publish(item.id);
+        table?.find?.();
+        delete item["publishing"];
+      } catch (error: any) {
+        delete item["publishing"];
+        table?.displayAlert?.(error.message);
+      }
+    },
+    async publishFromModal(): Promise<void> {
+      if (!this.selectedStructure) return;
 
-  @Watch("applicationId")
-  onApplicationIdChanged() {
-    this.refreshTable();
-  }
+      const item = this.selectedStructure as any;
+      item["publishing"] = true;
 
-  @Watch("projectId")
-  onProjectIdChanged() {
-    this.refreshTable();
-  }
+      try {
+        await this.dataSource1.publish(item.id);
+        this.closePublishModal();
+        this.refreshTable();
+        delete item["publishing"];
+      } catch (error: any) {
+        delete item["publishing"];
+        debug("Error publishing structure: %O", error);
+      }
+    },
+    async unPublish(item: any): Promise<void> {
+      this.openUnpublishModal(item);
+    },
+    async unpublishFromModal(): Promise<void> {
+      if (!this.selectedStructure) return;
 
-  private dataSource1: IStructureService = Structures.getStructureService();
+      const item = this.selectedStructure as any;
+      item["publishing"] = true;
 
-  get dataSource() {
-    return {
-      findAll: async (pageable: Pageable): Promise<IterablePage<Structure>> => {
-        const service = Structures.getStructureService();
-        const result = this.projectId
-          ? await service.findAllForProject(this.projectId, pageable)
-          : await service.findAllForApplication(this.applicationId, pageable);
-
-        APPLICATION_STATE.structuresCount = result.totalElements ?? 0;
-        return result;
-      },
-      search: async (
-        _searchText: string,
-        pageable: Pageable
-      ): Promise<IterablePage<Structure>> => {
-        const filter = this.projectId
-          ? `projectId:${this.projectId}`
-          : `applicationId:${this.applicationId}`;
-        const query = `${filter} && ${this.searchText}`;
-        return Structures.getStructureService().search(query, pageable);
-      },
-    };
-  }
-
-  get structuresCount() {
-    return APPLICATION_STATE.structuresCount;
-  }
-
-  public DatetimeUtil = DatetimeUtil;
-
-  refreshTable(): void {
-    if (this.crudTable?.find) {
-      this.crudTable.find();
-    }
-  }
-
-  updateRouteQuery(newSearch: string): void {
-    this.searchText = newSearch;
-    const query = { ...this.$route.query };
-
-    if (newSearch) {
-      query["search-structure"] = newSearch;
-    } else {
-      delete query["search-structure"];
-    }
-
-    this.$router.replace({ query }).catch(() => {});
-    this.refreshTable();
-  }
-
-  openModal(item: Structure) {
-    this.selectedStructure = item;
-    this.showModal = true;
-  }
-
-  closeModal() {
-    this.showModal = false;
-    this.selectedStructure = null;
-  }
-
-  openItemModal(item: Structure) {
-    this.selectedStructure = item;
-    this.showItemModal = true;
-  }
-
-  closeItemModal() {
-    this.showItemModal = false;
-    this.selectedStructure = null;
-  }
-
-  openPublishModal(item: Structure) {
-    this.selectedStructure = item;
-    this.showPublishModal = true;
-  }
-
-  closePublishModal() {
-    this.showPublishModal = false;
-    this.selectedStructure = null;
-  }
-
-  openUnpublishModal(item: Structure) {
-    this.selectedStructure = item;
-    this.showUnpublishModal = true;
-  }
-
-  closeUnpublishModal() {
-    this.showUnpublishModal = false;
-    this.selectedStructure = null;
-  }
-
-  handleRowClick(item: Structure): void {
-    if (item.published) {
-      this.openModal(item);
-    } else {
-      this.openPublishModal(item);
-    }
-  }
-
-  onEditItem(item: Identifiable<string>): void {
-    this.$router.push(`${this.$route.path}/edit/${item.id}`);
-  }
-
-  toggleMenu(event: Event, item: Structure, index: number) {
-    this.currentActionItem = item;
-    const menu = this.actionMenus[index];
-    if (menu) {
-      menu.toggle(event);
-    }
-  }
-
-  public async publish(item: any) {
-    item["publishing"] = true;
-    let table: any = this.$refs?.crudTable;
-    try {
-      await this.dataSource1.publish(item.id);
-      table?.find();
-      delete item["publishing"];
-    } catch (error: any) {
-      delete item["publishing"];
-      table?.displayAlert(error.message);
-    }
-  }
-
-  async publishFromModal() {
-    if (!this.selectedStructure) return;
-    
-    const item = this.selectedStructure as any;
-    item["publishing"] = true;
-    
-    try {
-      await this.dataSource1.publish(item.id);
-      this.closePublishModal();
-      this.refreshTable();
-      delete item["publishing"];
-    } catch (error: any) {
-      delete item["publishing"];
-      debug('Error publishing structure: %O', error);
-      // You could add a toast notification here if needed
-    }
-  }
-
-  public async unPublish(item: any) {
-    this.openUnpublishModal(item);
-  }
-
-  async unpublishFromModal() {
-    if (!this.selectedStructure) return;
-    
-    const item = this.selectedStructure as any;
-    item["publishing"] = true;
-    
-    try {
-      await this.dataSource1.unPublish(item.id);
-      this.closeUnpublishModal();
-      this.refreshTable();
-      delete item["publishing"];
-    } catch (error: any) {
-      delete item["publishing"];
-      debug('Error unpublishing structure: %O', error);
-    }
-  }
-
-  getActionMenu(item: Structure) {
-    return [
-      {
-        label: item.published ? "Unpublish" : "Publish",
-        icon: item.published ? "pi pi-eye-slash" : "pi pi-eye",
-        command: () =>
-          item.published ? this.unPublish(item) : this.publish(item),
-      },
-      {
-        label: "View",
-        icon: "pi pi-file",
-        command: (e: any) => {
-          e?.originalEvent?.stopPropagation?.();
-          e?.originalEvent?.preventDefault?.();
-          this.openItemModal(item);
-        }
-      },
-    ];
-  }
-
-  get isPublishing() {
-    return (this.selectedStructure as any)?.publishing || false;
-  }
-}
+      try {
+        await this.dataSource1.unPublish(item.id);
+        this.closeUnpublishModal();
+        this.refreshTable();
+        delete item["publishing"];
+      } catch (error: any) {
+        delete item["publishing"];
+        debug("Error unpublishing structure: %O", error);
+      }
+    },
+    getActionMenu(item: Structure) {
+      return [
+        {
+          label: item.published ? "Unpublish" : "Publish",
+          icon: item.published ? "pi pi-eye-slash" : "pi pi-eye",
+          command: () =>
+            item.published ? this.unPublish(item) : this.publish(item),
+        },
+        {
+          label: "View",
+          icon: "pi pi-file",
+          command: (e: any) => {
+            e?.originalEvent?.stopPropagation?.();
+            e?.originalEvent?.preventDefault?.();
+            this.openItemModal(item);
+          },
+        },
+      ];
+    },
+  },
+});
 </script>
 
 <template>
@@ -290,7 +290,7 @@ export default class StructuresList extends Vue {
       </template>
 
       <template #item.published="{ item }">
-        <div class="w-full text-center">
+        <div class="w-full h-full min-h-[64px] flex items-center justify-center text-center">
           <Tag
             :value="item.published ? 'Published' : 'Unpublished'"
             :severity="item.published ? 'success' : 'secondary'"
