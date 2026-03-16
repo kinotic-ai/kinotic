@@ -1,7 +1,7 @@
 {
   "name": "kinotic-js-monorepo",
-  "version": "1.0.0-beta.1",
-  "license": "MIT",
+  "version": "1.0.0",
+  "license": "Elastic License 2.0",
   "scripts": {
     "build": "bunup",
     "dev": "bunup --watch",
