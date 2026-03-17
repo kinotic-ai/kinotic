@@ -407,14 +407,22 @@ export default toNative(CrudTable);
             :field="col.field"
             :header="col.header"
             :sortable="col.sortable !== false"
-            :headerStyle="
-              col.centered ? { display: 'flex', justifyContent: 'center' } : {}
-            "
+            :headerStyle="col.centered ? { textAlign: 'center' } : {}"
           >
             <template #body="slotProps">
-              <slot :name="`item.${col.field}`" :item="slotProps.data">
-                {{ slotProps.data[col.field] }}
-              </slot>
+              <div
+                v-if="col.centered"
+                class="flex items-center justify-center w-full min-h-[64px]"
+              >
+                <slot :name="`item.${col.field}`" :item="slotProps.data">
+                  {{ slotProps.data[col.field] }}
+                </slot>
+              </div>
+              <template v-else>
+                <slot :name="`item.${col.field}`" :item="slotProps.data">
+                  {{ slotProps.data[col.field] }}
+                </slot>
+              </template>
             </template>
           </Column>
 
@@ -451,6 +459,14 @@ export default toNative(CrudTable);
 .p-datatable-paginator-bottom {
   border: none !important;
   box-shadow: none !important;
+}
+
+.p-datatable .p-datatable-tbody > tr > td {
+  vertical-align: middle;
+}
+
+.p-datatable .p-datatable-tbody > tr > td > * {
+  vertical-align: middle;
 }
 
 .truncate-multiline {
