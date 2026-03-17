@@ -6,7 +6,7 @@ import {
     NotNull,
     Precision,
     PrecisionType
-} from '@kinotic/structures-api'
+} from '@kinotic-ai/persistence'
 import { Address } from './Address'
 import { PurchaseItem } from './PurchaseItem'
 import { Payment } from './Payment'

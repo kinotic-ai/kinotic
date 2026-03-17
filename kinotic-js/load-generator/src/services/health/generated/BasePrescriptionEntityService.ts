@@ -1,4 +1,4 @@
-import { EntityService, IEntitiesService } from '@kinotic/structures-api'
+import { EntityService, IEntitiesService } from '@kinotic-ai/persistence'
 import { Prescription } from '../../../entity/domain/health/Prescription.js'
 
 

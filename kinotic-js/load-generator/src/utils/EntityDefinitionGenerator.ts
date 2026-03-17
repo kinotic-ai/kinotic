@@ -1,32 +1,32 @@
-import { ObjectC3Type } from '@kinotic/continuum-idl'
-import { ConsoleLogger } from '@kinotic/structures-cli/dist/internal/Logger.js'
-import { CodeGenerationService } from '@kinotic/structures-cli/dist/internal/CodeGenerationService.js'
-import { NamespaceConfiguration } from '@kinotic/structures-cli/dist/internal/state/StructuresProject.js'
+import { ObjectC3Type } from '@kinotic-ai/idl'
+import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
+import { CodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/CodeGenerationService.js'
+import { KinoticProjectConfig } from '@kinotic-ai/core'
 
 export class EntityDefinitionGenerator {
     private readonly codeGenerationService: CodeGenerationService
     private readonly logger: ConsoleLogger
 
     constructor(
-        private readonly namespace: string,
+        private readonly application: string,
         private readonly entitiesPath: string,
         private readonly generatedPath: string
     ) {
         this.logger = new ConsoleLogger()
-        this.codeGenerationService = new CodeGenerationService(namespace, '.js', this.logger)
+        this.codeGenerationService = new CodeGenerationService(application, '.js', this.logger)
     }
 
     async generateDefinitions(): Promise<Map<string, ObjectC3Type>> {
         const definitions = new Map<string, ObjectC3Type>()
-        
-        const namespaceConfig = new NamespaceConfiguration()
-        namespaceConfig.namespaceName = this.namespace
-        namespaceConfig.validate = false
-        namespaceConfig.entitiesPaths = [this.entitiesPath]
-        namespaceConfig.generatedPath = this.generatedPath
+
+        const projectConfig = new KinoticProjectConfig()
+        projectConfig.application = this.application
+        projectConfig.validate = false
+        projectConfig.entitiesPaths = [this.entitiesPath]
+        projectConfig.generatedPath = this.generatedPath
 
         await this.codeGenerationService.generateAllEntities(
-            namespaceConfig,
+            projectConfig,
             true,
             async (entityInfo) => {
                 definitions.set(entityInfo.entity.name.toLowerCase(), entityInfo.entity)
@@ -36,4 +36,4 @@ export class EntityDefinitionGenerator {
 
         return definitions
     }
-} 
+}

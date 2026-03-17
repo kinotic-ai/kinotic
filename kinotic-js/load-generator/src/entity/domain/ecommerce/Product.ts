@@ -6,7 +6,7 @@ import {
     NotNull,
     Precision,
     PrecisionType
-} from '@kinotic/structures-api'
+} from '@kinotic-ai/persistence'
 import { ProductImage } from './ProductImage'
 import { ProductAttribute } from './ProductAttribute'
 

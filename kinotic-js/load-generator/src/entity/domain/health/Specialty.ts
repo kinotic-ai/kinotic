@@ -1,4 +1,4 @@
-import { Text } from '@kinotic/structures-api'
+import { Text } from '@kinotic-ai/persistence'
 
 export class Specialty {
 

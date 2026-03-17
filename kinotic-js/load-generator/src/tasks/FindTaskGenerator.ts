@@ -1,9 +1,11 @@
 import {PersonEntityService} from '@/services/PersonEntityService.js'
-import {ContinuumOperationTaskGenerator} from '@/tasks/ContinuumOperationTaskGenerator.js'
+import {KinoticOperationTaskGenerator} from '@/tasks/KinoticOperationTaskGenerator.ts'
 import {ITaskFactory} from '@/tasks/ITaskFactory.js'
 import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
-import {ConnectionInfo, ContinuumSingleton, Pageable} from '@kinotic/continuum-client'
-import {EntitiesService} from '@kinotic/structures-api'
+import {ConnectionInfo, KinoticSingleton, Pageable} from '@kinotic-ai/core'
+import {EntitiesService} from '@kinotic-ai/persistence'
+import {OsApiPlugin} from '@kinotic-ai/os-api'
+import {PersistencePlugin} from '@kinotic-ai/persistence'
 import { ITask } from './ITask';
 
 /**
@@ -11,20 +13,21 @@ import { ITask } from './ITask';
  */
 export class FindTaskGenerator implements ITaskGenerator {
 
-    private continuumTaskGenerator: ContinuumOperationTaskGenerator
+    private continuumTaskGenerator: KinoticOperationTaskGenerator
     private personEntityService: PersonEntityService
 
     constructor(connectionInfoSupplier: () => Promise<ConnectionInfo>,
                 totalToExecute: number,
                 pageSize: number) {
 
-        const continuum = new ContinuumSingleton()
-        this.personEntityService = new PersonEntityService(new EntitiesService(continuum.serviceRegistry))
+        const kinotic = new KinoticSingleton()
+        kinotic.use(OsApiPlugin).use(PersistencePlugin)
+        this.personEntityService = new PersonEntityService(new EntitiesService(kinotic))
 
-        this.continuumTaskGenerator = new ContinuumOperationTaskGenerator(connectionInfoSupplier,
-                                                                          continuum,
-                                                                          totalToExecute,
-                                                                          this.createTaskFactory(pageSize))
+        this.continuumTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,
+                                                                        kinotic,
+                                                                        totalToExecute,
+                                                                        this.createTaskFactory(pageSize))
     }
 
     getNextTask(): ITask {

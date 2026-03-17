@@ -1,10 +1,10 @@
 import { ITaskGenerator } from "../ITaskGenerator"
 import { ITask } from "../ITask"
-import { ConnectionInfo, Continuum } from '@kinotic/continuum-client'
+import { ConnectionInfo, Kinotic } from '@kinotic-ai/core'
 import { EcommerceTaskFactory } from './EcommerceTaskFactory'
 import { HealthTaskFactory } from './HealthTaskFactory'
 
-export class CreateComplexStructuresTaskGenerator implements ITaskGenerator {
+export class CreateComplexEntitiesTaskGenerator implements ITaskGenerator {
     private tasks: ITask[] = []
     private currentTaskIndex: number = 0
     private readonly connectionInfoSupplier: () => Promise<ConnectionInfo>
@@ -21,23 +21,23 @@ export class CreateComplexStructuresTaskGenerator implements ITaskGenerator {
     initialize(): void {
         // Initialize tasks with connection/disconnection at the start/end
         this.tasks = [
-            // Connect to Continuum
+            // Connect to Kinotic
             {
-                name: () => 'Connect to Continuum',
+                name: () => 'Connect to Kinotic',
                 execute: async () => {
                     const connectionInfo = await this.connectionInfoSupplier()
-                    await Continuum.connect(connectionInfo)
+                    await Kinotic.connect(connectionInfo)
                 }
             },
             // Ecommerce domain tasks
             ...this.ecommerceFactory.getTasks(),
             // Health domain tasks
             ...this.healthFactory.getTasks(),
-            // Disconnect from Continuum
+            // Disconnect from Kinotic
             {
-                name: () => 'Disconnect from Continuum',
+                name: () => 'Disconnect from Kinotic',
                 execute: async () => {
-                    await Continuum.disconnect()
+                    await Kinotic.disconnect()
                 }
             }
         ]

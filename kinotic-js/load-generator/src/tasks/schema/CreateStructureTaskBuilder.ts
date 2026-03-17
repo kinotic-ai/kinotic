@@ -1,55 +1,57 @@
 import { ITask } from "../ITask"
-import { IStructureService, IEntityService, Structures, Structure } from '@kinotic/structures-api'
-import { ObjectC3Type } from '@kinotic/continuum-idl'
+import { IEntityDefinitionService, EntityDefinition } from '@kinotic-ai/os-api'
+import { IEntityService, EntityService } from '@kinotic-ai/persistence'
+import { ObjectC3Type } from '@kinotic-ai/idl'
+import { Kinotic } from '@kinotic-ai/core'
 
 export interface CreateStructureTaskConfig {
     applicationId: string
     projectId: string
-    name: string    
+    name: string
     description: string
     entityDefinitionSupplier: () => ObjectC3Type
     onServiceCreated?: (service: IEntityService<any>) => void
 }
 
 export class CreateStructureTaskBuilder {
-    private readonly structureService: IStructureService
+    private readonly entityDefinitionService: IEntityDefinitionService
 
-    constructor(structureService: IStructureService) {
-        this.structureService = structureService
+    constructor(entityDefinitionService: IEntityDefinitionService) {
+        this.entityDefinitionService = entityDefinitionService
     }
 
     buildTask(config: CreateStructureTaskConfig): ITask {
-    
+
     return {
             name: () => `Create ${config.name} Structure`,
             execute: async () => {
                 const structureId = `${config.applicationId}.${config.name.toLowerCase()}`
-                const existingStructure = await this.structureService.findById(structureId)
-                
+                const existingStructure = await this.entityDefinitionService.findById(structureId)
+
                 if (existingStructure) {
                     if (existingStructure.published) {
-                        await this.structureService.unPublish(existingStructure.id!)
+                        await this.entityDefinitionService.unPublish(existingStructure.id!)
                     }
-                    await this.structureService.deleteById(existingStructure.id!)
-                    await this.structureService.syncIndex()
+                    await this.entityDefinitionService.deleteById(existingStructure.id!)
+                    await this.entityDefinitionService.syncIndex()
                 }
 
-                const entityDefinition = config.entityDefinitionSupplier()
-                
-                const structure = new Structure(
+                const schema = config.entityDefinitionSupplier()
+
+                const entityDefinition = new EntityDefinition(
                     config.applicationId,
                     config.projectId,
                     config.name,
-                    entityDefinition,
+                    schema,
                     config.description
                 )
-                const savedStructure = await this.structureService.create(structure)
-                if (savedStructure.id) {
-                    await this.structureService.publish(savedStructure.id)
+                const savedEntityDefinition = await this.entityDefinitionService.create(entityDefinition)
+                if (savedEntityDefinition.id) {
+                    await this.entityDefinitionService.publish(savedEntityDefinition.id)
                 }
-                
+
                 if (config.onServiceCreated) {
-                    const service = Structures.createEntityService(config.applicationId, config.name)
+                    const service = new EntityService(config.applicationId, config.name)
                     config.onServiceCreated(service)
                 }
             }
@@ -58,5 +60,5 @@ export class CreateStructureTaskBuilder {
 }
 
 export function createStructureTaskBuilder(): CreateStructureTaskBuilder {
-    return new CreateStructureTaskBuilder(Structures.getStructureService())
-} 
+    return new CreateStructureTaskBuilder(Kinotic.entityDefinitions)
+}

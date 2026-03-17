@@ -28,7 +28,7 @@ if(otelConfig.exporterType === OtelExporterType.OTLP){
 }
 
 const resource = resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: `structures.load-generator-${loadTestConfig.testName}`,
+    [ATTR_SERVICE_NAME]: `kinotic.load-generator-${loadTestConfig.testName}`,
     [ATTR_SERVICE_VERSION]: info.version,
 });
 

@@ -1,6 +1,7 @@
 import { ITask } from "../ITask"
-import { IEntityService, Project, ProjectType } from '@kinotic/structures-api'
-import { Structures } from '@kinotic/structures-api'
+import { IEntityService } from '@kinotic-ai/persistence'
+import { Project, ProjectType } from '@kinotic-ai/os-api'
+import { Kinotic } from '@kinotic-ai/core'
 import path from 'path'
 import { Customer } from '../../entity/domain/ecommerce/Customer'
 import { Product } from '../../entity/domain/ecommerce/Product'
@@ -9,7 +10,7 @@ import { Purchase } from '../../entity/domain/ecommerce/Purchase'
 import { TestDataGenerator } from '../../entity/domain/ecommerce/TestDataGenerator'
 import { EntityDefinitionLoader } from '../../utils/EntityDefinitionLoader'
 import { CreateStructureTaskBuilder } from './CreateStructureTaskBuilder'
-import { ObjectC3Type } from '@kinotic/continuum-idl'
+import { ObjectC3Type } from '@kinotic-ai/idl'
 import { createStructureTaskBuilder } from './CreateStructureTaskBuilder'
 
 export class EcommerceTaskFactory {
@@ -32,10 +33,10 @@ export class EcommerceTaskFactory {
             {
                 name: () => 'Create Ecommerce Namespace',
                 execute: async () => {
-                    await Structures.getApplicationService().createApplicationIfNotExist(this.applicationId, 'Ecommerce Domain')
+                    await Kinotic.applications.createApplicationIfNotExist(this.applicationId, 'Ecommerce Domain')
                     let project = new Project(null, this.applicationId, 'Main Project', 'Ecommerce Main Project')
                     project.sourceOfTruth = ProjectType.TYPESCRIPT
-                    project = await Structures.getProjectService().createProjectIfNotExist(project)    
+                    project = await Kinotic.projects.createProjectIfNotExist(project)
                 }
             },
             // Then load entity definitions

@@ -1,4 +1,4 @@
-import { IEntitiesService } from '@kinotic/structures-api'
+import { IEntitiesService } from '@kinotic-ai/persistence'
 import { BaseProviderEntityService } from './generated/BaseProviderEntityService.js'
 
 /**

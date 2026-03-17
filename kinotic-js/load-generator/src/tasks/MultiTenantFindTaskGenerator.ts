@@ -1,10 +1,10 @@
 import {PersonEntityService} from '@/services/PersonEntityService.js'
-import {ContinuumOperationTaskGenerator} from '@/tasks/ContinuumOperationTaskGenerator.js'
+import {KinoticOperationTaskGenerator} from '@/tasks/KinoticOperationTaskGenerator.ts'
 import {ITaskFactory} from '@/tasks/ITaskFactory.js'
 import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
-// import {generateMultipleDeterministicIds} from '@/utils/DataUtil.js'
-import {ConnectionInfo, ContinuumSingleton, Pageable} from '@kinotic/continuum-client'
-import {EntitiesService} from '@kinotic/structures-api'
+import {ConnectionInfo, KinoticSingleton, Pageable} from '@kinotic-ai/core'
+import {EntitiesService, PersistencePlugin} from '@kinotic-ai/persistence'
+import {OsApiPlugin} from '@kinotic-ai/os-api'
 import { ITask } from './ITask';
 import opentelemetry, {SpanKind, SpanStatusCode, Tracer} from '@opentelemetry/api'
 import info from '../../package.json' assert {type: 'json'}
@@ -15,7 +15,7 @@ import info from '../../package.json' assert {type: 'json'}
  */
 export class MultiTenantFindTaskGenerator implements ITaskGenerator {
 
-    private continuumTaskGenerator: ContinuumOperationTaskGenerator
+    private continuumTaskGenerator: KinoticOperationTaskGenerator
     private personEntityService: PersonEntityService
     private tracer: Tracer
 
@@ -24,13 +24,14 @@ export class MultiTenantFindTaskGenerator implements ITaskGenerator {
                 pageSize: number,
                 totalTenants: number) {
 
-        const continuum = new ContinuumSingleton()
-        this.personEntityService = new PersonEntityService(new EntitiesService(continuum.serviceRegistry))
+        const kinotic = new KinoticSingleton()
+        kinotic.use(OsApiPlugin).use(PersistencePlugin)
+        this.personEntityService = new PersonEntityService(new EntitiesService(kinotic))
 
-        this.continuumTaskGenerator = new ContinuumOperationTaskGenerator(connectionInfoSupplier,
-                                                                          continuum,
-                                                                          totalToExecute,
-                                                                          this.createTaskFactory(pageSize))
+        this.continuumTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,
+                                                                        kinotic,
+                                                                        totalToExecute,
+                                                                        this.createTaskFactory(pageSize))
                                                                           
         console.log('totalTenants', totalTenants)
         // const ids = generateMultipleDeterministicIds(totalTenants)

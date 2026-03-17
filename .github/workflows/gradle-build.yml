@@ -10,7 +10,7 @@ on:
     paths-ignore:
       - 'helm/**'
       - 'docker-compose/**'
-      - 'structures-js/**'
+      - 'kinotic-js/**'
       - 'webdocs/**' 
       - 'website/**'
 

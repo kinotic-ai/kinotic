@@ -1,6 +1,7 @@
 import { ITask } from "../ITask"
-import { IEntityService, Project, ProjectType } from '@kinotic/structures-api'
-import { Structures } from '@kinotic/structures-api'
+import { IEntityService } from '@kinotic-ai/persistence'
+import { Project, ProjectType } from '@kinotic-ai/os-api'
+import { Kinotic } from '@kinotic-ai/core'
 import { Patient } from '../../entity/domain/health/Patient'
 import { Provider } from '../../entity/domain/health/Provider'
 import { Appointment } from '../../entity/domain/health/Appointment'
@@ -9,7 +10,7 @@ import { Treatment } from '../../entity/domain/health/Treatment'
 import { EntityDefinitionLoader } from '../../utils/EntityDefinitionLoader'
 import { CreateStructureTaskBuilder } from './CreateStructureTaskBuilder'
 import { createStructureTaskBuilder } from './CreateStructureTaskBuilder'
-import { ObjectC3Type } from '@kinotic/continuum-idl'
+import { ObjectC3Type } from '@kinotic-ai/idl'
 import { TestDataGenerator } from '../../entity/domain/health/TestDataGenerator'
 import path from 'path'
 
@@ -34,10 +35,10 @@ export class HealthTaskFactory {
             {
                 name: () => 'Create Health Namespace',
                 execute: async () => {
-                    await Structures.getApplicationService().createApplicationIfNotExist(this.applicationId, 'Healthcare Domain')
+                    await Kinotic.applications.createApplicationIfNotExist(this.applicationId, 'Healthcare Domain')
                     let project = new Project(null, this.applicationId, 'Main Project', 'Healthcare Main Project')
                     project.sourceOfTruth = ProjectType.TYPESCRIPT
-                    project = await Structures.getProjectService().createProjectIfNotExist(project)
+                    project = await Kinotic.projects.createProjectIfNotExist(project)
                 }
             },
             // Then load entity definitions

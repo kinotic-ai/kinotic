@@ -1,10 +1,12 @@
 import {PersonEntityService} from '@/services/PersonEntityService.js'
-import {ContinuumOperationTaskGenerator} from '@/tasks/ContinuumOperationTaskGenerator.js'
+import {KinoticOperationTaskGenerator} from '@/tasks/KinoticOperationTaskGenerator.ts'
 import {ITaskFactory} from '@/tasks/ITaskFactory.js'
 import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
 import {generatePeople} from '@/utils/DataUtil.js'
-import {ConnectionInfo, ContinuumSingleton} from '@kinotic/continuum-client'
-import {EntitiesService} from '@kinotic/structures-api'
+import {ConnectionInfo, KinoticSingleton} from '@kinotic-ai/core'
+import {EntitiesService} from '@kinotic-ai/persistence'
+import {OsApiPlugin} from '@kinotic-ai/os-api'
+import {PersistencePlugin} from '@kinotic-ai/persistence'
 import { ITask } from './ITask';
 
 /**
@@ -12,7 +14,7 @@ import { ITask } from './ITask';
  */
 export class SaveTaskGenerator implements ITaskGenerator {
 
-    private continuumTaskGenerator: ContinuumOperationTaskGenerator
+    private continuumTaskGenerator: KinoticOperationTaskGenerator
     private personEntityService: PersonEntityService
 
     /**
@@ -29,13 +31,14 @@ export class SaveTaskGenerator implements ITaskGenerator {
         if(numberOfPeopleToCreate % batchSize !== 0) {
             throw new Error('numberOfPeopleToCreate must be evenly divisible by batchSize')
         }
-        const continuum = new ContinuumSingleton()
-        this.personEntityService = new PersonEntityService(new EntitiesService(continuum.serviceRegistry))
+        const kinotic = new KinoticSingleton()
+        kinotic.use(OsApiPlugin).use(PersistencePlugin)
+        this.personEntityService = new PersonEntityService(new EntitiesService(kinotic))
 
-        this.continuumTaskGenerator = new ContinuumOperationTaskGenerator(connectionInfoSupplier,
-                                                                          continuum,
-                                                                          numberOfPeopleToCreate / batchSize,
-                                                                          this.createTaskFactory(batchSize))
+        this.continuumTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,
+                                                                        kinotic,
+                                                                        numberOfPeopleToCreate / batchSize,
+                                                                        this.createTaskFactory(batchSize))
     }
 
     getNextTask(): ITask {

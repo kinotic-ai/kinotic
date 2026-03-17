@@ -1,27 +1,33 @@
 import {ConcurrencyConfig} from '@/config/ConcurrencyConfig.js'
 import {LoadTestConfig} from '@/config/LoadTestConfig.js'
-import {StructuresConnectionConfig} from '@/config/StructuresConnectionConfig.js'
+import {KinoticConnectionConfig} from '@/config/KinoticConnectionConfig.ts'
 import {nodeSdk} from '@/instrumentation.js'
 import {LoadTaskGeneratorFactory} from '@/services/LoadTaskGeneratorFactory.js'
 import {TaskExecutionService} from '@/services/TaskExecutionService.js'
 import {formatDuration} from '@/utils/DataUtil.js'
 
+import {Kinotic} from '@kinotic-ai/core'
+import {OsApiPlugin} from '@kinotic-ai/os-api'
+import {PersistencePlugin} from '@kinotic-ai/persistence'
 import {WebSocket} from 'ws'
 
-// This is required when running Continuum from node
+// This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
+
+Kinotic.use(OsApiPlugin)
+       .use(PersistencePlugin)
 
 try {
 
     const concurrencyConfig = ConcurrencyConfig.fromEnv()
-    const structuresConfig = StructuresConnectionConfig.fromEnv()
+    const kinoticConnectionConfig = KinoticConnectionConfig.fromEnv()
     const loadTestConfig = LoadTestConfig.fromEnv()
     console.log('Load Generator Config:')
     concurrencyConfig.print()
-    structuresConfig.print()
+    kinoticConnectionConfig.print()
     loadTestConfig.print()
 
-    const taskGenerator = LoadTaskGeneratorFactory.createTaskGenerator(structuresConfig, loadTestConfig)
+    const taskGenerator = LoadTaskGeneratorFactory.createTaskGenerator(kinoticConnectionConfig, loadTestConfig)
     const taskExecutor = new TaskExecutionService(concurrencyConfig.maxConcurrentRequests,
                                                   concurrencyConfig.maxRequestsPerSecond,
                                                   100,

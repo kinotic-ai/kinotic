@@ -1,4 +1,4 @@
-import {Entity, Id, MultiTenancyType, Precision, PrecisionType} from '@kinotic/structures-api'
+import {Entity, Id, MultiTenancyType, Precision, PrecisionType} from '@kinotic-ai/persistence'
 import {Address} from './Address.js'
 
 

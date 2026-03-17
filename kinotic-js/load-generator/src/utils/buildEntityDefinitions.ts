@@ -1,6 +1,6 @@
-import { CodeGenerationService } from '@kinotic/structures-cli/dist/internal/CodeGenerationService.js'
-import { ConsoleLogger } from '@kinotic/structures-cli/dist/internal/Logger.js'
-import { NamespaceConfiguration } from '@kinotic/structures-cli/dist/internal/state/StructuresProject.js'
+import { CodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/CodeGenerationService.js'
+import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
+import { KinoticProjectConfig } from '@kinotic-ai/core'
 import path from 'path'
 import fs from 'fs/promises'
 
@@ -14,8 +14,8 @@ async function buildEntityDefinitions() {
         const namespace = 'ecommerce'
         const codeGenerationService = new CodeGenerationService(namespace, '.js', logger)
 
-        const namespaceConfig: NamespaceConfiguration = new NamespaceConfiguration()
-        namespaceConfig.namespaceName = namespace
+        const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
+        namespaceConfig.application = namespace
         namespaceConfig.validate = false
         namespaceConfig.entitiesPaths = [path.resolve(__dirname, '../entity/domain/ecommerce')]
         namespaceConfig.generatedPath = path.resolve(__dirname, '../services/ecommerce')
@@ -39,8 +39,8 @@ async function buildEntityDefinitions() {
         const namespace = 'healthcare'
         const codeGenerationService = new CodeGenerationService(namespace, '.js', logger)
 
-        const namespaceConfig: NamespaceConfiguration = new NamespaceConfiguration()
-        namespaceConfig.namespaceName = namespace
+        const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
+        namespaceConfig.application = namespace
         namespaceConfig.validate = false
         namespaceConfig.entitiesPaths = [path.resolve(__dirname, '../entity/domain/health')]
         namespaceConfig.generatedPath = path.resolve(__dirname, '../services/health')
@@ -76,4 +76,4 @@ try {
 } catch (error) {
     console.error('Build failed:', error)
     process.exit(1)
-} 
+}
