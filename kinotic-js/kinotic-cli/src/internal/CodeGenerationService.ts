@@ -84,7 +84,7 @@ export class CodeGenerationService {
 
             for (const entityInfo of convertedEntities) {
 
-                this.logger.logVerbose(`Generated Structure Mapping for ${entityInfo.entity.namespace}.${entityInfo.entity.name}`, config.verbose)
+                this.logger.logVerbose(`Generated Persistence Mapping for ${entityInfo.entity.namespace}.${entityInfo.entity.name}`, config.verbose)
 
                 const generatedServices: GeneratedServiceInfo[] = []
 
@@ -209,7 +209,7 @@ export class CodeGenerationService {
             if(serviceClass){
 
                 // Convert all methods that have a @Query decorator to a C3 FunctionDefinition
-                // These will be used to define the named queries for the structure
+                // These will be used to define the named queries for the EntityDefinition
                 for(const method of serviceClass?.getInstanceMethods()){
 
                     const queryDecorator = method.getDecorator('Query')

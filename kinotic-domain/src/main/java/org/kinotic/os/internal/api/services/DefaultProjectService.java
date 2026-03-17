@@ -68,7 +68,7 @@ public class DefaultProjectService extends AbstractCrudService<Project> implemen
 //                throw new IllegalStateException("Cannot delete project with structures in it.");
 //            }
 //        }).thenCompose(v -> super.deleteById(id));
-        return null;
+        return super.deleteById(id);
     }
 
 

@@ -3,7 +3,7 @@ import {EntityDefinition} from '@kinotic-ai/os-api'
 import axios from 'axios'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
 import {PersonWithTenant} from '../domain/PersonWithTenant.js'
-import {createPersonStructureIfNotExist, createSchema, initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
+import {createPersonEntityDefinitionIfNotExist, createSchema, initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
 import {
     buildFirstNameQuery,
     bulkSavePeople,
@@ -22,7 +22,7 @@ interface LocalTestContext {
 
 const applicationId = 'openapi.admin'
 const projectName = 'TestProject'
-const BASE_AUTH = 'Basic YWRtaW46c3RydWN0dXJlcw=='
+const BASE_AUTH = 'Basic a2lub3RpYzpraW5vdGlj'
 const DEFAULT_TENANT = 'kinotic'
 
 const axiosInstance = axios.create({
@@ -39,7 +39,7 @@ describe('End To End Tests', () => {
     beforeAll(async () => {
         await initKinoticClient()
 
-        context.personWithTenantStructure = await createPersonStructureIfNotExist(applicationId, projectName, true)
+        context.personWithTenantStructure = await createPersonEntityDefinitionIfNotExist(applicationId, projectName, true)
         expect(context.personWithTenantStructure).toBeDefined()
 
         const { namedQueriesDefinition } = await createSchema(applicationId, context.personWithTenantStructure.projectId, 'PersonWithTenant')
@@ -47,9 +47,9 @@ describe('End To End Tests', () => {
         await namedQueriesService.save(namedQueriesDefinition)
 
         // @ts-ignore
-        const host = inject('STRUCTURES_HOST') as string
+        const host = inject('KINOTIC_HOST') as string
         // @ts-ignore
-        const port = inject('STRUCTURES_OPENAPI_PORT') as string
+        const port = inject('KINOTIC_OPENAPI_PORT') as string
         baseUrl = `http://${host}:${port}`
     }, 300000)
 
@@ -65,7 +65,7 @@ describe('End To End Tests', () => {
 
             expect(schema).toBeDefined()
             expect(schema.openapi).toBe('3.0.1')
-            expect(schema.info?.title).toBe('openapi.admin Structures API')
+            expect(schema.info?.title).toBe('openapi.admin API')
         })
 
         describe('PersonWithTenant CRUD Operations', () => {

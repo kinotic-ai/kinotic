@@ -1,16 +1,16 @@
 import {Kinotic, Pageable} from '@kinotic-ai/core'
 import {PropertyDefinition, StringC3Type} from '@kinotic-ai/idl'
-import {IEntityService, EntityService} from '@kinotic-ai/persistence'
 import {EntityDefinition} from '@kinotic-ai/os-api'
+import {EntityService, IEntityService} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
 import {Alert} from '../domain/Alert.js'
 import {
-    createAlertStructureIfNotExist,
+    createAlertEntityDefinitionIfNotExist,
     createTestAlert,
     createTestAlerts,
-    deleteStructure,
+    deleteEntityDefinition,
     generateRandomString,
     initKinoticClient,
     logFailure,
@@ -20,7 +20,7 @@ import {
 Object.assign(global, { WebSocket })
 
 interface LocalTestContext {
-    structure: EntityDefinition
+    entityDefinition: EntityDefinition
     entityService: IEntityService<Alert>
 }
 
@@ -36,18 +36,18 @@ describe('End To End Tests', () => {
     }, 60000)
 
     beforeEach<LocalTestContext>(async (context) => {
-        context.structure = await createAlertStructureIfNotExist(generateRandomString(10), generateRandomString(5))
-        expect(context.structure).toBeDefined()
-        context.entityService = new EntityService(context.structure.applicationId, context.structure.name)
+        context.entityDefinition = await createAlertEntityDefinitionIfNotExist(generateRandomString(10), generateRandomString(5))
+        expect(context.entityDefinition).toBeDefined()
+        context.entityService = new EntityService(context.entityDefinition.applicationId, context.entityDefinition.name)
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
-        await expect(deleteStructure(context.structure.id as string)).resolves.toBeUndefined()
+        await expect(deleteEntityDefinition(context.entityDefinition.id as string)).resolves.toBeUndefined()
         await expect(Kinotic.entityDefinitions.syncIndex()).resolves.toBeNull()
-        await Kinotic.projects.deleteById(context.structure.projectId)
+        await Kinotic.projects.deleteById(context.entityDefinition.projectId)
         await expect(Kinotic.projects.syncIndex()).resolves.toBeNull()
-        await Kinotic.applications.deleteById(context.structure.applicationId)
+        await Kinotic.applications.deleteById(context.entityDefinition.applicationId)
     })
 
     it<LocalTestContext>('Test Basic Stream Write and Search', async ({entityService}) => {
@@ -170,8 +170,8 @@ describe('End To End Tests', () => {
         expect(remainingAlerts.content?.[0].severity).toBe('LOW')
     })
 
-    it<LocalTestContext>('Test Alert Schema Evolution - Add Field (Non-Breaking)', async ({structure, entityService}) => {
-        // Step 1: Save initial data with existing structure
+    it<LocalTestContext>('Test Alert Schema Evolution - Add Field (Non-Breaking)', async ({entityDefinition, entityService}) => {
+        // Step 1: Save initial data with existing entityDefinition
         const initialAlert = createTestAlert()
         await logFailure(entityService.save(initialAlert), 'Failed to save initial alert')
         await entityService.syncIndex()
@@ -183,10 +183,10 @@ describe('End To End Tests', () => {
 
         // Step 2: Modify the schema - add a new 'category' field (no unpublish needed)
         const propertyDefinition = new PropertyDefinition('category', new StringC3Type())
-        structure.entityDefinition.properties.push(propertyDefinition)
+        entityDefinition.schema.properties.push(propertyDefinition)
 
-        // Step 3: Update the existing structure
-        await Kinotic.entityDefinitions.save(structure)
+        // Step 3: Update the existing entityDefinition
+        await Kinotic.entityDefinitions.save(entityDefinition)
 
         // Step 4: Save data with new field
         const newAlert = createTestAlert({index: 2})
@@ -207,8 +207,8 @@ describe('End To End Tests', () => {
         expect(results.content?.[0].category).toBe('System Failure')
     })
 
-    it<LocalTestContext>('Test Alert Schema Evolution - Remove Field (Breaking)', async ({structure, entityService}) => {
-        // Step 1: Save initial data with existing structure
+    it<LocalTestContext>('Test Alert Schema Evolution - Remove Field (Breaking)', async ({entityDefinition, entityService}) => {
+        // Step 1: Save initial data with existing entityDefinition
         const initialAlert = createTestAlert()
         await logFailure(entityService.save(initialAlert), 'Failed to save initial alert')
         await entityService.syncIndex()
@@ -220,17 +220,17 @@ describe('End To End Tests', () => {
         expect(results.content?.[0].source).toBe(initialAlert.source)
 
         // Step 2: Modify the schema - remove the 'source' field (breaking change)
-        await Kinotic.entityDefinitions.unPublish(structure.id as string)
+        await Kinotic.entityDefinitions.unPublish(entityDefinition.id as string)
 
-        const updatedEntityDefinition = structure.entityDefinition
-        updatedEntityDefinition.properties = updatedEntityDefinition.properties.filter(
+        const updatedSchema = entityDefinition.schema
+        updatedSchema.properties = updatedSchema.properties.filter(
             prop => prop.name !== 'source'
         )
 
-        // Step 3: Update the existing structure
-        structure.entityDefinition = updatedEntityDefinition
-        await Kinotic.entityDefinitions.save(structure)
-        await Kinotic.entityDefinitions.publish(structure.id as string)
+        // Step 3: Update the existing entityDefinition
+        entityDefinition.schema = updatedSchema
+        await Kinotic.entityDefinitions.save(entityDefinition)
+        await Kinotic.entityDefinitions.publish(entityDefinition.id as string)
 
         // Step 4: Save data without the removed 'source' field (using existing entityService)
         const newAlert = createTestAlert()

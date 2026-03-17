@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS kinotic_named_query_service_definition (
     id KEYWORD,
     applicationId KEYWORD,
     projectId KEYWORD,
-    entityDefinition KEYWORD,
+    entityDefinitionName KEYWORD,
     namedQueries JSON NOT INDEXED
 ); 
 

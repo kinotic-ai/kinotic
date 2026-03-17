@@ -1,34 +1,22 @@
-import {Kinotic, Direction, Order, Page, Pageable, Sort} from '@kinotic-ai/core'
-import {
-    AdminEntityService,
-    IAdminEntityService,
-    IEntityService,
-    EntityService,
-    TenantSpecificId,
-    PersistencePlugin
-} from '@kinotic-ai/persistence'
-import {OsApiPlugin, EntityDefinition} from '@kinotic-ai/os-api'
+import {Direction, Kinotic, Order, Page, Pageable, Sort} from '@kinotic-ai/core'
+import {EntityDefinition} from '@kinotic-ai/os-api'
+import {AdminEntityService, EntityService, IAdminEntityService, IEntityService, TenantSpecificId,} from '@kinotic-ai/persistence'
+import * as allure from "allure-js-commons";
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
-import {WebSocket} from 'ws'
 import {PersonWithTenant} from '../domain/PersonWithTenant.js'
 import {
-    createPersonStructureIfNotExist,
+    createPersonEntityDefinitionIfNotExist,
     createTestPeopleWithTenantAndVerify,
     createTestPersonWithTenant,
-    deleteStructure,
+    deleteEntityDefinition,
     generateRandomString,
     initKinoticClient,
     logFailure,
     shutdownKinoticClient,
 } from '../TestHelpers.js'
-import * as allure from "allure-js-commons";
-
-Object.assign(global, { WebSocket})
-Kinotic.use(OsApiPlugin)
-       .use(PersistencePlugin)
 
 interface LocalTestContext {
-    structure: EntityDefinition
+    entityDefinition: EntityDefinition
     adminEntityService: IAdminEntityService<PersonWithTenant>
     entityService: IEntityService<PersonWithTenant>
 }
@@ -46,20 +34,20 @@ describe('End To End Tests', () => {
     }, 60000)
 
     beforeEach<LocalTestContext>(async (context) => {
-        context.structure = await createPersonStructureIfNotExist(generateRandomString(10), generateRandomString(5), true)
-        expect(context.structure).toBeDefined()
-        context.adminEntityService = new AdminEntityService(context.structure.applicationId, context.structure.name)
+        context.entityDefinition = await createPersonEntityDefinitionIfNotExist(generateRandomString(10), generateRandomString(5), true)
+        expect(context.entityDefinition).toBeDefined()
+        context.adminEntityService = new AdminEntityService(context.entityDefinition.applicationId, context.entityDefinition.name)
         expect(context.adminEntityService).toBeDefined()
-        context.entityService = new EntityService(context.structure.applicationId, context.structure.name)
+        context.entityService = new EntityService(context.entityDefinition.applicationId, context.entityDefinition.name)
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
-        await expect(deleteStructure(context.structure.id as string)).resolves.toBeUndefined()
+        await expect(deleteEntityDefinition(context.entityDefinition.id as string)).resolves.toBeUndefined()
         await expect(Kinotic.entityDefinitions.syncIndex()).resolves.toBeNull()
-        await Kinotic.projects.deleteById(context.structure.projectId)
+        await Kinotic.projects.deleteById(context.entityDefinition.projectId)
         await expect(Kinotic.projects.syncIndex()).resolves.toBeNull()
-        await Kinotic.applications.deleteById(context.structure.applicationId)
+        await Kinotic.applications.deleteById(context.entityDefinition.applicationId)
 
     })
 

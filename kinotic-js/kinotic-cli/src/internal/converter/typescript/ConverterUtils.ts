@@ -16,9 +16,7 @@ import {
     IdDecorator,
     NestedDecorator,
     NotIndexedDecorator,
-    PolicyDecorator,
     QueryDecorator,
-    RoleDecorator,
     TenantIdDecorator,
     TextDecorator,
     TimeReferenceDecorator,
@@ -29,7 +27,9 @@ import {
     EntityServiceDecoratorsConfig,
     EntityServiceDecoratorsDecorator,
     EntityType,
-    MultiTenancyType
+    MultiTenancyType,
+    PolicyDecorator,
+    RoleDecorator
 } from '@kinotic-ai/persistence'
 import {Decorator, SyntaxKind, ObjectLiteralExpression, CallExpression} from 'ts-morph'
 

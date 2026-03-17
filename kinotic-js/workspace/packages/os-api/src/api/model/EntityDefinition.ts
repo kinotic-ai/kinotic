@@ -17,7 +17,7 @@ export class EntityDefinition implements Identifiable<string> {
     public projectId!: string
 
     public name!: string
-    public entityDefinition!: ObjectC3Type
+    public schema!: ObjectC3Type
     public description?: string | null
     public created!: number // do not ever set, system managed
     public updated!: number // do not ever set, system managed
@@ -27,12 +27,12 @@ export class EntityDefinition implements Identifiable<string> {
     constructor(applicationId: string,
                 projectId: string,
                 name: string,
-                entityDefinition: ObjectC3Type,
+                schema: ObjectC3Type,
                 description?: string | null) {
         this.applicationId = applicationId
         this.projectId = projectId
         this.name = name
-        this.entityDefinition = entityDefinition
+        this.schema = schema
         this.description = description
     }
 

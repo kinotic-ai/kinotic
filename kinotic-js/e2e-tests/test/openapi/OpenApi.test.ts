@@ -1,7 +1,7 @@
 import {EntityDefinition} from '@kinotic-ai/os-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
-import {createPersonStructureIfNotExist, initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
+import {createPersonEntityDefinitionIfNotExist, initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
 import {loadOpenAPISchema} from './OpenApiHelpers.js'
 
 
@@ -22,9 +22,9 @@ describe('OpenApi Tests', () => {
         await allure.parentSuite('End To End Tests')
         await initKinoticClient()
 
-        context.personStructure = await createPersonStructureIfNotExist(applicationId, projectName)
+        context.personStructure = await createPersonEntityDefinitionIfNotExist(applicationId, projectName)
         expect(context.personStructure).toBeDefined()
-        context.personWithTenantStructure = await createPersonStructureIfNotExist(applicationId, projectName, true)
+        context.personWithTenantStructure = await createPersonEntityDefinitionIfNotExist(applicationId, projectName, true)
 
     }, 300000)
 
@@ -38,16 +38,16 @@ describe('OpenApi Tests', () => {
         'OpenApi Schema loads',
         async () => {
             // @ts-ignore
-            const host = inject('STRUCTURES_HOST')
+            const host = inject('KINOTIC_HOST')
             // @ts-ignore
-            const port = inject('STRUCTURES_OPENAPI_PORT')
+            const port = inject('KINOTIC_OPENAPI_PORT')
             const schemaUrl = `http://${host}:${port}/api-docs/openapi/openapi.json`
 
             const schema = await loadOpenAPISchema(schemaUrl)
 
             expect(schema).toBeDefined()
             expect(schema.openapi).toBe('3.0.1')
-            expect(schema.info?.title).toBe('openapi Structures API')
+            expect(schema.info?.title).toBe('openapi API')
         }
     )
 

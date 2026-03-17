@@ -1,30 +1,21 @@
 import {Kinotic, Page, Pageable} from '@kinotic-ai/core'
 import {ArrayC3Type, FunctionDefinition, LongC3Type, ObjectC3Type, StringC3Type} from '@kinotic-ai/idl'
-import {IEntityService, EntityService} from '@kinotic-ai/persistence'
-import {
-    EntityDefinition,
-    NamedQueriesDefinition,
-    PageableC3Type,
-    PageC3Type,
-    QueryDecorator
-} from '@kinotic-ai/os-api'
+import {EntityDefinition, NamedQueriesDefinition, PageableC3Type, PageC3Type, QueryDecorator} from '@kinotic-ai/os-api'
+import {EntityService, IEntityService} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
-import {WebSocket} from 'ws'
 import {Person} from '../domain/Person.js'
 import {
-    createPersonStructureIfNotExist,
+    createPersonEntityDefinitionIfNotExist,
     createTestPeopleAndVerify,
-    deleteStructure,
+    deleteEntityDefinition,
     generateRandomString,
     initKinoticClient,
     shutdownKinoticClient,
 } from '../TestHelpers.js'
 
-Object.assign(global, { WebSocket})
-
 interface LocalTestContext {
-    structure: EntityDefinition
+    entityDefinition: EntityDefinition
     applicationIdUsed: string
     projectIdUsed: string
     entityService: IEntityService<Person>
@@ -45,18 +36,18 @@ describe('End To End Tests', () => {
     beforeEach<LocalTestContext>(async (context) => {
         context.applicationIdUsed = generateRandomString(10)
         context.projectIdUsed = generateRandomString(5)
-        context.structure = await createPersonStructureIfNotExist(context.applicationIdUsed, context.projectIdUsed)
-        expect(context.structure).toBeDefined()
-        context.entityService = new EntityService(context.structure.applicationId, context.structure.name)
+        context.entityDefinition = await createPersonEntityDefinitionIfNotExist(context.applicationIdUsed, context.projectIdUsed)
+        expect(context.entityDefinition).toBeDefined()
+        context.entityService = new EntityService(context.entityDefinition.applicationId, context.entityDefinition.name)
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
-        await expect(deleteStructure(context.structure.id as string)).resolves.toBeUndefined()
+        await expect(deleteEntityDefinition(context.entityDefinition.id as string)).resolves.toBeUndefined()
         await expect(Kinotic.entityDefinitions.syncIndex()).resolves.toBeNull()
-        await Kinotic.projects.deleteById(context.structure.projectId)
+        await Kinotic.projects.deleteById(context.entityDefinition.projectId)
         await expect(Kinotic.projects.syncIndex()).resolves.toBeNull()
-        await Kinotic.applications.deleteById(context.structure.applicationId)
+        await Kinotic.applications.deleteById(context.entityDefinition.applicationId)
     })
 
 
@@ -68,7 +59,7 @@ describe('End To End Tests', () => {
 
             const structureId = entityService.entityId
 
-            const query = new QueryDecorator(`SELECT COUNT(firstName) as count FROM "struct_${structureId}"`)
+            const query = new QueryDecorator(`SELECT COUNT(firstName) as count FROM "kinotic_${structureId}"`)
             const namedQuery = new FunctionDefinition('countAllPeople', [query])
             namedQuery.returnType = new ArrayC3Type(new ObjectC3Type('PeopleCount', applicationIdUsed)
                                                         .addProperty("count", new LongC3Type()))
@@ -99,7 +90,7 @@ describe('End To End Tests', () => {
 
             const structureId = entityService.entityId
 
-            const query = new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "struct_${structureId}" WHERE lastName = ? GROUP BY lastName`)
+            const query = new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "kinotic_${structureId}" WHERE lastName = ? GROUP BY lastName`)
             const namedQuery = new FunctionDefinition('countPeopleByLastNameWithLastName', [query])
             namedQuery.addParameter('lastName', new StringC3Type())
             const contentType = new ObjectC3Type('CountByLastName', applicationIdUsed)
@@ -134,7 +125,7 @@ describe('End To End Tests', () => {
             await createTestPeopleAndVerify(entityService, 100)
 
             const structureId = entityService.entityId
-            const query = new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "struct_${structureId}" GROUP BY lastName`)
+            const query = new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "kinotic_${structureId}" GROUP BY lastName`)
             const namedQuery = new FunctionDefinition('countPeopleByLastNamePage', [query])
             namedQuery.addParameter('pageable', new PageableC3Type())
             const contentType = new ObjectC3Type('CountByLastName', applicationIdUsed)
@@ -179,13 +170,13 @@ describe('End To End Tests', () => {
             const structureId = entityService.entityId
             const namedQueriesService = Kinotic.namedQueriesDefinitions
 
-            const query = new QueryDecorator(`SELECT COUNT(firstName) as count FROM "struct_${structureId}"`)
+            const query = new QueryDecorator(`SELECT COUNT(firstName) as count FROM "kinotic_${structureId}"`)
             const namedQuery = new FunctionDefinition('countAllPeople', [query])
             namedQuery.returnType = new ArrayC3Type(new ObjectC3Type('PeopleCount', applicationIdUsed)
                                                         .addProperty("count", new LongC3Type()))
 
 
-            const query2 = new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "struct_${structureId}" WHERE lastName = ? GROUP BY lastName`)
+            const query2 = new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "kinotic_${structureId}" WHERE lastName = ? GROUP BY lastName`)
             const namedQuery2 = new FunctionDefinition('countPeopleByLastNameWithLastName', [query2])
             namedQuery2.addParameter('lastName', new StringC3Type())
             const contentType2 = new ObjectC3Type('CountByLastName', applicationIdUsed)
@@ -194,7 +185,7 @@ describe('End To End Tests', () => {
             namedQuery2.returnType = new ArrayC3Type(contentType2)
 
 
-            const query3 = new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "struct_${structureId}" GROUP BY lastName`)
+            const query3 = new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "kinotic_${structureId}" GROUP BY lastName`)
             const namedQuery3 = new FunctionDefinition('countPeopleByLastNamePage', [query3])
             namedQuery3.addParameter('pageable', new PageableC3Type())
             const contentType3 = new ObjectC3Type('CountByLastName', applicationIdUsed)

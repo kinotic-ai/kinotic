@@ -3,7 +3,7 @@ import { IEntityService } from '@kinotic-ai/persistence';
 import { Kinotic as KineticOs } from '@kinotic-ai/os-api';
 import { WebSocket } from 'ws';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { createVehicleStructure, createTestVehicles } from '../TestHelpers';
+import { createVehicleEntityDefinition, createTestVehicles } from '../TestHelpers';
 import { Vehicle } from '../domain/Vehicle';
 import {
     clearEvictionFiles,
@@ -105,7 +105,7 @@ describe('K8s Cache Eviction Tests', () => {
 
         console.log('Test 1: Connected to pod 0');
 
-        const savedStructure = await createVehicleStructure(applicationId, 'TestProject');
+        const savedStructure = await createVehicleEntityDefinition(applicationId, 'TestProject');
 
         console.log('Test 1: Saved structure', savedStructure);
 
@@ -299,7 +299,7 @@ describe('K8s Cache Eviction Tests', () => {
         const setupStart = Date.now();
         await k8s.connectToPod(0);
 
-        const savedStructure = await createVehicleStructure(applicationId, 'TestProject');
+        const savedStructure = await createVehicleEntityDefinition(applicationId, 'TestProject');
         expect(savedStructure).toBeDefined();
         console.log(`Created structure: ${structureId}`);
 
