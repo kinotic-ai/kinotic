@@ -1,7 +1,7 @@
-import {Pageable} from '@kinotic-ai/core'
-import {ObjectC3Type, PropertyDefinition, StringC3Type} from '@kinotic-ai/idl'
-import {IEntityService} from '@kinotic-ai/persistence'
-import {Kinotic as KineticOs, EntityDefinition} from '@kinotic-ai/os-api'
+import {Kinotic, Pageable} from '@kinotic-ai/core'
+import {PropertyDefinition, StringC3Type} from '@kinotic-ai/idl'
+import {IEntityService, EntityService} from '@kinotic-ai/persistence'
+import {EntityDefinition} from '@kinotic-ai/os-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
@@ -38,16 +38,16 @@ describe('End To End Tests', () => {
     beforeEach<LocalTestContext>(async (context) => {
         context.structure = await createAlertStructureIfNotExist(generateRandomString(10), generateRandomString(5))
         expect(context.structure).toBeDefined()
-        context.entityService = KineticOs.createEntityService(context.structure.applicationId, context.structure.name)
+        context.entityService = new EntityService(context.structure.applicationId, context.structure.name)
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
         await expect(deleteStructure(context.structure.id as string)).resolves.toBeUndefined()
-        await expect(KineticOs.entityDefinitions.syncIndex()).resolves.toBeNull()
-        await KineticOs.projects.deleteById(context.structure.projectId)
-        await expect(KineticOs.projects.syncIndex()).resolves.toBeNull()
-        await KineticOs.applications.deleteById(context.structure.applicationId)
+        await expect(Kinotic.entityDefinitions.syncIndex()).resolves.toBeNull()
+        await Kinotic.projects.deleteById(context.structure.projectId)
+        await expect(Kinotic.projects.syncIndex()).resolves.toBeNull()
+        await Kinotic.applications.deleteById(context.structure.applicationId)
     })
 
     it<LocalTestContext>('Test Basic Stream Write and Search', async ({entityService}) => {
@@ -186,7 +186,7 @@ describe('End To End Tests', () => {
         structure.entityDefinition.properties.push(propertyDefinition)
 
         // Step 3: Update the existing structure
-        await KineticOs.entityDefinitions.save(structure)
+        await Kinotic.entityDefinitions.save(structure)
 
         // Step 4: Save data with new field
         const newAlert = createTestAlert({index: 2})
@@ -220,7 +220,7 @@ describe('End To End Tests', () => {
         expect(results.content?.[0].source).toBe(initialAlert.source)
 
         // Step 2: Modify the schema - remove the 'source' field (breaking change)
-        await KineticOs.entityDefinitions.unPublish(structure.id as string)
+        await Kinotic.entityDefinitions.unPublish(structure.id as string)
 
         const updatedEntityDefinition = structure.entityDefinition
         updatedEntityDefinition.properties = updatedEntityDefinition.properties.filter(
@@ -229,8 +229,8 @@ describe('End To End Tests', () => {
 
         // Step 3: Update the existing structure
         structure.entityDefinition = updatedEntityDefinition
-        await KineticOs.entityDefinitions.save(structure)
-        await KineticOs.entityDefinitions.publish(structure.id as string)
+        await Kinotic.entityDefinitions.save(structure)
+        await Kinotic.entityDefinitions.publish(structure.id as string)
 
         // Step 4: Save data without the removed 'source' field (using existing entityService)
         const newAlert = createTestAlert()

@@ -5,10 +5,6 @@ import { resolve } from 'path'
 const root = process.cwd()
 const packagesDir = resolve(root, 'packages')
 
-const { version } = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf-8'))
-const isBeta = version.includes('beta')
-const publishArgs = isBeta ? ['publish', '--tag', 'beta'] : ['publish']
-
 const packages = readdirSync(packagesDir)
     .filter(dir => {
         try {
@@ -20,7 +16,7 @@ const packages = readdirSync(packagesDir)
     })
     .map(dir => `packages/${dir}`)
 
-console.log(`Publishing version ${version}${isBeta ? ' [beta]' : ''} for ${packages.length} packages...`)
+console.log(`Publishing ${packages.length} packages...`)
 
 let failed = false
 
@@ -28,6 +24,9 @@ for (const pkg of packages) {
     const pkgJson = JSON.parse(readFileSync(resolve(root, pkg, 'package.json'), 'utf-8'))
 
     console.log(`\nPublishing ${pkgJson.name}@${pkgJson.version}...`)
+
+    const isBeta = pkgJson.version.includes('beta')
+    const publishArgs = isBeta ? ['publish', '--tag', 'beta'] : ['publish']
 
     const result = spawnSync('bun', publishArgs, {
         cwd: resolve(root, pkg),

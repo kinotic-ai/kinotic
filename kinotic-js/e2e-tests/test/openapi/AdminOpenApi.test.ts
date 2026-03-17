@@ -1,5 +1,5 @@
-import {Kinotic as KineticOs, EntityDefinition} from '@kinotic-ai/os-api'
-import * as allure from 'allure-js-commons'
+import {Kinotic} from '@kinotic-ai/core'
+import {EntityDefinition} from '@kinotic-ai/os-api'
 import axios from 'axios'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
 import {PersonWithTenant} from '../domain/PersonWithTenant.js'
@@ -43,7 +43,7 @@ describe('End To End Tests', () => {
         expect(context.personWithTenantStructure).toBeDefined()
 
         const { namedQueriesDefinition } = await createSchema(applicationId, context.personWithTenantStructure.projectId, 'PersonWithTenant')
-        const namedQueriesService = KineticOs.namedQueriesDefinitions
+        const namedQueriesService = Kinotic.namedQueriesDefinitions
         await namedQueriesService.save(namedQueriesDefinition)
 
         // @ts-ignore

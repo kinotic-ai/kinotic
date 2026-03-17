@@ -9,14 +9,17 @@ importers:
   .:
     dependencies:
       '@kinotic-ai/core':
-        specifier: 1.0.0-beta.0
-        version: 1.0.0-beta.0(typescript@5.9.3)
+        specifier: ^1.0.7
+        version: 1.0.7(typescript@5.9.3)
       '@kinotic-ai/idl':
-        specifier: 1.0.0-beta.0
-        version: 1.0.0-beta.0(typescript@5.9.3)
-      '@kinotic/structures-api':
-        specifier: ^3.5.0
-        version: 3.5.0(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))
+        specifier: ^1.0.7
+        version: 1.0.7(typescript@5.9.3)
+      '@kinotic-ai/os-api':
+        specifier: ^1.0.7
+        version: 1.0.7(typescript@5.9.3)
+      '@kinotic-ai/persistence':
+        specifier: ^1.0.7
+        version: 1.0.7(typescript@5.9.3)
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -27,9 +30,9 @@ importers:
       '@faker-js/faker':
         specifier: ^10.2.0
         version: 10.2.0
-      '@kinotic/structures-cli':
-        specifier: ^3.5.0
-        version: 3.5.0(@types/node@25.0.6)(magicast@0.5.1)
+      '@kinotic-ai/kinotic-cli':
+        specifier: ^1.0.1
+        version: 1.0.1(@types/node@25.0.6)(magicast@0.5.1)(typescript@5.9.3)
       '@types/node':
         specifier: ^25.0.6
         version: 25.0.6
@@ -298,8 +301,8 @@ packages:
     resolution: {integrity: sha512-S8qNSZiYzFd0wAcyG5AXCvUHC5Sr7xpZ9wZ2py9XR88jUz8wooStVx5M6dRzczbBWjic9NP7+rY0Xi7qqK/aMQ==}
     engines: {node: '>=18'}
 
-  '@inquirer/ansi@2.0.2':
-    resolution: {integrity: sha512-SYLX05PwJVnW+WVegZt1T4Ip1qba1ik+pNJPDiqvk6zS5Y/i8PhRzLpGEtVd7sW0G8cMtkD8t4AZYhQwm8vnww==}
+  '@inquirer/ansi@2.0.4':
+    resolution: {integrity: sha512-DpcZrQObd7S0R/U3bFdkcT5ebRwbTTC4D3tCc1vsJizmgPLxNJBo+AAFmrZwe8zk30P2QzgzGWZ3Q9uJwWuhIg==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
 
   '@inquirer/checkbox@4.3.2':
@@ -311,8 +314,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/checkbox@5.0.3':
-    resolution: {integrity: sha512-xtQP2eXMFlOcAhZ4ReKP2KZvDIBb1AnCfZ81wWXG3DXLVH0f0g4obE0XDPH+ukAEMRcZT0kdX2AS1jrWGXbpxw==}
+  '@inquirer/checkbox@5.1.2':
+    resolution: {integrity: sha512-PubpMPO2nJgMufkoB3P2wwxNXEMUXnBIKi/ACzDUYfaoPuM7gSTmuxJeMscoLVEsR4qqrCMf5p0SiYGWnVJ8kw==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -329,8 +332,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/confirm@6.0.3':
-    resolution: {integrity: sha512-lyEvibDFL+NA5R4xl8FUmNhmu81B+LDL9L/MpKkZlQDJZXzG8InxiqYxiAlQYa9cqLLhYqKLQwZqXmSTqCLjyw==}
+  '@inquirer/confirm@6.0.10':
+    resolution: {integrity: sha512-tiNyA73pgpQ0FQ7axqtoLUe4GDYjNCDcVsbgcA5anvwg2z6i+suEngLKKJrWKJolT//GFPZHwN30binDIHgSgQ==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -347,8 +350,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/core@11.1.0':
-    resolution: {integrity: sha512-+jD/34T1pK8M5QmZD/ENhOfXdl9Zr+BrQAUc5h2anWgi7gggRq15ZbiBeLoObj0TLbdgW7TAIQRU2boMc9uOKQ==}
+  '@inquirer/core@11.1.7':
+    resolution: {integrity: sha512-1BiBNDk9btIwYIzNZpkikIHXWeNzNncJePPqwDyVMhXhD1ebqbpn1mKGctpoqAbzywZfdG0O4tvmsGIcOevAPQ==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -369,8 +372,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/editor@5.0.3':
-    resolution: {integrity: sha512-wYyQo96TsAqIciP/r5D3cFeV8h4WqKQ/YOvTg5yOfP2sqEbVVpbxPpfV3LM5D0EP4zUI3EZVHyIUIllnoIa8OQ==}
+  '@inquirer/editor@5.0.10':
+    resolution: {integrity: sha512-VJx4XyaKea7t8hEApTw5dxeIyMtWXre2OiyJcICCRZI4hkoHsMoCnl/KbUnJJExLbH9csLLHMVR144ZhFE1CwA==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -387,8 +390,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/expand@5.0.3':
-    resolution: {integrity: sha512-2oINvuL27ujjxd95f6K2K909uZOU2x1WiAl7Wb1X/xOtL8CgQ1kSxzykIr7u4xTkXkXOAkCuF45T588/YKee7w==}
+  '@inquirer/expand@5.0.10':
+    resolution: {integrity: sha512-fC0UHJPXsTRvY2fObiwuQYaAnHrp3aDqfwKUJSdfpgv18QUG054ezGbaRNStk/BKD5IPijeMKWej8VV8O5Q/eQ==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -405,8 +408,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/external-editor@2.0.2':
-    resolution: {integrity: sha512-X/fMXK7vXomRWEex1j8mnj7s1mpnTeP4CO/h2gysJhHLT2WjBnLv4ZQEGpm/kcYI8QfLZ2fgW+9kTKD+jeopLg==}
+  '@inquirer/external-editor@2.0.4':
+    resolution: {integrity: sha512-Prenuv9C1PHj2Itx0BcAOVBTonz02Hc2Nd2DbU67PdGUaqn0nPCnV34oDyyoaZHnmfRxkpuhh/u51ThkrO+RdA==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -418,8 +421,8 @@ packages:
     resolution: {integrity: sha512-t2IEY+unGHOzAaVM5Xx6DEWKeXlDDcNPeDyUpsRc6CUhBfU3VQOEl+Vssh7VNp1dR8MdUJBWhuObjXCsVpjN5g==}
     engines: {node: '>=18'}
 
-  '@inquirer/figures@2.0.2':
-    resolution: {integrity: sha512-qXm6EVvQx/FmnSrCWCIGtMHwqeLgxABP8XgcaAoywsL0NFga9gD5kfG0gXiv80GjK9Hsoz4pgGwF/+CjygyV9A==}
+  '@inquirer/figures@2.0.4':
+    resolution: {integrity: sha512-eLBsjlS7rPS3WEhmOmh1znQ5IsQrxWzxWDxO51e4urv+iVrSnIHbq4zqJIOiyNdYLa+BVjwOtdetcQx1lWPpiQ==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
 
   '@inquirer/input@4.3.1':
@@ -431,8 +434,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/input@5.0.3':
-    resolution: {integrity: sha512-4R0TdWl53dtp79Vs6Df2OHAtA2FVNqya1hND1f5wjHWxZJxwDMSNB1X5ADZJSsQKYAJ5JHCTO+GpJZ42mK0Otw==}
+  '@inquirer/input@5.0.10':
+    resolution: {integrity: sha512-nvZ6qEVeX/zVtZ1dY2hTGDQpVGD3R7MYPLODPgKO8Y+RAqxkrP3i/3NwF3fZpLdaMiNuK0z2NaYIx9tPwiSegQ==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -449,8 +452,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/number@4.0.3':
-    resolution: {integrity: sha512-TjQLe93GGo5snRlu83JxE38ZPqj5ZVggL+QqqAF2oBA5JOJoxx25GG3EGH/XN/Os5WOmKfO8iLVdCXQxXRZIMQ==}
+  '@inquirer/number@4.0.10':
+    resolution: {integrity: sha512-Ht8OQstxiS3APMGjHV0aYAjRAysidWdwurWEo2i8yI5xbhOBWqizT0+MU1S2GCcuhIBg+3SgWVjEoXgfhY+XaA==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -467,8 +470,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/password@5.0.3':
-    resolution: {integrity: sha512-rCozGbUMAHedTeYWEN8sgZH4lRCdgG/WinFkit6ZPsp8JaNg2T0g3QslPBS5XbpORyKP/I+xyBO81kFEvhBmjA==}
+  '@inquirer/password@5.0.10':
+    resolution: {integrity: sha512-QbNyvIE8q2GTqKLYSsA8ATG+eETo+m31DSR0+AU7x3d2FhaTWzqQek80dj3JGTo743kQc6mhBR0erMjYw5jQ0A==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -485,8 +488,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/prompts@8.1.0':
-    resolution: {integrity: sha512-LsZMdKcmRNF5LyTRuZE5nWeOjganzmN3zwbtNfcs6GPh3I2TsTtF1UYZlbxVfhxd+EuUqLGs/Lm3Xt4v6Az1wA==}
+  '@inquirer/prompts@8.3.2':
+    resolution: {integrity: sha512-yFroiSj2iiBFlm59amdTvAcQFvWS6ph5oKESls/uqPBect7rTU2GbjyZO2DqxMGuIwVA8z0P4K6ViPcd/cp+0w==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -503,8 +506,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/rawlist@5.1.0':
-    resolution: {integrity: sha512-yUCuVh0jW026Gr2tZlG3kHignxcrLKDR3KBp+eUgNz+BAdSeZk0e18yt2gyBr+giYhj/WSIHCmPDOgp1mT2niQ==}
+  '@inquirer/rawlist@5.2.6':
+    resolution: {integrity: sha512-jfw0MLJ5TilNsa9zlJ6nmRM0ZFVZhhTICt4/6CU2Dv1ndY7l3sqqo1gIYZyMMDw0LvE1u1nzJNisfHEhJIxq5w==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -521,8 +524,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/search@4.0.3':
-    resolution: {integrity: sha512-lzqVw0YwuKYetk5VwJ81Ba+dyVlhseHPx9YnRKQgwXdFS0kEavCz2gngnNhnMIxg8+j1N/rUl1t5s1npwa7bqg==}
+  '@inquirer/search@4.1.6':
+    resolution: {integrity: sha512-3/6kTRae98hhDevENScy7cdFEuURnSpM3JbBNg8yfXLw88HgTOl+neUuy/l9W0No5NzGsLVydhBzTIxZP7yChQ==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -543,8 +546,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/select@5.0.3':
-    resolution: {integrity: sha512-M+ynbwS0ecQFDYMFrQrybA0qL8DV0snpc4kKevCCNaTpfghsRowRY7SlQBeIYNzHqXtiiz4RG9vTOeb/udew7w==}
+  '@inquirer/select@5.1.2':
+    resolution: {integrity: sha512-kTK8YIkHV+f02y7bWCh7E0u2/11lul5WepVTclr3UMBtBr05PgcZNWfMa7FY57ihpQFQH/spLMHTcr0rXy50tA==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -569,8 +572,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@inquirer/type@4.0.2':
-    resolution: {integrity: sha512-cae7mzluplsjSdgFA6ACLygb5jC8alO0UUnFPyu0E7tNRPrL+q/f8VcSXp+cjZQ7l5CMpDpi2G1+IQvkOiL1Lw==}
+  '@inquirer/type@4.0.4':
+    resolution: {integrity: sha512-PamArxO3cFJZoOzspzo6cxVlLeIftyBsZw/S9bKY5DzxqJVZgjoj1oP8d0rskKtp7sZxBycsoer1g6UeJV1BBA==}
     engines: {node: '>=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0'}
     peerDependencies:
       '@types/node': '>=18'
@@ -609,79 +612,78 @@ packages:
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
 
-  '@kinotic-ai/core@1.0.0-beta.0':
-    resolution: {integrity: sha512-7zGAaY8cBqTTHyxcIUyUObsK6bzWqpQZVyo1UvvkriaCGz24vOCFzgNRfh4JyyZvkv8kn8G52jnL18IjYVl9qQ==}
+  '@kinotic-ai/core@1.0.7':
+    resolution: {integrity: sha512-5Nlg5XyuBeTG+NnRK3fUpwdxmDcBdKsj5ajeM6eqIrPcFMvWUfUxKEL35Sp6iTsNRPfHpHK79yxhkQABEe6P+A==}
     peerDependencies:
       typescript: '*'
     peerDependenciesMeta:
       typescript:
         optional: true
 
-  '@kinotic-ai/idl@1.0.0-beta.0':
-    resolution: {integrity: sha512-BVBot+XzyLAxGBZo87jCYBjYs/mIC0lSfJJY1wwknTWTLktHCewGu2IPkRTG1HlS3rUbCwrgKrBiURiEDRnWMA==}
+  '@kinotic-ai/idl@1.0.7':
+    resolution: {integrity: sha512-JWplOOTr1gzWbK5auE9kbyXhULFFZ05x0NAxltPronuSSdbEh0KxmmRnVkn9ohjW0llwzYySnRQ9gaZ2VJr/pA==}
     peerDependencies:
       typescript: '*'
     peerDependenciesMeta:
       typescript:
         optional: true
 
-  '@kinotic/continuum-client@2.14.10':
-    resolution: {integrity: sha512-W+o2karVVqaWwyWwgobHfWR54m5weUivc5+H0JuLrXng71jat4Q/S/TAieCTJlVBMCx+PZ86P+zs7qDyMiplAA==}
-    peerDependencies:
-      reflect-metadata: ^0.2.2
-
-  '@kinotic/continuum-idl@2.0.4':
-    resolution: {integrity: sha512-akXcSw6Pw6hdorPV1lU2RXvMS+kpWZQnzfZv3GysyUrVU8IAZU5N1FmBM8QmthJUz+SXNdHgYzuireaV8aLtAw==}
-
-  '@kinotic/structures-api@3.5.0':
-    resolution: {integrity: sha512-YZE32+CwXAbzGHr25Q8VrK5hIy6++w6vtPSN/TMefXTXF1LZO5GAQXFO5s7mBAeT+e09qFRv2f/LCMrV0cJoAA==}
-    peerDependencies:
-      '@kinotic/continuum-client': ^2.14.10
-
-  '@kinotic/structures-cli@3.5.0':
-    resolution: {integrity: sha512-hAO4+zrs52genp1ViveAJM7icsCCR8Szjr4V+Fx1jIYRcBIuc0yv42qIngLXuUefTkpXovhyq+ytMofpXiw+lA==}
+  '@kinotic-ai/kinotic-cli@1.0.1':
+    resolution: {integrity: sha512-+8WAcl9wT1n97gw2JyovqgWFS3678EbcPNRwaZEFAmydDJC8kdV5zQAEIonMf/ZZL/HrB4gBugePaH9iS6XibA==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  '@oclif/core@4.8.0':
-    resolution: {integrity: sha512-jteNUQKgJHLHFbbz806aGZqf+RJJ7t4gwF4MYa8fCwCxQ8/klJNWc0MvaJiBebk7Mc+J39mdlsB4XraaCKznFw==}
+  '@kinotic-ai/os-api@1.0.7':
+    resolution: {integrity: sha512-B7elreprsxNEa0hyUp6ImK9tOc4exsa/57zt3XWg1SFKjGCOXr8C14pqoH/q4Q7aqMHoyRBT2O0hee+g1YUxqQ==}
+    peerDependencies:
+      typescript: '*'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  '@kinotic-ai/persistence@1.0.7':
+    resolution: {integrity: sha512-XQhFhiUMkpv5B+EIzOaC74ulPlSR1e/leqhc9coB4N2LapZ8ogzg1JeFOKshubnORL3cifWBQHYg1gnevQVtQw==}
+    peerDependencies:
+      typescript: '*'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  '@oclif/core@4.9.0':
+    resolution: {integrity: sha512-k/ntRgDcUprTT+aaNoF+whk3cY3f9fRD2lkF6ul7JeCUg2MaMXVXZXfbRhJCfsiX51X8/5Pqo0LGdO9SLYXNHg==}
     engines: {node: '>=18.0.0'}
 
-  '@oclif/plugin-autocomplete@3.2.39':
-    resolution: {integrity: sha512-OwAZNnSpuDjKyhAwoOJkFWxGswPFKBB4hpNIMsj6PUtbKwGBPmD+2wGGPgTsDioVwLmUELSb2bZ+1dxHfvXmvg==}
+  '@oclif/plugin-autocomplete@3.2.41':
+    resolution: {integrity: sha512-s8IcxohWtnbYCOA1nC6cUGWFGLBG3MjNWfCBTTa5pUyh4tGsjC5ihLeLCs8WJgGnFkPhVVQ+CfmKOIVmVGYMvA==}
     engines: {node: '>=18.0.0'}
 
   '@oclif/plugin-help@6.2.24':
     resolution: {integrity: sha512-BsyXhwTWicLqXFMlbu4HkL2z9/W2ZbO6NjHaWub7lHuM9pDBjQd8nK9eI1KBjsTvvNbu1dxTQKJV7A/yBkz+Zw==}
     engines: {node: '>=18.0.0'}
 
-  '@oclif/plugin-not-found@3.2.73':
-    resolution: {integrity: sha512-2bQieTGI9XNFe9hKmXQjJmHV5rZw+yn7Rud1+C5uLEo8GaT89KZbiLTJgL35tGILahy/cB6+WAs812wjw7TK6w==}
+  '@oclif/plugin-not-found@3.2.75':
+    resolution: {integrity: sha512-xBEf7fJoS/fIqzGBUe0i6yc7ozo23KTyusy50DHqh+oqay5gtMLPUfr1RbvJBGGwozzFAMMFXN9o+AvUDt/zTA==}
     engines: {node: '>=18.0.0'}
 
-  '@oclif/plugin-plugins@5.4.54':
-    resolution: {integrity: sha512-yzdukEfvvyXx31AhN+YhxLhuQdx2SrZDcRtPl5CNkuqh/uNSB2BuA3xpurdv2qotpaw/Z9InRl+Sa9bLp/4aLA==}
+  '@oclif/plugin-plugins@5.4.58':
+    resolution: {integrity: sha512-PVvf3U98Z2a8D0T//v2tWZWw6IofZIeR0+iv+ycq2wHeukqb7/can8FLYpSI9koSonOZSnK8OFc7ZpN97KOMRQ==}
     engines: {node: '>=18.0.0'}
 
-  '@oclif/plugin-update@4.7.16':
-    resolution: {integrity: sha512-/6qjxIccIv26s0BnsibRVCb5c/N46XFWOZAZPhOxG2SglQka7vsCOhEHzwIS9hqAD+WCqWRKUJnIV0rbhwjW6A==}
+  '@oclif/plugin-update@4.7.23':
+    resolution: {integrity: sha512-HXoLtYaQDxzRStkSgLKq/2KW7+GJWUWnkmO0EkGT23UfLZRzlzsoHraoKiE3QWKOA5fTB/neNMlg/95DZJXoMA==}
     engines: {node: '>=18.0.0'}
 
-  '@oclif/plugin-warn-if-update-available@3.1.53':
-    resolution: {integrity: sha512-ALxKMNFFJQJV1Z2OMVTV+q7EbKHhnTAPcTgkgHeXCNdW5nFExoXuwusZLS4Zv2o83j9UoDx1R/CSX7QZVgEHTA==}
+  '@oclif/plugin-warn-if-update-available@3.1.55':
+    resolution: {integrity: sha512-VIEBoaoMOCjl3y+w/kdfZMODi0mVMnDuM0vkBf3nqeidhRXVXq87hBqYDdRwN1XoD+eDfE8tBbOP7qtSOONztQ==}
     engines: {node: '>=18.0.0'}
 
-  '@oclif/table@0.5.1':
-    resolution: {integrity: sha512-k/68jl8SqJEGh+SgUYS93GK+G+EIWENuQQfJgdQBP+DP7G3evGRbe9ajdSVaL5ldMOfgZ4se4mfrEkiEVIiVvQ==}
+  '@oclif/table@0.5.2':
+    resolution: {integrity: sha512-7QnG9tqVEDqRbCZGvCU1uueoLWdiSVqFmslOfEpEW++XkqLi8hKu3TX6J22yqrvgCwx9CnNeAkaOD2UZ9NoWKw==}
     engines: {node: '>=18.0.0'}
 
   '@opentelemetry/api@1.9.0':
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
     engines: {node: '>=8.0.0'}
-
-  '@opentelemetry/semantic-conventions@1.38.0':
-    resolution: {integrity: sha512-kocjix+/sSggfJhwXqClZ3i9Y/MI0fp7b+g7kCRm6psy2dsf8uApTRclwG18h8Avm7C9+fnt+O36PspJ/OzoWg==}
-    engines: {node: '>=14'}
 
   '@opentelemetry/semantic-conventions@1.40.0':
     resolution: {integrity: sha512-cifvXDhcqMwwTlTK04GBNeIe7yyo28Mfby85QXFe1Yk8nmi36Ab/5UQwptOx84SsoGNRg+EVSjwzfSZMy6pmlw==}
@@ -699,8 +701,8 @@ packages:
     resolution: {integrity: sha512-YcPQ8a0jwYU9bTdJDpXjMi7Brhkr1mXsXrUJvjqM2mQDgkRiz8jFaQGOdaLxgjtUfQgZhKy/O3cG/YwmgKaxLA==}
     engines: {node: '>=12.22.0'}
 
-  '@pnpm/npm-conf@2.3.1':
-    resolution: {integrity: sha512-c83qWb22rNRuB0UaVCI0uRPNRr8Z0FWnEIvT47jiHAmOIUHbBOg5XvV7pM5x+rKn9HRpjxquDbXYSXr3fAKFcw==}
+  '@pnpm/npm-conf@3.0.2':
+    resolution: {integrity: sha512-h104Kh26rR8tm+a3Qkc5S4VLYint3FE48as7+/5oCEcKR2idC/pF1G6AhIXKI+eHPJa/3J9i5z0Al47IeGHPkA==}
     engines: {node: '>=12'}
 
   '@polka/url@1.0.0-next.28':
@@ -852,9 +854,6 @@ packages:
       '@stomp/stompjs': ^7.2.0
       rxjs: ^7.2.0
       uuid: '>=9.0.0 <12.0.0'
-
-  '@stomp/stompjs@7.2.1':
-    resolution: {integrity: sha512-DLd/WeicnHS5SsWWSk3x6/pcivqchNaEvg9UEGVqAcfYEBVmS9D6980ckXjTtfpXLjdLDsd96M7IuX4w7nzq5g==}
 
   '@stomp/stompjs@7.3.0':
     resolution: {integrity: sha512-nKMLoFfJhrQAqkvvKd1vLq/cVBGCMwPRCD0LqW7UT1fecRx9C3GoKEIR2CYwVuErGeZu8w0kFkl2rlhPlqHVgQ==}
@@ -1130,6 +1129,10 @@ packages:
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
 
+  balanced-match@4.0.4:
+    resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
+    engines: {node: 18 || 20 || >=22}
+
   bare-events@2.5.4:
     resolution: {integrity: sha512-+gFfDkR8pj4/TrWCGUGWmJIkBwuxPS5F+a5yWjOHQt2hHvNZd5YLzadjmDUtFmMM4y429bnKLa8bYBMHcYdnQA==}
 
@@ -1161,6 +1164,7 @@ packages:
   basic-ftp@5.0.5:
     resolution: {integrity: sha512-4Bcg1P8xhUuqcii/S0Z9wiHIrQVPMermM1any+MX5GeGD7faD3/msQUDGLol9wOcz4/jbg/WJnGqoJF6LiBdtg==}
     engines: {node: '>=10.0.0'}
+    deprecated: Security vulnerability fixed in 5.2.0, please upgrade
 
   bcrypt-pbkdf@1.0.2:
     resolution: {integrity: sha512-qeFIXtP4MSoi6NLqO12WfqARWWuCKi2Rn/9hJLEmtB5yTNr9DqFWkJRCf2qShWzPeAMRnOgCrq0sg/KLv5ES9w==}
@@ -1173,6 +1177,10 @@ packages:
 
   brace-expansion@2.0.1:
     resolution: {integrity: sha512-XnAIvQ8eM+kC6aULx6wuQiwVsnzsi9d3WxzV3FpWTGA19F621kwdbsAcFKXgKUHZWsy+mY6iL1sHTxWEFCytDA==}
+
+  brace-expansion@5.0.4:
+    resolution: {integrity: sha512-h+DEnpVvxmfVefa4jFbCf5HdH5YMDXRsmKflpf1pILZWRFlTbJpxeU55nJl4Smt5HQaGzg1o6RHFPJaOqnmBDg==}
+    engines: {node: 18 || 20 || >=22}
 
   buffer-crc32@1.0.0:
     resolution: {integrity: sha512-Db1SbgBS/fg/392AblrMJk97KggmvYhr4pB5ZIMTWtaivCPMWLkmb7m21cJvpvgK+J3nsU2CmmixNBZx4vFj/w==}
@@ -1531,6 +1539,15 @@ packages:
   fast-levenshtein@3.0.0:
     resolution: {integrity: sha512-hKKNajm46uNmTlhHSyZkmToAc56uZJwYq7yrciZjqOxnlfQwERDQJmHPUp7m1m9wx8vgOe8IaCKZ5Kv2k1DdCQ==}
 
+  fast-string-truncated-width@3.0.3:
+    resolution: {integrity: sha512-0jjjIEL6+0jag3l2XWWizO64/aZVtpiGE3t0Zgqxv0DPuxiMjvB3M24fCyhZUO4KomJQPj3LTSUnDP3GpdwC0g==}
+
+  fast-string-width@3.0.2:
+    resolution: {integrity: sha512-gX8LrtNEI5hq8DVUfRQMbr5lpaS4nMIWV+7XEbXk2b8kiQIizgnlr12B4dA3ZEx3308ze0O4Q1R+cHts8kyUJg==}
+
+  fast-wrap-ansi@0.2.0:
+    resolution: {integrity: sha512-rLV8JHxTyhVmFYhBJuMujcrHqOT2cnO5Zxj37qROj23CP39GXubJRBUFF0z8KFK77Uc0SukZUf7JZhsVEQ6n8w==}
+
   fastest-levenshtein@1.0.16:
     resolution: {integrity: sha512-eRnCtTTtGZFpQCwhJiUOuxPQWRXVKYDn0b2PeHfXL6/Zi53SLAzAHfVhVWK2AryC/WH05kGfxhFIPvTF0SXQzg==}
     engines: {node: '>= 4.9.1'}
@@ -1629,9 +1646,9 @@ packages:
     resolution: {integrity: sha512-7Bv8RF0k6xjo7d4A/PxYLbUCfb6c+Vpd2/mB2yRDlew7Jb5hEXiCD9ibfO7wpk8i4sevK6DFny9h7EYbM3/sHg==}
     hasBin: true
 
-  glob@13.0.0:
-    resolution: {integrity: sha512-tvZgpqk6fz4BaNZ66ZsRaZnbHvP/jG3uKJvAZOwEVUL4RTA5nJeeLYfyN9/VA8NX/V3IBG+hkeuGpKjvELkVhA==}
-    engines: {node: 20 || >=22}
+  glob@13.0.6:
+    resolution: {integrity: sha512-Wjlyrolmm8uDpm/ogGyXZXb1Z+Ca2B8NbJwqBVg0axK9GbBeoS7yGV6vjXnYdGm6X53iehEuxxbyiKp8QmN4Vw==}
+    engines: {node: 18 || 20 || >=22}
 
   gopd@1.2.0:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
@@ -1647,8 +1664,8 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  graphql@16.12.0:
-    resolution: {integrity: sha512-DKKrynuQRne0PNpEbzuEdHlYOMksHSUI8Zc9Unei5gTsMNA2/vMpoMz/yKba50pejK56qj98qM0SjYxAKi13gQ==}
+  graphql@16.13.1:
+    resolution: {integrity: sha512-gGgrVCoDKlIZ8fIqXBBb0pPKqDgki0Z/FSKNiQzSGj2uEYHr1tq5wmBegGwJx6QB5S5cM0khSBpi/JFHMCvsmQ==}
     engines: {node: ^12.22.0 || ^14.16.0 || ^16.0.0 || >=17.0.0}
 
   has-flag@4.0.0:
@@ -1699,6 +1716,10 @@ packages:
 
   iconv-lite@0.7.0:
     resolution: {integrity: sha512-cf6L2Ds3h57VVmkZe+Pn+5APsT7FpqJtEhhieDCvrE2MK5Qk9MyffgQyuxQTm6BChfeZNtcOLHp9IcWRVcIcBQ==}
+    engines: {node: '>=0.10.0'}
+
+  iconv-lite@0.7.2:
+    resolution: {integrity: sha512-im9DjEDQ55s9fL4EYzOAv0yMqmMBSZp6G0VvFyTMPKWxiSBHUj9NW/qqLmXUwXrrM7AvqSlTCfvqRb0cM8yYqw==}
     engines: {node: '>=0.10.0'}
 
   ieee754@1.2.1:
@@ -1857,8 +1878,8 @@ packages:
     resolution: {integrity: sha512-/vlFKAoH5Cgt3Ie+JLhRbwOsCQePABiU3tJ1egGvyQ+33R/vcwM2Zl2QR/LzjsBeItPt3oSVXapn+m4nQDvpzw==}
     engines: {node: '>=14'}
 
-  liquidjs@10.24.0:
-    resolution: {integrity: sha512-TAUNAdgwaAXjjcUFuYVJm9kOVH7zc0mTKxsG9t9Lu4qdWjB2BEblyVIYpjWcmJLMGgiYqnGNJjpNMHx0gp/46A==}
+  liquidjs@10.25.0:
+    resolution: {integrity: sha512-XpO7AiGULTG4xcTlwkcTI5JreFG7b6esLCLp+aUSh7YuQErJZEoUXre9u9rbdb0057pfWG4l0VursvLd5Q/eAw==}
     engines: {node: '>=16'}
     hasBin: true
 
@@ -1867,6 +1888,9 @@ packages:
 
   lodash@4.17.21:
     resolution: {integrity: sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==}
+
+  lodash@4.17.23:
+    resolution: {integrity: sha512-LgVTMpQtIopCi79SJeDiP0TfWi5CNEc/L/aRdTh3yIvmZXTnheWpKjSZhnvMl8iXbC1tFg9gdHHDMLoV7CnG+w==}
 
   long@5.3.2:
     resolution: {integrity: sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==}
@@ -1931,6 +1955,10 @@ packages:
     resolution: {integrity: sha512-enIvLvRAFZYXJzkCYG5RKmPfrFArdLv+R+lbQ53BmIMLIry74bjKzX6iHAm8WYamJkhSSEabrWN5D97XnKObjQ==}
     engines: {node: 20 || >=22}
 
+  minimatch@10.2.4:
+    resolution: {integrity: sha512-oRjTw/97aTBN0RHbYCdtF1MQfvusSIBQM0IZEgzl6426+8jSC0nF1a/GmnVLpfB9yyr6g6FTqWqiZVbxrtaCIg==}
+    engines: {node: 18 || 20 || >=22}
+
   minimatch@3.1.2:
     resolution: {integrity: sha512-J7p63hRiAjw1NDEww1W7i37+ByIrOWO5XQQAzZ3VOcL0PNybwpfmV/N05zFAzwQ9USyEcX6t3UO+K5aqBQOIHw==}
 
@@ -1944,6 +1972,10 @@ packages:
 
   minipass@7.1.2:
     resolution: {integrity: sha512-qOOzS1cBTWYF4BH8fVePDBOO9iptMnGUEZwNc/cMWnTV2nVLZ7VoNWEPHkYczZA0pdoA7dl6e7FL659nX9S2aw==}
+    engines: {node: '>=16 || 14 >=14.17'}
+
+  minipass@7.1.3:
+    resolution: {integrity: sha512-tEBHqDnIoM/1rXME1zgka9g6Q2lcoCkxHLuc7ODJ5BxbP5d4c2Z5cGgtXAku59200Cx7diuHTOYfSBD8n6mm8A==}
     engines: {node: '>=16 || 14 >=14.17'}
 
   mkdirp-classic@0.5.3:
@@ -2161,9 +2193,9 @@ packages:
     resolution: {integrity: sha512-Xa4Nw17FS9ApQFJ9umLiJS4orGjm7ZzwUrwamcGQuHSzDyth9boKDaycYdDcZDuqYATXw4HFXgaqWTctW/v1HA==}
     engines: {node: '>=16 || 14 >=14.18'}
 
-  path-scurry@2.0.0:
-    resolution: {integrity: sha512-ypGJsmGtdXUOeM5u93TyeIEfEhM6s+ljAhrk5vAvSx8uyY/02OvrZnA0YNGUrPXfpJMgI1ODd3nwz8Npx4O4cg==}
-    engines: {node: 20 || >=22}
+  path-scurry@2.0.2:
+    resolution: {integrity: sha512-3O/iVVsJAPsOnpwWIeD+d6z/7PmqApyQePUtCndjatj/9I5LylHvt5qluFaBT3I5h3r1ejfR056c+FCv+NnNXg==}
+    engines: {node: 18 || 20 || >=22}
 
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
@@ -2269,8 +2301,8 @@ packages:
   reflect-metadata@0.2.2:
     resolution: {integrity: sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q==}
 
-  registry-auth-token@5.1.0:
-    resolution: {integrity: sha512-GdekYuwLXLxMuFTwAPg5UKGLW/UXzQrZvH/Zj791BQif5T05T0RsaLfHc9q3ZOKi7n+BoprPD9mJ0O0k4xzUlw==}
+  registry-auth-token@5.1.1:
+    resolution: {integrity: sha512-P7B4+jq8DeD2nMsAcdfaqHbssgHtZ7Z5+++a5ask90fvmJ8p5je4mOa+wzu+DB4vQ5tdJV/xywY+UnVFeQLV5Q==}
     engines: {node: '>=14'}
 
   require-directory@2.1.1:
@@ -2318,6 +2350,11 @@ packages:
 
   semver@7.7.3:
     resolution: {integrity: sha512-SdsKMrI9TdgjdweUSR9MweHA4EJ8YxHn8DFaDisvhVlUOe4BF1tLD7GAj0lIqWVl+dPb/rExr0Btby5loQm20Q==}
+    engines: {node: '>=10'}
+    hasBin: true
+
+  semver@7.7.4:
+    resolution: {integrity: sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -2855,7 +2892,7 @@ snapshots:
 
   '@inquirer/ansi@1.0.2': {}
 
-  '@inquirer/ansi@2.0.2': {}
+  '@inquirer/ansi@2.0.4': {}
 
   '@inquirer/checkbox@4.3.2(@types/node@25.0.6)':
     dependencies:
@@ -2867,12 +2904,12 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.6
 
-  '@inquirer/checkbox@5.0.3(@types/node@25.0.6)':
+  '@inquirer/checkbox@5.1.2(@types/node@25.0.6)':
     dependencies:
-      '@inquirer/ansi': 2.0.2
-      '@inquirer/core': 11.1.0(@types/node@25.0.6)
-      '@inquirer/figures': 2.0.2
-      '@inquirer/type': 4.0.2(@types/node@25.0.6)
+      '@inquirer/ansi': 2.0.4
+      '@inquirer/core': 11.1.7(@types/node@25.0.6)
+      '@inquirer/figures': 2.0.4
+      '@inquirer/type': 4.0.4(@types/node@25.0.6)
     optionalDependencies:
       '@types/node': 25.0.6
 
@@ -2883,10 +2920,10 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.6
 
-  '@inquirer/confirm@6.0.3(@types/node@25.0.6)':
+  '@inquirer/confirm@6.0.10(@types/node@25.0.6)':
     dependencies:
-      '@inquirer/core': 11.1.0(@types/node@25.0.6)
-      '@inquirer/type': 4.0.2(@types/node@25.0.6)
+      '@inquirer/core': 11.1.7(@types/node@25.0.6)
+      '@inquirer/type': 4.0.4(@types/node@25.0.6)
     optionalDependencies:
       '@types/node': 25.0.6
 
@@ -2903,15 +2940,15 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.6
 
-  '@inquirer/core@11.1.0(@types/node@25.0.6)':
+  '@inquirer/core@11.1.7(@types/node@25.0.6)':
     dependencies:
-      '@inquirer/ansi': 2.0.2
-      '@inquirer/figures': 2.0.2
-      '@inquirer/type': 4.0.2(@types/node@25.0.6)
+      '@inquirer/ansi': 2.0.4
+      '@inquirer/figures': 2.0.4
+      '@inquirer/type': 4.0.4(@types/node@25.0.6)
       cli-width: 4.1.0
+      fast-wrap-ansi: 0.2.0
       mute-stream: 3.0.0
       signal-exit: 4.1.0
-      wrap-ansi: 9.0.2
     optionalDependencies:
       '@types/node': 25.0.6
 
@@ -2938,11 +2975,11 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.6
 
-  '@inquirer/editor@5.0.3(@types/node@25.0.6)':
+  '@inquirer/editor@5.0.10(@types/node@25.0.6)':
     dependencies:
-      '@inquirer/core': 11.1.0(@types/node@25.0.6)
-      '@inquirer/external-editor': 2.0.2(@types/node@25.0.6)
-      '@inquirer/type': 4.0.2(@types/node@25.0.6)
+      '@inquirer/core': 11.1.7(@types/node@25.0.6)
+      '@inquirer/external-editor': 2.0.4(@types/node@25.0.6)
+      '@inquirer/type': 4.0.4(@types/node@25.0.6)
     optionalDependencies:
       '@types/node': 25.0.6
 
@@ -2954,10 +2991,10 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.6
 
-  '@inquirer/expand@5.0.3(@types/node@25.0.6)':
+  '@inquirer/expand@5.0.10(@types/node@25.0.6)':
     dependencies:
-      '@inquirer/core': 11.1.0(@types/node@25.0.6)
-      '@inquirer/type': 4.0.2(@types/node@25.0.6)
+      '@inquirer/core': 11.1.7(@types/node@25.0.6)
+      '@inquirer/type': 4.0.4(@types/node@25.0.6)
     optionalDependencies:
       '@types/node': 25.0.6
 
@@ -2968,16 +3005,16 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.6
 
-  '@inquirer/external-editor@2.0.2(@types/node@25.0.6)':
+  '@inquirer/external-editor@2.0.4(@types/node@25.0.6)':
     dependencies:
       chardet: 2.1.1
-      iconv-lite: 0.7.0
+      iconv-lite: 0.7.2
     optionalDependencies:
       '@types/node': 25.0.6
 
   '@inquirer/figures@1.0.15': {}
 
-  '@inquirer/figures@2.0.2': {}
+  '@inquirer/figures@2.0.4': {}
 
   '@inquirer/input@4.3.1(@types/node@25.0.6)':
     dependencies:
@@ -2986,10 +3023,10 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.6
 
-  '@inquirer/input@5.0.3(@types/node@25.0.6)':
+  '@inquirer/input@5.0.10(@types/node@25.0.6)':
     dependencies:
-      '@inquirer/core': 11.1.0(@types/node@25.0.6)
-      '@inquirer/type': 4.0.2(@types/node@25.0.6)
+      '@inquirer/core': 11.1.7(@types/node@25.0.6)
+      '@inquirer/type': 4.0.4(@types/node@25.0.6)
     optionalDependencies:
       '@types/node': 25.0.6
 
@@ -3000,10 +3037,10 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.6
 
-  '@inquirer/number@4.0.3(@types/node@25.0.6)':
+  '@inquirer/number@4.0.10(@types/node@25.0.6)':
     dependencies:
-      '@inquirer/core': 11.1.0(@types/node@25.0.6)
-      '@inquirer/type': 4.0.2(@types/node@25.0.6)
+      '@inquirer/core': 11.1.7(@types/node@25.0.6)
+      '@inquirer/type': 4.0.4(@types/node@25.0.6)
     optionalDependencies:
       '@types/node': 25.0.6
 
@@ -3015,11 +3052,11 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.6
 
-  '@inquirer/password@5.0.3(@types/node@25.0.6)':
+  '@inquirer/password@5.0.10(@types/node@25.0.6)':
     dependencies:
-      '@inquirer/ansi': 2.0.2
-      '@inquirer/core': 11.1.0(@types/node@25.0.6)
-      '@inquirer/type': 4.0.2(@types/node@25.0.6)
+      '@inquirer/ansi': 2.0.4
+      '@inquirer/core': 11.1.7(@types/node@25.0.6)
+      '@inquirer/type': 4.0.4(@types/node@25.0.6)
     optionalDependencies:
       '@types/node': 25.0.6
 
@@ -3038,18 +3075,18 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.6
 
-  '@inquirer/prompts@8.1.0(@types/node@25.0.6)':
+  '@inquirer/prompts@8.3.2(@types/node@25.0.6)':
     dependencies:
-      '@inquirer/checkbox': 5.0.3(@types/node@25.0.6)
-      '@inquirer/confirm': 6.0.3(@types/node@25.0.6)
-      '@inquirer/editor': 5.0.3(@types/node@25.0.6)
-      '@inquirer/expand': 5.0.3(@types/node@25.0.6)
-      '@inquirer/input': 5.0.3(@types/node@25.0.6)
-      '@inquirer/number': 4.0.3(@types/node@25.0.6)
-      '@inquirer/password': 5.0.3(@types/node@25.0.6)
-      '@inquirer/rawlist': 5.1.0(@types/node@25.0.6)
-      '@inquirer/search': 4.0.3(@types/node@25.0.6)
-      '@inquirer/select': 5.0.3(@types/node@25.0.6)
+      '@inquirer/checkbox': 5.1.2(@types/node@25.0.6)
+      '@inquirer/confirm': 6.0.10(@types/node@25.0.6)
+      '@inquirer/editor': 5.0.10(@types/node@25.0.6)
+      '@inquirer/expand': 5.0.10(@types/node@25.0.6)
+      '@inquirer/input': 5.0.10(@types/node@25.0.6)
+      '@inquirer/number': 4.0.10(@types/node@25.0.6)
+      '@inquirer/password': 5.0.10(@types/node@25.0.6)
+      '@inquirer/rawlist': 5.2.6(@types/node@25.0.6)
+      '@inquirer/search': 4.1.6(@types/node@25.0.6)
+      '@inquirer/select': 5.1.2(@types/node@25.0.6)
     optionalDependencies:
       '@types/node': 25.0.6
 
@@ -3061,10 +3098,10 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.6
 
-  '@inquirer/rawlist@5.1.0(@types/node@25.0.6)':
+  '@inquirer/rawlist@5.2.6(@types/node@25.0.6)':
     dependencies:
-      '@inquirer/core': 11.1.0(@types/node@25.0.6)
-      '@inquirer/type': 4.0.2(@types/node@25.0.6)
+      '@inquirer/core': 11.1.7(@types/node@25.0.6)
+      '@inquirer/type': 4.0.4(@types/node@25.0.6)
     optionalDependencies:
       '@types/node': 25.0.6
 
@@ -3077,11 +3114,11 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.6
 
-  '@inquirer/search@4.0.3(@types/node@25.0.6)':
+  '@inquirer/search@4.1.6(@types/node@25.0.6)':
     dependencies:
-      '@inquirer/core': 11.1.0(@types/node@25.0.6)
-      '@inquirer/figures': 2.0.2
-      '@inquirer/type': 4.0.2(@types/node@25.0.6)
+      '@inquirer/core': 11.1.7(@types/node@25.0.6)
+      '@inquirer/figures': 2.0.4
+      '@inquirer/type': 4.0.4(@types/node@25.0.6)
     optionalDependencies:
       '@types/node': 25.0.6
 
@@ -3103,12 +3140,12 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.6
 
-  '@inquirer/select@5.0.3(@types/node@25.0.6)':
+  '@inquirer/select@5.1.2(@types/node@25.0.6)':
     dependencies:
-      '@inquirer/ansi': 2.0.2
-      '@inquirer/core': 11.1.0(@types/node@25.0.6)
-      '@inquirer/figures': 2.0.2
-      '@inquirer/type': 4.0.2(@types/node@25.0.6)
+      '@inquirer/ansi': 2.0.4
+      '@inquirer/core': 11.1.7(@types/node@25.0.6)
+      '@inquirer/figures': 2.0.4
+      '@inquirer/type': 4.0.4(@types/node@25.0.6)
     optionalDependencies:
       '@types/node': 25.0.6
 
@@ -3124,7 +3161,7 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.6
 
-  '@inquirer/type@4.0.2(@types/node@25.0.6)':
+  '@inquirer/type@4.0.4(@types/node@25.0.6)':
     optionalDependencies:
       '@types/node': 25.0.6
 
@@ -3161,7 +3198,7 @@ snapshots:
 
   '@js-sdsl/ordered-map@4.4.2': {}
 
-  '@kinotic-ai/core@1.0.0-beta.0(typescript@5.9.3)':
+  '@kinotic-ai/core@1.0.7(typescript@5.9.3)':
     dependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/semantic-conventions': 1.40.0
@@ -3178,55 +3215,31 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@kinotic-ai/idl@1.0.0-beta.0(typescript@5.9.3)':
+  '@kinotic-ai/idl@1.0.7(typescript@5.9.3)':
     dependencies:
       reflect-metadata: 0.2.2
     optionalDependencies:
       typescript: 5.9.3
 
-  '@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2)':
+  '@kinotic-ai/kinotic-cli@1.0.1(@types/node@25.0.6)(magicast@0.5.1)(typescript@5.9.3)':
     dependencies:
-      '@opentelemetry/api': 1.9.0
-      '@opentelemetry/semantic-conventions': 1.38.0
-      '@stomp/rx-stomp': 2.3.0(@stomp/stompjs@7.2.1)(rxjs@7.8.2)(uuid@13.0.0)
-      '@stomp/stompjs': 7.2.1
-      '@types/debug': 4.1.12
-      debug: 4.4.3(supports-color@8.1.1)
-      p-tap: 4.0.0
-      reflect-metadata: 0.2.2
-      rxjs: 7.8.2
-      typescript-optional: 3.0.0-alpha.3
-      uuid: 13.0.0
-    transitivePeerDependencies:
-      - supports-color
-
-  '@kinotic/continuum-idl@2.0.4': {}
-
-  '@kinotic/structures-api@3.5.0(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))':
-    dependencies:
-      '@kinotic/continuum-client': 2.14.10(reflect-metadata@0.2.2)
-      '@kinotic/continuum-idl': 2.0.4
-      reflect-metadata: 0.2.2
-      rxjs: 7.8.2
-
-  '@kinotic/structures-cli@3.5.0(@types/node@25.0.6)(magicast@0.5.1)':
-    dependencies:
-      '@inquirer/prompts': 8.1.0(@types/node@25.0.6)
-      '@kinotic/continuum-client': 2.14.10(reflect-metadata@0.2.2)
-      '@kinotic/continuum-idl': 2.0.4
-      '@kinotic/structures-api': 3.5.0(@kinotic/continuum-client@2.14.10(reflect-metadata@0.2.2))
-      '@oclif/core': 4.8.0
-      '@oclif/plugin-autocomplete': 3.2.39
+      '@inquirer/prompts': 8.3.2(@types/node@25.0.6)
+      '@kinotic-ai/core': 1.0.7(typescript@5.9.3)
+      '@kinotic-ai/idl': 1.0.7(typescript@5.9.3)
+      '@kinotic-ai/os-api': 1.0.7(typescript@5.9.3)
+      '@kinotic-ai/persistence': 1.0.7(typescript@5.9.3)
+      '@oclif/core': 4.9.0
+      '@oclif/plugin-autocomplete': 3.2.41
       '@oclif/plugin-help': 6.2.24
-      '@oclif/plugin-not-found': 3.2.73(@types/node@25.0.6)
-      '@oclif/plugin-plugins': 5.4.54
-      '@oclif/plugin-update': 4.7.16
-      '@oclif/plugin-warn-if-update-available': 3.1.53
+      '@oclif/plugin-not-found': 3.2.75(@types/node@25.0.6)
+      '@oclif/plugin-plugins': 5.4.58
+      '@oclif/plugin-update': 4.7.23
+      '@oclif/plugin-warn-if-update-available': 3.1.55
       c12: 3.3.3(magicast@0.5.1)
       chalk: 5.6.2
-      glob: 13.0.0
-      graphql: 16.12.0
-      liquidjs: 10.24.0
+      glob: 13.0.6
+      graphql: 16.13.1
+      liquidjs: 10.25.0
       open: 11.0.0
       p-timeout: 7.0.1
       radash: 12.1.1
@@ -3242,9 +3255,32 @@ snapshots:
       - magicast
       - react-devtools-core
       - supports-color
+      - typescript
       - utf-8-validate
 
-  '@oclif/core@4.8.0':
+  '@kinotic-ai/os-api@1.0.7(typescript@5.9.3)':
+    dependencies:
+      '@kinotic-ai/core': 1.0.7(typescript@5.9.3)
+      '@kinotic-ai/idl': 1.0.7(typescript@5.9.3)
+      '@kinotic-ai/persistence': 1.0.7(typescript@5.9.3)
+      rxjs: 7.8.2
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@kinotic-ai/persistence@1.0.7(typescript@5.9.3)':
+    dependencies:
+      '@kinotic-ai/core': 1.0.7(typescript@5.9.3)
+      '@kinotic-ai/idl': 1.0.7(typescript@5.9.3)
+      reflect-metadata: 0.2.2
+      rxjs: 7.8.2
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@oclif/core@4.9.0':
     dependencies:
       ansi-escapes: 4.3.2
       ansis: 3.17.0
@@ -3256,7 +3292,7 @@ snapshots:
       indent-string: 4.0.0
       is-wsl: 2.2.0
       lilconfig: 3.1.3
-      minimatch: 9.0.5
+      minimatch: 10.2.4
       semver: 7.7.3
       string-width: 4.2.3
       supports-color: 8.1.1
@@ -3265,9 +3301,9 @@ snapshots:
       wordwrap: 1.0.0
       wrap-ansi: 7.0.0
 
-  '@oclif/plugin-autocomplete@3.2.39':
+  '@oclif/plugin-autocomplete@3.2.41':
     dependencies:
-      '@oclif/core': 4.8.0
+      '@oclif/core': 4.9.0
       ansis: 3.17.0
       debug: 4.4.3(supports-color@8.1.1)
       ejs: 3.1.10
@@ -3276,44 +3312,44 @@ snapshots:
 
   '@oclif/plugin-help@6.2.24':
     dependencies:
-      '@oclif/core': 4.8.0
+      '@oclif/core': 4.9.0
 
-  '@oclif/plugin-not-found@3.2.73(@types/node@25.0.6)':
+  '@oclif/plugin-not-found@3.2.75(@types/node@25.0.6)':
     dependencies:
       '@inquirer/prompts': 7.10.1(@types/node@25.0.6)
-      '@oclif/core': 4.8.0
+      '@oclif/core': 4.9.0
       ansis: 3.17.0
       fast-levenshtein: 3.0.0
     transitivePeerDependencies:
       - '@types/node'
 
-  '@oclif/plugin-plugins@5.4.54':
+  '@oclif/plugin-plugins@5.4.58':
     dependencies:
-      '@oclif/core': 4.8.0
+      '@oclif/core': 4.9.0
       ansis: 3.17.0
       debug: 4.4.3(supports-color@8.1.1)
       npm: 10.9.4
       npm-package-arg: 11.0.3
       npm-run-path: 5.3.0
       object-treeify: 4.0.1
-      semver: 7.7.3
+      semver: 7.7.4
       validate-npm-package-name: 5.0.1
       which: 4.0.0
       yarn: 1.22.22
     transitivePeerDependencies:
       - supports-color
 
-  '@oclif/plugin-update@4.7.16':
+  '@oclif/plugin-update@4.7.23':
     dependencies:
       '@inquirer/select': 2.5.0
-      '@oclif/core': 4.8.0
-      '@oclif/table': 0.5.1
+      '@oclif/core': 4.9.0
+      '@oclif/table': 0.5.2
       ansis: 3.17.0
       debug: 4.4.3(supports-color@8.1.1)
       filesize: 6.4.0
       got: 13.0.0
       proxy-agent: 6.5.0
-      semver: 7.7.3
+      semver: 7.7.4
       tar-fs: 2.1.4
     transitivePeerDependencies:
       - bufferutil
@@ -3321,18 +3357,18 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@oclif/plugin-warn-if-update-available@3.1.53':
+  '@oclif/plugin-warn-if-update-available@3.1.55':
     dependencies:
-      '@oclif/core': 4.8.0
+      '@oclif/core': 4.9.0
       ansis: 3.17.0
       debug: 4.4.3(supports-color@8.1.1)
       http-call: 5.3.0
-      lodash: 4.17.21
-      registry-auth-token: 5.1.0
+      lodash: 4.17.23
+      registry-auth-token: 5.1.1
     transitivePeerDependencies:
       - supports-color
 
-  '@oclif/table@0.5.1':
+  '@oclif/table@0.5.2':
     dependencies:
       '@types/react': 18.3.18
       change-case: 5.4.4
@@ -3350,8 +3386,6 @@ snapshots:
 
   '@opentelemetry/api@1.9.0': {}
 
-  '@opentelemetry/semantic-conventions@1.38.0': {}
-
   '@opentelemetry/semantic-conventions@1.40.0': {}
 
   '@pkgjs/parseargs@0.11.0':
@@ -3363,7 +3397,7 @@ snapshots:
     dependencies:
       graceful-fs: 4.2.10
 
-  '@pnpm/npm-conf@2.3.1':
+  '@pnpm/npm-conf@3.0.2':
     dependencies:
       '@pnpm/config.env-replace': 1.1.0
       '@pnpm/network.ca-file': 1.0.2
@@ -3460,19 +3494,11 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@stomp/rx-stomp@2.3.0(@stomp/stompjs@7.2.1)(rxjs@7.8.2)(uuid@13.0.0)':
-    dependencies:
-      '@stomp/stompjs': 7.2.1
-      rxjs: 7.8.2
-      uuid: 13.0.0
-
   '@stomp/rx-stomp@2.3.0(@stomp/stompjs@7.3.0)(rxjs@7.8.2)(uuid@13.0.0)':
     dependencies:
       '@stomp/stompjs': 7.3.0
       rxjs: 7.8.2
       uuid: 13.0.0
-
-  '@stomp/stompjs@7.2.1': {}
 
   '@stomp/stompjs@7.3.0': {}
 
@@ -3820,6 +3846,8 @@ snapshots:
 
   balanced-match@1.0.2: {}
 
+  balanced-match@4.0.4: {}
+
   bare-events@2.5.4:
     optional: true
 
@@ -3869,6 +3897,10 @@ snapshots:
   brace-expansion@2.0.1:
     dependencies:
       balanced-match: 1.0.2
+
+  brace-expansion@5.0.4:
+    dependencies:
+      balanced-match: 4.0.4
 
   buffer-crc32@1.0.0: {}
 
@@ -4221,6 +4253,16 @@ snapshots:
     dependencies:
       fastest-levenshtein: 1.0.16
 
+  fast-string-truncated-width@3.0.3: {}
+
+  fast-string-width@3.0.2:
+    dependencies:
+      fast-string-truncated-width: 3.0.3
+
+  fast-wrap-ansi@0.2.0:
+    dependencies:
+      fast-string-width: 3.0.2
+
   fastest-levenshtein@1.0.16: {}
 
   fdir@6.5.0(picomatch@4.0.3):
@@ -4315,11 +4357,11 @@ snapshots:
       package-json-from-dist: 1.0.1
       path-scurry: 1.11.1
 
-  glob@13.0.0:
+  glob@13.0.6:
     dependencies:
-      minimatch: 10.1.1
-      minipass: 7.1.2
-      path-scurry: 2.0.0
+      minimatch: 10.2.4
+      minipass: 7.1.3
+      path-scurry: 2.0.2
 
   gopd@1.2.0: {}
 
@@ -4341,7 +4383,7 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  graphql@16.12.0: {}
+  graphql@16.13.1: {}
 
   has-flag@4.0.0: {}
 
@@ -4396,6 +4438,10 @@ snapshots:
       - supports-color
 
   iconv-lite@0.7.0:
+    dependencies:
+      safer-buffer: 2.1.2
+
+  iconv-lite@0.7.2:
     dependencies:
       safer-buffer: 2.1.2
 
@@ -4545,13 +4591,15 @@ snapshots:
 
   lilconfig@3.1.3: {}
 
-  liquidjs@10.24.0:
+  liquidjs@10.25.0:
     dependencies:
       commander: 10.0.1
 
   lodash.camelcase@4.3.0: {}
 
   lodash@4.17.21: {}
+
+  lodash@4.17.23: {}
 
   long@5.3.2: {}
 
@@ -4605,6 +4653,10 @@ snapshots:
     dependencies:
       '@isaacs/brace-expansion': 5.0.0
 
+  minimatch@10.2.4:
+    dependencies:
+      brace-expansion: 5.0.4
+
   minimatch@3.1.2:
     dependencies:
       brace-expansion: 1.1.11
@@ -4618,6 +4670,8 @@ snapshots:
       brace-expansion: 2.0.1
 
   minipass@7.1.2: {}
+
+  minipass@7.1.3: {}
 
   mkdirp-classic@0.5.3: {}
 
@@ -4654,7 +4708,7 @@ snapshots:
     dependencies:
       hosted-git-info: 7.0.2
       proc-log: 4.2.0
-      semver: 7.7.3
+      semver: 7.7.4
       validate-npm-package-name: 5.0.1
 
   npm-run-path@5.3.0:
@@ -4740,10 +4794,10 @@ snapshots:
       lru-cache: 10.4.3
       minipass: 7.1.2
 
-  path-scurry@2.0.0:
+  path-scurry@2.0.2:
     dependencies:
       lru-cache: 11.0.2
-      minipass: 7.1.2
+      minipass: 7.1.3
 
   pathe@2.0.3: {}
 
@@ -4873,9 +4927,9 @@ snapshots:
 
   reflect-metadata@0.2.2: {}
 
-  registry-auth-token@5.1.0:
+  registry-auth-token@5.1.1:
     dependencies:
-      '@pnpm/npm-conf': 2.3.1
+      '@pnpm/npm-conf': 3.0.2
 
   require-directory@2.1.1: {}
 
@@ -4935,6 +4989,8 @@ snapshots:
       loose-envify: 1.4.0
 
   semver@7.7.3: {}
+
+  semver@7.7.4: {}
 
   shebang-command@2.0.0:
     dependencies:

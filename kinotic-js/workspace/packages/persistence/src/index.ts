@@ -11,7 +11,9 @@ export * from '@/api/idl/EntityServiceDecoratorsDecorator'
 export * from '@/api/idl/EntityType'
 export * from '@/api/idl/EsIndexConfigurationData'
 export * from '@/api/idl/MultiTenancyType'
+export * from '@/api/idl/PolicyDecorator'
 export * from '@/api/idl/PrecisionType'
+export * from '@/api/idl/RoleDecorator'
 
 // Services
 export * from '@/api/IEntitiesService'

@@ -1,6 +1,7 @@
 # Minimal compose for kinotic-test: EK stack + kinotic-server only (no otel, gen-schemas).
 include:
   - compose.ek-stack.yml
+  - compose.kinotic-migration.yml
   - compose.kinotic-server.yml
 
 services:

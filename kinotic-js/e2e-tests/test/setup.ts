@@ -1,10 +1,18 @@
-// @ts-ignore for some reason intellij is complaining about this even though esModuleInterop is enabled
+import {OsApiPlugin} from '@kinotic-ai/os-api'
+import {Kinotic} from '@kinotic-ai/core'
+import {PersistencePlugin} from '@kinotic-ai/persistence'
+// @ts-ignore
 import path from 'node:path'
 // @ts-ignore
 import os from 'node:os'
 import {StartedDockerComposeEnvironment, DockerComposeEnvironment, Wait} from 'testcontainers'
 import {TestProject} from 'vitest/node.js'
+import {WebSocket} from 'ws'
 
+Object.assign(global, {WebSocket})
+
+Kinotic.use(OsApiPlugin)
+       .use(PersistencePlugin)
 
 let environment: StartedDockerComposeEnvironment
 
@@ -18,7 +26,7 @@ function isOSX_M1() {
 export async function setup(project: TestProject) {
     // @ts-ignore
     if(import.meta.env.VITE_USE_KINOTIC_DOCKER === 'true') {
-        console.log('Starting Structures...')
+        console.log('Starting Kinotic...')
 
         const resolvedPath = path.resolve('../../deployment/docker-compose/')
         const files = ['compose.kinotic-e2e-test.yml']
@@ -40,7 +48,7 @@ export async function setup(project: TestProject) {
         // @ts-ignore
         project.provide('KINOTIC_OPENAPI_PORT', container.getMappedPort(8080))
 
-        console.log('Structures started.')
+        console.log('Kinotic started.')
     }else{
         // @ts-ignore
         project.provide('KINOTIC_HOST', '127.0.0.1')
@@ -48,7 +56,7 @@ export async function setup(project: TestProject) {
         project.provide('KINOTIC_PORT', 58503)
         // @ts-ignore
         project.provide('KINOTIC_OPENAPI_PORT', 8080)
-        console.log('Skipping Structures setup because VITE_USE_KINOTIC_DOCKER is false')
+        console.log('Skipping Kinotic setup because VITE_USE_KINOTIC_DOCKER is false')
     }
 }
 
@@ -56,10 +64,10 @@ export async function setup(project: TestProject) {
 export async function teardown() {
     // @ts-ignore
     if(import.meta.env.VITE_USE_KINOTIC_DOCKER === 'true') {
-        console.log('Shutting down Structures...')
+        console.log('Shutting down Kinotic...')
         await environment?.down()
-        console.log('Structures shut down.')
+        console.log('Kinotic shut down.')
     }else{
-        console.log('Skipping Structures teardown because VITE_USE_KINOTIC_DOCKER is false')
+        console.log('Skipping Kinotic teardown because VITE_USE_KINOTIC_DOCKER is false')
     }
 }

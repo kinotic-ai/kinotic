@@ -1,8 +1,7 @@
-import {Page, Pageable} from '@kinotic-ai/core'
+import {Kinotic, Page, Pageable} from '@kinotic-ai/core'
 import {ArrayC3Type, FunctionDefinition, LongC3Type, ObjectC3Type, StringC3Type} from '@kinotic-ai/idl'
-import {IEntityService} from '@kinotic-ai/persistence'
+import {IEntityService, EntityService} from '@kinotic-ai/persistence'
 import {
-    Kinotic as KineticOs,
     EntityDefinition,
     NamedQueriesDefinition,
     PageableC3Type,
@@ -48,16 +47,16 @@ describe('End To End Tests', () => {
         context.projectIdUsed = generateRandomString(5)
         context.structure = await createPersonStructureIfNotExist(context.applicationIdUsed, context.projectIdUsed)
         expect(context.structure).toBeDefined()
-        context.entityService = KineticOs.createEntityService(context.structure.applicationId, context.structure.name)
+        context.entityService = new EntityService(context.structure.applicationId, context.structure.name)
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
         await expect(deleteStructure(context.structure.id as string)).resolves.toBeUndefined()
-        await expect(KineticOs.entityDefinitions.syncIndex()).resolves.toBeNull()
-        await KineticOs.projects.deleteById(context.structure.projectId)
-        await expect(KineticOs.projects.syncIndex()).resolves.toBeNull()
-        await KineticOs.applications.deleteById(context.structure.applicationId)
+        await expect(Kinotic.entityDefinitions.syncIndex()).resolves.toBeNull()
+        await Kinotic.projects.deleteById(context.structure.projectId)
+        await expect(Kinotic.projects.syncIndex()).resolves.toBeNull()
+        await Kinotic.applications.deleteById(context.structure.applicationId)
     })
 
 
@@ -67,7 +66,7 @@ describe('End To End Tests', () => {
             // Create people
             await createTestPeopleAndVerify(entityService, 100)
 
-            const structureId = entityService.structureId
+            const structureId = entityService.entityId
 
             const query = new QueryDecorator(`SELECT COUNT(firstName) as count FROM "struct_${structureId}"`)
             const namedQuery = new FunctionDefinition('countAllPeople', [query])
@@ -77,11 +76,11 @@ describe('End To End Tests', () => {
             const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
                                                                       applicationIdUsed,
                                                                       projectIdUsed,
-                                                                      entityService.structureName,
+                                                                      entityService.entityName,
                                                                       [namedQuery])
 
 
-            const namedQueriesService = KineticOs.namedQueriesDefinitions
+            const namedQueriesService = Kinotic.namedQueriesDefinitions
             await namedQueriesService.save(namedQueriesDefinition)
 
             const countResult: any = await entityService.namedQuery('countAllPeople', [])
@@ -98,7 +97,7 @@ describe('End To End Tests', () => {
             // Create people
             await createTestPeopleAndVerify(entityService, 100)
 
-            const structureId = entityService.structureId
+            const structureId = entityService.entityId
 
             const query = new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "struct_${structureId}" WHERE lastName = ? GROUP BY lastName`)
             const namedQuery = new FunctionDefinition('countPeopleByLastNameWithLastName', [query])
@@ -111,11 +110,11 @@ describe('End To End Tests', () => {
             const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
                                                                       applicationIdUsed,
                                                                       projectIdUsed,
-                                                                      entityService.structureName,
+                                                                      entityService.entityName,
                                                                       [namedQuery])
 
 
-            const namedQueriesService = KineticOs.namedQueriesDefinitions
+            const namedQueriesService = Kinotic.namedQueriesDefinitions
             await namedQueriesService.save(namedQueriesDefinition)
 
             const countResult: any = await entityService.namedQuery('countPeopleByLastNameWithLastName',
@@ -134,7 +133,7 @@ describe('End To End Tests', () => {
             // Create people
             await createTestPeopleAndVerify(entityService, 100)
 
-            const structureId = entityService.structureId
+            const structureId = entityService.entityId
             const query = new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "struct_${structureId}" GROUP BY lastName`)
             const namedQuery = new FunctionDefinition('countPeopleByLastNamePage', [query])
             namedQuery.addParameter('pageable', new PageableC3Type())
@@ -146,11 +145,11 @@ describe('End To End Tests', () => {
             const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
                                                                       applicationIdUsed,
                                                                       projectIdUsed,
-                                                                      entityService.structureName,
+                                                                      entityService.entityName,
                                                                       [namedQuery])
 
 
-            const namedQueriesService = KineticOs.namedQueriesDefinitions
+            const namedQueriesService = Kinotic.namedQueriesDefinitions
             await namedQueriesService.save(namedQueriesDefinition)
 
             const pageable = Pageable.createWithCursor(null, 1)
@@ -177,8 +176,8 @@ describe('End To End Tests', () => {
     it<LocalTestContext>(
         'Test Save Multiple',
         async ({entityService, applicationIdUsed, projectIdUsed}) => {
-            const structureId = entityService.structureId
-            const namedQueriesService = KineticOs.namedQueriesDefinitions
+            const structureId = entityService.entityId
+            const namedQueriesService = Kinotic.namedQueriesDefinitions
 
             const query = new QueryDecorator(`SELECT COUNT(firstName) as count FROM "struct_${structureId}"`)
             const namedQuery = new FunctionDefinition('countAllPeople', [query])
@@ -207,7 +206,7 @@ describe('End To End Tests', () => {
             const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
                                                                       applicationIdUsed,
                                                                       projectIdUsed,
-                                                                      entityService.structureName,
+                                                                      entityService.entityName,
                                                                       [namedQuery, namedQuery2, namedQuery3])
             await namedQueriesService.save(namedQueriesDefinition)
         }

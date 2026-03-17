@@ -1,5 +1,6 @@
-import {AdminEntityService, IAdminEntityService, IEntityService} from '@kinotic-ai/persistence'
-import {Kinotic as KineticOs, EntityDefinition} from '@kinotic-ai/os-api'
+import {Kinotic} from '@kinotic-ai/core'
+import {AdminEntityService, IAdminEntityService, IEntityService, EntityService, PersistencePlugin} from '@kinotic-ai/persistence'
+import {EntityDefinition, OsApiPlugin} from '@kinotic-ai/os-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
@@ -15,6 +16,8 @@ import {
 } from '../TestHelpers.js'
 
 Object.assign(global, {WebSocket})
+Kinotic.use(OsApiPlugin)
+       .use(PersistencePlugin)
 
 interface LocalTestContext {
     structure: EntityDefinition
@@ -43,16 +46,16 @@ describe('End To End Tests', () => {
         expect(context.structure).toBeDefined()
         context.adminEntityService = new AdminEntityService(context.structure.applicationId, context.structure.name)
         expect(context.adminEntityService).toBeDefined()
-        context.entityService = KineticOs.createEntityService(context.structure.applicationId, context.structure.name)
+        context.entityService = new EntityService(context.structure.applicationId, context.structure.name)
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
         await expect(deleteStructure(context.structure.id as string)).resolves.toBeUndefined()
-        await expect(KineticOs.entityDefinitions.syncIndex()).resolves.toBeNull()
-        await KineticOs.projects.deleteById(context.structure.projectId)
-        await expect(KineticOs.projects.syncIndex()).resolves.toBeNull()
-        await KineticOs.applications.deleteById(context.structure.applicationId)
+        await expect(Kinotic.entityDefinitions.syncIndex()).resolves.toBeNull()
+        await Kinotic.projects.deleteById(context.structure.projectId)
+        await expect(Kinotic.projects.syncIndex()).resolves.toBeNull()
+        await Kinotic.applications.deleteById(context.structure.applicationId)
     })
 
     it<LocalTestContext>(
@@ -65,7 +68,7 @@ describe('End To End Tests', () => {
             // This wil get any NamedQueries defined in the EntityServices
             const {namedQueriesDefinition} = await createSchema(applicationIdUsed, projectIdUsed, 'PersonWithTenant')
 
-            const namedQueriesService = KineticOs.namedQueriesDefinitions
+            const namedQueriesService = Kinotic.namedQueriesDefinitions
             await namedQueriesService.save(namedQueriesDefinition)
 
             const countResult: any = await entityService.namedQuery('adminCountByLastName',
