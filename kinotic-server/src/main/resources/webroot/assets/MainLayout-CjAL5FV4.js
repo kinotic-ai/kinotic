@@ -1,0 +1,2 @@
+import{H as s}from"./Header-XP2GFOyM.js";import{d as r,c as a,e,a as o,r as c,o as n}from"./index-CtIxJ5nD.js";import"./index-xyehLFii.js";import"./index-FXbRqWtg.js";import"./index-0CVYRK2M.js";import"./component-ChjvEZi9.js";const i={class:"h-screen bg-surface-0 w-full"},p={class:"py-10"},_={class:"flex-1 px-[33px] overflow-y-auto"},y=r({__name:"MainLayout",setup(m){return(d,l)=>{const t=c("router-view");return n(),a("div",i,[e(s),o("div",p,[o("div",_,[e(t)])])])}}});export{y as default};
+//# sourceMappingURL=MainLayout-CjAL5FV4.js.map
