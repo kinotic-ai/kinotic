@@ -10,7 +10,7 @@ services:
       - KINOTIC_USE_SSL=false
       
       # Load test configuration
-      - TEST_NAME=generateComplexStructures
+      - TEST_NAME=generateComplexEntities
       - NUMBER_OF_TENANTS=1 # Not used for this test
       
       # Concurrency settings
