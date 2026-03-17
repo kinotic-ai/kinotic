@@ -9,7 +9,9 @@ export interface EntityListContext {
   items: any[]
   rowColors: any[]
 
-  // Expansion state checks
+  togglePathExpansion(...path: string[]): void
+  isPathExpanded(...path: string[]): boolean
+
   isColumnExpanded(fieldName: string): boolean
   isRowCellExpanded(rowId: string, fieldName: string): boolean
   isNestedObjectExpanded(fieldName: string, nestedProp: string): boolean
@@ -17,7 +19,6 @@ export interface EntityListContext {
   isVeryDeepNestedExpanded(fieldName: string, nestedProp: string, deepProp: string, ...veryDeepPath: string[]): boolean
   isNestedArrayExpanded(rowId: string, parentPath: string, arrayField: string): boolean
 
-  // Expansion state toggles
   toggleColumnExpansion(fieldName: string): void
   toggleRowExpansion(rowId: string, fieldName: string): void
   toggleNestedObjectExpansion(fieldName: string, nestedProp: string): void
@@ -25,7 +26,11 @@ export interface EntityListContext {
   toggleVeryDeepNestedExpansion(fieldName: string, nestedProp: string, deepProp: string, ...veryDeepPath: string[]): void
   toggleNestedArrayExpansion(rowId: string, parentPath: string, arrayField: string): void
 
-  // Property inspection
+  isPrimitiveArrayAtPath(...path: string[]): boolean
+  getPropertiesAtPath(...path: string[]): any[]
+
+  getWidthAtPath(...path: string[]): number
+
   isPrimitiveArray(fieldName: string): boolean
   isNestedPrimitiveArray(fieldName: string, nestedPropName: string): boolean
   isDeepNestedPrimitiveArray(fieldName: string, nestedProp: string, deepProp: string): boolean
@@ -34,7 +39,6 @@ export interface EntityListContext {
   getDeepNestedProperties(fieldName: string, nestedProp: string, deepProp: string): any[]
   getVeryDeepNestedProperties(fieldName: string, nestedProp: string, deepProp: string, veryDeepProp: string): any[]
 
-  // Width calculations
   getExpandedColumnWidth(fieldName: string): number
   getNestedPropWidth(fieldName: string, nestedProp: any): number
   getNestedPropRenderWidth(fieldName: string, nestedProp: any, nestedPropIndex: number): number
@@ -44,6 +48,8 @@ export interface EntityListContext {
 
   startColumnResize(event: MouseEvent, header: any): void
   startNestedColumnResize(event: MouseEvent, parentField: string, nestedProp: any): void
+  startPathResize(event: MouseEvent, path: string[], prop: any): void
+
   startDeepNestedColumnResize(event: MouseEvent, parentField: string, nestedProp: string, deepProp: any): void
   startVeryDeepNestedColumnResize(event: MouseEvent, parentField: string, nestedProp: string, deepProp: string, veryDeepProp: any): void
   startUltraDeepNestedColumnResize(event: MouseEvent, parentField: string, nestedProp: string, deepProp: string, veryDeepProp: string, ultraDeepProp: any): void

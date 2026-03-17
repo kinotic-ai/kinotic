@@ -17,13 +17,19 @@ export class ColumnWidthCalculator {
   private headers: HeaderDef[] = []
   private items: any[] = []
 
-  private _autoNestedObjectSubColumnWidths: Map<string, number> = new Map()
-  private _autoDeepNestedSubColumnWidths: Map<string, number> = new Map()
+  private _autoWidthCache: Map<string, number> = new Map()
 
-  nestedColumnWidths: Map<string, number> = new Map()
-  deepNestedColumnWidths: Map<string, number> = new Map()
-  veryDeepNestedColumnWidths: Map<string, number> = new Map()
-  ultraDeepNestedColumnWidths: Map<string, number> = new Map()
+
+  columnWidths: Map<string, number> = new Map()
+
+  get nestedColumnWidths(): Map<string, number> { return this.columnWidths }
+  set nestedColumnWidths(_v: Map<string, number>) { /* noop, use columnWidths */ }
+  get deepNestedColumnWidths(): Map<string, number> { return this.columnWidths }
+  set deepNestedColumnWidths(_v: Map<string, number>) { /* noop */ }
+  get veryDeepNestedColumnWidths(): Map<string, number> { return this.columnWidths }
+  set veryDeepNestedColumnWidths(_v: Map<string, number>) { /* noop */ }
+  get ultraDeepNestedColumnWidths(): Map<string, number> { return this.columnWidths }
+  set ultraDeepNestedColumnWidths(_v: Map<string, number>) { /* noop */ }
 
   constructor(expansion: ExpansionStateManager, inspector: PropertyInspector) {
     this.expansion = expansion
@@ -36,71 +42,101 @@ export class ColumnWidthCalculator {
 
   setItems(items: any[]): void {
     this.items = items
-    this._autoNestedObjectSubColumnWidths.clear()
-    this._autoDeepNestedSubColumnWidths.clear()
+    this._autoWidthCache.clear()
+  }
+
+  getWidthAtPath(...path: string[]): number {
+    const key = path.join('.')
+
+    if (path.length >= 2 && this.expansion.isPathExpanded(...path)) {
+      const childProps = this.inspector.getPropertiesAtPath(...path)
+      let totalWidth = 0
+      for (const child of childProps) {
+        const childPath = [...path, child.name]
+        if ((child.isObject || child.isArray) && this.expansion.isPathExpanded(...childPath)) {
+          totalWidth += this.getWidthAtPath(...childPath)
+        } else {
+          totalWidth += this.getLeafWidth(...childPath)
+        }
+      }
+      return Math.max(totalWidth, childProps.length * 80, 100)
+    }
+
+    if (this.columnWidths.has(key)) {
+      return this.columnWidths.get(key)!
+    }
+
+    return this.getLeafWidth(...path)
+  }
+
+  private getLeafWidth(...path: string[]): number {
+    const key = path.join('.')
+    if (this.columnWidths.has(key)) {
+      return this.columnWidths.get(key)!
+    }
+    if (this._autoWidthCache.has(key)) {
+      return this._autoWidthCache.get(key)!
+    }
+
+    const propName = path[path.length - 1]
+
+    if (this.items && this.items.length > 0 && path.length > 0) {
+      let maxLength = propName.length
+      for (const item of this.items) {
+        const value = this.getValueAtPath(item, path)
+        if (value !== null && value !== undefined) {
+          const strValue = Array.isArray(value) ? `[${value.length} items]` : String(value)
+          maxLength = Math.max(maxLength, strValue.length)
+        }
+      }
+      const width = Math.max(Math.min(maxLength * 9 + 40, 300), 100)
+      this._autoWidthCache.set(key, width)
+      return width
+    }
+
+    return Math.max(Math.min(propName.length * 9 + 40, 300), 100)
+  }
+
+  private getValueAtPath(item: any, path: string[]): any {
+    let current = item
+    for (let i = 0; i < path.length; i++) {
+      if (current === null || current === undefined) return undefined
+      if (Array.isArray(current)) {
+        current = current.length > 0 ? current[0] : undefined
+      }
+      if (current === null || current === undefined) return undefined
+      current = current[path[i]]
+    }
+    return current
   }
 
   getNestedPropWidth(fieldName: string, nestedProp: any): number {
-    const key = `${fieldName}.${nestedProp.name}`
+    const path = [fieldName, nestedProp.name]
 
-    if ((nestedProp.isObject || nestedProp.isArray) && this.expansion.isNestedObjectExpanded(fieldName, nestedProp.name)) {
-      const subProps = this.inspector.getNestedObjectProperties(fieldName, nestedProp.name)
-      let totalWidth = 0
-      for (const subProp of subProps) {
-        if (subProp.type?.type === 'array' && this.expansion.isDeepNestedExpanded(fieldName, nestedProp.name, subProp.name)) {
-          const deepProps = this.inspector.getDeepNestedProperties(fieldName, nestedProp.name, subProp.name)
-          for (const deepProp of deepProps) {
-            if (deepProp.type?.type === 'array' && this.expansion.isVeryDeepNestedExpanded(fieldName, nestedProp.name, subProp.name, deepProp.name)) {
-              const veryDeepProps = this.inspector.getVeryDeepNestedProperties(fieldName, nestedProp.name, subProp.name, deepProp.name)
-              for (const vdp of veryDeepProps) {
-                totalWidth += this.getUltraDeepNestedSubColumnWidth(fieldName, nestedProp.name, subProp.name, deepProp.name, vdp.name)
-              }
-            } else {
-              totalWidth += this.getDeepNestedSubColumnWidth(fieldName, nestedProp.name, subProp.name, deepProp.name)
-            }
-          }
-        } else {
-          totalWidth += this.getNestedObjectSubColumnWidth(fieldName, nestedProp.name, subProp.name)
-        }
+    if ((nestedProp.isObject || nestedProp.isArray) && this.expansion.isPathExpanded(...path)) {
+      const totalWidth = this.getWidthAtPath(...path)
+      const key = path.join('.')
+      if (this.columnWidths.has(key)) {
+        return Math.max(this.columnWidths.get(key)!, totalWidth)
       }
-      const minWidthForAllColumns = Math.max(totalWidth, subProps.length * 80)
-
-      if (this.nestedColumnWidths.has(key)) {
-        const manualWidth = this.nestedColumnWidths.get(key)!
-        return Math.max(manualWidth, minWidthForAllColumns)
-      }
-
-      return minWidthForAllColumns
+      return totalWidth
     }
 
-    if (this.nestedColumnWidths.has(key)) {
-      return this.nestedColumnWidths.get(key)!
-    }
-
-    if (nestedProp.name === 'name') return 220
-    if (nestedProp.name === 'sku') return 120
-    if (nestedProp.name === 'productId') return 80
-    if (['street', 'city', 'state'].includes(nestedProp.name)) return 150
-    if (['postalCode', 'country'].includes(nestedProp.name)) return 120
-    return 100
+    return this.getLeafWidth(...path)
   }
 
   getExpandedColumnWidth(fieldName: string): number {
     if (!this.expansion.isColumnExpanded(fieldName)) return 240
 
-    const nestedProps = this.inspector.getNestedProperties(fieldName)
+    const nestedProps = this.inspector.getPropertiesAtPath(fieldName)
     let totalWidth = 0
 
     for (const nestedProp of nestedProps) {
       totalWidth += this.getNestedPropWidth(fieldName, nestedProp)
     }
 
-    const hasNestedCustomWidths = nestedProps.some(p =>
-      this.nestedColumnWidths.has(`${fieldName}.${p.name}`)
-    )
-
     const hasExpandedNestedColumns = nestedProps.some(p =>
-      (p.isObject || p.isArray) && this.expansion.isNestedObjectExpanded(fieldName, p.name)
+      (p.isObject || p.isArray) && this.expansion.isPathExpanded(fieldName, p.name)
     )
 
     if (hasExpandedNestedColumns) {
@@ -108,7 +144,10 @@ export class ColumnWidthCalculator {
     }
 
     const header = this.headers.find(h => h.field === fieldName)
-    if (header?.expandedWidth && !hasNestedCustomWidths) {
+    const hasCustomWidths = nestedProps.some(p =>
+      this.columnWidths.has(`${fieldName}.${p.name}`)
+    )
+    if (header?.expandedWidth && !hasCustomWidths) {
       return Math.max(header.expandedWidth, totalWidth)
     }
 
@@ -116,74 +155,11 @@ export class ColumnWidthCalculator {
   }
 
   getNestedObjectSubColumnWidth(fieldName: string, nestedProp: string, subPropName: string): number {
-    const key = `${fieldName}.${nestedProp}.${subPropName}`
-    if (this.deepNestedColumnWidths.has(key)) {
-      return this.deepNestedColumnWidths.get(key)!
-    }
-
-    if (this._autoNestedObjectSubColumnWidths.has(key)) {
-      return this._autoNestedObjectSubColumnWidths.get(key)!
-    }
-
-    if (!this.items || this.items.length === 0) return 80
-
-    let maxLength = subPropName.length
-
-    for (const item of this.items) {
-      const nestedValue = item[fieldName]?.[nestedProp]
-      let value
-
-      if (Array.isArray(nestedValue) && nestedValue.length > 0) {
-        value = nestedValue[0]?.[subPropName]
-      } else {
-        value = nestedValue?.[subPropName]
-      }
-
-      if (value !== null && value !== undefined) {
-        const strValue = String(value)
-        maxLength = Math.max(maxLength, strValue.length)
-      }
-    }
-
-    const width = Math.max(Math.min(maxLength * 9 + 40, 300), 100)
-    this._autoNestedObjectSubColumnWidths.set(key, width)
-    return width
+    return this.getLeafWidth(fieldName, nestedProp, subPropName)
   }
 
   getDeepNestedSubColumnWidth(fieldName: string, nestedProp: string, arrayProp: string, subPropName: string): number {
-    const key = `${fieldName}.${nestedProp}.${arrayProp}.${subPropName}`
-    if (this.veryDeepNestedColumnWidths.has(key)) {
-      return this.veryDeepNestedColumnWidths.get(key)!
-    }
-
-    if (this._autoDeepNestedSubColumnWidths.has(key)) {
-      return this._autoDeepNestedSubColumnWidths.get(key)!
-    }
-
-    if (!this.items || this.items.length === 0) return 80
-
-    let maxLength = subPropName.length
-
-    for (const item of this.items) {
-      const nestedArray = item[fieldName]?.[nestedProp]
-      if (Array.isArray(nestedArray) && nestedArray.length > 0) {
-        const firstNested = nestedArray[0]
-        const deepArray = firstNested?.[arrayProp]
-        if (Array.isArray(deepArray)) {
-          for (const deepItem of deepArray) {
-            const value = deepItem?.[subPropName]
-            if (value !== null && value !== undefined) {
-              const strValue = Array.isArray(value) ? `[${value.length} items]` : String(value)
-              maxLength = Math.max(maxLength, strValue.length)
-            }
-          }
-        }
-      }
-    }
-
-    const width = Math.max(Math.min(maxLength * 9 + 40, 300), 100)
-    this._autoDeepNestedSubColumnWidths.set(key, width)
-    return width
+    return this.getLeafWidth(fieldName, nestedProp, arrayProp, subPropName)
   }
 
   getUltraDeepNestedSubColumnWidth(
@@ -193,19 +169,14 @@ export class ColumnWidthCalculator {
     subArrayProp: string,
     ultraDeepPropName: string
   ): number {
-    const key = `${fieldName}.${nestedProp}.${arrayProp}.${subArrayProp}.${ultraDeepPropName}`
-    if (this.ultraDeepNestedColumnWidths.has(key)) {
-      return this.ultraDeepNestedColumnWidths.get(key)!
-    }
-
-    return Math.max(Math.min(ultraDeepPropName.length * 9 + 32, 360), 100)
+    return this.getLeafWidth(fieldName, nestedProp, arrayProp, subArrayProp, ultraDeepPropName)
   }
 
   getNestedPropRenderWidth(fieldName: string, nestedProp: any, nestedPropIndex: number): number {
     const baseWidth = this.getNestedPropWidth(fieldName, nestedProp)
     if (!this.expansion.isColumnExpanded(fieldName)) return baseWidth
 
-    const nestedProps = this.inspector.getNestedProperties(fieldName)
+    const nestedProps = this.inspector.getPropertiesAtPath(fieldName)
     if (!nestedProps || nestedProps.length === 0) return baseWidth
 
     const isLast = nestedPropIndex === nestedProps.length - 1

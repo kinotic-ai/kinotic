@@ -2,10 +2,14 @@
 export class ExpansionStateManager {
   expandedColumns: Set<string> = new Set()
   expandedRows: Map<string, Set<string>> = new Map()
-  expandedNestedObjects: Set<string> = new Set()
-  expandedDeepNested: Set<string> = new Set()
-  expandedVeryDeepNested: Set<string> = new Set()
   expandedNestedArrays: Map<string, Map<string, Set<string>>> = new Map()
+
+
+  private _expandedPaths: Set<string> = new Set()
+
+  get expandedNestedObjects(): Set<string> { return this._expandedPaths }
+  get expandedDeepNested(): Set<string> { return this._expandedPaths }
+  get expandedVeryDeepNested(): Set<string> { return this._expandedPaths }
 
   toggleColumnExpansion(fieldName: string): void {
     if (this.expandedColumns.has(fieldName)) {
@@ -35,43 +39,44 @@ export class ExpansionStateManager {
     return this.expandedRows.get(rowId)?.has(fieldName) || false
   }
 
-  toggleNestedObjectExpansion(fieldName: string, nestedProp: string): void {
-    const key = `${fieldName}.${nestedProp}`
-    if (this.expandedNestedObjects.has(key)) {
-      this.expandedNestedObjects.delete(key)
+
+  togglePathExpansion(...path: string[]): void {
+    const key = path.join('.')
+    if (this._expandedPaths.has(key)) {
+      this._expandedPaths.delete(key)
     } else {
-      this.expandedNestedObjects.add(key)
+      this._expandedPaths.add(key)
     }
+  }
+
+  isPathExpanded(...path: string[]): boolean {
+    return this._expandedPaths.has(path.join('.'))
+  }
+
+  // ---- Legacy methods that delegate to path-based ----
+
+  toggleNestedObjectExpansion(fieldName: string, nestedProp: string): void {
+    this.togglePathExpansion(fieldName, nestedProp)
   }
 
   isNestedObjectExpanded(fieldName: string, nestedProp: string): boolean {
-    return this.expandedNestedObjects.has(`${fieldName}.${nestedProp}`)
+    return this.isPathExpanded(fieldName, nestedProp)
   }
 
   toggleDeepNestedExpansion(fieldName: string, nestedProp: string, deepProp: string): void {
-    const key = `${fieldName}.${nestedProp}.${deepProp}`
-    if (this.expandedDeepNested.has(key)) {
-      this.expandedDeepNested.delete(key)
-    } else {
-      this.expandedDeepNested.add(key)
-    }
+    this.togglePathExpansion(fieldName, nestedProp, deepProp)
   }
 
   isDeepNestedExpanded(fieldName: string, nestedProp: string, deepProp: string): boolean {
-    return this.expandedDeepNested.has(`${fieldName}.${nestedProp}.${deepProp}`)
+    return this.isPathExpanded(fieldName, nestedProp, deepProp)
   }
 
   toggleVeryDeepNestedExpansion(fieldName: string, nestedProp: string, deepProp: string, ...veryDeepPath: string[]): void {
-    const key = [fieldName, nestedProp, deepProp, ...veryDeepPath].join('.')
-    if (this.expandedVeryDeepNested.has(key)) {
-      this.expandedVeryDeepNested.delete(key)
-    } else {
-      this.expandedVeryDeepNested.add(key)
-    }
+    this.togglePathExpansion(fieldName, nestedProp, deepProp, ...veryDeepPath)
   }
 
   isVeryDeepNestedExpanded(fieldName: string, nestedProp: string, deepProp: string, ...veryDeepPath: string[]): boolean {
-    return this.expandedVeryDeepNested.has([fieldName, nestedProp, deepProp, ...veryDeepPath].join('.'))
+    return this.isPathExpanded(fieldName, nestedProp, deepProp, ...veryDeepPath)
   }
 
   toggleNestedArrayExpansion(rowId: string, parentPath: string, arrayField: string): void {
