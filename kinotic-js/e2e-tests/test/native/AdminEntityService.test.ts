@@ -1,12 +1,11 @@
-import {Direction, Order, Page, Pageable, Sort} from '@kinotic/continuum-client'
+import {Direction, Order, Page, Pageable, Sort} from '@kinotic-ai/core'
 import {
     AdminEntityService,
     IAdminEntityService,
     IEntityService,
-    Structure,
-    Structures,
     TenantSpecificId
-} from '@kinotic/structures-api'
+} from '@kinotic-ai/persistence'
+import {Kinotic as KineticOs, EntityDefinition} from '@kinotic-ai/os-api'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
 import {Person} from '../domain/Person.js'
@@ -26,7 +25,7 @@ import * as allure from "allure-js-commons";
 Object.assign(global, { WebSocket})
 
 interface LocalTestContext {
-    structure: Structure
+    structure: EntityDefinition
     adminEntityService: IAdminEntityService<PersonWithTenant>
     entityService: IEntityService<PersonWithTenant>
 }
@@ -48,16 +47,16 @@ describe('End To End Tests', () => {
         expect(context.structure).toBeDefined()
         context.adminEntityService = new AdminEntityService(context.structure.applicationId, context.structure.name)
         expect(context.adminEntityService).toBeDefined()
-        context.entityService = Structures.createEntityService(context.structure.applicationId, context.structure.name)
+        context.entityService = KineticOs.createEntityService(context.structure.applicationId, context.structure.name)
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
         await expect(deleteStructure(context.structure.id as string)).resolves.toBeUndefined()
-        await expect(Structures.getStructureService().syncIndex()).resolves.toBeNull()
-        await Structures.getProjectService().deleteById(context.structure.projectId)
-        await expect(Structures.getProjectService().syncIndex()).resolves.toBeNull()
-        await Structures.getApplicationService().deleteById(context.structure.applicationId)
+        await expect(KineticOs.entityDefinitions.syncIndex()).resolves.toBeNull()
+        await KineticOs.projects.deleteById(context.structure.projectId)
+        await expect(KineticOs.projects.syncIndex()).resolves.toBeNull()
+        await KineticOs.applications.deleteById(context.structure.applicationId)
 
     })
 

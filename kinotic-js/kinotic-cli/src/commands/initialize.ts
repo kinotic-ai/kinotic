@@ -3,8 +3,8 @@ import fs from 'fs'
 import path from 'path'
 import chalk from 'chalk'
 import { input } from '@inquirer/prompts'
-import { isStructuresProject, saveStructuresProjectConfig } from '../internal/state/StructuresProject.js'
-import { TypescriptProjectConfig } from '@kinotic-ai/os-api'
+import { isKinoticProject, saveKinoticProjectConfig } from '../internal/state/KinoticProjectConfigUtil.js'
+import { KinoticProjectConfig } from '@kinotic-ai/core'
 
 /**
  * Validates the application name according to server requirements:
@@ -49,7 +49,7 @@ export class Initialize extends Command {
     public async run(): Promise<void> {
         const {flags} = await this.parse(Initialize)
 
-        if(await isStructuresProject()){
+        if(await isKinoticProject()){
             this.log(chalk.red('Error: ') + ' The working directory is already a Kinotic Project')
             return
         }
@@ -104,14 +104,14 @@ export class Initialize extends Command {
 
         // Only use TypescriptProjectConfig for initialization
         const configDir = path.resolve(process.cwd(), '.config')
-        const configObj = new TypescriptProjectConfig()
+        const configObj = new KinoticProjectConfig()
         // Don't set name - it will be loaded from package.json
         configObj.application = application
         configObj.entitiesPaths = [entitiesPath]
         configObj.generatedPath = generatedPath
         configObj.validate = false
         configObj.fileExtensionForImports = '.js'
-        await saveStructuresProjectConfig(configObj, configDir)
+        await saveKinoticProjectConfig(configObj, configDir)
 
         this.log(chalk.green('Success:') + ' Initialized Project')
     }

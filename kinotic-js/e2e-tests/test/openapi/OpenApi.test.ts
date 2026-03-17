@@ -1,4 +1,4 @@
-import {Structure,} from '@kinotic/structures-api'
+import {EntityDefinition} from '@kinotic-ai/os-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
 import {createPersonStructureIfNotExist, initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
@@ -6,9 +6,9 @@ import {loadOpenAPISchema} from './OpenApiHelpers.js'
 
 
 interface LocalTestContext {
-    personStructure: Structure
-    personWithTenantStructure: Structure
-    vehicleStructure: Structure
+    personStructure: EntityDefinition
+    personWithTenantStructure: EntityDefinition
+    vehicleStructure: EntityDefinition
 }
 
 const applicationId = 'openapi'

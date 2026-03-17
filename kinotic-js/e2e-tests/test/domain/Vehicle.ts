@@ -1,4 +1,4 @@
-import {Entity, Id, MultiTenancyType, Text, Version, EntityType} from '@kinotic/structures-api'
+import {Entity, Id, MultiTenancyType, Text, Version, EntityType} from '@kinotic-ai/persistence'
 
 export class Wheel {
     public brand!: string

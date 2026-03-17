@@ -28,15 +28,7 @@ export class ObjectC3TypeToStatementMapper implements ITypeConverter<C3Type, Sta
         for(const property of objectC3Type.properties){
             conversionContext.beginProcessingProperty(property.name)
 
-            const functionStatement = this.handleDynamicPropsIfNeeded(conversionContext);
-
-            if(functionStatement){
-                ret.add(functionStatement)
-                // Since this won't be handled by the normal property conversion we need to remove the source file path
-                this.removeSourceFilePath(value)
-            }else{
-                ret.add(conversionContext.convert(property.type))
-            }
+            ret.add(conversionContext.convert(property.type))
 
             conversionContext.endProcessingProperty()
         }
@@ -48,31 +40,6 @@ export class ObjectC3TypeToStatementMapper implements ITypeConverter<C3Type, Sta
             delete (value as any).metadata.sourceFilePath
         }
 
-        return ret
-    }
-
-    private handleDynamicPropsIfNeeded(conversionContext: IConversionContext<C3Type, StatementMapper, StatementMapperConversionState>): LiteralStatementMapper | null{
-        const state = conversionContext.state()
-        let ret: LiteralStatementMapper | null = null
-
-        const calculatedProperties = state.getCalculatedProperties(conversionContext.actualJsonPath)
-        if(calculatedProperties){
-            if(calculatedProperties.length > 1){
-                throw new Error(`Only one calculated property is allowed per property. Found ${calculatedProperties.length} for ${conversionContext.actualJsonPath}`)
-            }
-            const functionDeclaration = state.getUtilFunctionByName(calculatedProperties[0].calculatedPropertyFunctionName)
-            if(!functionDeclaration){
-                throw new Error(`Could not find function declaration for ${calculatedProperties[0].calculatedPropertyFunctionName}`)
-            }
-            ret = this.createStatementForFunction(functionDeclaration, conversionContext)
-        }
-
-        if(!ret){
-            const transformerFunction = state.getTransformFunction(conversionContext.actualJsonPath)
-            if(transformerFunction) {
-                ret = this.createStatementForFunction(transformerFunction, conversionContext)
-            }
-        }
         return ret
     }
 

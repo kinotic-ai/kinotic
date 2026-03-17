@@ -4,7 +4,8 @@ import {Liquid} from 'liquidjs'
 import path from 'path'
 import {Project, Type} from 'ts-morph'
 import {fileURLToPath} from 'url'
-import {PageableC3Type, PageC3Type, TypescriptExternalProjectConfig, TypescriptProjectConfig} from '@kinotic-ai/os-api'
+import {PageableC3Type, PageC3Type} from '@kinotic-ai/os-api'
+import {KinoticProjectConfig} from '@kinotic-ai/core'
 import {createImportString, StatementMapper} from './converter/codegen/StatementMapper.js'
 import {StatementMapperConversionState} from './converter/codegen/StatementMapperConversionState.js'
 import {StatementMapperConverterStrategy} from './converter/codegen/StatementMapperConverterStrategy.js'
@@ -13,7 +14,6 @@ import {tsDecoratorToC3Decorator} from './converter/typescript/ConverterUtils.js
 import {TypescriptConversionState} from './converter/typescript/TypescriptConversionState.js'
 import {TypescriptConverterStrategy} from './converter/typescript/TypescriptConverterStrategy.js'
 import {Logger} from './Logger.js'
-import {UtilFunctionLocator} from './UtilFunctionLocator.js'
 import {
     ConversionConfiguration, convertAllEntities,
     createTsMorphProject,
@@ -49,12 +49,12 @@ export class CodeGenerationService {
                                  });
         this.tsMorphProject = createTsMorphProject()
 
-        const state = new TypescriptConversionState(application, null)
+        const state = new TypescriptConversionState(application)
         state.shouldAddSourcePathToMetadata = false
         this.conversionContext = createConversionContext(new TypescriptConverterStrategy(state, logger))
     }
 
-    public async generateAllEntities(projectConfig: TypescriptProjectConfig | TypescriptExternalProjectConfig,
+    public async generateAllEntities(projectConfig: KinoticProjectConfig,
                                      verbose: boolean,
                                      entityProcessor?: GeneratedEntityProcessor){
 
@@ -62,33 +62,16 @@ export class CodeGenerationService {
             const config: ConversionConfiguration = {
                 application        : projectConfig.application,
                 entitiesPath       : entitiesPath,
-                utilFunctionLocator: null,
                 verbose            : verbose,
                 logger             : this.logger
             }
             await this.processEntities(config, projectConfig, entityProcessor)
         }
 
-        if(projectConfig instanceof TypescriptExternalProjectConfig){
-
-            const utilFunctionLocator= new UtilFunctionLocator(projectConfig || [], verbose)
-
-            for(const [externalEntitiesPath, entityConfigurations] of Object.entries(projectConfig.externalEntities || {})){
-                const config: ConversionConfiguration = {
-                    application         : projectConfig.application,
-                    entitiesPath        : externalEntitiesPath,
-                    utilFunctionLocator : utilFunctionLocator,
-                    entityConfigurations: entityConfigurations,
-                    verbose             : verbose,
-                    logger              : this.logger
-                }
-                await this.processEntities(config, projectConfig, entityProcessor)
-            }
-        }
     }
 
     private async processEntities(config: ConversionConfiguration,
-                                  projectConfig: TypescriptProjectConfig | TypescriptExternalProjectConfig,
+                                  projectConfig: KinoticProjectConfig,
                                   entityProcessor?: GeneratedEntityProcessor): Promise<void>{
 
         if (!fs.existsSync(config.entitiesPath)) {
@@ -107,14 +90,12 @@ export class CodeGenerationService {
 
                 generatedServices.push(await this.generateEntityService(false,
                                                              entityInfo,
-                                                                        projectConfig,
-                                                             config.utilFunctionLocator))
+                                                                        projectConfig))
 
                 if(entityInfo.multiTenantSelectionEnabled){
                     generatedServices.push(await this.generateEntityService(true,
                                                                             entityInfo,
-                                                                            projectConfig,
-                                                                            config.utilFunctionLocator))
+                                                                            projectConfig))
                 }
 
                 if(config.verbose){
@@ -144,8 +125,7 @@ export class CodeGenerationService {
 
     private async generateEntityService(adminService: boolean,
                                         entityInfo: EntityInfo,
-                                        projectConfig: TypescriptProjectConfig | TypescriptExternalProjectConfig,
-                                        utilFunctionLocator: UtilFunctionLocator | null): Promise<GeneratedServiceInfo> {
+                                        projectConfig: KinoticProjectConfig): Promise<GeneratedServiceInfo> {
 
         const adminPrefix = (adminService ? 'Admin' : '')
         const fileExtensionForImports = this.fileExtensionForImports
@@ -167,7 +147,7 @@ export class CodeGenerationService {
         let statement: StatementMapper | null = null
         let validationLogic: string | null = null
         if(!adminService) {
-            statement = this.createStatementMapper(entityInfo, utilFunctionLocator)
+            statement = this.createStatementMapper(entityInfo)
             validationLogic = statement.toStatementString()
         }
 
@@ -346,11 +326,8 @@ export class CodeGenerationService {
         return ret
     }
 
-    private createStatementMapper(entityInfo: EntityInfo,
-                                  utilFunctionLocator: UtilFunctionLocator | null): StatementMapper{
-        const state = new StatementMapperConversionState(entityInfo.entity.namespace,
-                                                         utilFunctionLocator)
-        state.entityConfiguration = entityInfo.entityConfiguration
+    private createStatementMapper(entityInfo: EntityInfo): StatementMapper{
+        const state = new StatementMapperConversionState(entityInfo.entity.namespace)
 
         const conversionContext = createConversionContext(new StatementMapperConverterStrategy(state, this.logger))
         return conversionContext.convert(entityInfo.entity)

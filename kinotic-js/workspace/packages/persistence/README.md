@@ -8,7 +8,7 @@ Instant, schema-driven data access for your Kinotic applications. `@kinotic-ai/p
 
 ## Why @kinotic-ai/persistence?
 
-- **Zero query boilerplate.** Decorate your TypeScript classes and the data layer is ready — no mappers, no repositories, no hand-written queries to maintain.
+- **Zero query boilerplate.** Decorate your TypeScript classes and the data layer is ready.
 - **Search is a first-class feature.** Full-text search across your data is available immediately, as naturally as any other read operation.
 - **Built for scale.** Pagination, bulk operations, and cursor-based traversal handle large datasets without architectural changes.
 - **Multi-tenancy handled for you.** Data isolation between tenants is automatic — your application logic stays clean.

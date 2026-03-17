@@ -1,5 +1,6 @@
-import {Direction, Order, Page, Pageable} from '@kinotic/continuum-client'
-import {IEntityService, Structure, Structures} from '@kinotic/structures-api'
+import {Direction, Order, Page, Pageable} from '@kinotic-ai/core'
+import {IEntityService} from '@kinotic-ai/persistence'
+import {Kinotic as KineticOs, EntityDefinition} from '@kinotic-ai/os-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
@@ -20,7 +21,7 @@ import {
 Object.assign(global, { WebSocket})
 
 interface LocalTestContext {
-    structure: Structure
+    structure: EntityDefinition
     entityService: IEntityService<Person>
 }
 
@@ -39,16 +40,16 @@ describe('End To End Tests', () => {
     beforeEach<LocalTestContext>(async (context) => {
         context.structure = await createPersonStructureIfNotExist(generateRandomString(10), generateRandomString(5))
         expect(context.structure).toBeDefined()
-        context.entityService = Structures.createEntityService(context.structure.applicationId, context.structure.name)
+        context.entityService = KineticOs.createEntityService(context.structure.applicationId, context.structure.name)
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
         await expect(deleteStructure(context.structure.id as string)).resolves.toBeUndefined()
-        await expect(Structures.getStructureService().syncIndex()).resolves.toBeNull()
-        await Structures.getProjectService().deleteById(context.structure.projectId)
-        await expect(Structures.getProjectService().syncIndex()).resolves.toBeNull()
-        await Structures.getApplicationService().deleteById(context.structure.applicationId)
+        await expect(KineticOs.entityDefinitions.syncIndex()).resolves.toBeNull()
+        await KineticOs.projects.deleteById(context.structure.projectId)
+        await expect(KineticOs.projects.syncIndex()).resolves.toBeNull()
+        await KineticOs.applications.deleteById(context.structure.applicationId)
     })
 
     it<LocalTestContext>(

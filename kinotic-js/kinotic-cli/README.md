@@ -8,46 +8,46 @@ Structures CLI
 # Usage
 <!-- usage -->
 ```sh-session
-$ npm install -g @kinotic/structures-cli
-$ structures COMMAND
+$ npm install -g @kinotic-ai/kinotic-cli
+$ kinotic COMMAND
 running command...
-$ structures (--version)
-@kinotic/structures-cli/3.5.0 darwin-arm64 node-v22.13.1
-$ structures --help [COMMAND]
+$ kinotic (--version)
+@kinotic-ai/kinotic-cli/1.0.1 darwin-arm64 node-v22.13.1
+$ kinotic --help [COMMAND]
 USAGE
-  $ structures COMMAND
+  $ kinotic COMMAND
 ...
 ```
 <!-- usagestop -->
 # Commands
 <!-- commands -->
-* [`structures autocomplete [SHELL]`](#structures-autocomplete-shell)
-* [`structures gen`](#structures-gen)
-* [`structures generate`](#structures-generate)
-* [`structures help [COMMAND]`](#structures-help-command)
-* [`structures init`](#structures-init)
-* [`structures initialize`](#structures-initialize)
-* [`structures plugins`](#structures-plugins)
-* [`structures plugins add PLUGIN`](#structures-plugins-add-plugin)
-* [`structures plugins:inspect PLUGIN...`](#structures-pluginsinspect-plugin)
-* [`structures plugins install PLUGIN`](#structures-plugins-install-plugin)
-* [`structures plugins link PATH`](#structures-plugins-link-path)
-* [`structures plugins remove [PLUGIN]`](#structures-plugins-remove-plugin)
-* [`structures plugins reset`](#structures-plugins-reset)
-* [`structures plugins uninstall [PLUGIN]`](#structures-plugins-uninstall-plugin)
-* [`structures plugins unlink [PLUGIN]`](#structures-plugins-unlink-plugin)
-* [`structures plugins update`](#structures-plugins-update)
-* [`structures sync`](#structures-sync)
-* [`structures synchronize`](#structures-synchronize)
-* [`structures update [CHANNEL]`](#structures-update-channel)
+* [`kinotic autocomplete [SHELL]`](#kinotic-autocomplete-shell)
+* [`kinotic gen`](#kinotic-gen)
+* [`kinotic generate`](#kinotic-generate)
+* [`kinotic help [COMMAND]`](#kinotic-help-command)
+* [`kinotic init`](#kinotic-init)
+* [`kinotic initialize`](#kinotic-initialize)
+* [`kinotic plugins`](#kinotic-plugins)
+* [`kinotic plugins add PLUGIN`](#kinotic-plugins-add-plugin)
+* [`kinotic plugins:inspect PLUGIN...`](#kinotic-pluginsinspect-plugin)
+* [`kinotic plugins install PLUGIN`](#kinotic-plugins-install-plugin)
+* [`kinotic plugins link PATH`](#kinotic-plugins-link-path)
+* [`kinotic plugins remove [PLUGIN]`](#kinotic-plugins-remove-plugin)
+* [`kinotic plugins reset`](#kinotic-plugins-reset)
+* [`kinotic plugins uninstall [PLUGIN]`](#kinotic-plugins-uninstall-plugin)
+* [`kinotic plugins unlink [PLUGIN]`](#kinotic-plugins-unlink-plugin)
+* [`kinotic plugins update`](#kinotic-plugins-update)
+* [`kinotic sync`](#kinotic-sync)
+* [`kinotic synchronize`](#kinotic-synchronize)
+* [`kinotic update [CHANNEL]`](#kinotic-update-channel)
 
-## `structures autocomplete [SHELL]`
+## `kinotic autocomplete [SHELL]`
 
 Display autocomplete installation instructions.
 
 ```
 USAGE
-  $ structures autocomplete [SHELL] [-r]
+  $ kinotic autocomplete [SHELL] [-r]
 
 ARGUMENTS
   [SHELL]  (zsh|bash|powershell) Shell type
@@ -59,26 +59,26 @@ DESCRIPTION
   Display autocomplete installation instructions.
 
 EXAMPLES
-  $ structures autocomplete
+  $ kinotic autocomplete
 
-  $ structures autocomplete bash
+  $ kinotic autocomplete bash
 
-  $ structures autocomplete zsh
+  $ kinotic autocomplete zsh
 
-  $ structures autocomplete powershell
+  $ kinotic autocomplete powershell
 
-  $ structures autocomplete --refresh-cache
+  $ kinotic autocomplete --refresh-cache
 ```
 
-_See code: [@oclif/plugin-autocomplete](https://github.com/oclif/plugin-autocomplete/blob/v3.2.39/src/commands/autocomplete/index.ts)_
+_See code: [@oclif/plugin-autocomplete](https://github.com/oclif/plugin-autocomplete/blob/v3.2.41/src/commands/autocomplete/index.ts)_
 
-## `structures gen`
+## `kinotic gen`
 
 This will generate all Entity Service classes.
 
 ```
 USAGE
-  $ structures gen [-v]
+  $ kinotic gen [-v]
 
 FLAGS
   -v, --verbose  Enable verbose logging
@@ -87,23 +87,23 @@ DESCRIPTION
   This will generate all Entity Service classes.
 
 ALIASES
-  $ structures gen
+  $ kinotic gen
 
 EXAMPLES
-  $ structures generate
+  $ kinotic generate
 
-  $ structures gen
+  $ kinotic gen
 
-  $ structures gen -v
+  $ kinotic gen -v
 ```
 
-## `structures generate`
+## `kinotic generate`
 
 This will generate all Entity Service classes.
 
 ```
 USAGE
-  $ structures generate [-v]
+  $ kinotic generate [-v]
 
 FLAGS
   -v, --verbose  Enable verbose logging
@@ -112,25 +112,25 @@ DESCRIPTION
   This will generate all Entity Service classes.
 
 ALIASES
-  $ structures gen
+  $ kinotic gen
 
 EXAMPLES
-  $ structures generate
+  $ kinotic generate
 
-  $ structures gen
+  $ kinotic gen
 
-  $ structures gen -v
+  $ kinotic gen -v
 ```
 
-_See code: [src/commands/generate.ts](https://github.com/kinotic-ai/kinotic/blob/v3.5.0/src/commands/generate.ts)_
+_See code: [src/commands/generate.ts](https://github.com/kinotic-ai/kinotic/blob/v1.0.1/src/commands/generate.ts)_
 
-## `structures help [COMMAND]`
+## `kinotic help [COMMAND]`
 
-Display help for structures.
+Display help for kinotic.
 
 ```
 USAGE
-  $ structures help [COMMAND...] [-n]
+  $ kinotic help [COMMAND...] [-n]
 
 ARGUMENTS
   [COMMAND...]  Command to show help for.
@@ -139,18 +139,18 @@ FLAGS
   -n, --nested-commands  Include all nested commands in the output.
 
 DESCRIPTION
-  Display help for structures.
+  Display help for kinotic.
 ```
 
-_See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v6.0.21/src/commands/help.ts)_
+_See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/6.2.38/src/commands/help.ts)_
 
-## `structures init`
+## `kinotic init`
 
-This will initialize a new Structures Project for use with the Structures CLI.
+This will initialize a new Kinotic Project for use with the Kinotic CLI.
 
 ```
 USAGE
-  $ structures init [-a <value>] [-e <value>] [-g <value>]
+  $ kinotic init [-a <value>] [-e <value>] [-g <value>]
 
 FLAGS
   -a, --application=<value>  The name of the application you want to use
@@ -158,26 +158,26 @@ FLAGS
   -g, --generated=<value>    Path to the directory to write generated Services
 
 DESCRIPTION
-  This will initialize a new Structures Project for use with the Structures CLI.
+  This will initialize a new Kinotic Project for use with the Kinotic CLI.
 
 ALIASES
-  $ structures init
+  $ kinotic init
 
 EXAMPLES
-  $ structures initialize --application my.app --entities path/to/entities --generated path/to/services
+  $ kinotic initialize --application my.app --entities path/to/entities --generated path/to/services
 
-  $ structures init --application my.app --entities path/to/entities --generated path/to/services
+  $ kinotic init --application my.app --entities path/to/entities --generated path/to/services
 
-  $ structures init -a my.app -e path/to/entities -g path/to/services
+  $ kinotic init -a my.app -e path/to/entities -g path/to/services
 ```
 
-## `structures initialize`
+## `kinotic initialize`
 
-This will initialize a new Structures Project for use with the Structures CLI.
+This will initialize a new Kinotic Project for use with the Kinotic CLI.
 
 ```
 USAGE
-  $ structures initialize [-a <value>] [-e <value>] [-g <value>]
+  $ kinotic initialize [-a <value>] [-e <value>] [-g <value>]
 
 FLAGS
   -a, --application=<value>  The name of the application you want to use
@@ -185,28 +185,28 @@ FLAGS
   -g, --generated=<value>    Path to the directory to write generated Services
 
 DESCRIPTION
-  This will initialize a new Structures Project for use with the Structures CLI.
+  This will initialize a new Kinotic Project for use with the Kinotic CLI.
 
 ALIASES
-  $ structures init
+  $ kinotic init
 
 EXAMPLES
-  $ structures initialize --application my.app --entities path/to/entities --generated path/to/services
+  $ kinotic initialize --application my.app --entities path/to/entities --generated path/to/services
 
-  $ structures init --application my.app --entities path/to/entities --generated path/to/services
+  $ kinotic init --application my.app --entities path/to/entities --generated path/to/services
 
-  $ structures init -a my.app -e path/to/entities -g path/to/services
+  $ kinotic init -a my.app -e path/to/entities -g path/to/services
 ```
 
-_See code: [src/commands/initialize.ts](https://github.com/kinotic-ai/kinotic/blob/v3.5.0/src/commands/initialize.ts)_
+_See code: [src/commands/initialize.ts](https://github.com/kinotic-ai/kinotic/blob/v1.0.1/src/commands/initialize.ts)_
 
-## `structures plugins`
+## `kinotic plugins`
 
 List installed plugins.
 
 ```
 USAGE
-  $ structures plugins [--json] [--core]
+  $ kinotic plugins [--json] [--core]
 
 FLAGS
   --core  Show core plugins.
@@ -218,18 +218,18 @@ DESCRIPTION
   List installed plugins.
 
 EXAMPLES
-  $ structures plugins
+  $ kinotic plugins
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.54/src/commands/plugins/index.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/5.4.58/src/commands/plugins/index.ts)_
 
-## `structures plugins add PLUGIN`
+## `kinotic plugins add PLUGIN`
 
-Installs a plugin into structures.
+Installs a plugin into kinotic.
 
 ```
 USAGE
-  $ structures plugins add PLUGIN... [--json] [-f] [-h] [-s | -v]
+  $ kinotic plugins add PLUGIN... [--json] [-f] [-h] [-s | -v]
 
 ARGUMENTS
   PLUGIN...  Plugin to install.
@@ -244,39 +244,39 @@ GLOBAL FLAGS
   --json  Format output as json.
 
 DESCRIPTION
-  Installs a plugin into structures.
+  Installs a plugin into kinotic.
 
   Uses npm to install plugins.
 
   Installation of a user-installed plugin will override a core plugin.
 
-  Use the STRUCTURES_NPM_LOG_LEVEL environment variable to set the npm loglevel.
-  Use the STRUCTURES_NPM_REGISTRY environment variable to set the npm registry.
+  Use the KINOTIC_NPM_LOG_LEVEL environment variable to set the npm loglevel.
+  Use the KINOTIC_NPM_REGISTRY environment variable to set the npm registry.
 
 ALIASES
-  $ structures plugins add
+  $ kinotic plugins add
 
 EXAMPLES
   Install a plugin from npm registry.
 
-    $ structures plugins add myplugin
+    $ kinotic plugins add myplugin
 
   Install a plugin from a github url.
 
-    $ structures plugins add https://github.com/someuser/someplugin
+    $ kinotic plugins add https://github.com/someuser/someplugin
 
   Install a plugin from a github slug.
 
-    $ structures plugins add someuser/someplugin
+    $ kinotic plugins add someuser/someplugin
 ```
 
-## `structures plugins:inspect PLUGIN...`
+## `kinotic plugins:inspect PLUGIN...`
 
 Displays installation properties of a plugin.
 
 ```
 USAGE
-  $ structures plugins inspect PLUGIN...
+  $ kinotic plugins inspect PLUGIN...
 
 ARGUMENTS
   PLUGIN...  [default: .] Plugin to inspect.
@@ -292,18 +292,18 @@ DESCRIPTION
   Displays installation properties of a plugin.
 
 EXAMPLES
-  $ structures plugins inspect myplugin
+  $ kinotic plugins inspect myplugin
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.54/src/commands/plugins/inspect.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/5.4.58/src/commands/plugins/inspect.ts)_
 
-## `structures plugins install PLUGIN`
+## `kinotic plugins install PLUGIN`
 
-Installs a plugin into structures.
+Installs a plugin into kinotic.
 
 ```
 USAGE
-  $ structures plugins install PLUGIN... [--json] [-f] [-h] [-s | -v]
+  $ kinotic plugins install PLUGIN... [--json] [-f] [-h] [-s | -v]
 
 ARGUMENTS
   PLUGIN...  Plugin to install.
@@ -318,41 +318,41 @@ GLOBAL FLAGS
   --json  Format output as json.
 
 DESCRIPTION
-  Installs a plugin into structures.
+  Installs a plugin into kinotic.
 
   Uses npm to install plugins.
 
   Installation of a user-installed plugin will override a core plugin.
 
-  Use the STRUCTURES_NPM_LOG_LEVEL environment variable to set the npm loglevel.
-  Use the STRUCTURES_NPM_REGISTRY environment variable to set the npm registry.
+  Use the KINOTIC_NPM_LOG_LEVEL environment variable to set the npm loglevel.
+  Use the KINOTIC_NPM_REGISTRY environment variable to set the npm registry.
 
 ALIASES
-  $ structures plugins add
+  $ kinotic plugins add
 
 EXAMPLES
   Install a plugin from npm registry.
 
-    $ structures plugins install myplugin
+    $ kinotic plugins install myplugin
 
   Install a plugin from a github url.
 
-    $ structures plugins install https://github.com/someuser/someplugin
+    $ kinotic plugins install https://github.com/someuser/someplugin
 
   Install a plugin from a github slug.
 
-    $ structures plugins install someuser/someplugin
+    $ kinotic plugins install someuser/someplugin
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.54/src/commands/plugins/install.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/5.4.58/src/commands/plugins/install.ts)_
 
-## `structures plugins link PATH`
+## `kinotic plugins link PATH`
 
 Links a plugin into the CLI for development.
 
 ```
 USAGE
-  $ structures plugins link PATH [-h] [--install] [-v]
+  $ kinotic plugins link PATH [-h] [--install] [-v]
 
 ARGUMENTS
   PATH  [default: .] path to plugin
@@ -372,18 +372,18 @@ DESCRIPTION
 
 
 EXAMPLES
-  $ structures plugins link myplugin
+  $ kinotic plugins link myplugin
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.54/src/commands/plugins/link.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/5.4.58/src/commands/plugins/link.ts)_
 
-## `structures plugins remove [PLUGIN]`
+## `kinotic plugins remove [PLUGIN]`
 
 Removes a plugin from the CLI.
 
 ```
 USAGE
-  $ structures plugins remove [PLUGIN...] [-h] [-v]
+  $ kinotic plugins remove [PLUGIN...] [-h] [-v]
 
 ARGUMENTS
   [PLUGIN...]  plugin to uninstall
@@ -396,35 +396,35 @@ DESCRIPTION
   Removes a plugin from the CLI.
 
 ALIASES
-  $ structures plugins unlink
-  $ structures plugins remove
+  $ kinotic plugins unlink
+  $ kinotic plugins remove
 
 EXAMPLES
-  $ structures plugins remove myplugin
+  $ kinotic plugins remove myplugin
 ```
 
-## `structures plugins reset`
+## `kinotic plugins reset`
 
 Remove all user-installed and linked plugins.
 
 ```
 USAGE
-  $ structures plugins reset [--hard] [--reinstall]
+  $ kinotic plugins reset [--hard] [--reinstall]
 
 FLAGS
   --hard       Delete node_modules and package manager related files in addition to uninstalling plugins.
   --reinstall  Reinstall all plugins after uninstalling.
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.54/src/commands/plugins/reset.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/5.4.58/src/commands/plugins/reset.ts)_
 
-## `structures plugins uninstall [PLUGIN]`
+## `kinotic plugins uninstall [PLUGIN]`
 
 Removes a plugin from the CLI.
 
 ```
 USAGE
-  $ structures plugins uninstall [PLUGIN...] [-h] [-v]
+  $ kinotic plugins uninstall [PLUGIN...] [-h] [-v]
 
 ARGUMENTS
   [PLUGIN...]  plugin to uninstall
@@ -437,22 +437,22 @@ DESCRIPTION
   Removes a plugin from the CLI.
 
 ALIASES
-  $ structures plugins unlink
-  $ structures plugins remove
+  $ kinotic plugins unlink
+  $ kinotic plugins remove
 
 EXAMPLES
-  $ structures plugins uninstall myplugin
+  $ kinotic plugins uninstall myplugin
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.54/src/commands/plugins/uninstall.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/5.4.58/src/commands/plugins/uninstall.ts)_
 
-## `structures plugins unlink [PLUGIN]`
+## `kinotic plugins unlink [PLUGIN]`
 
 Removes a plugin from the CLI.
 
 ```
 USAGE
-  $ structures plugins unlink [PLUGIN...] [-h] [-v]
+  $ kinotic plugins unlink [PLUGIN...] [-h] [-v]
 
 ARGUMENTS
   [PLUGIN...]  plugin to uninstall
@@ -465,20 +465,20 @@ DESCRIPTION
   Removes a plugin from the CLI.
 
 ALIASES
-  $ structures plugins unlink
-  $ structures plugins remove
+  $ kinotic plugins unlink
+  $ kinotic plugins remove
 
 EXAMPLES
-  $ structures plugins unlink myplugin
+  $ kinotic plugins unlink myplugin
 ```
 
-## `structures plugins update`
+## `kinotic plugins update`
 
 Update installed plugins.
 
 ```
 USAGE
-  $ structures plugins update [-h] [-v]
+  $ kinotic plugins update [-h] [-v]
 
 FLAGS
   -h, --help     Show CLI help.
@@ -488,79 +488,79 @@ DESCRIPTION
   Update installed plugins.
 ```
 
-_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/v5.4.54/src/commands/plugins/update.ts)_
+_See code: [@oclif/plugin-plugins](https://github.com/oclif/plugin-plugins/blob/5.4.58/src/commands/plugins/update.ts)_
 
-## `structures sync`
+## `kinotic sync`
 
-Synchronize the local Entity definitions with the Structures Server
+Synchronize the local Entity definitions with the Kinotic Server
 
 ```
 USAGE
-  $ structures sync [-s <value>] [-p] [-v] [-f <value>] [--dryRun]
+  $ kinotic sync [-s <value>] [-p] [-v] [-f <value>] [--dryRun]
 
 FLAGS
   -f, --authHeaderFile=<value>  JSON File containing authentication headers
   -p, --publish                 Publish each Entity after save/update
-  -s, --server=<value>          The structures server to connect to
+  -s, --server=<value>          The Kinotic server to connect to
   -v, --verbose                 Enable verbose logging
       --dryRun                  Dry run enables verbose logging and does not save any changes to the server
 
 DESCRIPTION
-  Synchronize the local Entity definitions with the Structures Server
+  Synchronize the local Entity definitions with the Kinotic Server
 
 ALIASES
-  $ structures sync
+  $ kinotic sync
 
 EXAMPLES
-  $ structures synchronize
+  $ kinotic synchronize
 
-  $ structures sync
+  $ kinotic sync
 
-  $ structures synchronize --server http://localhost:9090 --publish --verbose
+  $ kinotic synchronize --server http://localhost:9090 --publish --verbose
 
-  $ structures sync -p -v -s http://localhost:9090
+  $ kinotic sync -p -v -s http://localhost:9090
 ```
 
-## `structures synchronize`
+## `kinotic synchronize`
 
-Synchronize the local Entity definitions with the Structures Server
+Synchronize the local Entity definitions with the Kinotic Server
 
 ```
 USAGE
-  $ structures synchronize [-s <value>] [-p] [-v] [-f <value>] [--dryRun]
+  $ kinotic synchronize [-s <value>] [-p] [-v] [-f <value>] [--dryRun]
 
 FLAGS
   -f, --authHeaderFile=<value>  JSON File containing authentication headers
   -p, --publish                 Publish each Entity after save/update
-  -s, --server=<value>          The structures server to connect to
+  -s, --server=<value>          The Kinotic server to connect to
   -v, --verbose                 Enable verbose logging
       --dryRun                  Dry run enables verbose logging and does not save any changes to the server
 
 DESCRIPTION
-  Synchronize the local Entity definitions with the Structures Server
+  Synchronize the local Entity definitions with the Kinotic Server
 
 ALIASES
-  $ structures sync
+  $ kinotic sync
 
 EXAMPLES
-  $ structures synchronize
+  $ kinotic synchronize
 
-  $ structures sync
+  $ kinotic sync
 
-  $ structures synchronize --server http://localhost:9090 --publish --verbose
+  $ kinotic synchronize --server http://localhost:9090 --publish --verbose
 
-  $ structures sync -p -v -s http://localhost:9090
+  $ kinotic sync -p -v -s http://localhost:9090
 ```
 
-_See code: [src/commands/synchronize.ts](https://github.com/kinotic-ai/kinotic/blob/v3.5.0/src/commands/synchronize.ts)_
+_See code: [src/commands/synchronize.ts](https://github.com/kinotic-ai/kinotic/blob/v1.0.1/src/commands/synchronize.ts)_
 
-## `structures update [CHANNEL]`
+## `kinotic update [CHANNEL]`
 
-update the structures CLI
+update the kinotic CLI
 
 ```
 USAGE
-  $ structures update [CHANNEL] [--force |  | [-a | -v <value> | -i]] [-b ]
+  $ kinotic update [CHANNEL] [--force |  | [-a | -v <value> | -i]] [-b ]
 
 FLAGS
   -a, --available        See available versions.
@@ -570,25 +570,25 @@ FLAGS
       --force            Force a re-download of the requested version.
 
 DESCRIPTION
-  update the structures CLI
+  update the kinotic CLI
 
 EXAMPLES
   Update to the stable channel:
 
-    $ structures update stable
+    $ kinotic update stable
 
   Update to a specific version:
 
-    $ structures update --version 1.0.0
+    $ kinotic update --version 1.0.0
 
   Interactively select version:
 
-    $ structures update --interactive
+    $ kinotic update --interactive
 
   See available versions:
 
-    $ structures update --available
+    $ kinotic update --available
 ```
 
-_See code: [@oclif/plugin-update](https://github.com/oclif/plugin-update/blob/v4.7.16/src/commands/update.ts)_
+_See code: [@oclif/plugin-update](https://github.com/oclif/plugin-update/blob/4.7.23/src/commands/update.ts)_
 <!-- commandsstop -->

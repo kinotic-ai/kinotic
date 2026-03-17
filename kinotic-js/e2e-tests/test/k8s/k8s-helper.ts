@@ -1,4 +1,4 @@
-import { Continuum } from '@kinotic/continuum-client';
+import { Kinotic as Continuum } from '@kinotic-ai/core';
 import { ChildProcess, execSync } from 'child_process';
 
 

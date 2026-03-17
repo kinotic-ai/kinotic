@@ -95,7 +95,7 @@ export class UnionToC3Type implements ITypeConverter<Type, C3Type, TypescriptCon
         }
 
         // Now we check that a union is only objets or is single non object type
-        // Since structures does not support unions of primitives, arrays, or enums
+        // Since kinotic does not support unions of primitives, arrays, or enums
         if (primitiveCount === 1) {
 
             if (convertedList.length === 1) {

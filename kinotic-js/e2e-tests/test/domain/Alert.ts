@@ -1,4 +1,4 @@
-import {Entity, MultiTenancyType, EntityType, Id, TimeReference} from '@kinotic/structures-api'
+import {Entity, MultiTenancyType, EntityType, Id, TimeReference} from '@kinotic-ai/persistence'
 
 @Entity(MultiTenancyType.SHARED, EntityType.STREAM)
 export class Alert {

@@ -1,4 +1,3 @@
-import {UtilFunctionLocator} from '../../UtilFunctionLocator.js'
 import {BaseConversionState} from '../common/BaseConversionState.js'
 
 export class StatementMapperConversionState extends BaseConversionState{
@@ -9,8 +8,8 @@ export class StatementMapperConversionState extends BaseConversionState{
 
     public indent: number = 4
 
-    constructor(namespace: string, utilFunctionLocator: UtilFunctionLocator| null) {
-        super(namespace, utilFunctionLocator, true)
+    constructor(application: string) {
+        super(application)
     }
 
     public indentMore(): StatementMapperConversionState {

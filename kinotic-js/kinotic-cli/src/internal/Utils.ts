@@ -8,7 +8,6 @@ import {
     ParticipantConstants
 } from '@kinotic-ai/core'
 import {C3Type, FunctionDefinition, ObjectC3Type} from '@kinotic-ai/idl'
-import {EntityConfiguration, EntityDecorator} from '@kinotic-ai/os-api'
 import fs from 'fs'
 import fsPromises from 'fs/promises'
 import { confirm } from '@inquirer/prompts'
@@ -21,7 +20,6 @@ import {createConversionContext} from './converter/IConversionContext.js'
 import {TypescriptConversionState} from './converter/typescript/TypescriptConversionState.js'
 import {TypescriptConverterStrategy} from './converter/typescript/TypescriptConverterStrategy.js'
 import {Logger} from './Logger.js'
-import {UtilFunctionLocator} from './UtilFunctionLocator.js'
 
 export type GeneratedServiceInfo = {
     entityServiceName: string
@@ -64,6 +62,7 @@ export function jsonStringifyReplacer(key: any, value: any) {
  * This will be replaced when the server supports a session upgrade command
  * @param server the server to connect to
  * @param logger the logger to use
+ * @param authHeadersFile path to a file containing the auth headers
  * @return true if the session was upgraded successfully
  */
 export async function connectAndUpgradeSession(server: string, logger: Logger, authHeadersFile?: string): Promise<boolean>{
@@ -194,15 +193,12 @@ export type EntityInfo = {
     exportedFromFile: string,
     defaultExport: boolean,
     entity: ObjectC3Type
-    entityConfiguration?: EntityConfiguration,
     multiTenantSelectionEnabled: boolean
 }
 
 export type ConversionConfiguration = {
     application: string,
     entitiesPath: string,
-    utilFunctionLocator: UtilFunctionLocator | null,
-    entityConfigurations?: EntityConfiguration[],
     verbose: boolean,
     logger: Logger,
 }
@@ -248,12 +244,6 @@ export function createTsMorphProject(): Project {
 
 export function convertAllEntities(config: ConversionConfiguration): EntityInfo[]{
     const entities: EntityInfo[] = []
-    const entityConfigMap = new Map<string, EntityConfiguration>()
-    if(config.entityConfigurations) {
-        for (const entityConfiguration of config.entityConfigurations) {
-            entityConfigMap.set(entityConfiguration.entityName, entityConfiguration)
-        }
-    }
 
     const project = createTsMorphProject()
 
@@ -276,8 +266,7 @@ export function convertAllEntities(config: ConversionConfiguration): EntityInfo[
         if(absSourcePath.startsWith(absEntitiesPath)) {
 
             const conversionContext =
-                      createConversionContext(new TypescriptConverterStrategy(new TypescriptConversionState(config.application,
-                                                                                                            config.utilFunctionLocator),
+                      createConversionContext(new TypescriptConverterStrategy(new TypescriptConversionState(config.application),
                                                                               config.logger))
 
             const exportedDeclarations = sourceFile.getExportedDeclarations()
@@ -288,13 +277,10 @@ export function convertAllEntities(config: ConversionConfiguration): EntityInfo[
 
                         // If the Entity is decorated with @Entity or has an EntityConfiguration we convert it
                         const decorator = getEntityDecoratorIfExists(exportedDeclaration)
-                        const declarationName = declaration.getName()
-                        const entityConfig = (declarationName ? entityConfigMap.get(declarationName) : undefined)
-                        if (decorator || entityConfig) {
+                        if (decorator) {
 
                             let c3Type: C3Type | null = null
                             try {
-                                conversionContext.state().entityConfiguration = entityConfig
                                 conversionContext.state().multiTenantSelectionEnabled = false
                                 c3Type = conversionContext.convert(declaration.getType())
                             } catch (e) {
@@ -304,18 +290,10 @@ export function convertAllEntities(config: ConversionConfiguration): EntityInfo[
 
                                 if (c3Type instanceof ObjectC3Type) {
 
-                                    // External object, need to manually add the MultiTenancyType
-                                    if (entityConfig) {
-                                        const entityDecorator = new EntityDecorator()
-                                        entityDecorator.multiTenancyType = entityConfig.multiTenancyType
-                                        c3Type.addDecorator(entityDecorator)
-                                    }
-
                                     entities.push({
                                                       exportedFromFile: declaration.getSourceFile().getFilePath(),
                                                       defaultExport: declaration.isDefaultExport(),
                                                       entity: c3Type,
-                                                      entityConfiguration: entityConfig,
                                                       multiTenantSelectionEnabled: conversionContext.state().multiTenantSelectionEnabled
                                                   })
                                 } else {
@@ -409,7 +387,7 @@ export async function writeEntityJsonToFilesystem(savePath: string, entity: Obje
 }
 
 /**
- * Savee the C3Type(s) to the local filesystem
+ * Save the C3Type(s) to the local filesystem
  * @param savePath to save the entities to
  * @param entities to save
  * @param logger to log to if desired, if null nothing will be logged

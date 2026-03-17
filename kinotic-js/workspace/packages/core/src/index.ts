@@ -5,6 +5,7 @@ export * from './api/ConnectionInfo'
 export * from './api/ContextInterceptor'
 export * from './api/Kinotic'
 export * from './api/KinoticDecorators'
+export * from './api/KinoticProjectConfig'
 export * from './api/IServiceRegistry'
 export * from './api/ServiceRegistry'
 

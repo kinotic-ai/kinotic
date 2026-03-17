@@ -1,6 +1,6 @@
 import {faker} from '@faker-js/faker/locale/en'
-import {CodeGenerationService} from '@kinotic/structures-cli/dist/internal/CodeGenerationService.js'
-import {ConsoleLogger} from '@kinotic/structures-cli/dist/internal/Logger.js'
+import {CodeGenerationService} from '@kinotic-ai/kinotic-cli/dist/internal/CodeGenerationService.js'
+import {ConsoleLogger} from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
 import {Kinotic, Direction, Order, Pageable, IterablePage} from '@kinotic-ai/core'
 import {
     ObjectC3Type,
@@ -9,15 +9,18 @@ import {
 import {randomUUID} from 'node:crypto'
 import {expect} from 'vitest'
 import {
-    Structures,
-    Structure,
-    IEntityService,
-    IAdminEntityService,
+    Kinotic as KineticOs,
+    OsApiPlugin,
+    EntityDefinition,
     NamedQueriesDefinition,
     QueryDecorator,
     Project,
     TypescriptProjectConfig
-} from '@kinotic/structures-api'
+} from '@kinotic-ai/os-api'
+import {
+    IEntityService,
+    IAdminEntityService
+} from '@kinotic-ai/persistence'
 import {Alert} from './domain/Alert.js'
 import {Person} from './domain/Person.js'
 import {inject} from 'vitest'
@@ -27,6 +30,7 @@ import {PersonWithTenant} from './domain/PersonWithTenant.js'
 import {Cat, Dog} from './domain/Pet.js'
 import {Vehicle, Wheel} from './domain/Vehicle.js'
 
+Kinotic.use(OsApiPlugin)
 
 type SchemaCreationResult ={
     entityDefinition: ObjectC3Type
@@ -144,24 +148,24 @@ function replaceAllQueryPlaceholdersWithId(structureId: string, functionDefiniti
 
 // Add these new functions to your existing TestHelpers.ts file
 
-export async function createAlertStructureIfNotExist(applicationId: string, projectName: string): Promise<Structure> {
+export async function createAlertStructureIfNotExist(applicationId: string, projectName: string): Promise<EntityDefinition> {
     const structureId = applicationId + '.alert'
-    let structure = await Structures.getStructureService().findById(structureId)
+    let structure = await KineticOs.entityDefinitions.findById(structureId)
     if (structure == null) {
         structure = await createAlertStructure(applicationId, projectName)
     }
     return structure
 }
 
-export async function createAlertStructure(applicationId: string, projectName: string): Promise<Structure> {
+export async function createAlertStructure(applicationId: string, projectName: string): Promise<EntityDefinition> {
 
-    await Structures.getApplicationService().createApplicationIfNotExist(applicationId, 'Application')
+    await KineticOs.applications.createApplicationIfNotExist(applicationId, 'Application')
 
     let project: Project = new Project(null, applicationId, projectName, 'Project')
-    project = await Structures.getProjectService().createProjectIfNotExist(project)
+    project = await KineticOs.projects.createProjectIfNotExist(project)
 
     const {entityDefinition} = await createAlertSchema(applicationId, project.id as string)
-    const alertStructure = new Structure(
+    const alertStructure = new EntityDefinition(
         applicationId,
         project.id as string,
         'Alert',
@@ -169,10 +173,10 @@ export async function createAlertStructure(applicationId: string, projectName: s
         'System alerts and notifications stream'
     )
 
-    const savedStructure = await Structures.getStructureService().create(alertStructure)
+    const savedStructure = await KineticOs.entityDefinitions.create(alertStructure)
 
     if (savedStructure.id) {
-        await Structures.getStructureService().publish(savedStructure.id)
+        await KineticOs.entityDefinitions.publish(savedStructure.id)
     } else {
         throw new Error('No Structure id')
     }
@@ -206,33 +210,33 @@ export function createTestAlerts(numberToCreate: number): Alert[] {
     return ret
 }
 
-export async function createPersonStructureIfNotExist(applicationId: string, projectName: string, withTenant: boolean = false): Promise<Structure>{
+export async function createPersonStructureIfNotExist(applicationId: string, projectName: string, withTenant: boolean = false): Promise<EntityDefinition>{
     const structureId = applicationId + '.person' + ( withTenant ? 'withtenant' : '')
-    let structure = await Structures.getStructureService().findById(structureId)
+    let structure = await KineticOs.entityDefinitions.findById(structureId)
     if(structure == null){
         structure = await createPersonStructure(applicationId, projectName, withTenant)
     }
     return structure
 }
 
-export async function createPersonStructure(applicationId: string, projectName: string, withTenant: boolean = false): Promise<Structure>{
+export async function createPersonStructure(applicationId: string, projectName: string, withTenant: boolean = false): Promise<EntityDefinition>{
 
-    await Structures.getApplicationService().createApplicationIfNotExist(applicationId, 'Application')
+    await KineticOs.applications.createApplicationIfNotExist(applicationId, 'Application')
 
     let project: Project = new Project(null, applicationId, projectName, 'Project')
-    project = await Structures.getProjectService().createProjectIfNotExist(project)
+    project = await KineticOs.projects.createProjectIfNotExist(project)
 
     const {entityDefinition} = await createPersonSchema(applicationId, project.id as string, withTenant)
-    const personStructure = new Structure(applicationId,
+    const personStructure = new EntityDefinition(applicationId,
                                           project.id as string,
                                           'Person' + (withTenant ? 'WithTenant' : ''),
                                           entityDefinition,
                                           'Tracks people that are going to mars')
 
-    const savedStructure = await Structures.getStructureService().create(personStructure)
+    const savedStructure = await KineticOs.entityDefinitions.create(personStructure)
 
     if(savedStructure.id) {
-        await Structures.getStructureService().publish(savedStructure.id)
+        await KineticOs.entityDefinitions.publish(savedStructure.id)
     }else{
         throw new Error('No Structure id')
     }
@@ -240,34 +244,34 @@ export async function createPersonStructure(applicationId: string, projectName: 
     return savedStructure
 }
 
-export async function createVehicleStructureIfNotExist(applicationId: string, projectName: string): Promise<Structure>{
+export async function createVehicleStructureIfNotExist(applicationId: string, projectName: string): Promise<EntityDefinition>{
     const structureId = applicationId + '.vehicle'
-    let structure = await Structures.getStructureService().findById(structureId)
+    let structure = await KineticOs.entityDefinitions.findById(structureId)
     if(structure == null){
         structure = await createVehicleStructure(applicationId, projectName)
     }
     return structure
 }
 
-export async function createVehicleStructure(applicationId: string, projectName: string): Promise<Structure>{
+export async function createVehicleStructure(applicationId: string, projectName: string): Promise<EntityDefinition>{
 
-    await Structures.getApplicationService().createApplicationIfNotExist(applicationId, 'Application')
+    await KineticOs.applications.createApplicationIfNotExist(applicationId, 'Application')
 console.log('Created application', applicationId);
     let project: Project = new Project(null, applicationId, projectName, 'Project')
-    project = await Structures.getProjectService().createProjectIfNotExist(project)
+    project = await KineticOs.projects.createProjectIfNotExist(project)
 console.log('Created project', project.id);
     const {entityDefinition} = await createVehicleSchema(applicationId, project.id as string)
     console.log('Created entity definition', entityDefinition);
-    const vehicleStructure = new Structure(applicationId,
+    const vehicleStructure = new EntityDefinition(applicationId,
                                            project.id as string,
                                            'Vehicle',
                                            entityDefinition,
                                            'Some form of transportation')
     console.log('Created vehicle structure', vehicleStructure);
-    const savedStructure = await Structures.getStructureService().create(vehicleStructure)
+    const savedStructure = await KineticOs.entityDefinitions.create(vehicleStructure)
     console.log('Saved structure', savedStructure);
     if(savedStructure.id) {
-        await Structures.getStructureService().publish(savedStructure.id)
+        await KineticOs.entityDefinitions.publish(savedStructure.id)
         console.log('Published structure', savedStructure.id);
     }else{
         throw new Error('No Structure id')
@@ -278,8 +282,8 @@ console.log('Created project', project.id);
 
 
 export async function deleteStructure(structureId: string): Promise<void>{
-    await Structures.getStructureService().unPublish(structureId)
-    await Structures.getStructureService().deleteById(structureId)
+    await KineticOs.entityDefinitions.unPublish(structureId)
+    await KineticOs.entityDefinitions.deleteById(structureId)
 }
 
 export function createTestPeople(numberToCreate: number): Person[] {

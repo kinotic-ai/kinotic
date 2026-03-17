@@ -1,14 +1,14 @@
-import {Page, Pageable} from '@kinotic/continuum-client'
-import {ArrayC3Type, FunctionDefinition, LongC3Type, ObjectC3Type, StringC3Type} from '@kinotic/continuum-idl'
+import {Page, Pageable} from '@kinotic-ai/core'
+import {ArrayC3Type, FunctionDefinition, LongC3Type, ObjectC3Type, StringC3Type} from '@kinotic-ai/idl'
+import {IEntityService} from '@kinotic-ai/persistence'
 import {
-    IEntityService,
+    Kinotic as KineticOs,
+    EntityDefinition,
     NamedQueriesDefinition,
     PageableC3Type,
     PageC3Type,
-    QueryDecorator,
-    Structure,
-    Structures
-} from '@kinotic/structures-api'
+    QueryDecorator
+} from '@kinotic-ai/os-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
@@ -25,7 +25,7 @@ import {
 Object.assign(global, { WebSocket})
 
 interface LocalTestContext {
-    structure: Structure
+    structure: EntityDefinition
     applicationIdUsed: string
     projectIdUsed: string
     entityService: IEntityService<Person>
@@ -48,16 +48,16 @@ describe('End To End Tests', () => {
         context.projectIdUsed = generateRandomString(5)
         context.structure = await createPersonStructureIfNotExist(context.applicationIdUsed, context.projectIdUsed)
         expect(context.structure).toBeDefined()
-        context.entityService = Structures.createEntityService(context.structure.applicationId, context.structure.name)
+        context.entityService = KineticOs.createEntityService(context.structure.applicationId, context.structure.name)
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
         await expect(deleteStructure(context.structure.id as string)).resolves.toBeUndefined()
-        await expect(Structures.getStructureService().syncIndex()).resolves.toBeNull()
-        await Structures.getProjectService().deleteById(context.structure.projectId)
-        await expect(Structures.getProjectService().syncIndex()).resolves.toBeNull()
-        await Structures.getApplicationService().deleteById(context.structure.applicationId)
+        await expect(KineticOs.entityDefinitions.syncIndex()).resolves.toBeNull()
+        await KineticOs.projects.deleteById(context.structure.projectId)
+        await expect(KineticOs.projects.syncIndex()).resolves.toBeNull()
+        await KineticOs.applications.deleteById(context.structure.applicationId)
     })
 
 
@@ -81,7 +81,7 @@ describe('End To End Tests', () => {
                                                                       [namedQuery])
 
 
-            const namedQueriesService = Structures.getNamedQueriesService()
+            const namedQueriesService = KineticOs.namedQueriesDefinitions
             await namedQueriesService.save(namedQueriesDefinition)
 
             const countResult: any = await entityService.namedQuery('countAllPeople', [])
@@ -115,7 +115,7 @@ describe('End To End Tests', () => {
                                                                       [namedQuery])
 
 
-            const namedQueriesService = Structures.getNamedQueriesService()
+            const namedQueriesService = KineticOs.namedQueriesDefinitions
             await namedQueriesService.save(namedQueriesDefinition)
 
             const countResult: any = await entityService.namedQuery('countPeopleByLastNameWithLastName',
@@ -150,7 +150,7 @@ describe('End To End Tests', () => {
                                                                       [namedQuery])
 
 
-            const namedQueriesService = Structures.getNamedQueriesService()
+            const namedQueriesService = KineticOs.namedQueriesDefinitions
             await namedQueriesService.save(namedQueriesDefinition)
 
             const pageable = Pageable.createWithCursor(null, 1)
@@ -178,7 +178,7 @@ describe('End To End Tests', () => {
         'Test Save Multiple',
         async ({entityService, applicationIdUsed, projectIdUsed}) => {
             const structureId = entityService.structureId
-            const namedQueriesService = Structures.getNamedQueriesService()
+            const namedQueriesService = KineticOs.namedQueriesDefinitions
 
             const query = new QueryDecorator(`SELECT COUNT(firstName) as count FROM "struct_${structureId}"`)
             const namedQuery = new FunctionDefinition('countAllPeople', [query])

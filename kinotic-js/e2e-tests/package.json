@@ -9,15 +9,16 @@
     "ui-test": "vitest --ui --mode development"
   },
   "dependencies": {
-    "@kinotic-ai/core": "1.0.0-beta.0",
-    "@kinotic-ai/idl": "1.0.0-beta.0",
-    "@kinotic/structures-api": "^3.5.0",
+    "@kinotic-ai/core": "^1.0.1",
+    "@kinotic-ai/idl": "^1.0.1",
+    "@kinotic-ai/os-api": "^1.0.1",
+    "@kinotic-ai/persistence": "^1.0.1",
     "reflect-metadata": "^0.2.2",
     "vue": "^3.5.26"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.2.0",
-    "@kinotic/structures-cli": "^3.5.0",
+    "@kinotic-ai/kinotic-cli": "^1.0.1",
     "@types/node": "^25.0.6",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-vue": "^6.0.3",
@@ -37,6 +38,11 @@
     "ws": "^8.19.0"
   },
   "pnpm": {
+    "overrides": {
+      "@kinotic-ai/core": "1.0.1",
+      "@kinotic-ai/idl": "1.0.1",
+      "@kinotic-ai/persistence": "1.0.1"
+    },
     "onlyBuiltDependencies": [
       "esbuild"
     ]

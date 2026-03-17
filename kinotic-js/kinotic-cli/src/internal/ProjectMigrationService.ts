@@ -1,4 +1,5 @@
-import { IMigrationService, Kinotic, MigrationDefinition, MigrationRequest } from '@kinotic-ai/os-api'
+import { IMigrationService, MigrationDefinition, MigrationRequest } from '@kinotic-ai/os-api'
+import { Kinotic } from '@kinotic-ai/core'
 import { readdir, readFile, access } from 'fs/promises'
 import { join } from 'path'
 import { constants } from 'fs'

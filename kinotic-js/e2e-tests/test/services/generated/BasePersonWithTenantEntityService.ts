@@ -1,4 +1,4 @@
-import { EntityService, type IEntitiesService } from '@kinotic/structures-api'
+import { EntityService, type IEntitiesService } from '@kinotic-ai/persistence'
 import { PersonWithTenant } from '../../domain/PersonWithTenant.js'
 import {Cat,
 Dog} from '../../domain/Pet.js'

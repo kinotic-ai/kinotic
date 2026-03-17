@@ -1,6 +1,6 @@
 {
   "name": "kinotic-js-monorepo",
-  "version": "1.0.1",
+  "version": "1.0.6",
   "license": "Elastic License 2.0",
   "scripts": {
     "build": "bunup",

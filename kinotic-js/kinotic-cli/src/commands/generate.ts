@@ -1,10 +1,9 @@
 import {CodeGenerationService} from '../internal/CodeGenerationService.js'
-import {Args, Command, Flags} from '@oclif/core'
+import {Command, Flags} from '@oclif/core'
 import {
-    isStructuresProject,
-    loadStructuresProjectConfig
-} from '../internal/state/StructuresProject.js'
-import { TypescriptExternalProjectConfig, TypescriptProjectConfig } from '@kinotic-ai/os-api'
+    isKinoticProject,
+    loadKinoticProjectConfig
+} from '../internal/state/KinoticProjectConfigUtil.js'
 
 export class Generate extends Command {
     static aliases = ['gen']
@@ -24,19 +23,19 @@ export class Generate extends Command {
     public async run(): Promise<void> {
         const {flags} = await this.parse(Generate)
 
-        if(!(await isStructuresProject())){
+        if(!(await isKinoticProject())){
             this.error('The working directory is not a Kinotic Project')
         }
 
-        const structuresProjectConfig = await loadStructuresProjectConfig()
+        const kinoticProjectConfig = await loadKinoticProjectConfig()
 
-        const codeGenerationService = new CodeGenerationService(structuresProjectConfig.application,
-                                                                structuresProjectConfig.fileExtensionForImports,
+        const codeGenerationService = new CodeGenerationService(kinoticProjectConfig.application,
+                                                                kinoticProjectConfig.fileExtensionForImports,
                                                                 this)
 
-            await codeGenerationService.generateAllEntities(structuresProjectConfig as TypescriptProjectConfig | TypescriptExternalProjectConfig, flags.verbose)
+            await codeGenerationService.generateAllEntities(kinoticProjectConfig, flags.verbose)
 
-        this.log(`Code Generation Complete For application: ${structuresProjectConfig.application}`)
+        this.log(`Code Generation Complete For application: ${kinoticProjectConfig.application}`)
     }
 
     // This is needed for the CodeGenerationService to log verbose messages

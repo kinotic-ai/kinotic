@@ -1,5 +1,6 @@
-import { Pageable } from '@kinotic/continuum-client';
-import { Structures, IEntityService, StructureService } from '@kinotic/structures-api';
+import { Pageable } from '@kinotic-ai/core';
+import { IEntityService } from '@kinotic-ai/persistence';
+import { Kinotic as KineticOs } from '@kinotic-ai/os-api';
 import { WebSocket } from 'ws';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { createVehicleStructure, createTestVehicles } from '../TestHelpers';
@@ -115,7 +116,7 @@ describe('K8s Cache Eviction Tests', () => {
 
         // Step 2: Create test entities (vehicles)
         console.log('\nTest 1: Step 2 - Creating test vehicles');
-        const entityService: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
+        const entityService: IEntityService<Vehicle> = KineticOs.createEntityService(applicationId, structureName);
         const testVehicles = createTestVehicles(5);
 
         for (const vehicle of testVehicles) {
@@ -136,7 +137,7 @@ describe('K8s Cache Eviction Tests', () => {
             await k8s.connectToPod(i);
 
             // Warm structure cache
-            const structureService = Structures.getStructureService();
+            const structureService = KineticOs.entityDefinitions;
 
             const retrieved = await structureService.findById(structureId);
             expect(retrieved).toBeDefined();
@@ -144,7 +145,7 @@ describe('K8s Cache Eviction Tests', () => {
             console.log(`Test 1: Pod ${i}: Structure cached with description: "${initialDescription}"`);
 
             // Warm entity cache via findAll
-            const entitySvc: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
+            const entitySvc: IEntityService<Vehicle> = KineticOs.createEntityService(applicationId, structureName);
             const page = await entitySvc.findAll(Pageable.create(0, 10));
             expect(page).toBeDefined();
             console.log(`Test 1: Pod ${i}: Entity findAll returned data (cache warmed)`);
@@ -165,11 +166,11 @@ describe('K8s Cache Eviction Tests', () => {
         console.log(`\nTest 1: Step 4 - Updating structure on pod 0 to trigger cache eviction`);
         await k8s.connectToPod(0);
 
-        const toUpdate = await Structures.getStructureService().findById(structureId);
+        const toUpdate = await KineticOs.entityDefinitions.findById(structureId);
         expect(toUpdate).toBeDefined();
         toUpdate!.description = updatedDescription;
 
-        const updated = await Structures.getStructureService().save(toUpdate!);
+        const updated = await KineticOs.entityDefinitions.save(toUpdate!);
         expect(updated).toBeDefined();
         expect(updated.description).toBe(updatedDescription);
         console.log(`Test 1: Updated structure with description: "${updatedDescription}"`);
@@ -243,7 +244,7 @@ describe('K8s Cache Eviction Tests', () => {
         for (let i = 0; i < k8s.getPodCount(); i++) {
             await k8s.connectToPod(i);
 
-            const afterEviction = await Structures.getStructureService().findById(structureId);
+            const afterEviction = await KineticOs.entityDefinitions.findById(structureId);
             expect(afterEviction).toBeDefined();
             expect(afterEviction?.description).toBe(updatedDescription);
             console.log(`Test 1: Pod ${i}: ✓ Sees updated description: "${updatedDescription}"`);
@@ -304,7 +305,7 @@ describe('K8s Cache Eviction Tests', () => {
 
         // Step 2: Create more test entities for load testing (10 vehicles)
         console.log('\nStep 2: Creating test vehicles');
-        const entityService: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
+        const entityService: IEntityService<Vehicle> = KineticOs.createEntityService(applicationId, structureName);
         const testVehicles = createTestVehicles(10);
 
         for (const vehicle of testVehicles) {
@@ -323,10 +324,10 @@ describe('K8s Cache Eviction Tests', () => {
         for (let i = 0; i < k8s.getPodCount(); i++) {
             await k8s.connectToPod(i);
 
-            const retrieved = await Structures.getStructureService().findById(structureId);
+            const retrieved = await KineticOs.entityDefinitions.findById(structureId);
             expect(retrieved).toBeDefined();
 
-            const entitySvc: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
+            const entitySvc: IEntityService<Vehicle> = KineticOs.createEntityService(applicationId, structureName);
             await entitySvc.findAll(Pageable.create(0, 10));
             await entitySvc.search('*', Pageable.create(0, 10));
 
@@ -348,12 +349,12 @@ describe('K8s Cache Eviction Tests', () => {
             const results: { success: boolean; description: string | undefined }[] = [];
 
             await k8s.connectToPod(podIndex);
-            const entitySvc: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
+            const entitySvc: IEntityService<Vehicle> = KineticOs.createEntityService(applicationId, structureName);
 
             for (let i = 0; i < iterations; i++) {
                 try {
                     // Mix of structure and entity reads
-                    const structure = await Structures.getStructureService().findById(structureId);
+                    const structure = await KineticOs.entityDefinitions.findById(structureId);
                     await entitySvc.findAll(Pageable.create(0, 5));
                     results.push({ success: true, description: structure?.description ?? undefined });
                 } catch (error) {
@@ -382,13 +383,13 @@ describe('K8s Cache Eviction Tests', () => {
         console.log('  Modifying structure on pod 0...');
         await k8s.connectToPod(0);
 
-        const toUpdate = await Structures.getStructureService().findById(structureId);
+        const toUpdate = await KineticOs.entityDefinitions.findById(structureId);
         expect(toUpdate).toBeDefined();
         const updatedDescription = `Load test update ${Date.now()}`;
         toUpdate!.description = updatedDescription;
 
         const modifyStart = Date.now();
-        const updated = await Structures.getStructureService().save(toUpdate!);
+        const updated = await KineticOs.entityDefinitions.save(toUpdate!);
         trackTiming('structureModify', modifyStart);
 
         expect(updated.description).toBe(updatedDescription);
@@ -407,7 +408,7 @@ describe('K8s Cache Eviction Tests', () => {
                 const readStart = Date.now();
                 await k8s.connectToPod(podIndex);
 
-                const structure = await Structures.getStructureService().findById(structureId);
+                const structure = await KineticOs.entityDefinitions.findById(structureId);
                 const readTime = Date.now() - readStart;
 
                 readResults.push({
@@ -478,7 +479,7 @@ describe('K8s Cache Eviction Tests', () => {
         for (let i = 0; i < k8s.getPodCount(); i++) {
             await k8s.connectToPod(i);
 
-            const finalStructure = await Structures.getStructureService().findById(structureId);
+            const finalStructure = await KineticOs.entityDefinitions.findById(structureId);
             expect(finalStructure).toBeDefined();
             expect(finalStructure?.description).toBe(updatedDescription);
             console.log(`  Pod ${i}: ✓ Sees updated description`);
@@ -512,29 +513,29 @@ describe('K8s Cache Eviction Tests', () => {
         console.log('\nCleaning up test resources');
         await k8s.connectToPod(0);
 
-        const cleanupEntitySvc: IEntityService<Vehicle> = Structures.createEntityService(applicationId, structureName);
+        const cleanupEntitySvc: IEntityService<Vehicle> = KineticOs.createEntityService(applicationId, structureName);
         cleanupEntitySvc.deleteByQuery('*');
         cleanupEntitySvc.syncIndex();
 
-        await Structures.getStructureService().unPublish(structureId);
-        await Structures.getStructureService().deleteById(structureId);
-        await Structures.getStructureService().syncIndex();
+        await KineticOs.entityDefinitions.unPublish(structureId);
+        await KineticOs.entityDefinitions.deleteById(structureId);
+        await KineticOs.entityDefinitions.syncIndex();
         
         const pageable = Pageable.create(0, 100);
-        const projectsIterator = await Structures.getProjectService().findAllForApplication(applicationId, pageable);
+        const projectsIterator = await KineticOs.projects.findAllForApplication(applicationId, pageable);
         for await (const page of projectsIterator) {
             const projects = page.content;
             if(projects && projects.length > 0) {
                 for (const project of projects) {
                     if(project.id) {
-                        await Structures.getProjectService().deleteById(project.id);
+                        await KineticOs.projects.deleteById(project.id);
                     }
                 }
             }
         }
-        await Structures.getProjectService().syncIndex();
+        await KineticOs.projects.syncIndex();
 
-        await Structures.getApplicationService().deleteById(applicationId);
+        await KineticOs.applications.deleteById(applicationId);
 
         await k8s.disconnectFromPod();
     }

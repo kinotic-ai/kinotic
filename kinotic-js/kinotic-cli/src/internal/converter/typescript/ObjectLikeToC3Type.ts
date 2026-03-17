@@ -39,9 +39,6 @@ export class ObjectLikeToC3Type implements ITypeConverter<Type, C3Type, Typescri
         // Translate all the typescript properties
         this.convertProperties(value, conversionContext, ret)
 
-        // Now add any calculated properties, we do this, so we can override any of the default properties
-        this.convertCalculatedProperties(conversionContext, ret)
-
         conversionContext.state().objectNameStack.pop()
 
         return ret
@@ -49,21 +46,6 @@ export class ObjectLikeToC3Type implements ITypeConverter<Type, C3Type, Typescri
 
     supports(value: Type): boolean {
         return value.isObject() && !value.isArray();
-    }
-
-    private convertCalculatedProperties(conversionContext: IConversionContext<Type, C3Type, TypescriptConversionState>, ret: ObjectC3Type) {
-        const calculatedProperties = conversionContext.state().getCalculatedProperties(conversionContext.currentJsonPath)
-        if (calculatedProperties) {
-            for (const calcProp of calculatedProperties) {
-                const functionName = calcProp.calculatedPropertyFunctionName
-                const calcFunction = conversionContext.state().getUtilFunctionByName(functionName)
-                if (!calcFunction) {
-                    throw new Error(`Could not find util function: ${functionName} for calculated property ${calcProp.entityJsonPath}.${calcProp.propertyName}`)
-                }
-                const converted = conversionContext.convert(calcFunction.getReturnType())
-                ret.properties.push(new PropertyDefinition(calcProp.propertyName, converted, calcProp.decorators))
-            }
-        }
     }
 
     private convertDecorators(value: Type, ret: ObjectC3Type) {
@@ -93,23 +75,9 @@ export class ObjectLikeToC3Type implements ITypeConverter<Type, C3Type, Typescri
 
             conversionContext.beginProcessingProperty(propertyName)
 
-            if (!conversionContext.state().shouldExclude(conversionContext.currentJsonPath)) {
-                let propertyDefinition: PropertyDefinition | null = null
+            let propertyDefinition = this.convertProperty(property, propertyName, conversionContext)
 
-                const override = conversionContext.state().getOverrideType(conversionContext.currentJsonPath)
-                if (override) {
-                    propertyDefinition = override
-                } else {
-                    const transform = conversionContext.state().getTransformFunction(conversionContext.currentJsonPath)
-                    if (transform) {
-                        const converted = conversionContext.convert(transform.getReturnType())
-                        propertyDefinition = new PropertyDefinition(propertyName, converted)
-                    } else {
-                        propertyDefinition = this.convertProperty(property, propertyName, conversionContext)
-                    }
-                }
-                ret.addPropertyDefinition(propertyDefinition);
-            }
+            ret.addPropertyDefinition(propertyDefinition);
 
             conversionContext.endProcessingProperty()
         }

@@ -1,5 +1,5 @@
 import { spawnSync } from 'child_process'
-import { readdirSync, readFileSync, writeFileSync } from 'fs'
+import { readdirSync, readFileSync } from 'fs'
 import { resolve } from 'path'
 
 const root = process.cwd()
@@ -25,27 +25,18 @@ console.log(`Publishing version ${version}${isBeta ? ' [beta]' : ''} for ${packa
 let failed = false
 
 for (const pkg of packages) {
-    const pkgJsonPath = resolve(root, pkg, 'package.json')
-    const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'))
+    const pkgJson = JSON.parse(readFileSync(resolve(root, pkg, 'package.json'), 'utf-8'))
 
-    try {
-        pkgJson.version = version
-        writeFileSync(pkgJsonPath, JSON.stringify(pkgJson, null, 2) + '\n')
+    console.log(`\nPublishing ${pkgJson.name}@${pkgJson.version}...`)
 
-        console.log(`\nPublishing ${pkgJson.name}@${version}...`)
+    const result = spawnSync('bun', publishArgs, {
+        cwd: resolve(root, pkg),
+        stdio: 'inherit',
+    })
 
-        const result = spawnSync('bun', publishArgs, {
-            cwd: resolve(root, pkg),
-            stdio: 'inherit',
-        })
-
-        if (result.status !== 0) {
-            console.error(`Failed to publish ${pkgJson.name}`)
-            failed = true
-        }
-    } finally {
-        delete pkgJson.version
-        writeFileSync(pkgJsonPath, JSON.stringify(pkgJson, null, 2) + '\n')
+    if (result.status !== 0) {
+        console.error(`Failed to publish ${pkgJson.name}`)
+        failed = true
     }
 }
 

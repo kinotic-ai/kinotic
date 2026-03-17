@@ -1,10 +1,9 @@
-import {UtilFunctionLocator} from '../../UtilFunctionLocator.js'
 import {BaseConversionState} from '../common/BaseConversionState.js'
 
 /**
  * The state of the Typescript to C3Type conversion process.
  */
-export class TypescriptConversionState extends BaseConversionState{
+export class TypescriptConversionState extends BaseConversionState {
 
     /**
      * Contains a stack of object names for objects being processed.
@@ -25,9 +24,8 @@ export class TypescriptConversionState extends BaseConversionState{
      */
     public multiTenantSelectionEnabled: boolean = false
 
-    constructor(application: string,
-                utilFunctionLocator: UtilFunctionLocator | null) {
-        super(application, utilFunctionLocator)
+    constructor(application: string) {
+        super(application)
     }
 
 }

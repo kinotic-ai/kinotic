@@ -28,11 +28,6 @@ export * from '@/api/model/NamedQueriesDefinition'
 export * from '@/api/model/MigrationDefinition'
 export * from '@/api/model/MigrationRequest'
 export * from '@/api/model/MigrationResult'
-export * from '@/api/model/config/CalculatedPropertyConfiguration'
-export * from '@/api/model/config/EntityConfiguration'
-export * from '@/api/model/config/OverrideConfiguration'
-export * from '@/api/model/config/StructuresProjectConfig'
-export * from '@/api/model/config/TransformConfiguration'
 export * from '@/api/model/insights/DataInsightsComponent'
 export * from '@/api/model/insights/InsightProgress'
 export * from '@/api/model/insights/InsightRequest'
@@ -49,9 +44,6 @@ export * from '@/api/services/IDataInsightsService'
 
 // Plugin
 export * from '@/api/OsApiPlugin'
-
-// Re-export Kinotic core so consumers only need one import
-export { Kinotic, KinoticSingleton, type IKinotic, type KinoticPlugin } from '@kinotic-ai/core'
 
 import type { IOsApiExtension } from '@/api/OsApiPlugin'
 

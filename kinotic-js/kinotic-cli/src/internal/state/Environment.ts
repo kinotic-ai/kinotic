@@ -1,6 +1,6 @@
 import { createStateManager } from './IStateManager.js'
 
-const ENVIRONMENT_KEY = 'structures-environment'
+const ENVIRONMENT_KEY = 'kinotic-environment'
 
 export class ServerConfiguration {
     name!: string

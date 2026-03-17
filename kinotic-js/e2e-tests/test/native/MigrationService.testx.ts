@@ -1,6 +1,6 @@
-import { IMigrationService, MigrationDefinition, MigrationRequest, Project, Structures } from '@kinotic/structures-api'
-import { ProjectMigrationService } from '@kinotic/structures-cli/dist/internal/ProjectMigrationService.js'
-import { ConsoleLogger } from '@kinotic/structures-cli/dist/internal/Logger.js'
+import { Kinotic as KineticOs, Project, IMigrationService, MigrationDefinition, MigrationRequest } from '@kinotic-ai/os-api'
+import { ProjectMigrationService } from '@kinotic-ai/kinotic-cli/dist/internal/ProjectMigrationService.js'
+import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
 import * as allure from 'allure-js-commons'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WebSocket } from 'ws'
@@ -37,15 +37,15 @@ describe('Migration Service End To End Tests', () => {
     beforeEach<LocalTestContext>(async (context) => {
         // Create application and project
         context.applicationId = generateRandomString(10)
-        await Structures.getApplicationService().createApplicationIfNotExist(context.applicationId, 'Test Application')
+        await KineticOs.applications.createApplicationIfNotExist(context.applicationId, 'Test Application')
         
         const project = new Project(null, context.applicationId, generateRandomString(5), 'Test Project')
-        context.project = await Structures.getProjectService().createProjectIfNotExist(project)
+        context.project = await KineticOs.projects.createProjectIfNotExist(project)
         expect(context.project).toBeDefined()
         expect(context.project.id).toBeDefined()
 
         // Initialize services
-        context.migrationService = Structures.getMigrationService()
+        context.migrationService = KineticOs.migrations
         expect(context.migrationService).toBeDefined()
 
         const logger = new ConsoleLogger()
@@ -66,10 +66,10 @@ describe('Migration Service End To End Tests', () => {
 
         // Clean up project and application
         if (context.project.id) {
-            await Structures.getProjectService().deleteById(context.project.id)
+            await KineticOs.projects.deleteById(context.project.id)
         }
-        await expect(Structures.getProjectService().syncIndex()).resolves.toBeNull()
-        await Structures.getApplicationService().deleteById(context.applicationId)
+        await expect(KineticOs.projects.syncIndex()).resolves.toBeNull()
+        await KineticOs.applications.deleteById(context.applicationId)
     })
 
     it<LocalTestContext>(
@@ -222,7 +222,7 @@ describe('Migration Service End To End Tests', () => {
             ).resolves.toBeUndefined()
 
             // Verify all migrations were applied
-            const migrationService = Structures.getMigrationService()
+            const migrationService = KineticOs.migrations
             const lastVersion = await migrationService.getLastAppliedMigrationVersion(project.id as string)
             expect(lastVersion).toBe(3)
 
@@ -245,7 +245,7 @@ describe('Migration Service End To End Tests', () => {
             ).resolves.toBeUndefined()
 
             // Verify no migrations were applied
-            const migrationService = Structures.getMigrationService()
+            const migrationService = KineticOs.migrations
             const lastVersion = await migrationService.getLastAppliedMigrationVersion(project.id as string)
             expect(lastVersion).toBeNull()
         }
@@ -278,7 +278,7 @@ describe('Migration Service End To End Tests', () => {
             await projectMigrationService.applyMigrations(project.id as string, testMigrationsDir, true)
 
             // Verify all migrations are applied
-            const migrationService = Structures.getMigrationService()
+            const migrationService = KineticOs.migrations
             const lastVersion = await migrationService.getLastAppliedMigrationVersion(project.id as string)
             expect(lastVersion).toBe(3)
 
@@ -330,7 +330,7 @@ describe('Migration Service End To End Tests', () => {
             await projectMigrationService.applyMigrations(project.id as string, testMigrationsDir, true)
 
             // Verify only the SQL migration was applied
-            const migrationService = Structures.getMigrationService()
+            const migrationService = KineticOs.migrations
             const lastVersion = await migrationService.getLastAppliedMigrationVersion(project.id as string)
             expect(lastVersion).toBe(1)
         }
@@ -364,7 +364,7 @@ describe('Migration Service End To End Tests', () => {
             await projectMigrationService.applyMigrations(project.id as string, testMigrationsDir, true)
 
             // Verify all migrations were applied in correct order
-            const migrationService = Structures.getMigrationService()
+            const migrationService = KineticOs.migrations
             const lastVersion = await migrationService.getLastAppliedMigrationVersion(project.id as string)
             expect(lastVersion).toBe(10)
 

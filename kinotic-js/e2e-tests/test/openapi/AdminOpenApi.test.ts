@@ -1,4 +1,4 @@
-import {Structure, Structures} from '@kinotic/structures-api'
+import {Kinotic as KineticOs, EntityDefinition} from '@kinotic-ai/os-api'
 import * as allure from 'allure-js-commons'
 import axios from 'axios'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
@@ -17,7 +17,7 @@ import {
 import { faker } from '@faker-js/faker'
 
 interface LocalTestContext {
-    personWithTenantStructure: Structure
+    personWithTenantStructure: EntityDefinition
 }
 
 const applicationId = 'openapi.admin'
@@ -33,7 +33,7 @@ const axiosInstance = axios.create({
                                    })
 
 describe('End To End Tests', () => {
-    let context: LocalTestContext = { personWithTenantStructure: null! }
+    let context: LocalTestContext = { personWithTenantStructure: null! as EntityDefinition }
     let baseUrl: string
 
     beforeAll(async () => {
@@ -43,7 +43,7 @@ describe('End To End Tests', () => {
         expect(context.personWithTenantStructure).toBeDefined()
 
         const { namedQueriesDefinition } = await createSchema(applicationId, context.personWithTenantStructure.projectId, 'PersonWithTenant')
-        const namedQueriesService = Structures.getNamedQueriesService()
+        const namedQueriesService = KineticOs.namedQueriesDefinitions
         await namedQueriesService.save(namedQueriesDefinition)
 
         // @ts-ignore

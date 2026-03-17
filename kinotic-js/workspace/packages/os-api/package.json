@@ -1,5 +1,6 @@
 {
   "name": "@kinotic-ai/os-api",
+  "version": "1.0.6",
   "type": "module",
   "files": [
     "dist"
@@ -20,6 +21,7 @@
     },
     "./package.json": "./package.json"
   },
+  "homepage": "https://github.com/kinotic-ai/kinotic",
   "license": "Elastic License 2.0",
   "publishConfig": {
     "access": "public"
