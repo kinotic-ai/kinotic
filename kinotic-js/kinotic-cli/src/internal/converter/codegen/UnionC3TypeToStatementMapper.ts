@@ -1,7 +1,7 @@
 import {C3Type, UnionC3Type} from '@kinotic-ai/idl'
-import {ConverterConstants} from '../ConverterConstants.js'
-import {ITypeConverter} from '../ITypeConverter.js'
-import {IConversionContext} from '../IConversionContext.js'
+import {ConverterConstants} from '@/internal/converter/ConverterConstants'
+import {ITypeConverter} from '@/internal/converter/ITypeConverter'
+import {IConversionContext} from '@/internal/converter/IConversionContext'
 import {
     StatementMapper,
     MultiStatementMapper,

@@ -1,5 +1,5 @@
 import { ITypeConverter } from './ITypeConverter.js'
-import {Logger} from '../Logger.js'
+import {Logger} from '@/internal/Logger'
 
 /**
  * The {@link IConverterStrategy} is used to determine how to convert a specific language type to a Continuum IDL.

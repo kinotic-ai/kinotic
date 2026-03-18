@@ -1,4 +1,4 @@
-import {getRelativeImportPath, tryGetNodeModuleName} from '../../Utils.js'
+import {getRelativeImportPath, tryGetNodeModuleName} from '@/internal/Utils'
 import {StatementMapperConversionState} from './StatementMapperConversionState.js'
 
 export interface NeededImport {

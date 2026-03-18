@@ -1,9 +1,9 @@
 import {Type, Symbol, DecoratableNode} from 'ts-morph'
 import {C3Type, ObjectC3Type, PropertyDefinition} from '@kinotic-ai/idl'
-import {ConverterConstants} from '../ConverterConstants.js'
+import {ConverterConstants} from '@/internal/converter/ConverterConstants'
 import {TypescriptConversionState} from './TypescriptConversionState.js'
-import {IConversionContext} from '../IConversionContext.js'
-import {ITypeConverter} from '../ITypeConverter.js'
+import {IConversionContext} from '@/internal/converter/IConversionContext'
+import {ITypeConverter} from '@/internal/converter/ITypeConverter'
 import {tsDecoratorToC3Decorator, convertPrecisionToC3Type} from './ConverterUtils.js'
 import {TenantIdDecorator} from '@kinotic-ai/os-api'
 

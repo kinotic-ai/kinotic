@@ -1,4 +1,4 @@
-import {BaseConversionState} from '../common/BaseConversionState.js'
+import {BaseConversionState} from '@/internal/converter/common/BaseConversionState'
 
 /**
  * The state of the Typescript to C3Type conversion process.

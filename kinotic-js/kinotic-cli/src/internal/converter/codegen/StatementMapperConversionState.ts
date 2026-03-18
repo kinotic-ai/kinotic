@@ -1,4 +1,4 @@
-import {BaseConversionState} from '../common/BaseConversionState.js'
+import {BaseConversionState} from '@/internal/converter/common/BaseConversionState'
 
 export class StatementMapperConversionState extends BaseConversionState{
 

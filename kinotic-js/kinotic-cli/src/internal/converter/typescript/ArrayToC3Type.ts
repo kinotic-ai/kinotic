@@ -1,8 +1,8 @@
 import {ArrayC3Type, C3Type} from '@kinotic-ai/idl'
 import {Type} from 'ts-morph'
 import {TypescriptConversionState} from './TypescriptConversionState.js'
-import {IConversionContext} from '../IConversionContext.js'
-import {ITypeConverter} from '../ITypeConverter.js'
+import {IConversionContext} from '@/internal/converter/IConversionContext'
+import {ITypeConverter} from '@/internal/converter/ITypeConverter'
 
 export class ArrayToC3Type implements ITypeConverter<Type, C3Type, TypescriptConversionState> {
 

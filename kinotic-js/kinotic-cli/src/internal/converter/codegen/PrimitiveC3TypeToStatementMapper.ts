@@ -7,8 +7,8 @@ import {
     DoubleC3Type, EnumC3Type, FloatC3Type, IntC3Type, LongC3Type,
     ShortC3Type, StringC3Type
 } from '@kinotic-ai/idl'
-import {IConversionContext} from '../IConversionContext.js'
-import {ITypeConverter} from '../ITypeConverter.js'
+import {IConversionContext} from '@/internal/converter/IConversionContext'
+import {ITypeConverter} from '@/internal/converter/ITypeConverter'
 import {LiteralStatementMapper, StatementMapper} from './StatementMapper.js'
 import {StatementMapperConversionState} from './StatementMapperConversionState.js'
 

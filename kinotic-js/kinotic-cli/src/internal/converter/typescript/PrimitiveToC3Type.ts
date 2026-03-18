@@ -1,7 +1,7 @@
-import {SpecificTypesConverter} from '../SpecificTypesConverter.js'
+import {SpecificTypesConverter} from '@/internal/converter/SpecificTypesConverter'
 import {Type} from 'ts-morph'
 import {TypescriptConversionState} from './TypescriptConversionState.js'
-import {IConversionContext} from '../IConversionContext.js'
+import {IConversionContext} from '@/internal/converter/IConversionContext'
 import {BooleanC3Type, C3Type, StringC3Type, IntC3Type, DateC3Type, VoidC3Type} from '@kinotic-ai/idl'
 
 /**

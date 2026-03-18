@@ -1,8 +1,8 @@
 import {Type} from 'ts-morph'
 import {C3Type, EnumC3Type} from '@kinotic-ai/idl'
 import {TypescriptConversionState} from './TypescriptConversionState.js'
-import {IConversionContext} from '../IConversionContext.js'
-import {ITypeConverter} from '../ITypeConverter.js'
+import {IConversionContext} from '@/internal/converter/IConversionContext'
+import {ITypeConverter} from '@/internal/converter/ITypeConverter'
 
 /**
  * Converts a typescript enum to a C3 Enum

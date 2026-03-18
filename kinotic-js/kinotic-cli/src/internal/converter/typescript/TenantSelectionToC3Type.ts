@@ -1,8 +1,8 @@
 import {C3Type} from '@kinotic-ai/idl'
 import {ts, Type} from 'ts-morph'
-import {ITypeConverter} from '../ITypeConverter.js'
+import {ITypeConverter} from '@/internal/converter/ITypeConverter'
 import {TypescriptConversionState} from './TypescriptConversionState.js'
-import {IConversionContext} from '../IConversionContext.js'
+import {IConversionContext} from '@/internal/converter/IConversionContext'
 import {TenantSelectionC3Type} from '@kinotic-ai/os-api'
 
 export class TenantSelectionToC3Type implements ITypeConverter<Type, C3Type, TypescriptConversionState> {
