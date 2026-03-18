@@ -8,7 +8,7 @@ import {
     TenantId
 } from '@kinotic-ai/persistence'
 import {Address} from './Address.js'
-import {Pet} from './Pet.js'
+import type {Pet} from './Pet.js'
 
 @Entity(MultiTenancyType.SHARED)
 export class PersonWithTenant {

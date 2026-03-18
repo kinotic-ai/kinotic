@@ -1,4 +1,4 @@
-import { IAdminEntitiesService, Query, TenantSelection } from '@kinotic-ai/persistence'
+import { IAdminEntitiesService, Query, type TenantSelection } from '@kinotic-ai/persistence'
 import { BasePersonWithTenantAdminEntityService } from './generated/BasePersonWithTenantAdminEntityService.js'
 
 export class CountResult {
@@ -16,7 +16,8 @@ export class PersonWithTenantAdminEntityService extends BasePersonWithTenantAdmi
 
   /**
    * Get a count of all people in a given city
-   * @param city The city name to get the count for
+   * @param lastName to search for
+   * @param tenantSelection to use
    */
   @Query('select count(firstName) as count from "kinotic_PLACEHOLDER" where lastName = ?')
   public async adminCountByLastName(lastName: string, tenantSelection: TenantSelection): Promise<CountResult[]> {
