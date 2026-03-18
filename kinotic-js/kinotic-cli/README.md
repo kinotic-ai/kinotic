@@ -12,7 +12,7 @@ $ npm install -g @kinotic-ai/kinotic-cli
 $ kinotic COMMAND
 running command...
 $ kinotic (--version)
-@kinotic-ai/kinotic-cli/1.0.2 darwin-arm64 node-v22.13.1
+@kinotic-ai/kinotic-cli/1.0.3 darwin-arm64 node-v22.13.1
 $ kinotic --help [COMMAND]
 USAGE
   $ kinotic COMMAND
@@ -122,7 +122,7 @@ EXAMPLES
   $ kinotic gen -v
 ```
 
-_See code: [src/commands/generate.ts](https://github.com/kinotic-ai/kinotic/blob/v1.0.2/src/commands/generate.ts)_
+_See code: [src/commands/generate.ts](https://github.com/kinotic-ai/kinotic/blob/v1.0.3/src/commands/generate.ts)_
 
 ## `kinotic help [COMMAND]`
 
@@ -198,7 +198,7 @@ EXAMPLES
   $ kinotic init -a my.app -e path/to/entities -g path/to/services
 ```
 
-_See code: [src/commands/initialize.ts](https://github.com/kinotic-ai/kinotic/blob/v1.0.2/src/commands/initialize.ts)_
+_See code: [src/commands/initialize.ts](https://github.com/kinotic-ai/kinotic/blob/v1.0.3/src/commands/initialize.ts)_
 
 ## `kinotic plugins`
 
@@ -552,7 +552,7 @@ EXAMPLES
   $ kinotic sync -p -v -s http://localhost:9090
 ```
 
-_See code: [src/commands/synchronize.ts](https://github.com/kinotic-ai/kinotic/blob/v1.0.2/src/commands/synchronize.ts)_
+_See code: [src/commands/synchronize.ts](https://github.com/kinotic-ai/kinotic/blob/v1.0.3/src/commands/synchronize.ts)_
 
 ## `kinotic update [CHANNEL]`
 
