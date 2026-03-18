@@ -1,5 +1,5 @@
-import {ITypeConverter} from './ITypeConverter.js'
-import {IConversionContext} from './IConversionContext.js'
+import {ITypeConverter} from './ITypeConverter'
+import {IConversionContext} from './IConversionContext'
 
 /**
  * {@link ITypeConverter} are the base interface for converting a specific type to another specific type.

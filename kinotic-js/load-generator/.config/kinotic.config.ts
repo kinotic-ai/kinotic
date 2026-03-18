@@ -1,9 +1,6 @@
+import type { KinoticProjectConfig } from '@kinotic-ai/core'
 
-
-import type { TypescriptProjectConfig } from '@kinotic/structures-api'
-
-const config: TypescriptProjectConfig = {
-  mdl: "ts",
+const config: KinoticProjectConfig = {
   application: "load-testing",
   entitiesPaths: [
     "src/entity/domain/ecommerce"

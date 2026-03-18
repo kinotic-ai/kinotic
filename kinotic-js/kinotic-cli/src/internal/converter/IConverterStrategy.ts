@@ -1,4 +1,4 @@
-import { ITypeConverter } from './ITypeConverter.js'
+import { ITypeConverter } from './ITypeConverter'
 import {Logger} from '@/internal/Logger'
 
 /**

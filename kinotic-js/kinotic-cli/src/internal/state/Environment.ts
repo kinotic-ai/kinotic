@@ -1,4 +1,4 @@
-import { createStateManager } from './IStateManager.js'
+import { createStateManager } from './IStateManager'
 
 const ENVIRONMENT_KEY = 'kinotic-environment'
 

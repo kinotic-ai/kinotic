@@ -3,7 +3,7 @@ import { Kinotic } from '@kinotic-ai/core'
 import { readdir, readFile, access } from 'fs/promises'
 import { join } from 'path'
 import { constants } from 'fs'
-import { Logger } from './Logger.js'
+import { Logger } from './Logger'
 
 /**
  * Internal service for loading and applying migrations from the local filesystem.

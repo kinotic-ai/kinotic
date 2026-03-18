@@ -1,6 +1,6 @@
 import {Type} from 'ts-morph'
 import {C3Type, EnumC3Type} from '@kinotic-ai/idl'
-import {TypescriptConversionState} from './TypescriptConversionState.js'
+import {TypescriptConversionState} from './TypescriptConversionState'
 import {IConversionContext} from '@/internal/converter/IConversionContext'
 import {ITypeConverter} from '@/internal/converter/ITypeConverter'
 

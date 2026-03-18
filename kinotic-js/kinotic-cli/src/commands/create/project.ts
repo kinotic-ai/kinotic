@@ -46,9 +46,9 @@ export class Project extends Command {
 
       switch (choice) {
         case 'Library': {
-          const artifactId = await input({message: 'Maven Artifact Id'})
-          context.artifactId = artifactId
-          await this.renderProjectModule('library', artifactId, projectDir, context)
+          const libraryName = await input({message: 'Library Name'})
+          context.libraryName = libraryName
+          await this.renderProjectModule('library', libraryName, projectDir, context)
           break
         }
         case 'Frontend': {
@@ -62,11 +62,11 @@ export class Project extends Command {
     } while (choice !== 'Quit')
   }
 
-  private async renderProjectModule(spawn: string, artifactId: string, projectDir: string, context: Record<string, unknown>): Promise<void> {
-    const dir: string = path.resolve(artifactId)
+  private async renderProjectModule(spawn: string, name: string, projectDir: string, context: Record<string, unknown>): Promise<void> {
+    const dir: string = path.resolve(name)
 
     if (!dir.startsWith(projectDir)) {
-      throw new Error(`Artifact Dir ${dir} must be within ${projectDir}`)
+      throw new Error(`Module dir ${dir} must be within ${projectDir}`)
     }
 
     await spawnEngine.renderSpawn(spawn, dir, context)

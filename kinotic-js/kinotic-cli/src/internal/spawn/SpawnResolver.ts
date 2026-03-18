@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {fileURLToPath} from 'url'
 
-const bundledTemplatesRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../templates/')
+const bundledTemplatesRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../templates/spawns/')
 
 /**
  * Handles resolving "Spawn"s on the local filesystem

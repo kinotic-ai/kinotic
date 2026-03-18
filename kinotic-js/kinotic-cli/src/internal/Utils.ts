@@ -16,10 +16,10 @@ import pTimeout from 'p-timeout'
 import path from 'path'
 import {IndentationText, Node, Project} from 'ts-morph'
 import {v4 as uuidv4} from 'uuid'
-import {createConversionContext} from './converter/IConversionContext.js'
-import {TypescriptConversionState} from './converter/typescript/TypescriptConversionState.js'
-import {TypescriptConverterStrategy} from './converter/typescript/TypescriptConverterStrategy.js'
-import {Logger} from './Logger.js'
+import {createConversionContext} from './converter/IConversionContext'
+import {TypescriptConversionState} from './converter/typescript/TypescriptConversionState'
+import {TypescriptConverterStrategy} from './converter/typescript/TypescriptConverterStrategy'
+import {Logger} from './Logger'
 
 export type GeneratedServiceInfo = {
     entityServiceName: string

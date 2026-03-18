@@ -2,12 +2,12 @@ import {C3Type} from '@kinotic-ai/idl'
 import {Logger} from '@/internal/Logger'
 import {IConverterStrategy} from '@/internal/converter/IConverterStrategy'
 import {ITypeConverter} from '@/internal/converter/ITypeConverter'
-import {ArrayC3TypeToStatementMapper} from './ArrayC3TypeToStatementMapper.js'
-import {StatementMapper} from './StatementMapper.js'
-import {StatementMapperConversionState} from './StatementMapperConversionState.js'
-import {ObjectC3TypeToStatementMapper} from './ObjectC3TypeToStatementMapper.js'
-import {PrimitiveC3TypeToStatementMapper} from './PrimitiveC3TypeToStatementMapper.js'
-import {UnionC3TypeToStatementMapper} from './UnionC3TypeToStatementMapper.js'
+import {ArrayC3TypeToStatementMapper} from './ArrayC3TypeToStatementMapper'
+import {StatementMapper} from './StatementMapper'
+import {StatementMapperConversionState} from './StatementMapperConversionState'
+import {ObjectC3TypeToStatementMapper} from './ObjectC3TypeToStatementMapper'
+import {PrimitiveC3TypeToStatementMapper} from './PrimitiveC3TypeToStatementMapper'
+import {UnionC3TypeToStatementMapper} from './UnionC3TypeToStatementMapper'
 
 export class StatementMapperConverterStrategy implements IConverterStrategy<C3Type, StatementMapper, StatementMapperConversionState>{
 

@@ -9,8 +9,8 @@ import {
 } from '@kinotic-ai/idl'
 import {IConversionContext} from '@/internal/converter/IConversionContext'
 import {ITypeConverter} from '@/internal/converter/ITypeConverter'
-import {LiteralStatementMapper, StatementMapper} from './StatementMapper.js'
-import {StatementMapperConversionState} from './StatementMapperConversionState.js'
+import {LiteralStatementMapper, StatementMapper} from './StatementMapper'
+import {StatementMapperConversionState} from './StatementMapperConversionState'
 
 export class PrimitiveC3TypeToStatementMapper implements ITypeConverter<C3Type, StatementMapper, StatementMapperConversionState> {
 

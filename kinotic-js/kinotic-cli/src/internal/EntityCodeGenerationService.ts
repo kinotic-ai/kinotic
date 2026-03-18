@@ -6,14 +6,14 @@ import {Project, Type} from 'ts-morph'
 import {fileURLToPath} from 'url'
 import {PageableC3Type, PageC3Type} from '@kinotic-ai/os-api'
 import {KinoticProjectConfig} from '@kinotic-ai/core'
-import {createImportString, StatementMapper} from './converter/codegen/StatementMapper.js'
-import {StatementMapperConversionState} from './converter/codegen/StatementMapperConversionState.js'
-import {StatementMapperConverterStrategy} from './converter/codegen/StatementMapperConverterStrategy.js'
-import {createConversionContext, IConversionContext} from './converter/IConversionContext.js'
-import {tsDecoratorToC3Decorator} from './converter/typescript/ConverterUtils.js'
-import {TypescriptConversionState} from './converter/typescript/TypescriptConversionState.js'
-import {TypescriptConverterStrategy} from './converter/typescript/TypescriptConverterStrategy.js'
-import {Logger} from './Logger.js'
+import {createImportString, StatementMapper} from './converter/codegen/StatementMapper'
+import {StatementMapperConversionState} from './converter/codegen/StatementMapperConversionState'
+import {StatementMapperConverterStrategy} from './converter/codegen/StatementMapperConverterStrategy'
+import {createConversionContext, IConversionContext} from './converter/IConversionContext'
+import {tsDecoratorToC3Decorator} from './converter/typescript/ConverterUtils'
+import {TypescriptConversionState} from './converter/typescript/TypescriptConversionState'
+import {TypescriptConverterStrategy} from './converter/typescript/TypescriptConverterStrategy'
+import {Logger} from './Logger'
 import {
     ConversionConfiguration, convertAllEntities,
     createTsMorphProject,
@@ -21,7 +21,7 @@ import {
     GeneratedServiceInfo,
     getRelativeImportPath,
     tryGetNodeModuleName, writeEntityJsonToFilesystem, writeGeneratedServiceInfoToFilesystem
-} from './Utils.js'
+} from './Utils'
 import chalk from 'chalk'
 
 export type GeneratedEntityProcessor = (entityInfo: EntityInfo, serviceInfo: GeneratedServiceInfo[]) => Promise<void>

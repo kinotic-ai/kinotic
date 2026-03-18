@@ -1,7 +1,7 @@
-import {IConversionContext} from './IConversionContext.js'
-import {IConverterStrategy} from './IConverterStrategy.js'
+import {IConversionContext} from './IConversionContext'
+import {IConverterStrategy} from './IConverterStrategy'
 import {Logger} from '@/internal/Logger'
-import {ITypeConverter} from './ITypeConverter.js'
+import {ITypeConverter} from './ITypeConverter'
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/26/23.

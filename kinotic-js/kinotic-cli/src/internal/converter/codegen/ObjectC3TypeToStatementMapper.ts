@@ -6,8 +6,8 @@ import {
     StatementMapper,
     MultiStatementMapper,
     LiteralStatementMapper
-} from './StatementMapper.js'
-import {StatementMapperConversionState} from './StatementMapperConversionState.js'
+} from './StatementMapper'
+import {StatementMapperConversionState} from './StatementMapperConversionState'
 
 export class ObjectC3TypeToStatementMapper implements ITypeConverter<C3Type, StatementMapper, StatementMapperConversionState> {
 

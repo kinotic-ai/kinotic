@@ -1,5 +1,5 @@
-import {IConverterStrategy} from './IConverterStrategy.js'
-import {DefaultConversionContext} from './DefaultConversionContext.js'
+import {IConverterStrategy} from './IConverterStrategy'
+import {DefaultConversionContext} from './DefaultConversionContext'
 
 /**
  * {@link IConversionContext} allows for conversion of a specific language type to Continuum IDL types.

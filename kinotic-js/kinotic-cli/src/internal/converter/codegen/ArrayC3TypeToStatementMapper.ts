@@ -4,8 +4,8 @@ import {IConversionContext} from '@/internal/converter/IConversionContext'
 import {
     StatementMapper,
     MultiStatementMapper,
-} from './StatementMapper.js'
-import {StatementMapperConversionState} from './StatementMapperConversionState.js'
+} from './StatementMapper'
+import {StatementMapperConversionState} from './StatementMapperConversionState'
 import { camel } from 'radash'
 
 export class ArrayC3TypeToStatementMapper implements ITypeConverter<C3Type, StatementMapper, StatementMapperConversionState> {

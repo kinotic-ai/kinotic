@@ -1,0 +1,22 @@
+{
+    "name": "{{projectName}}",
+    "private": true,
+    "scripts": {
+        "build": "bunup",
+        "dev": "bunup --watch",
+        "type-check": "bun run --filter '*' type-check"
+    },
+    "devDependencies": {
+        "@types/bun": "^1.3.10",
+        "bunup": "^0.16.31",
+        "typescript": "^5.9.3"
+    },
+    "catalog": {
+        "@kinotic-ai/core": "{{ kinoticApiVersion }}",
+        "@kinotic-ai/persistence": "{{ kinoticApiVersion }}"
+    },
+    "workspaces": [
+        "packages/*"
+    ],
+    "type": "module"
+}

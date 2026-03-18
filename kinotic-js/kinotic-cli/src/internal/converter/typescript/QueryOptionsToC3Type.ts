@@ -1,7 +1,7 @@
 import {C3Type} from '@kinotic-ai/idl'
 import {ts, Type} from 'ts-morph'
 import {ITypeConverter} from '@/internal/converter/ITypeConverter'
-import {TypescriptConversionState} from './TypescriptConversionState.js'
+import {TypescriptConversionState} from './TypescriptConversionState'
 import {IConversionContext} from '@/internal/converter/IConversionContext'
 import {QueryOptionsC3Type} from '@kinotic-ai/os-api'
 
