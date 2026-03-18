@@ -1,4 +1,4 @@
-import {DefaultCRI} from './DefaultCRI.js'
+import {DefaultCRI} from './DefaultCRI'
 
 /**
  * `CRI` is a Kinoitc Resource Identifier used by Kinoitc to route requests appropriately.

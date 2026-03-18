@@ -1,4 +1,4 @@
-import type {IEvent} from './IEventBus.js';
+import type {IEvent} from './event/IEventBus';
 
 /**
  * Interface for the service context, extendable by users for type-safe context data.

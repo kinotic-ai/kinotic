@@ -1,7 +1,7 @@
 import {AbstractDefinition} from '@/api/AbstractDefinition'
 import { C3Type } from '@/api/C3Type'
 import {C3Decorator} from '@/api/decorators/C3Decorator'
-import {MetadataType} from '@/api/HasMetadata'
+import type {MetadataType} from '@/api/HasMetadata';
 
 /**
  * Defines a property for a {@link ObjectC3Type}

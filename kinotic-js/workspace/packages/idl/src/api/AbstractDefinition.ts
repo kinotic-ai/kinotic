@@ -1,6 +1,6 @@
 import {C3Decorator} from '@/api/decorators/C3Decorator'
-import {HasDecorators} from '@/api/HasDecorators'
-import {HasMetadata, MetadataType} from '@/api/HasMetadata'
+import type {HasDecorators} from '@/api/HasDecorators'
+import type {HasMetadata, MetadataType} from '@/api/HasMetadata'
 
 /**
  * The base class for all C3 objects

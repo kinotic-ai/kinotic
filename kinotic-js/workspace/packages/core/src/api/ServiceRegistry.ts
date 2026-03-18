@@ -1,6 +1,6 @@
 import debug from 'debug'
-import { ServiceIdentifier } from './ServiceIdentifier.js'
-import { ServiceInvocationSupervisor } from '@/internal/api/ServiceInvocationSupervisor.js'
+import { ServiceIdentifier } from './ServiceIdentifier'
+import { ServiceInvocationSupervisor } from '@/internal/api/ServiceInvocationSupervisor'
 import opentelemetry, { SpanKind, SpanStatusCode, type Tracer } from '@opentelemetry/api'
 import {
     ATTR_SERVER_ADDRESS,

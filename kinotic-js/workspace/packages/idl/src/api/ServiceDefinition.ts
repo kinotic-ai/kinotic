@@ -1,7 +1,7 @@
 import {AbstractDefinition} from '@/api/AbstractDefinition'
 import {C3Decorator} from '@/api/decorators/C3Decorator'
 import { FunctionDefinition } from '@/api/FunctionDefinition'
-import {HasQualifiedName} from '@/api/HasQualifiedName'
+import type {HasQualifiedName} from '@/api/HasQualifiedName'
 
 /**
  * Provides functionality to define an interface with a Kinotic schema.

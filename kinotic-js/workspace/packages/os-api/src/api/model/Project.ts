@@ -1,5 +1,5 @@
 import type { Identifiable } from '@kinotic-ai/core'
-import { ProjectType } from '@/api/domain/ProjectType'
+import { ProjectType } from '@/api/model/ProjectType'
 
 export class Project implements Identifiable<string> {
     /**

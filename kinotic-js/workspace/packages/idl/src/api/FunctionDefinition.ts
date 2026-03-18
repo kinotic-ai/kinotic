@@ -2,7 +2,7 @@ import {AbstractDefinition} from '@/api/AbstractDefinition'
 import {ParameterDefinition} from '@/api/ParameterDefinition'
 import { C3Type } from '@/api/C3Type'
 import {C3Decorator} from '@/api/decorators/C3Decorator'
-import {MetadataType} from '@/api/HasMetadata'
+import type {MetadataType} from '@/api/HasMetadata'
 import { VoidC3Type } from '@/api/VoidC3Type'
 
 /**

@@ -1,4 +1,4 @@
-import { KinoticError } from './KinoticError.js'
+import { KinoticError } from './KinoticError'
 
 export class AuthenticationError extends KinoticError {
 

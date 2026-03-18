@@ -1,8 +1,8 @@
 import {C3Type} from '@/api/C3Type'
 import {C3Decorator} from '@/api/decorators/C3Decorator'
-import {HasDecorators} from '@/api/HasDecorators'
-import {MetadataType, HasMetadata} from '@/api/HasMetadata'
-import {HasQualifiedName} from '@/api/HasQualifiedName'
+import type {HasDecorators} from '@/api/HasDecorators'
+import type {MetadataType, HasMetadata} from '@/api/HasMetadata'
+import type {HasQualifiedName} from '@/api/HasQualifiedName'
 
 export class ComplexC3Type extends C3Type implements HasQualifiedName, HasDecorators, HasMetadata {
 

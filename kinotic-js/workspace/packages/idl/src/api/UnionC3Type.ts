@@ -1,6 +1,6 @@
 import {ComplexC3Type} from '@/api/ComplexC3Type'
 import {C3Decorator} from '@/api/decorators/C3Decorator'
-import {MetadataType} from '@/api/HasMetadata'
+import type {MetadataType} from '@/api/HasMetadata'
 import {ObjectC3Type} from "@/api/ObjectC3Type"
 
 /**

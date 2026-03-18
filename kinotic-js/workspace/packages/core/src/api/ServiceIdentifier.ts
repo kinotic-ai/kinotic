@@ -1,5 +1,5 @@
-import {createCRI, type CRI} from '@/api/event/CRI.js'
-import {EventConstants} from '@/api/event/IEventBus.js'
+import {createCRI, type CRI} from '@/api/event/CRI'
+import {EventConstants} from '@/api/event/IEventBus'
 
 export class ServiceIdentifier {
 
