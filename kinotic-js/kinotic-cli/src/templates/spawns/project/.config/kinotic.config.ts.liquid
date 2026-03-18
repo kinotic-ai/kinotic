@@ -3,9 +3,9 @@ import type { KinoticProjectConfig } from '@kinotic-ai/core'
 const config: KinoticProjectConfig = {
   application: "load-testing",
   entitiesPaths: [
-    "src/entity/domain/ecommerce"
+    "packages/domain/model"
   ],
-  generatedPath: "src/entity/services/ecommerce",
+  generatedPath: "packages/domain/repositories",
   fileExtensionForImports: ".js",
   validate: false
 }
