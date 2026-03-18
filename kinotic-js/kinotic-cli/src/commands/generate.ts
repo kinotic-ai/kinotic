@@ -1,9 +1,9 @@
-import {EntityCodeGenerationService} from '../internal/EntityCodeGenerationService'
+import {EntityCodeGenerationService} from '@/internal/EntityCodeGenerationService'
 import {Command, Flags} from '@oclif/core'
 import {
     isKinoticProject,
     loadKinoticProjectConfig
-} from '../internal/state/KinoticProjectConfigUtil.js'
+} from '@/internal/state/KinoticProjectConfigUtil'
 
 export class Generate extends Command {
     static aliases = ['gen']

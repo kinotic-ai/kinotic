@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import chalk from 'chalk'
 import { input } from '@inquirer/prompts'
-import { isKinoticProject, saveKinoticProjectConfig } from '../internal/state/KinoticProjectConfigUtil.js'
+import { isKinoticProject, saveKinoticProjectConfig } from '@/internal/state/KinoticProjectConfigUtil'
 import { KinoticProjectConfig } from '@kinotic-ai/core'
 
 /**

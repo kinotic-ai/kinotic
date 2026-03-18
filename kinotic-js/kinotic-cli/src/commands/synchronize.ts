@@ -1,4 +1,4 @@
-import {isKinoticProject, loadKinoticProjectConfig} from '../internal/state/KinoticProjectConfigUtil.js'
+import {isKinoticProject, loadKinoticProjectConfig} from '@/internal/state/KinoticProjectConfigUtil'
 import {FunctionDefinition, ObjectC3Type} from '@kinotic-ai/idl'
 import { Kinotic } from '@kinotic-ai/core'
 import {EntityDefinition,
@@ -11,10 +11,10 @@ import {EntityDefinition,
 import {Command, Flags} from '@oclif/core'
 import chalk from 'chalk'
 import {WebSocket} from 'ws'
-import {EntityCodeGenerationService} from '../internal/EntityCodeGenerationService'
-import {ProjectMigrationService} from '../internal/ProjectMigrationService.js'
-import {resolveServer} from '../internal/state/Environment.js'
-import {connectAndUpgradeSession} from '../internal/Utils.js'
+import {EntityCodeGenerationService} from '@/internal/EntityCodeGenerationService'
+import {ProjectMigrationService} from '@/internal/ProjectMigrationService'
+import {resolveServer} from '@/internal/state/Environment'
+import {connectAndUpgradeSession} from '@/internal/Utils'
 
 // This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
