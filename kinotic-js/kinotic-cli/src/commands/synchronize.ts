@@ -11,7 +11,7 @@ import {EntityDefinition,
 import {Command, Flags} from '@oclif/core'
 import chalk from 'chalk'
 import {WebSocket} from 'ws'
-import {CodeGenerationService} from '../internal/CodeGenerationService.js'
+import {EntityCodeGenerationService} from '../internal/EntityCodeGenerationService'
 import {ProjectMigrationService} from '../internal/ProjectMigrationService.js'
 import {resolveServer} from '../internal/state/Environment.js'
 import {connectAndUpgradeSession} from '../internal/Utils.js'
@@ -72,9 +72,9 @@ export class Synchronize extends Command {
                         project = await Kinotic.projects.createProjectIfNotExist(project)
                     }
 
-                    const codeGenerationService = new CodeGenerationService(kinoticProjectConfig.application,
-                                                                            kinoticProjectConfig.fileExtensionForImports,
-                                                                            this)
+                    const codeGenerationService = new EntityCodeGenerationService(kinoticProjectConfig.application,
+                                                                                  kinoticProjectConfig.fileExtensionForImports,
+                                                                                  this)
 
                     await codeGenerationService
                         .generateAllEntities(kinoticProjectConfig,

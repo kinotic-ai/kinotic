@@ -30,7 +30,7 @@ export type GeneratedEntityProcessor = (entityInfo: EntityInfo, serviceInfo: Gen
 /**
  * Helper service for generating code.s
  */
-export class CodeGenerationService {
+export class EntityCodeGenerationService {
 
     private readonly fileExtensionForImports: string
     private readonly logger: Logger

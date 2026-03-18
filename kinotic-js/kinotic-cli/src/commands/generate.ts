@@ -1,4 +1,4 @@
-import {CodeGenerationService} from '../internal/CodeGenerationService.js'
+import {EntityCodeGenerationService} from '../internal/EntityCodeGenerationService'
 import {Command, Flags} from '@oclif/core'
 import {
     isKinoticProject,
@@ -29,9 +29,9 @@ export class Generate extends Command {
 
         const kinoticProjectConfig = await loadKinoticProjectConfig()
 
-        const codeGenerationService = new CodeGenerationService(kinoticProjectConfig.application,
-                                                                kinoticProjectConfig.fileExtensionForImports,
-                                                                this)
+        const codeGenerationService = new EntityCodeGenerationService(kinoticProjectConfig.application,
+                                                                      kinoticProjectConfig.fileExtensionForImports,
+                                                                      this)
 
             await codeGenerationService.generateAllEntities(kinoticProjectConfig, flags.verbose)
 
