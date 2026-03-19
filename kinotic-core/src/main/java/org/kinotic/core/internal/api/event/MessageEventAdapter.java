@@ -1,0 +1,48 @@
+
+
+package org.kinotic.core.internal.api.event;
+
+import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.event.Event;
+import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.event.Metadata;
+import io.vertx.core.eventbus.Message;
+
+/**
+ * {@link Event} implementation backed by a {@link Message}
+ *
+ * Created by navid on 10/30/19
+ */
+public class MessageEventAdapter<T> implements Event<T> {
+
+    private final Message<T> vertxMessage;
+    private final MultiMapMetadataAdapter metadata;
+    private final CRI cri;
+
+    public MessageEventAdapter(Message<T> vertxMessage) {
+        this.vertxMessage = vertxMessage;
+        this.metadata = new MultiMapMetadataAdapter(vertxMessage.headers());
+        this.cri = CRI.create(vertxMessage.headers().get(EventConstants.CRI_HEADER));
+        vertxMessage.headers().remove(EventConstants.CRI_HEADER);
+    }
+
+    @Override
+    public CRI cri() {
+        return cri;
+    }
+
+    @Override
+    public Metadata metadata() {
+        return metadata;
+    }
+
+    @Override
+    public T data() {
+        return vertxMessage.body();
+    }
+
+    public Message<T> getMessage(){
+        return vertxMessage;
+    }
+
+}

@@ -1,0 +1,10 @@
+{% comment %}
+  Liquid template for rendering a KinoticProjectConfig as TypeScript code.
+  Usage: Render with context { config, typeName }
+{% endcomment %}
+
+import type KinoticProjectConfig from '@kinotic-ai/core'
+
+const config: KinoticProjectConfig = {% render_value config %}
+
+export default config

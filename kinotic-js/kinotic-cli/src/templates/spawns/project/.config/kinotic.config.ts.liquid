@@ -1,0 +1,13 @@
+import type { KinoticProjectConfig } from '@kinotic-ai/core'
+
+const config: KinoticProjectConfig = {
+  application: "load-testing",
+  entitiesPaths: [
+    "packages/domain/model"
+  ],
+  generatedPath: "packages/domain/repositories",
+  fileExtensionForImports: ".js",
+  validate: false
+}
+
+export default config

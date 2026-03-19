@@ -1,0 +1,20 @@
+  # YAML Reference http://www.yaml.org/refcard.html
+  continuum:
+    debug: true
+    disableClustering: false
+    cluster:
+      discoveryType: SHAREDFS
+      joinTimeoutMs: 0
+      discoveryPort: 47500
+      communicationPort: 47501
+      sharedFsPath: /tmp/structures-sharedfs
+      kubernetesNamespace: default
+      kubernetesServiceName: structures
+      kubernetesIncludeNotReadyAddresses: false
+
+  logging:
+    level:
+      org:
+        kinotic: DEBUG
+      io:
+        vertx: DEBUG

@@ -1,0 +1,5 @@
+  # YAML Reference http://www.yaml.org/refcard.html
+  logging:
+    level:
+      com:
+        kinotic: TRACE

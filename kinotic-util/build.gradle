@@ -1,0 +1,9 @@
+plugins {
+    id 'org.kinotic.java-library-conventions'
+}
+
+dependencies {
+    implementation 'commons-io:commons-io'
+
+    testImplementation "org.awaitility:awaitility"
+}

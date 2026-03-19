@@ -1,0 +1,177 @@
+package org.kinotic.test.tests.core.entity;
+
+import org.apache.commons.lang3.tuple.Pair;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.kinotic.os.api.model.RawJson;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.persistence.api.model.EntityContext;
+import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
+import org.kinotic.persistence.internal.sample.Car;
+import org.kinotic.persistence.internal.sample.DummyParticipant;
+import org.kinotic.persistence.internal.sample.Person;
+import org.kinotic.persistence.internal.sample.TestDataService;
+import org.kinotic.test.support.kinotic.KinoticTestBase;
+import org.kinotic.test.tests.core.support.StructureAndPersonHolder;
+import org.kinotic.test.tests.core.support.TestHelper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+
+
+@SpringBootTest
+public class BulkUpdateTests extends KinoticTestBase {
+
+    @Autowired
+    private EntitiesService entitiesService;
+    @Autowired
+    private TestHelper testHelper;
+    @Autowired
+    private TestDataService testDataService;
+
+    private StructureAndPersonHolder createAndVerifyBulk(int numberOfPeopleToCreate,
+                                                         boolean randomPeople,
+                                                         EntityContext entityContext,
+                                                         String structureSuffix){
+        StructureAndPersonHolder ret = new StructureAndPersonHolder();
+
+        StepVerifier.create(testHelper.createPersonStructureAndEntitiesBulk(numberOfPeopleToCreate,
+                                                                            randomPeople,
+                                                                            entityContext,
+                                                                            structureSuffix))
+                    .expectNextMatches(structureAndPersonHolder -> {
+                        boolean matches = structureAndPersonHolder.getEntityDefinition() != null &&
+                                structureAndPersonHolder.getEntityDefinition().getId() != null &&
+                                structureAndPersonHolder.getPersons().size() == numberOfPeopleToCreate;
+                        if(matches){
+                            ret.setEntityDefinition(structureAndPersonHolder.getEntityDefinition());
+                            ret.setPersons(structureAndPersonHolder.getPersons());
+                        }
+                        return matches;
+                    })
+                    .verifyComplete();
+        return ret;
+    }
+
+    @Test
+    public void testBulk(){
+        int numberOfPeopleToCreate = 50;
+        EntityContext context1 = new DefaultEntityContext(new DummyParticipant("tenant1", "user1"));
+        EntityContext context2 = new DefaultEntityContext(new DummyParticipant("tenant2", "user2"));
+
+        StructureAndPersonHolder holder1 = createAndVerifyBulk(numberOfPeopleToCreate, true, context1, "_testBulk");
+
+        Assertions.assertNotNull(holder1);
+
+        StructureAndPersonHolder holder2 = createAndVerifyBulk(numberOfPeopleToCreate, true, context2, "_testBulk");
+
+        Assertions.assertNotNull(holder2);
+
+        // Sync Index since bulk updates are not queryable until they are indexed
+        entitiesService.syncIndex(holder1.getEntityDefinition().getId(), context1).join();
+        entitiesService.syncIndex(holder2.getEntityDefinition().getId(), context2).join();
+
+        // TODO: verify all data items as well, not just sizes
+        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder1.getEntityDefinition().getId(),
+                                                                    Pageable.ofSize(numberOfPeopleToCreate * 2),// make sure page size is larger than number of entities
+                                                                    RawJson.class,
+                                                                    context1)))
+                    .expectNextMatches(rawJsons -> rawJsons.getTotalElements() == numberOfPeopleToCreate
+                            && rawJsons.getContent().size() == numberOfPeopleToCreate)
+                    .as("Verifying Tenant 1 has "+numberOfPeopleToCreate+" entities")
+                    .verifyComplete();
+
+        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder2.getEntityDefinition().getId(),
+                                                                    Pageable.ofSize(numberOfPeopleToCreate * 2), // make sure page size is larger than number of entities
+                                                                    RawJson.class,
+                                                                    context2)))
+                    .expectNextMatches(rawJsons -> rawJsons.getTotalElements() == numberOfPeopleToCreate
+                            && rawJsons.getContent().size() == numberOfPeopleToCreate)
+                    .as("Verifying Tenant 2 has "+numberOfPeopleToCreate+" entities")
+                    .verifyComplete();
+    }
+
+    @Test
+    public void bulkSaveObjectWithMultipleIds() throws Exception{
+        EntityContext entityContext = new DefaultEntityContext(new DummyParticipant());
+        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = testDataService.createCarEntityDefinitionIfNotExists("_bulkSaveMultipleIds");
+
+        StepVerifier.create(Mono.fromFuture(createStructure))
+                    .expectNextMatches(pair -> pair.getLeft() != null && pair.getRight())
+                    .verifyComplete();
+
+        EntityDefinition entityDefinition = createStructure.join().getLeft();
+
+        List<Person> personList = testDataService.createRandomTestPeopleWithId(50).join();
+
+        Assertions.assertEquals(50, personList.size(), "Failed to create test person");
+
+        List<Car> cars = new ArrayList<>(50);
+        for(Person person : personList){
+            int count = cars.size();
+            Car car = new Car();
+            car.setId(UUID.randomUUID().toString());
+            car.setMake("Honda-"+count);
+            car.setModel("Civic-"+count);
+            car.setYear(2019);
+            car.setOwner(person);
+            cars.add(car);
+        }
+
+        testHelper.bulkSaveCarsAsRawJson(cars, entityDefinition, entityContext).join();
+
+        // Sync Index since bulk updates are not queryable until they are indexed
+        entitiesService.syncIndex(entityDefinition.getId(), entityContext).join();
+
+        Page<RawJson> page = entitiesService.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
+
+        Assertions.assertEquals(50, page.getTotalElements(), "Wrong number of entities");
+    }
+
+    @Test
+    public void bulkUpdateObjectWithMultipleIds() throws Exception{
+        EntityContext entityContext = new DefaultEntityContext(new DummyParticipant());
+        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = testDataService.createCarEntityDefinitionIfNotExists("_bulkUpdateMultipleIds");
+
+        StepVerifier.create(Mono.fromFuture(createStructure))
+                    .expectNextMatches(pair -> pair.getLeft() != null && pair.getRight())
+                    .verifyComplete();
+
+        EntityDefinition entityDefinition = createStructure.join().getLeft();
+
+        List<Person> personList = testDataService.createRandomTestPeopleWithId(50).join();
+
+        Assertions.assertEquals(50, personList.size(), "Failed to create test person");
+
+        List<Car> cars = new ArrayList<>(50);
+        for(Person person : personList){
+            int count = cars.size();
+            Car car = new Car();
+            car.setId(UUID.randomUUID().toString());
+            car.setMake("Honda-"+count);
+            car.setModel("Civic-"+count);
+            car.setYear(2019);
+            car.setOwner(person);
+            cars.add(car);
+        }
+
+        testHelper.bulkUpdateCarsAsRawJson(cars, entityDefinition, entityContext).join();
+
+        // Sync Index since bulk updates are not queryable until they are indexed
+        entitiesService.syncIndex(entityDefinition.getId(), entityContext).join();
+
+        Page<RawJson> page = entitiesService.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
+
+        Assertions.assertEquals(50, page.getTotalElements(), "Wrong number of entities");
+    }
+
+}

@@ -1,0 +1,7 @@
+cache/
+build/
+.git/
+*.ext4
+*.raw
+scripts/build
+Dockerfile

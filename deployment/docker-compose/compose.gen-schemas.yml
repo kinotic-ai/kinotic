@@ -1,0 +1,29 @@
+services:
+  load-generator:
+    image: kinoticai/kinotic-load-generator:latest
+    pull_policy: always
+    container_name: kinotic-gen-schemas
+    environment:
+      # Connection settings
+      - KINOTIC_HOST=kinotic-server
+      - KINOTIC_PORT=58503
+      - KINOTIC_USE_SSL=false
+      
+      # Load test configuration
+      - TEST_NAME=generateComplexEntities
+      - NUMBER_OF_TENANTS=1 # Not used for this test
+      
+      # Concurrency settings
+      - MAX_CONCURRENT_REQUESTS=1
+      - MAX_REQUESTS_PER_SECOND=100 
+      
+      # OpenTelemetry settings
+      - OTEL_EXPORTER_TYPE=OTLP
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      kinotic-elasticsearch:
+        condition: service_healthy
+      kinotic-server:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started

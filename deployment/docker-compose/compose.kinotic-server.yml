@@ -1,0 +1,52 @@
+services:
+  kinotic-server:
+    container_name: kinotic-server
+    pull_policy: always
+    image: kinoticai/kinotic-server:${kinoticVersion:-4.2.0-SNAPSHOT}
+    depends_on:
+      kinotic-elasticsearch:
+        condition: service_healthy
+      kinotic-migration:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/workspace/health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    ports:
+      - "127.0.0.1:9090:9090" # UI PORT
+      - "127.0.0.1:9091:9091" # UI PORT
+      - "127.0.0.1:4000:4000" # GraphQL Port
+      - "127.0.0.1:8080:8080" # OpenAPI Port
+      - "127.0.0.1:58503:58503" # Stomp Port
+    environment:
+      BPL_JVM_HEAD_ROOM: 10
+      JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
+      KINOTIC_MAX_OFF_HEAP_MEMORY: 419430400
+      KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_0_SCHEME: http
+      KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_0_HOST: kinotic-elasticsearch
+      KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_0_PORT: 9200
+      KINOTIC_PERSISTENCE_WEB_SERVER_PORT: 9090
+      OTEL_SERVICE_NAME: kinotic-server
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      SPRING_PROFILES_ACTIVE: development
+      SPRING_AI_OPENAI_API-KEY: "noop"
+      SPRING_AI_OPENAI_BASE_URL: "https://api.x.ai"
+      SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "grok-4"
+      THC_PORT: 9090 # Health check port, used by health-check script included by paketo (must match KINOTIC_PERSISTENCE_WEB_SERVER_PORT),
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    deploy:
+      resources:
+        reservations:
+          memory: 4G
+        limits:
+          memory: 4G
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

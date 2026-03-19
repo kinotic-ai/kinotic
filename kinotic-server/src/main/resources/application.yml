@@ -1,0 +1,13 @@
+# General properties shared by all profiles
+kinotic:
+  persistence:
+    openApiSecurityType: BASIC
+    enableStaticFileServer: true
+
+logging:
+  level:
+    com:
+      kinotic: INFO
+
+
+  

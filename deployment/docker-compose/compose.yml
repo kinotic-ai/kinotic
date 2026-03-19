@@ -1,0 +1,6 @@
+include:
+  - compose.ek-stack.yml
+  - compose-otel.yml
+  - compose.gen-schemas.yml
+  - compose.kinotic-migration.yml
+  - compose.kinotic-server.yml
