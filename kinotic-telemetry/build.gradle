@@ -1,0 +1,27 @@
+plugins {
+    id 'org.mindignited.java-application-conventions'
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot'
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework:spring-core'
+    implementation 'org.springframework:spring-context'
+
+    implementation 'javax.annotation:javax.annotation-api'
+    
+    // Vert.x dependencies
+    implementation 'io.vertx:vertx-core'
+    implementation 'io.vertx:vertx-grpc-server'
+    implementation 'io.vertx:vertx-grpcio-server'
+    implementation 'io.vertx:vertx-grpcio-client'
+    
+    // Chronicle Queue for buffering
+    implementation 'net.openhft:chronicle-queue:5.27ea11'
+    
+    // OpenTelemetry Protocol dependencies
+    implementation 'io.opentelemetry.proto:opentelemetry-proto'
+
+    implementation 'javax.annotation:javax.annotation-api'
+    
+}

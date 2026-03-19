@@ -1,0 +1,9 @@
+{
+  "version": "v1",
+  "packages": {
+    "@kinotic/structures-api": {
+      "signature": "e9c10fa7445940497811c288506b772e",
+      "replaced": "^3.0.0-beta.1"
+    }
+  }
+}

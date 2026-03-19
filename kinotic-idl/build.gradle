@@ -1,0 +1,18 @@
+plugins {
+	id 'org.kinotic.java-library-conventions'
+	id 'io.freefair.lombok'
+}
+
+dependencies {
+
+	implementation 'org.apache.groovy:groovy'
+	implementation 'org.springframework.boot:spring-boot-starter'
+
+    // Json
+	implementation 'com.fasterxml.jackson.core:jackson-annotations'
+	implementation 'tools.jackson.core:jackson-core'
+	implementation 'tools.jackson.core:jackson-databind'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-json'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}

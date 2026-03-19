@@ -1,0 +1,13 @@
+@font-face { font-family: BauhausNanoDisplayRegular; src: url("/fonts/BauhausNanoDisplay-Regular.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Regular.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Regular.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplayMedium; src: url("/fonts/BauhausNanoDisplay-Medium.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Medium.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Medium.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplayLight; src: url("/fonts/BauhausNanoDisplay-Light.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Light.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Light.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplayBold; src: url("/fonts/BauhausNanoDisplay-Bold.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Bold.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Bold.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplayExtraBold; src: url("/fonts/BauhausNanoDisplay-ExtraBold.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-ExtraBold.woff") format("woff"), url("/fonts/BauhausNanoDisplay-ExtraBold.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplaySemiBold; src: url("/fonts/BauhausNanoDisplay-SemiBold.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-SemiBold.woff") format("woff"), url("/fonts/BauhausNanoDisplay-SemiBold.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplayBlack; src: url("/fonts/BauhausNanoDisplay-Black.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Black.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Black.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplayExtraLight; src: url("/fonts/BauhausNanoDisplay-ExtraLight.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-ExtraLight.woff") format("woff"), url("/fonts/BauhausNanoDisplay-ExtraLight.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplayThin; src: url("/fonts/BauhausNanoDisplay-Thin.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Thin.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Thin.otf") format("opentype"); }
+@font-face { font-family: InterRegular; src: url('/fonts/Inter-Regular.otf') format('opentype'); }
+@font-face { font-family: InterMedium; src: url('/fonts/Inter-Medium.otf') format('opentype'); }
+@font-face { font-family: InterBold; src: url('/fonts/Inter-Bold.otf') format('opentype'); }
+@font-face { font-family: InterSemiBold; src: url('/fonts/Inter-SemiBold.otf') format('opentype'); }

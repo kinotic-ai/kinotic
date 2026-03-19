@@ -86,4 +86,4 @@ debug('User %s logged in at %d with profile: %O', user.email, Date.now(), user.p
 - **Selective logging** - Enable only the modules you care about
 - **Color-coded output** - Each namespace gets a different color in the console
 - **Timestamp support** - Shows time elapsed between log calls
-- **Standard pattern** - Consistent with the continuum-client-js library
+- **Standard pattern** - Consistent with the kinotic-client-js library

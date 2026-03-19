@@ -1,0 +1,47 @@
+plugins {
+	id 'org.kinotic.java-library-conventions'
+	id 'io.freefair.lombok'
+    id 'antlr'
+}
+
+// Configure ANTLR plugin
+generateGrammarSource {
+	arguments += ['-package', 'org.kinotic.sql.parser']
+	arguments += ['-visitor']
+
+	// Output directly to the parser package
+	outputDirectory = file("${projectDir}/src/main/java/org/kinotic/sql/parser")
+	enabled = project.gradle.startParameter.taskNames.contains(':kinotic-sql:generateGrammarSource')
+}
+
+// Configure Javadoc to exclude generated files
+tasks.withType(Javadoc) {
+    exclude '**/parser/KinoticSQL*.java'
+    exclude '**/parser/KinoticSQL*.interp'
+    exclude '**/parser/KinoticSQL*.tokens'
+}
+
+tasks.named('sourcesJar') {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+dependencies {
+    // Spring dependencies
+    implementation 'org.springframework.boot:spring-boot-starter'
+    
+    // Elasticsearch dependencies
+    implementation 'co.elastic.clients:elasticsearch-java'
+    implementation 'co.elastic.clients:elasticsearch-rest5-client'
+
+    // Json
+    implementation 'com.fasterxml.jackson.core:jackson-annotations'
+    implementation 'tools.jackson.core:jackson-core'
+    implementation 'tools.jackson.core:jackson-databind'
+
+    // Parsing dependencies FIXME: move versions below to dependency management
+	implementation 'org.antlr:antlr4-runtime:4.13.2'
+	antlr 'org.antlr:antlr4:4.13.2'
+
+}
+
+

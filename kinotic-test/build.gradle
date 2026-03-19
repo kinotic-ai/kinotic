@@ -1,0 +1,44 @@
+plugins {
+	id 'org.kinotic.java-library-conventions'
+	id 'io.freefair.lombok'
+}
+
+dependencies {
+	implementation project(':kinotic-core')
+	implementation project(':kinotic-domain')
+	implementation project(':kinotic-idl')
+	implementation project(':kinotic-persistence')
+	implementation project(':kinotic-sql')
+
+	implementation 'io.jsonwebtoken:jjwt-api'
+	implementation 'io.jsonwebtoken:jjwt-impl'
+	implementation 'io.jsonwebtoken:jjwt-jackson'
+
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// Used to create the ElasticSearch client, for the migration tests
+	implementation 'org.springframework.boot:spring-boot-starter-elasticsearch'
+
+	implementation "com.github.ben-manes.caffeine:caffeine"
+
+
+	// Fix runtime linkage error in Testcontainers tar/copy (commons-compress expects newer commons-io).
+	// Without this you can see: NoSuchMethodError FileTimes.toUnixTime(FileTime)
+	testImplementation 'commons-io:commons-io:2.21.0'
+
+	testImplementation 'com.github.dasniko:testcontainers-keycloak:3.8.0'
+
+	testImplementation 'io.projectreactor:reactor-test'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-jackson-test'
+	testImplementation 'org.springframework.security:spring-security-oauth2-client'
+
+	testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+	testImplementation "org.testcontainers:testcontainers-elasticsearch:${testContainersVersion}"
+}
+
+test {
+    systemProperty 'spring.profiles.active', 'test'
+    // some tests take longer
+    timeout = Duration.ofMinutes(10)
+}

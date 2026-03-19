@@ -1,0 +1,16 @@
+# YAML Reference http://www.yaml.org/refcard.html
+kinotic:
+  debug: true
+  disableClustering: false
+  maxNumberOfCoresToUse: 4
+
+logging:
+  level:
+    org:
+      springframework:
+        web: DEBUG
+        ai: DEBUG
+      kinotic: TRACE
+    io:
+      vertx: DEBUG
+

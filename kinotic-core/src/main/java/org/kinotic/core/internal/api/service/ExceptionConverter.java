@@ -1,0 +1,38 @@
+
+
+package org.kinotic.core.internal.api.service;
+
+import org.kinotic.core.api.event.Event;
+import org.kinotic.core.api.event.Metadata;
+
+/**
+ * Converts an exception to a message that can bes sent on the event bus
+ * NOTE: All implementations should be thread safe.
+ * Created by Navid Mitchell on 2019-03-30.
+ */
+public interface ExceptionConverter {
+
+    /**
+     * Converts the given throwable into an event that can be sent on the event bus
+     * @param incomingMetadata the metadata from the incoming event associated with the exception
+     * @param throwable the throwable to convert
+     * @return the event representing the throwable
+     */
+    Event<byte[]> convert(Metadata incomingMetadata, Throwable throwable);
+
+    /**
+     * Converts the given event back into a throwable
+     * @param event the event to convert
+     * @return the converted throwable
+     */
+    Throwable convert(Event<byte[]> event);
+
+    /**
+     * Checks if this converter supports converting exceptions related to the given metadata
+     * @param incomingMetadata the metadata to check
+     * @return true if supported false if not
+     */
+    boolean supports(Metadata incomingMetadata);
+
+}
+

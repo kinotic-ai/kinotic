@@ -7,9 +7,8 @@ plugins {
 }
 
 dependencies {
-    api "org.kinotic:continuum-core:${continuumVersion}"
-
     implementation 'org.springframework.boot:spring-boot-autoconfigure'
+
 }
 
 java {
@@ -106,4 +105,3 @@ javadoc {
         options.addBooleanOption('html5', true)
     }
 }
-

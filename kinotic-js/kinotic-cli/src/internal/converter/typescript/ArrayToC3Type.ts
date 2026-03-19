@@ -1,0 +1,25 @@
+import {ArrayC3Type, C3Type} from '@kinotic-ai/idl'
+import {Type} from 'ts-morph'
+import {TypescriptConversionState} from './TypescriptConversionState'
+import {IConversionContext} from '@/internal/converter/IConversionContext'
+import {ITypeConverter} from '@/internal/converter/ITypeConverter'
+
+export class ArrayToC3Type implements ITypeConverter<Type, C3Type, TypescriptConversionState> {
+
+    convert(value: Type, conversionContext: IConversionContext<Type, C3Type, TypescriptConversionState>): C3Type {
+        let ret: ArrayC3Type
+
+        const arrayElementType = value?.getArrayElementType()
+        if(arrayElementType) {
+            ret = new ArrayC3Type(conversionContext.convert(arrayElementType))
+        }else{
+            throw new Error("Type could not be found for array type "+value.getText())
+        }
+        return ret
+    }
+
+    supports(value: Type, conversionState: TypescriptConversionState): boolean {
+        return value.isArray()
+    }
+
+}

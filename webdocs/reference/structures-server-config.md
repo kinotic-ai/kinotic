@@ -39,7 +39,7 @@ You can create your own custom Structures server by embedding Structures in your
 Add the following annotation to your Spring Boot application:
 
 ```java
-import org.kinotic.structures.api.annotations.EnableStructures;
+import org.kinotic.persistence.api.annotations.EnableStructures;
 
 @SpringBootApplication
 @EnableStructures
@@ -92,12 +92,12 @@ For fine-grained authorization, you can implement your own `AuthorizationService
 ```java
 // org.kinotic.structures.api.services.security.AuthorizationServiceFactory
 public interface AuthorizationServiceFactory {
-    CompletableFuture<AuthorizationService<EntityOperation>> createStructureAuthorizationService(Structure structure);
+    CompletableFuture<AuthorizationService<EntityOperation>> createStructureAuthorizationService(Structure entityDefinition);
     CompletableFuture<AuthorizationService<NamedQueryOperation>> createNamedQueryAuthorizationService(FunctionDefinition namedQuery);
 }
 ```
 
-By providing your own bean of this type, you can control authorization for all structure and query operations. See the `AuthorizationService` interface for details on how to implement authorization logic.
+By providing your own bean of this type, you can control authorization for all entityDefinition and query operations. See the `AuthorizationService` interface for details on how to implement authorization logic.
 
 ---
 

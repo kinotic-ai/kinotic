@@ -1,0 +1,10 @@
+.gradle
+/build/
+!gradle/wrapper/gradle-wrapper.jar
+log
+
+### IntelliJ IDEA ###
+/out/
+
+### MAC SPECIFIC ###
+*.DS_Store

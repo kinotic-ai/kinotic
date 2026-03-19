@@ -1,0 +1,8 @@
+{
+  "propertySchema":{
+    "libraryName": {
+      "type": "string",
+      "description": "The name of the library you want to create"
+    }
+  }
+}

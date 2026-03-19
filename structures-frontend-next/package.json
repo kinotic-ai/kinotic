@@ -32,7 +32,6 @@
     "js-cookie": "^3.0.5",
     "keycloak-js": "^26.2.0",
     "oidc-client-ts": "^3.3.0",
-    "pinia": "^3.0.3",
     "primeicons": "^7.0.0",
     "primevue": "^4.3.5",
     "tailwindcss-primeui": "^0.6.1",
