@@ -1,0 +1,15 @@
+# Kubernetes base profile.
+# Activate with: SPRING_PROFILES_ACTIVE=production,kubernetes
+#
+# Only contains properties that differ from code defaults
+# and are required for Kubernetes deployments.
+# Elasticsearch host/port/credentials come from env vars or secretKeyRef.
+
+kinotic:
+  ignite:
+    discoveryType: KUBERNETES
+    localAddress: "0.0.0.0"
+    kubernetesIncludeNotReadyAddresses: true
+
+  persistence:
+    corsAllowedOriginPattern: "*"

@@ -30,9 +30,8 @@ database:
 
 # Service configuration
 service:
-  type: NodePort
+  type: ClusterIP
   port: 8888
-  nodePort: 30888
 
 # Resource limits
 resources:

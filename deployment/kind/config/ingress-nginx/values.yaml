@@ -27,9 +27,9 @@ controller:
       http: 80
       https: 443
 
-  # Service configuration - use NodePort for KinD
+  # Service configuration
   service:
-    type: NodePort
+    type: ClusterIP
 
   # Watch all namespaces
   watchIngressWithoutClass: true
@@ -38,7 +38,7 @@ controller:
   # These settings should NOT be used in production environments as they can
   # allow configuration injection attacks.
   #
-  # Required for structures-server ingress which uses configuration-snippet
+  # Required for kinotic-server ingress which uses configuration-snippet
   # for WebSocket handling and path rewrites.
   #
   # See: https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/

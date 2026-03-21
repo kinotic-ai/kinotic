@@ -1,6 +1,6 @@
 {{- if .Values.ingress.enabled -}}
 # ============================================================================
-# NGINX Ingress Configuration for structures-server
+# NGINX Ingress Configuration for kinotic-server
 # ============================================================================
 #
 # This configuration uses FOUR separate Ingress resources:
@@ -20,9 +20,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "structures-server.fullname" . }}-keycloak
+  name: {{ include "kinotic-server.fullname" . }}-keycloak
   labels:
-    app: {{ include "structures-server.name" . }}
+    app: {{ include "kinotic-server.name" . }}
   annotations:
     # Standard HTTP timeouts
     nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
@@ -72,14 +72,14 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "structures-server.fullname" . }}-ws
+  name: {{ include "kinotic-server.fullname" . }}-ws
   labels:
-    app: {{ include "structures-server.name" . }}
+    app: {{ include "kinotic-server.name" . }}
   annotations:
     # Sticky sessions for WebSocket connections
     nginx.ingress.kubernetes.io/affinity: "cookie"
     nginx.ingress.kubernetes.io/affinity-mode: "persistent"
-    nginx.ingress.kubernetes.io/session-cookie-name: "structures-ws-affinity"
+    nginx.ingress.kubernetes.io/session-cookie-name: "kinotic-ws-affinity"
     nginx.ingress.kubernetes.io/session-cookie-path: "{{ .Values.continuum_gateway.stomp.websocketPath }}"
     nginx.ingress.kubernetes.io/session-cookie-max-age: "10800"
     nginx.ingress.kubernetes.io/session-cookie-change-on-failure: "true"
@@ -111,7 +111,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "structures-server.fullname" $ }}
+                name: {{ include "kinotic-server.fullname" $ }}
                 port:
                   number: {{ $.Values.continuum_gateway.stomp.port }}
     {{- end }}
@@ -122,9 +122,9 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "structures-server.fullname" . }}-api
+  name: {{ include "kinotic-server.fullname" . }}-api
   labels:
-    app: {{ include "structures-server.name" . }}
+    app: {{ include "kinotic-server.name" . }}
   annotations:
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
@@ -153,7 +153,7 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: {{ include "structures-server.fullname" $ }}
+                name: {{ include "kinotic-server.fullname" $ }}
                 port:
                   number: {{ $.Values.properties.structures.openApiPort }}
           # GraphQL - /graphql/* forwards to GraphQL port (rewrite removes /graphql prefix)
@@ -161,7 +161,7 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: {{ include "structures-server.fullname" $ }}
+                name: {{ include "kinotic-server.fullname" $ }}
                 port:
                   number: {{ $.Values.properties.structures.graphqlPort }}
     {{- end }}
@@ -174,9 +174,9 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "structures-server.fullname" . }}-ui
+  name: {{ include "kinotic-server.fullname" . }}-ui
   labels:
-    app: {{ include "structures-server.name" . }}
+    app: {{ include "kinotic-server.name" . }}
   annotations:
     # Standard HTTP timeouts
     nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
@@ -203,7 +203,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "structures-server.fullname" $ }}
+                name: {{ include "kinotic-server.fullname" $ }}
                 port:
                   number: {{ $.Values.properties.structures.webServerPort }}
     {{- end }}

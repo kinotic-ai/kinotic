@@ -10,9 +10,9 @@ readonly _KIND_NODE_UPDATE_LOADED=1
 
 # Source dependencies
 LIB_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=dev-tools/kind/lib/logging.sh
+# shellcheck source=deployment/kind/lib/logging.sh
 source "${LIB_SCRIPT_DIR}/logging.sh"
-# shellcheck source=dev-tools/kind/lib/cluster.sh
+# shellcheck source=deployment/kind/lib/cluster.sh
 source "${LIB_SCRIPT_DIR}/cluster.sh"
 
 #
@@ -20,7 +20,7 @@ source "${LIB_SCRIPT_DIR}/cluster.sh"
 # Defaults to worker nodes only unless include_control_plane=true or explicit nodes provided.
 #
 # Args:
-#   $1: kubectl context (e.g., kind-structures-cluster)
+#   $1: kubectl context (e.g., kind-kinotic-cluster)
 #   $2: include_control_plane ("true"/"false")
 #   $@: explicit node names (optional, starting at $3)
 # Outputs:
@@ -136,8 +136,8 @@ basic_validate_structures() {
     local timeout="${2:-5m}"
     local namespace="${3:-default}"
 
-    # Deployment name is Helm release name when using kind tooling: structures-server
-    local deploy_name="structures-server"
+    # Deployment name is Helm release name when using kind tooling: kinotic-server
+    local deploy_name="kinotic-server"
 
     if ! kubectl get deployment "${deploy_name}" -n "${namespace}" --context "${context}" >/dev/null 2>&1; then
         warning "Deployment '${deploy_name}' not found in namespace '${namespace}' (skipping app validation)"
@@ -166,7 +166,7 @@ basic_validate_structures() {
 #
 # Simulate a node update cycle on a single node.
 # Args:
-#   $1: cluster name (e.g., structures-cluster)
+#   $1: cluster name (e.g., kinotic-cluster)
 #   $2: node name (Kubernetes node name; also KinD container name)
 #   $3: drain timeout
 #   $4: grace period

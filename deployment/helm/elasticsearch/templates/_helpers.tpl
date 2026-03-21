@@ -1,0 +1,29 @@
+{{/*
+Expand the name of the chart.
+*/}}
+{{- define "elasticsearch.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Create a default fully qualified app name.
+*/}}
+{{- define "elasticsearch.fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+The Elasticsearch HTTP service name created by ECK follows the pattern: <resource-name>-es-http
+*/}}
+{{- define "elasticsearch.serviceName" -}}
+{{- include "elasticsearch.fullname" . }}-es-http
+{{- end }}

@@ -13,9 +13,6 @@ nodes:
       - hostPath: ./dev-tools/kind/eviction-data
         containerPath: /eviction-data
     extraPortMappings:
-      # ============================================================
-      # Ingress Controller Ports
-      # ============================================================
       # HTTP (host:80 → ingress:80)
       - containerPort: 80
         hostPort: 80
@@ -23,46 +20,6 @@ nodes:
       # HTTPS (host:443 → ingress:443)
       - containerPort: 443
         hostPort: 443
-        protocol: TCP
-      
-      # ============================================================
-      # Structures Server Ports
-      # ============================================================
-      # OpenAPI (host:8080 → nodePort:30080)
-      - containerPort: 30080
-        hostPort: 8080
-        protocol: TCP
-      # Web UI (host:9090 → nodePort:30090)
-      - containerPort: 30090
-        hostPort: 9090
-        protocol: TCP
-      # GraphQL (host:4000 → nodePort:30400)
-      - containerPort: 30400
-        hostPort: 4000
-        protocol: TCP
-      # Continuum Stomp (host:58503 → nodePort:30503)
-      - containerPort: 30503
-        hostPort: 58503
-        protocol: TCP
-      # Continuum REST (host:58504 → nodePort:30504)
-      - containerPort: 30504
-        hostPort: 58504
-        protocol: TCP
-
-      # ============================================================
-      # Infrastructure Services
-      # ============================================================
-      # Elasticsearch (host:9200 → nodePort:30920)
-      - containerPort: 30920
-        hostPort: 9200
-        protocol: TCP
-      # PostgreSQL (host:5555 → nodePort:30555) - Different from default 5432 to avoid conflicts
-      - containerPort: 30555
-        hostPort: 5555
-        protocol: TCP
-      # Keycloak (host:8888 → nodePort:30888)
-      - containerPort: 30888
-        hostPort: 8888
         protocol: TCP
 
   - role: worker

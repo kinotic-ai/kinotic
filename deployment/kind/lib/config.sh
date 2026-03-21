@@ -10,25 +10,26 @@ readonly _KIND_CONFIG_LOADED=1
 
 # Source logging functions
 LIB_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=dev-tools/kind/lib/logging.sh
+# shellcheck source=deployment/kind/lib/logging.sh
 source "${LIB_SCRIPT_DIR}/logging.sh"
 
 # Configuration defaults
-readonly DEFAULT_CLUSTER_NAME="structures-cluster"
+readonly DEFAULT_CLUSTER_NAME="kinotic-cluster"
 readonly DEFAULT_CONFIG_DIR="${LIB_SCRIPT_DIR}/../config"
 readonly DEFAULT_KIND_CONFIG="${DEFAULT_CONFIG_DIR}/kind-config.yaml"
-readonly DEFAULT_HELM_CHART_PATH="./helm/structures"
+readonly DEFAULT_HELM_CHART_PATH="./helm/kinotic"
 readonly DEFAULT_K8S_VERSION="latest"
 readonly DEFAULT_DEPLOY_TIMEOUT="5m"
 
 # Service-specific config directories (Helm values files)
+readonly CONFIG_ECK_OPERATOR_DIR="${DEFAULT_CONFIG_DIR}/eck-operator"
 readonly CONFIG_ELASTICSEARCH_DIR="${DEFAULT_CONFIG_DIR}/elasticsearch"
 readonly CONFIG_POSTGRESQL_DIR="${DEFAULT_CONFIG_DIR}/postgresql"
 readonly CONFIG_KEYCLOAK_DIR="${DEFAULT_CONFIG_DIR}/keycloak"
 readonly CONFIG_INGRESS_NGINX_DIR="${DEFAULT_CONFIG_DIR}/ingress-nginx"
 readonly CONFIG_CERT_MANAGER_DIR="${DEFAULT_CONFIG_DIR}/cert-manager"
 readonly CONFIG_COREDNS_DIR="${DEFAULT_CONFIG_DIR}/coredns"
-readonly CONFIG_STRUCTURES_SERVER_DIR="${DEFAULT_CONFIG_DIR}/structures-server"
+readonly CONFIG_STRUCTURES_SERVER_DIR="${DEFAULT_CONFIG_DIR}/kinotic-server"
 readonly CONFIG_LOAD_GENERATOR_DIR="${DEFAULT_CONFIG_DIR}/load-generator"
 
 # Structures-server Helm values (moved from helm-values.yaml)
@@ -47,7 +48,7 @@ DEPLOY_KEYCLOAK="0"       # Deploy Keycloak + PostgreSQL (default: disabled)
 DEPLOY_OBSERVABILITY="0"
 DEPLOY_LOAD_GENERATOR="0"  # Run load generator post-deploy (default: disabled)
 DEPLOY_TIMEOUT=""
-OIDC_ENABLED="false"      # Enable OIDC in structures-server (set automatically when DEPLOY_KEYCLOAK=1)
+OIDC_ENABLED="false"      # Enable OIDC in kinotic-server (set automatically when DEPLOY_KEYCLOAK=1)
 
 #
 # Load configuration from environment variables, files, and defaults
@@ -155,7 +156,7 @@ get_helm_values_flags() {
 #
 # Get service-specific values file path
 # Args:
-#   $1: Service name (elasticsearch, postgresql, keycloak, ingress-nginx, cert-manager, coredns, structures-server)
+#   $1: Service name (elasticsearch, postgresql, keycloak, ingress-nginx, cert-manager, coredns, kinotic-server)
 # Returns:
 #   Path to the service's values.yaml file
 # Example:
@@ -166,6 +167,9 @@ get_service_values_path() {
     local config_dir=""
     
     case "${service_name}" in
+        eck-operator)
+            config_dir="${CONFIG_ECK_OPERATOR_DIR}"
+            ;;
         elasticsearch)
             config_dir="${CONFIG_ELASTICSEARCH_DIR}"
             ;;
@@ -184,7 +188,7 @@ get_service_values_path() {
         coredns)
             config_dir="${CONFIG_COREDNS_DIR}"
             ;;
-        structures-server)
+        kinotic-server)
             config_dir="${CONFIG_STRUCTURES_SERVER_DIR}"
             ;;
         load-generator)
@@ -265,9 +269,9 @@ get_structures_version() {
 }
 
 #
-# Get image name for structures-server
+# Get image name for kinotic-server
 # Returns:
-#   Full image name (e.g., "kinoticai/structures-server:0.5.0-SNAPSHOT")
+#   Full image name (e.g., "kinoticai/kinotic-server:0.5.0-SNAPSHOT")
 # Example:
 #   image=$(get_image_name)
 #
@@ -275,14 +279,14 @@ get_image_name() {
     local version
     version=$(get_structures_version) || return 1
     
-    local image_name="${IMAGE_NAME:-kinoticai/structures-server}"
+    local image_name="${IMAGE_NAME:-kinoticai/kinotic-server}"
     echo "${image_name}:${version}"
 }
 
 #
-# Get image name for structures-migration
+# Get image name for kinotic-migration
 # Returns:
-#   Full image name (e.g., "kinoticai/structures-migration:0.5.0-SNAPSHOT")
+#   Full image name (e.g., "kinoticai/kinotic-migration:0.5.0-SNAPSHOT")
 # Example:
 #   migration_image=$(get_migration_image_name)
 #
@@ -290,7 +294,7 @@ get_migration_image_name() {
     local version
     version=$(get_structures_version) || return 1
     
-    echo "kinoticai/structures-migration:${version}"
+    echo "kinoticai/kinotic-migration:${version}"
 }
 
 #

@@ -6,34 +6,34 @@ Automation tools for creating and managing KinD (Kubernetes in Docker) clusters 
 
 ```bash
 # Navigate to project root
-cd /path/to/structures
+cd /path/to/kinotic
 
 # Create a KinD cluster
-./dev-tools/kind/kind-cluster.sh create
+./deployment/kind/kind-cluster.sh create
 
-# Deploy structures-server (Elasticsearch only, no OIDC)
-./dev-tools/kind/kind-cluster.sh deploy
+# Deploy kinotic-server (Elasticsearch only, no OIDC)
+./deployment/kind/kind-cluster.sh deploy
 
 # OR: Deploy with Keycloak for OIDC authentication
-./dev-tools/kind/kind-cluster.sh deploy --with-keycloak
+./deployment/kind/kind-cluster.sh deploy --with-keycloak
 
 # Check status
-./dev-tools/kind/kind-cluster.sh status
+./deployment/kind/kind-cluster.sh status
 
 # View logs
-./dev-tools/kind/kind-cluster.sh logs --follow
+./deployment/kind/kind-cluster.sh logs --follow
 
 # Clean up
-./dev-tools/kind/kind-cluster.sh delete
+./deployment/kind/kind-cluster.sh delete
 ```
 
-> **Note:** The `deploy` command automatically builds and loads the structures-server image.
+> **Note:** The `deploy` command pulls images from Docker Hub. No local build is required.
 
 ## Service Access URLs
 
-Once the cluster is deployed, services are accessible via **HTTPS** through the ingress or directly via **NodePort**:
+Once the cluster is deployed, services are accessible via **HTTPS** through the ingress:
 
-### Via Ingress (HTTPS) - Recommended
+### Via Ingress (HTTPS)
 
 | Service | URL | Notes |
 |---------|-----|-------|
@@ -42,16 +42,17 @@ Once the cluster is deployed, services are accessible via **HTTPS** through the 
 | **Structures GraphQL** | https://localhost/graphql/ | GraphQL endpoint |
 | **Structures WebSocket** | wss://localhost/v1 | STOMP with sticky sessions |
 
-### Via NodePort (Direct, no TLS)
+### Direct Access (kubectl port-forward)
 
-| Service | URL | Credentials | Notes |
-|---------|-----|-------------|-------|
-| **Elasticsearch** | http://localhost:9200 | - | With `--with-deps` (default) |
-| **PostgreSQL** | localhost:5555 | keycloak / keycloak | With `--with-keycloak` only |
-| **Keycloak Admin** | http://localhost:8888/auth/admin | admin / admin | With `--with-keycloak` only |
+For debugging or direct tool access, use `kubectl port-forward`:
+
+| Service | Command | Local URL |
+|---------|---------|-----------|
+| **Elasticsearch** | `kubectl port-forward svc/kinotic-es-es-http 9200:9200` | http://localhost:9200 |
+| **PostgreSQL** | `kubectl port-forward svc/keycloak-db-postgresql 5432:5432` | localhost:5432 |
+| **Keycloak Admin** | `kubectl port-forward svc/keycloak 8888:8888` | http://localhost:8888/auth/admin |
 
 > **Note:** PostgreSQL and Keycloak are only deployed when using `--with-keycloak` (`-k`) flag.
-> PostgreSQL uses port 5555 to avoid conflicts with locally installed PostgreSQL (default 5432).
 
 ## Prerequisites
 
@@ -98,7 +99,7 @@ Create a new KinD cluster with multi-node topology suitable for testing cluster 
 ```
 
 **Options:**
-- `--name <name>` - Cluster name (default: structures-cluster)
+- `--name <name>` - Cluster name (default: kinotic-cluster)
 - `--config <path>` - Path to kind-config.yaml (default: config/kind-config.yaml)
 - `--k8s-version <version>` - Kubernetes version (default: latest)
 - `--force` - Recreate if cluster exists
@@ -130,18 +131,18 @@ Create a new KinD cluster with multi-node topology suitable for testing cluster 
 
 ---
 
-### deploy - Deploy structures-server
+### deploy - Deploy kinotic-server
 
-Deploy structures-server and its dependencies to the cluster.
+Deploy kinotic-server and its dependencies to the cluster.
 
 ```bash
 ./kind-cluster.sh deploy [options]
 ```
 
 **Options:**
-- `--name <name>` - Cluster name (default: structures-cluster)
-- `--chart <path>` - Path to Helm chart (default: ./helm/structures)
-- `--values <path>` - Path to values file (default: config/structures-server/values.yaml)
+- `--name <name>` - Cluster name (default: kinotic-cluster)
+- `--chart <path>` - Path to Helm chart (default: ./helm/kinotic)
+- `--values <path>` - Path to values file (default: config/kinotic-server/values.yaml)
 - `--set <key=value>` - Override Helm values (can be used multiple times)
 - `--with-deps` - Deploy Elasticsearch dependency - **default**
 - `--no-deps` - Skip dependencies (assumes already deployed)
@@ -182,11 +183,10 @@ Deploy structures-server and its dependencies to the cluster.
    - Deploys PostgreSQL (for Keycloak backend)
    - Creates Keycloak realm ConfigMap from `docker-compose/keycloak-test-realm.json`
    - Deploys Keycloak with OIDC configuration
-   - Enables OIDC in structures-server (`oidc.enabled=true`)
-6. Builds and loads structures-server image
-7. Deploys structures-server via Helm
-8. Waits for all pods to be ready
-9. Displays access URLs and next steps
+   - Enables OIDC in kinotic-server (`oidc.enabled=true`)
+6. Deploys kinotic-server via Helm (images pulled from Docker Hub)
+7. Waits for all pods to be ready
+8. Displays access URLs and next steps
 
 **Time:** ~3 minutes (without Keycloak), ~5 minutes (with Keycloak)
 
@@ -194,72 +194,64 @@ Deploy structures-server and its dependencies to the cluster.
 
 ---
 
-### build - Build Docker Image
+### build - Build Docker Image (Optional)
 
-Build structures-server Docker image using Gradle's `bootBuildImage` task with Spring Boot Cloud Native Buildpacks.
+Build kinotic-server Docker image locally using Gradle's `bootBuildImage` task. **This is only needed when testing unpublished local changes.** The `deploy` command pulls images from Docker Hub by default.
 
 ```bash
 ./kind-cluster.sh build [options]
 ```
 
 **Options:**
-- `--module <name>` - Gradle module to build (default: structures-server)
+- `--module <name>` - Gradle module to build (default: kinotic-server)
 - `--load` - Automatically load image into cluster after build
 
 **Examples:**
 
 ```bash
-# Build image
-./kind-cluster.sh build
-
-# Build and load into cluster
+# Build and load into cluster for local testing
 ./kind-cluster.sh build --load
 
-# Build specific module
-./kind-cluster.sh build --module structures-server
+# Then restart the deployment to pick up the local image
+kubectl rollout restart deployment/kinotic-server
 ```
 
 **What it does:**
-1. Runs `./gradlew :structures-server:bootBuildImage`
+1. Runs `./gradlew :kinotic-server:bootBuildImage`
 2. Uses Paketo Buildpacks for optimized Java images
-3. Includes health checker buildpack
-4. Tags image as `kinoticai/structures-server:<version>` from gradle.properties
-5. Optionally loads into cluster if `--load` flag provided
+3. Tags image as `kinoticai/kinotic-server:<version>` from gradle.properties
+4. Optionally loads into cluster if `--load` flag provided
 
 **Time:** 2-5 minutes (first build), < 1 minute (subsequent builds with cache)
 
 ---
 
-### load - Load Image into Cluster
+### load - Load Image into Cluster (Optional)
 
-Load a locally built Docker image into KinD cluster nodes.
+Load a locally built Docker image into KinD cluster nodes. **Only needed when testing unpublished local changes.**
 
 ```bash
 ./kind-cluster.sh load [options]
 ```
 
 **Options:**
-- `--name <name>` - Cluster name (default: structures-cluster)
+- `--name <name>` - Cluster name (default: kinotic-cluster)
 - `--image <name>` - Full image name (default: from gradle.properties)
 
 **Examples:**
 
 ```bash
-# Load default image
-./kind-cluster.sh load
-
 # Load specific image
-./kind-cluster.sh load --image kinoticai/structures-server:0.5.0
+./kind-cluster.sh load --image kinoticai/kinotic-server:0.5.0
 
-# Load into specific cluster
-./kind-cluster.sh load --name test-cluster
+# Then restart the deployment
+kubectl rollout restart deployment/kinotic-server
 ```
 
 **What it does:**
 1. Verifies image exists locally
 2. Loads image into all KinD cluster nodes using `kind load docker-image`
 3. Verifies image is available on cluster nodes via `crictl`
-4. Displays deployment instructions
 
 **Time:** < 1 minute
 
@@ -274,7 +266,7 @@ Display cluster and deployment status information.
 ```
 
 **Options:**
-- `--name <name>` - Cluster name (default: structures-cluster)
+- `--name <name>` - Cluster name (default: kinotic-cluster)
 - `--watch, -w` - Watch status updates (refresh every 2 seconds)
 
 **Examples:**
@@ -314,7 +306,7 @@ This is intended to help validate clustering behavior while nodes are disrupted.
 - Runs **basic Kubernetes validation** (node Ready + Structures deployment/pods healthy)
 
 **Options:**
-- `--name <name>` - Cluster name (default: structures-cluster)
+- `--name <name>` - Cluster name (default: kinotic-cluster)
 - `--node <nodeName>` - Target a specific node (repeatable). If omitted, targets worker nodes.
 - `--include-control-plane` - Also include control-plane node (**not recommended** unless you know you want this)
 - `--iterations <n>` - Number of times to cycle through selected nodes (default: 1)
@@ -334,24 +326,24 @@ This is intended to help validate clustering behavior while nodes are disrupted.
 ./kind-cluster.sh node-update --iterations 10 --sleep-between 30
 
 # Target a specific worker
-./kind-cluster.sh node-update --node structures-cluster-worker
+./kind-cluster.sh node-update --node kinotic-cluster-worker
 ```
 
 ---
 
 ### logs - View Pod Logs
 
-Stream logs from structures-server pods.
+Stream logs from kinotic-server pods.
 
 ```bash
 ./kind-cluster.sh logs [options]
 ```
 
 **Options:**
-- `--name <name>` - Cluster name (default: structures-cluster)
+- `--name <name>` - Cluster name (default: kinotic-cluster)
 - `--follow, -f` - Follow log output (like `tail -f`)
 - `--tail <n>` - Show last N lines (default: 100)
-- `--selector, -l <sel>` - Pod selector (default: app=structures-server)
+- `--selector, -l <sel>` - Pod selector (default: app=kinotic-server)
 
 **Examples:**
 
@@ -366,7 +358,7 @@ Stream logs from structures-server pods.
 ./kind-cluster.sh logs --tail 500
 
 # View logs from specific pods
-./kind-cluster.sh logs --selector app=elasticsearch
+./kind-cluster.sh logs --selector elasticsearch.k8s.elastic.co/cluster-name=kinotic-es
 ```
 
 ---
@@ -380,7 +372,7 @@ Delete the KinD cluster and all resources.
 ```
 
 **Options:**
-- `--name <name>` - Cluster name (default: structures-cluster)
+- `--name <name>` - Cluster name (default: kinotic-cluster)
 - `--force, -f` - Skip confirmation prompt
 
 **Examples:**
@@ -405,12 +397,12 @@ Delete the KinD cluster and all resources.
 
 ## Ingress Architecture
 
-The structures-server uses **two separate Ingress resources** with TLS/HTTPS:
+The kinotic-server uses **two separate Ingress resources** with TLS/HTTPS:
 
 | Ingress | Path | Backend | Features |
 |---------|------|---------|----------|
-| `structures-server-ws` | `/v1` | STOMP (58503) | WebSocket, sticky sessions, long timeouts |
-| `structures-server-http` | `/api/*`, `/graphql/*`, `/*` | REST/GraphQL/UI | Path rewriting, standard timeouts |
+| `kinotic-server-ws` | `/v1` | STOMP (58503) | WebSocket, sticky sessions, long timeouts |
+| `kinotic-server-http` | `/api/*`, `/graphql/*`, `/*` | REST/GraphQL/UI | Path rewriting, standard timeouts |
 
 This architecture:
 - ✅ Works with default nginx-ingress security settings (no `configuration-snippet` needed)
@@ -424,7 +416,7 @@ This architecture:
 
 ### KinD Cluster Configuration
 
-Edit `dev-tools/kind/config/kind-config.yaml` to customize cluster topology:
+Edit `deployment/kind/config/kind-config.yaml` to customize cluster topology:
 
 ```yaml
 kind: Cluster
@@ -432,20 +424,23 @@ apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
     extraPortMappings:
-      - containerPort: 30090
-        hostPort: 9090  # structures-server
+      - containerPort: 80
+        hostPort: 80     # Ingress HTTP
+      - containerPort: 443
+        hostPort: 443    # Ingress HTTPS
   - role: worker
   - role: worker  # Add/remove workers as needed
 ```
 
 ### Helm Values
 
-Edit `dev-tools/kind/config/structures-server/values.yaml` to customize structures-server deployment.
+Edit `deployment/kind/config/kinotic-server/values.yaml` to customize kinotic-server deployment.
 
-Create `dev-tools/kind/config/structures-server/values.local.yaml` for personal overrides (gitignored).
+Create `deployment/kind/config/kinotic-server/values.local.yaml` for personal overrides (gitignored).
 
-Other services have their own values files in `dev-tools/kind/config/<service>/values.yaml`:
-- `elasticsearch/values.yaml` - Elasticsearch configuration
+Other services have their own values files in `deployment/kind/config/<service>/values.yaml`:
+- `eck-operator/values.yaml` - ECK operator resource limits
+- `elasticsearch/values.yaml` - Elasticsearch KinD overrides (applied on top of `helm/elasticsearch/values.yaml`)
 - `postgresql/values.yaml` - PostgreSQL (Keycloak database)
 - `keycloak/values.yaml` - Keycloak OIDC provider
 - `ingress-nginx/values.yaml` - NGINX Ingress Controller
@@ -459,7 +454,7 @@ export KIND_CLUSTER_NAME=my-cluster
 export KIND_CONFIG_PATH=path/to/kind-config.yaml
 
 # Helm configuration
-export HELM_CHART_PATH=./helm/structures
+export HELM_CHART_PATH=./helm/kinotic
 export HELM_VALUES_PATH=path/to/values.yaml
 
 # Feature flags
@@ -487,7 +482,7 @@ brew install mkcert nss && mkcert -install
 ./kind-cluster.sh create
 ./kind-cluster.sh deploy
 
-# Access structures-server via HTTPS
+# Access kinotic-server via HTTPS
 open https://localhost
 ```
 
@@ -498,7 +493,7 @@ open https://localhost
 ./kind-cluster.sh create
 ./kind-cluster.sh deploy --with-keycloak
 
-# Access structures-server (OIDC login required)
+# Access kinotic-server (OIDC login required)
 open https://localhost/login
 
 # Access Keycloak admin console
@@ -547,8 +542,8 @@ If the automatic export failed or you recreated the cluster:
 
 ```bash
 mkdir -p ~/.structures/kind
-kubectl get secret structures-tls-secret -n default \
-  --context kind-structures-cluster \
+kubectl get secret kinotic-tls-secret -n default \
+  --context kind-kinotic-cluster \
   -o jsonpath='{.data.tls\.crt}' | base64 -d > ~/.structures/kind/ca.crt
 ```
 
@@ -565,12 +560,14 @@ This shows the WebSocket/STOMP connection flow and helps identify SSL, network, 
 ### Testing Local Changes
 
 ```bash
-# Make code changes to structures-server
-vim structures-server/src/main/java/...
+# Make code changes to kinotic-server
+vim kinotic-server/src/main/java/...
 
-# Build and deploy updated image
+# Build and load updated image into the cluster
 ./kind-cluster.sh build --load
-./kind-cluster.sh deploy --set image.pullPolicy=Never
+
+# Restart deployment to pick up the new image
+kubectl rollout restart deployment/kinotic-server
 
 # Tail logs to see changes
 ./kind-cluster.sh logs --follow
@@ -610,12 +607,11 @@ vim structures-server/src/main/java/...
 
 **Solution:**
 ```bash
-# Check for conflicting processes on ports 8080, 9090, 8888
-lsof -i :8080
-lsof -i :9090
-lsof -i :8888
+# Check for conflicting processes on ports 80, 443 (used by ingress)
+lsof -i :80
+lsof -i :443
 
-# Stop conflicting processes or edit config/kind-config.yaml to use different ports
+# Stop conflicting processes or edit config/kind-config.yaml to use different host ports
 ```
 
 **Problem:** Docker daemon not running
@@ -633,10 +629,10 @@ lsof -i :8888
 **Solution:** This is automatically handled by the deployment scripts for new clusters. If it occurs on an existing cluster, patch nginx-ingress:
 ```bash
 kubectl patch configmap ingress-nginx-controller -n ingress-nginx \
-  --context kind-structures-cluster --type merge \
+  --context kind-kinotic-cluster --type merge \
   -p '{"data":{"allow-snippet-annotations":"true","annotations-risk-level":"Critical"}}'
 kubectl rollout restart deployment ingress-nginx-controller -n ingress-nginx \
-  --context kind-structures-cluster
+  --context kind-kinotic-cluster
 ./kind-cluster.sh deploy  # Retry
 ```
 
@@ -654,10 +650,10 @@ kubectl describe pod <pod-name>
 
 # Common fixes:
 # 1. If ImagePullBackOff on locally built image:
-./kind-cluster.sh load --image kinoticai/structures-server:<version>
+./kind-cluster.sh load --image kinoticai/kinotic-server:<version>
 
 # 2. If resource constraints:
-# Edit config/structures-server/values.yaml to reduce resource requests
+# Edit config/kinotic-server/values.yaml to reduce resource requests
 ```
 
 **Problem:** Keycloak realm not imported
@@ -708,7 +704,7 @@ sudo chmod 666 /var/run/docker.sock
 kubectl get svc
 
 # Check port forwards are active
-docker ps | grep structures-cluster
+docker ps | grep kinotic-cluster
 
 # Restart cluster if needed
 ./kind-cluster.sh delete --force
@@ -748,7 +744,7 @@ kubectl config use-context kind-cluster1
 ## Files and Directories
 
 ```
-dev-tools/kind/
+deployment/kind/
 ├── kind-cluster.sh                # Main CLI script
 ├── lib/
 │   ├── logging.sh                 # Logging and output functions
@@ -762,12 +758,13 @@ dev-tools/kind/
 │   ├── kind-config.yaml           # KinD cluster configuration
 │   ├── cert-manager/values.yaml   # cert-manager values
 │   ├── coredns/custom-hosts.yaml  # CoreDNS ConfigMap template
-│   ├── elasticsearch/values.yaml  # Elasticsearch Helm values
+│   ├── eck-operator/values.yaml   # ECK operator resource limits
+│   ├── elasticsearch/values.yaml  # Elasticsearch KinD overrides
 │   ├── ingress-nginx/values.yaml  # NGINX Ingress values
 │   ├── keycloak/values.yaml       # Keycloak Helm values
 │   ├── postgresql/values.yaml     # PostgreSQL Helm values
-│   └── structures-server/
-│       ├── values.yaml            # structures-server Helm values
+│   └── kinotic-server/
+│       ├── values.yaml            # kinotic-server Helm values
 │       └── values.local.yaml      # Local overrides (gitignored)
 ├── charts/keycloak/               # Local Keycloak Helm chart
 └── README.md                      # This file

@@ -4,8 +4,8 @@ kind: Service
 metadata:
   name: {{ .Values.continuum.cluster.kubernetesServiceName | default "structures" }}
   labels:
-    app: {{ include "structures.name" . }}
-    chart: {{ include "structures.chart" . }}
+    app: {{ include "kinotic.name" . }}
+    chart: {{ include "kinotic.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
     component: ignite-discovery
@@ -13,7 +13,7 @@ spec:
   # Headless service (no ClusterIP) for Ignite node discovery
   clusterIP: None
   selector:
-    app: {{ include "structures.name" . }}
+    app: {{ include "kinotic.name" . }}
     release: {{ .Release.Name }}
   ports:
     - name: discovery

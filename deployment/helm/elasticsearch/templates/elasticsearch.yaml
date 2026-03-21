@@ -1,0 +1,86 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: {{ include "elasticsearch.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "elasticsearch.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  version: {{ .Values.version | quote }}
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: {{ .Values.http.tls.disabled }}
+    service:
+      spec:
+        type: {{ .Values.http.service.type }}
+        {{- if .Values.http.service.nodePort }}
+        ports:
+          - port: 9200
+            nodePort: {{ .Values.http.service.nodePort }}
+        {{- end }}
+  nodeSets:
+    - name: {{ .Values.nodeSets.name }}
+      count: {{ .Values.nodeSets.count }}
+      config:
+        node.roles: {{ .Values.nodeSets.roles | toJson }}
+        {{- if .Values.nodeSets.config }}
+        {{- toYaml .Values.nodeSets.config | nindent 8 }}
+        {{- end }}
+      podTemplate:
+        spec:
+          {{- if .Values.nodeSets.nodeSelector }}
+          nodeSelector:
+            {{- toYaml .Values.nodeSets.nodeSelector | nindent 12 }}
+          {{- end }}
+          {{- if .Values.nodeSets.tolerations }}
+          tolerations:
+            {{- toYaml .Values.nodeSets.tolerations | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: elasticsearch
+              resources:
+                requests:
+                  memory: {{ .Values.nodeSets.resources.requests.memory | quote }}
+                  cpu: {{ .Values.nodeSets.resources.requests.cpu | quote }}
+                limits:
+                  memory: {{ .Values.nodeSets.resources.limits.memory | quote }}
+                  cpu: {{ .Values.nodeSets.resources.limits.cpu | quote }}
+              {{- if .Values.nodeSets.env }}
+              env:
+                {{- toYaml .Values.nodeSets.env | nindent 16 }}
+              {{- end }}
+          {{- if .Values.nodeSets.initContainers }}
+          initContainers:
+            {{- toYaml .Values.nodeSets.initContainers | nindent 12 }}
+          {{- end }}
+          affinity:
+            podAntiAffinity:
+              {{- if .Values.nodeSets.antiAffinity.required }}
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      elasticsearch.k8s.elastic.co/cluster-name: {{ include "elasticsearch.fullname" . }}
+                  topologyKey: kubernetes.io/hostname
+              {{- else }}
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    labelSelector:
+                      matchLabels:
+                        elasticsearch.k8s.elastic.co/cluster-name: {{ include "elasticsearch.fullname" . }}
+                    topologyKey: kubernetes.io/hostname
+              {{- end }}
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            {{- if .Values.nodeSets.storage.storageClassName }}
+            storageClassName: {{ .Values.nodeSets.storage.storageClassName | quote }}
+            {{- end }}
+            resources:
+              requests:
+                storage: {{ .Values.nodeSets.storage.size | quote }}

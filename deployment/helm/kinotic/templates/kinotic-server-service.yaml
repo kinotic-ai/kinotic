@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "structures-server.fullname" . }}
+  name: {{ include "kinotic-server.fullname" . }}
 spec:
   type: {{ .Values.service.type | default "LoadBalancer" }}
   sessionAffinity: ClientIP
@@ -30,4 +30,4 @@ spec:
       port: 58504 # Continuum REST Port
       targetPort: 58504
   selector:
-    app: {{ include "structures-server.name" . }}
+    app: {{ include "kinotic-server.name" . }}

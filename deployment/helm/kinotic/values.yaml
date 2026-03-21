@@ -2,7 +2,7 @@ replicaCount: 1
 nameOverride: ""
 
 image:
-  repository: kinoticai/structures-server
+  repository: kinoticai/kinotic-server
   pullPolicy: Always
   tag: "3.5.2"
   sha: ""
@@ -14,7 +14,7 @@ migration:
   backoffLimit: 3
   activeDeadlineSeconds: 300
   image:
-    repository: kinoticai/structures-migration
+    repository: kinoticai/kinotic-migration
     tag: "3.5.2"
     pullPolicy: Always
     sha: ""
@@ -47,8 +47,11 @@ properties:
           scheme: "https"
       connectionTimeout: "1M"
       socketTimeout: "1M"
-      username: "structures"
-      password: "asdfsda898u7fsad8sfa@sdfa"
+      username: "elastic"
+      # Kubernetes secret containing the ES password (required).
+      # ECK creates a secret named <cluster>-es-elastic-user with key "elastic".
+      secretName: ""   # e.g., "kinotic-es-es-elastic-user"
+      secretKey: "elastic"
     ai:
       apiKey: "noop"
       baseUrl: "https://api.x.ai"
@@ -99,8 +102,8 @@ oidc:
         - "example.com"
       roles:
         - "admin"
-      audience: "structures-client"
-      clientId: "structures-client"
+      audience: "kinotic-client"
+      clientId: "kinotic-client"
       authority: "http://keycloak:8888/auth/realms/test"
       redirectUri: "http://localhost:9090/login"
       postLogoutRedirectUri: "http://localhost:9090"
@@ -114,7 +117,7 @@ evictionTracking:
   # Mount path inside the container for eviction data
   mountPath: "/eviction-data"
   # Host path on the Kubernetes node (for hostPath volume)
-  hostPath: "/tmp/structures-eviction-data"
+  hostPath: "/tmp/kinotic-eviction-data"
 
 nodeSelector: {}
 
@@ -134,7 +137,7 @@ ingress:
   tls:
     enabled: false
     # Secret name for TLS certificate
-    secretName: structures-tls-secret
+    secretName: kinotic-tls-secret
     # Set to true if TLS secret is created externally (e.g., by mkcert)
     # When false, cert-manager will create a self-signed certificate
     existingSecret: false
