@@ -22,7 +22,7 @@ source "${LIB_DIR}/cluster.sh"
 # shellcheck source=deployment/kind/lib/deploy.sh
 source "${LIB_DIR}/deploy.sh"
 # shellcheck source=deployment/kind/lib/images.sh
-source "${LIB_DIR}/images.sh"
+source "${LIB_DIR}/images.sh"  # Only needed for optional 'build' and 'load' commands
 # shellcheck source=deployment/kind/lib/node_update.sh
 source "${LIB_DIR}/node_update.sh"
 
@@ -50,13 +50,13 @@ Usage: $(basename "$0") <subcommand> [options]
 
 Subcommands:
   create    Create a new KinD cluster
-  deploy    Deploy structures-server and dependencies
-  build     Build structures-server Docker image
-  load      Load Docker image into cluster
+  deploy    Deploy kinotic-server and dependencies (images pulled from Docker Hub)
+  build     Build kinotic-server Docker image locally (optional, for testing local changes)
+  load      Load a locally-built Docker image into cluster (optional, for testing local changes)
   status    Display cluster and deployment status
   node-update  Simulate node update (cordon/drain/restart)
   delete    Delete the KinD cluster
-  logs      Display logs from structures-server
+  logs      Display logs from kinotic-server
   help      Show this help message
 
 Global Options:
@@ -65,9 +65,9 @@ Global Options:
   --help, -h          Show this help message
 
 Environment Variables:
-  KIND_CLUSTER_NAME        Cluster name (default: structures-cluster)
+  KIND_CLUSTER_NAME        Cluster name (default: kinotic-cluster)
   KIND_CONFIG_PATH         Path to kind-config.yaml
-  HELM_VALUES_PATH         Path to structures-server values.yaml
+  HELM_VALUES_PATH         Path to kinotic-server values.yaml
   HELM_CHART_PATH          Path to structures Helm chart
   VERBOSE                  Enable verbose output (0/1)
   DRY_RUN                  Dry run mode (0/1)
@@ -81,7 +81,7 @@ Examples:
   # Create a cluster with defaults
   $(basename "$0") create
 
-  # Deploy structures-server with Elasticsearch only
+  # Deploy kinotic-server with Elasticsearch only
   $(basename "$0") deploy
 
   # Deploy with Keycloak for OIDC authentication
@@ -194,7 +194,7 @@ Create a new KinD cluster for structures testing
 Usage: $(basename "$0") create [options]
 
 Options:
-  --name <name>            Cluster name (default: structures-cluster)
+  --name <name>            Cluster name (default: kinotic-cluster)
   --config <path>          Path to kind-config.yaml (default: config/kind-config.yaml)
   --k8s-version <version>  Kubernetes version (default: latest)
   --force                  Recreate if cluster exists
@@ -279,7 +279,7 @@ EOF
     
     # Show next steps
     section "Next Steps"
-    progress "Deploy structures-server: $(basename "$0") deploy"
+    progress "Deploy kinotic-server: $(basename "$0") deploy"
     progress "Check status: $(basename "$0") status"
     progress "View logs: $(basename "$0") logs"
     blank_line
@@ -340,17 +340,17 @@ cmd_deploy() {
                 ;;
             --help|-h)
                 cat <<EOF
-Deploy structures-server and dependencies to the KinD cluster
+Deploy kinotic-server and dependencies to the KinD cluster
 
 Usage: $(basename "$0") deploy [options]
 
 Options:
-  --name <name>            Cluster name (default: structures-cluster)
-  --chart <path>           Path to Helm chart (default: ./helm/structures)
-  --values <path>          Path to values file (default: config/structures-server/values.yaml)
+  --name <name>            Cluster name (default: kinotic-cluster)
+  --chart <path>           Path to Helm chart (default: ./helm/kinotic)
+  --values <path>          Path to values file (default: config/kinotic-server/values.yaml)
   --set <key=value>        Override Helm values (can be used multiple times)
   --with-deps              Deploy dependencies (Elasticsearch) - default
-  --no-deps                Skip dependencies (deploy only structures-server)
+  --no-deps                Skip dependencies (deploy only kinotic-server)
   --with-keycloak, -k      Deploy Keycloak + PostgreSQL and enable OIDC authentication
   --with-observability     Deploy observability stack (OTEL, Prometheus, Grafana)
   --with-load-generator    Run load generator after deployment (generates schemas/test data)
@@ -464,7 +464,7 @@ EOF
     # Deploy Keycloak if requested (includes PostgreSQL)
     if [[ "${DEPLOY_KEYCLOAK}" == "1" ]]; then
         section "Deploying Keycloak (OIDC Provider)"
-        progress "OIDC authentication will be enabled in structures-server"
+        progress "OIDC authentication will be enabled in kinotic-server"
         
         # Deploy PostgreSQL (required by Keycloak)
         if ! deploy_postgresql "${CLUSTER_NAME}"; then
@@ -496,8 +496,8 @@ EOF
         blank_line
     fi
     
-    # Deploy structures-server
-    section "Deploying structures-server"
+    # Deploy kinotic-server
+    section "Deploying kinotic-server"
     
     # Build additional sets string
     local additional_sets=""
@@ -512,52 +512,19 @@ EOF
         additional_sets="${helm_sets[*]}"
     fi
 
-    # Build and load structures-server 
-    cmd_build "--load"
-    
-    # Build and load structures-migration (used by Helm pre-upgrade hook)
-    section "Building structures-migration"
-    progress "Running: ./gradlew :structures-migration:bootBuildImage"
-    progress "This may take a few minutes..."
-    blank_line
-    
-    export RUNNING_KIND_CLUSTER="true"
-    if ! execute ./gradlew ":structures-migration:bootBuildImage" 2>&1 | while IFS= read -r line; do
-        if [[ "${line}" == *"BUILD"* ]] || \
-           [[ "${line}" == *"Successfully built"* ]] || \
-           [[ "${line}" == *"Paketo"* ]] || \
-           [[ "${line}" == *"Error"* ]] || \
-           [[ "${line}" == *"FAIL"* ]] || \
-           [[ "${VERBOSE}" == "1" ]]; then
-            echo "  ${line}"
-        fi
-    done; then
-        error "Failed to build structures-migration image"
-        return "${EXIT_DEPLOYMENT_FAILED}"
-    fi
-    
-    local migration_image
-    migration_image=$(get_migration_image_name) || return "${EXIT_DEPLOYMENT_FAILED}"
-    
-    section "Loading Migration Image into Cluster"
-    if ! load_image_into_cluster "${CLUSTER_NAME}" "${migration_image}"; then
-        error "Failed to load migration image into cluster"
-        return "${EXIT_DEPLOYMENT_FAILED}"
-    fi
-    blank_line
-    
+    # Deploy kinotic-server (images pulled from Docker Hub)
     if ! deploy_structures_server "${CLUSTER_NAME}" "${additional_sets}"; then
         error "Deployment failed"
         echo ""
         echo "Troubleshooting:"
         echo "  - Check pod status: kubectl --context ${context} get pods"
-        echo "  - Check logs: kubectl --context ${context} logs -l app=structures-server"
+        echo "  - Check logs: kubectl --context ${context} logs -l app=kinotic-server"
         echo "  - Check events: kubectl --context ${context} get events --sort-by='.lastTimestamp'"
         echo ""
         return "${EXIT_DEPLOYMENT_FAILED}"
     fi
     
-    # Run load generator if requested (after structures-server is healthy)
+    # Run load generator if requested (after kinotic-server is healthy)
     if [[ "${DEPLOY_LOAD_GENERATOR}" == "1" ]]; then
         section "Running Load Generator"
         # Ensure CoreDNS resolves structures.local to the ingress controller
@@ -605,7 +572,7 @@ EOF
         warning "TLS certificate not yet available (cert-manager may still be provisioning)"
         progress "Export manually once available:"
         progress "   mkdir -p ~/.structures/kind"
-        progress "   kubectl get secret structures-tls-secret -n default \\"
+        progress "   kubectl get secret kinotic-tls-secret -n default \\"
         progress "     --context kind-${CLUSTER_NAME} \\"
         progress "     -o jsonpath='{.data.tls\\.crt}' | base64 -d > ~/.structures/kind/ca.crt"
     fi
@@ -624,7 +591,7 @@ EOF
 }
 
 cmd_build() {
-    local module="structures-server"
+    local module="kinotic-server"
     local auto_load=false
     
     # Parse subcommand options
@@ -640,12 +607,12 @@ cmd_build() {
                 ;;
             --help|-h)
                 cat <<EOF
-Build Docker image for structures-server using Gradle bootBuildImage
+Build Docker image for kinotic-server using Gradle bootBuildImage
 
 Usage: $(basename "$0") build [options]
 
 Options:
-  --module <name>      Gradle module to build (default: structures-server)
+  --module <name>      Gradle module to build (default: kinotic-server)
   --load               Load image into cluster after build
   --help, -h           Show this help message
 
@@ -657,7 +624,7 @@ Examples:
   $(basename "$0") build --load
 
   # Build specific module
-  $(basename "$0") build --module structures-server
+  $(basename "$0") build --module kinotic-server
 
 EOF
                 return "${EXIT_SUCCESS}"
@@ -719,7 +686,7 @@ Load Docker image into KinD cluster nodes
 Usage: $(basename "$0") load [options]
 
 Options:
-  --name <name>        Cluster name (default: structures-cluster)
+  --name <name>        Cluster name (default: kinotic-cluster)
   --image <name>       Full image name (default: from gradle.properties)
   --help, -h           Show this help message
 
@@ -728,7 +695,7 @@ Examples:
   $(basename "$0") load
 
   # Load specific image
-  $(basename "$0") load --image kinoticai/structures-server:0.5.0
+  $(basename "$0") load --image kinoticai/kinotic-server:0.5.0
 
   # Load into specific cluster
   $(basename "$0") load --name test-cluster
@@ -785,7 +752,7 @@ Display cluster and deployment status
 Usage: $(basename "$0") status [options]
 
 Options:
-  --name <name>     Cluster name (default: structures-cluster)
+  --name <name>     Cluster name (default: kinotic-cluster)
   --watch, -w       Watch status updates (refresh every 2 seconds)
   --help, -h        Show this help message
 
@@ -886,7 +853,7 @@ Simulate KinD node updates (cordon → drain → docker restart → uncordon).
 Usage: $(basename "$0") node-update [options]
 
 Options:
-  --name <name>                 Cluster name (default: structures-cluster)
+  --name <name>                 Cluster name (default: kinotic-cluster)
   --node <nodeName>             Target a specific node (repeatable). If omitted, targets worker nodes.
   --include-control-plane       Also include control-plane node (NOT recommended by default)
   --iterations <n>              Number of times to cycle through selected nodes (default: 1)
@@ -907,7 +874,7 @@ Examples:
   $(basename "$0") node-update --iterations 10 --sleep-between 30
 
   # Target a single node explicitly
-  $(basename "$0") node-update --node structures-cluster-worker
+  $(basename "$0") node-update --node kinotic-cluster-worker
 
 EOF
                 return "${EXIT_SUCCESS}"
@@ -1021,7 +988,7 @@ Delete the KinD cluster and all resources
 Usage: $(basename "$0") delete [options]
 
 Options:
-  --name <name>     Cluster name (default: structures-cluster)
+  --name <name>     Cluster name (default: kinotic-cluster)
   --force, -f       Skip confirmation prompt
   --help, -h        Show this help message
 
@@ -1072,7 +1039,7 @@ EOF
 cmd_logs() {
     local follow=false
     local tail="100"
-    local selector="app=structures-server"
+    local selector="app=kinotic-server"
     
     # Parse subcommand options
     while [[ $# -gt 0 ]]; do
@@ -1095,15 +1062,15 @@ cmd_logs() {
                 ;;
             --help|-h)
                 cat <<EOF
-Display logs from structures-server pods
+Display logs from kinotic-server pods
 
 Usage: $(basename "$0") logs [options]
 
 Options:
-  --name <name>         Cluster name (default: structures-cluster)
+  --name <name>         Cluster name (default: kinotic-cluster)
   --follow, -f          Follow log output
   --tail <n>            Show last N lines (default: 100)
-  --selector, -l <sel>  Pod selector (default: app=structures-server)
+  --selector, -l <sel>  Pod selector (default: app=kinotic-server)
   --help, -h            Show this help message
 
 Examples:

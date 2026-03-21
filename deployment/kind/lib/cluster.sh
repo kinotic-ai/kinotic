@@ -22,7 +22,7 @@ source "${LIB_SCRIPT_DIR}/config.sh"
 # Returns:
 #   0 if exists, 1 otherwise
 # Example:
-#   cluster_exists "structures-cluster" && echo "exists"
+#   cluster_exists "kinotic-cluster" && echo "exists"
 #
 cluster_exists() {
     local cluster_name="$1"
@@ -36,7 +36,7 @@ cluster_exists() {
 # Returns:
 #   0 if safe, EXIT_UNSAFE_OPERATION_BLOCKED otherwise
 # Example:
-#   verify_safe_context "structures-cluster" || exit $?
+#   verify_safe_context "kinotic-cluster" || exit $?
 #
 verify_safe_context() {
     local cluster_name="$1"
@@ -78,7 +78,7 @@ verify_safe_context() {
 # Returns:
 #   0 on success, EXIT_CLUSTER_OPERATION_FAILED otherwise
 # Example:
-#   create_cluster "structures-cluster" "config/kind-config.yaml" "v1.28.0"
+#   create_cluster "kinotic-cluster" "config/kind-config.yaml" "v1.28.0"
 #
 create_cluster() {
     local cluster_name="$1"
@@ -113,7 +113,7 @@ create_cluster() {
 # Returns:
 #   0 if ready, EXIT_CLUSTER_OPERATION_FAILED otherwise
 # Example:
-#   wait_for_cluster_ready "structures-cluster" 600
+#   wait_for_cluster_ready "kinotic-cluster" 600
 #
 wait_for_cluster_ready() {
     local cluster_name="$1"
@@ -146,7 +146,7 @@ wait_for_cluster_ready() {
 # Args:
 #   $1: Cluster name
 # Example:
-#   display_cluster_info "structures-cluster"
+#   display_cluster_info "kinotic-cluster"
 #
 display_cluster_info() {
     local cluster_name="$1"
@@ -200,7 +200,7 @@ display_cluster_info() {
 # Returns:
 #   0 on success, EXIT_CLUSTER_OPERATION_FAILED otherwise, EXIT_USER_CANCELLED if user cancels
 # Example:
-#   delete_cluster "structures-cluster" "true"
+#   delete_cluster "kinotic-cluster" "true"
 #
 delete_cluster() {
     local cluster_name="$1"
@@ -245,7 +245,7 @@ delete_cluster() {
 # Returns:
 #   0 if cluster running, 1 otherwise
 # Example:
-#   get_cluster_status "structures-cluster"
+#   get_cluster_status "kinotic-cluster"
 #
 get_cluster_status() {
     local cluster_name="$1"
@@ -296,11 +296,11 @@ get_cluster_status() {
 # Stream logs from pods
 # Args:
 #   $1: Cluster name
-#   $2: Pod selector (e.g., "app=structures-server")
+#   $2: Pod selector (e.g., "app=kinotic-server")
 #   $3: Follow flag (true/false)
 #   $4: Tail lines (number)
 # Example:
-#   stream_logs "structures-cluster" "app=structures-server" "true" "100"
+#   stream_logs "kinotic-cluster" "app=kinotic-server" "true" "100"
 #
 stream_logs() {
     local cluster_name="$1"

@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kinotic-server.fullname" . }}
+data:
+  # ── JVM / Buildpack ───────────────────────────────────────
+  SPRING_PROFILES_ACTIVE: "{{ .Values.properties.springActiveProfiles }}"
+  JAVA_TOOL_OPTIONS: "{{ .Values.properties.javaToolOptions }}"
+  BPL_JVM_HEAD_ROOM: "{{ .Values.properties.bplJvmHeadRoom }}"
+  BPL_JAVA_NMT_ENABLED: "{{ .Values.properties.enableNmt }}"
+  BPL_JMX_ENABLED: "{{ .Values.properties.enableJmx }}"
+
+  # ── Elasticsearch connection (environment-specific) ───────
+  # Credentials are injected via secretKeyRef in the deployment, not here.
+  {{ range $index,$value:= .Values.properties.structures.elastic.connections }}
+  KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_{{ $index }}_SCHEME: "{{ $value.scheme }}"
+  KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_{{ $index }}_HOST: "{{ $value.host }}"
+  KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
+  {{ end }}
+
+  # ── AI (environment-specific) ─────────────────────────────
+  SPRING_AI_OPENAI_BASE_URL: "{{ .Values.properties.structures.ai.baseUrl }}"
+  SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "{{ .Values.properties.structures.ai.model }}"
+  SPRING_AI_OPENAI_API_KEY: "{{ .Values.properties.structures.ai.apiKey }}"
+
+  {{- if .Values.evictionTracking.enabled }}
+  # ── Eviction tracking ─────────────────────────────────────
+  KINOTIC_CACHE_EVICTION_CSV_PATH: "{{ .Values.evictionTracking.mountPath | default "/eviction-data" }}/evictions-${POD_NAME}.csv"
+  {{- end }}
+
+  {{- if .Values.oidc.enabled }}
+  # ── OIDC providers (environment-specific) ──────────────────
+  OIDC_SECURITY_SERVICE_DEBUG: "{{ .Values.oidc.debug }}"
+  OIDC_SECURITY_SERVICE_FRONTEND_CONFIGURATION_PATH: "{{ .Values.oidc.frontendConfigurationPath }}"
+  {{- range $index,$value:= .Values.oidc.oidcProviders }}
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_PROVIDER: "{{ $value.provider }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_DISPLAY_NAME: "{{ $value.displayName }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_ENABLED: "{{ $value.enabled }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_ROLES_CLAIM_PATH: "{{ $value.rolesClaimPath }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_AUDIENCE: "{{ $value.audience }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_CLIENT_ID: "{{ $value.clientId }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_AUTHORITY: "{{ $value.authority }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_REDIRECT_URI: "{{ $value.redirectUri }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_POST_LOGOUT_REDIRECT_URI: "{{ $value.postLogoutRedirectUri }}"
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_SILENT_REDIRECT_URI: "{{ $value.silentRedirectUri }}"
+  {{- range $domainIndex,$domainValue:= $value.domains }}
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_DOMAINS_{{ $domainIndex }}: "{{ $domainValue }}"
+  {{- end }}
+  {{- range $roleIndex,$roleValue:= $value.roles }}
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_ROLES_{{ $roleIndex }}: "{{ $roleValue }}"
+  {{- end }}
+  {{- end }}
+  {{- end }}

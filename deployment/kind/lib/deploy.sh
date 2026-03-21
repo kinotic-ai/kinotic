@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Deployment Functions for structures-server and dependencies
+# Deployment Functions for kinotic-server and dependencies
 # Handles Helm deployments, health checks, and configuration
 #
 
@@ -69,7 +69,7 @@ add_helm_repos() {
 # Returns:
 #   0 on success, 1 on failure
 # Example:
-#   deploy_postgresql "structures-cluster"
+#   deploy_postgresql "kinotic-cluster"
 #
 deploy_postgresql() {
     local cluster_name="$1"
@@ -118,7 +118,7 @@ deploy_postgresql() {
 # Returns:
 #   0 on success, 1 on failure
 # Example:
-#   create_keycloak_realm_configmap "structures-cluster"
+#   create_keycloak_realm_configmap "kinotic-cluster"
 #
 create_keycloak_realm_configmap() {
     local cluster_name="$1"
@@ -158,7 +158,7 @@ create_keycloak_realm_configmap() {
 # Returns:
 #   0 on success, 1 on failure
 # Example:
-#   deploy_keycloak "structures-cluster"
+#   deploy_keycloak "kinotic-cluster"
 #
 deploy_keycloak() {
     local cluster_name="$1"
@@ -217,7 +217,7 @@ deploy_keycloak() {
 # Returns:
 #   0 on success, 1 on failure
 # Example:
-#   deploy_nginx_ingress "structures-cluster"
+#   deploy_nginx_ingress "kinotic-cluster"
 #
 deploy_nginx_ingress() {
     local cluster_name="$1"
@@ -275,7 +275,7 @@ deploy_nginx_ingress() {
 # Returns:
 #   0 on success, 1 on failure
 # Example:
-#   configure_coredns_custom_hosts "structures-cluster" "structures.local"
+#   configure_coredns_custom_hosts "kinotic-cluster" "structures.local"
 #
 configure_coredns_custom_hosts() {
     local cluster_name="$1"
@@ -363,7 +363,7 @@ configure_coredns_custom_hosts() {
 # Returns:
 #   0 on success, 1 on failure
 # Example:
-#   install_cert_manager "kind-structures-cluster"
+#   install_cert_manager "kind-kinotic-cluster"
 #
 install_cert_manager() {
     local context="$1"
@@ -418,12 +418,12 @@ install_cert_manager() {
 # Returns:
 #   0 on success, sets MKCERT_USED=true/false
 # Example:
-#   setup_tls "kind-structures-cluster" "default"
+#   setup_tls "kind-kinotic-cluster" "default"
 #
 setup_tls() {
     local context="$1"
     local namespace="${2:-default}"
-    local secret_name="structures-tls-secret"
+    local secret_name="kinotic-tls-secret"
     
     section "TLS Certificate Setup"
     
@@ -524,7 +524,7 @@ setup_tls() {
 # Returns:
 #   0 on success, 1 on failure (non-fatal, just logs warning)
 # Example:
-#   export_tls_certificate "structures-cluster"
+#   export_tls_certificate "kinotic-cluster"
 #
 export_tls_certificate() {
     local cluster_name="$1"
@@ -548,7 +548,7 @@ export_tls_certificate() {
         if [[ -n "${mkcert_ca_root}" && -f "${mkcert_ca_root}/rootCA.pem" ]]; then
             # Check if the deployed cert was signed by mkcert
             local server_issuer
-            server_issuer=$(kubectl get secret structures-tls-secret -n default \
+            server_issuer=$(kubectl get secret kinotic-tls-secret -n default \
                 --context "${context}" \
                 -o jsonpath='{.data.tls\.crt}' 2>/dev/null | base64 -d | \
                 openssl x509 -noout -issuer 2>/dev/null || echo "")
@@ -576,7 +576,7 @@ export_tls_certificate() {
     local attempt=0
     
     while [[ ${attempt} -lt ${max_attempts} ]]; do
-        if kubectl get secret structures-tls-secret -n default --context "${context}" &>/dev/null; then
+        if kubectl get secret kinotic-tls-secret -n default --context "${context}" &>/dev/null; then
             break
         fi
         ((attempt++))
@@ -593,7 +593,7 @@ export_tls_certificate() {
     fi
     
     # Export the certificate
-    if kubectl get secret structures-tls-secret -n default \
+    if kubectl get secret kinotic-tls-secret -n default \
         --context "${context}" \
         -o jsonpath='{.data.tls\.crt}' 2>/dev/null | base64 -d > "${cert_file}" 2>/dev/null; then
         
@@ -620,7 +620,7 @@ export_tls_certificate() {
 # Returns:
 #   0 on success, 1 on failure
 # Example:
-#   deploy_eck_operator "structures-cluster"
+#   deploy_eck_operator "kinotic-cluster"
 #
 deploy_eck_operator() {
     local cluster_name="$1"
@@ -691,7 +691,7 @@ deploy_eck_operator() {
 # Returns:
 #   0 on success, 1 on failure
 # Example:
-#   deploy_elasticsearch "structures-cluster"
+#   deploy_elasticsearch "kinotic-cluster"
 #
 deploy_elasticsearch() {
     local cluster_name="$1"
@@ -743,7 +743,7 @@ deploy_elasticsearch() {
         echo "Check Elasticsearch resource:"
         echo "  kubectl get elasticsearch --context ${context}"
         echo "Check pods:"
-        echo "  kubectl get pods -l elasticsearch.k8s.elastic.co/cluster-name=structures-es --context ${context}"
+        echo "  kubectl get pods -l elasticsearch.k8s.elastic.co/cluster-name=kinotic-es --context ${context}"
         echo "Check events:"
         echo "  kubectl get events --context ${context} --sort-by='.lastTimestamp' | tail -20"
         echo ""
@@ -758,16 +758,16 @@ deploy_elasticsearch() {
 
     while [[ ${elapsed} -lt ${max_wait} ]]; do
         local health
-        health=$(kubectl --context "${context}" get elasticsearch structures-es \
+        health=$(kubectl --context "${context}" get elasticsearch kinotic-es \
             -o jsonpath='{.status.health}' 2>/dev/null)
 
         if [[ "${health}" == "green" || "${health}" == "yellow" ]]; then
-            success "Elasticsearch cluster is ${health} ($(kubectl --context "${context}" get elasticsearch structures-es -o jsonpath='{.status.availableNodes}' 2>/dev/null) nodes available)"
+            success "Elasticsearch cluster is ${health} ($(kubectl --context "${context}" get elasticsearch kinotic-es -o jsonpath='{.status.availableNodes}' 2>/dev/null) nodes available)"
             return 0
         fi
 
         local phase
-        phase=$(kubectl --context "${context}" get elasticsearch structures-es \
+        phase=$(kubectl --context "${context}" get elasticsearch kinotic-es \
             -o jsonpath='{.status.phase}' 2>/dev/null)
         verbose "Elasticsearch phase: ${phase:-unknown}, health: ${health:-unknown} (${elapsed}s/${max_wait}s)"
 
@@ -777,27 +777,27 @@ deploy_elasticsearch() {
 
     warning "Elasticsearch did not reach green/yellow health within ${max_wait}s"
     progress "Current status:"
-    kubectl --context "${context}" get elasticsearch structures-es 2>&1 || true
-    kubectl --context "${context}" get pods -l elasticsearch.k8s.elastic.co/cluster-name=structures-es 2>&1 || true
+    kubectl --context "${context}" get elasticsearch kinotic-es 2>&1 || true
+    kubectl --context "${context}" get pods -l elasticsearch.k8s.elastic.co/cluster-name=kinotic-es 2>&1 || true
     return 0
 }
 
 #
-# Deploy structures-server via Helm
+# Deploy kinotic-server via Helm
 # Args:
 #   $1: Cluster name
 #   $2: Additional Helm set flags (optional)
 # Returns:
 #   0 on success, 1 on failure
 # Example:
-#   deploy_structures_server "structures-cluster" "--set replicaCount=3"
+#   deploy_structures_server "kinotic-cluster" "--set replicaCount=3"
 #
 deploy_structures_server() {
     local cluster_name="$1"
     local context="kind-${cluster_name}"
     local additional_sets="${2:-}"
     
-    progress "Deploying structures-server..."
+    progress "Deploying kinotic-server..."
     
     # Setup TLS certificates (mkcert or cert-manager fallback)
     setup_tls "${context}" "default"
@@ -819,7 +819,7 @@ deploy_structures_server() {
     
     # Build helm command
     local helm_cmd=(
-        helm upgrade --install structures-server "${HELM_CHART_PATH}"
+        helm upgrade --install kinotic-server "${HELM_CHART_PATH}"
         --kube-context "${context}"
     )
     
@@ -854,7 +854,7 @@ deploy_structures_server() {
     verbose "Executing: ${helm_cmd[*]}"
     
     # Execute helm command with detailed output
-    progress "Installing/upgrading structures-server Helm release..."
+    progress "Installing/upgrading kinotic-server Helm release..."
     local helm_output
     helm_output=$("${helm_cmd[@]}" 2>&1)
     local helm_result=$?
@@ -865,7 +865,7 @@ deploy_structures_server() {
     done
     
     if [[ ${helm_result} -ne 0 ]]; then
-        error "Failed to deploy structures-server"
+        error "Failed to deploy kinotic-server"
         echo ""
         
         # Show detailed diagnostics
@@ -873,11 +873,11 @@ deploy_structures_server() {
         echo ""
         
         progress "1. Checking pod status..."
-        kubectl get pods --context "${context}" -l app.kubernetes.io/name=structures-server 2>&1 || true
+        kubectl get pods --context "${context}" -l app.kubernetes.io/name=kinotic-server 2>&1 || true
         echo ""
         
         progress "2. Checking pod details..."
-        kubectl describe pods --context "${context}" -l app.kubernetes.io/name=structures-server 2>&1 | tail -50 || true
+        kubectl describe pods --context "${context}" -l app.kubernetes.io/name=kinotic-server 2>&1 | tail -50 || true
         echo ""
         
         progress "3. Checking recent events..."
@@ -887,23 +887,23 @@ deploy_structures_server() {
         echo ""
         
         progress "4. Checking service status..."
-        kubectl get svc --context "${context}" -l app.kubernetes.io/name=structures-server 2>&1 || true
+        kubectl get svc --context "${context}" -l app.kubernetes.io/name=kinotic-server 2>&1 || true
         echo ""
         
         # Check if there are any existing pods with logs
         local pod_count
         pod_count=$(kubectl get pods --context "${context}" \
-            -l app.kubernetes.io/name=structures-server \
+            -l app.kubernetes.io/name=kinotic-server \
             -o name 2>/dev/null | wc -l | tr -d ' ')
         
         if [[ ${pod_count} -gt 0 ]]; then
-            progress "5. Recent logs from structures-server pod(s):"
+            progress "5. Recent logs from kinotic-server pod(s):"
             kubectl logs --context "${context}" \
-                -l app.kubernetes.io/name=structures-server \
+                -l app.kubernetes.io/name=kinotic-server \
                 --tail=50 \
                 --all-containers=true 2>&1 || true
         else
-            warning "No structures-server pods found to retrieve logs from"
+            warning "No kinotic-server pods found to retrieve logs from"
         fi
         
         return 1
@@ -913,7 +913,7 @@ deploy_structures_server() {
     progress "Verifying deployment..."
     local ready_pods
     ready_pods=$(kubectl get pods --context "${context}" \
-        -l app.kubernetes.io/name=structures-server \
+        -l app.kubernetes.io/name=kinotic-server \
         -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null | grep -c "True" || echo "0")
 
     echo "Ready pods: ${ready_pods}"
@@ -921,13 +921,13 @@ deploy_structures_server() {
     if [[ ${ready_pods} -lt 1 ]]; then
         warning "Deployment completed but pods are not ready yet"
         progress "Current pod status:"
-        kubectl get pods --context "${context}" -l app.kubernetes.io/name=structures-server 2>&1 || true
+        kubectl get pods --context "${context}" -l app.kubernetes.io/name=kinotic-server 2>&1 || true
     else
-        success "structures-server deployed successfully (${ready_pods} pod(s) ready)"
+        success "kinotic-server deployed successfully (${ready_pods} pod(s) ready)"
         
         # Show service information
         progress "Service endpoints:"
-        kubectl get svc --context "${context}" -l app.kubernetes.io/name=structures-server 2>&1 || true
+        kubectl get svc --context "${context}" -l app.kubernetes.io/name=kinotic-server 2>&1 || true
     fi
     
     return 0
@@ -935,13 +935,13 @@ deploy_structures_server() {
 
 #
 # Deploy load generator via standalone Helm chart
-# Runs as a Job that generates schemas and test data against structures-server
+# Runs as a Job that generates schemas and test data against kinotic-server
 # Args:
 #   $1: Cluster name
 # Returns:
 #   0 on success, 1 on failure
 # Example:
-#   deploy_load_generator "structures-cluster"
+#   deploy_load_generator "kinotic-cluster"
 #
 deploy_load_generator() {
     local cluster_name="$1"
@@ -994,13 +994,13 @@ deploy_load_generator() {
 # Wait for pods to be ready
 # Args:
 #   $1: Cluster name
-#   $2: Selector (e.g., "app=structures-server")
+#   $2: Selector (e.g., "app=kinotic-server")
 #   $3: Expected count
 #   $4: Timeout in seconds (default: 300)
 # Returns:
 #   0 if ready, 1 on timeout
 # Example:
-#   wait_for_pods_ready "structures-cluster" "app=structures-server" 2 300
+#   wait_for_pods_ready "kinotic-cluster" "app=kinotic-server" 2 300
 #
 wait_for_pods_ready() {
     local cluster_name="$1"
@@ -1052,7 +1052,7 @@ check_health() {
 # Args:
 #   $1: Cluster name
 # Example:
-#   display_deployment_status "structures-cluster"
+#   display_deployment_status "kinotic-cluster"
 #
 display_deployment_status() {
     local cluster_name="$1"
@@ -1113,20 +1113,15 @@ display_deployment_status() {
     progress "  wss://localhost/v1         - STOMP WebSocket"
     blank_line
     
-    progress "Via NodePort (direct, no TLS):"
-    progress "  http://localhost:9090      - Static UI"
-    progress "  http://localhost:8080      - OpenAPI REST"
-    progress "  http://localhost:4000      - GraphQL"
-    progress "  ws://localhost:58503       - STOMP WebSocket"
-    blank_line
-    
-    progress "Health check: http://localhost:9090/health"
+    progress "Direct access (kubectl port-forward):"
+    progress "  kubectl port-forward svc/kinotic-es-es-http 9200:9200   - Elasticsearch"
 
     if [[ "${OIDC_ENABLED:-false}" == "true" ]]; then
+        progress "  kubectl port-forward svc/keycloak-db-postgresql 5432:5432  - PostgreSQL"
+        progress "  kubectl port-forward svc/keycloak 8888:8888                - Keycloak"
         blank_line
-        progress "Keycloak: "
+        progress "Keycloak (after port-forward):"
         progress "  Test Structures User: testuser@example.com/password123"
-        progress "  http://localhost:8888/auth"
         progress "  Admin: http://localhost:8888/auth/admin (admin/admin)"
     fi
     

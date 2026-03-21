@@ -3,9 +3,9 @@
 # Override with environment-specific values files (e.g. values-kind.yaml).
 
 nameOverride: ""
-fullnameOverride: "structures-es"
+fullnameOverride: "kinotic-es"
 
-version: "8.18.1"
+version: "8.19.13"
 
 http:
   tls:

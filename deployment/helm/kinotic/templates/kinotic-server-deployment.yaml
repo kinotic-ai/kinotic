@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "structures-server.fullname" . }}
+  name: {{ include "kinotic-server.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: {{ include "structures-server.name" . }}
+      app: {{ include "kinotic-server.name" . }}
   template:
     metadata:
       labels:
-        app: {{ include "structures-server.name" . }}
+        app: {{ include "kinotic-server.name" . }}
         release: {{ .Release.Name }}
     spec:
-      serviceAccountName: {{ include "structures-server.fullname" . }}
+      serviceAccountName: {{ include "kinotic-server.fullname" . }}
       terminationGracePeriodSeconds: 60  # Allow time for WebSocket connections to close gracefully
       containers:
-        - name: structures-server
+        - name: kinotic-server
           image: {{ if .Values.image.sha }}"{{ .Values.image.repository }}@{{ .Values.image.sha }}"{{ else }}"{{ .Values.image.repository }}:{{ .Values.image.tag }}"{{ end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           lifecycle:
@@ -58,13 +58,20 @@ spec:
             - containerPort: {{ .Values.continuum.cluster.communicationPort | default 47100 }} # Ignite Communication Port
           envFrom:
             - configMapRef:
-                name: {{ include "structures-server.fullname" . }}
+                name: {{ include "kinotic-server.fullname" . }}
           env:
             # Pod name for unique eviction file paths
             - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: KINOTIC_PERSISTENCE_ELASTICUSERNAME
+              value: "{{ .Values.properties.structures.elastic.username }}"
+            - name: KINOTIC_PERSISTENCE_ELASTICPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.properties.structures.elastic.secretName }}
+                  key: {{ .Values.properties.structures.elastic.secretKey }}
           volumeMounts:
             - name: tmp-work
               mountPath: /workspace/ignite/work
@@ -81,6 +88,6 @@ spec:
         {{- if .Values.evictionTracking.enabled }}
         - name: eviction-data
           hostPath:
-            path: {{ .Values.evictionTracking.hostPath | default "/tmp/structures-eviction-data" }}
+            path: {{ .Values.evictionTracking.hostPath | default "/tmp/kinotic-eviction-data" }}
             type: DirectoryOrCreate
         {{- end }}

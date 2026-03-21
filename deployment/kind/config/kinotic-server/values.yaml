@@ -1,4 +1,4 @@
-# Helm Values for structures-server deployment in KinD
+# Helm Values for kinotic-server deployment in KinD
 # This file provides sensible defaults for local development and testing.
 # User-specific overrides can be placed in helm-values.local.yaml (gitignored).
 #
@@ -11,31 +11,16 @@
 # - No localAddresses needed (Kubernetes DNS handles discovery)
 # - No sharedFsPath needed (Kubernetes handles network coordination)
 
-# ============================================================================
-# BEFORE DEPLOYING: BUILD AND LOAD THE IMAGE
-# ============================================================================
-# 1. Build the image:
-#    ./gradlew :structures-server:bootBuildImage
-#
-# 2. Load into KinD cluster:
-#    kind load docker-image kinoticai/structures-server:3.5.1-SNAPSHOT --name structures-cluster
-#
-# OR use the helper script:
-#    ./deployment/kind/kind-cluster.sh build --load
-# ============================================================================
-
-# Number of structures-server replicas (3 for testing HA and cluster coordination)
+# Number of kinotic-server replicas (3 for testing HA and cluster coordination)
 replicaCount: 3
 nameOverride: ""
 
 # Image configuration
 image:
-  # Repository matches bootBuildImage output
-  repository: kinoticai/structures-server
-  # Tag from gradle.properties version (structuresVersion=3.5.1-SNAPSHOT)
-  tag: 3.5.2
-  # Never pull - use images loaded into KinD cluster
-  pullPolicy: Never
+  repository: kinoticai/kinotic-server
+  tag: 4.2.0-SNAPSHOT
+  # Pull from Docker Hub; KinD clusters can pull from public registries natively
+  pullPolicy: IfNotPresent
   sha: ""
 
 # Migration configuration
@@ -45,16 +30,14 @@ migration:
   backoffLimit: 3
   activeDeadlineSeconds: 300
   image:
-    repository: kinoticai/structures-migration
-    tag: 3.5.2
-    # Never pull - use images loaded into KinD cluster
-    pullPolicy: Never
+    repository: kinoticai/kinotic-migration
+    tag: 4.2.0-SNAPSHOT
+    pullPolicy: IfNotPresent
     sha: ""
 
 ## eviction-tracking uses the evictionTracking logic and paths for tracking eviction events
 properties:
-  springActiveProfiles: "production,debug,eviction-tracking"
-  corsAllowedOriginPattern: "*"
+  springActiveProfiles: "production,kubernetes,debug,eviction-tracking"
   enableJmx: true
   enableNmt: true
   javaToolOptions: "-Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m" ## -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar 
@@ -74,13 +57,15 @@ properties:
     initializeWithSampleData: false
     elastic:
       connections:
-        - host: "structures-es-es-http"  # ECK-managed Elasticsearch service
+        - host: "kinotic-es-es-http"  # ECK-managed Elasticsearch service
           port: 9200
           scheme: "http"  # TLS disabled in KinD values
       connectionTimeout: "5s"
       socketTimeout: "60s"
-      username: ""  # No auth for local development
-      password: ""
+      username: "elastic"
+      # ECK auto-generated secret containing the elastic user password
+      secretName: "kinotic-es-es-elastic-user"
+      secretKey: "elastic"
     ai:
       apiKey: "noop"
       baseUrl: "https://api.x.ai"
@@ -126,7 +111,7 @@ ingress:
     - structures.local
   tls:
     enabled: true
-    secretName: structures-tls-secret
+    secretName: kinotic-tls-secret
     # Set to true when mkcert creates the secret before helm install
     # Set to false to use cert-manager self-signed fallback
     existingSecret: true
@@ -147,8 +132,8 @@ oidc:
         - "example.com"
       roles:
         - "admin"
-      audience: "structures-client"
-      clientId: "structures-client"
+      audience: "kinotic-client"
+      clientId: "kinotic-client"
       authority: "https://structures.local/auth/realms/test"
       redirectUri: "https://structures.local/login"
       postLogoutRedirectUri: "https://structures.local"

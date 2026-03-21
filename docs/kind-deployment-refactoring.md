@@ -29,7 +29,7 @@ Host Machine
 └── :8888  (NodePort) ──► Keycloak
 
 Build/Load Cycle (current):
-  ./gradlew :structures-server:bootBuildImage    ← builds image locally
+  ./gradlew :kinotic-server:bootBuildImage    ← builds image locally
   kind load docker-image kinoticai/...           ← manually pushes into KinD nodes
   imagePullPolicy: Never                         ← KinD never pulls, only uses preloaded
 ```
@@ -42,7 +42,7 @@ Build/Load Cycle (current):
 
 ### 1. Manual Image Build and Preload into KinD
 
-**Problem:** The current deploy flow requires building the kinotic-server image locally with `./gradlew :structures-server:bootBuildImage`, then manually loading it into KinD nodes with `kind load docker-image`. The Helm values set `imagePullPolicy: Never` to force use of the preloaded image.
+**Problem:** The current deploy flow requires building the kinotic-server image locally with `./gradlew :kinotic-server:bootBuildImage`, then manually loading it into KinD nodes with `kind load docker-image`. The Helm values set `imagePullPolicy: Never` to force use of the preloaded image.
 
 This creates several issues:
 - **Couples provisioning to a local Gradle/Java build environment** — every developer needs Java 21+, Gradle, and the full source tree just to stand up the cluster
@@ -78,7 +78,7 @@ This is the single largest source of configuration complexity and host-port conf
 
 ### 4. Hardcoded Image Tags
 
-**Problem:** The kinotic-server image tag `3.5.2` is hardcoded in `config/structures-server/values.yaml` (lines 36, 49) separately from `gradle.properties`. The deploy script reads the version from `gradle.properties` at runtime, but the values file has a stale literal. This creates drift.
+**Problem:** The kinotic-server image tag `3.5.2` is hardcoded in `config/kinotic-server/values.yaml` (lines 36, 49) separately from `gradle.properties`. The deploy script reads the version from `gradle.properties` at runtime, but the values file has a stale literal. This creates drift.
 
 **Alternative:** Use a Terraform variable for the image tag, defaulting to `latest` or read from `gradle.properties`. The tag is set once and flows through to all Helm releases that need it.
 
@@ -308,11 +308,11 @@ resource "helm_release" "elasticsearch" {
 resource "helm_release" "kinotic_server" {
   name      = "kinotic-server"
   namespace = "default"
-  chart     = "${path.module}/../helm/structures"
+  chart     = "${path.module}/../helm/kinotic"
   wait      = true
   timeout   = 600
 
-  values = [file("${path.module}/config/structures-server/values.yaml")]
+  values = [file("${path.module}/config/kinotic-server/values.yaml")]
 
   # Image tag from variable — no hardcoding in values.yaml
   set {
@@ -447,7 +447,7 @@ output "app_url" {
 
 output "port_forward_commands" {
   value = {
-    elasticsearch = "kubectl port-forward svc/structures-es-es-http 9200:9200"
+    elasticsearch = "kubectl port-forward svc/kinotic-es-es-http 9200:9200"
     postgresql    = var.enable_keycloak ? "kubectl port-forward svc/keycloak-db-postgresql 5432:5432" : null
     keycloak      = var.enable_keycloak ? "kubectl port-forward svc/keycloak 8888:8888" : null
   }
@@ -484,7 +484,7 @@ terraform plan
 terraform destroy
 
 # Port-forward for direct infra access (when needed)
-kubectl port-forward svc/structures-es-es-http 9200:9200
+kubectl port-forward svc/kinotic-es-es-http 9200:9200
 ```
 
 ### Developing with Unpublished Local Changes
@@ -493,7 +493,7 @@ For the less-common case where a developer needs to test local code changes agai
 
 ```bash
 # 1. Build the image locally (requires Java 21 + Gradle)
-./gradlew :structures-server:bootBuildImage
+./gradlew :kinotic-server:bootBuildImage
 
 # 2. Load into the running KinD cluster
 kind load docker-image kinoticai/kinotic-server:3.5.2 --name kinotic-cluster
@@ -555,7 +555,7 @@ Host Machine
 ├── :80/:443 ──► NGINX Ingress ──► kinotic-server (all app traffic)
 │
 │   On-demand (when needed for debugging):
-│   kubectl port-forward svc/structures-es-es-http 9200:9200
+│   kubectl port-forward svc/kinotic-es-es-http 9200:9200
 │   kubectl port-forward svc/keycloak 8888:8888
 │   kubectl port-forward svc/keycloak-db-postgresql 5432:5432
 ```
@@ -591,7 +591,7 @@ deployment/kind/
 │   ├── ingress-nginx/values.yaml
 │   ├── keycloak/values.yaml         # No NodePort, no hardcoded creds
 │   ├── postgresql/values.yaml       # No NodePort, no hardcoded creds
-│   └── structures-server/
+│   └── kinotic-server/
 │       └── values.yaml              # No hardcoded image tag, pullPolicy: IfNotPresent
 ├── charts/keycloak/                 # Local Keycloak chart (unchanged)
 └── node-update.sh                   # Standalone node disruption testing tool
@@ -643,7 +643,7 @@ Remove `type: NodePort` and `nodePort: 30555`. Use `type: ClusterIP` (the defaul
 
 Remove `type: NodePort` and `nodePort: 30888`. Optionally add a Keycloak ingress route (e.g., `auth.localhost/`) or use `kubectl port-forward svc/keycloak 8888:8888`.
 
-### `config/structures-server/values.yaml`
+### `config/kinotic-server/values.yaml`
 
 - Remove any NodePort references
 - Change `imagePullPolicy: Never` → `imagePullPolicy: IfNotPresent`
@@ -696,6 +696,47 @@ This can be done independently of any tooling changes.
 
 ---
 
+## Remaining "Structures" References — Future Rename Plan
+
+The rebranding from Structures to Kinotic has been completed across the deployment layer (Helm charts, Terraform, KinD scripts, config files). However, several references to "structures" remain intentionally because they are tied to the Java application source code and cannot be changed in the deployment layer alone.
+
+### What remains and why
+
+| Reference | Where | Why it stays | What's needed to change it |
+|-----------|-------|-------------|---------------------------|
+| `STRUCTURES_*` env vars (e.g., `STRUCTURES_INDEX_PREFIX`, `STRUCTURES_ELASTIC_*`, `STRUCTURES_GRAPHQL_PORT`) | Helm ConfigMap template, values files | These are Spring Boot externalized config properties. The Java application reads them by name. | Rename the `@ConfigurationProperties` classes and `application.yml` keys in the Java source, then update the ConfigMap template and values to match. |
+| `.Values.properties.structures.*` | Helm values.yaml (base + KinD override) | These are the Helm values paths that generate the env vars above. Must stay in sync with the env var names. | Rename after the Java-side rename. Can be done as a single coordinated change. |
+| `structures.local` | Keycloak hostname, OIDC config, CoreDNS, `/etc/hosts` docs | This is the local DNS name used for OIDC flows. Changing it requires updating Keycloak realm config, OIDC provider URLs, and developer `/etc/hosts` entries. | Choose a new hostname (e.g., `kinotic.local`), update the Keycloak test realm JSON, OIDC values, CoreDNS template, and README instructions. |
+| `~/.structures/kind/` | TLS cert export path in deploy.sh | Local filesystem path for exported certs. Changing it would break existing developer setups that reference it in `.zshrc`/`.bashrc`. | Rename to `~/.kinotic/kind/`, update deploy.sh and README, notify developers to update their `NODE_EXTRA_CA_CERTS` path. |
+| `kubernetesServiceName: structures` | Helm values (Ignite cluster discovery) | This is the headless Service name used by Apache Ignite for cluster node discovery. The running application uses this name for DNS lookups. | Rename in values and verify Ignite discovery still works. Low risk but requires cluster testing. |
+| `structures-core:integrationTest` | README (example commands) | This is a Gradle module name in the Java project. | Rename the Gradle module/directory in the Java source tree. |
+| `structuresVersion` | `gradle.properties`, referenced by `lib/config.sh` | The Gradle property that defines the application version. | Rename in `gradle.properties` and update any `build.gradle` references. |
+| `structures` (Elasticsearch username) | Base Helm values.yaml | Production Elasticsearch credentials. | Coordinate with production environment when changing. |
+
+### Recommended approach
+
+**Phase A: Application-side rename (Java source)**
+1. Rename Spring Boot config properties from `structures.*` to `kinotic.*` in `application.yml` and `@ConfigurationProperties` classes
+2. Rename the `STRUCTURES_*` env vars to `KINOTIC_*` in the application startup
+3. Rename Gradle modules (`structures-core`, `structures-server`, `structures-migration`) to `kinotic-*`
+4. Rename `structuresVersion` in `gradle.properties` to `kineticVersion` (or just `version`)
+
+**Phase B: Deployment-side follow-through**
+1. Update the Helm ConfigMap template to emit `KINOTIC_*` env vars
+2. Update `.Values.properties.structures.*` → `.Values.properties.kinotic.*` in all values files
+3. Rename `structures.local` → `kinotic.local` across Keycloak config, OIDC values, CoreDNS template, and docs
+4. Rename `~/.structures/kind/` → `~/.kinotic/kind/` in deploy scripts and docs
+5. Update `kubernetesServiceName` from `structures` to `kinotic`
+
+**Phase C: Cleanup**
+1. Update integration test references in docs
+2. Notify developers of hostname and cert path changes
+3. Verify end-to-end with a fresh `terraform apply`
+
+Phases A and B should be done as a single coordinated PR to avoid a half-renamed state. Phase C can follow immediately after.
+
+---
+
 ## Unification with Cloud Deployments
 
 With Terraform managing the local KinD cluster, the path to AKS (or any cloud) becomes a matter of swapping the cluster resource and adjusting variables:
@@ -713,7 +754,7 @@ deployment/
 │   └── config/                  # AKS-specific Helm overrides
 │
 ├── helm/                        # Shared Helm charts (unchanged)
-│   ├── structures/
+│   ├── kinotic/
 │   └── elasticsearch/
 │
 └── modules/                     # Shared Terraform modules (optional)
@@ -723,6 +764,37 @@ deployment/
 ```
 
 The `helm_release` resources for kinotic-server, Elasticsearch, ingress, etc. can be extracted into a shared Terraform module. Each environment (kind, aks) provides its own cluster resource and environment-specific variable values, but the deployment logic is shared.
+
+---
+
+## Current Status and Remaining Blockers
+
+**Phases completed:**
+- Phase 1: NodePorts removed (all 8 services, only ports 80/443 remain)
+- Phase 2: Image strategy switched (Docker Hub pull, `imagePullPolicy: IfNotPresent`)
+- Phase 3: Terraform files created and validated
+- Rebranding: `structures-server` → `kinotic-server` across Helm charts and deployment config
+- ES credentials: password injected via Kubernetes `secretKeyRef` (no plain text in pod specs)
+
+**Infrastructure verified working:**
+- KinD cluster creation via Terraform `kind_cluster` resource
+- ECK 3.3.0 operator + ES 8.19.13 with `xpack.security.enabled: true`
+- ES pods reach green/Ready state with `readiness.port: 8080`
+- ECK auto-generated `elastic` user secret correctly referenced by Helm templates
+- ingress-nginx, cert-manager deploy successfully
+- All Helm charts render cleanly
+
+**Remaining blocker — migration client compatibility:**
+The `kinotic-migration` job fails with ES 8.19.13 when security is enabled:
+```
+status: 400, [es/indices.exists] Expecting a response body, but none was sent
+```
+The migration connects and authenticates successfully (credentials are injected via `secretKeyRef`), but the Elasticsearch Java client library used by the migration tool does not handle the response format from a security-enabled ES 8.19.x `HEAD` request correctly. This is an **application-level fix** — the deployment infrastructure is working correctly.
+
+**To unblock `terraform apply`:**
+1. Update the ES Java client dependency in the migration module to a version compatible with ES 8.19.x + security
+2. Or add retry/error handling in the migration code for the `indices.exists` check
+3. Test with `terraform destroy && terraform apply` from a clean slate
 
 ---
 

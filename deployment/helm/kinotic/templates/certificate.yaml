@@ -23,25 +23,25 @@
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
-  name: structures-selfsigned-issuer
+  name: kinotic-selfsigned-issuer
   labels:
-    app: {{ include "structures-server.name" . }}
+    app: {{ include "kinotic-server.name" . }}
 spec:
   selfSigned: {}
 ---
 # ----------------------------------------------------------------------------
-# Certificate for structures ingress
+# Certificate for kinotic ingress
 # ----------------------------------------------------------------------------
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: {{ include "structures-server.fullname" . }}-tls
+  name: {{ include "kinotic-server.fullname" . }}-tls
   labels:
-    app: {{ include "structures-server.name" . }}
+    app: {{ include "kinotic-server.name" . }}
 spec:
   secretName: {{ .Values.ingress.tls.secretName }}
   issuerRef:
-    name: structures-selfsigned-issuer
+    name: kinotic-selfsigned-issuer
     kind: ClusterIssuer
   dnsNames:
     {{- range .Values.ingress.hosts }}

@@ -1,9 +1,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "structures-server.fullname" . }}-migration-{{ .Release.Revision }}
+  name: {{ include "kinotic-server.fullname" . }}-migration-{{ .Release.Revision }}
   labels:
-    app: {{ include "structures-server.name" . }}-migration
+    app: {{ include "kinotic-server.name" . }}-migration
     release: {{ .Release.Name }}
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
@@ -15,25 +15,24 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ include "structures-server.name" . }}-migration
+        app: {{ include "kinotic-server.name" . }}-migration
     spec:
       restartPolicy: Never
       containers:
-        - name: structures-migration
+        - name: kinotic-migration
           image: {{ if .Values.migration.image.sha }}"{{ .Values.migration.image.repository }}@{{ .Values.migration.image.sha }}"{{ else }}"{{ .Values.migration.image.repository }}:{{ .Values.migration.image.tag }}"{{ end }}
           imagePullPolicy: {{ .Values.migration.image.pullPolicy }}
           env:
-            - name: STRUCTURES_MIGRATION_ELASTIC_SCHEME
+            - name: KINOTIC_MIGRATION_ELASTIC_SCHEME
               value: "{{ (index .Values.properties.structures.elastic.connections 0).scheme }}"
-            - name: STRUCTURES_MIGRATION_ELASTIC_HOST
+            - name: KINOTIC_MIGRATION_ELASTIC_HOST
               value: "{{ (index .Values.properties.structures.elastic.connections 0).host }}"
-            - name: STRUCTURES_MIGRATION_ELASTIC_PORT
+            - name: KINOTIC_MIGRATION_ELASTIC_PORT
               value: "{{ (index .Values.properties.structures.elastic.connections 0).port }}"
-            {{- if .Values.properties.structures.elastic.username }}
-            - name: STRUCTURES_MIGRATION_ELASTIC_USERNAME
+            - name: KINOTIC_MIGRATION_ELASTIC_USERNAME
               value: "{{ .Values.properties.structures.elastic.username }}"
-            {{- end }}
-            {{- if .Values.properties.structures.elastic.password }}
-            - name: STRUCTURES_MIGRATION_ELASTIC_PASSWORD
-              value: "{{ .Values.properties.structures.elastic.password }}"
-            {{- end }}
+            - name: KINOTIC_MIGRATION_ELASTIC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.properties.structures.elastic.secretName }}
+                  key: {{ .Values.properties.structures.elastic.secretKey }}

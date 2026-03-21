@@ -1,14 +1,13 @@
 # KinD override values for the ECK Elasticsearch Helm chart.
 # Used with: helm install -f deployment/helm/elasticsearch/values.yaml -f <this file>
 
-version: "8.18.1"
+version: "8.19.13"
 
 http:
   tls:
     disabled: true
   service:
-    type: NodePort
-    nodePort: 30920
+    type: ClusterIP
 
 nodeSets:
   name: default
@@ -19,9 +18,13 @@ nodeSets:
     - ingest
 
   config:
-    xpack.security.enabled: false
+    # Security enabled for ECK 3.x operator file settings compatibility.
+    # ECK auto-manages internal TLS certs and the elastic user credential.
+    xpack.security.enabled: true
+    # Disable HTTP TLS so clients can connect without certs (dev convenience)
     xpack.security.http.ssl.enabled: false
-    xpack.security.transport.ssl.enabled: false
+    # Required for ECK readiness probe (checks port 8080)
+    readiness.port: 8080
 
   resources:
     requests:

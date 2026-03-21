@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Image Build and Load Functions for structures-server
+# Image Build and Load Functions for kinotic-server
 # Handles building Docker images with bootBuildImage and loading into KinD
 #
 
@@ -18,11 +18,11 @@ source "${LIB_SCRIPT_DIR}/config.sh"
 #
 # Build Docker image using Gradle bootBuildImage
 # Args:
-#   $1: Module name (e.g., "structures-server")
+#   $1: Module name (e.g., "kinotic-server")
 # Returns:
 #   0 on success, 1 on failure
 # Example:
-#   build_image "structures-server"
+#   build_image "kinotic-server"
 #
 build_image() {
     local module="$1"
@@ -81,11 +81,11 @@ build_image() {
 #
 # Check if Docker image exists locally
 # Args:
-#   $1: Image name (e.g., "kinoticai/structures-server:0.5.0-SNAPSHOT")
+#   $1: Image name (e.g., "kinoticai/kinotic-server:0.5.0-SNAPSHOT")
 # Returns:
 #   0 if exists, 1 otherwise
 # Example:
-#   image_exists "kinoticai/structures-server:0.5.0-SNAPSHOT"
+#   image_exists "kinoticai/kinotic-server:0.5.0-SNAPSHOT"
 #
 image_exists() {
     local image_name="$1"
@@ -102,7 +102,7 @@ image_exists() {
 # Args:
 #   $1: Image name
 # Example:
-#   get_image_info "kinoticai/structures-server:0.5.0-SNAPSHOT"
+#   get_image_info "kinoticai/kinotic-server:0.5.0-SNAPSHOT"
 #
 get_image_info() {
     local image_name="$1"
@@ -154,7 +154,7 @@ get_image_info() {
 # Returns:
 #   0 on success, 1 on failure
 # Example:
-#   load_image_into_cluster "structures-cluster" "kinoticai/structures-server:0.5.0-SNAPSHOT"
+#   load_image_into_cluster "kinotic-cluster" "kinoticai/kinotic-server:0.5.0-SNAPSHOT"
 #
 load_image_into_cluster() {
     local cluster_name="$1"
@@ -212,28 +212,18 @@ load_image_into_cluster() {
 # Args:
 #   $1: Image name
 # Example:
-#   display_deployment_instructions "kinoticai/structures-server:0.5.0-SNAPSHOT"
+#   display_deployment_instructions "kinoticai/kinotic-server:0.5.0-SNAPSHOT"
 #
 display_deployment_instructions() {
     local image_name="$1"
-    local repository="${image_name%%:*}"
-    local tag="${image_name##*:}"
-    
+
     section "Next Steps"
-    progress "Deploy with this image:"
+    progress "Load into cluster and restart deployment:"
     echo ""
-    echo "  $(basename "$0") deploy \\"
-    echo "    --set image.repository=${repository} \\"
-    echo "    --set image.tag=${tag} \\"
-    echo "    --set image.pullPolicy=Never"
+    echo "  kind load docker-image ${image_name} --name \${KIND_CLUSTER_NAME:-kinotic-cluster}"
+    echo "  kubectl rollout restart deployment/kinotic-server"
     echo ""
-    
-    progress "Or update existing deployment:"
-    echo ""
-    echo "  kubectl set image deployment/structures-server \\"
-    echo "    structures-server=${image_name}"
-    echo ""
-    
+
     blank_line
 }
 

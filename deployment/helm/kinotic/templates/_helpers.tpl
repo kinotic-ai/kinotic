@@ -1,21 +1,21 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "structures-server.name" -}}
+{{- define "kinotic-server.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
 Alias for compatibility with ignite-service.yaml
 */}}
-{{- define "structures.name" -}}
-{{- include "structures-server.name" . -}}
+{{- define "kinotic.name" -}}
+{{- include "kinotic-server.name" . -}}
 {{- end -}}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "structures-server.fullname" -}}
+{{- define "kinotic-server.fullname" -}}
 {{- $name := default .Chart.Name .Values.nameOverride -}}
 {{- if contains $name .Release.Name -}}
 {{- .Release.Name | trunc 63 | trimSuffix "-" -}}
@@ -27,7 +27,7 @@ Create a default fully qualified app name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "structures.chart" -}}
+{{- define "kinotic.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 

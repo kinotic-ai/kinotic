@@ -1,0 +1,9 @@
+# Terraform state (local only, not committed)
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
+# Variable overrides (personal)
+*.auto.tfvars
+terraform.tfvars.local
