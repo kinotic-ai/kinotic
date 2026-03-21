@@ -10,7 +10,7 @@ readonly _KIND_PREREQUISITES_LOADED=1
 
 # Source logging functions
 LIB_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=dev-tools/kind/lib/logging.sh
+# shellcheck source=deployment/kind/lib/logging.sh
 source "${LIB_SCRIPT_DIR}/logging.sh"
 
 #

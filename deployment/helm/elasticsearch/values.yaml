@@ -1,0 +1,60 @@
+# Default values for Elasticsearch via ECK operator.
+# These defaults target a production deployment.
+# Override with environment-specific values files (e.g. values-kind.yaml).
+
+nameOverride: ""
+fullnameOverride: "structures-es"
+
+version: "8.18.1"
+
+http:
+  tls:
+    # Production: TLS enabled (ECK auto-provisions certificates)
+    disabled: false
+  service:
+    type: ClusterIP
+    # Set nodePort when type is NodePort (e.g. 30920 for KinD)
+    nodePort: null
+
+nodeSets:
+  name: default
+  count: 3
+  roles:
+    - master
+    - data
+    - ingest
+
+  # Additional Elasticsearch config merged into elasticsearch.yml
+  config:
+    xpack.security.enabled: true
+
+  resources:
+    requests:
+      memory: "16Gi"
+      cpu: "2"
+    limits:
+      memory: "16Gi"
+      cpu: "4"
+
+  # Environment variables passed to the Elasticsearch container
+  env: []
+
+  # Init containers (e.g. sysctl for vm.max_map_count in KinD)
+  initContainers: []
+
+  # Node selector for dedicated node pools (production)
+  nodeSelector: {}
+
+  # Tolerations for dedicated node pools (production)
+  tolerations: []
+
+  antiAffinity:
+    # true = requiredDuringScheduling (production)
+    # false = preferredDuringScheduling (dev/KinD)
+    required: true
+
+  storage:
+    size: "128Gi"
+    # Set to a specific StorageClass (e.g. managed-csi-premium for Azure)
+    # Leave empty to use the cluster default
+    storageClassName: ""

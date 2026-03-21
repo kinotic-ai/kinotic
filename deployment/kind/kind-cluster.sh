@@ -11,19 +11,19 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly LIB_DIR="${SCRIPT_DIR}/lib"
 
 # Source library functions
-# shellcheck source=dev-tools/kind/lib/logging.sh
+# shellcheck source=deployment/kind/lib/logging.sh
 source "${LIB_DIR}/logging.sh"
-# shellcheck source=dev-tools/kind/lib/config.sh
+# shellcheck source=deployment/kind/lib/config.sh
 source "${LIB_DIR}/config.sh"
-# shellcheck source=dev-tools/kind/lib/prerequisites.sh
+# shellcheck source=deployment/kind/lib/prerequisites.sh
 source "${LIB_DIR}/prerequisites.sh"
-# shellcheck source=dev-tools/kind/lib/cluster.sh
+# shellcheck source=deployment/kind/lib/cluster.sh
 source "${LIB_DIR}/cluster.sh"
-# shellcheck source=dev-tools/kind/lib/deploy.sh
+# shellcheck source=deployment/kind/lib/deploy.sh
 source "${LIB_DIR}/deploy.sh"
-# shellcheck source=dev-tools/kind/lib/images.sh
+# shellcheck source=deployment/kind/lib/images.sh
 source "${LIB_DIR}/images.sh"
-# shellcheck source=dev-tools/kind/lib/node_update.sh
+# shellcheck source=deployment/kind/lib/node_update.sh
 source "${LIB_DIR}/node_update.sh"
 
 # Exit codes

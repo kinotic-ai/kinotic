@@ -21,7 +21,7 @@
 #    kind load docker-image kinoticai/structures-server:3.5.1-SNAPSHOT --name structures-cluster
 #
 # OR use the helper script:
-#    ./dev-tools/kind/kind-cluster.sh build --load
+#    ./deployment/kind/kind-cluster.sh build --load
 # ============================================================================
 
 # Number of structures-server replicas (3 for testing HA and cluster coordination)
@@ -74,9 +74,9 @@ properties:
     initializeWithSampleData: false
     elastic:
       connections:
-        - host: "elasticsearch-master"  # Internal Elasticsearch service deployed in KinD
+        - host: "structures-es-es-http"  # ECK-managed Elasticsearch service
           port: 9200
-          scheme: "http"  # No SSL for local development
+          scheme: "http"  # TLS disabled in KinD values
       connectionTimeout: "5s"
       socketTimeout: "60s"
       username: ""  # No auth for local development

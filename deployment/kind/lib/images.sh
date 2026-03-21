@@ -10,9 +10,9 @@ readonly _KIND_IMAGES_LOADED=1
 
 # Source dependencies
 LIB_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=dev-tools/kind/lib/logging.sh
+# shellcheck source=deployment/kind/lib/logging.sh
 source "${LIB_SCRIPT_DIR}/logging.sh"
-# shellcheck source=dev-tools/kind/lib/config.sh
+# shellcheck source=deployment/kind/lib/config.sh
 source "${LIB_SCRIPT_DIR}/config.sh"
 
 #

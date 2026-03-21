@@ -1,97 +1,50 @@
-# Elasticsearch Helm Values for KinD
-# Chart: elastic/elasticsearch
-# Repository: https://helm.elastic.co
-#
-# Single-node Elasticsearch configuration for KinD
-# Matches docker-compose/compose.ek-stack.yml
+# KinD override values for the ECK Elasticsearch Helm chart.
+# Used with: helm install -f deployment/helm/elasticsearch/values.yaml -f <this file>
 
-replicas: 2
-minimumMasterNodes: 1
+version: "8.18.1"
 
-image: "docker.elastic.co/elasticsearch/elasticsearch"
-imageTag: "8.18.1"
-imagePullPolicy: IfNotPresent
+http:
+  tls:
+    disabled: true
+  service:
+    type: NodePort
+    nodePort: 30920
 
-# Disable all security for local dev (matching docker-compose)
-# Disable X-Pack security for local development
-# Must be disabled at protocol AND security level
-protocol: http
-httpPort: 9200
-transportPort: 9300
+nodeSets:
+  name: default
+  count: 2
+  roles:
+    - master
+    - data
+    - ingest
 
-# Disable security completely
-createCert: false
-secret:
-  enabled: false
+  config:
+    xpack.security.enabled: false
+    xpack.security.http.ssl.enabled: false
+    xpack.security.transport.ssl.enabled: false
 
-# Disable X-Pack security for local development
-# This must be at the top level AND in esConfig
-security:
-  enabled: false
-
-# Set ELASTIC_PASSWORD - required by the readiness probe script even when security is disabled
-extraEnvs:
-  - name: ELASTIC_PASSWORD
-    value: "-"
-
-# Elasticsearch configuration
-esConfig:
-  elasticsearch.yml: |
-    xpack:
-      security:
-        enabled: false
-        http.ssl.enabled: false
-        transport.ssl.enabled: false
-    discovery:
-      # type: single-node
-      # seed_providers: ""
-      seed_hosts: ["elasticsearch-master-headless"]
-    cluster:
-      initial_master_nodes: ["elasticsearch-master-0"]
-    # node:
-    #   roles: ["master", "data", "data_content", "data_hot", "data_warm", "data_cold", "ingest", "ml", "remote_cluster_client", "transform"]
-  # log4j2.properties: |
-  #   logger.discovery.name = org.elasticsearch.discovery
-  #   logger.discovery.level = debug
-
-# Elasticsearch roles that will be applied to this nodeGroup
-# These will be set as environment variables. E.g. node.roles=master
-# https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-node.html#node-roles
-roles: []
-
-# Expose Elasticsearch via NodePort for external access
-service:
-  type: NodePort
-  nodePort: 30920  # Maps to hostPort 9200 → localhost:9200
-
-# Resource limits (matching structures needs)
-esJavaOpts: "-Xms1024m -Xmx1024m"
-resources:
-  requests:
-    cpu: "500m"
-    memory: "2Gi"
-  limits:
-    memory: "2Gi"
-
-# Volume config - use emptyDir for local dev
-volumeClaimTemplate:
-  accessModes: ["ReadWriteOnce"]
   resources:
     requests:
-      storage: 15Gi
+      memory: "2Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "2"
 
-persistence:
-  enabled: false
+  env:
+    - name: ES_JAVA_OPTS
+      value: "-Xms1024m -Xmx1024m"
 
-# Elasticsearch doesn't need ingress - accessed internally or via NodePort
-ingress:
-  enabled: false
+  initContainers:
+    - name: sysctl
+      securityContext:
+        privileged: true
+        runAsUser: 0
+      command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
 
-# Health check
-clusterHealthCheckParams: "wait_for_status=yellow&timeout=1s"
+  antiAffinity:
+    required: false
 
-# Soft anti-affinity
-antiAffinity: "soft"
-
-# Single-node doesn't need service mesh
-sysctlVmMaxMapCount: 262144
+  storage:
+    size: "15Gi"
+    storageClassName: ""

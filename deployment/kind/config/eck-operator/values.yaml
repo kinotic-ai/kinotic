@@ -1,0 +1,12 @@
+# ECK Operator Helm values for KinD.
+# Minimal resource footprint for local development.
+
+managedNamespaces: []
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "150Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"

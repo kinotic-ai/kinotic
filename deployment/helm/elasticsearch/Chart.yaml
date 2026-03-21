@@ -1,0 +1,6 @@
+apiVersion: v2
+name: elasticsearch
+description: Elasticsearch cluster deployed via the ECK (Elastic Cloud on Kubernetes) operator
+type: application
+version: 0.1.0
+appVersion: "8.18.1"

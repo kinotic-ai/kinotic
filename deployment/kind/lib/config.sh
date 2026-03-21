@@ -10,7 +10,7 @@ readonly _KIND_CONFIG_LOADED=1
 
 # Source logging functions
 LIB_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=dev-tools/kind/lib/logging.sh
+# shellcheck source=deployment/kind/lib/logging.sh
 source "${LIB_SCRIPT_DIR}/logging.sh"
 
 # Configuration defaults
@@ -22,6 +22,7 @@ readonly DEFAULT_K8S_VERSION="latest"
 readonly DEFAULT_DEPLOY_TIMEOUT="5m"
 
 # Service-specific config directories (Helm values files)
+readonly CONFIG_ECK_OPERATOR_DIR="${DEFAULT_CONFIG_DIR}/eck-operator"
 readonly CONFIG_ELASTICSEARCH_DIR="${DEFAULT_CONFIG_DIR}/elasticsearch"
 readonly CONFIG_POSTGRESQL_DIR="${DEFAULT_CONFIG_DIR}/postgresql"
 readonly CONFIG_KEYCLOAK_DIR="${DEFAULT_CONFIG_DIR}/keycloak"
@@ -166,6 +167,9 @@ get_service_values_path() {
     local config_dir=""
     
     case "${service_name}" in
+        eck-operator)
+            config_dir="${CONFIG_ECK_OPERATOR_DIR}"
+            ;;
         elasticsearch)
             config_dir="${CONFIG_ELASTICSEARCH_DIR}"
             ;;

@@ -1,5 +1,5 @@
 # Keycloak Helm Values for KinD
-# Chart: local dev-tools/kind/charts/keycloak
+# Chart: local deployment/kind/charts/keycloak
 #
 # Keycloak configuration for OIDC authentication
 # Uses official Keycloak image

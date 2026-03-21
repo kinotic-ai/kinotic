@@ -6,25 +6,25 @@ Automation tools for creating and managing KinD (Kubernetes in Docker) clusters 
 
 ```bash
 # Navigate to project root
-cd /path/to/structures
+cd /path/to/kinotic
 
 # Create a KinD cluster
-./dev-tools/kind/kind-cluster.sh create
+./deployment/kind/kind-cluster.sh create
 
 # Deploy structures-server (Elasticsearch only, no OIDC)
-./dev-tools/kind/kind-cluster.sh deploy
+./deployment/kind/kind-cluster.sh deploy
 
 # OR: Deploy with Keycloak for OIDC authentication
-./dev-tools/kind/kind-cluster.sh deploy --with-keycloak
+./deployment/kind/kind-cluster.sh deploy --with-keycloak
 
 # Check status
-./dev-tools/kind/kind-cluster.sh status
+./deployment/kind/kind-cluster.sh status
 
 # View logs
-./dev-tools/kind/kind-cluster.sh logs --follow
+./deployment/kind/kind-cluster.sh logs --follow
 
 # Clean up
-./dev-tools/kind/kind-cluster.sh delete
+./deployment/kind/kind-cluster.sh delete
 ```
 
 > **Note:** The `deploy` command automatically builds and loads the structures-server image.
@@ -366,7 +366,7 @@ Stream logs from structures-server pods.
 ./kind-cluster.sh logs --tail 500
 
 # View logs from specific pods
-./kind-cluster.sh logs --selector app=elasticsearch
+./kind-cluster.sh logs --selector elasticsearch.k8s.elastic.co/cluster-name=structures-es
 ```
 
 ---
@@ -424,7 +424,7 @@ This architecture:
 
 ### KinD Cluster Configuration
 
-Edit `dev-tools/kind/config/kind-config.yaml` to customize cluster topology:
+Edit `deployment/kind/config/kind-config.yaml` to customize cluster topology:
 
 ```yaml
 kind: Cluster
@@ -440,12 +440,13 @@ nodes:
 
 ### Helm Values
 
-Edit `dev-tools/kind/config/structures-server/values.yaml` to customize structures-server deployment.
+Edit `deployment/kind/config/structures-server/values.yaml` to customize structures-server deployment.
 
-Create `dev-tools/kind/config/structures-server/values.local.yaml` for personal overrides (gitignored).
+Create `deployment/kind/config/structures-server/values.local.yaml` for personal overrides (gitignored).
 
-Other services have their own values files in `dev-tools/kind/config/<service>/values.yaml`:
-- `elasticsearch/values.yaml` - Elasticsearch configuration
+Other services have their own values files in `deployment/kind/config/<service>/values.yaml`:
+- `eck-operator/values.yaml` - ECK operator resource limits
+- `elasticsearch/values.yaml` - Elasticsearch KinD overrides (applied on top of `helm/elasticsearch/values.yaml`)
 - `postgresql/values.yaml` - PostgreSQL (Keycloak database)
 - `keycloak/values.yaml` - Keycloak OIDC provider
 - `ingress-nginx/values.yaml` - NGINX Ingress Controller
@@ -748,7 +749,7 @@ kubectl config use-context kind-cluster1
 ## Files and Directories
 
 ```
-dev-tools/kind/
+deployment/kind/
 ├── kind-cluster.sh                # Main CLI script
 ├── lib/
 │   ├── logging.sh                 # Logging and output functions
@@ -762,7 +763,8 @@ dev-tools/kind/
 │   ├── kind-config.yaml           # KinD cluster configuration
 │   ├── cert-manager/values.yaml   # cert-manager values
 │   ├── coredns/custom-hosts.yaml  # CoreDNS ConfigMap template
-│   ├── elasticsearch/values.yaml  # Elasticsearch Helm values
+│   ├── eck-operator/values.yaml   # ECK operator resource limits
+│   ├── elasticsearch/values.yaml  # Elasticsearch KinD overrides
 │   ├── ingress-nginx/values.yaml  # NGINX Ingress values
 │   ├── keycloak/values.yaml       # Keycloak Helm values
 │   ├── postgresql/values.yaml     # PostgreSQL Helm values
