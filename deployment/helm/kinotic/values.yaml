@@ -82,7 +82,7 @@ continuum:
     # Note: sharedFsPath is still used for Structure data sharing, not for Ignite discovery
     sharedFsPath: /sharedfs  # Shared with containers via bind mount
     kubernetesNamespace: default
-    kubernetesServiceName: structures
+    kubernetesServiceName: kinotic
     kubernetesIncludeNotReadyAddresses: false
     kubernetesMasterUrl: ""
     kubernetesAccountToken: ""

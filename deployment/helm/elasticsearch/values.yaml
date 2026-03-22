@@ -5,7 +5,7 @@
 nameOverride: ""
 fullnameOverride: "kinotic-es"
 
-version: "8.19.13"
+version: "9.2.4"
 
 http:
   tls:

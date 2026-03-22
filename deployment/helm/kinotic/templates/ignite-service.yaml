@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.continuum.cluster.kubernetesServiceName | default "structures" }}
+  name: {{ .Values.continuum.cluster.kubernetesServiceName | default "kinotic" }}
   labels:
     app: {{ include "kinotic.name" . }}
     chart: {{ include "kinotic.chart" . }}

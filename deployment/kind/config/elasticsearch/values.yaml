@@ -1,7 +1,7 @@
 # KinD override values for the ECK Elasticsearch Helm chart.
 # Used with: helm install -f deployment/helm/elasticsearch/values.yaml -f <this file>
 
-version: "8.19.13"
+version: "9.2.4"
 
 http:
   tls:
