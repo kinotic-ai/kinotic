@@ -4,7 +4,7 @@
 structures:
   useSsl: true
   tlsInsecure: true  # Accept mkcert/self-signed certs
-  host: structures.local
+  host: kinotic.local
   port: 443
 
 loadGenerator:

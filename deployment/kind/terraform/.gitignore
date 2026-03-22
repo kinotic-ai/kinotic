@@ -7,3 +7,6 @@
 # Variable overrides (personal)
 *.auto.tfvars
 terraform.tfvars.local
+
+# Generated mkcert certificates
+.certs/

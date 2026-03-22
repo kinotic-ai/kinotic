@@ -96,8 +96,8 @@
 import { Component, Vue, Watch } from 'vue-facing-decorator';
 import { APPLICATION_STATE } from '@/states/IApplicationState';
 import { USER_STATE } from '@/states/IUserState';
-import type { Application, Project } from '@kinotic/structures-api';
-import { Structures } from '@kinotic/structures-api';
+import { Kinotic } from '@kinotic-ai/core';
+import type { Application, Project } from '@kinotic-ai/os-api';
 import InputText from 'primevue/inputtext';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
@@ -258,7 +258,7 @@ export default class Header extends Vue {
     this.isLoadingProjects = true;
     try {
       const pageable = { pageNumber: 0, pageSize: 100 } as any;
-      const result = await Structures.getProjectService().findAllForApplication(this.currentApp.id, pageable);
+      const result = await Kinotic.projects.findAllForApplication(this.currentApp.id, pageable);
       this.projectsForCurrentApp = result.content ?? [];
       
       if (this.isProjectStructuresPage) {
@@ -323,7 +323,7 @@ export default class Header extends Vue {
         APPLICATION_STATE.currentApplication = app;
 
         const pageable = { pageNumber: 0, pageSize: 100 } as any;
-        const result = await Structures.getProjectService().findAllForApplication(applicationId, pageable);
+        const result = await Kinotic.projects.findAllForApplication(applicationId, pageable);
         this.projectsForCurrentApp = result.content ?? [];
 
         const proj = this.projectsForCurrentApp.find(p => p.id === projectId);

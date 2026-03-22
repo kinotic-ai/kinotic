@@ -52,8 +52,10 @@ import Toolbar from 'primevue/toolbar'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 
-import { Pageable, type Page, Order, Direction, type Identifiable } from '@kinotic/continuum-client'
-import { Structure, type IStructureService, Structures, type IEntitiesService } from '@kinotic/structures-api'
+import { Pageable, type Page, Order, Direction, type Identifiable } from '@kinotic-ai/core'
+import { Kinotic } from '@kinotic-ai/core'
+import { EntityDefinition, type IEntityDefinitionService } from '@kinotic-ai/os-api'
+import { type IEntitiesService } from '@kinotic-ai/persistence'
 
 import DatetimeUtil from '@/util/DatetimeUtil'
 import { StructureUtil } from '@/util/StructureUtil'
@@ -82,10 +84,10 @@ export default class EntityList extends Vue {
   keys: string[] = []
   headers: any[] = []
   structureProperties: any = {}
-  structure!: Structure
+  structure!: EntityDefinition
 
-  entitiesService: IEntitiesService = Structures.getEntitiesService()
-  structureService: IStructureService = Structures.getStructureService()
+  entitiesService: IEntitiesService = Kinotic.entities
+  structureService: IEntityDefinitionService = Kinotic.entityDefinitions
 
   options = {
     rows: 10,
@@ -104,9 +106,9 @@ const id = this.structureId || (Array.isArray(paramId) ? paramId[0] : paramId)
     }
 
     this.structureService.findById(id)
-      .then((structure) => {
+      .then((structure: EntityDefinition) => {
         this.structure = structure
-        this.structureProperties = structure.entityDefinition.properties
+        this.structureProperties = structure.schema.properties
         for (const property of this.structureProperties) {
           if (property) {
             const fieldName = property.name[0].toUpperCase() + property.name.slice(1)
@@ -131,7 +133,7 @@ const id = this.structureId || (Array.isArray(paramId) ? paramId[0] : paramId)
 
         this.find()
       })
-      .catch((error) => {
+      .catch((error: Error) => {
         debug('Error during structure retrieval: %O', error)
         this.displayAlert(error.message)
       })

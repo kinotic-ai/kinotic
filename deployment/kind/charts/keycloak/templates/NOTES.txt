@@ -10,7 +10,7 @@ Keycloak has been deployed!
 {{- end }}
 
 2. Access the Admin Console:
-   URL: https://structures.local/admin
+   URL: https://kinotic.local/admin
    Username: {{ .Values.auth.adminUser }}
    Password: {{ .Values.auth.adminPassword }}
 

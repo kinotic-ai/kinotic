@@ -13,14 +13,12 @@ import App from './App.vue'
 import { Log } from 'oidc-client-ts'
 Log.setLogger(console)
 
-import { Structures } from '@kinotic/structures-api'
+import { Kinotic } from '@kinotic-ai/core'
+import { OsApiPlugin } from '@kinotic-ai/os-api'
+import { PersistencePlugin } from '@kinotic-ai/persistence'
 
-declare global {
-  interface Window {
-    Structures: typeof Structures
-  }
-}
-window.Structures = Structures
+Kinotic.use(OsApiPlugin)
+Kinotic.use(PersistencePlugin)
 
 if (import.meta.env.DEV) {
   try {

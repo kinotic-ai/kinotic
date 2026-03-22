@@ -6,8 +6,9 @@ import Card from 'primevue/card'
 import ScrollPanel from 'primevue/scrollpanel'
 import Divider from 'primevue/divider'
 import Calendar from 'primevue/calendar'
-import { Structures, ProgressType } from '@kinotic/structures-api'
-import type { InsightRequest, DataInsightsComponent, InsightProgress } from '@kinotic/structures-api'
+import { Kinotic } from '@kinotic-ai/core'
+import { ProgressType } from '@kinotic-ai/os-api'
+import type { InsightRequest, DataInsightsComponent, InsightProgress } from '@kinotic-ai/os-api'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { INSIGHTS_STATE, type InsightData } from '@/states/IInsightsState'
 import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEntityService'
@@ -257,7 +258,7 @@ Components that support date filtering will automatically respond to the global 
     this.chatMessages.push(loadingMessage)
 
     try {
-      const insightsService = Structures.getDataInsightsService()
+      const insightsService = Kinotic.dataInsights
       
       const request: InsightRequest = {
         query: userQuery,
@@ -338,7 +339,7 @@ Components that support date filtering will automatically respond to the global 
             }
           }
         },
-        error: (error) => {
+        error: (error: Error) => {
           const loadingMessage = this.chatMessages.find(msg => msg.loading)
           if (loadingMessage) {
             loadingMessage.loading = false

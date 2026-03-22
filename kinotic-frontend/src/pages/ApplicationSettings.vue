@@ -172,7 +172,7 @@
 import { ref, defineProps, onMounted, watch, computed } from 'vue'
 import { InputText, Textarea, Button, ToggleButton, Tabs, TabList, Tab, TabPanels, TabPanel, Dialog, IconField, InputIcon } from 'primevue'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
-import { Structures } from '@kinotic/structures-api'
+import { Kinotic } from '@kinotic-ai/core'
 import { useToast } from 'primevue/usetoast'
 import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEntityService'
 import type { DataInsightsWidget } from '@/domain/DataInsightsWidget'
@@ -243,7 +243,7 @@ const saveSettings = async () => {
       enableMCP: enableMCP.value
     }
 
-    await Structures.getApplicationService().save(updatedApplication)
+    await Kinotic.applications.save(updatedApplication)
     
     APPLICATION_STATE.currentApplication = updatedApplication
 

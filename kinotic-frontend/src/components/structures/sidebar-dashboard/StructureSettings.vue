@@ -16,14 +16,14 @@ export default class StructureSettings extends Vue {
   ]
 
   get entityType() {
-    const entityDecorator = this.structureStore.structure?.entityDefinition?.decorators?.find(
+    const entityDecorator = this.structureStore.structure?.schema?.decorators?.find(
       (d: any) => d.type === 'Entity'
     ) as any
     return entityDecorator?.entityType || 'TABLE'
   }
 
   set entityType(value: string) {
-    const entityDecorator = this.structureStore.structure?.entityDefinition?.decorators?.find(
+    const entityDecorator = this.structureStore.structure?.schema?.decorators?.find(
       (d: any) => d.type === 'Entity'
     ) as any
     if (entityDecorator) {
@@ -32,14 +32,14 @@ export default class StructureSettings extends Vue {
   }
 
   get multiTenancyType() {
-    const entityDecorator = this.structureStore.structure?.entityDefinition?.decorators?.find(
+    const entityDecorator = this.structureStore.structure?.schema?.decorators?.find(
       (d: any) => d.type === 'Entity'
     ) as any
     return entityDecorator?.multiTenancyType || 'NONE'
   }
 
   set multiTenancyType(value: string) {
-    const entityDecorator = this.structureStore.structure?.entityDefinition?.decorators?.find(
+    const entityDecorator = this.structureStore.structure?.schema?.decorators?.find(
       (d: any) => d.type === 'Entity'
     ) as any
     if (entityDecorator) {

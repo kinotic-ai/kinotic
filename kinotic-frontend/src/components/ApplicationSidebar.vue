@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { Structures, type Application } from '@kinotic/structures-api'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
 import ToggleButton from 'primevue/togglebutton'
 import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@/util/debug'
+import type {Application} from "@kinotic-ai/os-api";
+import {Kinotic} from "@kinotic-ai/core";
 
 const debug = createDebug('application-sidebar');
 
@@ -68,7 +69,7 @@ async function handleSubmit(): Promise<void> {
       updated: null
     }
 
-    const createdApplication = await Structures.getApplicationService().create(applicationData)
+    const createdApplication = await Kinotic.applications.create(applicationData)
 
     toast.add({
       severity: 'success',

@@ -16,7 +16,7 @@
 import { Component, Prop, Vue } from 'vue-facing-decorator'
 import InputText from 'primevue/inputtext'
 import CrudEntityAddEdit from '@/components/CrudEntityAddEdit.vue'
-import { Application } from '@kinotic/structures-api'
+import { Application } from '@kinotic-ai/os-api'
 import { IndexNameHelper } from '@/util/IndexNameHelper'
 
 type RuleValidator = (value: string) => string | boolean

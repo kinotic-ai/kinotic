@@ -1,4 +1,4 @@
-import { ConnectedInfo, ConnectionInfo, Continuum } from '@kinotic/continuum-client'
+import { ConnectedInfo, ConnectionInfo, Kinotic } from '@kinotic-ai/core'
 import { reactive } from 'vue'
 import Cookies from 'js-cookie'
 import { User } from 'oidc-client-ts'
@@ -27,7 +27,7 @@ export class UserState implements IUserState {
 
     public async authenticate(login: string, passcode: string): Promise<void> {
         try {
-            await Continuum.disconnect()
+            await Kinotic.disconnect()
         } catch (error) {
             debug('No existing connection to disconnect')
         }
@@ -39,7 +39,7 @@ export class UserState implements IUserState {
         }
 
         try {
-            this.connectedInfo = await Continuum.connect(connectionInfo)
+            this.connectedInfo = await Kinotic.connect(connectionInfo)
             this.authenticated = true
             this.accessDenied = false
             // Note: We intentionally do NOT store basic auth credentials in cookies
@@ -56,7 +56,7 @@ export class UserState implements IUserState {
 
     public async handleOidcLogin(user: User, provider: string): Promise<void> {
         try {
-            await Continuum.disconnect()
+            await Kinotic.disconnect()
         } catch (error) {
             debug('No existing connection to disconnect')
         }
@@ -75,7 +75,7 @@ export class UserState implements IUserState {
         }
 
         try {
-            this.connectedInfo = await Continuum.connect(connectionInfo)
+            this.connectedInfo = await Kinotic.connect(connectionInfo)
             this.authenticated = true
             this.accessDenied = false
             this.oidcUser = user
@@ -132,9 +132,9 @@ export class UserState implements IUserState {
 
         if (this.connectedInfo) {
             try {
-                await Continuum.disconnect()
+                await Kinotic.disconnect()
             } catch (error) {
-                debug('Error disconnecting from Continuum: %O', error)
+                debug('Error disconnecting from Kinotic: %O', error)
             }
         }
 
@@ -152,7 +152,7 @@ export class UserState implements IUserState {
     }
 
     public isAuthenticated(): boolean {
-        // Check if we have an active Continuum connection
+        // Check if we have an active Kinotic connection
         return this.authenticated && this.connectedInfo !== null
     }
 

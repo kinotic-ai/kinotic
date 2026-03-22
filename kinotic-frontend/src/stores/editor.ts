@@ -1,5 +1,4 @@
 import { reactive } from 'vue'
-import {Structure} from '@kinotic/structures-api'
 import {
     ArrayC3Type,
     C3Decorator,
@@ -19,13 +18,14 @@ import {
     ByteC3Type,
     ShortC3Type,
     MapC3Type
-} from '@kinotic/continuum-idl'
+} from '@kinotic-ai/idl'
 import type {Edge, Node} from "@vue-flow/core"
 import {generateVueFlowGraphFromSchema} from '@/util/graph.ts'
+import {EntityDefinition} from "@kinotic-ai/os-api";
 
 export interface IStructureStore {
-    structure: Structure | null
-    nodes: Node[]
+    structure: EntityDefinition | null
+    nodes: Node[];
     edges: Edge[]
 
     initNewStructure(applicationId: string, projectId: string): void
@@ -37,7 +37,7 @@ export interface IStructureStore {
 }
 
 class StructureStore implements IStructureStore {
-    public structure: Structure | null = null
+    public structure: EntityDefinition | null = null
     public nodes: Node[] = []
     public edges: Edge[] = []
 
@@ -48,7 +48,7 @@ class StructureStore implements IStructureStore {
             multiTenancyType: 'NONE',
             entityType: 'TABLE'
         } as C3Decorator)
-        this.structure = new Structure(applicationId, projectId, rootType.name, rootType)
+        this.structure = new EntityDefinition(applicationId, projectId, rootType.name, rootType)
 
         this.generateGraph()
     }
@@ -56,7 +56,7 @@ class StructureStore implements IStructureStore {
     addProperty(parentId: string, propertyName: string, typeCode: string, decorators?: C3Decorator[]) {
         if (!this.structure) return
 
-        const parent = this.findObjectById(this.structure.entityDefinition, parentId)
+        const parent = this.findObjectById(this.structure.schema, parentId)
         if (!parent) return
 
         const newType = this.buildType(typeCode, propertyName)
@@ -68,7 +68,7 @@ class StructureStore implements IStructureStore {
 
     renameProperty(parentId: string, oldName: string, newName: string) {
         if (!this.structure) return
-        const parent = this.findObjectById(this.structure.entityDefinition, parentId)
+        const parent = this.findObjectById(this.structure.schema, parentId)
         if (!parent) return
 
         const prop = parent.properties.find(p => p.name === oldName)
@@ -85,7 +85,7 @@ class StructureStore implements IStructureStore {
 
     updatePropertyType(parentId: string, propertyName: string, typeCode: string) {
         if (!this.structure) return
-        const parent = this.findObjectById(this.structure.entityDefinition, parentId)
+        const parent = this.findObjectById(this.structure.schema, parentId)
         if (!parent) return
 
         const prop = parent.properties.find(p => p.name === propertyName)
@@ -96,7 +96,7 @@ class StructureStore implements IStructureStore {
     }
 
     private buildType(typeCode: string, name: string): C3Type {
-        const namespace = this.structure?.entityDefinition.namespace || 'default'
+        const namespace = this.structure?.schema.namespace || 'default'
 
         switch (typeCode) {
             case 'string': return new StringC3Type()
@@ -136,14 +136,14 @@ class StructureStore implements IStructureStore {
         if (this.structure) {
             const finalName = newName.replace(/\s+/g, "")
             this.structure.name = finalName
-            this.structure.entityDefinition.name = finalName
+            this.structure.schema.name = finalName
             this.generateGraph()
         }
     }
 
     private generateGraph() {
         if (!this.structure) return
-        const {nodes, edges} = generateVueFlowGraphFromSchema(this.structure.entityDefinition)
+        const {nodes, edges} = generateVueFlowGraphFromSchema(this.structure.schema)
         this.nodes = nodes
         this.edges = edges
     }

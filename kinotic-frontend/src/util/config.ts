@@ -1,7 +1,7 @@
 
 import { createDebug } from './debug'
 const debug = createDebug('config');
-import type { ConnectionInfo } from "@kinotic/continuum-client";
+import type { ConnectionInfo } from "@kinotic-ai/core";
 // import { USER_STATE } from "../states/IUserState";
 import { createConnectionInfo } from "./helpers";
 

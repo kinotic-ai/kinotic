@@ -5,16 +5,12 @@
 #
 # Usage:
 #   ./setup.sh              # Check prerequisites only
-#   ./setup.sh --mkcert     # Generate browser-trusted TLS certs
-#   ./setup.sh --hosts      # Add structures.local to /etc/hosts
-#   ./setup.sh --all        # Do everything
+#   ./setup.sh --hosts      # Add kinotic.local to /etc/hosts
+#   ./setup.sh --all        # Check prerequisites + hosts + mkcert CA install
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CLUSTER_NAME="${KIND_CLUSTER_NAME:-kinotic-cluster}"
-HOSTNAME="structures.local"
-CERT_DIR="${HOME}/.kinotic/kind"
+HOSTNAME="kinotic.local"
 
 # ── Colors ────────────────────────────────────────────────
 
@@ -63,7 +59,10 @@ check_prerequisites() {
     if command -v mkcert &>/dev/null; then
         ok "mkcert (available for browser-trusted certs)"
     else
-        warn "mkcert (optional) — install: brew install mkcert nss && mkcert -install"
+        warn "mkcert (optional) — install: brew install mkcert nss"
+        warn "  Then run: mkcert -install"
+        warn "  Terraform will use mkcert automatically if available."
+        warn "  Without it, cert-manager generates self-signed certs (browser will warn)."
     fi
 
     if command -v helm &>/dev/null; then
@@ -81,63 +80,28 @@ check_prerequisites() {
     fi
 }
 
-# ── mkcert TLS Certificates ──────────────────────────────
+# ── mkcert CA install ────────────────────────────────────
 
-setup_mkcert() {
-    echo "Setting up browser-trusted TLS certificates..."
+setup_mkcert_ca() {
+    echo "Setting up mkcert local CA..."
 
     if ! command -v mkcert &>/dev/null; then
-        fail "mkcert is not installed."
+        warn "mkcert is not installed — skipping CA setup."
         echo ""
         echo "  Install with:"
         echo "    brew install mkcert nss    # macOS"
         echo "    mkcert -install            # one-time CA setup"
         echo ""
-        exit 1
+        info "Terraform will fall back to cert-manager self-signed certs."
+        echo ""
+        return 0
     fi
 
-    # Check if the KinD cluster exists
-    if ! kind get clusters 2>/dev/null | grep -q "^${CLUSTER_NAME}$"; then
-        fail "Cluster '${CLUSTER_NAME}' does not exist."
-        echo ""
-        echo "  Run 'terraform apply' first to create the cluster,"
-        echo "  then re-run './setup.sh --mkcert' to install certs."
-        echo ""
-        exit 1
-    fi
+    # Install the local CA into system/browser trust stores (idempotent)
+    info "Installing mkcert local CA (may require sudo)"
+    mkcert -install
 
-    local context="kind-${CLUSTER_NAME}"
-
-    # Generate certificates
-    local cert_dir
-    cert_dir=$(mktemp -d)
-    pushd "$cert_dir" > /dev/null
-
-    info "Generating certificates for localhost, ${HOSTNAME}, 127.0.0.1, ::1"
-    mkcert -cert-file cert.pem -key-file key.pem localhost "$HOSTNAME" 127.0.0.1 ::1
-
-    # Create or update Kubernetes TLS secret
-    info "Creating TLS secret 'kinotic-tls-secret' in cluster"
-    kubectl create secret tls kinotic-tls-secret \
-        --cert=cert.pem \
-        --key=key.pem \
-        --context "$context" \
-        --namespace default \
-        --dry-run=client -o yaml | kubectl apply -f - --context "$context"
-
-    # Export CA for CLI tools
-    mkdir -p "$CERT_DIR"
-    cp cert.pem "$CERT_DIR/ca.crt"
-    ok "CA exported to ${CERT_DIR}/ca.crt"
-
-    popd > /dev/null
-    rm -rf "$cert_dir"
-
-    echo ""
-    ok "TLS certificates installed. Ingress will use browser-trusted certs."
-    echo ""
-    info "For CLI tools (structures sync, etc.), add to your shell profile:"
-    echo "    export NODE_EXTRA_CA_CERTS=${CERT_DIR}/ca.crt"
+    ok "mkcert CA installed. Terraform will generate browser-trusted certs on apply."
     echo ""
 }
 
@@ -156,17 +120,6 @@ setup_hosts() {
     echo ""
 }
 
-# ── Port-forward helper ──────────────────────────────────
-
-show_port_forward() {
-    echo "Port-forward commands (for direct service access):"
-    echo ""
-    info "kubectl port-forward svc/kinotic-es-es-http 9200:9200"
-    info "kubectl port-forward svc/keycloak-db-postgresql 5432:5432"
-    info "kubectl port-forward svc/keycloak 8888:8888"
-    echo ""
-}
-
 # ── Main ──────────────────────────────────────────────────
 
 usage() {
@@ -177,28 +130,29 @@ Usage: $(basename "$0") [options]
 
 Options:
   (none)       Check prerequisites only
-  --mkcert     Generate browser-trusted TLS certs (requires running cluster)
-  --hosts      Add ${HOSTNAME} to /etc/hosts (for OIDC flows)
-  --all        Check prerequisites + hosts + mkcert
+  --hosts      Add ${HOSTNAME} to /etc/hosts (required for OIDC flows)
+  --all        Check prerequisites + hosts + mkcert CA install
   --help       Show this help
 
 Workflow:
-  1. ./setup.sh                    # check prerequisites
-  2. cd terraform && terraform apply   # create cluster
-  3. ./setup.sh --mkcert           # optional: browser-trusted certs
-  4. ./setup.sh --hosts            # optional: needed for OIDC
+  1. ./setup.sh --all                    # prerequisites + hosts + mkcert CA
+  2. cd terraform && terraform init      # initialize Terraform
+  3. terraform apply                     # create cluster + deploy (mkcert certs auto-generated)
+
+Note:
+  TLS certificate generation is handled by Terraform (see tls.tf).
+  This script only installs the mkcert CA into your system trust store.
 
 EOF
 }
 
-do_mkcert=false
 do_hosts=false
+do_mkcert_ca=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --mkcert)  do_mkcert=true; shift ;;
         --hosts)   do_hosts=true; shift ;;
-        --all)     do_mkcert=true; do_hosts=true; shift ;;
+        --all)     do_hosts=true; do_mkcert_ca=true; shift ;;
         --help|-h) usage; exit 0 ;;
         *)         echo "Unknown option: $1"; usage; exit 1 ;;
     esac
@@ -215,17 +169,17 @@ if [[ "$do_hosts" == "true" ]]; then
     setup_hosts
 fi
 
-if [[ "$do_mkcert" == "true" ]]; then
-    setup_mkcert
+if [[ "$do_mkcert_ca" == "true" ]]; then
+    setup_mkcert_ca
 fi
 
-if [[ "$do_mkcert" == "false" && "$do_hosts" == "false" ]]; then
+if [[ "$do_mkcert_ca" == "false" && "$do_hosts" == "false" ]]; then
     echo ""
     echo "Next steps:"
+    info "./setup.sh --all                        # hosts + mkcert CA"
     info "cd terraform && terraform init && terraform apply"
     echo ""
-    info "Optional (after cluster is running):"
-    echo "    ./setup.sh --mkcert     # browser-trusted TLS certs"
-    echo "    ./setup.sh --hosts      # needed for OIDC/Keycloak"
+    info "For CLI tools after deploy, add to your shell profile:"
+    echo "    export NODE_EXTRA_CA_CERTS=\${HOME}/.kinotic/kind/ca.crt"
     echo ""
 fi

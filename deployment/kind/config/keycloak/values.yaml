@@ -17,7 +17,7 @@ auth:
 
 # Keycloak configuration
 keycloak:
-  hostname: structures.local
+  hostname: kinotic.local
   httpPort: 8888
   relativePath: /auth
   logLevel: INFO

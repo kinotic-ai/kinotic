@@ -1,4 +1,4 @@
-import { type IEntitiesService } from '@kinotic/structures-api'
+import { type IEntitiesService } from '@kinotic-ai/persistence'
 import { BaseDashboardWidgetEntityService } from './generated/BaseDashboardWidgetEntityService.js'
 
 /**

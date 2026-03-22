@@ -1,4 +1,4 @@
-import type { Identifiable } from '@kinotic/continuum-client'
+import type { Identifiable } from '@kinotic-ai/core'
 
 export interface DescriptiveIdentifiable extends Identifiable<string> {
     description?: string

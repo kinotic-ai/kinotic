@@ -1,4 +1,4 @@
-import {Continuum, type IServiceProxy} from '@kinotic/continuum-client'
+import {Kinotic, type IServiceProxy} from '@kinotic-ai/core'
 
 export class SessionMetadata {
     public sessionId!: string
@@ -20,7 +20,7 @@ export class SessionUpgradeService implements ISessionUpgradeService {
     protected serviceProxy: IServiceProxy
 
     constructor() {
-        this.serviceProxy = Continuum.serviceProxy('continuum.cli.SessionUpgradeService')
+        this.serviceProxy = Kinotic.serviceProxy('continuum.cli.SessionUpgradeService')
     }
 
     public async upgradeSession(upgradeId: string, sessionMetadata: SessionMetadata): Promise<void> {

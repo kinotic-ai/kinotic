@@ -267,15 +267,15 @@ deploy_nginx_ingress() {
 #
 # Configure CoreDNS to resolve custom hostnames to the nginx ingress
 # This allows pods within the cluster to reach services via ingress hostnames
-# like structures.local without external DNS configuration.
+# like kinotic.local without external DNS configuration.
 #
 # Args:
 #   $1: Cluster name
-#   $2: hostname to resolve (e.g., "structures.local")
+#   $2: hostname to resolve (e.g., "kinotic.local")
 # Returns:
 #   0 on success, 1 on failure
 # Example:
-#   configure_coredns_custom_hosts "kinotic-cluster" "structures.local"
+#   configure_coredns_custom_hosts "kinotic-cluster" "kinotic.local"
 #
 configure_coredns_custom_hosts() {
     local cluster_name="$1"
@@ -448,8 +448,8 @@ setup_tls() {
         cert_dir=$(mktemp -d)
         pushd "${cert_dir}" > /dev/null || return 1
         
-        progress "Generating certificates for localhost, structures.local, 127.0.0.1, ::1"
-        if ! mkcert localhost structures.local 127.0.0.1 ::1 2>&1; then
+        progress "Generating certificates for localhost, kinotic.local, 127.0.0.1, ::1"
+        if ! mkcert localhost kinotic.local 127.0.0.1 ::1 2>&1; then
             error "Failed to generate certificates with mkcert"
             popd > /dev/null || true
             rm -rf "${cert_dir}"

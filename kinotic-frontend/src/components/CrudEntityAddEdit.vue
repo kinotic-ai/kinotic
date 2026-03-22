@@ -53,7 +53,7 @@
 
 <script lang="ts">
 import { Component, Prop, Vue, Emit } from 'vue-facing-decorator'
-import { Continuum, type ICrudServiceProxy, type Identifiable } from '@kinotic/continuum-client'
+import { CrudServiceProxyFactory, Kinotic, type ICrudServiceProxy, type Identifiable } from '@kinotic-ai/core'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
@@ -99,7 +99,7 @@ export default class CrudEntityAddEdit extends Vue {
         : [(v: string) => !!v || `${this.identityLabel} is required`]
 
     try {
-      this.crudServiceProxy = Continuum.crudServiceProxy(this.crudServiceIdentifier)
+      this.crudServiceProxy = new CrudServiceProxyFactory(Kinotic.serviceRegistry).crudServiceProxy(this.crudServiceIdentifier)
 
       if (this.identity !== null) {
         this.editing = true

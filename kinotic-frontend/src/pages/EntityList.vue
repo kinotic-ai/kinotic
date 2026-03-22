@@ -4,8 +4,10 @@ import { Component, Vue, Prop } from 'vue-facing-decorator'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 
-import { Pageable, type Page, Order, Direction, type Identifiable } from '@kinotic/continuum-client'
-import { Structure, type IStructureService, Structures, type IEntitiesService } from '@kinotic/structures-api'
+import { Pageable, type Page, Order, Direction, type Identifiable } from '@kinotic-ai/core'
+import { Kinotic } from '@kinotic-ai/core'
+import { EntityDefinition, type IEntityDefinitionService } from '@kinotic-ai/os-api'
+import { type IEntitiesService } from '@kinotic-ai/persistence'
 import { createDebug } from '@/util/debug'
 
 const debug = createDebug('entity-list')
@@ -66,7 +68,7 @@ class EntityList extends Vue {
   keys: string[] = []
   headers: HeaderDef[] = []
   structureProperties: any = {}
-  structure!: Structure
+  structure!: EntityDefinition
 
   private _expansion = new ExpansionStateManager()
   private _inspector = new PropertyInspector()
@@ -83,8 +85,8 @@ class EntityList extends Vue {
   private _pendingResizeEvent: MouseEvent | null = null
   private _pendingResizeKind: 'column' | 'nested' | 'deep' | 'veryDeep' | 'ultraDeep' | null = null
 
-  entitiesService: IEntitiesService = Structures.getEntitiesService()
-  structureService: IStructureService = Structures.getStructureService()
+  entitiesService: IEntitiesService = Kinotic.entities
+  structureService: IEntityDefinitionService = Kinotic.entityDefinitions
 
   options = {
     rows: 50,
@@ -500,9 +502,9 @@ class EntityList extends Vue {
     }
 
     this.structureService.findById(id)
-      .then((structure) => {
+      .then((structure: EntityDefinition) => {
         this.structure = structure
-        this.structureProperties = structure.entityDefinition.properties
+        this.structureProperties = structure.schema.properties
 
         this._inspector.setStructureProperties(this.structureProperties)
 
@@ -534,7 +536,7 @@ class EntityList extends Vue {
 
         this.find()
       })
-      .catch((error) => {
+      .catch((error: Error) => {
         debug('Error during structure retrieval: %O', error)
         this.displayAlert(error.message)
       })

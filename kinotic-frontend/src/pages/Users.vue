@@ -42,8 +42,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-facing-decorator'
 import CrudTable from '@/components/CrudTable.vue'
-import { type Identifiable } from '@kinotic/continuum-client'
-import { Structures, type IApplicationService } from '@kinotic/structures-api'
+import { type Identifiable } from '@kinotic-ai/core'
+import { Kinotic } from '@kinotic-ai/core'
+import { type IApplicationService } from '@kinotic-ai/os-api'
 import { mdiGraphql, mdiApi } from '@mdi/js'
 import type { CrudHeader } from '@/types/CrudHeader'
 import { createDebug } from '@/util/debug'
@@ -60,7 +61,7 @@ export default class Users extends Vue {
     { field: 'surname', header: 'Surname', sortable: false },
   ]
 
-  dataSource: IApplicationService = Structures.getApplicationService()
+  dataSource: IApplicationService = Kinotic.applications
 
   icons = {
     graph: mdiGraphql,

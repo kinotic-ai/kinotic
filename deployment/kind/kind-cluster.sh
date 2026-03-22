@@ -481,9 +481,9 @@ EOF
             return "${EXIT_DEPLOYMENT_FAILED}"
         fi
         
-        # Configure CoreDNS to resolve structures.local to nginx ingress
+        # Configure CoreDNS to resolve kinotic.local to nginx ingress
         # This allows pods (like Keycloak) to reach services via the ingress hostname
-        configure_coredns_custom_hosts "${CLUSTER_NAME}" "structures.local" || true
+        configure_coredns_custom_hosts "${CLUSTER_NAME}" "kinotic.local" || true
         
         blank_line
     fi
@@ -527,8 +527,8 @@ EOF
     # Run load generator if requested (after kinotic-server is healthy)
     if [[ "${DEPLOY_LOAD_GENERATOR}" == "1" ]]; then
         section "Running Load Generator"
-        # Ensure CoreDNS resolves structures.local to the ingress controller
-        configure_coredns_custom_hosts "${CLUSTER_NAME}" "structures.local" || true
+        # Ensure CoreDNS resolves kinotic.local to the ingress controller
+        configure_coredns_custom_hosts "${CLUSTER_NAME}" "kinotic.local" || true
         if ! deploy_load_generator "${CLUSTER_NAME}"; then
             warning "Load generator failed (non-fatal)"
         fi
@@ -545,7 +545,7 @@ EOF
     # Show next steps
     section "Next Steps"
     if [[ "${DEPLOY_KEYCLOAK}" == "1" ]]; then
-        progress "Login to Structures (OIDC): https://structures.local/login"
+        progress "Login to Structures (OIDC): https://kinotic.local/login"
         progress "Keycloak Admin Console: http://localhost:8888/auth/admin (admin/admin)"
         blank_line
     else
@@ -553,8 +553,8 @@ EOF
         blank_line
     fi
     
-    warning "Add structures.local to your hosts file (required for OIDC):"
-    progress "   echo '127.0.0.1 structures.local' | sudo tee -a /etc/hosts"
+    warning "Add kinotic.local to your hosts file (required for OIDC):"
+    progress "   echo '127.0.0.1 kinotic.local' | sudo tee -a /etc/hosts"
     blank_line
     
     # CLI configuration (applies to all deployments using HTTPS via ingress)

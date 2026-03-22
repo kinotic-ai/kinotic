@@ -1,6 +1,6 @@
 
 
-import type { TypescriptProjectConfig } from '@kinotic/structures-api'
+import type { TypescriptProjectConfig } from '@kinotic-ai/persistence'
 
 const config: TypescriptProjectConfig = {
   mdl: "ts",

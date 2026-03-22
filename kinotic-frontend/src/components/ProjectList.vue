@@ -3,9 +3,10 @@ import { Component, Vue, Prop, Ref, Watch } from 'vue-facing-decorator'
 import CrudTable from '@/components/CrudTable.vue'
 import NewProjectSidebar from '@/components/NewProjectSidebar.vue'
 import ProjectStructuresTable from '@/components/ProjectStructuresTable.vue'
-import type { IDataSource, Identifiable, IterablePage, Pageable } from '@kinotic/continuum-client'
+import type { IDataSource, Identifiable, IterablePage, Pageable } from '@kinotic-ai/core'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
-import { Project, Structures } from '@kinotic/structures-api'
+import { Kinotic } from '@kinotic-ai/core'
+import { Project } from '@kinotic-ai/os-api'
 import type { CrudHeader } from '@/types/CrudHeader'
 import DatetimeUtil from "@/util/DatetimeUtil"
 import { createDebug } from '@/util/debug'
@@ -53,13 +54,13 @@ export default class ProjectList extends Vue {
   get dataSource(): IDataSource<Project> {
     return {
       findAll: async (pageable: Pageable): Promise<IterablePage<Project>> => {
-        const result = await Structures.getProjectService().findAllForApplication(this.applicationId, pageable)
+        const result = await Kinotic.projects.findAllForApplication(this.applicationId, pageable)
         APPLICATION_STATE.projectsCount = result.totalElements ?? 0
         return result
       },
       search: async (_searchText: string, pageable: Pageable): Promise<IterablePage<Project>> => {
         const search = `applicationId:${this.applicationId} && ${this.searchText}`
-        return Structures.getProjectService().search(search, pageable)
+        return Kinotic.projects.search(search, pageable)
       }
     }
   }

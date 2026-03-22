@@ -20,6 +20,9 @@ importers:
       '@kinotic-ai/idl':
         specifier: ^1.0.9
         version: 1.0.9(typescript@5.8.3)
+      '@kinotic-ai/os-api':
+        specifier: ^1.0.9
+        version: 1.0.9(typescript@5.8.3)
       '@kinotic-ai/persistence':
         specifier: ^1.0.9
         version: 1.0.9(typescript@5.8.3)
@@ -359,6 +362,14 @@ packages:
 
   '@kinotic-ai/idl@1.0.9':
     resolution: {integrity: sha512-YcUNlUeTlv8YavhFNDVgQgDmTPBEKGMRaRjr5p92WPACH52l/ZuFGOyE7kJZqjfe0lQhUEGolADwnYkwVxSBVg==}
+    peerDependencies:
+      typescript: '*'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  '@kinotic-ai/os-api@1.0.9':
+    resolution: {integrity: sha512-Tf6muT9DvGm188iO8X0/gvWFaPJ4ouq/Pah/DalDkcuC1jbdkyFHll6Mo+EjDgk7WLaaFncx+lzY/SmVGtzL8w==}
     peerDependencies:
       typescript: '*'
     peerDependenciesMeta:
@@ -1684,6 +1695,17 @@ snapshots:
       reflect-metadata: 0.2.2
     optionalDependencies:
       typescript: 5.8.3
+
+  '@kinotic-ai/os-api@1.0.9(typescript@5.8.3)':
+    dependencies:
+      '@kinotic-ai/core': 1.0.9(typescript@5.8.3)
+      '@kinotic-ai/idl': 1.0.9(typescript@5.8.3)
+      '@kinotic-ai/persistence': 1.0.9(typescript@5.8.3)
+      rxjs: 7.8.2
+    optionalDependencies:
+      typescript: 5.8.3
+    transitivePeerDependencies:
+      - supports-color
 
   '@kinotic-ai/persistence@1.0.9(typescript@5.8.3)':
     dependencies:

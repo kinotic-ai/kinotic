@@ -1,4 +1,4 @@
-import { ConnectionInfo } from "@kinotic/continuum-client";
+import { ConnectionInfo } from "@kinotic-ai/core";
 
 export const getQueryParam = (name: string) => {
     const urlParams = new URLSearchParams(window.location.search);

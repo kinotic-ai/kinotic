@@ -5,10 +5,11 @@ import StructureItemModal from '@/components/modals/StructureItemModal.vue'
 import StructureDataViewModal from '@/components/modals/StructureDataViewModal.vue'
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
-import { Structure, Structures } from '@kinotic/structures-api'
+import { Kinotic } from '@kinotic-ai/core'
+import { EntityDefinition } from '@kinotic-ai/os-api'
 import type { CrudHeader } from '@/types/CrudHeader'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
-import type { Identifiable, IterablePage, Pageable } from '@kinotic/continuum-client'
+import type { Identifiable, IterablePage, Pageable } from '@kinotic-ai/core'
 import DatetimeUtil from "@/util/DatetimeUtil"
 import { createDebug } from '@/util/debug'
 
@@ -40,12 +41,12 @@ export default class ProjectStructuresTable extends Vue {
   showItemModal = false
   showPublishModal = false
   showUnpublishModal = false
-  selectedStructure: Structure | null = null
+  selectedStructure: EntityDefinition | null = null
   isInitialized = false
   public DatetimeUtil = DatetimeUtil
   actionMenus: any[] = []
-  currentActionItem: Structure | null = null
-  private dataSource1 = Structures.getStructureService()
+  currentActionItem: EntityDefinition | null = null
+  private dataSource1 = Kinotic.entityDefinitions
 
   mounted() {
     this.searchText = (this.$route.query['search-entityDefinition'] as string) || ''
@@ -96,7 +97,7 @@ export default class ProjectStructuresTable extends Vue {
       debug('Handling application change for ProjectStructures page')
       
       const pageable = { pageNumber: 0, pageSize: 1 } as any
-      const result = await Structures.getProjectService().findAllForApplication(newApp.id, pageable)
+      const result = await Kinotic.projects.findAllForApplication(newApp.id, pageable)
       const firstProject = result.content?.[0]
       
       if (firstProject) {
@@ -119,16 +120,16 @@ export default class ProjectStructuresTable extends Vue {
 
   get dataSource() {
     return {
-      findAll: async (pageable: Pageable): Promise<IterablePage<Structure>> => {
+      findAll: async (pageable: Pageable): Promise<IterablePage<EntityDefinition>> => {
         debug('dataSource.findAll called with projectId: %s, currentApplication: %s', this.projectId, APPLICATION_STATE.currentApplication?.id)
-        const result = await Structures.getStructureService().findAllForProject(this.projectId, pageable)
+        const result = await Kinotic.entityDefinitions.findAllForProject(this.projectId, pageable)
         APPLICATION_STATE.structuresCount = result.totalElements ?? 0
         return result
       },
-      search: async (_searchText: string, pageable: Pageable): Promise<IterablePage<Structure>> => {
+      search: async (_searchText: string, pageable: Pageable): Promise<IterablePage<EntityDefinition>> => {
         debug('dataSource.search called with projectId: %s, currentApplication: %s', this.projectId, APPLICATION_STATE.currentApplication?.id)
         const search = `projectId:${this.projectId} && ${this.searchText}`
-        return Structures.getStructureService().search(search, pageable)
+        return Kinotic.entityDefinitions.search(search, pageable)
       }
     }
   }
@@ -151,7 +152,7 @@ export default class ProjectStructuresTable extends Vue {
     this.refreshTable()
   }
 
-  openModal(item: Structure) {
+  openModal(item: EntityDefinition) {
     try {
       this.selectedStructure = item
       this.showModal = true
@@ -165,7 +166,7 @@ export default class ProjectStructuresTable extends Vue {
     this.selectedStructure = null
   }
 
-  openItemModal(item: Structure) {
+  openItemModal(item: EntityDefinition) {
     this.selectedStructure = item
     this.showItemModal = true
   }
@@ -175,7 +176,7 @@ export default class ProjectStructuresTable extends Vue {
     this.selectedStructure = null
   }
 
-  openPublishModal(item: Structure) {
+  openPublishModal(item: EntityDefinition) {
     debug('openPublishModal called for item: %s', item.name);
     this.selectedStructure = item
     this.showPublishModal = true
@@ -186,7 +187,7 @@ export default class ProjectStructuresTable extends Vue {
     this.selectedStructure = null
   }
 
-  openUnpublishModal(item: Structure) {
+  openUnpublishModal(item: EntityDefinition) {
     this.selectedStructure = item
     this.showUnpublishModal = true
   }
@@ -204,7 +205,7 @@ export default class ProjectStructuresTable extends Vue {
     this.$router.push(`${this.$route.path}/edit/${item.id}`)
   }
 
-  handleRowClick(item: Structure) {
+  handleRowClick(item: EntityDefinition) {
     if (item.published) {
       debug('Opening data modal for published entityDefinition');
       this.openModal(item)
@@ -214,7 +215,7 @@ export default class ProjectStructuresTable extends Vue {
     }
   }
 
-  toggleMenu(event: Event, item: Structure, index: number) {
+  toggleMenu(event: Event, item: EntityDefinition, index: number) {
     this.currentActionItem = item
     const menu = this.actionMenus[index]
     if (menu) {
@@ -256,7 +257,7 @@ export default class ProjectStructuresTable extends Vue {
     }
   }
 
-  getActionMenu(item: Structure) {
+  getActionMenu(item: EntityDefinition) {
     return [
       {
         label: item.published ? 'Unpublish' : 'Publish',

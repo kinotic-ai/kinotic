@@ -9,6 +9,13 @@ resource "helm_release" "kinotic_server" {
 
   values = [file("${path.module}/../config/kinotic-server/values.yaml")]
 
+  # Tell the Helm chart whether a pre-created TLS secret exists (mkcert)
+  # or whether cert-manager should generate a self-signed fallback
+  set {
+    name  = "ingress.tls.existingSecret"
+    value = var.use_mkcert ? "true" : "false"
+  }
+
   # Image tag from variable — no hardcoding in values.yaml
   set {
     name  = "image.tag"
@@ -64,5 +71,6 @@ resource "helm_release" "kinotic_server" {
     helm_release.ingress_nginx,
     helm_release.cert_manager,
     helm_release.elasticsearch,
+    kubernetes_secret.kinotic_tls,
   ]
 }

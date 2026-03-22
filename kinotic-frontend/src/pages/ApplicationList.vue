@@ -5,16 +5,16 @@ import ContainerMedium from "@/components/ContainerMedium.vue";
 import ApplicationSidebar from "@/components/ApplicationSidebar.vue";
 import GraphQLModal from "@/components/modals/GraphQLModal.vue";
 import OpenAPIModal from "@/components/modals/OpenAPIModal.vue";
+import { Kinotic } from "@kinotic-ai/core";
 import {
-  Structures,
   type IApplicationService,
   type Application,
-} from "@kinotic/structures-api";
+} from "@kinotic-ai/os-api";
 import { APPLICATION_STATE } from "@/states/IApplicationState";
 import { mdiGraphql, mdiApi } from "@mdi/js";
 import { onClickOutside } from "@vueuse/core";
 import type { CrudHeader } from "@/types/CrudHeader";
-import type { Identifiable } from "@kinotic/continuum-client";
+import type { Identifiable } from "@kinotic-ai/core";
 import { shallowRef } from "vue";
 import DatetimeUtil from "@/util/DatetimeUtil";
 import { createDebug } from "@/util/debug";
@@ -38,7 +38,7 @@ export default class NamespaceList extends Vue {
     { field: "updated", header: "Updated", sortable: false },
   ];
 
-  dataSource: IApplicationService = Structures.getApplicationService();
+  dataSource: IApplicationService = Kinotic.applications;
   icons = { graph: mdiGraphql, api: mdiApi };
   showGraphQLModal = false;
   showOpenAPIModal = false;

@@ -11,9 +11,10 @@ import type {
   Identifiable,
   IterablePage,
   Pageable,
-} from "@kinotic/continuum-client";
+} from "@kinotic-ai/core";
 import { APPLICATION_STATE } from "@/states/IApplicationState";
-import { Structure, Structures, type IStructureService } from "@kinotic/structures-api";
+import { Kinotic } from "@kinotic-ai/core";
+import { EntityDefinition, type IEntityDefinitionService } from "@kinotic-ai/os-api";
 import type { CrudHeader } from "@/types/CrudHeader";
 import DatetimeUtil from "@/util/DatetimeUtil";
 import { createDebug } from "@/util/debug";
@@ -61,11 +62,11 @@ export default defineComponent({
     return {
       DatetimeUtil,
       actionMenus: {} as Record<string | number, any>,
-      currentActionItem: null as Structure | null,
-      dataSource1: Structures.getStructureService() as IStructureService,
+      currentActionItem: null as EntityDefinition | null,
+      dataSource1: Kinotic.entityDefinitions as IEntityDefinitionService,
       isInitialized: false,
       searchText: "",
-      selectedStructure: null as Structure | null,
+      selectedStructure: null as EntityDefinition | null,
       showItemModal: false,
       showModal: false,
       showPublishModal: false,
@@ -83,8 +84,8 @@ export default defineComponent({
   computed: {
     dataSource() {
       return {
-        findAll: async (pageable: Pageable): Promise<IterablePage<Structure>> => {
-          const service = Structures.getStructureService();
+        findAll: async (pageable: Pageable): Promise<IterablePage<EntityDefinition>> => {
+          const service = Kinotic.entityDefinitions;
           const result = this.projectId
             ? await service.findAllForProject(this.projectId, pageable)
             : await service.findAllForApplication(this.applicationId, pageable);
@@ -95,12 +96,12 @@ export default defineComponent({
         search: async (
           _searchText: string,
           pageable: Pageable
-        ): Promise<IterablePage<Structure>> => {
+        ): Promise<IterablePage<EntityDefinition>> => {
           const filter = this.projectId
             ? `projectId:${this.projectId}`
             : `applicationId:${this.applicationId}`;
           const query = `${filter} && ${this.searchText}`;
-          return Structures.getStructureService().search(query, pageable);
+          return Kinotic.entityDefinitions.search(query, pageable);
         },
       };
     },
@@ -147,7 +148,7 @@ export default defineComponent({
       this.$router.replace({ query }).catch(() => {});
       this.refreshTable();
     },
-    openModal(item: Structure): void {
+    openModal(item: EntityDefinition): void {
       this.selectedStructure = item;
       this.showModal = true;
     },
@@ -155,7 +156,7 @@ export default defineComponent({
       this.showModal = false;
       this.selectedStructure = null;
     },
-    openItemModal(item: Structure): void {
+    openItemModal(item: EntityDefinition): void {
       this.selectedStructure = item;
       this.showItemModal = true;
     },
@@ -163,7 +164,7 @@ export default defineComponent({
       this.showItemModal = false;
       this.selectedStructure = null;
     },
-    openPublishModal(item: Structure): void {
+    openPublishModal(item: EntityDefinition): void {
       this.selectedStructure = item;
       this.showPublishModal = true;
     },
@@ -171,7 +172,7 @@ export default defineComponent({
       this.showPublishModal = false;
       this.selectedStructure = null;
     },
-    openUnpublishModal(item: Structure): void {
+    openUnpublishModal(item: EntityDefinition): void {
       this.selectedStructure = item;
       this.showUnpublishModal = true;
     },
@@ -179,7 +180,7 @@ export default defineComponent({
       this.showUnpublishModal = false;
       this.selectedStructure = null;
     },
-    handleRowClick(item: Structure): void {
+    handleRowClick(item: EntityDefinition): void {
       if (item.published) {
         this.openModal(item);
       } else {
@@ -189,7 +190,7 @@ export default defineComponent({
     onEditItem(item: Identifiable<string>): void {
       this.$router.push(`${this.$route.path}/edit/${item.id}`);
     },
-    toggleMenu(event: Event, item: Structure, index: string | number): void {
+    toggleMenu(event: Event, item: EntityDefinition, index: string | number): void {
       this.currentActionItem = item;
       const menu = this.actionMenus[index];
       menu?.toggle?.(event);
@@ -241,7 +242,7 @@ export default defineComponent({
         debug("Error unpublishing structure: %O", error);
       }
     },
-    getActionMenu(item: Structure) {
+    getActionMenu(item: EntityDefinition) {
       return [
         {
           label: item.published ? "Unpublish" : "Publish",

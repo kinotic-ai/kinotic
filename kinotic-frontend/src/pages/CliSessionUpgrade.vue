@@ -46,7 +46,7 @@
 import { Component, Prop, Vue } from 'vue-facing-decorator'
 import { USER_STATE } from '@/states/IUserState'
 import { SESSION_UPGRADE_SERVICE, SessionMetadata } from '@/services/SessionUpgradeService'
-import { Continuum } from '@kinotic/continuum-client'
+import { Kinotic } from '@kinotic-ai/core'
 
 @Component({
   components: {}
@@ -74,7 +74,7 @@ export default class CliSessionUpgrade extends Vue {
           this.setStatus('Error connecting CLI to Continuum: ' + e, false, false)
         } finally {
           this.setStatus('You can close this tab and return to your command line.', true, false)
-          await Continuum.disconnect(true)
+          await Kinotic.disconnect(true)
           this.loading = false
         }
       } else {

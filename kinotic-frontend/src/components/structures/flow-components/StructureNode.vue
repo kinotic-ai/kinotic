@@ -7,7 +7,7 @@ import PropertyType from "@/components/structures/flow-components/PropertyType.v
 import { useStructureStore } from "@/stores/editor.ts"
 import {usePropertyTypes} from "@/composables/structure/usePropertyTypes.ts";
 import {Handle, Position} from "@vue-flow/core";
-import type { PropertyDefinition } from "@kinotic/continuum-idl";
+import type { PropertyDefinition } from "@kinotic-ai/idl";
 import type {FieldData} from "@/util/graph.ts";
 
 interface INodeData {
@@ -43,7 +43,7 @@ export default class StructureNode extends Vue {
 
   get objectType() {
     return this.structureStore.findObjectById(
-        this.structureStore.structure!.entityDefinition,
+        this.structureStore.structure!.schema,
         this.data.label
     )
   }

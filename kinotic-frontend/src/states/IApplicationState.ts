@@ -1,9 +1,9 @@
 import { NavItem } from '@/components/NavItem'
-import { Pageable } from '@kinotic/continuum-client'
-import { Application, Structures } from '@kinotic/structures-api'
+import {Kinotic, Pageable} from '@kinotic-ai/core'
 import { computed, type ComputedRef, markRaw, reactive, type Reactive } from 'vue'
 import type { NavigationGuardNext, RouteLocationNormalized, Router, RouteRecordRaw } from 'vue-router'
 import { createDebug } from '@/util/debug'
+import {Application} from "@kinotic-ai/os-api";
 
 const debug = createDebug('application-state');
 
@@ -79,8 +79,8 @@ class ApplicationState implements IApplicationState {
         
         if (app) {
             Promise.all([
-                Structures.getProjectService().countForApplication(app.id),
-                Structures.getStructureService().countForApplication(app.id)
+                Kinotic.projects.countForApplication(app.id),
+                Kinotic.entityDefinitions.countForApplication(app.id)
             ]).then(([projectsCount, structuresCount]) => {
                 this.projectsCount = projectsCount
                 this.structuresCount = structuresCount
@@ -100,7 +100,7 @@ class ApplicationState implements IApplicationState {
 
     public async loadAllApplications(): Promise<void> {
         try {
-            const service = Structures.getApplicationService()
+            const service = Kinotic.applications
             const pageable = Pageable.create(0, 1000)
             const result = await service.findAll(pageable)
             this.allApplications = result.content ?? []

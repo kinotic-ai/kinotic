@@ -48,7 +48,7 @@ properties:
     openApiSecurityType: "BASIC"
     openApiPort: 8080
     openApiPath: "/api/"
-    openApiServerUrl: "https://structures.local/"
+    openApiServerUrl: "https://kinotic.local/"
     graphqlPort: 4000
     graphqlPath: "/graphql/"
     webServerPort: 9090
@@ -108,7 +108,7 @@ ingress:
   className: nginx
   hosts:
     - localhost
-    - structures.local
+    - kinotic.local
   tls:
     enabled: true
     secretName: kinotic-tls-secret
@@ -119,7 +119,7 @@ ingress:
 
 # OIDC security service configuration
 # Note: authority uses localhost because OIDC flows happen in the browser,
-# which accesses Keycloak via the ingress at https://structures.local/auth
+# which accesses Keycloak via the ingress at https://kinotic.local/auth
 oidc:
   debug: true
   frontendConfigurationPath: "/app-config.override.json"
@@ -134,10 +134,10 @@ oidc:
         - "admin"
       audience: "kinotic-client"
       clientId: "kinotic-client"
-      authority: "https://structures.local/auth/realms/test"
-      redirectUri: "https://structures.local/login"
-      postLogoutRedirectUri: "https://structures.local"
-      silentRedirectUri: "https://structures.local/silent-renew.html"
+      authority: "https://kinotic.local/auth/realms/test"
+      redirectUri: "https://kinotic.local/login"
+      postLogoutRedirectUri: "https://kinotic.local"
+      silentRedirectUri: "https://kinotic.local/silent-renew.html"
     
 
 # Eviction tracking - writes per-pod CSV files to shared host directory
