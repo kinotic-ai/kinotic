@@ -5,9 +5,9 @@ resource "helm_release" "postgresql" {
 
   name       = "keycloak-db"
   namespace  = "default"
-  repository = "https://charts.bitnami.com/bitnami"
+  repository = "oci://registry-1.docker.io/bitnamicharts"
   chart      = "postgresql"
-  version    = "16.4.1"
+  version    = "18.5.11"
   wait       = true
   timeout    = var.deploy_timeout
 

@@ -1,6 +1,6 @@
 apiVersion: v2
-name: structures-load-generator
-description: Creates a load generator for the structures server
+name: kinotic-load-generator
+description: Creates a load generator for the Kinotic server
 
 # A chart can be either an 'application' or a 'library' chart.
 #

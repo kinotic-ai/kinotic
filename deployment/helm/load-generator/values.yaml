@@ -2,7 +2,7 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-structures:
+kinotic:
   useSsl: false
   tlsInsecure: false  # Set to true to skip TLS certificate validation (for self-signed certs)
   host: host.docker.internal
@@ -27,7 +27,7 @@ otel:
 parallelism: 1
 
 selectorLabels:
-  jobgroup: structures-load-generator
+  jobgroup: kinotic-load-generator
 
 # This is for setting Kubernetes Annotations to a Pod.
 # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/

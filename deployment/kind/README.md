@@ -69,23 +69,40 @@ kubectl port-forward svc/keycloak 8888:8888                # Keycloak (with Keyc
 
 ### Browser-Trusted TLS (mkcert)
 
-By default, cert-manager generates self-signed certificates (browser warnings). For trusted certs:
+With mkcert installed, Terraform automatically generates browser-trusted certificates. No manual steps needed — just ensure the CA is set up once:
 
 ```bash
-# After terraform apply has created the cluster
-./setup.sh --mkcert
+brew install mkcert nss && mkcert -install
+# Or: ./setup.sh --all (does this + /etc/hosts)
 ```
+
+To fall back to cert-manager self-signed certs (browser warnings): `terraform apply -var="use_mkcert=false"`
 
 ### OIDC / Keycloak
 
+Keycloak provides OIDC authentication. When enabled, Terraform deploys PostgreSQL + Keycloak and
+redeploys kinotic-server with the `kubernetes-oidc` Spring profile and `oidc.enabled=true`.
+
 ```bash
-# Add hostname for OIDC browser flows
+# 1. Add kinotic.local to /etc/hosts (required — OIDC browser redirects use this hostname)
 ./setup.sh --hosts
 
-# Deploy with Keycloak
+# 2. Deploy with Keycloak (first deploy or adding to existing cluster)
 cd terraform
 terraform apply -var="enable_keycloak=true"
 ```
+
+If the cluster is already running without Keycloak, re-running `terraform apply -var="enable_keycloak=true"`
+will deploy Keycloak and **redeploy kinotic-server** with the OIDC configuration — no manual steps needed.
+
+**Access:**
+
+| Service | URL                               | Credentials |
+|---------|-----------------------------------|-------------|
+| Kinotic (OIDC login) | https://kinotic.local/login       | testuser@example.com / password123 |
+| Keycloak Admin Console | https://kinotic.local/auth/admin | admin / admin |
+
+To access the Keycloak admin console directly: `kubectl port-forward svc/keycloak 8888:8888`
 
 ### CLI Tools with Self-Signed Certs
 
@@ -99,11 +116,55 @@ export NODE_EXTRA_CA_CERTS=~/.kinotic/kind/ca.crt
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `cluster_name` | `kinotic-cluster` | KinD cluster name |
-| `kinotic_version` | `4.2.0-SNAPSHOT` | Kinotic server image tag |
+| `kinotic_version` | `latest` | Kinotic server image tag |
 | `worker_count` | `3` | Number of worker nodes |
 | `enable_keycloak` | `false` | Deploy Keycloak + PostgreSQL for OIDC |
-| `enable_load_generator` | `false` | Run load generator after deploy |
+| `enable_load_generator` | `false` | Run load generator via Terraform |
+| `use_mkcert` | `true` | Generate browser-trusted certs with mkcert |
 | `deploy_timeout` | `600` | Helm release timeout (seconds) |
+
+## Load Generator
+
+The load generator creates sample entity definitions and data for testing. It connects to the Kinotic server through the ingress and runs as a Kubernetes Job.
+
+### Via Terraform
+
+```bash
+terraform apply -var="enable_load_generator=true"
+```
+
+### Via Helm (standalone)
+
+Useful for re-running after the cluster is already up, or with custom configuration:
+
+```bash
+cd deployment/kind
+
+# Deploy (runs the generateComplexEntities test)
+helm install load-generator ../helm/load-generator \
+  -f config/load-generator/values.yaml \
+  --kube-context kind-kinotic-cluster
+
+# Watch progress
+kubectl logs -l app.kubernetes.io/name=kinotic-load-generator -f
+
+# Clean up when done (required before re-running — Jobs are immutable)
+helm uninstall load-generator --kube-context kind-kinotic-cluster
+```
+
+### Configuration
+
+Override values in `config/load-generator/values.yaml`:
+
+| Value | Default (KinD) | Description |
+|-------|----------------|-------------|
+| `kinotic.host` | `kinotic.local` | Server hostname |
+| `kinotic.port` | `443` | Server port |
+| `kinotic.useSsl` | `true` | Use HTTPS/WSS |
+| `kinotic.tlsInsecure` | `true` | Skip cert validation |
+| `loadGenerator.config.testName` | `generateComplexEntities` | Test to run |
+| `loadGenerator.config.maxConcurrentRequests` | `1` | Parallel requests |
+| `loadGenerator.config.maxRequestsPerSecond` | `100` | Rate limit |
 
 ## Testing Local Changes
 
@@ -158,20 +219,22 @@ deployment/kind/
 ├── terraform/
 │   ├── main.tf                      # KinD cluster + providers
 │   ├── ingress.tf                   # ingress-nginx + cert-manager
+│   ├── tls.tf                       # mkcert certificate generation
 │   ├── elasticsearch.tf             # ECK operator + Elasticsearch
 │   ├── kinotic.tf                   # Kinotic server
 │   ├── keycloak.tf                  # PostgreSQL + Keycloak (conditional)
 │   ├── load-generator.tf            # Load generator (conditional)
 │   ├── variables.tf                 # Input variables
-│   ├── outputs.tf                   # Cluster info + access URLs
-│   └── terraform.tfvars             # Default values
+│   └── outputs.tf                   # Cluster info + access URLs
 ├── config/
 │   ├── kind-config.yaml             # KinD cluster topology
 │   ├── cert-manager/values.yaml
+│   ├── coredns/custom-hosts.yaml    # CoreDNS template for kinotic.local
 │   ├── eck-operator/values.yaml
 │   ├── elasticsearch/values.yaml
 │   ├── ingress-nginx/values.yaml
 │   ├── keycloak/values.yaml
+│   ├── load-generator/values.yaml   # KinD overrides for load generator
 │   ├── postgresql/values.yaml
 │   └── kinotic-server/values.yaml
 └── charts/keycloak/                 # Local Keycloak Helm chart

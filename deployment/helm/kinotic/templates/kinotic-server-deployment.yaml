@@ -9,6 +9,8 @@ spec:
       app: {{ include "kinotic-server.name" . }}
   template:
     metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/kinotic-server-config-map.yaml") . | sha256sum }}
       labels:
         app: {{ include "kinotic-server.name" . }}
         release: {{ .Release.Name }}

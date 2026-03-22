@@ -23,7 +23,7 @@ spec:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "kinoticai/structures-load-generator:{{ .Values.loadGenerator.image.tag }}"
+          image: "kinoticai/kinotic-load-generator:{{ .Values.loadGenerator.image.tag }}"
           imagePullPolicy: {{ .Values.loadGenerator.image.pullPolicy }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
@@ -36,17 +36,17 @@ spec:
               value: {{ .Values.otel.endpoint }}
             - name: OTEL_EXPORTER_TYPE
               value: {{ .Values.otel.type }}
-            - name: STRUCTURES_USE_SSL
-              value: "{{ .Values.structures.useSsl }}"
-          {{- if .Values.structures.tlsInsecure }}
+            - name: KINOTIC_USE_SSL
+              value: "{{ .Values.kinotic.useSsl }}"
+          {{- if .Values.kinotic.tlsInsecure }}
             - name: NODE_TLS_REJECT_UNAUTHORIZED
               value: "0"
           {{- end }}
-            - name: STRUCTURES_HOST
-              value: "{{ .Values.structures.host }}"
-          {{- if .Values.structures.port }}
-            - name: STRUCTURES_PORT
-              value: "{{ .Values.structures.port }}"
+            - name: KINOTIC_HOST
+              value: "{{ .Values.kinotic.host }}"
+          {{- if .Values.kinotic.port }}
+            - name: KINOTIC_PORT
+              value: "{{ .Values.kinotic.port }}"
           {{- end }}
             - name: MAX_CONCURRENT_REQUESTS
               value: "{{ .Values.loadGenerator.config.maxConcurrentRequests }}"

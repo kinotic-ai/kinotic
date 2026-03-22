@@ -55,7 +55,7 @@ resource "helm_release" "kinotic_server" {
     for_each = var.enable_keycloak ? [1] : []
     content {
       name  = "properties.springActiveProfiles"
-      value = "production,kubernetes,kubernetes-oidc,debug,eviction-tracking"
+      value = "production\\,kubernetes\\,kubernetes-oidc\\,debug\\,eviction-tracking"
     }
   }
 

@@ -1,7 +1,7 @@
 # Kind-specific values for the load-generator chart
 # Connects through nginx ingress for full-path testing
 
-structures:
+kinotic:
   useSsl: true
   tlsInsecure: true  # Accept mkcert/self-signed certs
   host: kinotic.local
@@ -14,7 +14,7 @@ loadGenerator:
   config:
     maxConcurrentRequests: 1
     maxRequestsPerSecond: 100
-    testName: generateComplexStructures
+    testName: generateComplexEntities
     beginTenantIdNumber: 1
     numberOfTenants: 1
 

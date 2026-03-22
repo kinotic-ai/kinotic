@@ -981,7 +981,7 @@ deploy_load_generator() {
         echo "Check job status:"
         echo "  kubectl get jobs --context ${context}"
         echo "Check pod logs:"
-        echo "  kubectl logs -l app.kubernetes.io/name=structures-load-generator --context ${context}"
+        echo "  kubectl logs -l app.kubernetes.io/name=kinotic-load-generator --context ${context}"
         echo ""
         return 1
     fi
