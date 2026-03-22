@@ -215,26 +215,24 @@ terraform apply
 
 ```
 deployment/kind/
-├── setup.sh                         # One-time environment setup
+├── setup.sh                         # One-time environment setup (prerequisites, /etc/hosts, mkcert CA)
 ├── terraform/
 │   ├── main.tf                      # KinD cluster + providers
-│   ├── ingress.tf                   # ingress-nginx + cert-manager
 │   ├── tls.tf                       # mkcert certificate generation
+│   ├── ingress.tf                   # ingress-nginx + cert-manager + CoreDNS
 │   ├── elasticsearch.tf             # ECK operator + Elasticsearch
 │   ├── kinotic.tf                   # Kinotic server
 │   ├── keycloak.tf                  # PostgreSQL + Keycloak (conditional)
 │   ├── load-generator.tf            # Load generator (conditional)
 │   ├── variables.tf                 # Input variables
 │   └── outputs.tf                   # Cluster info + access URLs
-├── config/
-│   ├── kind-config.yaml             # KinD cluster topology
+├── config/                          # Helm values overrides for KinD
 │   ├── cert-manager/values.yaml
-│   ├── coredns/custom-hosts.yaml    # CoreDNS template for kinotic.local
 │   ├── eck-operator/values.yaml
 │   ├── elasticsearch/values.yaml
 │   ├── ingress-nginx/values.yaml
 │   ├── keycloak/values.yaml
-│   ├── load-generator/values.yaml   # KinD overrides for load generator
+│   ├── load-generator/values.yaml
 │   ├── postgresql/values.yaml
 │   └── kinotic-server/values.yaml
 └── charts/keycloak/                 # Local Keycloak Helm chart

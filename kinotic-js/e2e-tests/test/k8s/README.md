@@ -15,12 +15,10 @@ These tests verify cache eviction propagation across a Kubernetes cluster by con
 ## Quick Start
 
 ```bash
-# 1. Create KinD cluster
-cd ../../  # Navigate to project root
-./dev-tools/kind/kind-cluster.sh create
-
-# 4. Deploy with 3 replicas
-./dev-tools/kind/kind-cluster.sh deploy
+# 1. Create KinD cluster and deploy
+cd deployment/kind/terraform
+terraform init
+terraform apply
 
 # 5. Run K8s tests
 cd structures-js/structures-e2e
@@ -346,7 +344,7 @@ jobs:
         run: |
           ./gradlew :structures-server:bootBuildImage
           kind load docker-image structures-server:latest
-          ./dev-tools/kind/kind-cluster.sh deploy
+          cd deployment/kind/terraform && terraform init && terraform apply -auto-approve
       
       - name: Run K8s Tests
         working-directory: structures-js/structures-e2e

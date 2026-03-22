@@ -180,15 +180,10 @@ Documentation:
 
 ### Prerequisites
 ```bash
-# 1. Create KinD cluster
-./dev-tools/kind/kind-cluster.sh create
-
-# 2. Build and load image
-./gradlew :structures-server:bootBuildImage
-./dev-tools/kind/kind-cluster.sh load
-
-# 3. Deploy with 3 replicas
-./dev-tools/kind/kind-cluster.sh deploy
+# 1. Create KinD cluster and deploy
+cd deployment/kind/terraform
+terraform init
+terraform apply
 ```
 
 ### Run Tests

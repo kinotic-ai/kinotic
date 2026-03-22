@@ -12,4 +12,4 @@ terraform.tfvars.local
 .certs/
 
 # Generated kubeconfig from Kind provider
-#kinotic-cluster-config
+kinotic-cluster-config
