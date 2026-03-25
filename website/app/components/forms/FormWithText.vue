@@ -48,49 +48,55 @@ const handleSubmit = () => {
 </script>
 
 <template>
-  <section v-if="isMounted" :style="{ background: gradientStyle }">
+  <section id="contact" v-if="isMounted" :style="{ background: gradientStyle }" class="px-5 py-16 xl:px-0 xl:py-24">
     <BaseContainer>
-      <div class="mx-auto rounded-xl xl:py-20 py-12 pb-5 xl:px-0 px-5 md:flex md:justify-between gap-10">
-        <div class="md:w-1/2 mb-10 md:mb-0">
+      <div class="mx-auto overflow-hidden rounded-[32px] border border-white/8 bg-[#16161A] px-6 py-10 shadow-[0_35px_80px_rgba(0,0,0,0.24)] md:flex md:justify-between md:gap-10 xl:px-10 xl:py-14">
+        <div class="mb-10 md:mb-0 md:w-[42%]">
+          <span class="mb-4 inline-flex rounded-full border border-[#20E6A7]/20 bg-[#20E6A7]/10 px-3 py-1 text-xs uppercase tracking-[0.22em] text-[#7DEAC7]">
+            Build with Kinotic
+          </span>
           <h2
-            class="text-[#101010] dark:text-[#EDEEF2] text-[30px] xl:text-4xl font-[BauhausNanoDisplayRegular] leading-tight text-center xl:text-left">
-            Sign up to Get<br />
-            Early Access to<br />
-            Structures Cloud
+            class="text-center font-[BauhausNanoDisplayBold] text-[34px] leading-tight text-[#EDEEF2] xl:text-left xl:text-5xl">
+            Launch your next<br />
+            data workflow with<br />
+            Kinotic
           </h2>
+          <p class="mt-5 max-w-[420px] text-center text-base leading-7 text-[#A8AFBB] xl:text-left">
+            Keep the form for now, swap the copy later, and ship the refreshed brand today.
+          </p>
         </div>
 
-        <form @submit.prevent="handleSubmit" class="md:w-1/2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <form @submit.prevent="handleSubmit" class="grid grid-cols-1 gap-6 md:w-[52%] sm:grid-cols-2">
           <div>
-            <label class="block text-sm text-[#2B2A32] dark:text-[#BBBBBF] font-[InterRegular] mb-2">Name</label>
+            <label class="mb-2 block text-sm font-[InterRegular] text-[#BBBBBF]">Name</label>
             <UInput
               v-model="formData.name"
               placeholder="Enter name"
               class="w-full"
-              input-class="h-[48px] px-4 border border-[#CBD5E1] dark:border-none rounded-lg bg-white dark:bg-[#FFFFFF]/10 text-black dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+              input-class="h-[52px] rounded-xl border border-white/10 bg-white/5 px-4 text-white placeholder:text-[#7B8190] outline-none focus:ring-2 focus:ring-[#FF2D7A]/40"
             />
           </div>
           <div>
-            <label class="block text-sm text-[#2B2A32] dark:text-[#BBBBBF] font-[InterRegular] mb-2">Email</label>
+            <label class="mb-2 block text-sm font-[InterRegular] text-[#BBBBBF]">Email</label>
             <UInput
               v-model="formData.email"
               type="email"
               placeholder="Enter email"
               class="w-full"
-              input-class="h-[48px] px-4 border border-[#CBD5E1] dark:border-none rounded-lg bg-white dark:bg-[#FFFFFF]/10 text-black dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+              input-class="h-[52px] rounded-xl border border-white/10 bg-white/5 px-4 text-white placeholder:text-[#7B8190] outline-none focus:ring-2 focus:ring-[#FF2D7A]/40"
             />
           </div>
           <div>
-            <label class="block text-sm text-[#2B2A32] dark:text-[#BBBBBF] font-[InterRegular] mb-2">Company name</label>
+            <label class="mb-2 block text-sm font-[InterRegular] text-[#BBBBBF]">Company name</label>
             <UInput
               v-model="formData.company"
               placeholder="Company"
               class="w-full"
-              input-class="h-[48px] px-4 border border-[#CBD5E1] dark:border-none rounded-lg bg-white dark:bg-[#FFFFFF]/10 text-black dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+              input-class="h-[52px] rounded-xl border border-white/10 bg-white/5 px-4 text-white placeholder:text-[#7B8190] outline-none focus:ring-2 focus:ring-[#FF2D7A]/40"
             />
           </div>
           <div>
-            <label class="block text-sm text-[#2B2A32] dark:text-[#BBBBBF] font-[InterRegular] mb-2">Number of employees</label>
+            <label class="mb-2 block text-sm font-[InterRegular] text-[#BBBBBF]">Number of employees</label>
             <USelect
               v-model="formData.employee"
               :items="employees"
@@ -98,14 +104,14 @@ const handleSubmit = () => {
               label-key="label"
               placeholder="Select"
               class="w-full"
-              select-class="h-[48px] pl-4 py-3 pr-3 border border-[#CBD5E1] dark:border-none rounded-lg bg-white dark:bg-[#FFFFFF]/10 text-black dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+              select-class="h-[52px] rounded-xl border border-white/10 bg-white/5 pl-4 py-3 pr-3 text-white outline-none focus:ring-2 focus:ring-[#FF2D7A]/40"
             />
           </div>
           <div class="col-span-1 sm:col-span-2">
             <UButton
               type="submit"
-              label="Sign up for Beta"
-              class="xl:w-1/4 w-full h-[48px] bg-[#3651ED] text-white rounded-md font-medium hover:bg-blue-600 transition"
+              label="Request Early Access"
+              class="h-[52px] w-full rounded-full bg-[linear-gradient(135deg,#FF2D7A_0%,#FF4D5E_100%)] text-white transition hover:opacity-95 xl:w-[220px]"
             />
           </div>
         </form>
