@@ -7,6 +7,9 @@ image:
   tag: "3.5.2"
   sha: ""
 
+# Resource requests and limits for kinotic-server containers
+resources: {}
+
 # Migration configuration
 # Runs as a Helm pre-install/pre-upgrade hook Job.
 # The migration must complete successfully before the Deployment is rolled out.

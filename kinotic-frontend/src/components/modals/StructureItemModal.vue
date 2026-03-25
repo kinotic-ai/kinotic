@@ -53,8 +53,8 @@ export default class StructureItemModal extends Vue {
   }
 
   setupGraph() {
-    const entity = this.item?.entityDefinition;
-    if (!entity || !Array.isArray(entity.properties)) return;
+    const entity = this.item;
+    if (!entity || !Array.isArray(entity.schema?.properties)) return;
 
     this.flowEdges = [];
     let nodeCounter = 0;
@@ -317,7 +317,7 @@ export default class StructureItemModal extends Vue {
       return nodeId;
     };
 
-    processProperties(entity.properties, entity.name || "Root");
+    processProperties(entity.schema.properties, entity.schema?.name || entity.name || "Root");
     this.flowNodes = nodes;
     this.applyAutoLayout("LR");
 

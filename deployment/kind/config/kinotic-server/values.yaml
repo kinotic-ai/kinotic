@@ -35,6 +35,15 @@ migration:
     pullPolicy: IfNotPresent
     sha: ""
 
+# Resource requests and limits for kinotic-server containers
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 2
+    memory: 2Gi
+
 ## eviction-tracking uses the evictionTracking logic and paths for tracking eviction events
 properties:
   springActiveProfiles: "production,kubernetes,debug,eviction-tracking"

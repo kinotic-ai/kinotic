@@ -58,6 +58,10 @@ spec:
             - containerPort: {{ .Values.properties.structures.restPort| default 58504 }} # Continuum REST Port
             - containerPort: {{ .Values.continuum.cluster.discoveryPort | default 47500 }} # Ignite Discovery Port
             - containerPort: {{ .Values.continuum.cluster.communicationPort | default 47100 }} # Ignite Communication Port
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           envFrom:
             - configMapRef:
                 name: {{ include "kinotic-server.fullname" . }}
