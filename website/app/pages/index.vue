@@ -5,5 +5,4 @@ definePageMeta({ layout: 'home', header: false, footer: false })
 <template>
   <HomeHeroComponent />
   <HomeFeaturesComponent />
-  <FormsFormWithText />
 </template>
