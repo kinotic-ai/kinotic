@@ -2,11 +2,14 @@ package org.kinotic.auth.compilers;
 
 import com.cedarpolicy.AuthorizationEngine;
 import com.cedarpolicy.BasicAuthorizationEngine;
+import com.cedarpolicy.CedarJson;
 import com.cedarpolicy.model.AuthorizationRequest;
 import com.cedarpolicy.model.AuthorizationResponse;
 import com.cedarpolicy.model.entity.Entity;
 import com.cedarpolicy.model.policy.PolicySet;
 import com.cedarpolicy.value.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -15,20 +18,21 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Integration tests that verify Cedar can evaluate policies using the named-args approach.
+ * Integration tests that verify Cedar can evaluate policies using raw JSON payloads
+ * transformed to named args at the gateway.
  * <p>
- * Instead of a JSON array {@code [{"amount": 25000}, {"approved": true}]},
- * the gateway transforms the payload to a named object:
- * {@code {"order": {"amount": 25000}, "approval": {"approved": true}}}
- * <p>
- * Cedar resource attributes then directly map to parameter names,
- * enabling policies like {@code resource.order.amount < 50000}.
- * <p>
- * This test mirrors the Cerbos integration tests to enable a direct comparison.
+ * Flow tested:
+ * <ol>
+ *   <li>Raw JSON array arrives: {@code [{"amount": 25000}, {"approved": true}]}</li>
+ *   <li>Gateway transforms to named object using parameter names: {@code {"order": {"amount": 25000}, "approval": {"approved": true}}}</li>
+ *   <li>Named object is deserialized to Cedar {@code Value} types</li>
+ *   <li>Cedar evaluates the policy in-process</li>
+ * </ol>
  */
 class CedarIntegrationTest {
 
     private static AuthorizationEngine engine;
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
 
     // ========== Policies ==========
 
@@ -103,28 +107,69 @@ class CedarIntegrationTest {
         engine = new BasicAuthorizationEngine();
     }
 
-    // ========== Helpers ==========
+    // ========== Helpers: Raw JSON → Cedar ==========
 
-    private static PolicySet policies(String policyText) {
-        return PolicySet.parsePolicies(policyText);
+    /**
+     * Transforms a raw JSON array to a named object using parameter names,
+     * then deserializes to Cedar Value types. This is the full gateway flow.
+     *
+     * @param rawJsonArray e.g. {@code [{"amount": 25000}, {"approved": true}]}
+     * @param paramNames   e.g. {@code ["order", "approval"]}
+     * @return Cedar attribute map e.g. {@code {"order": {"amount": 25000}, "approval": {"approved": true}}}
+     */
+    private static Map<String, Value> rawJsonToResourceAttrs(String rawJsonArray, String[] paramNames) throws Exception {
+        // Step 1: Parse the raw JSON array
+        JsonNode arrayNode = JSON_MAPPER.readTree(rawJsonArray);
+        assertTrue(arrayNode.isArray(), "Payload must be a JSON array");
+        assertEquals(paramNames.length, arrayNode.size(), "Parameter count mismatch");
+
+        // Step 2: Build a named JSON object from the array + param names
+        Map<String, JsonNode> namedMap = new LinkedHashMap<>();
+        for (int i = 0; i < paramNames.length; i++) {
+            namedMap.put(paramNames[i], arrayNode.get(i));
+        }
+
+        // Step 3: Convert each named entry to a Cedar Value using CedarJson deserializer
+        com.fasterxml.jackson.databind.ObjectReader cedarReader = CedarJson.objectReader().forType(Value.class);
+        Map<String, Value> attrs = new HashMap<>();
+        for (var entry : namedMap.entrySet()) {
+            Value cedarValue = cedarReader.readValue(entry.getValue().toString());
+            attrs.put(entry.getKey(), cedarValue);
+        }
+        return attrs;
+    }
+
+    /**
+     * Converts a simple JSON object string to Cedar Value attributes.
+     * Used for entity resources and principals where the JSON is already an object.
+     */
+    private static Map<String, Value> jsonToAttrs(String json) throws Exception {
+        com.fasterxml.jackson.databind.ObjectReader cedarReader = CedarJson.objectReader().forType(Value.class);
+        JsonNode node = JSON_MAPPER.readTree(json);
+        Map<String, Value> attrs = new HashMap<>();
+        node.fields().forEachRemaining(entry -> {
+            try {
+                attrs.put(entry.getKey(), cedarReader.readValue(entry.getValue().toString()));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+        return attrs;
     }
 
     private static EntityUID uid(String type, String id) {
         return new EntityUID(EntityTypeName.parse(type).get(), id);
     }
 
-    private static Entity principal(String id, Map<String, Value> attrs) {
-        return new Entity(uid("User", id), attrs, Set.of());
-    }
-
-    private static Entity resource(String type, String id, Map<String, Value> attrs) {
-        return new Entity(uid(type, id), attrs, Set.of());
-    }
-
     private static boolean isAllowed(String policyText,
-                                     Entity principal,
+                                     Map<String, Value> principalAttrs,
                                      String action,
-                                     Entity resource) {
+                                     String resourceType,
+                                     String resourceId,
+                                     Map<String, Value> resourceAttrs) throws Exception {
+        Entity principal = new Entity(uid("User", "user"), principalAttrs, Set.of());
+        Entity resource = new Entity(uid(resourceType, resourceId), resourceAttrs, Set.of());
+
         Set<Entity> entities = new HashSet<>();
         entities.add(principal);
         entities.add(resource);
@@ -136,230 +181,203 @@ class CedarIntegrationTest {
                 Map.of()
         );
 
-        AuthorizationResponse response = engine.isAuthorized(request, policies(policyText), entities);
+        PolicySet policies = PolicySet.parsePolicies(policyText);
+        AuthorizationResponse response = engine.isAuthorized(request, policies, entities);
         assertEquals(AuthorizationResponse.SuccessOrFailure.Success, response.type,
                      "Authorization evaluation failed: " + response);
         return response.success.get().isAllowed();
     }
 
-    /**
-     * Converts a Java map to a Cedar CedarMap Value (for nested resource attributes).
-     */
-    private static CedarMap cedarMap(Map<String, Value> map) {
-        return new CedarMap(map);
-    }
-
     // ========== Simple RBAC ==========
 
     @Test
-    void adminRoleAllowsAllActions() {
-        Entity admin = principal("admin-user", Map.of(
-                "roles", new CedarList(List.of(new PrimString("admin")))
-        ));
-        Entity entity = resource("Entity", "entity-1", Map.of());
+    void adminRoleAllowsAllActions() throws Exception {
+        Map<String, Value> principalAttrs = jsonToAttrs("""
+                {"roles": ["admin"]}
+                """);
 
-        assertTrue(isAllowed(ENTITY_POLICIES, admin, "read", entity));
-        assertTrue(isAllowed(ENTITY_POLICIES, admin, "create", entity));
-        assertTrue(isAllowed(ENTITY_POLICIES, admin, "delete", entity));
+        assertTrue(isAllowed(ENTITY_POLICIES, principalAttrs, "read", "Entity", "e1", Map.of()));
+        assertTrue(isAllowed(ENTITY_POLICIES, principalAttrs, "create", "Entity", "e1", Map.of()));
+        assertTrue(isAllowed(ENTITY_POLICIES, principalAttrs, "delete", "Entity", "e1", Map.of()));
     }
 
     @Test
-    void userRoleWithoutMatchingAttributesDenied() {
-        Entity user = principal("user-1", Map.of(
-                "roles", new CedarList(List.of(new PrimString("user"))),
-                "department", new PrimString("engineering")
-        ));
-        Entity entity = resource("Entity", "entity-1", Map.of(
-                "department", new PrimString("finance")
-        ));
+    void userRoleWithoutMatchingAttributesDenied() throws Exception {
+        Map<String, Value> principalAttrs = jsonToAttrs("""
+                {"roles": ["user"], "department": "engineering"}
+                """);
+        Map<String, Value> resourceAttrs = jsonToAttrs("""
+                {"department": "finance"}
+                """);
 
-        assertFalse(isAllowed(ENTITY_POLICIES, user, "read", entity));
+        assertFalse(isAllowed(ENTITY_POLICIES, principalAttrs, "read", "Entity", "e1", resourceAttrs));
     }
 
     // ========== ABAC with Entity Attributes ==========
 
     @Test
-    void userCanReadEntityInSameDepartment() {
-        Entity user = principal("user-1", Map.of(
-                "roles", new CedarList(List.of(new PrimString("user"))),
-                "department", new PrimString("engineering")
-        ));
-        Entity entity = resource("Entity", "entity-1", Map.of(
-                "department", new PrimString("engineering")
-        ));
+    void userCanReadEntityInSameDepartment() throws Exception {
+        Map<String, Value> principalAttrs = jsonToAttrs("""
+                {"roles": ["user"], "department": "engineering"}
+                """);
+        Map<String, Value> resourceAttrs = jsonToAttrs("""
+                {"department": "engineering"}
+                """);
 
-        assertTrue(isAllowed(ENTITY_POLICIES, user, "read", entity));
+        assertTrue(isAllowed(ENTITY_POLICIES, principalAttrs, "read", "Entity", "e1", resourceAttrs));
     }
 
     @Test
-    void userCanCreateEntityUnderSpendingLimit() {
-        Entity user = principal("user-1", Map.of(
-                "roles", new CedarList(List.of(new PrimString("user"))),
-                "department", new PrimString("engineering"),
-                "spendingLimit", new PrimLong(10000)
-        ));
-        Entity entity = resource("Entity", "entity-1", Map.of(
-                "department", new PrimString("engineering"),
-                "amount", new PrimLong(5000)
-        ));
+    void userCanCreateEntityUnderSpendingLimit() throws Exception {
+        Map<String, Value> principalAttrs = jsonToAttrs("""
+                {"roles": ["user"], "department": "engineering", "spendingLimit": 10000}
+                """);
+        Map<String, Value> resourceAttrs = jsonToAttrs("""
+                {"department": "engineering", "amount": 5000}
+                """);
 
-        assertTrue(isAllowed(ENTITY_POLICIES, user, "create", entity));
+        assertTrue(isAllowed(ENTITY_POLICIES, principalAttrs, "create", "Entity", "e1", resourceAttrs));
     }
 
     @Test
-    void userCannotCreateEntityOverSpendingLimit() {
-        Entity user = principal("user-1", Map.of(
-                "roles", new CedarList(List.of(new PrimString("user"))),
-                "department", new PrimString("engineering"),
-                "spendingLimit", new PrimLong(10000)
-        ));
-        Entity entity = resource("Entity", "entity-1", Map.of(
-                "department", new PrimString("engineering"),
-                "amount", new PrimLong(15000)
-        ));
+    void userCannotCreateEntityOverSpendingLimit() throws Exception {
+        Map<String, Value> principalAttrs = jsonToAttrs("""
+                {"roles": ["user"], "department": "engineering", "spendingLimit": 10000}
+                """);
+        Map<String, Value> resourceAttrs = jsonToAttrs("""
+                {"department": "engineering", "amount": 15000}
+                """);
 
-        assertFalse(isAllowed(ENTITY_POLICIES, user, "create", entity));
+        assertFalse(isAllowed(ENTITY_POLICIES, principalAttrs, "create", "Entity", "e1", resourceAttrs));
     }
 
     @Test
-    void userCanReadEntityWithAllowedStatus() {
-        Entity user = principal("user-1", Map.of(
-                "roles", new CedarList(List.of(new PrimString("user"))),
-                "department", new PrimString("engineering")
-        ));
-        Entity entity = resource("Entity", "entity-1", Map.of(
-                "department", new PrimString("finance"),
-                "status", new PrimString("active")
-        ));
+    void userCanReadEntityWithAllowedStatus() throws Exception {
+        Map<String, Value> principalAttrs = jsonToAttrs("""
+                {"roles": ["user"], "department": "engineering"}
+                """);
+        Map<String, Value> resourceAttrs = jsonToAttrs("""
+                {"department": "finance", "status": "active"}
+                """);
 
-        assertTrue(isAllowed(ENTITY_POLICIES, user, "read", entity));
+        assertTrue(isAllowed(ENTITY_POLICIES, principalAttrs, "read", "Entity", "e1", resourceAttrs));
     }
 
     @Test
-    void userCannotReadEntityWithDisallowedStatus() {
-        Entity user = principal("user-1", Map.of(
-                "roles", new CedarList(List.of(new PrimString("user"))),
-                "department", new PrimString("engineering")
-        ));
-        Entity entity = resource("Entity", "entity-1", Map.of(
-                "department", new PrimString("finance"),
-                "status", new PrimString("archived")
-        ));
+    void userCannotReadEntityWithDisallowedStatus() throws Exception {
+        Map<String, Value> principalAttrs = jsonToAttrs("""
+                {"roles": ["user"], "department": "engineering"}
+                """);
+        Map<String, Value> resourceAttrs = jsonToAttrs("""
+                {"department": "finance", "status": "archived"}
+                """);
 
-        assertFalse(isAllowed(ENTITY_POLICIES, user, "read", entity));
+        assertFalse(isAllowed(ENTITY_POLICIES, principalAttrs, "read", "Entity", "e1", resourceAttrs));
     }
 
-    // ========== ABAC with Named Args (Service Methods) ==========
+    // ========== ABAC with Raw JSON → Named Args (Service Methods) ==========
 
     @Test
-    void financeCanPlaceOrderUnderLimit() {
-        // Named args: {"order": {"amount": 25000, "department": "sales"}}
-        Entity user = principal("user-1", Map.of(
-                "roles", new CedarList(List.of(new PrimString("finance")))
-        ));
-        Entity method = resource("ServiceMethod", "req-1", Map.of(
-                "order", cedarMap(Map.of(
-                        "amount", new PrimLong(25000),
-                        "department", new PrimString("sales")
-                ))
-        ));
+    void rawJson_financeCanPlaceOrderUnderLimit() throws Exception {
+        // Raw payload as the gateway receives it
+        String rawPayload = """
+                [{"amount": 25000, "department": "sales"}]
+                """;
+        String[] paramNames = {"order"};
 
-        assertTrue(isAllowed(SERVICE_POLICIES, user, "placeOrder", method));
-    }
+        Map<String, Value> principalAttrs = jsonToAttrs("""
+                {"roles": ["finance"]}
+                """);
+        Map<String, Value> resourceAttrs = rawJsonToResourceAttrs(rawPayload, paramNames);
 
-    @Test
-    void financeCannotPlaceOrderOverLimit() {
-        Entity user = principal("user-1", Map.of(
-                "roles", new CedarList(List.of(new PrimString("finance")))
-        ));
-        Entity method = resource("ServiceMethod", "req-1", Map.of(
-                "order", cedarMap(Map.of(
-                        "amount", new PrimLong(75000),
-                        "department", new PrimString("sales")
-                ))
-        ));
-
-        assertFalse(isAllowed(SERVICE_POLICIES, user, "placeOrder", method));
+        assertTrue(isAllowed(SERVICE_POLICIES, principalAttrs, "placeOrder", "ServiceMethod", "req-1", resourceAttrs));
     }
 
     @Test
-    void financeCanTransferWithMultipleNamedArgs() {
-        // Named args: {"transfer": {"amount": 50000, "currency": "USD"}, "approval": {"approved": true}}
-        Entity user = principal("user-1", Map.of(
-                "roles", new CedarList(List.of(new PrimString("finance"))),
-                "transferLimit", new PrimLong(100000)
-        ));
-        Entity method = resource("ServiceMethod", "req-1", Map.of(
-                "transfer", cedarMap(Map.of(
-                        "amount", new PrimLong(50000),
-                        "currency", new PrimString("USD")
-                )),
-                "approval", cedarMap(Map.of(
-                        "approved", new PrimBool(true),
-                        "approver", new PrimString("manager-1")
-                ))
-        ));
+    void rawJson_financeCannotPlaceOrderOverLimit() throws Exception {
+        String rawPayload = """
+                [{"amount": 75000, "department": "sales"}]
+                """;
+        String[] paramNames = {"order"};
 
-        assertTrue(isAllowed(SERVICE_POLICIES, user, "transferFunds", method));
+        Map<String, Value> principalAttrs = jsonToAttrs("""
+                {"roles": ["finance"]}
+                """);
+        Map<String, Value> resourceAttrs = rawJsonToResourceAttrs(rawPayload, paramNames);
+
+        assertFalse(isAllowed(SERVICE_POLICIES, principalAttrs, "placeOrder", "ServiceMethod", "req-1", resourceAttrs));
     }
 
     @Test
-    void financeCannotTransferWithoutApproval() {
-        Entity user = principal("user-1", Map.of(
-                "roles", new CedarList(List.of(new PrimString("finance"))),
-                "transferLimit", new PrimLong(100000)
-        ));
-        Entity method = resource("ServiceMethod", "req-1", Map.of(
-                "transfer", cedarMap(Map.of(
-                        "amount", new PrimLong(50000),
-                        "currency", new PrimString("USD")
-                )),
-                "approval", cedarMap(Map.of(
-                        "approved", new PrimBool(false),
-                        "approver", new PrimString("manager-1")
-                ))
-        ));
+    void rawJson_financeCanTransferWithMultipleArgs() throws Exception {
+        // Two args: transfer details and approval record
+        String rawPayload = """
+                [
+                    {"amount": 50000, "currency": "USD"},
+                    {"approved": true, "approver": "manager-1"}
+                ]
+                """;
+        String[] paramNames = {"transfer", "approval"};
 
-        assertFalse(isAllowed(SERVICE_POLICIES, user, "transferFunds", method));
+        Map<String, Value> principalAttrs = jsonToAttrs("""
+                {"roles": ["finance"], "transferLimit": 100000}
+                """);
+        Map<String, Value> resourceAttrs = rawJsonToResourceAttrs(rawPayload, paramNames);
+
+        assertTrue(isAllowed(SERVICE_POLICIES, principalAttrs, "transferFunds", "ServiceMethod", "req-1", resourceAttrs));
     }
 
     @Test
-    void financeCannotTransferWrongCurrency() {
-        Entity user = principal("user-1", Map.of(
-                "roles", new CedarList(List.of(new PrimString("finance"))),
-                "transferLimit", new PrimLong(100000)
-        ));
-        Entity method = resource("ServiceMethod", "req-1", Map.of(
-                "transfer", cedarMap(Map.of(
-                        "amount", new PrimLong(50000),
-                        "currency", new PrimString("EUR")
-                )),
-                "approval", cedarMap(Map.of(
-                        "approved", new PrimBool(true),
-                        "approver", new PrimString("manager-1")
-                ))
-        ));
+    void rawJson_financeCannotTransferWithoutApproval() throws Exception {
+        String rawPayload = """
+                [
+                    {"amount": 50000, "currency": "USD"},
+                    {"approved": false, "approver": "manager-1"}
+                ]
+                """;
+        String[] paramNames = {"transfer", "approval"};
 
-        assertFalse(isAllowed(SERVICE_POLICIES, user, "transferFunds", method));
+        Map<String, Value> principalAttrs = jsonToAttrs("""
+                {"roles": ["finance"], "transferLimit": 100000}
+                """);
+        Map<String, Value> resourceAttrs = rawJsonToResourceAttrs(rawPayload, paramNames);
+
+        assertFalse(isAllowed(SERVICE_POLICIES, principalAttrs, "transferFunds", "ServiceMethod", "req-1", resourceAttrs));
     }
 
     @Test
-    void financeCannotTransferOverLimit() {
-        Entity user = principal("user-1", Map.of(
-                "roles", new CedarList(List.of(new PrimString("finance"))),
-                "transferLimit", new PrimLong(100000)
-        ));
-        Entity method = resource("ServiceMethod", "req-1", Map.of(
-                "transfer", cedarMap(Map.of(
-                        "amount", new PrimLong(150000),
-                        "currency", new PrimString("USD")
-                )),
-                "approval", cedarMap(Map.of(
-                        "approved", new PrimBool(true),
-                        "approver", new PrimString("manager-1")
-                ))
-        ));
+    void rawJson_financeCannotTransferWrongCurrency() throws Exception {
+        String rawPayload = """
+                [
+                    {"amount": 50000, "currency": "EUR"},
+                    {"approved": true, "approver": "manager-1"}
+                ]
+                """;
+        String[] paramNames = {"transfer", "approval"};
 
-        assertFalse(isAllowed(SERVICE_POLICIES, user, "transferFunds", method));
+        Map<String, Value> principalAttrs = jsonToAttrs("""
+                {"roles": ["finance"], "transferLimit": 100000}
+                """);
+        Map<String, Value> resourceAttrs = rawJsonToResourceAttrs(rawPayload, paramNames);
+
+        assertFalse(isAllowed(SERVICE_POLICIES, principalAttrs, "transferFunds", "ServiceMethod", "req-1", resourceAttrs));
+    }
+
+    @Test
+    void rawJson_financeCannotTransferOverLimit() throws Exception {
+        String rawPayload = """
+                [
+                    {"amount": 150000, "currency": "USD"},
+                    {"approved": true, "approver": "manager-1"}
+                ]
+                """;
+        String[] paramNames = {"transfer", "approval"};
+
+        Map<String, Value> principalAttrs = jsonToAttrs("""
+                {"roles": ["finance"], "transferLimit": 100000}
+                """);
+        Map<String, Value> resourceAttrs = rawJsonToResourceAttrs(rawPayload, paramNames);
+
+        assertFalse(isAllowed(SERVICE_POLICIES, principalAttrs, "transferFunds", "ServiceMethod", "req-1", resourceAttrs));
     }
 }
