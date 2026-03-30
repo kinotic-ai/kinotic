@@ -5,6 +5,8 @@ import com.google.protobuf.Value;
 import com.google.protobuf.util.JsonFormat;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /**
  * Benchmark for raw JSON to protobuf Value conversion.
  * Measures the cost of the single parse step the gateway would perform.
@@ -42,6 +44,119 @@ class RawJsonConversionBenchmarkTest {
         sb.append("]");
         return sb.toString();
     }
+
+    // ========== Array-to-Named-Object Conversion ==========
+
+    /**
+     * Simulates what the gateway would do if we switched to named args for Cedar:
+     * take the raw JSON array and wrap each element with its parameter name.
+     * Uses Jackson streaming to read the array and write a new object without
+     * building an intermediate tree.
+     *
+     * @param rawJsonArray the raw JSON array payload, e.g. [{"amount":25000},{"approved":true}]
+     * @param paramNames   the method parameter names in order, e.g. ["order", "approval"]
+     * @return a JSON object string, e.g. {"order":{"amount":25000},"approval":{"approved":true}}
+     */
+    private static String arrayToNamedObject(String rawJsonArray, String[] paramNames) throws Exception {
+        var factory = new tools.jackson.core.JsonFactory();
+        var reader = factory.createParser(rawJsonArray);
+        var writer = new java.io.StringWriter();
+        var gen = factory.createGenerator(writer);
+
+        gen.writeStartObject();
+        reader.nextToken(); // START_ARRAY
+        int i = 0;
+        while (reader.nextToken() != tools.jackson.core.JsonToken.END_ARRAY) {
+            if (i >= paramNames.length) {
+                throw new IllegalArgumentException("More args than parameter names");
+            }
+            gen.writeFieldName(paramNames[i]);
+            gen.copyCurrentStructure(reader);
+            i++;
+        }
+        gen.writeEndObject();
+        gen.close();
+        reader.close();
+        return writer.toString();
+    }
+
+    @Test
+    void benchmarkArrayToNamedObject_Small() throws Exception {
+        String payload = "[{\"amount\": 25000, \"department\": \"sales\", \"currency\": \"USD\"}]";
+        String[] names = {"order"};
+        runNamedObjectBenchmark("Small (1 arg, 3 fields)", payload, names, 10000);
+    }
+
+    @Test
+    void benchmarkArrayToNamedObject_Medium() throws Exception {
+        String payload = generateLargePayload(3, 10);
+        String[] names = {"arg0", "arg1", "arg2"};
+        runNamedObjectBenchmark("Medium (3 args, 10 fields each)", payload, names, 10000);
+    }
+
+    @Test
+    void benchmarkArrayToNamedObject_Large() throws Exception {
+        String payload = generateLargePayload(10, 20);
+        String[] names = {"a0","a1","a2","a3","a4","a5","a6","a7","a8","a9"};
+        runNamedObjectBenchmark("Large (10 args, 20 fields each)", payload, names, 5000);
+    }
+
+    @Test
+    void benchmarkArrayToNamedObject_VeryLarge() throws Exception {
+        String payload = generateLargePayload(50, 50);
+        String[] names = java.util.stream.IntStream.range(0, 50).mapToObj(n -> "a" + n).toArray(String[]::new);
+        runNamedObjectBenchmark("Very Large (50 args, 50 fields each)", payload, names, 1000);
+    }
+
+    @Test
+    void benchmarkArrayToNamedObject_Correctness() throws Exception {
+        String payload = "[{\"amount\": 25000}, {\"approved\": true}]";
+        String[] names = {"order", "approval"};
+        String result = arrayToNamedObject(payload, names);
+        System.out.println("Conversion result: " + result);
+        assertTrue(result.contains("\"order\""));
+        assertTrue(result.contains("\"approval\""));
+        assertTrue(result.contains("\"amount\":25000") || result.contains("\"amount\": 25000"));
+        assertTrue(result.contains("\"approved\":true") || result.contains("\"approved\": true"));
+    }
+
+    private void runNamedObjectBenchmark(String label, String payload, String[] paramNames, int iterations) throws Exception {
+        int payloadSize = payload.length();
+
+        // Warmup
+        for (int i = 0; i < 1000; i++) {
+            arrayToNamedObject(payload, paramNames);
+        }
+
+        // Timed run
+        long start = System.nanoTime();
+        for (int i = 0; i < iterations; i++) {
+            arrayToNamedObject(payload, paramNames);
+        }
+        long elapsed = System.nanoTime() - start;
+
+        double avgMicros = (elapsed / (double) iterations) / 1000.0;
+        double avgMillis = avgMicros / 1000.0;
+        String result = arrayToNamedObject(payload, paramNames);
+
+        System.out.printf("""
+                === Array→NamedObject: %s ===
+                Input size:  %,d bytes
+                Output size: %,d bytes
+                Iterations: %,d
+                Avg per call: %.2f µs (%.3f ms)
+                Throughput: %,.0f calls/sec
+                %n""",
+                label,
+                payloadSize,
+                result.length(),
+                iterations,
+                avgMicros,
+                avgMillis,
+                1_000_000.0 / avgMicros);
+    }
+
+    // ========== Protobuf Conversion Benchmarks ==========
 
     @Test
     void benchmarkSmallPayload() throws Exception {
