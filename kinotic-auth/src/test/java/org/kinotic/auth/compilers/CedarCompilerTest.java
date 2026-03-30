@@ -17,8 +17,8 @@ class CedarCompilerTest {
     }
 
     @Test
-    void principalPathPreserved() {
-        PolicyExpression expr = PolicyExpressionParser.parse("principal.department == entity.department");
+    void participantPathPreserved() {
+        PolicyExpression expr = PolicyExpressionParser.parse("participant.department == entity.department");
         String cedar = CedarCompiler.compile(expr);
 
         assertEquals("principal.department == resource.department", cedar);
@@ -60,7 +60,7 @@ class CedarCompilerTest {
 
     @Test
     void containsExpression() {
-        PolicyExpression expr = PolicyExpressionParser.parse("principal.roles contains 'admin'");
+        PolicyExpression expr = PolicyExpressionParser.parse("participant.roles contains 'admin'");
         String cedar = CedarCompiler.compile(expr);
 
         assertEquals("principal.roles.contains(\"admin\")", cedar);
@@ -77,7 +77,7 @@ class CedarCompilerTest {
     @Test
     void complexRealWorldPolicy() {
         PolicyExpression expr = PolicyExpressionParser.parse(
-                "principal.role contains 'finance' and order.amount < 50000");
+                "participant.role contains 'finance' and order.amount < 50000");
         String cedar = CedarCompiler.compile(expr);
 
         assertEquals("(principal.role.contains(\"finance\") && resource.amount < 50000)", cedar);

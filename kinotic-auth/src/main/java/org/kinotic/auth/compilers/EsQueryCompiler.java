@@ -12,14 +12,14 @@ import java.util.Map;
 /**
  * Compiles a {@link PolicyExpression} AST into an Elasticsearch {@link Query}.
  * <p>
- * Principal attribute paths are resolved at compile time against a provided map of
- * principal attribute values. Resource attribute paths are mapped to document fields.
+ * Participant attribute paths are resolved at compile time against a provided map of
+ * participant attribute values. Resource attribute paths are mapped to document fields.
  * <p>
  * For example, given the expression:
  * <pre>
- * principal.department == entity.department and entity.status in ['active', 'pending']
+ * participant.department == entity.department and entity.status in ['active', 'pending']
  * </pre>
- * and a principal with {@code department = "finance"}, this produces:
+ * and a participant with {@code department = "finance"}, this produces:
  * <pre>
  * { "bool": { "filter": [
  *     { "term": { "department": "finance" } },
@@ -33,56 +33,56 @@ public class EsQueryCompiler {
      * Compiles a policy expression AST into an Elasticsearch query.
      *
      * @param expression          the policy expression AST
-     * @param principalAttributes the current principal's attributes, keyed by field path
+     * @param participantAttributes the current participant's attributes, keyed by field path
      *                            (e.g., "department", "role", "level")
      * @return the Elasticsearch query
      * @throws PolicyParseException if the expression references unsupported patterns
      */
-    public static Query compile(PolicyExpression expression, Map<String, Object> principalAttributes) {
-        return compileExpression(expression, principalAttributes);
+    public static Query compile(PolicyExpression expression, Map<String, Object> participantAttributes) {
+        return compileExpression(expression, participantAttributes);
     }
 
-    private static Query compileExpression(PolicyExpression expression, Map<String, Object> principalAttributes) {
+    private static Query compileExpression(PolicyExpression expression, Map<String, Object> participantAttributes) {
         return switch (expression) {
             case AndExpression and -> {
                 BoolQuery.Builder b = new BoolQuery.Builder();
-                b.filter(compileExpression(and.left(), principalAttributes));
-                b.filter(compileExpression(and.right(), principalAttributes));
+                b.filter(compileExpression(and.left(), participantAttributes));
+                b.filter(compileExpression(and.right(), participantAttributes));
                 yield Query.of(q -> q.bool(b.build()));
             }
             case OrExpression or -> {
                 BoolQuery.Builder b = new BoolQuery.Builder();
-                b.should(compileExpression(or.left(), principalAttributes));
-                b.should(compileExpression(or.right(), principalAttributes));
+                b.should(compileExpression(or.left(), participantAttributes));
+                b.should(compileExpression(or.right(), participantAttributes));
                 b.minimumShouldMatch("1");
                 yield Query.of(q -> q.bool(b.build()));
             }
             case NotExpression not -> {
                 BoolQuery.Builder b = new BoolQuery.Builder();
-                b.mustNot(compileExpression(not.expression(), principalAttributes));
+                b.mustNot(compileExpression(not.expression(), participantAttributes));
                 yield Query.of(q -> q.bool(b.build()));
             }
-            case ComparisonExpression comp -> compileComparison(comp, principalAttributes);
+            case ComparisonExpression comp -> compileComparison(comp, participantAttributes);
         };
     }
 
-    private static Query compileComparison(ComparisonExpression comp, Map<String, Object> principalAttributes) {
+    private static Query compileComparison(ComparisonExpression comp, Map<String, Object> participantAttributes) {
         String fieldName = resolveResourceField(comp.left());
         Operand right = comp.right();
 
         return switch (comp.operator()) {
             case EQUALS, CONTAINS -> {
-                FieldValue value = toFieldValue(resolveOperandValue(right, principalAttributes));
+                FieldValue value = toFieldValue(resolveOperandValue(right, participantAttributes));
                 yield Query.of(q -> q.term(t -> t.field(fieldName).value(value)));
             }
             case NOT_EQUALS -> {
-                FieldValue value = toFieldValue(resolveOperandValue(right, principalAttributes));
+                FieldValue value = toFieldValue(resolveOperandValue(right, participantAttributes));
                 yield Query.of(q -> q.bool(b -> b.mustNot(m -> m.term(t -> t.field(fieldName).value(value)))));
             }
-            case GREATER_THAN -> buildRangeQuery(fieldName, "gt", resolveOperandValue(right, principalAttributes));
-            case GREATER_THAN_OR_EQUAL -> buildRangeQuery(fieldName, "gte", resolveOperandValue(right, principalAttributes));
-            case LESS_THAN -> buildRangeQuery(fieldName, "lt", resolveOperandValue(right, principalAttributes));
-            case LESS_THAN_OR_EQUAL -> buildRangeQuery(fieldName, "lte", resolveOperandValue(right, principalAttributes));
+            case GREATER_THAN -> buildRangeQuery(fieldName, "gt", resolveOperandValue(right, participantAttributes));
+            case GREATER_THAN_OR_EQUAL -> buildRangeQuery(fieldName, "gte", resolveOperandValue(right, participantAttributes));
+            case LESS_THAN -> buildRangeQuery(fieldName, "lt", resolveOperandValue(right, participantAttributes));
+            case LESS_THAN_OR_EQUAL -> buildRangeQuery(fieldName, "lte", resolveOperandValue(right, participantAttributes));
             case IN -> {
                 ArrayValue arr = (ArrayValue) right;
                 List<FieldValue> values = arr.values().stream()
@@ -131,7 +131,7 @@ public class EsQueryCompiler {
      * For resource/entity paths, strips the root and returns the field path.
      */
     private static String resolveResourceField(AttributePath path) {
-        if ("principal".equals(path.root()) || "context".equals(path.root())) {
+        if ("participant".equals(path.root()) || "context".equals(path.root())) {
             throw new PolicyParseException(
                     "Cannot use '" + path.root() + "' path as a document field on the left-hand side. "
                     + "Path: " + path.toPathString());
@@ -141,19 +141,19 @@ public class EsQueryCompiler {
 
     /**
      * Resolves an operand to a concrete value.
-     * Principal attribute paths are looked up in the provided attributes map.
+     * Participant attribute paths are looked up in the provided attributes map.
      * Literals are returned directly.
      */
-    private static Object resolveOperandValue(Operand operand, Map<String, Object> principalAttributes) {
+    private static Object resolveOperandValue(Operand operand, Map<String, Object> participantAttributes) {
         return switch (operand) {
             case LiteralValue lit -> resolveLiteralValue(lit);
             case AttributePath path -> {
-                if ("principal".equals(path.root())) {
+                if ("participant".equals(path.root())) {
                     String key = path.fieldPath();
-                    Object value = principalAttributes.get(key);
+                    Object value = participantAttributes.get(key);
                     if (value == null) {
                         throw new PolicyParseException(
-                                "Principal attribute '" + key + "' not found in principal attributes");
+                                "Participant attribute '" + key + "' not found in participant attributes");
                     }
                     yield value;
                 } else if ("context".equals(path.root())) {

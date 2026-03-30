@@ -15,11 +15,11 @@ import java.util.List;
  * <p>
  * The {@link #expression} is a policy expression string using the ABAC policy language:
  * <pre>
- * new AbacPolicyDecorator().setExpression("principal.department == entity.department and entity.status in ['active', 'pending']")
+ * new AbacPolicyDecorator().setExpression("participant.department == entity.department and entity.status in ['active', 'pending']")
  * </pre>
  * <p>
  * In entity definition context, {@code entity} refers to the document being operated on,
- * and {@code principal} refers to the authenticated participant.
+ * and {@code participant} refers to the authenticated participant.
  */
 @Getter
 @Setter

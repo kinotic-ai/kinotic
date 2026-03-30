@@ -33,7 +33,7 @@ comparisonOp
     | LTE
     ;
 
-// Dotted attribute paths: principal.role, order.amount, context.time
+// Dotted attribute paths: participant.role, order.amount, context.time
 path
     : IDENTIFIER (DOT IDENTIFIER)*
     ;

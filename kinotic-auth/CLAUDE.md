@@ -17,7 +17,7 @@
 - Hand-written visitor and parsing glue code belongs in `org.kinotic.auth.parsers` (plural) — the singular `org.kinotic.auth.parser` package is reserved for ANTLR-generated files.
 - Always keep the `@AbacPolicy` annotation and `AbacPolicyDecorator` in `api` packages — they are part of the public surface consumed by `kinotic-core`, `kinotic-persistence`, and `kinotic-rpc-gateway`.
 - Never add engine-specific dependencies (Cedar SDK, Cerbos SDK) to this module — it provides engine-agnostic AST types and compilers. Engine integrations belong in consuming modules.
-- The `EsQueryCompiler` must only produce document field references from resource/entity paths — principal and context paths must always be resolved to concrete values at compile time via the `principalAttributes` map.
+- The `EsQueryCompiler` must only produce document field references from resource/entity paths — participant and context paths must always be resolved to concrete values at compile time via the `participantAttributes` map.
 
 ## Package Structure
 
@@ -35,8 +35,8 @@
 The grammar is defined in `src/main/antlr/AbacPolicy.g4`. Expressions follow this structure:
 
 ```
-principal.role contains 'finance' and order.amount < 50000
-entity.status in ['active', 'pending'] or principal.department == entity.department
+participant.role contains 'finance' and order.amount < 50000
+entity.status in ['active', 'pending'] or participant.department == entity.department
 not entity.deleted == true
 entity.email like '*@kinotic.ai'
 entity.approvedBy exists
@@ -44,7 +44,7 @@ entity.approvedBy exists
 
 **Operators** (precedence highest to lowest): comparisons (`==`, `!=`, `<`, `>`, `<=`, `>=`, `in`, `contains`, `exists`, `like`), `not`, `and`, `or`. Parentheses override precedence.
 
-**Paths** use dotted notation: `principal.department`, `entity.address.city`, `context.time`. The root identifier is resolved contextually — `principal` and `context` are well-known; all others map to method parameter names (published services) or `entity` (entity definitions).
+**Paths** use dotted notation: `participant.department`, `entity.address.city`, `context.time`. The root identifier is resolved contextually — `participant` and `context` are well-known; all others map to method parameter names (published services) or `entity` (entity definitions).
 
 **Literals**: strings (`'value'`), integers (`42`), decimals (`3.14`), booleans (`true`/`false`). Keywords are case-insensitive.
 
@@ -53,7 +53,7 @@ entity.approvedBy exists
 | Compiler | Input | Output | Use Case |
 |---|---|---|---|
 | `CedarCompiler` | `PolicyExpression` AST | Cedar `when` clause body string | In-process allow/deny evaluation for writes, proxy calls, service methods |
-| `EsQueryCompiler` | `PolicyExpression` AST + principal attributes map | Elasticsearch `Query` | Injected as filter into read queries so only authorized documents are returned |
+| `EsQueryCompiler` | `PolicyExpression` AST + participant attributes map | Elasticsearch `Query` | Injected as filter into read queries so only authorized documents are returned |
 
 ## Module Dependencies
 

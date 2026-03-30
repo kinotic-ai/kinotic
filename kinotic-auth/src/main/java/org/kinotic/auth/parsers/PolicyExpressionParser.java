@@ -16,7 +16,7 @@ import java.util.List;
  * Usage:
  * <pre>
  * PolicyExpression expr = PolicyExpressionParser.parse(
- *     "principal.department == entity.department and entity.status in ['active', 'pending']"
+ *     "participant.department == entity.department and entity.status in ['active', 'pending']"
  * );
  * </pre>
  */

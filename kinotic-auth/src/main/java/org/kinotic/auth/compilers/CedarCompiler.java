@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
  * <p>
  * Attribute paths are mapped as follows:
  * <ul>
- *   <li>{@code principal.*} maps directly to Cedar {@code principal.*}</li>
+ *   <li>{@code participant.*} maps to Cedar {@code principal.*}</li>
  *   <li>{@code context.*} maps to Cedar {@code context.*}</li>
  *   <li>Any other root (e.g., {@code entity.department}) maps to {@code resource.*}
  *       after stripping the application-level root identifier</li>
@@ -58,9 +58,10 @@ public class CedarCompiler {
 
     private static String compilePath(AttributePath path) {
         String root = path.root();
-        // principal and context map directly; everything else becomes resource
+        // participant maps to Cedar's principal; context maps directly; everything else becomes resource
         return switch (root) {
-            case "principal", "context" -> path.toPathString();
+            case "participant" -> "principal." + path.fieldPath();
+            case "context" -> path.toPathString();
             default -> {
                 if (path.fields().isEmpty()) {
                     yield "resource";

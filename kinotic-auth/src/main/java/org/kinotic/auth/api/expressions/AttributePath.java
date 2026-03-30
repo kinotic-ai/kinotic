@@ -3,16 +3,16 @@ package org.kinotic.auth.api.expressions;
 import java.util.List;
 
 /**
- * A dotted attribute path such as {@code principal.department} or {@code order.amount}.
+ * A dotted attribute path such as {@code participant.department} or {@code order.amount}.
  * <p>
- * The first segment ({@link #root()}) identifies the source object (e.g. {@code principal},
+ * The first segment ({@link #root()}) identifies the source object (e.g. {@code participant},
  * {@code context}, or a method parameter name). The remaining segments ({@link #fields()})
  * are nested field accesses on that object.
  */
 public record AttributePath(String root, List<String> fields) implements Operand {
 
     /**
-     * Returns the full dotted path string, e.g. {@code "principal.department"}.
+     * Returns the full dotted path string, e.g. {@code "participant.department"}.
      */
     public String toPathString() {
         if (fields.isEmpty()) {

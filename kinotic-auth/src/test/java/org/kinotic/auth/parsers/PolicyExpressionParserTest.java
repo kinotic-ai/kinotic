@@ -25,19 +25,19 @@ class PolicyExpressionParserTest {
 
     @Test
     void pathToPathComparison() {
-        PolicyExpression expr = PolicyExpressionParser.parse("principal.department == entity.department");
+        PolicyExpression expr = PolicyExpressionParser.parse("participant.department == entity.department");
 
         assertInstanceOf(ComparisonExpression.class, expr);
         ComparisonExpression comp = (ComparisonExpression) expr;
         assertEquals(ComparisonOperator.EQUALS, comp.operator());
-        assertEquals("principal", comp.left().root());
+        assertEquals("participant", comp.left().root());
         assertEquals("entity", ((AttributePath) comp.right()).root());
     }
 
     @Test
     void andExpression() {
         PolicyExpression expr = PolicyExpressionParser.parse(
-                "principal.department == entity.department and entity.status == 'active'");
+                "participant.department == entity.department and entity.status == 'active'");
 
         assertInstanceOf(AndExpression.class, expr);
         AndExpression and = (AndExpression) expr;
@@ -104,7 +104,7 @@ class PolicyExpressionParserTest {
 
     @Test
     void containsExpression() {
-        PolicyExpression expr = PolicyExpressionParser.parse("principal.roles contains 'admin'");
+        PolicyExpression expr = PolicyExpressionParser.parse("participant.roles contains 'admin'");
 
         assertInstanceOf(ComparisonExpression.class, expr);
         ComparisonExpression comp = (ComparisonExpression) expr;
@@ -172,7 +172,7 @@ class PolicyExpressionParserTest {
     @Test
     void complexRealWorldPolicy() {
         PolicyExpression expr = PolicyExpressionParser.parse(
-                "principal.role contains 'finance' and order.amount < 50000 and order.department == principal.department");
+                "participant.role contains 'finance' and order.amount < 50000 and order.department == participant.department");
 
         assertInstanceOf(AndExpression.class, expr);
     }
