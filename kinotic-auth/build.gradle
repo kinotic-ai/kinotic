@@ -41,6 +41,11 @@ dependencies {
 	implementation 'org.antlr:antlr4-runtime:4.13.2'
 	antlr 'org.antlr:antlr4:4.13.2'
 
+    // Cerbos
+    implementation 'dev.cerbos:cerbos-sdk-java:0.18.0'
+
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation "org.testcontainers:junit-jupiter:${testContainersVersion}"
 }

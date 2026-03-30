@@ -1,0 +1,25 @@
+---
+apiVersion: api.cerbos.dev/v1
+resourcePolicy:
+  resource: "service_method"
+  version: "default"
+  rules:
+    # ABAC with positional args: finance role can place orders under 50000
+    - actions: ["placeOrder"]
+      effect: EFFECT_ALLOW
+      roles: ["finance"]
+      condition:
+        match:
+          expr: "R.attr.args[0].amount < 50000"
+
+    # ABAC with multiple positional args
+    - actions: ["transferFunds"]
+      effect: EFFECT_ALLOW
+      roles: ["finance"]
+      condition:
+        match:
+          all:
+            of:
+              - expr: "R.attr.args[0].amount < P.attr.transferLimit"
+              - expr: "R.attr.args[0].currency == \"USD\""
+              - expr: "R.attr.args[1].approved == true"
