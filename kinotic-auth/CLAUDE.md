@@ -16,8 +16,9 @@
 - Never edit generated parser files in `org.kinotic.auth.parser` directly — all changes go through `src/main/antlr/AbacPolicy.g4` and regenerate via `./gradlew :kinotic-auth:generateGrammarSource`.
 - Hand-written visitor and parsing glue code belongs in `org.kinotic.auth.parsers` (plural) — the singular `org.kinotic.auth.parser` package is reserved for ANTLR-generated files.
 - Always keep the `@AbacPolicy` annotation and `AbacPolicyDecorator` in `api` packages — they are part of the public surface consumed by `kinotic-core`, `kinotic-persistence`, and `kinotic-rpc-gateway`.
-- Never add engine-specific dependencies (Cedar SDK, Cerbos SDK) to this module — it provides engine-agnostic AST types and compilers. Engine integrations belong in consuming modules.
+- Never add engine-specific dependencies (Cerbos SDK) to this module — it provides engine-agnostic AST types and compilers. Engine integrations belong in consuming modules.
 - The `EsQueryCompiler` must only produce document field references from resource/entity paths — participant and context paths must always be resolved to concrete values at compile time via the `participantAttributes` map.
+- The `CerbosCompiler` maps `participant.*` to Cerbos `P.attr.*`, `context.*` to `request.auxData.jwt.*`, and all other roots (entity, method parameters) to `R.attr.*`.
 
 ## Package Structure
 
@@ -28,7 +29,7 @@
 | `org.kinotic.auth.api.expressions` | Sealed AST types: `PolicyExpression`, `ComparisonExpression`, `AndExpression`, `OrExpression`, `NotExpression`, `AttributePath`, `LiteralValue`, `ArrayValue` |
 | `org.kinotic.auth.parser` | **ANTLR-generated** lexer, parser, visitor, and listener — do not edit |
 | `org.kinotic.auth.parsers` | Hand-written `PolicyExpressionParser` (ANTLR visitor that produces the AST) and `PolicyParseException` |
-| `org.kinotic.auth.compilers` | `CedarCompiler` (AST → Cedar condition text) and `EsQueryCompiler` (AST → Elasticsearch `Query`) |
+| `org.kinotic.auth.compilers` | `CerbosCompiler` (AST → CEL condition text) and `EsQueryCompiler` (AST → Elasticsearch `Query`) |
 
 ## Expression Language
 
@@ -52,8 +53,10 @@ entity.approvedBy exists
 
 | Compiler | Input | Output | Use Case |
 |---|---|---|---|
-| `CedarCompiler` | `PolicyExpression` AST | Cedar `when` clause body string | In-process allow/deny evaluation for writes, proxy calls, service methods |
+| `CerbosCompiler` | `PolicyExpression` AST | CEL condition string for Cerbos resource policies | Gateway-level allow/deny evaluation via Cerbos PDP |
 | `EsQueryCompiler` | `PolicyExpression` AST + participant attributes map | Elasticsearch `Query` | Injected as filter into read queries so only authorized documents are returned |
+
+For service method arguments, parameter names are resolved to positional array indices at registration time. The Cerbos resource receives the raw JSON args array as `R.attr.args`, enabling CEL access like `R.attr.args[0].amount` without restructuring the payload.
 
 ## Module Dependencies
 
