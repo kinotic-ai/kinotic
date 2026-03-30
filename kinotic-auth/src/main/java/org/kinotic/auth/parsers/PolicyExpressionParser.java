@@ -1,33 +1,28 @@
 package org.kinotic.auth.parsers;
 
+import org.antlr.v4.runtime.*;
 import org.kinotic.auth.api.expressions.*;
+import org.kinotic.auth.parser.AbacPolicyBaseVisitor;
+import org.kinotic.auth.parser.AbacPolicyLexer;
+import org.kinotic.auth.parser.AbacPolicyParser;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Recursive descent parser for ABAC policy expressions.
- * Produces a {@link PolicyExpression} AST from a policy expression string.
+ * Parses ABAC policy expression strings into {@link PolicyExpression} ASTs
+ * using the ANTLR-generated parser from {@code AbacPolicy.g4}.
  * <p>
- * The grammar specification lives in {@code src/main/antlr/AbacPolicy.g4}.
- * <p>
- * Operator precedence (highest to lowest):
- * <ol>
- *   <li>Comparisons (==, !=, {@literal <}, {@literal >}, {@literal <=}, {@literal >=}, in, contains, exists, like)</li>
- *   <li>NOT</li>
- *   <li>AND</li>
- *   <li>OR</li>
- * </ol>
+ * Usage:
+ * <pre>
+ * PolicyExpression expr = PolicyExpressionParser.parse(
+ *     "principal.department == entity.department and entity.status in ['active', 'pending']"
+ * );
+ * </pre>
  */
 public class PolicyExpressionParser {
 
-    private final List<PolicyToken> tokens;
-    private int pos;
-
-    private PolicyExpressionParser(List<PolicyToken> tokens) {
-        this.tokens = tokens;
-        this.pos = 0;
-    }
+    private PolicyExpressionParser() {}
 
     /**
      * Parses a policy expression string into an AST.
@@ -40,205 +35,177 @@ public class PolicyExpressionParser {
         if (expression == null || expression.isBlank()) {
             throw new PolicyParseException("Policy expression must not be blank");
         }
-        var lexer = new PolicyLexer(expression);
-        var tokens = lexer.tokenize();
-        var parser = new PolicyExpressionParser(tokens);
-        PolicyExpression result = parser.parseOrExpression();
-        parser.expect(PolicyTokenType.EOF, "Unexpected token after end of expression");
-        return result;
-    }
 
-    // or_expr : and_expr ('or' and_expr)*
-    private PolicyExpression parseOrExpression() {
-        PolicyExpression left = parseAndExpression();
-        while (check(PolicyTokenType.OR)) {
-            advance();
-            PolicyExpression right = parseAndExpression();
-            left = new OrExpression(left, right);
-        }
-        return left;
-    }
+        AbacPolicyLexer lexer = new AbacPolicyLexer(CharStreams.fromString(expression));
+        lexer.removeErrorListeners();
+        lexer.addErrorListener(ThrowingErrorListener.INSTANCE);
 
-    // and_expr : not_expr ('and' not_expr)*
-    private PolicyExpression parseAndExpression() {
-        PolicyExpression left = parseNotExpression();
-        while (check(PolicyTokenType.AND)) {
-            advance();
-            PolicyExpression right = parseNotExpression();
-            left = new AndExpression(left, right);
-        }
-        return left;
-    }
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
 
-    // not_expr : 'not' not_expr | primary
-    private PolicyExpression parseNotExpression() {
-        if (check(PolicyTokenType.NOT)) {
-            advance();
-            PolicyExpression expr = parseNotExpression();
-            return new NotExpression(expr);
-        }
-        return parsePrimary();
-    }
+        AbacPolicyParser parser = new AbacPolicyParser(tokens);
+        parser.removeErrorListeners();
+        parser.addErrorListener(ThrowingErrorListener.INSTANCE);
 
-    // primary : '(' or_expr ')' | comparison
-    private PolicyExpression parsePrimary() {
-        if (check(PolicyTokenType.LPAREN)) {
-            advance();
-            PolicyExpression expr = parseOrExpression();
-            expect(PolicyTokenType.RPAREN, "Expected ')'");
-            return expr;
-        }
-        return parseComparison();
-    }
-
-    // comparison : path (op (path | literal) | 'in' array | 'contains' literal | 'exists' | 'like' STRING)
-    private PolicyExpression parseComparison() {
-        AttributePath left = parsePath();
-
-        // exists (unary)
-        if (check(PolicyTokenType.EXISTS)) {
-            advance();
-            return new ComparisonExpression(left, ComparisonOperator.EXISTS, null);
-        }
-
-        // contains literal
-        if (check(PolicyTokenType.CONTAINS)) {
-            advance();
-            LiteralValue literal = parseLiteral();
-            return new ComparisonExpression(left, ComparisonOperator.CONTAINS, literal);
-        }
-
-        // in [array]
-        if (check(PolicyTokenType.IN)) {
-            advance();
-            ArrayValue array = parseArray();
-            return new ComparisonExpression(left, ComparisonOperator.IN, array);
-        }
-
-        // like 'pattern'
-        if (check(PolicyTokenType.LIKE)) {
-            advance();
-            LiteralValue pattern = parseLiteral();
-            if (pattern.type() != LiteralValue.LiteralType.STRING) {
-                throw new PolicyParseException("Expected string literal after 'like' at position " + current().position());
-            }
-            return new ComparisonExpression(left, ComparisonOperator.LIKE, pattern);
-        }
-
-        // comparison operator
-        ComparisonOperator op = parseComparisonOp();
-
-        // Right-hand side: path or literal
-        Operand right = tryParsePath();
-        if (right == null) {
-            right = parseLiteral();
-        }
-        return new ComparisonExpression(left, op, right);
-    }
-
-    private ComparisonOperator parseComparisonOp() {
-        PolicyToken token = current();
-        ComparisonOperator op = switch (token.type()) {
-            case EQ -> ComparisonOperator.EQUALS;
-            case NEQ -> ComparisonOperator.NOT_EQUALS;
-            case GT -> ComparisonOperator.GREATER_THAN;
-            case GTE -> ComparisonOperator.GREATER_THAN_OR_EQUAL;
-            case LT -> ComparisonOperator.LESS_THAN;
-            case LTE -> ComparisonOperator.LESS_THAN_OR_EQUAL;
-            default -> throw new PolicyParseException(
-                    "Expected comparison operator at position " + token.position() + ", got '" + token.text() + "'");
-        };
-        advance();
-        return op;
-    }
-
-    private AttributePath parsePath() {
-        PolicyToken rootToken = expect(PolicyTokenType.IDENTIFIER, "Expected identifier");
-        String root = rootToken.text();
-        var fields = new ArrayList<String>();
-        while (check(PolicyTokenType.DOT)) {
-            advance();
-            PolicyToken fieldToken = expect(PolicyTokenType.IDENTIFIER, "Expected identifier after '.'");
-            fields.add(fieldToken.text());
-        }
-        return new AttributePath(root, List.copyOf(fields));
+        AbacPolicyParser.PolicyContext tree = parser.policy();
+        return new PolicyExpressionVisitor().visit(tree);
     }
 
     /**
-     * Tries to parse a path. Returns null if the current token is not an identifier
-     * or if the identifier is followed by a keyword-like context (e.g. no dot follows).
-     * This is used to distinguish between path and literal on the right-hand side.
+     * ANTLR error listener that throws {@link PolicyParseException} on syntax errors
+     * instead of printing to stderr.
      */
-    private AttributePath tryParsePath() {
-        if (!check(PolicyTokenType.IDENTIFIER)) {
-            return null;
+    private static class ThrowingErrorListener extends BaseErrorListener {
+
+        static final ThrowingErrorListener INSTANCE = new ThrowingErrorListener();
+
+        @Override
+        public void syntaxError(Recognizer<?, ?> recognizer,
+                                Object offendingSymbol,
+                                int line,
+                                int charPositionInLine,
+                                String msg,
+                                RecognitionException e) {
+            throw new PolicyParseException("Parse error at position " + charPositionInLine + ": " + msg);
         }
-        // Peek ahead: an identifier followed by a dot is definitely a path.
-        // A bare identifier on the RHS is also a path (e.g., principal.role == resource.role)
-        // We need at least one dot to distinguish from a keyword/identifier used as something else.
-        // However, a bare identifier on the RHS makes sense as a single-segment path only
-        // if it could be a root reference. We'll require at least one dot for RHS paths.
-        if (pos + 1 < tokens.size() && tokens.get(pos + 1).type() == PolicyTokenType.DOT) {
-            return parsePath();
+    }
+
+    /**
+     * Visitor that converts the ANTLR parse tree into our sealed {@link PolicyExpression} AST.
+     */
+    private static class PolicyExpressionVisitor extends AbacPolicyBaseVisitor<PolicyExpression> {
+
+        @Override
+        public PolicyExpression visitPolicy(AbacPolicyParser.PolicyContext ctx) {
+            return visit(ctx.expression());
         }
-        return null;
-    }
 
-    private LiteralValue parseLiteral() {
-        PolicyToken token = current();
-        return switch (token.type()) {
-            case STRING -> {
-                advance();
-                yield new LiteralValue(token.text(), LiteralValue.LiteralType.STRING);
-            }
-            case INTEGER -> {
-                advance();
-                yield new LiteralValue(Long.parseLong(token.text()), LiteralValue.LiteralType.INTEGER);
-            }
-            case DECIMAL -> {
-                advance();
-                yield new LiteralValue(Double.parseDouble(token.text()), LiteralValue.LiteralType.DECIMAL);
-            }
-            case BOOLEAN -> {
-                advance();
-                yield new LiteralValue(Boolean.parseBoolean(token.text()), LiteralValue.LiteralType.BOOLEAN);
-            }
-            default -> throw new PolicyParseException(
-                    "Expected literal value at position " + token.position() + ", got '" + token.text() + "'");
-        };
-    }
-
-    private ArrayValue parseArray() {
-        expect(PolicyTokenType.LBRACKET, "Expected '['");
-        var values = new ArrayList<LiteralValue>();
-        values.add(parseLiteral());
-        while (check(PolicyTokenType.COMMA)) {
-            advance();
-            values.add(parseLiteral());
+        @Override
+        public PolicyExpression visitAndExpr(AbacPolicyParser.AndExprContext ctx) {
+            PolicyExpression left = visit(ctx.expression(0));
+            PolicyExpression right = visit(ctx.expression(1));
+            return new AndExpression(left, right);
         }
-        expect(PolicyTokenType.RBRACKET, "Expected ']'");
-        return new ArrayValue(List.copyOf(values));
-    }
 
-    private PolicyToken current() {
-        return tokens.get(pos);
-    }
-
-    private boolean check(PolicyTokenType type) {
-        return pos < tokens.size() && tokens.get(pos).type() == type;
-    }
-
-    private PolicyToken advance() {
-        PolicyToken token = tokens.get(pos);
-        pos++;
-        return token;
-    }
-
-    private PolicyToken expect(PolicyTokenType type, String message) {
-        if (!check(type)) {
-            PolicyToken current = current();
-            throw new PolicyParseException(message + " at position " + current.position() + ", got '" + current.text() + "'");
+        @Override
+        public PolicyExpression visitOrExpr(AbacPolicyParser.OrExprContext ctx) {
+            PolicyExpression left = visit(ctx.expression(0));
+            PolicyExpression right = visit(ctx.expression(1));
+            return new OrExpression(left, right);
         }
-        return advance();
+
+        @Override
+        public PolicyExpression visitNotExpr(AbacPolicyParser.NotExprContext ctx) {
+            PolicyExpression expr = visit(ctx.expression());
+            return new NotExpression(expr);
+        }
+
+        @Override
+        public PolicyExpression visitParenExpr(AbacPolicyParser.ParenExprContext ctx) {
+            return visit(ctx.expression());
+        }
+
+        @Override
+        public PolicyExpression visitComparisonExpr(AbacPolicyParser.ComparisonExprContext ctx) {
+            return visit(ctx.comparison());
+        }
+
+        @Override
+        public PolicyExpression visitPathComparison(AbacPolicyParser.PathComparisonContext ctx) {
+            AttributePath left = visitPathToAttributePath(ctx.left);
+            ComparisonOperator op = visitComparisonOpToEnum(ctx.op);
+            AttributePath right = visitPathToAttributePath(ctx.right);
+            return new ComparisonExpression(left, op, right);
+        }
+
+        @Override
+        public PolicyExpression visitLiteralComparison(AbacPolicyParser.LiteralComparisonContext ctx) {
+            AttributePath left = visitPathToAttributePath(ctx.left);
+            ComparisonOperator op = visitComparisonOpToEnum(ctx.op);
+            LiteralValue right = visitLiteralToValue(ctx.right);
+            return new ComparisonExpression(left, op, right);
+        }
+
+        @Override
+        public PolicyExpression visitInComparison(AbacPolicyParser.InComparisonContext ctx) {
+            AttributePath left = visitPathToAttributePath(ctx.left);
+            ArrayValue right = visitArrayToValue(ctx.array());
+            return new ComparisonExpression(left, ComparisonOperator.IN, right);
+        }
+
+        @Override
+        public PolicyExpression visitContainsComparison(AbacPolicyParser.ContainsComparisonContext ctx) {
+            AttributePath left = visitPathToAttributePath(ctx.left);
+            LiteralValue right = visitLiteralToValue(ctx.right);
+            return new ComparisonExpression(left, ComparisonOperator.CONTAINS, right);
+        }
+
+        @Override
+        public PolicyExpression visitExistsComparison(AbacPolicyParser.ExistsComparisonContext ctx) {
+            AttributePath left = visitPathToAttributePath(ctx.left);
+            return new ComparisonExpression(left, ComparisonOperator.EXISTS, null);
+        }
+
+        @Override
+        public PolicyExpression visitLikeComparison(AbacPolicyParser.LikeComparisonContext ctx) {
+            AttributePath left = visitPathToAttributePath(ctx.left);
+            String pattern = stripQuotes(ctx.right.getText());
+            LiteralValue right = new LiteralValue(pattern, LiteralValue.LiteralType.STRING);
+            return new ComparisonExpression(left, ComparisonOperator.LIKE, right);
+        }
+
+        // --- Helper methods that produce AST nodes without going through the visitor dispatch ---
+
+        private AttributePath visitPathToAttributePath(AbacPolicyParser.PathContext ctx) {
+            List<Token> identifiers = ctx.IDENTIFIER().stream()
+                                                      .map(node -> (Token) node.getSymbol())
+                                                      .toList();
+            String root = identifiers.get(0).getText();
+            List<String> fields = new ArrayList<>(identifiers.size() - 1);
+            for (int i = 1; i < identifiers.size(); i++) {
+                fields.add(identifiers.get(i).getText());
+            }
+            return new AttributePath(root, List.copyOf(fields));
+        }
+
+        private ComparisonOperator visitComparisonOpToEnum(AbacPolicyParser.ComparisonOpContext ctx) {
+            if (ctx.EQ() != null) return ComparisonOperator.EQUALS;
+            if (ctx.NEQ() != null) return ComparisonOperator.NOT_EQUALS;
+            if (ctx.GT() != null) return ComparisonOperator.GREATER_THAN;
+            if (ctx.GTE() != null) return ComparisonOperator.GREATER_THAN_OR_EQUAL;
+            if (ctx.LT() != null) return ComparisonOperator.LESS_THAN;
+            if (ctx.LTE() != null) return ComparisonOperator.LESS_THAN_OR_EQUAL;
+            throw new PolicyParseException("Unknown comparison operator: " + ctx.getText());
+        }
+
+        private LiteralValue visitLiteralToValue(AbacPolicyParser.LiteralContext ctx) {
+            if (ctx.STRING() != null) {
+                return new LiteralValue(stripQuotes(ctx.STRING().getText()), LiteralValue.LiteralType.STRING);
+            }
+            if (ctx.INTEGER() != null) {
+                return new LiteralValue(Long.parseLong(ctx.INTEGER().getText()), LiteralValue.LiteralType.INTEGER);
+            }
+            if (ctx.DECIMAL() != null) {
+                return new LiteralValue(Double.parseDouble(ctx.DECIMAL().getText()), LiteralValue.LiteralType.DECIMAL);
+            }
+            if (ctx.BOOLEAN() != null) {
+                return new LiteralValue(Boolean.parseBoolean(ctx.BOOLEAN().getText()), LiteralValue.LiteralType.BOOLEAN);
+            }
+            throw new PolicyParseException("Unknown literal: " + ctx.getText());
+        }
+
+        private ArrayValue visitArrayToValue(AbacPolicyParser.ArrayContext ctx) {
+            List<LiteralValue> values = ctx.literal().stream()
+                                           .map(this::visitLiteralToValue)
+                                           .toList();
+            return new ArrayValue(values);
+        }
+
+        private static String stripQuotes(String text) {
+            // Remove surrounding single quotes from STRING tokens
+            if (text.length() >= 2 && text.charAt(0) == '\'' && text.charAt(text.length() - 1) == '\'') {
+                return text.substring(1, text.length() - 1);
+            }
+            return text;
+        }
     }
 }
