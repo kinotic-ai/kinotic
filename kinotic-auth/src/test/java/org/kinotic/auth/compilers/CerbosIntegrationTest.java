@@ -13,7 +13,7 @@ import dev.cerbos.sdk.CheckResult;
 import dev.cerbos.sdk.PlanResourcesResult;
 import dev.cerbos.sdk.builders.Principal;
 import dev.cerbos.sdk.builders.Resource;
-import dev.cerbos.sdk.containers.CerbosContainer;
+import dev.cerbos.sdk.CerbosContainer;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import org.junit.jupiter.api.BeforeAll;

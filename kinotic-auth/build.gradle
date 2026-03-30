@@ -45,6 +45,7 @@ dependencies {
     implementation 'dev.cerbos:cerbos-sdk-java:0.18.0'
     implementation 'com.google.protobuf:protobuf-java:4.33.5'
     implementation 'com.google.protobuf:protobuf-java-util:4.33.5'
+    implementation 'io.grpc:grpc-core:1.79.0'
 
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter'
