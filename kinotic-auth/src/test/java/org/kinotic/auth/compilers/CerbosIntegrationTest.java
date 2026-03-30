@@ -104,10 +104,15 @@ class CerbosIntegrationTest {
     }
 
     private static boolean isAllowed(Response.CheckResourcesResponse response, String action) {
-        return response.getResultsList().stream()
-                       .flatMap(r -> r.getActionsMap().entrySet().stream())
-                       .filter(e -> e.getKey().equals(action))
-                       .anyMatch(e -> e.getValue().getEffect() == dev.cerbos.api.v1.effect.Effect.EFFECT_ALLOW);
+        for (Response.CheckResourcesResponse.ResultEntry result : response.getResultsList()) {
+            for (var entry : result.getActionsMap().entrySet()) {
+                if (entry.getKey().equals(action)) {
+                    // EFFECT_ALLOW = 1 in the Cerbos protobuf enum
+                    return entry.getValue().getNumber() == 1;
+                }
+            }
+        }
+        return false;
     }
 
     // ========== Raw JSON Payload Tests ==========
