@@ -201,9 +201,9 @@ public class PolicyExpressionParser {
         }
 
         private static String stripQuotes(String text) {
-            // Remove surrounding single quotes from STRING tokens
+            // Remove surrounding single quotes from STRING tokens and unescape internal \'
             if (text.length() >= 2 && text.charAt(0) == '\'' && text.charAt(text.length() - 1) == '\'') {
-                return text.substring(1, text.length() - 1);
+                return text.substring(1, text.length() - 1).replace("\\'", "'");
             }
             return text;
         }

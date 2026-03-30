@@ -189,6 +189,15 @@ class PolicyExpressionParserTest {
     }
 
     @Test
+    void escapedSingleQuoteInString() {
+        // Grammar allows \' inside string literals; the value must be unescaped
+        PolicyExpression expr = PolicyExpressionParser.parse("entity.name == 'it\\'s'");
+
+        ComparisonExpression comp = (ComparisonExpression) expr;
+        assertEquals("it's", ((LiteralValue) comp.right()).asString());
+    }
+
+    @Test
     void blankExpressionThrows() {
         assertThrows(PolicyParseException.class, () -> PolicyExpressionParser.parse(""));
         assertThrows(PolicyParseException.class, () -> PolicyExpressionParser.parse("   "));

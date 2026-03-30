@@ -104,10 +104,11 @@ public class EsQueryCompiler {
             return Query.of(q -> q.range(r -> r.number(n -> {
                 n.field(field);
                 switch (op) {
-                    case "lt" -> n.lt(numericValue);
-                    case "gt" -> n.gt(numericValue);
+                    case "lt"  -> n.lt(numericValue);
+                    case "gt"  -> n.gt(numericValue);
                     case "lte" -> n.lte(numericValue);
                     case "gte" -> n.gte(numericValue);
+                    default    -> throw new IllegalArgumentException("Unknown range operator: " + op);
                 }
                 return n;
             })));
@@ -116,10 +117,11 @@ public class EsQueryCompiler {
             return Query.of(q -> q.range(r -> r.term(t -> {
                 t.field(field);
                 switch (op) {
-                    case "lt" -> t.lt(stringValue);
-                    case "gt" -> t.gt(stringValue);
+                    case "lt"  -> t.lt(stringValue);
+                    case "gt"  -> t.gt(stringValue);
                     case "lte" -> t.lte(stringValue);
                     case "gte" -> t.gte(stringValue);
+                    default    -> throw new IllegalArgumentException("Unknown range operator: " + op);
                 }
                 return t;
             })));

@@ -108,6 +108,15 @@ class CedarCompilerTest {
     }
 
     @Test
+    void participantPathNoTrailingDot() {
+        // compilePath on a participant-only root (no fields) must produce "principal", not "principal."
+        PolicyExpression expr = PolicyExpressionParser.parse("participant.id == 'alice'");
+        String cedar = CedarCompiler.compile(expr);
+        assertFalse(cedar.contains("principal.id."), "should not produce double-dot path");
+        assertEquals("principal.id == \"alice\"", cedar);
+    }
+
+    @Test
     void numericComparisons() {
         PolicyExpression expr = PolicyExpressionParser.parse("entity.level >= 5");
         String cedar = CedarCompiler.compile(expr);

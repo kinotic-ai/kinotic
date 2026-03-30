@@ -92,7 +92,7 @@ public class CedarCompiler {
         String root = path.root();
         // participant maps to Cedar's principal; context maps directly; everything else becomes resource
         return switch (root) {
-            case "participant" -> "principal." + path.fieldPath();
+            case "participant" -> path.fields().isEmpty() ? "principal" : "principal." + path.fieldPath();
             case "context" -> path.toPathString();
             default -> {
                 if (path.fields().isEmpty()) {
