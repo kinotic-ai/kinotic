@@ -1,9 +1,12 @@
 package org.kinotic.auth.compilers;
 
-import com.google.protobuf.ListValue;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import com.google.protobuf.util.JsonFormat;
+import dev.cerbos.api.v1.engine.Engine;
+import dev.cerbos.api.v1.request.Request;
+import dev.cerbos.api.v1.response.Response;
+import dev.cerbos.api.v1.svc.CerbosServiceGrpc;
 import dev.cerbos.sdk.CerbosBlockingClient;
 import dev.cerbos.sdk.CerbosClientBuilder;
 import dev.cerbos.sdk.CheckResult;
@@ -11,6 +14,8 @@ import dev.cerbos.sdk.PlanResourcesResult;
 import dev.cerbos.sdk.builders.Principal;
 import dev.cerbos.sdk.builders.Resource;
 import dev.cerbos.sdk.containers.CerbosContainer;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -31,6 +36,7 @@ class CerbosIntegrationTest {
             .withClasspathResourceMapping("policies", "/policies", org.testcontainers.containers.BindMode.READ_ONLY);
 
     private static CerbosBlockingClient client;
+    private static CerbosServiceGrpc.CerbosServiceBlockingStub rawStub;
 
     @BeforeAll
     static void setup() throws Exception {
@@ -38,6 +44,15 @@ class CerbosIntegrationTest {
         client = new CerbosClientBuilder(cerbosContainer.getTarget())
                 .withPlaintext()
                 .buildBlockingClient();
+
+        // Also create a raw gRPC stub for tests that need to pass raw protobuf values
+        String target = cerbosContainer.getTarget();
+        String[] parts = target.split(":");
+        ManagedChannel channel = ManagedChannelBuilder
+                .forAddress(parts[0], Integer.parseInt(parts[1]))
+                .usePlaintext()
+                .build();
+        rawStub = CerbosServiceGrpc.newBlockingStub(channel);
     }
 
     // ========== Helper: Convert raw JSON args to protobuf Value ==========
@@ -48,8 +63,6 @@ class CerbosIntegrationTest {
      * This is the ONLY parse step — no field-by-field construction.
      */
     private static Value rawJsonToProtobufValue(String rawJson) throws Exception {
-        // Wrap the raw JSON array in a struct so JsonFormat can parse it,
-        // then extract just the value
         String wrappedJson = "{\"args\": " + rawJson + "}";
         Struct.Builder structBuilder = Struct.newBuilder();
         JsonFormat.parser().merge(wrappedJson, structBuilder);
@@ -57,53 +70,80 @@ class CerbosIntegrationTest {
     }
 
     /**
-     * Builds a Cerbos Resource from a raw JSON args payload.
-     * This is the pattern the gateway would use.
+     * Checks a raw JSON args payload against Cerbos using the protobuf API directly,
+     * bypassing the builder DSL that requires AttributeValue construction.
      */
-    private static Resource resourceFromRawJson(String resourceType, String resourceId, String rawJsonArgs) throws Exception {
+    private static Response.CheckResourcesResponse checkWithRawJson(
+            Engine.Principal principal,
+            String resourceType,
+            String resourceId,
+            String rawJsonArgs,
+            String... actions) throws Exception {
+
         Value argsValue = rawJsonToProtobufValue(rawJsonArgs);
 
-        // Build the resource attributes struct with the args
-        Struct attrs = Struct.newBuilder()
-                             .putFields("args", argsValue)
-                             .build();
+        Engine.Resource.Builder resourceBuilder = Engine.Resource.newBuilder()
+                .setKind(resourceType)
+                .setId(resourceId)
+                .putAttr("args", argsValue);
 
-        return Resource.newInstance(resourceType, resourceId)
-                       .withAttributes(attrs);
+        Request.CheckResourcesRequest.ResourceEntry.Builder entryBuilder =
+                Request.CheckResourcesRequest.ResourceEntry.newBuilder()
+                        .setResource(resourceBuilder);
+        for (String action : actions) {
+            entryBuilder.addActions(action);
+        }
+
+        Request.CheckResourcesRequest request = Request.CheckResourcesRequest.newBuilder()
+                .setRequestId("test-" + System.nanoTime())
+                .setPrincipal(principal)
+                .addResources(entryBuilder)
+                .build();
+
+        return rawStub.checkResources(request);
+    }
+
+    private static boolean isAllowed(Response.CheckResourcesResponse response, String action) {
+        return response.getResultsList().stream()
+                       .flatMap(r -> r.getActionsMap().entrySet().stream())
+                       .filter(e -> e.getKey().equals(action))
+                       .anyMatch(e -> e.getValue().getEffect() == dev.cerbos.api.v1.effect.Effect.EFFECT_ALLOW);
     }
 
     // ========== Raw JSON Payload Tests ==========
 
     @Test
     void rawJsonSingleArg_placeOrderUnderLimit() throws Exception {
-        // This is exactly what the gateway receives as the STOMP frame body
         String rawPayload = "[{\"amount\": 25000, \"department\": \"sales\"}]";
 
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "finance"),
-                resourceFromRawJson("service_method", "req-1", rawPayload),
-                "placeOrder"
-        );
+        Engine.Principal principal = Engine.Principal.newBuilder()
+                .setId("user-1")
+                .addRoles("finance")
+                .build();
 
-        assertTrue(result.isAllowed("placeOrder"));
+        Response.CheckResourcesResponse response = checkWithRawJson(
+                principal, "service_method", "req-1", rawPayload, "placeOrder");
+
+        assertTrue(isAllowed(response, "placeOrder"));
     }
 
     @Test
     void rawJsonSingleArg_placeOrderOverLimit() throws Exception {
         String rawPayload = "[{\"amount\": 75000, \"department\": \"sales\"}]";
 
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "finance"),
-                resourceFromRawJson("service_method", "req-1", rawPayload),
-                "placeOrder"
-        );
+        Engine.Principal principal = Engine.Principal.newBuilder()
+                .setId("user-1")
+                .addRoles("finance")
+                .build();
 
-        assertFalse(result.isAllowed("placeOrder"));
+        Response.CheckResourcesResponse response = checkWithRawJson(
+                principal, "service_method", "req-1", rawPayload, "placeOrder");
+
+        assertFalse(isAllowed(response, "placeOrder"));
     }
 
     @Test
     void rawJsonMultipleArgs_transferApproved() throws Exception {
-        // Two arguments: transfer details and approval record
         String rawPayload = """
                 [
                     {"amount": 50000, "currency": "USD"},
@@ -111,14 +151,16 @@ class CerbosIntegrationTest {
                 ]
                 """;
 
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "finance")
-                         .withAttribute("transferLimit", doubleValue(100000)),
-                resourceFromRawJson("service_method", "req-1", rawPayload),
-                "transferFunds"
-        );
+        Engine.Principal principal = Engine.Principal.newBuilder()
+                .setId("user-1")
+                .addRoles("finance")
+                .putAttr("transferLimit", Value.newBuilder().setNumberValue(100000).build())
+                .build();
 
-        assertTrue(result.isAllowed("transferFunds"));
+        Response.CheckResourcesResponse response = checkWithRawJson(
+                principal, "service_method", "req-1", rawPayload, "transferFunds");
+
+        assertTrue(isAllowed(response, "transferFunds"));
     }
 
     @Test
@@ -130,14 +172,16 @@ class CerbosIntegrationTest {
                 ]
                 """;
 
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "finance")
-                         .withAttribute("transferLimit", doubleValue(100000)),
-                resourceFromRawJson("service_method", "req-1", rawPayload),
-                "transferFunds"
-        );
+        Engine.Principal principal = Engine.Principal.newBuilder()
+                .setId("user-1")
+                .addRoles("finance")
+                .putAttr("transferLimit", Value.newBuilder().setNumberValue(100000).build())
+                .build();
 
-        assertFalse(result.isAllowed("transferFunds"));
+        Response.CheckResourcesResponse response = checkWithRawJson(
+                principal, "service_method", "req-1", rawPayload, "transferFunds");
+
+        assertFalse(isAllowed(response, "transferFunds"));
     }
 
     @Test
@@ -149,37 +193,34 @@ class CerbosIntegrationTest {
                 ]
                 """;
 
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "finance")
-                         .withAttribute("transferLimit", doubleValue(100000)),
-                resourceFromRawJson("service_method", "req-1", rawPayload),
-                "transferFunds"
-        );
+        Engine.Principal principal = Engine.Principal.newBuilder()
+                .setId("user-1")
+                .addRoles("finance")
+                .putAttr("transferLimit", Value.newBuilder().setNumberValue(100000).build())
+                .build();
 
-        assertFalse(result.isAllowed("transferFunds"));
+        Response.CheckResourcesResponse response = checkWithRawJson(
+                principal, "service_method", "req-1", rawPayload, "transferFunds");
+
+        assertFalse(isAllowed(response, "transferFunds"));
     }
 
     @Test
     void rawJsonNestedObjects() throws Exception {
-        // Proves Cerbos can traverse nested JSON without any special handling
         String rawPayload = """
                 [{"address": {"city": "Austin", "state": "TX"}, "amount": 1000}]
                 """;
 
-        // This would need a policy that checks R.attr.args[0].address.city
-        // For now just verify the raw JSON parses and Cerbos accepts it
-        Resource resource = resourceFromRawJson("service_method", "req-1", rawPayload);
-        assertNotNull(resource);
+        Engine.Principal principal = Engine.Principal.newBuilder()
+                .setId("user-1")
+                .addRoles("finance")
+                .build();
 
-        // Verify the structure is accessible by checking a simple policy
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "finance"),
-                resource,
-                "placeOrder"
-        );
+        Response.CheckResourcesResponse response = checkWithRawJson(
+                principal, "service_method", "req-1", rawPayload, "placeOrder");
 
         // amount is 1000, under the 50000 limit
-        assertTrue(result.isAllowed("placeOrder"));
+        assertTrue(isAllowed(response, "placeOrder"));
     }
 
     // ========== Simple RBAC (no payload needed) ==========
