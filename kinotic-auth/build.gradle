@@ -49,6 +49,9 @@ dependencies {
     implementation 'io.grpc:grpc-stub:1.79.0'
     implementation 'io.grpc:grpc-protobuf:1.79.0'
 
+    // Cedar
+    implementation 'com.cedarpolicy:cedar-java:4.8.0:uber'
+
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
