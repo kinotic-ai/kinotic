@@ -52,5 +52,4 @@ dependencies {
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
-    testImplementation "org.testcontainers:junit-jupiter:${testContainersVersion}"
 }
