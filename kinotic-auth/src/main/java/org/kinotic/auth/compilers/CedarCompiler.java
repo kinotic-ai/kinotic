@@ -71,8 +71,9 @@ public class CedarCompiler {
     private static String compileCedarExists(AttributePath path) {
         List<String> fields = path.fields();
         if (fields.isEmpty()) {
-            // Single-segment path (e.g., just 'entity') — not meaningful for exists, return as-is
-            return compilePath(path);
+            throw new IllegalArgumentException(
+                    "'exists' requires a field path (e.g., '" + path.root() + ".fieldName'), "
+                    + "got bare identifier '" + path.root() + "'");
         }
         String lastField = fields.getLast();
         String parentCedar;

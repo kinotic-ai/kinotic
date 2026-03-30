@@ -138,7 +138,13 @@ public class EsQueryCompiler {
                     "Cannot use '" + path.root() + "' path as a document field on the left-hand side. "
                     + "Path: " + path.toPathString());
         }
-        return path.fieldPath();
+        String fieldPath = path.fieldPath();
+        if (fieldPath.isEmpty()) {
+            throw new PolicyParseException(
+                    "Path '" + path.root() + "' must include at least one field (e.g., '"
+                    + path.root() + ".fieldName')");
+        }
+        return fieldPath;
     }
 
     /**
