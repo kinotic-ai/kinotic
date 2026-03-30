@@ -57,26 +57,26 @@ class RawJsonConversionBenchmarkTest {
      * @param paramNames   the method parameter names in order, e.g. ["order", "approval"]
      * @return a JSON object string, e.g. {"order":{"amount":25000},"approval":{"approved":true}}
      */
-    private static String arrayToNamedObject(String rawJsonArray, String[] paramNames) throws Exception {
-        var factory = new tools.jackson.core.JsonFactory();
-        var reader = factory.createParser(rawJsonArray);
-        var writer = new java.io.StringWriter();
-        var gen = factory.createGenerator(writer);
+    private static final tools.jackson.databind.ObjectMapper MAPPER = new tools.jackson.databind.ObjectMapper();
 
-        gen.writeStartObject();
-        reader.nextToken(); // START_ARRAY
-        int i = 0;
-        while (reader.nextToken() != tools.jackson.core.JsonToken.END_ARRAY) {
-            if (i >= paramNames.length) {
-                throw new IllegalArgumentException("More args than parameter names");
+    private static String arrayToNamedObject(String rawJsonArray, String[] paramNames) throws Exception {
+        var writer = new java.io.StringWriter();
+        try (var reader = MAPPER.createParser(rawJsonArray);
+             var gen = MAPPER.createGenerator(writer)) {
+
+            gen.writeStartObject();
+            reader.nextToken(); // START_ARRAY
+            int i = 0;
+            while (reader.nextToken() != tools.jackson.core.JsonToken.END_ARRAY) {
+                if (i >= paramNames.length) {
+                    throw new IllegalArgumentException("More args than parameter names");
+                }
+                gen.writeFieldName(paramNames[i]);
+                gen.copyCurrentStructure(reader);
+                i++;
             }
-            gen.writeFieldName(paramNames[i]);
-            gen.copyCurrentStructure(reader);
-            i++;
+            gen.writeEndObject();
         }
-        gen.writeEndObject();
-        gen.close();
-        reader.close();
         return writer.toString();
     }
 
