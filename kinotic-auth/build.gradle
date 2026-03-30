@@ -1,6 +1,28 @@
 plugins {
 	id 'org.kinotic.java-library-conventions'
 	id 'io.freefair.lombok'
+    id 'antlr'
+}
+
+// Configure ANTLR plugin
+generateGrammarSource {
+	arguments += ['-package', 'org.kinotic.auth.parser']
+	arguments += ['-visitor']
+
+	// Output directly to the parser package
+	outputDirectory = file("${projectDir}/src/main/java/org/kinotic/auth/parser")
+	enabled = project.gradle.startParameter.taskNames.contains(':kinotic-auth:generateGrammarSource')
+}
+
+// Configure Javadoc to exclude generated files
+tasks.withType(Javadoc) {
+    exclude '**/parser/AbacPolicy*.java'
+    exclude '**/parser/AbacPolicy*.interp'
+    exclude '**/parser/AbacPolicy*.tokens'
+}
+
+tasks.named('sourcesJar') {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 dependencies {
@@ -14,6 +36,10 @@ dependencies {
     // Json
     implementation 'tools.jackson.core:jackson-core'
     implementation 'tools.jackson.core:jackson-databind'
+
+    // Parsing dependencies
+	implementation 'org.antlr:antlr4-runtime:4.13.2'
+	antlr 'org.antlr:antlr4:4.13.2'
 
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter'
