@@ -1,17 +1,11 @@
 package org.kinotic.auth.compilers;
 
-import dev.cerbos.sdk.CerbosBlockingClient;
-import dev.cerbos.sdk.CerbosClientBuilder;
-import dev.cerbos.sdk.CheckResult;
-import dev.cerbos.sdk.PlanResourcesResult;
+import dev.cerbos.sdk.*;
 import dev.cerbos.sdk.builders.Principal;
 import dev.cerbos.sdk.builders.Resource;
-import dev.cerbos.sdk.containers.CerbosContainer;
-import org.junit.jupiter.api.*;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Map;
 
 import static dev.cerbos.sdk.builders.AttributeValue.*;
@@ -28,10 +22,8 @@ import static org.junit.jupiter.api.Assertions.*;
  *   <li>PlanResources for generating query filters on reads</li>
  * </ul>
  */
-@Testcontainers
 class CerbosIntegrationTest {
 
-    @Container
     private static final CerbosContainer cerbosContainer = new CerbosContainer()
             .withClasspathResourceMapping("policies", "/policies", org.testcontainers.containers.BindMode.READ_ONLY);
 
