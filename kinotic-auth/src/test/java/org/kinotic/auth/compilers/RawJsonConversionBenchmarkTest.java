@@ -71,7 +71,7 @@ class RawJsonConversionBenchmarkTest {
                 if (i >= paramNames.length) {
                     throw new IllegalArgumentException("More args than parameter names");
                 }
-                gen.writeFieldName(paramNames[i]);
+                gen.writeName(paramNames[i]);
                 gen.copyCurrentStructure(reader);
                 i++;
             }
