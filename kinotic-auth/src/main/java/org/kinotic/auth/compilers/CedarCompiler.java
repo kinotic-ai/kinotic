@@ -2,6 +2,7 @@ package org.kinotic.auth.compilers;
 
 import org.kinotic.auth.api.expressions.*;
 
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -34,12 +35,17 @@ public class CedarCompiler {
         return switch (expression) {
             case AndExpression and -> "(" + compileExpression(and.left()) + " && " + compileExpression(and.right()) + ")";
             case OrExpression or -> "(" + compileExpression(or.left()) + " || " + compileExpression(or.right()) + ")";
-            case NotExpression not -> "!" + compileExpression(not.expression());
+            case NotExpression not -> "!(" + compileExpression(not.expression()) + ")";
             case ComparisonExpression comp -> compileComparison(comp);
         };
     }
 
     private static String compileComparison(ComparisonExpression comp) {
+        // EXISTS requires the original AttributePath to build the correct Cedar 'has' expression
+        if (comp.operator() == ComparisonOperator.EXISTS) {
+            return compileCedarExists(comp.left());
+        }
+
         String left = compilePath(comp.left());
 
         return switch (comp.operator()) {
@@ -49,11 +55,37 @@ public class CedarCompiler {
             case LESS_THAN -> left + " < " + compileOperand(comp.right());
             case GREATER_THAN_OR_EQUAL -> left + " >= " + compileOperand(comp.right());
             case LESS_THAN_OR_EQUAL -> left + " <= " + compileOperand(comp.right());
-            case IN -> left + ".containsAny([" + compileArrayValues((ArrayValue) comp.right()) + "])";
+            // Cedar set membership: [values].contains(field) — the array is on the left calling .contains()
+            case IN -> "[" + compileArrayValues((ArrayValue) comp.right()) + "].contains(" + left + ")";
             case CONTAINS -> left + ".contains(" + compileOperand(comp.right()) + ")";
-            case EXISTS -> left + " has \"_\""; // Cedar uses 'has' for attribute existence
+            case EXISTS -> throw new IllegalStateException("EXISTS handled above");
             case LIKE -> left + " like " + compileOperand(comp.right());
         };
+    }
+
+    /**
+     * Compiles an {@code exists} check to Cedar's {@code has} operator.
+     * Cedar syntax: {@code entity has "attribute"} — e.g., {@code resource has "approvedBy"}.
+     * For nested paths like {@code entity.address.city}, this produces {@code resource.address has "city"}.
+     */
+    private static String compileCedarExists(AttributePath path) {
+        List<String> fields = path.fields();
+        if (fields.isEmpty()) {
+            // Single-segment path (e.g., just 'entity') — not meaningful for exists, return as-is
+            return compilePath(path);
+        }
+        String lastField = fields.getLast();
+        String parentCedar;
+        if (fields.size() == 1) {
+            parentCedar = switch (path.root()) {
+                case "participant" -> "principal";
+                case "context" -> "context";
+                default -> "resource";
+            };
+        } else {
+            parentCedar = compilePath(new AttributePath(path.root(), fields.subList(0, fields.size() - 1)));
+        }
+        return parentCedar + " has \"" + lastField + "\"";
     }
 
     private static String compilePath(AttributePath path) {

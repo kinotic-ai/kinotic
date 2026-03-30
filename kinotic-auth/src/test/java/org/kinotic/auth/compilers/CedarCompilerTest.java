@@ -55,7 +55,7 @@ class CedarCompilerTest {
         PolicyExpression expr = PolicyExpressionParser.parse("not entity.deleted == true");
         String cedar = CedarCompiler.compile(expr);
 
-        assertEquals("!resource.deleted == true", cedar);
+        assertEquals("!(resource.deleted == true)", cedar);
     }
 
     @Test
@@ -71,7 +71,31 @@ class CedarCompilerTest {
         PolicyExpression expr = PolicyExpressionParser.parse("entity.status in ['active', 'pending']");
         String cedar = CedarCompiler.compile(expr);
 
-        assertEquals("resource.status.containsAny([\"active\", \"pending\"])", cedar);
+        assertEquals("[\"active\", \"pending\"].contains(resource.status)", cedar);
+    }
+
+    @Test
+    void existsExpression() {
+        PolicyExpression expr = PolicyExpressionParser.parse("entity.approvedBy exists");
+        String cedar = CedarCompiler.compile(expr);
+
+        assertEquals("resource has \"approvedBy\"", cedar);
+    }
+
+    @Test
+    void existsNestedPath() {
+        PolicyExpression expr = PolicyExpressionParser.parse("entity.address.city exists");
+        String cedar = CedarCompiler.compile(expr);
+
+        assertEquals("resource.address has \"city\"", cedar);
+    }
+
+    @Test
+    void existsParticipantPath() {
+        PolicyExpression expr = PolicyExpressionParser.parse("participant.department exists");
+        String cedar = CedarCompiler.compile(expr);
+
+        assertEquals("principal has \"department\"", cedar);
     }
 
     @Test
