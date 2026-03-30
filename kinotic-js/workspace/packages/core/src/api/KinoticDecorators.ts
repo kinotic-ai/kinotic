@@ -12,6 +12,7 @@ import { ServiceIdentifier } from '@/api/ServiceIdentifier'
 const SCOPE_METADATA_KEY = Symbol('scope')
 const VERSION_METADATA_KEY = Symbol('version')
 export const CONTEXT_METADATA_KEY: unique symbol = Symbol('context')
+export const ABAC_POLICY_METADATA_KEY: unique symbol = Symbol('abacPolicy')
 
 //@ts-ignore
 export function Scope(target: any, propertyKey: string, descriptor?: PropertyDescriptor): void {
@@ -32,6 +33,21 @@ export function Context() {
         const existingContexts = Reflect.getMetadata(CONTEXT_METADATA_KEY, target, propertyKey) || [];
         existingContexts.push(parameterIndex);
         Reflect.defineMetadata(CONTEXT_METADATA_KEY, existingContexts, target, propertyKey);
+    }
+}
+
+/**
+ * Decorator that attaches an ABAC policy expression to a published service method.
+ * Multiple decorators on the same method are combined with AND semantics.
+ *
+ * @param expression the ABAC policy expression string
+ */
+export function AbacPolicy(expression: string) {
+    return function (target: any, propertyKey: string, descriptor: PropertyDescriptor): PropertyDescriptor {
+        const existingPolicies: string[] = Reflect.getMetadata(ABAC_POLICY_METADATA_KEY, target, propertyKey) || []
+        existingPolicies.push(expression)
+        Reflect.defineMetadata(ABAC_POLICY_METADATA_KEY, existingPolicies, target, propertyKey)
+        return descriptor
     }
 }
 

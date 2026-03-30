@@ -19,6 +19,11 @@ export enum KinoticPersistenceDecorator {
     EntityServiceDecorators = '__structures-entity-service-decorators__'
 }
 
+export function AbacPolicy(_expression: string) {
+    return function (_target: any, _propertyKey?: string, _descriptor?: PropertyDescriptor): void {
+    }
+}
+
 /**
  * Signifies that a property is an auto-generated ID for the entity.
  */
