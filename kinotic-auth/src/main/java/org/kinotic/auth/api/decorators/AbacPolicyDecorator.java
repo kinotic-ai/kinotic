@@ -32,7 +32,6 @@ public class AbacPolicyDecorator extends C3Decorator {
     private String expression = "";
 
     public AbacPolicyDecorator() {
-        this.type = AbacPolicyDecorator.type;
         this.targets = List.of(DecoratorTarget.TYPE, DecoratorTarget.FIELD, DecoratorTarget.FUNCTION);
     }
 }
