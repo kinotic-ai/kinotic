@@ -1,0 +1,20 @@
+plugins {
+	id 'org.kinotic.java-library-conventions'
+	id 'io.freefair.lombok'
+}
+
+dependencies {
+    // Kinotic dependencies
+    implementation project(':kinotic-idl')
+
+    // Elasticsearch dependencies
+    implementation 'co.elastic.clients:elasticsearch-java'
+    implementation 'co.elastic.clients:elasticsearch-rest5-client'
+
+    // Json
+    implementation 'tools.jackson.core:jackson-core'
+    implementation 'tools.jackson.core:jackson-databind'
+
+    // Testing
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
