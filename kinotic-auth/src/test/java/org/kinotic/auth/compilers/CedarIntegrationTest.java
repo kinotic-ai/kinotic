@@ -1,7 +1,10 @@
 package org.kinotic.auth.compilers;
 
-import com.cedarpolicy.*;
-import com.cedarpolicy.model.*;
+import com.cedarpolicy.AuthorizationEngine;
+import com.cedarpolicy.BasicAuthorizationEngine;
+import com.cedarpolicy.model.AuthorizationRequest;
+import com.cedarpolicy.model.AuthorizationResponse;
+import com.cedarpolicy.model.entity.Entity;
 import com.cedarpolicy.model.policy.PolicySet;
 import com.cedarpolicy.value.*;
 import org.junit.jupiter.api.BeforeAll;
