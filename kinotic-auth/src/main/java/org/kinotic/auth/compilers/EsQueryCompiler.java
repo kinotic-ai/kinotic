@@ -71,7 +71,7 @@ public class EsQueryCompiler {
         Operand right = comp.right();
 
         return switch (comp.operator()) {
-            case EQUALS -> {
+            case EQUALS, CONTAINS -> {
                 FieldValue value = toFieldValue(resolveOperandValue(right, principalAttributes));
                 yield Query.of(q -> q.term(t -> t.field(fieldName).value(value)));
             }
@@ -89,10 +89,6 @@ public class EsQueryCompiler {
                                              .map(lit -> toFieldValue(resolveLiteralValue(lit)))
                                              .toList();
                 yield Query.of(q -> q.terms(t -> t.field(fieldName).terms(tv -> tv.value(values))));
-            }
-            case CONTAINS -> {
-                FieldValue value = toFieldValue(resolveOperandValue(right, principalAttributes));
-                yield Query.of(q -> q.term(t -> t.field(fieldName).value(value)));
             }
             case EXISTS -> Query.of(q -> q.exists(e -> e.field(fieldName)));
             case LIKE -> {
