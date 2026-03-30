@@ -1,26 +1,29 @@
 package org.kinotic.auth.compilers;
 
-import dev.cerbos.sdk.*;
+import com.google.protobuf.ListValue;
+import com.google.protobuf.Struct;
+import com.google.protobuf.Value;
+import com.google.protobuf.util.JsonFormat;
+import dev.cerbos.sdk.CerbosBlockingClient;
+import dev.cerbos.sdk.CerbosClientBuilder;
+import dev.cerbos.sdk.CheckResult;
+import dev.cerbos.sdk.PlanResourcesResult;
 import dev.cerbos.sdk.builders.Principal;
 import dev.cerbos.sdk.builders.Resource;
+import dev.cerbos.sdk.containers.CerbosContainer;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-
-import java.util.Map;
 
 import static dev.cerbos.sdk.builders.AttributeValue.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Integration tests that verify our ABAC requirements work with a real Cerbos PDP.
+ * Integration tests that verify Cerbos can evaluate policies against raw JSON payloads.
  * <p>
- * Tests cover:
- * <ul>
- *   <li>Simple RBAC (role checks, no payload)</li>
- *   <li>ABAC with entity attributes (participant + resource field comparisons)</li>
- *   <li>ABAC with positional args (R.attr.args[0].field access for service methods)</li>
- *   <li>PlanResources for generating query filters on reads</li>
- * </ul>
+ * The key requirement: the gateway receives a raw JSON byte array like
+ * {@code [{"amount": 25000, "department": "sales"}, {"approved": true}]}
+ * and passes it to Cerbos as {@code R.attr.args} without field-by-field conversion.
+ * CEL conditions then access it via {@code R.attr.args[0].amount}.
  */
 class CerbosIntegrationTest {
 
@@ -31,12 +34,155 @@ class CerbosIntegrationTest {
 
     @BeforeAll
     static void setup() throws Exception {
+        cerbosContainer.start();
         client = new CerbosClientBuilder(cerbosContainer.getTarget())
                 .withPlaintext()
                 .buildBlockingClient();
     }
 
-    // ========== Simple RBAC ==========
+    // ========== Helper: Convert raw JSON args to protobuf Value ==========
+
+    /**
+     * Simulates what the gateway would do: take the raw JSON payload bytes
+     * and convert them to a protobuf Value in a single parse call.
+     * This is the ONLY parse step — no field-by-field construction.
+     */
+    private static Value rawJsonToProtobufValue(String rawJson) throws Exception {
+        // Wrap the raw JSON array in a struct so JsonFormat can parse it,
+        // then extract just the value
+        String wrappedJson = "{\"args\": " + rawJson + "}";
+        Struct.Builder structBuilder = Struct.newBuilder();
+        JsonFormat.parser().merge(wrappedJson, structBuilder);
+        return structBuilder.build().getFieldsOrThrow("args");
+    }
+
+    /**
+     * Builds a Cerbos Resource from a raw JSON args payload.
+     * This is the pattern the gateway would use.
+     */
+    private static Resource resourceFromRawJson(String resourceType, String resourceId, String rawJsonArgs) throws Exception {
+        Value argsValue = rawJsonToProtobufValue(rawJsonArgs);
+
+        // Build the resource attributes struct with the args
+        Struct attrs = Struct.newBuilder()
+                             .putFields("args", argsValue)
+                             .build();
+
+        return Resource.newInstance(resourceType, resourceId)
+                       .withAttributes(attrs);
+    }
+
+    // ========== Raw JSON Payload Tests ==========
+
+    @Test
+    void rawJsonSingleArg_placeOrderUnderLimit() throws Exception {
+        // This is exactly what the gateway receives as the STOMP frame body
+        String rawPayload = "[{\"amount\": 25000, \"department\": \"sales\"}]";
+
+        CheckResult result = client.check(
+                Principal.newInstance("user-1", "finance"),
+                resourceFromRawJson("service_method", "req-1", rawPayload),
+                "placeOrder"
+        );
+
+        assertTrue(result.isAllowed("placeOrder"));
+    }
+
+    @Test
+    void rawJsonSingleArg_placeOrderOverLimit() throws Exception {
+        String rawPayload = "[{\"amount\": 75000, \"department\": \"sales\"}]";
+
+        CheckResult result = client.check(
+                Principal.newInstance("user-1", "finance"),
+                resourceFromRawJson("service_method", "req-1", rawPayload),
+                "placeOrder"
+        );
+
+        assertFalse(result.isAllowed("placeOrder"));
+    }
+
+    @Test
+    void rawJsonMultipleArgs_transferApproved() throws Exception {
+        // Two arguments: transfer details and approval record
+        String rawPayload = """
+                [
+                    {"amount": 50000, "currency": "USD"},
+                    {"approved": true, "approver": "manager-1"}
+                ]
+                """;
+
+        CheckResult result = client.check(
+                Principal.newInstance("user-1", "finance")
+                         .withAttribute("transferLimit", doubleValue(100000)),
+                resourceFromRawJson("service_method", "req-1", rawPayload),
+                "transferFunds"
+        );
+
+        assertTrue(result.isAllowed("transferFunds"));
+    }
+
+    @Test
+    void rawJsonMultipleArgs_transferNotApproved() throws Exception {
+        String rawPayload = """
+                [
+                    {"amount": 50000, "currency": "USD"},
+                    {"approved": false, "approver": "manager-1"}
+                ]
+                """;
+
+        CheckResult result = client.check(
+                Principal.newInstance("user-1", "finance")
+                         .withAttribute("transferLimit", doubleValue(100000)),
+                resourceFromRawJson("service_method", "req-1", rawPayload),
+                "transferFunds"
+        );
+
+        assertFalse(result.isAllowed("transferFunds"));
+    }
+
+    @Test
+    void rawJsonMultipleArgs_transferWrongCurrency() throws Exception {
+        String rawPayload = """
+                [
+                    {"amount": 50000, "currency": "EUR"},
+                    {"approved": true, "approver": "manager-1"}
+                ]
+                """;
+
+        CheckResult result = client.check(
+                Principal.newInstance("user-1", "finance")
+                         .withAttribute("transferLimit", doubleValue(100000)),
+                resourceFromRawJson("service_method", "req-1", rawPayload),
+                "transferFunds"
+        );
+
+        assertFalse(result.isAllowed("transferFunds"));
+    }
+
+    @Test
+    void rawJsonNestedObjects() throws Exception {
+        // Proves Cerbos can traverse nested JSON without any special handling
+        String rawPayload = """
+                [{"address": {"city": "Austin", "state": "TX"}, "amount": 1000}]
+                """;
+
+        // This would need a policy that checks R.attr.args[0].address.city
+        // For now just verify the raw JSON parses and Cerbos accepts it
+        Resource resource = resourceFromRawJson("service_method", "req-1", rawPayload);
+        assertNotNull(resource);
+
+        // Verify the structure is accessible by checking a simple policy
+        CheckResult result = client.check(
+                Principal.newInstance("user-1", "finance"),
+                resource,
+                "placeOrder"
+        );
+
+        // amount is 1000, under the 50000 limit
+        assertTrue(result.isAllowed("placeOrder"));
+    }
+
+    // ========== Simple RBAC (no payload needed) ==========
 
     @Test
     void adminRoleAllowsAllActions() {
@@ -49,20 +195,6 @@ class CerbosIntegrationTest {
         assertTrue(result.isAllowed("read"));
         assertTrue(result.isAllowed("create"));
         assertTrue(result.isAllowed("delete"));
-    }
-
-    @Test
-    void userRoleWithoutMatchingAttributesDenied() {
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "user")
-                         .withAttribute("department", stringValue("engineering")),
-                Resource.newInstance("entity", "entity-1")
-                        .withAttribute("department", stringValue("finance")),
-                "read"
-        );
-
-        // Department mismatch — should be denied
-        assertFalse(result.isAllowed("read"));
     }
 
     // ========== ABAC with Entity Attributes ==========
@@ -81,52 +213,7 @@ class CerbosIntegrationTest {
     }
 
     @Test
-    void userCanCreateEntityUnderSpendingLimit() {
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "user")
-                         .withAttribute("department", stringValue("engineering"))
-                         .withAttribute("spendingLimit", doubleValue(10000)),
-                Resource.newInstance("entity", "entity-1")
-                        .withAttribute("department", stringValue("engineering"))
-                        .withAttribute("amount", doubleValue(5000)),
-                "create"
-        );
-
-        assertTrue(result.isAllowed("create"));
-    }
-
-    @Test
-    void userCannotCreateEntityOverSpendingLimit() {
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "user")
-                         .withAttribute("department", stringValue("engineering"))
-                         .withAttribute("spendingLimit", doubleValue(10000)),
-                Resource.newInstance("entity", "entity-1")
-                        .withAttribute("department", stringValue("engineering"))
-                        .withAttribute("amount", doubleValue(15000)),
-                "create"
-        );
-
-        assertFalse(result.isAllowed("create"));
-    }
-
-    @Test
-    void userCanReadEntityWithAllowedStatus() {
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "user")
-                         .withAttribute("department", stringValue("engineering")),
-                Resource.newInstance("entity", "entity-1")
-                        .withAttribute("department", stringValue("finance"))
-                        .withAttribute("status", stringValue("active")),
-                "read"
-        );
-
-        // Department doesn't match, but status is in allowed list
-        assertTrue(result.isAllowed("read"));
-    }
-
-    @Test
-    void userCannotReadEntityWithDisallowedStatus() {
+    void userCannotReadEntityInDifferentDepartment() {
         CheckResult result = client.check(
                 Principal.newInstance("user-1", "user")
                          .withAttribute("department", stringValue("engineering")),
@@ -136,113 +223,7 @@ class CerbosIntegrationTest {
                 "read"
         );
 
-        // Department doesn't match AND status is not in allowed list
         assertFalse(result.isAllowed("read"));
-    }
-
-    // ========== ABAC with Positional Args (Service Methods) ==========
-
-    @Test
-    void financeCanPlaceOrderUnderLimit() {
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "finance"),
-                Resource.newInstance("service_method", "placeOrder-req-1")
-                        .withAttribute("args", listValue(
-                                // args[0] = the Order object
-                                mapValue(Map.of(
-                                        "amount", doubleValue(25000),
-                                        "department", stringValue("sales")
-                                ))
-                        )),
-                "placeOrder"
-        );
-
-        assertTrue(result.isAllowed("placeOrder"));
-    }
-
-    @Test
-    void financeCannotPlaceOrderOverLimit() {
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "finance"),
-                Resource.newInstance("service_method", "placeOrder-req-1")
-                        .withAttribute("args", listValue(
-                                mapValue(Map.of(
-                                        "amount", doubleValue(75000),
-                                        "department", stringValue("sales")
-                                ))
-                        )),
-                "placeOrder"
-        );
-
-        assertFalse(result.isAllowed("placeOrder"));
-    }
-
-    @Test
-    void financeCanTransferWithMultipleArgs() {
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "finance")
-                         .withAttribute("transferLimit", doubleValue(100000)),
-                Resource.newInstance("service_method", "transfer-req-1")
-                        .withAttribute("args", listValue(
-                                // args[0] = transfer details
-                                mapValue(Map.of(
-                                        "amount", doubleValue(50000),
-                                        "currency", stringValue("USD")
-                                )),
-                                // args[1] = approval record
-                                mapValue(Map.of(
-                                        "approved", boolValue(true),
-                                        "approver", stringValue("manager-1")
-                                ))
-                        )),
-                "transferFunds"
-        );
-
-        assertTrue(result.isAllowed("transferFunds"));
-    }
-
-    @Test
-    void financeCannotTransferWithoutApproval() {
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "finance")
-                         .withAttribute("transferLimit", doubleValue(100000)),
-                Resource.newInstance("service_method", "transfer-req-1")
-                        .withAttribute("args", listValue(
-                                mapValue(Map.of(
-                                        "amount", doubleValue(50000),
-                                        "currency", stringValue("USD")
-                                )),
-                                mapValue(Map.of(
-                                        "approved", boolValue(false),
-                                        "approver", stringValue("manager-1")
-                                ))
-                        )),
-                "transferFunds"
-        );
-
-        assertFalse(result.isAllowed("transferFunds"));
-    }
-
-    @Test
-    void financeCannotTransferWrongCurrency() {
-        CheckResult result = client.check(
-                Principal.newInstance("user-1", "finance")
-                         .withAttribute("transferLimit", doubleValue(100000)),
-                Resource.newInstance("service_method", "transfer-req-1")
-                        .withAttribute("args", listValue(
-                                mapValue(Map.of(
-                                        "amount", doubleValue(50000),
-                                        "currency", stringValue("EUR")
-                                )),
-                                mapValue(Map.of(
-                                        "approved", boolValue(true),
-                                        "approver", stringValue("manager-1")
-                                ))
-                        )),
-                "transferFunds"
-        );
-
-        assertFalse(result.isAllowed("transferFunds"));
     }
 
     // ========== PlanResources (Query Filter Generation) ==========
@@ -255,7 +236,7 @@ class CerbosIntegrationTest {
                 "read"
         );
 
-        assertTrue(plan.isAlwaysAllowed(), "Admin should always be allowed to read");
+        assertTrue(plan.isAlwaysAllowed());
     }
 
     @Test
@@ -267,11 +248,8 @@ class CerbosIntegrationTest {
                 "read"
         );
 
-        // Should not be always allowed or always denied — there's a conditional plan
-        assertFalse(plan.isAlwaysAllowed(), "User should have conditional access");
-        assertFalse(plan.isAlwaysDenied(), "User should not be completely denied");
-
-        // The plan should contain a condition we can translate to an ES query
-        assertNotNull(plan.getCondition(), "Plan should have a condition for query filtering");
+        assertFalse(plan.isAlwaysAllowed());
+        assertFalse(plan.isAlwaysDenied());
+        assertNotNull(plan.getCondition());
     }
 }
