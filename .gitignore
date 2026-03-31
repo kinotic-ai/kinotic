@@ -113,4 +113,5 @@ kinotic-js/continuum-cli/
 
 terraform.tfstate
 
+# Claude Code worktree state (local only)
 .claude/worktrees/
