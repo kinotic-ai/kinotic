@@ -38,15 +38,13 @@ export function Context() {
 
 /**
  * Decorator that attaches an ABAC policy expression to a published service method.
- * Multiple decorators on the same method are combined with AND semantics.
+ * Use boolean logic (and, or, not) within the expression to combine conditions.
  *
  * @param expression the ABAC policy expression string
  */
 export function AbacPolicy(expression: string) {
     return function (target: any, propertyKey: string, descriptor: PropertyDescriptor): PropertyDescriptor {
-        const existingPolicies: string[] = Reflect.getMetadata(ABAC_POLICY_METADATA_KEY, target, propertyKey) || []
-        existingPolicies.push(expression)
-        Reflect.defineMetadata(ABAC_POLICY_METADATA_KEY, existingPolicies, target, propertyKey)
+        Reflect.defineMetadata(ABAC_POLICY_METADATA_KEY, expression, target, propertyKey)
         return descriptor
     }
 }

@@ -14,14 +14,10 @@ import java.lang.annotation.*;
  * {@code participant} always refers to the authenticated participant,
  * and {@code context} refers to the request environment.
  * All other root identifiers are matched to method parameter names.
- * <p>
- * This annotation is repeatable: multiple policies are combined with AND semantics
- * (all must be satisfied).
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@Repeatable(AbacPolicies.class)
 public @interface AbacPolicy {
 
     /**
