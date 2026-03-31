@@ -53,7 +53,7 @@ watch(isMenuOpen, (val) => {
             </div>
           </label>
 
-          <NuxtLink to="/getting-started/introduction" class="text-[#EDEEF2] text-sm">Guide</NuxtLink>
+          <NuxtLink to="/apps/introduction" class="text-[#EDEEF2] text-sm">Guide</NuxtLink>
           <NuxtLink to="/reference" class="text-[#EDEEF2] text-sm">Reference</NuxtLink>
           <NuxtLink
             to="https://github.com/kinotic-ai/kinotic"
@@ -105,7 +105,7 @@ watch(isMenuOpen, (val) => {
 
         <div class="flex flex-col justify-between items-center gap-6 h-screen">
           <div class="flex flex-col justify-between items-center gap-8">
-            <NuxtLink to="/getting-started/introduction" class="text-[#EDEEF2] text-sm" @click="isMenuOpen = false">Guide</NuxtLink>
+            <NuxtLink to="/apps/introduction" class="text-[#EDEEF2] text-sm" @click="isMenuOpen = false">Guide</NuxtLink>
             <NuxtLink to="/reference" class="text-[#EDEEF2] text-sm" @click="isMenuOpen = false">Reference</NuxtLink>
           </div>
           <NuxtLink

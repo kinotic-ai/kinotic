@@ -1,4 +1,4 @@
-name: Build and Deploy Structures Website
+name: Build and Deploy Kinotic Website
 
 on:
   push:
@@ -15,28 +15,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        name: Install pnpm
-        with:
-          version: 9
-          run_install: false
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'pnpm'
-          cache-dependency-path: "./website/pnpm-lock.yaml"
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
         run: |
           cd website
-          pnpm install
+          bun install
 
-      - name: Build Structures site
+      - name: Build site
         run: |
           cd website
-          pnpm generate
+          bun run generate
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
@@ -44,5 +34,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: website/.output/public
           publish_branch: gh-pages
-          destination_dir: website
           keep_files: false
