@@ -23,12 +23,13 @@
 
 | Package | Responsibility |
 |---|---|
-| `org.kinotic.auth.api.annotations` | `@AbacPolicy` and `@AbacPolicies` annotations for published Java service methods |
+| `org.kinotic.auth.api.annotations` | `@AbacPolicy` annotation for published Java service methods |
 | `org.kinotic.auth.api.decorators` | `AbacPolicyDecorator` for attaching policies to entity definitions via C3 IDL |
 | `org.kinotic.auth.api.expressions` | Sealed AST types: `PolicyExpression`, `ComparisonExpression`, `AndExpression`, `OrExpression`, `NotExpression`, `AttributePath`, `LiteralValue`, `ArrayValue` |
 | `org.kinotic.auth.parser` | **ANTLR-generated** lexer, parser, visitor, and listener — do not edit |
 | `org.kinotic.auth.parsers` | Hand-written `PolicyExpressionParser` (ANTLR visitor that produces the AST) and `PolicyParseException` |
 | `org.kinotic.auth.compilers` | `CedarCompiler` (AST → Cedar condition string) and `EsQueryCompiler` (AST → Elasticsearch `Query`) |
+| `org.kinotic.auth.cedar` | `CedarAuthorizationService` — production Cedar engine that calls JNI directly with streaming JSON (no POJO round-trip) |
 
 ## Expression Language
 
