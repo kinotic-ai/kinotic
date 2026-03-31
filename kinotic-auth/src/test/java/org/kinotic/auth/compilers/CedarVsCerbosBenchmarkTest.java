@@ -323,6 +323,166 @@ class CedarVsCerbosBenchmarkTest {
         printResults("transferFunds (multi-arg)", iterations, cedarElapsed, cerbosElapsed);
     }
 
+    @Test
+    void benchmark_payloadGenerationOnly() throws Throwable {
+        String rawPayload = """
+                [
+                    {"amount": 50000, "currency": "USD"},
+                    {"approved": true, "approver": "manager-1"}
+                ]""";
+        String[] paramNames = {"transfer", "approval"};
+        String principalJson = "{\"roles\": [\"finance\"], \"transferLimit\": 100000}";
+        int iterations = 10000;
+
+        // Warmup
+        for (int i = 0; i < 2000; i++) {
+            buildCedarRequestJson(rawPayload, paramNames, principalJson, "transferFunds");
+            buildCerbosRequest(rawPayload, "user-1", new String[]{"finance"},
+                    Map.of("transferLimit", Value.newBuilder().setNumberValue(100000).build()),
+                    "transferFunds");
+        }
+
+        // Cedar: single-pass streaming JSON generation (no JNI call)
+        long cedarStart = System.nanoTime();
+        for (int i = 0; i < iterations; i++) {
+            buildCedarRequestJson(rawPayload, paramNames, principalJson, "transferFunds");
+        }
+        long cedarElapsed = System.nanoTime() - cedarStart;
+
+        // Cerbos: raw JSON → protobuf → gRPC request object (no gRPC call)
+        long cerbosStart = System.nanoTime();
+        for (int i = 0; i < iterations; i++) {
+            buildCerbosRequest(rawPayload, "user-1", new String[]{"finance"},
+                    Map.of("transferLimit", Value.newBuilder().setNumberValue(100000).build()),
+                    "transferFunds");
+        }
+        long cerbosElapsed = System.nanoTime() - cerbosStart;
+
+        double cedarMicros = (cedarElapsed / (double) iterations) / 1000.0;
+        double cerbosMicros = (cerbosElapsed / (double) iterations) / 1000.0;
+
+        System.out.printf("""
+                === Payload Generation Only (no engine eval) ===
+                Iterations: %,d
+                Cedar  (streaming JSON request build):  %.2f µs/call
+                Cerbos (protobuf request build):        %.2f µs/call
+                Ratio: %.1fx %s
+                %n""",
+                iterations,
+                cedarMicros,
+                cerbosMicros,
+                cedarMicros > cerbosMicros ? cedarMicros / cerbosMicros : cerbosMicros / cedarMicros,
+                cedarMicros > cerbosMicros ? "Cerbos faster" : "Cedar faster");
+    }
+
+    /**
+     * Builds the Cedar JNI request JSON string (single-pass streaming) without calling JNI.
+     */
+    private static String buildCedarRequestJson(String rawPayload, String[] paramNames,
+                                                 String principalAttrsJson, String action) throws Exception {
+        var writer = new java.io.StringWriter(512);
+        try (var gen = MAPPER.createGenerator(writer)) {
+            gen.writeStartObject();
+            gen.writeName("principal");
+            writeEuidJson(gen, "User", "user-1");
+            gen.writeName("action");
+            writeEuidJson(gen, "Action", action);
+            gen.writeName("resource");
+            writeEuidJson(gen, "ServiceMethod", "req-1");
+            gen.writeName("context");
+            gen.writeStartObject();
+            gen.writeEndObject();
+            gen.writeName("policies");
+            gen.writeRawValue(cachedPolicyJson);
+            gen.writeName("entities");
+            gen.writeStartArray();
+            // Principal entity
+            gen.writeStartObject();
+            gen.writeName("uid");
+            gen.writeStartObject();
+            gen.writeName("type");
+            gen.writeString("User");
+            gen.writeName("id");
+            gen.writeString("user-1");
+            gen.writeEndObject();
+            gen.writeName("attrs");
+            gen.writeRawValue(principalAttrsJson);
+            gen.writeName("parents");
+            gen.writeStartArray();
+            gen.writeEndArray();
+            gen.writeName("tags");
+            gen.writeStartObject();
+            gen.writeEndObject();
+            gen.writeEndObject();
+            // Resource entity — fused
+            gen.writeStartObject();
+            gen.writeName("uid");
+            gen.writeStartObject();
+            gen.writeName("type");
+            gen.writeString("ServiceMethod");
+            gen.writeName("id");
+            gen.writeString("req-1");
+            gen.writeEndObject();
+            gen.writeName("attrs");
+            gen.writeStartObject();
+            try (var argParser = MAPPER.createParser(rawPayload)) {
+                argParser.nextToken();
+                int i = 0;
+                while (argParser.nextToken() != tools.jackson.core.JsonToken.END_ARRAY) {
+                    gen.writeName(paramNames[i]);
+                    gen.copyCurrentStructure(argParser);
+                    i++;
+                }
+            }
+            gen.writeEndObject();
+            gen.writeName("parents");
+            gen.writeStartArray();
+            gen.writeEndArray();
+            gen.writeName("tags");
+            gen.writeStartObject();
+            gen.writeEndObject();
+            gen.writeEndObject();
+            gen.writeEndArray();
+            gen.writeEndObject();
+        }
+        return writer.toString();
+    }
+
+    /**
+     * Builds the full Cerbos protobuf request object without making the gRPC call.
+     */
+    private static Request.CheckResourcesRequest buildCerbosRequest(
+            String rawPayload, String principalId, String[] roles,
+            Map<String, Value> principalAttrs, String action) throws Exception {
+
+        Value argsValue = rawJsonToProtobufValue(rawPayload);
+
+        Engine.Principal.Builder principalBuilder = Engine.Principal.newBuilder()
+                .setId(principalId);
+        for (String role : roles) {
+            principalBuilder.addRoles(role);
+        }
+        for (var entry : principalAttrs.entrySet()) {
+            principalBuilder.putAttr(entry.getKey(), entry.getValue());
+        }
+
+        Engine.Resource.Builder resourceBuilder = Engine.Resource.newBuilder()
+                .setKind("service_method")
+                .setId("req-1")
+                .putAttr("args", argsValue);
+
+        Request.CheckResourcesRequest.ResourceEntry.Builder entryBuilder =
+                Request.CheckResourcesRequest.ResourceEntry.newBuilder()
+                        .setResource(resourceBuilder)
+                        .addActions(action);
+
+        return Request.CheckResourcesRequest.newBuilder()
+                .setRequestId("bench")
+                .setPrincipal(principalBuilder)
+                .addResources(entryBuilder)
+                .build();
+    }
+
     private void printResults(String label, int iterations, long cedarNanos, long cerbosNanos) {
         double cedarMicros = (cedarNanos / (double) iterations) / 1000.0;
         double cerbosMicros = (cerbosNanos / (double) iterations) / 1000.0;
