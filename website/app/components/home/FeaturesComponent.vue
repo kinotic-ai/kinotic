@@ -8,30 +8,30 @@ onMounted(() => {
 
 const features = [
   {
-    title: "Simplified data management",
+    title: "Instant data layer",
     details:
-      "Structures streamlines the process of managing complex data structures, allowing developers to easily create, read, update, and delete data.",
+      "Describe your data models and Kinotic gives you a complete API with search, pagination, and real-time updates -- no endpoints to build.",
     icon: "database.png",
     iconLight: "database-light.png",
   },
   {
-    title: "Efficient schema evolution",
+    title: "Services that just connect",
     details:
-      "The framework supports schema evolution, making it easy for developers to modify data schemas over time without requiring significant changes to their application code.",
+      "Build services in any language and they're instantly reachable from any frontend, backend, or AI agent in your application.",
     icon: "share.png",
     iconLight: "share-light.png",
   },
   {
-    title: "Powerful data manipulation",
+    title: "Security built in",
     details:
-      "Structures provides developers with a powerful set of tools for data manipulation, enabling them to efficiently process and analyze complex data sets.",
+      "Fine-grained access control is part of the platform, not something you bolt on. Define who can do what in plain language and the platform enforces it everywhere.",
     icon: "lightning.png",
     iconLight: "lightning-light.png",
   },
   {
-    title: "Flexible and extensible",
+    title: "Ship day one",
     details:
-      "The framework is highly flexible and extensible, allowing developers to easily integrate Structures into their existing applications and workflows.",
+      "CI/CD, observability, and deployment are included from the start. The app you prototype today is the same app you run in production.",
     icon: "apps.png",
     iconLight: "apps-light.png",
   },
@@ -43,7 +43,7 @@ const features = [
     <section class="xl:pt-[120px] pt-[52px] xl:px-0 px-5 dark:bg-[#101010]">
       <h1
         class="font-[BauhausNanoDisplayRegular] xl:text-[40px] text-[30px] mb-[48px] text-center text-[#101010] dark:text-[#EDEEF2]">
-        Powerhouse Tools for Developers
+        Build Apps, Not Infrastructure
       </h1>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-[43px] xl:pb-[70px] pb-[52px] mx-auto">
         <div v-for="(f, i) in features" :key="i"
