@@ -112,3 +112,5 @@ kinotic-js/workspace/packages/rpc/allure-report/
 kinotic-js/continuum-cli/
 
 terraform.tfstate
+
+.claude/worktrees/
