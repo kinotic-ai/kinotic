@@ -180,32 +180,17 @@ class CedarDirectJniTest {
         try (var gen = MAPPER.createGenerator(writer)) {
             gen.writeStartObject();
 
-            // principal EUID
+            // principal EUID — uses __entity wrapper
             gen.writeName("principal");
-            gen.writeStartObject();
-            gen.writeName("type");
-            gen.writeString(principalType);
-            gen.writeName("id");
-            gen.writeString(principalId);
-            gen.writeEndObject();
+            writeEuidJson(gen, principalType, principalId);
 
             // action EUID
             gen.writeName("action");
-            gen.writeStartObject();
-            gen.writeName("type");
-            gen.writeString(actionType);
-            gen.writeName("id");
-            gen.writeString(actionId);
-            gen.writeEndObject();
+            writeEuidJson(gen, actionType, actionId);
 
             // resource EUID
             gen.writeName("resource");
-            gen.writeStartObject();
-            gen.writeName("type");
-            gen.writeString(resourceType);
-            gen.writeName("id");
-            gen.writeString(resourceId);
-            gen.writeEndObject();
+            writeEuidJson(gen, resourceType, resourceId);
 
             // context (empty)
             gen.writeName("context");
@@ -231,6 +216,23 @@ class CedarDirectJniTest {
             gen.writeEndObject();
         }
         return writer.toString();
+    }
+
+    /**
+     * Writes an EntityUID in Cedar's __entity wrapper format:
+     * {"__entity": {"type": "User", "id": "user-1"}}
+     */
+    private static void writeEuidJson(tools.jackson.core.JsonGenerator gen,
+                                       String type, String id) throws Exception {
+        gen.writeStartObject();
+        gen.writeName("__entity");
+        gen.writeStartObject();
+        gen.writeName("type");
+        gen.writeString(type);
+        gen.writeName("id");
+        gen.writeString(id);
+        gen.writeEndObject();
+        gen.writeEndObject();
     }
 
     /**
@@ -281,8 +283,8 @@ class CedarDirectJniTest {
 
         String responseJson = (String) callCedarJNI.invoke("AuthorizationOperation", requestJson);
 
-        // Fast check — look for "Allow" (capitalized) in the decision field
-        return responseJson.contains("\"Allow\"");
+        // Fast check — decision is lowercase in JNI response
+        return responseJson.contains("\"allow\"");
     }
 
     /**
