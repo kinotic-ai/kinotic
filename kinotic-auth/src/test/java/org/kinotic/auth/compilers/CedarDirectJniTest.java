@@ -167,52 +167,86 @@ class CedarDirectJniTest {
     }
 
     /**
-     * Builds the full Cedar JNI request JSON using streaming, embedding raw attrs
-     * directly without Entity.parse() or SDK serialization.
+     * Single-pass fused approach: builds the entire Cedar JNI request JSON in one
+     * streaming pass, transforming the raw JSON array → named object inline.
+     * No intermediate strings, no extra parser/generator allocations.
+     *
+     * @param rawPayload       raw JSON array of arguments, e.g. [{"amount": 25000}]
+     * @param paramNames       parameter names to map array elements to
+     * @param principalAttrsJson raw JSON for principal attrs, e.g. {"roles": ["finance"]}
+     * @param action           action name, e.g. "placeOrder"
+     * @param policiesJson     pre-serialized policies JSON (cached from setup)
      */
-    private static String buildRequestJson(
-            String principalType, String principalId, String principalAttrsJson,
-            String actionType, String actionId,
-            String resourceType, String resourceId, String resourceAttrsJson,
+    private static String buildRequestJsonFused(
+            String rawPayload, String[] paramNames,
+            String principalAttrsJson, String action,
             String policiesJson) throws Exception {
 
-        var writer = new java.io.StringWriter(1024);
+        var writer = new java.io.StringWriter(512);
         try (var gen = MAPPER.createGenerator(writer)) {
             gen.writeStartObject();
 
-            // principal EUID — uses __entity wrapper
+            // principal EUID
             gen.writeName("principal");
-            writeEuidJson(gen, principalType, principalId);
+            writeEuidJson(gen, "User", "user-1");
 
             // action EUID
             gen.writeName("action");
-            writeEuidJson(gen, actionType, actionId);
+            writeEuidJson(gen, "Action", action);
 
             // resource EUID
             gen.writeName("resource");
-            writeEuidJson(gen, resourceType, resourceId);
+            writeEuidJson(gen, "ServiceMethod", "req-1");
 
             // context (empty)
             gen.writeName("context");
             gen.writeStartObject();
             gen.writeEndObject();
 
-            // policies — pre-serialized, embed as raw JSON
+            // policies — pre-serialized, embed as raw
             gen.writeName("policies");
             gen.writeRawValue(policiesJson);
 
-            // entities array — build inline with raw attrs
+            // entities
             gen.writeName("entities");
             gen.writeStartArray();
 
-            // Principal entity
-            writeEntityJson(gen, principalType, principalId, principalAttrsJson);
+            // Principal entity — embed raw principal attrs
+            writeEntityJson(gen, "User", "user-1", principalAttrsJson);
 
-            // Resource entity
-            writeEntityJson(gen, resourceType, resourceId, resourceAttrsJson);
+            // Resource entity — transform raw array → named object INLINE
+            gen.writeStartObject();
+            gen.writeName("uid");
+            gen.writeStartObject();
+            gen.writeName("type");
+            gen.writeString("ServiceMethod");
+            gen.writeName("id");
+            gen.writeString("req-1");
+            gen.writeEndObject();
+
+            // attrs — fused: parse raw array and write as named object in one pass
+            gen.writeName("attrs");
+            gen.writeStartObject();
+            try (var argParser = MAPPER.createParser(rawPayload)) {
+                argParser.nextToken(); // START_ARRAY
+                int i = 0;
+                while (argParser.nextToken() != tools.jackson.core.JsonToken.END_ARRAY) {
+                    gen.writeName(paramNames[i]);
+                    gen.copyCurrentStructure(argParser);
+                    i++;
+                }
+            }
+            gen.writeEndObject();
+
+            gen.writeName("parents");
+            gen.writeStartArray();
+            gen.writeEndArray();
+            gen.writeName("tags");
+            gen.writeStartObject();
+            gen.writeEndObject();
+            gen.writeEndObject();
 
             gen.writeEndArray();
-
             gen.writeEndObject();
         }
         return writer.toString();
@@ -241,8 +275,6 @@ class CedarDirectJniTest {
     private static void writeEntityJson(tools.jackson.core.JsonGenerator gen,
                                          String type, String id, String attrsJson) throws Exception {
         gen.writeStartObject();
-
-        // uid
         gen.writeName("uid");
         gen.writeStartObject();
         gen.writeName("type");
@@ -250,59 +282,36 @@ class CedarDirectJniTest {
         gen.writeName("id");
         gen.writeString(id);
         gen.writeEndObject();
-
-        // attrs — raw JSON embedded directly
         gen.writeName("attrs");
         gen.writeRawValue(attrsJson);
-
-        // parents — empty array
         gen.writeName("parents");
         gen.writeStartArray();
         gen.writeEndArray();
-
-        // tags — empty object
         gen.writeName("tags");
         gen.writeStartObject();
         gen.writeEndObject();
-
         gen.writeEndObject();
     }
 
     /**
-     * Calls Cedar JNI directly with hand-built JSON. Returns true if allowed.
+     * Calls Cedar JNI directly with fused single-pass JSON building.
      */
-    private static boolean directCedarCheck(
-            String principalAttrsJson, String action,
-            String resourceAttrsJson) throws Throwable {
-
-        String requestJson = buildRequestJson(
-                "User", "user-1", principalAttrsJson,
-                "Action", action,
-                "ServiceMethod", "req-1", resourceAttrsJson,
-                cachedPolicyJson);
-
-        String responseJson = (String) callCedarJNI.invoke("AuthorizationOperation", requestJson);
-
-        // Fast check — decision is lowercase in JNI response
-        return responseJson.contains("\"allow\"");
-    }
-
-    /**
-     * Full flow: raw JSON array → named args → direct JNI call.
-     */
-    private static boolean directCedarCheckFromRaw(
+    private static boolean directCedarCheckFused(
             String rawPayload, String[] paramNames,
             String principalAttrsJson, String action) throws Throwable {
 
-        String namedAttrs = rawArgsToNamedJson(rawPayload, paramNames);
-        return directCedarCheck(principalAttrsJson, action, namedAttrs);
+        String requestJson = buildRequestJsonFused(
+                rawPayload, paramNames, principalAttrsJson, action, cachedPolicyJson);
+
+        String responseJson = (String) callCedarJNI.invoke("AuthorizationOperation", requestJson);
+        return responseJson.contains("\"allow\"");
     }
 
     // ========== Correctness Tests ==========
 
     @Test
     void directJni_placeOrder_allowed() throws Throwable {
-        assertTrue(directCedarCheckFromRaw(
+        assertTrue(directCedarCheckFused(
                 "[{\"amount\": 25000, \"department\": \"sales\"}]",
                 new String[]{"order"},
                 "{\"roles\": [\"finance\"]}",
@@ -311,7 +320,7 @@ class CedarDirectJniTest {
 
     @Test
     void directJni_placeOrder_denied_overLimit() throws Throwable {
-        assertFalse(directCedarCheckFromRaw(
+        assertFalse(directCedarCheckFused(
                 "[{\"amount\": 75000, \"department\": \"sales\"}]",
                 new String[]{"order"},
                 "{\"roles\": [\"finance\"]}",
@@ -325,7 +334,7 @@ class CedarDirectJniTest {
                     {"amount": 50000, "currency": "USD"},
                     {"approved": true, "approver": "manager-1"}
                 ]""";
-        assertTrue(directCedarCheckFromRaw(rawPayload,
+        assertTrue(directCedarCheckFused(rawPayload,
                 new String[]{"transfer", "approval"},
                 "{\"roles\": [\"finance\"], \"transferLimit\": 100000}",
                 "transferFunds"));
@@ -338,7 +347,7 @@ class CedarDirectJniTest {
                     {"amount": 50000, "currency": "EUR"},
                     {"approved": true, "approver": "manager-1"}
                 ]""";
-        assertFalse(directCedarCheckFromRaw(rawPayload,
+        assertFalse(directCedarCheckFused(rawPayload,
                 new String[]{"transfer", "approval"},
                 "{\"roles\": [\"finance\"], \"transferLimit\": 100000}",
                 "transferFunds"));
@@ -372,9 +381,9 @@ class CedarDirectJniTest {
             engine.isAuthorized(req, policies, Set.of(principal, resource));
         }
 
-        // Warmup — Direct JNI path
+        // Warmup — Direct JNI path (fused)
         for (int i = 0; i < 1000; i++) {
-            directCedarCheckFromRaw(rawPayload, paramNames, principalJson, "placeOrder");
+            directCedarCheckFused(rawPayload, paramNames, principalJson, "placeOrder");
         }
 
         // Timed — SDK path
@@ -394,10 +403,10 @@ class CedarDirectJniTest {
         }
         long sdkElapsed = System.nanoTime() - sdkStart;
 
-        // Timed — Direct JNI path
+        // Timed — Direct JNI path (fused single-pass)
         long directStart = System.nanoTime();
         for (int i = 0; i < iterations; i++) {
-            directCedarCheckFromRaw(rawPayload, paramNames, principalJson, "placeOrder");
+            directCedarCheckFused(rawPayload, paramNames, principalJson, "placeOrder");
         }
         long directElapsed = System.nanoTime() - directStart;
 
@@ -447,7 +456,7 @@ class CedarDirectJniTest {
                     Map.of());
             engine.isAuthorized(req, policies, Set.of(principal, resource));
 
-            directCedarCheckFromRaw(rawPayload, paramNames, principalJson, "transferFunds");
+            directCedarCheckFused(rawPayload, paramNames, principalJson, "transferFunds");
         }
 
         // Timed — SDK
@@ -467,10 +476,10 @@ class CedarDirectJniTest {
         }
         long sdkElapsed = System.nanoTime() - sdkStart;
 
-        // Timed — Direct
+        // Timed — Direct (fused single-pass)
         long directStart = System.nanoTime();
         for (int i = 0; i < iterations; i++) {
-            directCedarCheckFromRaw(rawPayload, paramNames, principalJson, "transferFunds");
+            directCedarCheckFused(rawPayload, paramNames, principalJson, "transferFunds");
         }
         long directElapsed = System.nanoTime() - directStart;
 
