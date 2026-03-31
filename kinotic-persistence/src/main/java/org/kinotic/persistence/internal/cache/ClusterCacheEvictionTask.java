@@ -3,12 +3,12 @@ package org.kinotic.persistence.internal.cache;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.resources.SpringApplicationContextResource;
 import org.apache.ignite.resources.SpringResource;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.cache.events.EvictionSourceOperation;
 import org.kinotic.persistence.internal.cache.events.EvictionSourceType;
-import org.springframework.context.ApplicationEventPublisher;
-import org.kinotic.persistence.internal.config.CacheEvictionConfiguration;
+import org.springframework.context.ApplicationContext;
 
 /**
  * Simple Ignite Compute Grid task for cluster-wide cache eviction.
@@ -25,8 +25,6 @@ import org.kinotic.persistence.internal.config.CacheEvictionConfiguration;
  * - Use {@code resourceClass} to inject by type, or {@code resourceName} to inject by bean name
  * - Injection happens automatically when the task is executed on each cluster node
  * - Each node must have the Spring ApplicationContext available (handled by Continuum)
- * - Note: We inject {@link ApplicationEventPublisher} using bean name "applicationEventPublisher"
- *   which is provided by {@link CacheEvictionConfiguration#applicationEventPublisher()}
  *   This bean wraps the ApplicationContext and makes it available for Ignite task injection
  */
 @Slf4j
@@ -40,13 +38,9 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
     @SpringResource(resourceClass = ProcessedEvictionsCache.class)
     private transient ProcessedEvictionsCache processedEvictionsCache;
 
-    /**
-     * Spring-managed ApplicationEventPublisher injected by Ignite.
-     * This bean is provided by CacheEvictionConfiguration.applicationEventPublisher().
-     * Marked as transient to prevent serialization (injection happens on each node).
-     */
-    @SpringResource(resourceName = "applicationEventPublisher")
-    private transient ApplicationEventPublisher eventPublisher;
+
+    @SpringApplicationContextResource
+    private transient ApplicationContext applicationContext;
 
 
     /**
@@ -72,7 +66,7 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
 
         try {
             // Verify Spring resource injection is working
-            if (eventPublisher == null) {
+            if (applicationContext == null) {
                 throw new IllegalStateException("ApplicationEventPublisher was not injected by Spring. " +
                         "Ensure Ignite is started with IgniteSpring.start() and Spring ApplicationContext is available.");
             }
@@ -94,10 +88,10 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                 if (entityDefinitionId != null) {
 
                     if(evictionOperation == EvictionSourceOperation.MODIFY){
-                        eventPublisher.publishEvent(CacheEvictionEvent.clusterModifiedEntityDefinition(applicationId,
+                        applicationContext.publishEvent(CacheEvictionEvent.clusterModifiedEntityDefinition(applicationId,
                                                                                                        entityDefinitionId));
                     } else if(evictionOperation == EvictionSourceOperation.DELETE){
-                        eventPublisher.publishEvent(CacheEvictionEvent.clusterDeletedEntityDefinition(applicationId,
+                        applicationContext.publishEvent(CacheEvictionEvent.clusterDeletedEntityDefinition(applicationId,
                                                                                                       entityDefinitionId));
                     } else {
                         throw new IllegalArgumentException("Invalid eviction operation for key: " + evictionKey);
@@ -117,10 +111,10 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                 if (namedQueryId != null) {
 
                     if(evictionOperation == EvictionSourceOperation.MODIFY){
-                        eventPublisher.publishEvent(CacheEvictionEvent.clusterModifiedNamedQuery(applicationId,
+                        applicationContext.publishEvent(CacheEvictionEvent.clusterModifiedNamedQuery(applicationId,
                                                                                                  entityDefinitionId, namedQueryId));
                     } else if(evictionOperation == EvictionSourceOperation.DELETE){
-                        eventPublisher.publishEvent(CacheEvictionEvent.clusterDeletedNamedQuery(applicationId,
+                        applicationContext.publishEvent(CacheEvictionEvent.clusterDeletedNamedQuery(applicationId,
                                                                                                 entityDefinitionId, namedQueryId));
                     } else {
                         throw new IllegalArgumentException("Invalid eviction operation: " + evictionOperation);
