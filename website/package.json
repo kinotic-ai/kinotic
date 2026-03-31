@@ -1,8 +1,9 @@
 {
-  "name": "website",
+  "name": "Kinotic",
   "scripts": {
     "dev": "nuxt dev",
-    "build": "nuxt build"
+    "build": "nuxt build",
+    "generate": "nuxt generate"
   },
   "dependencies": {
     "docus": "latest",

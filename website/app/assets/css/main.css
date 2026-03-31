@@ -1,3 +1,7 @@
+:root {
+  --ui-container: 90rem;
+}
+
 @font-face { font-family: BauhausNanoDisplayRegular; src: url("/fonts/BauhausNanoDisplay-Regular.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Regular.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Regular.otf") format("opentype"); }
 @font-face { font-family: BauhausNanoDisplayMedium; src: url("/fonts/BauhausNanoDisplay-Medium.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Medium.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Medium.otf") format("opentype"); }
 @font-face { font-family: BauhausNanoDisplayLight; src: url("/fonts/BauhausNanoDisplay-Light.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Light.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Light.otf") format("opentype"); }
