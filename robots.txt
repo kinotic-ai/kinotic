@@ -1,0 +1,6 @@
+# START nuxt-robots (indexable)
+User-agent: *
+Allow: /
+
+Sitemap: http://localhost/sitemap.xml
+# END nuxt-robots

@@ -1,4 +1,97 @@
-<!doctype html><meta charset="utf-8" /><meta
-    http-equiv="refresh"
-    content="0; URL=https://kinotic.ai/webdocs/index.html"
-/>
+<!DOCTYPE html><html  lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style id="nuxt-ui-colors">@layer theme {
+  :root, :host {
+  --ui-color-primary-50: var(--color-emerald-50, oklch(97.9% 0.021 166.113));
+  --ui-color-primary-100: var(--color-emerald-100, oklch(95% 0.052 163.051));
+  --ui-color-primary-200: var(--color-emerald-200, oklch(90.5% 0.093 164.15));
+  --ui-color-primary-300: var(--color-emerald-300, oklch(84.5% 0.143 164.978));
+  --ui-color-primary-400: var(--color-emerald-400, oklch(76.5% 0.177 163.223));
+  --ui-color-primary-500: var(--color-emerald-500, oklch(69.6% 0.17 162.48));
+  --ui-color-primary-600: var(--color-emerald-600, oklch(59.6% 0.145 163.225));
+  --ui-color-primary-700: var(--color-emerald-700, oklch(50.8% 0.118 165.612));
+  --ui-color-primary-800: var(--color-emerald-800, oklch(43.2% 0.095 166.913));
+  --ui-color-primary-900: var(--color-emerald-900, oklch(37.8% 0.077 168.94));
+  --ui-color-primary-950: var(--color-emerald-950, oklch(26.2% 0.051 172.552));
+  --ui-color-secondary-50: var(--color-blue-50, oklch(97% 0.014 254.604));
+  --ui-color-secondary-100: var(--color-blue-100, oklch(93.2% 0.032 255.585));
+  --ui-color-secondary-200: var(--color-blue-200, oklch(88.2% 0.059 254.128));
+  --ui-color-secondary-300: var(--color-blue-300, oklch(80.9% 0.105 251.813));
+  --ui-color-secondary-400: var(--color-blue-400, oklch(70.7% 0.165 254.624));
+  --ui-color-secondary-500: var(--color-blue-500, oklch(62.3% 0.214 259.815));
+  --ui-color-secondary-600: var(--color-blue-600, oklch(54.6% 0.245 262.881));
+  --ui-color-secondary-700: var(--color-blue-700, oklch(48.8% 0.243 264.376));
+  --ui-color-secondary-800: var(--color-blue-800, oklch(42.4% 0.199 265.638));
+  --ui-color-secondary-900: var(--color-blue-900, oklch(37.9% 0.146 265.522));
+  --ui-color-secondary-950: var(--color-blue-950, oklch(28.2% 0.091 267.935));
+  --ui-color-success-50: var(--color-green-50, oklch(98.2% 0.018 155.826));
+  --ui-color-success-100: var(--color-green-100, oklch(96.2% 0.044 156.743));
+  --ui-color-success-200: var(--color-green-200, oklch(92.5% 0.084 155.995));
+  --ui-color-success-300: var(--color-green-300, oklch(87.1% 0.15 154.449));
+  --ui-color-success-400: var(--color-green-400, oklch(79.2% 0.209 151.711));
+  --ui-color-success-500: var(--color-green-500, oklch(72.3% 0.219 149.579));
+  --ui-color-success-600: var(--color-green-600, oklch(62.7% 0.194 149.214));
+  --ui-color-success-700: var(--color-green-700, oklch(52.7% 0.154 150.069));
+  --ui-color-success-800: var(--color-green-800, oklch(44.8% 0.119 151.328));
+  --ui-color-success-900: var(--color-green-900, oklch(39.3% 0.095 152.535));
+  --ui-color-success-950: var(--color-green-950, oklch(26.6% 0.065 152.934));
+  --ui-color-info-50: var(--color-blue-50, oklch(97% 0.014 254.604));
+  --ui-color-info-100: var(--color-blue-100, oklch(93.2% 0.032 255.585));
+  --ui-color-info-200: var(--color-blue-200, oklch(88.2% 0.059 254.128));
+  --ui-color-info-300: var(--color-blue-300, oklch(80.9% 0.105 251.813));
+  --ui-color-info-400: var(--color-blue-400, oklch(70.7% 0.165 254.624));
+  --ui-color-info-500: var(--color-blue-500, oklch(62.3% 0.214 259.815));
+  --ui-color-info-600: var(--color-blue-600, oklch(54.6% 0.245 262.881));
+  --ui-color-info-700: var(--color-blue-700, oklch(48.8% 0.243 264.376));
+  --ui-color-info-800: var(--color-blue-800, oklch(42.4% 0.199 265.638));
+  --ui-color-info-900: var(--color-blue-900, oklch(37.9% 0.146 265.522));
+  --ui-color-info-950: var(--color-blue-950, oklch(28.2% 0.091 267.935));
+  --ui-color-warning-50: var(--color-yellow-50, oklch(98.7% 0.026 102.212));
+  --ui-color-warning-100: var(--color-yellow-100, oklch(97.3% 0.071 103.193));
+  --ui-color-warning-200: var(--color-yellow-200, oklch(94.5% 0.129 101.54));
+  --ui-color-warning-300: var(--color-yellow-300, oklch(90.5% 0.182 98.111));
+  --ui-color-warning-400: var(--color-yellow-400, oklch(85.2% 0.199 91.936));
+  --ui-color-warning-500: var(--color-yellow-500, oklch(79.5% 0.184 86.047));
+  --ui-color-warning-600: var(--color-yellow-600, oklch(68.1% 0.162 75.834));
+  --ui-color-warning-700: var(--color-yellow-700, oklch(55.4% 0.135 66.442));
+  --ui-color-warning-800: var(--color-yellow-800, oklch(47.6% 0.114 61.907));
+  --ui-color-warning-900: var(--color-yellow-900, oklch(42.1% 0.095 57.708));
+  --ui-color-warning-950: var(--color-yellow-950, oklch(28.6% 0.066 53.813));
+  --ui-color-error-50: var(--color-red-50, oklch(97.1% 0.013 17.38));
+  --ui-color-error-100: var(--color-red-100, oklch(93.6% 0.032 17.717));
+  --ui-color-error-200: var(--color-red-200, oklch(88.5% 0.062 18.334));
+  --ui-color-error-300: var(--color-red-300, oklch(80.8% 0.114 19.571));
+  --ui-color-error-400: var(--color-red-400, oklch(70.4% 0.191 22.216));
+  --ui-color-error-500: var(--color-red-500, oklch(63.7% 0.237 25.331));
+  --ui-color-error-600: var(--color-red-600, oklch(57.7% 0.245 27.325));
+  --ui-color-error-700: var(--color-red-700, oklch(50.5% 0.213 27.518));
+  --ui-color-error-800: var(--color-red-800, oklch(44.4% 0.177 26.899));
+  --ui-color-error-900: var(--color-red-900, oklch(39.6% 0.141 25.723));
+  --ui-color-error-950: var(--color-red-950, oklch(25.8% 0.092 26.042));
+  --ui-color-neutral-50: var(--color-zinc-50, oklch(98.5% 0 0));
+  --ui-color-neutral-100: var(--color-zinc-100, oklch(96.7% 0.001 286.375));
+  --ui-color-neutral-200: var(--color-zinc-200, oklch(92% 0.004 286.32));
+  --ui-color-neutral-300: var(--color-zinc-300, oklch(87.1% 0.006 286.286));
+  --ui-color-neutral-400: var(--color-zinc-400, oklch(70.5% 0.015 286.067));
+  --ui-color-neutral-500: var(--color-zinc-500, oklch(55.2% 0.016 285.938));
+  --ui-color-neutral-600: var(--color-zinc-600, oklch(44.2% 0.017 285.786));
+  --ui-color-neutral-700: var(--color-zinc-700, oklch(37% 0.013 285.805));
+  --ui-color-neutral-800: var(--color-zinc-800, oklch(27.4% 0.006 286.033));
+  --ui-color-neutral-900: var(--color-zinc-900, oklch(21% 0.006 285.885));
+  --ui-color-neutral-950: var(--color-zinc-950, oklch(14.1% 0.005 285.823));
+  }
+  :root, :host, .light {
+  --ui-primary: var(--ui-color-primary-500);
+  --ui-secondary: var(--ui-color-secondary-500);
+  --ui-success: var(--ui-color-success-500);
+  --ui-info: var(--ui-color-info-500);
+  --ui-warning: var(--ui-color-warning-500);
+  --ui-error: var(--ui-color-error-500);
+  }
+  .dark {
+  --ui-primary: var(--ui-color-primary-400);
+  --ui-secondary: var(--ui-color-secondary-400);
+  --ui-success: var(--ui-color-success-400);
+  --ui-info: var(--ui-color-info-400);
+  --ui-warning: var(--ui-color-warning-400);
+  --ui-error: var(--ui-color-error-400);
+  }
+}</style><title>website - website</title><style>@media(min-width:1024px){.docus-sub-header{--ui-header-height:112px}}</style><link rel="stylesheet" href="/_nuxt/entry.kYBU8fGS.css" crossorigin><link rel="preload" as="fetch" crossorigin="anonymous" href="/_payload.json?60ab53cf-5a3e-4b27-ade9-85db1d2c512c"><link rel="modulepreload" as="script" crossorigin href="/_nuxt/GDdkPrvi.js"><link rel="preload" as="font" crossorigin href="/fonts/BauhausNanoDisplay-Regular.woff2"><link rel="preload" as="font" crossorigin href="/fonts/Inter-Regular.otf"><link rel="modulepreload" as="script" crossorigin href="/_nuxt/CsGu5Owb.js"><link rel="modulepreload" as="script" crossorigin href="/_nuxt/8xGi6QTc.js"><link rel="modulepreload" as="script" crossorigin href="/_nuxt/VykKOlq1.js"><link rel="modulepreload" as="script" crossorigin href="/_nuxt/DJOAxuTe.js"><script type="module" src="/_nuxt/GDdkPrvi.js" crossorigin></script><meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"><link rel="icon" href="/favicon.ico"><meta name="description" content><meta property="og:site_name" content="website"><meta name="twitter:card" content="summary_large_image"><script>"use strict";(()=>{const t=window,e=document.documentElement,c=["dark","light"],n=getStorageValue("localStorage","nuxt-color-mode")||"system";let i=n==="system"?u():n;const r=e.getAttribute("data-color-mode-forced");r&&(i=r),l(i),t["__NUXT_COLOR_MODE__"]={preference:n,value:i,getColorScheme:u,addColorScheme:l,removeColorScheme:d};function l(o){const s=""+o+"",a="";e.classList?e.classList.add(s):e.className+=" "+s,a&&e.setAttribute("data-"+a,o)}function d(o){const s=""+o+"",a="";e.classList?e.classList.remove(s):e.className=e.className.replace(new RegExp(s,"g"),""),a&&e.removeAttribute("data-"+a)}function f(o){return t.matchMedia("(prefers-color-scheme"+o+")")}function u(){if(t.matchMedia&&f("").media!=="not all"){for(const o of c)if(f(":"+o).matches)return o}return"light"}})();function getStorageValue(t,e){switch(t){case"localStorage":return window.localStorage.getItem(e);case"sessionStorage":return window.sessionStorage.getItem(e);case"cookie":return getCookie(e);default:return null}}function getCookie(t){const c=("; "+window.document.cookie).split("; "+t+"=");if(c.length===2)return c.pop()?.split(";").shift()}</script></head><body><div id="__nuxt" class="isolate"><!--[--><!--[--><!--[--><!--[--><!--[--><div class="nuxt-loading-indicator" style="position:fixed;top:0;right:0;left:0;pointer-events:none;width:auto;height:3px;opacity:0;background:var(--ui-primary);background-size:0% auto;transform:scaleX(0%);transform-origin:left;transition:transform 0.1s, height 0.4s, opacity 0.4s;z-index:999999;"></div><div class="transition-[margin-right] duration-200 ease-linear will-change-[margin-right]" style="margin-right:0;"><!----><div class="min-h-screen flex flex-col dark:bg-[#101010] bg-white"><!----><main class="flex-1"><!--[--><!--[--><div><div class="fixed inset-0 flex items-center justify-center bg-black text-white z-50 transition-opacity duration-300"><div class="animate-spin w-10 h-10 border-4 border-white border-t-transparent rounded-full"></div></div><!----></div><div class="max-w-[1320px] mx-auto"><!--[--><section class="xl:pt-[120px] pt-[52px] xl:px-0 px-5 dark:bg-[#101010]"><h1 class="font-[BauhausNanoDisplayRegular] xl:text-[40px] text-[30px] mb-[48px] text-center text-[#101010] dark:text-[#EDEEF2]"> Build Apps, Not Infrastructure </h1><div class="grid grid-cols-1 md:grid-cols-2 gap-[43px] xl:pb-[70px] pb-[52px] mx-auto"><!--[--><div class="border border-[#EDEEF2] dark:border-[#2B2A32] bg-transparent xl:p-8 p-5 rounded-3xl"><div class="flex xl:gap-7 gap-4"><!----><div class="flex flex-col"><h3 class="xl:text-xl text-[19px] dark:text-[#EDEEF2] text-[#101010] mb-3 font-[BauhausNanoDisplayMedium]">Instant data layer</h3><p class="dark:text-[#BBBBBF] text-[#2B2A32] xl:text-lg text-[17px] font-[InterRegular]">Describe your data models and Kinotic gives you a complete API with search, pagination, and real-time updates -- no endpoints to build.</p></div></div></div><div class="border border-[#EDEEF2] dark:border-[#2B2A32] bg-transparent xl:p-8 p-5 rounded-3xl"><div class="flex xl:gap-7 gap-4"><!----><div class="flex flex-col"><h3 class="xl:text-xl text-[19px] dark:text-[#EDEEF2] text-[#101010] mb-3 font-[BauhausNanoDisplayMedium]">Services that just connect</h3><p class="dark:text-[#BBBBBF] text-[#2B2A32] xl:text-lg text-[17px] font-[InterRegular]">Build services in any language and they&#39;re instantly reachable from any frontend, backend, or AI agent in your application.</p></div></div></div><div class="border border-[#EDEEF2] dark:border-[#2B2A32] bg-transparent xl:p-8 p-5 rounded-3xl"><div class="flex xl:gap-7 gap-4"><!----><div class="flex flex-col"><h3 class="xl:text-xl text-[19px] dark:text-[#EDEEF2] text-[#101010] mb-3 font-[BauhausNanoDisplayMedium]">Security built in</h3><p class="dark:text-[#BBBBBF] text-[#2B2A32] xl:text-lg text-[17px] font-[InterRegular]">Fine-grained access control is part of the platform, not something you bolt on. Define who can do what in plain language and the platform enforces it everywhere.</p></div></div></div><div class="border border-[#EDEEF2] dark:border-[#2B2A32] bg-transparent xl:p-8 p-5 rounded-3xl"><div class="flex xl:gap-7 gap-4"><!----><div class="flex flex-col"><h3 class="xl:text-xl text-[19px] dark:text-[#EDEEF2] text-[#101010] mb-3 font-[BauhausNanoDisplayMedium]">Ship day one</h3><p class="dark:text-[#BBBBBF] text-[#2B2A32] xl:text-lg text-[17px] font-[InterRegular]">CI/CD, observability, and deployment are included from the start. The app you prototype today is the same app you run in production.</p></div></div></div><!--]--></div></section><!--]--></div><!----><!--]--><!--]--><!--[--><!----><!----><!--v-if--><!--]--></main><footer class="bg-[#101010] text-center text-xs text-[#AEAFB2] py-[40px]"><div class="max-w-[1320px] mx-auto"><!--[--><span> Copyright © 2018-present Kinotic </span><!--]--></div></footer></div><!----></div><span></span><!--]--><!--]--><!--[--><!--]--><!--v-if--><!--]--><!--[--><!--]--><!--]--><!--]--></div><div id="teleports"></div><script>window.__NUXT__={};window.__NUXT__.config={public:{assistant:{enabled:false,apiPath:"/__docus__/assistant"},mdc:{components:{prose:true,map:{accordion:"ProseAccordion","accordion-item":"ProseAccordionItem",badge:"ProseBadge",callout:"ProseCallout",card:"ProseCard","card-group":"ProseCardGroup",caution:"ProseCaution","code-collapse":"ProseCodeCollapse","code-group":"ProseCodeGroup","code-icon":"ProseCodeIcon","code-preview":"ProseCodePreview","code-tree":"ProseCodeTree",collapsible:"ProseCollapsible",field:"ProseField","field-group":"ProseFieldGroup",icon:"ProseIcon",kbd:"ProseKbd",note:"ProseNote",steps:"ProseSteps",tabs:"ProseTabs","tabs-item":"ProseTabsItem",tip:"ProseTip",warning:"ProseWarning"},customElements:[]},headings:{anchorLinks:{h1:false,h2:true,h3:true,h4:true,h5:false,h6:false}},highlight:{noApiRoute:true,theme:{light:"material-theme-lighter",default:"material-theme",dark:"material-theme-palenight"},shikiEngine:"javascript",langs:["bash","diff","json","js","ts","html","css","vue","shell","mdc","md","yaml"],highlighter:"shiki"}},content:{wsUrl:""},"nuxt-robots":{version:"5.7.1",isNuxtContentV2:false,debug:false,credits:true,groups:[{userAgent:["*"],allow:["/"],disallow:[],contentUsage:[],contentSignal:[],_indexable:true,_rules:[{pattern:"/",allow:true}],_normalized:true}],sitemap:["/sitemap.xml"],header:true,robotsEnabledValue:"index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1",robotsDisabledValue:"noindex, nofollow",cacheControl:"max-age=14400, must-revalidate",botDetection:true,pageMetaRobots:{}}},app:{baseURL:"/",buildId:"60ab53cf-5a3e-4b27-ade9-85db1d2c512c",buildAssetsDir:"/_nuxt/",cdnURL:""}}</script><script type="application/json" data-nuxt-data="nuxt-app" data-ssr="true" id="__NUXT_DATA__" data-src="/_payload.json?60ab53cf-5a3e-4b27-ade9-85db1d2c512c">[{"state":1,"once":15,"_errors":16,"serverRendered":5,"path":18,"prerenderedAt":19},["Reactive",2],{"$scolor-mode":3,"$sassistant-open":6,"$sassistant-expanded":6,"$sassistant-messages":7,"$sassistant-pending":-1,"$stoasts":8,"$ssite-config":9},{"preference":4,"value":4,"unknown":5,"forced":6},"system",true,false,[],[],{"_priority":10,"env":13,"name":14},{"name":11,"env":12},-3,-15,"production","website",["Set"],["ShallowReactive",17],{"navigation_docs":-1,"search_docs":-1},"\u002F",1774938964198]</script></body></html>
