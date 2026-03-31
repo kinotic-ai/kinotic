@@ -281,8 +281,8 @@ class CedarDirectJniTest {
 
         String responseJson = (String) callCedarJNI.invoke("AuthorizationOperation", requestJson);
 
-        // Fast check — just look for "allow" in the decision field
-        return responseJson.contains("\"allow\"");
+        // Fast check — look for "Allow" (capitalized) in the decision field
+        return responseJson.contains("\"Allow\"");
     }
 
     /**
