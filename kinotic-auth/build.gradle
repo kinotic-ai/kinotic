@@ -41,20 +41,11 @@ dependencies {
 	implementation 'org.antlr:antlr4-runtime:4.13.2'
 	antlr 'org.antlr:antlr4:4.13.2'
 
-    // Cerbos
-    implementation 'dev.cerbos:cerbos-sdk-java:0.18.0'
-    implementation 'com.google.protobuf:protobuf-java:4.33.5'
-    implementation 'com.google.protobuf:protobuf-java-util:4.33.5'
-    implementation 'io.grpc:grpc-core:1.79.0'
-    implementation 'io.grpc:grpc-stub:1.79.0'
-    implementation 'io.grpc:grpc-protobuf:1.79.0'
-
     // Cedar
     implementation 'com.cedarpolicy:cedar-java:4.8.0:uber'
 
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter'
-    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
     // Cedar uses old Jackson (com.fasterxml) internally
     testImplementation 'com.fasterxml.jackson.core:jackson-core:2.18.3'
     testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.18.3'
