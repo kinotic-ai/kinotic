@@ -35,6 +35,9 @@ public class CedarAuthorizationService {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    private static final String PRINCIPAL_TYPE = "User";
+    private static final String RESOURCE_TYPE = "ServiceMethod";
+
     private final MethodHandle callCedarJNI;
     private final com.fasterxml.jackson.databind.ObjectWriter cedarWriter;
 
@@ -81,10 +84,9 @@ public class CedarAuthorizationService {
      *
      * @param action         the action name (e.g., "placeOrder", "transferFunds")
      * @param expression     the ABAC policy expression (e.g., "participant.roles contains 'finance' and order.amount < 50000")
-     * @param resourceType   the Cedar resource type (e.g., "ServiceMethod")
      * @throws CedarPolicyRegistrationException if the expression cannot be parsed or compiled
      */
-    public void registerPolicy(String action, String expression, String resourceType) {
+    public void registerPolicy(String action, String expression) {
         try {
             // Parse ABAC expression → AST → Cedar condition
             var ast = PolicyExpressionParser.parse(expression);
@@ -98,7 +100,7 @@ public class CedarAuthorizationService {
                         resource is %s
                     ) when {
                         %s
-                    };""".formatted(action, resourceType, cedarCondition);
+                    };""".formatted(action, RESOURCE_TYPE, cedarCondition);
 
             // Parse via SDK (validates the policy) and serialize to JSON
             PolicySet policySet = PolicySet.parsePolicies(cedarPolicy);
@@ -122,23 +124,17 @@ public class CedarAuthorizationService {
      *   <li>The pre-serialized policy JSON is spliced in directly</li>
      * </ul>
      *
-     * @param principalType     the Cedar principal type (e.g., "User")
      * @param principalId       the principal identifier (e.g., "user-123")
      * @param principalAttrsJson raw JSON for principal attributes (e.g., {"roles": ["finance"]})
      * @param action            the action name (must match a registered policy)
-     * @param resourceType      the Cedar resource type (e.g., "ServiceMethod")
-     * @param resourceId        the resource identifier for this request
      * @param rawArgsPayload    the raw JSON argument array (e.g., [{"amount": 25000}])
      * @param paramNames        the method parameter names to map array elements to
      * @return true if the request is allowed, false if denied
      * @throws CedarAuthorizationException if evaluation fails
      */
-    public boolean isAuthorized(String principalType,
-                                String principalId,
+    public boolean isAuthorized(String principalId,
                                 String principalAttrsJson,
                                 String action,
-                                String resourceType,
-                                String resourceId,
                                 String rawArgsPayload,
                                 String[] paramNames) {
         String policyJson = policyCache.get(action);
@@ -148,9 +144,8 @@ public class CedarAuthorizationService {
 
         try {
             String requestJson = buildRequestJson(
-                    principalType, principalId, principalAttrsJson,
+                    principalId, principalAttrsJson,
                     action,
-                    resourceType, resourceId,
                     rawArgsPayload, paramNames,
                     policyJson);
 
@@ -181,9 +176,8 @@ public class CedarAuthorizationService {
     /**
      * Builds the full Cedar JNI request JSON in a single streaming pass.
      */
-    private String buildRequestJson(String principalType, String principalId, String principalAttrsJson,
+    private String buildRequestJson(String principalId, String principalAttrsJson,
                                     String action,
-                                    String resourceType, String resourceId,
                                     String rawArgsPayload, String[] paramNames,
                                     String policyJson) throws Exception {
 
@@ -193,7 +187,7 @@ public class CedarAuthorizationService {
 
             // principal EUID
             gen.writeName("principal");
-            writeEuidJson(gen, principalType, principalId);
+            writeEuidJson(gen, PRINCIPAL_TYPE, principalId);
 
             // action EUID
             gen.writeName("action");
@@ -201,7 +195,7 @@ public class CedarAuthorizationService {
 
             // resource EUID
             gen.writeName("resource");
-            writeEuidJson(gen, resourceType, resourceId);
+            writeEuidJson(gen, RESOURCE_TYPE, action);
 
             // context (empty for now)
             gen.writeName("context");
@@ -217,12 +211,12 @@ public class CedarAuthorizationService {
             gen.writeStartArray();
 
             // Principal entity
-            writeEntityWithRawAttrs(gen, principalType, principalId, principalAttrsJson);
+            writeEntityWithRawAttrs(gen, PRINCIPAL_TYPE, principalId, principalAttrsJson);
 
             // Resource entity — fused: transform raw array → named object inline
             gen.writeStartObject();
             gen.writeName("uid");
-            writeUidObject(gen, resourceType, resourceId);
+            writeUidObject(gen, RESOURCE_TYPE, action);
             gen.writeName("attrs");
             gen.writeStartObject();
             try (var argParser = MAPPER.createParser(rawArgsPayload)) {
