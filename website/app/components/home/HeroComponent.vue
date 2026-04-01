@@ -13,7 +13,7 @@
             <div class="max-w-full xl:max-w-[550px] mt-0 mb-[54px] xl:mb-0 text-white shadow-none border-none bg-transparent">
               <p class="flex flex-col xl:mb-10 mb-3">
                 <span class="xl:text-[68px] text-4xl text-center xl:text-left font-[BauhausNanoDisplayRegular] leading-[110%] dark:text-[#EDEEF2] text-[#101010]">
-                  Vibe Coding at Scale
+                  Humane Representation of Thought
                 </span>
               </p>
               <p class="xl:text-[22px] text-[17px] text-center xl:text-left dark:text-[#BBBBBF] text-black font-[InterRegular]">
