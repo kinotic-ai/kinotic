@@ -8,7 +8,7 @@ import {
 export class Generate extends Command {
     static aliases = ['gen']
 
-    static description = 'This will generate all Entity Service classes.'
+    static description = 'This will generate all Repository classes.'
 
     static examples = [
         '$ kinotic generate',

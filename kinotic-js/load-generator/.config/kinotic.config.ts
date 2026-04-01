@@ -3,9 +3,12 @@ import type { KinoticProjectConfig } from '@kinotic-ai/core'
 const config: KinoticProjectConfig = {
   application: "load-testing",
   entitiesPaths: [
-    "src/entity/domain/ecommerce"
+    {
+      path: "src/entity/domain/ecommerce",
+      repositoryPath: "src/entity/services/ecommerce",
+      mirrorFolderStructure: false
+    }
   ],
-  generatedPath: "src/entity/services/ecommerce",
   fileExtensionForImports: ".js",
   validate: false
 }

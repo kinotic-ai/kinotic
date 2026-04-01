@@ -5,7 +5,7 @@ import path from 'path'
 import {Project, Type} from 'ts-morph'
 import {fileURLToPath} from 'url'
 import {PageableC3Type, PageC3Type} from '@kinotic-ai/os-api'
-import {KinoticProjectConfig} from '@kinotic-ai/core'
+import {EntitiesPathConfig, KinoticProjectConfig} from '@kinotic-ai/core'
 import {createImportString, StatementMapper} from './converter/codegen/StatementMapper'
 import {StatementMapperConversionState} from './converter/codegen/StatementMapperConversionState'
 import {StatementMapperConverterStrategy} from './converter/codegen/StatementMapperConverterStrategy'
@@ -58,20 +58,44 @@ export class EntityCodeGenerationService {
                                      verbose: boolean,
                                      entityProcessor?: GeneratedEntityProcessor){
 
-        for(const entitiesPath of projectConfig.entitiesPaths) {
+        for(const entitiesPathEntry of projectConfig.entitiesPaths) {
+            const resolvedPathConfig = this.resolveEntitiesPathConfig(entitiesPathEntry, projectConfig)
             const config: ConversionConfiguration = {
                 application        : projectConfig.application,
-                entitiesPath       : entitiesPath,
+                entitiesPath       : resolvedPathConfig.path,
                 verbose            : verbose,
                 logger             : this.logger
             }
-            await this.processEntities(config, projectConfig, entityProcessor)
+            await this.processEntities(config, projectConfig, resolvedPathConfig, entityProcessor)
         }
 
     }
 
+    /**
+     * Normalizes an entitiesPaths entry into a fully resolved {@link EntitiesPathConfig}.
+     */
+    private resolveEntitiesPathConfig(entry: string | EntitiesPathConfig,
+                                      projectConfig: KinoticProjectConfig): EntitiesPathConfig {
+        if (typeof entry === 'string') {
+            if (!projectConfig.generatedPath) {
+                throw new Error(`entitiesPaths contains a plain string "${entry}" but no generatedPath is configured. `
+                    + `Either use an EntitiesPathConfig object or set generatedPath.`)
+            }
+            return {
+                path: entry,
+                repositoryPath: projectConfig.generatedPath,
+                mirrorFolderStructure: false
+            }
+        }
+        return {
+            ...entry,
+            mirrorFolderStructure: entry.mirrorFolderStructure ?? true
+        }
+    }
+
     private async processEntities(config: ConversionConfiguration,
                                   projectConfig: KinoticProjectConfig,
+                                  pathConfig: EntitiesPathConfig,
                                   entityProcessor?: GeneratedEntityProcessor): Promise<void>{
 
         if (!fs.existsSync(config.entitiesPath)) {
@@ -86,27 +110,31 @@ export class EntityCodeGenerationService {
 
                 this.logger.logVerbose(`Generated Persistence Mapping for ${entityInfo.entity.namespace}.${entityInfo.entity.name}`, config.verbose)
 
+                const repositoryOutputPath = this.resolveRepositoryOutputPath(entityInfo, pathConfig)
+
                 const generatedServices: GeneratedServiceInfo[] = []
 
-                generatedServices.push(await this.generateEntityService(false,
-                                                             entityInfo,
-                                                                        projectConfig))
+                generatedServices.push(await this.generateRepository(false,
+                                                                     entityInfo,
+                                                                     projectConfig,
+                                                                     repositoryOutputPath))
 
                 if(entityInfo.multiTenantSelectionEnabled){
-                    generatedServices.push(await this.generateEntityService(true,
-                                                                            entityInfo,
-                                                                            projectConfig))
+                    generatedServices.push(await this.generateRepository(true,
+                                                                         entityInfo,
+                                                                         projectConfig,
+                                                                         repositoryOutputPath))
                 }
 
                 if(config.verbose){
 
-                    await writeEntityJsonToFilesystem(projectConfig.generatedPath,
+                    await writeEntityJsonToFilesystem(repositoryOutputPath,
                                                       entityInfo.entity,
                                                       this.logger)
 
                     for(let generatedServiceInfo of generatedServices) {
                         if (generatedServiceInfo.namedQueries.length > 0) {
-                            await writeGeneratedServiceInfoToFilesystem(projectConfig.generatedPath,
+                            await writeGeneratedServiceInfoToFilesystem(repositoryOutputPath,
                                                                         generatedServiceInfo,
                                                                         this.logger)
                         }
@@ -123,15 +151,33 @@ export class EntityCodeGenerationService {
         }
     }
 
-    private async generateEntityService(adminService: boolean,
-                                        entityInfo: EntityInfo,
-                                        projectConfig: KinoticProjectConfig): Promise<GeneratedServiceInfo> {
+    /**
+     * Resolves the output path for generated repository files based on the entity's source location
+     * and the path configuration.
+     */
+    private resolveRepositoryOutputPath(entityInfo: EntityInfo, pathConfig: EntitiesPathConfig): string {
+        const absEntitiesPath = path.resolve(pathConfig.path)
+        const absRepositoryPath = path.resolve(pathConfig.repositoryPath)
+
+        if (pathConfig.mirrorFolderStructure) {
+            // Compute the entity's relative directory within the entities path
+            const absEntityDir = path.dirname(path.resolve(entityInfo.exportedFromFile))
+            const relativeDir = path.relative(absEntitiesPath, absEntityDir)
+            return path.resolve(absRepositoryPath, relativeDir)
+        }
+
+        return absRepositoryPath
+    }
+
+    private async generateRepository(adminService: boolean,
+                                      entityInfo: EntityInfo,
+                                      projectConfig: KinoticProjectConfig,
+                                      repositoryOutputPath: string): Promise<GeneratedServiceInfo> {
 
         const adminPrefix = (adminService ? 'Admin' : '')
         const fileExtensionForImports = this.fileExtensionForImports
-        const generatedPath = projectConfig.generatedPath
-        const baseEntityServicePath = path.resolve(generatedPath, 'generated', `Base${entityInfo.entity.name}${adminPrefix}Repository.ts`)
-        const entityServicePath = path.resolve(generatedPath, `${entityInfo.entity.name}${adminPrefix}Repository.ts`)
+        const baseEntityServicePath = path.resolve(repositoryOutputPath, 'generated', `Base${entityInfo.entity.name}${adminPrefix}Repository.ts`)
+        const entityServicePath = path.resolve(repositoryOutputPath, `${entityInfo.entity.name}${adminPrefix}Repository.ts`)
 
         const entityName = entityInfo.entity.name
         const entityNamespace = entityInfo.entity.namespace
