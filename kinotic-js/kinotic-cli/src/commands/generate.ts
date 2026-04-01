@@ -14,10 +14,12 @@ export class Generate extends Command {
         '$ kinotic generate',
         '$ kinotic gen',
         '$ kinotic gen -v',
+        '$ kinotic gen --force',
     ]
 
     static flags = {
         verbose:    Flags.boolean({char: 'v', description: 'Enable verbose logging', default: false}),
+        force:      Flags.boolean({char: 'f', description: 'Force full regeneration, ignoring incremental change detection', default: false}),
     }
 
     public async run(): Promise<void> {
@@ -33,7 +35,7 @@ export class Generate extends Command {
                                                                       kinoticProjectConfig.fileExtensionForImports,
                                                                       this)
 
-            await codeGenerationService.generateAllEntities(kinoticProjectConfig, flags.verbose)
+            await codeGenerationService.generateAllEntities(kinoticProjectConfig, flags.verbose, undefined, flags.force)
 
         this.log(`Code Generation Complete For application: ${kinoticProjectConfig.application}`)
     }

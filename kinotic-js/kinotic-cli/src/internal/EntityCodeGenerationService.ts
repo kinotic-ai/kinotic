@@ -22,6 +22,7 @@ import {
     getRelativeImportPath,
     tryGetNodeModuleName, writeEntityJsonToFilesystem, writeGeneratedServiceInfoToFilesystem
 } from './Utils'
+import {GitChangeDetector} from './GitChangeDetector'
 import chalk from 'chalk'
 
 export type GeneratedEntityProcessor = (entityInfo: EntityInfo, serviceInfo: GeneratedServiceInfo[]) => Promise<void>
@@ -56,19 +57,38 @@ export class EntityCodeGenerationService {
 
     public async generateAllEntities(projectConfig: KinoticProjectConfig,
                                      verbose: boolean,
-                                     entityProcessor?: GeneratedEntityProcessor){
+                                     entityProcessor?: GeneratedEntityProcessor,
+                                     force: boolean = false){
 
-        for(const entitiesPathEntry of projectConfig.entitiesPaths) {
-            const resolvedPathConfig = this.resolveEntitiesPathConfig(entitiesPathEntry, projectConfig)
+        const changeDetector = new GitChangeDetector(this.logger)
+
+        // Resolve all entity paths for change detection
+        const resolvedConfigs = projectConfig.entitiesPaths.map(entry => this.resolveEntitiesPathConfig(entry, projectConfig))
+        const allEntitiesPaths = resolvedConfigs.map(c => c.path)
+
+        // Determine which files have changed (null means full scan)
+        const changedFiles = force ? null : changeDetector.getChangedEntityFiles(allEntitiesPaths)
+
+        if (changedFiles !== null && changedFiles.size === 0) {
+            this.logger.log('No entity files changed since last generation, skipping')
+            return
+        }
+
+        if (changedFiles !== null) {
+            this.logger.log(`Incremental generation: ${changedFiles.size} changed file(s) detected`)
+        }
+
+        for (const resolvedPathConfig of resolvedConfigs) {
             const config: ConversionConfiguration = {
                 application        : projectConfig.application,
                 entitiesPath       : resolvedPathConfig.path,
                 verbose            : verbose,
                 logger             : this.logger
             }
-            await this.processEntities(config, projectConfig, resolvedPathConfig, entityProcessor)
+            await this.processEntities(config, projectConfig, resolvedPathConfig, changedFiles, entityProcessor)
         }
 
+        changeDetector.saveLastGenerationHash()
     }
 
     /**
@@ -96,13 +116,14 @@ export class EntityCodeGenerationService {
     private async processEntities(config: ConversionConfiguration,
                                   projectConfig: KinoticProjectConfig,
                                   pathConfig: EntitiesPathConfig,
+                                  changedFiles: Set<string> | null,
                                   entityProcessor?: GeneratedEntityProcessor): Promise<void>{
 
         if (!fs.existsSync(config.entitiesPath)) {
             throw new Error(`Entities path does not exist: ${config.entitiesPath}`)
         }
 
-        const convertedEntities: EntityInfo[] = convertAllEntities(config)
+        const convertedEntities: EntityInfo[] = convertAllEntities(config, changedFiles)
 
         if (convertedEntities.length > 0) {
 

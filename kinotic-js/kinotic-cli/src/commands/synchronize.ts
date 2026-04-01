@@ -37,7 +37,8 @@ export class Synchronize extends Command {
         publish:    Flags.boolean({char: 'p', description: 'Publish each Entity after save/update'}),
         verbose:    Flags.boolean({char: 'v', description: 'Enable verbose logging'}),
         authHeaderFile: Flags.string({char: 'f', description: 'JSON File containing authentication headers', required: false}),
-        dryRun:     Flags.boolean({description: 'Dry run enables verbose logging and does not save any changes to the server'})
+        dryRun:     Flags.boolean({description: 'Dry run enables verbose logging and does not save any changes to the server'}),
+        force:      Flags.boolean({description: 'Force full regeneration, ignoring incremental change detection', default: false})
     }
 
 
@@ -98,7 +99,8 @@ export class Synchronize extends Command {
                                                  if(!flags.dryRun) {
                                                      await this.synchronizeEntity((project as Project).id as string, entityInfo.entity, flags.publish, flags.verbose)
                                                  }
-                                             })
+                                             },
+                                             flags.force)
 
                     // Apply migrations after entity synchronization
                     if (!flags.dryRun) {
