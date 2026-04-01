@@ -15,7 +15,6 @@ export class AbacPolicyDecorator extends EntityServiceDecorator {
  * Provides a mechanism to apply an ABAC policy expression to an {@link EntityService}
  * @param expression the ABAC policy expression string
  */
-// @ts-ignore
 export function $AbacPolicy(expression: string): AbacPolicyDecorator {
     return new AbacPolicyDecorator(expression)
 }
