@@ -130,8 +130,8 @@ export class EntityCodeGenerationService {
         const adminPrefix = (adminService ? 'Admin' : '')
         const fileExtensionForImports = this.fileExtensionForImports
         const generatedPath = projectConfig.generatedPath
-        const baseEntityServicePath = path.resolve(generatedPath, 'generated', `Base${entityInfo.entity.name}${adminPrefix}EntityService.ts`)
-        const entityServicePath = path.resolve(generatedPath, `${entityInfo.entity.name}${adminPrefix}EntityService.ts`)
+        const baseEntityServicePath = path.resolve(generatedPath, 'generated', `Base${entityInfo.entity.name}${adminPrefix}Repository.ts`)
+        const entityServicePath = path.resolve(generatedPath, `${entityInfo.entity.name}${adminPrefix}Repository.ts`)
 
         const entityName = entityInfo.entity.name
         const entityNamespace = entityInfo.entity.namespace
@@ -155,7 +155,7 @@ export class EntityCodeGenerationService {
 
         //  We always generate the base entity service. This way if our internal logic changes we can update it
         fs.mkdirSync(path.dirname(baseEntityServicePath), {recursive: true})
-        const baseReadStream= await this.engine.renderFileToNodeStream(`Base${adminPrefix}EntityService`,
+        const baseReadStream= await this.engine.renderFileToNodeStream(`Base${adminPrefix}Repository`,
                                                                        {
                                                                            entityName,
                                                                            entityNamespace,
@@ -170,7 +170,7 @@ export class EntityCodeGenerationService {
         //  we only generate if the file does not exist
         let namedQueries: FunctionDefinition[] = []
         if (!fs.existsSync(entityServicePath)) {
-            const readStream= await this.engine.renderFileToNodeStream(`${adminPrefix}EntityService`,
+            const readStream= await this.engine.renderFileToNodeStream(`${adminPrefix}Repository`,
                                                                        {
                                                                            entityName,
                                                                            entityNamespace,
@@ -181,12 +181,12 @@ export class EntityCodeGenerationService {
             readStream.pipe(writeStream)
         } else {
             // if it already exists we check if there are any named queries defined
-            namedQueries = await this.processNamedQueries(`${entityName}${adminPrefix}EntityService`,
+            namedQueries = await this.processNamedQueries(`${entityName}${adminPrefix}Repository`,
                                                           entityServicePath)
         }
 
         return {
-            entityServiceName: `${entityName}${adminPrefix}EntityService`,
+            entityServiceName: `${entityName}${adminPrefix}Repository`,
             namedQueries: namedQueries
         }
     }
