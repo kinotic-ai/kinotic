@@ -1,6 +1,6 @@
-import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
+import simpleGit, { type SimpleGit } from 'simple-git'
 import { Logger } from './Logger'
 
 const LAST_GENERATION_FILE = '.kinotic/last-generation'
@@ -13,17 +13,19 @@ const LAST_GENERATION_FILE = '.kinotic/last-generation'
 export class GitChangeDetector {
 
     private readonly logger: Logger
+    private readonly git: SimpleGit
 
     constructor(logger: Logger) {
         this.logger = logger
+        this.git = simpleGit()
     }
 
     /**
      * Returns the set of absolute file paths that have changed within the given entity paths
      * since the last generation, or null if a full scan is needed (no git, first run, etc.).
      */
-    getChangedEntityFiles(entitiesPaths: string[]): Set<string> | null {
-        if (!this.isGitRepo()) {
+    async getChangedEntityFiles(entitiesPaths: string[]): Promise<Set<string> | null> {
+        if (!(await this.isGitRepo())) {
             this.logger.log('Not a git repository, performing full scan')
             return null
         }
@@ -35,7 +37,7 @@ export class GitChangeDetector {
         }
 
         // Verify the stored hash still exists in git history
-        if (!this.isValidCommit(lastHash)) {
+        if (!(await this.isValidCommit(lastHash))) {
             this.logger.log('Previous generation commit no longer exists, performing full scan')
             return null
         }
@@ -43,30 +45,24 @@ export class GitChangeDetector {
         const changedFiles = new Set<string>()
 
         // Files changed between last generation commit and HEAD
-        const committedChanges = this.getGitOutput(`git diff --name-only ${lastHash} HEAD`)
-        for (const file of committedChanges) {
-            changedFiles.add(path.resolve(file))
-        }
+        const committedDiff = await this.git.diff(['--name-only', lastHash, 'HEAD'])
+        this.addFiles(changedFiles, committedDiff)
 
         // Unstaged changes in working tree
-        const unstagedChanges = this.getGitOutput('git diff --name-only')
-        for (const file of unstagedChanges) {
-            changedFiles.add(path.resolve(file))
-        }
+        const unstagedDiff = await this.git.diff(['--name-only'])
+        this.addFiles(changedFiles, unstagedDiff)
 
         // Staged but not committed changes
-        const stagedChanges = this.getGitOutput('git diff --cached --name-only')
-        for (const file of stagedChanges) {
-            changedFiles.add(path.resolve(file))
-        }
+        const stagedDiff = await this.git.diff(['--cached', '--name-only'])
+        this.addFiles(changedFiles, stagedDiff)
 
         // New untracked files
-        const untrackedFiles = this.getGitOutput('git ls-files --others --exclude-standard')
-        for (const file of untrackedFiles) {
+        const statusResult = await this.git.status()
+        for (const file of statusResult.not_added) {
             changedFiles.add(path.resolve(file))
         }
 
-        // Filter to only files within entity paths
+        // Filter to only .ts files within entity paths
         const absEntitiesPaths = entitiesPaths.map(p => {
             const abs = path.resolve(p)
             return abs.endsWith(path.sep) ? abs : abs + path.sep
@@ -88,16 +84,16 @@ export class GitChangeDetector {
     /**
      * Saves the current HEAD commit hash as the last generation point.
      */
-    saveLastGenerationHash(): void {
-        if (!this.isGitRepo()) {
+    async saveLastGenerationHash(): Promise<void> {
+        if (!(await this.isGitRepo())) {
             return
         }
 
         try {
-            const hash = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim()
+            const hash = await this.git.revparse('HEAD')
             const filePath = path.resolve(LAST_GENERATION_FILE)
             fs.mkdirSync(path.dirname(filePath), { recursive: true })
-            fs.writeFileSync(filePath, hash)
+            fs.writeFileSync(filePath, hash.trim())
         } catch {
             // Non-critical, just skip
         }
@@ -115,30 +111,27 @@ export class GitChangeDetector {
         return null
     }
 
-    private isGitRepo(): boolean {
+    private async isGitRepo(): Promise<boolean> {
         try {
-            execSync('git rev-parse --is-inside-work-tree', { encoding: 'utf-8', stdio: 'pipe' })
+            return await this.git.checkIsRepo()
+        } catch {
+            return false
+        }
+    }
+
+    private async isValidCommit(hash: string): Promise<boolean> {
+        try {
+            await this.git.catFile(['-t', hash])
             return true
         } catch {
             return false
         }
     }
 
-    private isValidCommit(hash: string): boolean {
-        try {
-            execSync(`git cat-file -t ${hash}`, { encoding: 'utf-8', stdio: 'pipe' })
-            return true
-        } catch {
-            return false
-        }
-    }
-
-    private getGitOutput(command: string): string[] {
-        try {
-            const output = execSync(command, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] })
-            return output.trim().split('\n').filter(line => line.length > 0)
-        } catch {
-            return []
+    private addFiles(set: Set<string>, diffOutput: string): void {
+        const lines = diffOutput.trim().split('\n').filter(line => line.length > 0)
+        for (const line of lines) {
+            set.add(path.resolve(line))
         }
     }
 }

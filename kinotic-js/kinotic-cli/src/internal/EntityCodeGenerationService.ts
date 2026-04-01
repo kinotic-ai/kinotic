@@ -67,7 +67,7 @@ export class EntityCodeGenerationService {
         const allEntitiesPaths = resolvedConfigs.map(c => c.path)
 
         // Determine which files have changed (null means full scan)
-        const changedFiles = force ? null : changeDetector.getChangedEntityFiles(allEntitiesPaths)
+        const changedFiles = force ? null : await changeDetector.getChangedEntityFiles(allEntitiesPaths)
 
         if (changedFiles !== null && changedFiles.size === 0) {
             this.logger.log('No entity files changed since last generation, skipping')
@@ -88,7 +88,7 @@ export class EntityCodeGenerationService {
             await this.processEntities(config, projectConfig, resolvedPathConfig, changedFiles, entityProcessor)
         }
 
-        changeDetector.saveLastGenerationHash()
+        await changeDetector.saveLastGenerationHash()
     }
 
     /**
