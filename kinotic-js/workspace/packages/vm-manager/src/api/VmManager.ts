@@ -1,18 +1,25 @@
 import type { IVmProvider } from '@/api/providers/IVmProvider'
 import { BoxliteProvider } from '@/api/providers/BoxliteProvider'
-import { Publish } from '@kinotic-ai/core'
+import { Publish, Scope } from '@kinotic-ai/core'
 import { type Workload, VmProviderType } from '@kinotic-ai/os-api'
 
 /**
  * VmManager is the main service that manages VM workloads.
  * It delegates to the appropriate {@link IVmProvider} based on the workload's provider type.
+ *
+ * The {@link Scope} decorator on nodeId ensures this service registers with a scope equal to
+ * the node's unique id, allowing the orchestrator to route requests to a specific node's VmManager.
  */
 @Publish('org.kinotic.os.api.services')
 export class VmManager {
 
+    @Scope
+    public readonly nodeId: string
+
     private readonly providers: Map<VmProviderType, IVmProvider> = new Map()
 
-    constructor() {
+    constructor(nodeId: string) {
+        this.nodeId = nodeId
         this.providers.set(VmProviderType.BOXLITE, new BoxliteProvider())
     }
 

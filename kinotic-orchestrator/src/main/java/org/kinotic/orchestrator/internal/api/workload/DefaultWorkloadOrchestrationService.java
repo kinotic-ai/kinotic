@@ -3,6 +3,7 @@ package org.kinotic.orchestrator.internal.api.workload;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.orchestrator.api.workload.VmManagerProxy;
 import org.kinotic.orchestrator.api.workload.WorkloadOrchestrationService;
 import org.kinotic.os.api.model.workload.VmNode;
 import org.kinotic.os.api.model.workload.Workload;
@@ -20,11 +21,14 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
     private static final Logger log = LoggerFactory.getLogger(DefaultWorkloadOrchestrationService.class);
 
+    private final VmManagerProxy vmManagerProxy;
     private final VmNodeService vmNodeService;
     private final WorkloadService workloadService;
 
-    public DefaultWorkloadOrchestrationService(VmNodeService vmNodeService,
+    public DefaultWorkloadOrchestrationService(VmManagerProxy vmManagerProxy,
+                                               VmNodeService vmNodeService,
                                                WorkloadService workloadService) {
+        this.vmManagerProxy = vmManagerProxy;
         this.vmNodeService = vmNodeService;
         this.workloadService = workloadService;
     }
@@ -49,24 +53,31 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     workload.setNodeId(node.getId());
                     workload.setStatus(WorkloadStatus.STARTING);
 
-                    // Persist the workload
+                    // Persist the workload and update node resource allocation
                     return workloadService.save(workload)
                             .thenCompose(savedWorkload -> {
-                                // Update node resource allocation
                                 node.setAllocatedCpus(node.getAllocatedCpus() + savedWorkload.getVcpus());
                                 node.setAllocatedMemoryMb(node.getAllocatedMemoryMb() + savedWorkload.getMemoryMb());
                                 node.setAllocatedDiskMb(node.getAllocatedDiskMb() + savedWorkload.getDiskSizeMb());
                                 return vmNodeService.save(node)
                                         .thenApply(updatedNode -> savedWorkload);
                             })
-                            .thenCompose(savedWorkload -> {
-                                // TODO: Dispatch to the VmManager on the selected node via scoped RPC proxy
-                                //       ServiceIdentifier for VmManager with scope = node.getId()
-                                log.info("Workload {} assigned to node {}, awaiting VmManager dispatch",
-                                         savedWorkload.getId(), node.getId());
-
-                                return CompletableFuture.completedFuture(savedWorkload);
-                            });
+                            .thenCompose(savedWorkload ->
+                                // Dispatch to the VmManager on the selected node
+                                vmManagerProxy.startWorkload(node.getId(), savedWorkload)
+                                        .thenCompose(startedWorkload -> {
+                                            // VmManager started the workload, mark as RUNNING
+                                            startedWorkload.setStatus(WorkloadStatus.RUNNING);
+                                            return workloadService.save(startedWorkload);
+                                        })
+                                        .exceptionallyCompose(error -> {
+                                            log.error("Failed to start workload {} on node {}",
+                                                      savedWorkload.getId(), node.getId(), error);
+                                            savedWorkload.setStatus(WorkloadStatus.FAILED);
+                                            return workloadService.save(savedWorkload)
+                                                    .thenCompose(failed -> CompletableFuture.failedFuture(error));
+                                        })
+                            );
                 });
     }
 
@@ -84,12 +95,13 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     workload.setStatus(WorkloadStatus.STOPPING);
                     return workloadService.save(workload);
                 })
-                .thenCompose(workload -> {
-                    // TODO: Dispatch stop to the VmManager on the workload's node via scoped RPC proxy
-
-                    workload.setStatus(WorkloadStatus.STOPPED);
-                    return workloadService.save(workload);
-                })
+                .thenCompose(workload ->
+                    vmManagerProxy.stopWorkload(workload.getNodeId(), workloadId)
+                            .thenCompose(v -> {
+                                workload.setStatus(WorkloadStatus.STOPPED);
+                                return workloadService.save(workload);
+                            })
+                )
                 .thenApply(workload -> null);
     }
 
@@ -104,19 +116,21 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                 new IllegalArgumentException("Workload not found: " + workloadId));
                     }
 
-                    // TODO: Dispatch destroy to the VmManager on the workload's node via scoped RPC proxy
-
-                    // Free allocated resources on the node
-                    return vmNodeService.findById(workload.getNodeId())
-                            .thenCompose(node -> {
-                                if (node != null) {
-                                    node.setAllocatedCpus(Math.max(0, node.getAllocatedCpus() - workload.getVcpus()));
-                                    node.setAllocatedMemoryMb(Math.max(0, node.getAllocatedMemoryMb() - workload.getMemoryMb()));
-                                    node.setAllocatedDiskMb(Math.max(0, node.getAllocatedDiskMb() - workload.getDiskSizeMb()));
-                                    return vmNodeService.save(node);
-                                }
-                                return CompletableFuture.completedFuture(node);
-                            })
+                    // Dispatch destroy to the VmManager on the workload's node
+                    return vmManagerProxy.destroyWorkload(workload.getNodeId(), workloadId)
+                            .thenCompose(v ->
+                                // Free allocated resources on the node
+                                vmNodeService.findById(workload.getNodeId())
+                                        .thenCompose(node -> {
+                                            if (node != null) {
+                                                node.setAllocatedCpus(Math.max(0, node.getAllocatedCpus() - workload.getVcpus()));
+                                                node.setAllocatedMemoryMb(Math.max(0, node.getAllocatedMemoryMb() - workload.getMemoryMb()));
+                                                node.setAllocatedDiskMb(Math.max(0, node.getAllocatedDiskMb() - workload.getDiskSizeMb()));
+                                                return vmNodeService.save(node);
+                                            }
+                                            return CompletableFuture.completedFuture(node);
+                                        })
+                            )
                             .thenCompose(node -> workloadService.deleteById(workloadId));
                 });
     }
