@@ -30,6 +30,10 @@ export * from '@/api/model/insights/DataInsightsComponent'
 export * from '@/api/model/insights/InsightProgress'
 export * from '@/api/model/insights/InsightRequest'
 
+export * from '@/api/model/Workload'
+export * from '@/api/model/WorkloadStatus'
+export * from '@/api/model/VmProviderType'
+
 // Services
 export * from '@/api/services/IApplicationService'
 export * from '@/api/services/ILogManager'
@@ -39,6 +43,7 @@ export * from '@/api/services/IEntityDefinitionService'
 export * from '@/api/services/INamedQueriesDefinitionService'
 export * from '@/api/services/IMigrationService'
 export * from '@/api/services/IDataInsightsService'
+export * from '@/api/services/IVmManagerService'
 
 // Plugin
 export * from '@/api/OsApiPlugin'
