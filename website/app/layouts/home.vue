@@ -3,7 +3,6 @@
     <Header />
     <main class="flex-1">
       <slot />
-      <ModalsModal />
     </main>
     <Footer />
   </div>

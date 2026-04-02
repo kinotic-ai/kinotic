@@ -1,6 +1,6 @@
 <template>
-  <div class="saved-widgets-page p-4">
-    <h1 class="text-2xl font-semibold mb-4">Saved Widgets</h1>
+  <div :class="['saved-widgets-page p-4', isDark ? 'text-white' : 'text-[#101010]']">
+    <h1 :class="['text-2xl font-semibold mb-4', isDark ? 'text-white' : 'text-[#101010]']">Saved Widgets</h1>
 
     <!-- Loading state -->
     <div v-if="loadingWidgets" class="flex justify-center py-12">
@@ -12,8 +12,8 @@
       <div class="mb-4">
         <i class="pi pi-chart-bar text-6xl text-surface-300"></i>
       </div>
-      <h3 class="text-lg font-semibold text-surface-800 mb-2">No saved widgets yet</h3>
-      <p class="text-surface-500">
+      <h3 :class="['text-lg font-semibold mb-2', isDark ? 'text-white' : 'text-surface-800']">No saved widgets yet</h3>
+      <p :class="[isDark ? 'text-[#9f9fa8]' : 'text-surface-500']">
         Create data insights in the Data Insights page to save widgets here.
       </p>
     </div>
@@ -47,8 +47,8 @@
         <div class="mb-4">
           <i class="pi pi-search text-4xl text-surface-300"></i>
         </div>
-        <h3 class="text-lg font-semibold text-surface-800 mb-2">No widgets found</h3>
-        <p class="text-surface-500">
+        <h3 :class="['text-lg font-semibold mb-2', isDark ? 'text-white' : 'text-surface-800']">No widgets found</h3>
+        <p :class="[isDark ? 'text-[#9f9fa8]' : 'text-surface-500']">
           No widgets match your search "{{ widgetSearchText }}"
         </p>
       </div>
@@ -74,7 +74,7 @@
       <div class="flex items-start gap-3">
         <i class="pi pi-exclamation-triangle text-3xl text-orange-500"></i>
         <div>
-          <p class="text-surface-700">
+          <p :class="[isDark ? 'text-[#d4d4d8]' : 'text-surface-700']">
             Are you sure you want to delete this widget? This action cannot be undone.
           </p>
         </div>
@@ -103,6 +103,7 @@ import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEn
 import type { DataInsightsWidget } from '@/domain/DataInsightsWidget'
 import SavedWidgetItem from '@/components/SavedWidgetItem.vue'
 import { createDebug } from '@/util/debug'
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('saved-widgets');
 
@@ -119,6 +120,7 @@ const loadingWidgets = ref(false)
 const showDeleteDialog = ref(false)
 const widgetToDelete = ref<string | null>(null)
 const widgetSearchText = ref('')
+const isDark = darkMode
 
 // Load saved widgets for the current application
 const loadSavedWidgets = async () => {

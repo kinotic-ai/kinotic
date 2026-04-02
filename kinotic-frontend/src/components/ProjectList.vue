@@ -10,6 +10,7 @@ import { Project } from '@kinotic-ai/os-api'
 import type { CrudHeader } from '@/types/CrudHeader'
 import DatetimeUtil from "@/util/DatetimeUtil"
 import { createDebug } from '@/util/debug'
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('project-list');
 
@@ -30,6 +31,7 @@ export default class ProjectList extends Vue {
     { field: 'name', header: 'Project Name', sortable: true },
     { field: 'sourceOfTruth', header: 'Source of Truth', sortable: true },
     { field: 'description', header: 'Description', sortable: false },
+    { field: 'created', header: 'Created', sortable: false },
     { field: 'updated', header: 'Updated', sortable: false }
   ]
 
@@ -68,6 +70,11 @@ export default class ProjectList extends Vue {
   get projectsCount() {
     return APPLICATION_STATE.projectsCount
   }
+
+  get isDark() {
+    return darkMode.value
+  }
+
   public DatetimeUtil = DatetimeUtil
   refreshTable(): void {
     this.crudTable?.find?.()
@@ -163,11 +170,16 @@ export default class ProjectList extends Vue {
           {{ DatetimeUtil.formatRelativeDate(item.updated) }}
         </span>
       </template>
+      <template #item.created="{ item }">
+        <span>
+          {{ DatetimeUtil.formatMonthDayYear(item.created) }}
+        </span>
+      </template>
     </CrudTable>
 
     <div v-if="selectedProjectId" class="mt-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-semibold text-[#101010]">
+        <h2 class="text-xl font-semibold" :class="isDark ? 'text-white' : 'text-[#101010]'">
           Structures for Project: {{ selectedProjectId }}
         </h2>
         <Button label="Back to Projects" icon="pi pi-arrow-left" @click="clearSelectedProject" />

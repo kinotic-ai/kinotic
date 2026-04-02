@@ -1,67 +1,58 @@
-<script lang="ts">
-import {useStructureStore} from "@/stores/editor.ts";
-import {Component, Vue} from "vue-facing-decorator";
+<script setup lang="ts">
+import { computed } from 'vue'
+import {useStructureStore} from "@/stores/editor.ts"
+import { isDark as darkMode } from '@/composables/useTheme'
 
-@Component
-export default class StructureSettings extends Vue {
-  structureStore = useStructureStore()
+const structureStore = useStructureStore()
 
-  categories = [
-    {key: 'TABLE', name: 'Table'},
-    {key: 'STREAM', name: 'Stream'}
-  ]
-  accessModes = [
-    {key: 'NONE', name: 'None'},
-    {key: 'SHARED', name: 'Shared'}
-  ]
+const categories = [
+  {key: 'TABLE', name: 'Table'},
+  {key: 'STREAM', name: 'Stream'}
+]
+const accessModes = [
+  {key: 'NONE', name: 'None'},
+  {key: 'SHARED', name: 'Shared'}
+]
 
-  get entityType() {
-    const entityDecorator = this.structureStore.structure?.schema?.decorators?.find(
+const entityType = computed({
+  get() {
+    const entityDecorator = structureStore.structure?.schema?.decorators?.find(
       (d: any) => d.type === 'Entity'
     ) as any
     return entityDecorator?.entityType || 'TABLE'
+  },
+  set(value: string) {
+    structureStore.updateEntityType(value)
   }
+})
 
-  set entityType(value: string) {
-    const entityDecorator = this.structureStore.structure?.schema?.decorators?.find(
-      (d: any) => d.type === 'Entity'
-    ) as any
-    if (entityDecorator) {
-      entityDecorator.entityType = value
-    }
-  }
-
-  get multiTenancyType() {
-    const entityDecorator = this.structureStore.structure?.schema?.decorators?.find(
+const multiTenancyType = computed({
+  get() {
+    const entityDecorator = structureStore.structure?.schema?.decorators?.find(
       (d: any) => d.type === 'Entity'
     ) as any
     return entityDecorator?.multiTenancyType || 'NONE'
+  },
+  set(value: string) {
+    structureStore.updateMultiTenancyType(value)
   }
+})
 
-  set multiTenancyType(value: string) {
-    const entityDecorator = this.structureStore.structure?.schema?.decorators?.find(
-      (d: any) => d.type === 'Entity'
-    ) as any
-    if (entityDecorator) {
-      entityDecorator.multiTenancyType = value
-    }
+const description = computed({
+  get() {
+    return structureStore.structure?.description || ''
+  },
+  set(value: string) {
+    structureStore.updateStructureDescription(value)
   }
+})
 
-  get description() {
-    return this.structureStore.structure?.description || ''
-  }
-
-  set description(value: string) {
-    if (this.structureStore.structure) {
-      this.structureStore.structure.description = value
-    }
-  }
-}
+const isDark = computed(() => darkMode.value)
 </script>
 
 <template>
   <div v-if="structureStore.structure">
-    <div class="border-b border-surface-200 p-6">
+    <div :class="['border-b p-6', isDark ? 'border-[#2f2f35]' : 'border-surface-200']">
       <h3 class="text-sm font-semibold">Structure settings</h3>
     </div>
     <div class="flex-1 overflow-y-auto p-6 space-y-6">
@@ -83,7 +74,7 @@ export default class StructureSettings extends Vue {
       </div>
 
       <div class="space-y-3">
-        <p class="text-xs font-medium text-gray-500">Multi tenancy</p>
+        <p :class="['text-xs font-medium', isDark ? 'text-[#9f9fa8]' : 'text-gray-500']">Multi tenancy</p>
         <div
             v-for="access in accessModes"
             :key="access.key"
@@ -101,7 +92,7 @@ export default class StructureSettings extends Vue {
       </div>
 
       <div>
-        <p class="text-xs font-medium text-gray-500 mb-1">Description</p>
+        <p :class="['text-xs font-medium mb-1', isDark ? 'text-[#9f9fa8]' : 'text-gray-500']">Description</p>
         <Textarea
             v-model="description"
             autoResize

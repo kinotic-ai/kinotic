@@ -39,6 +39,7 @@ import { PropertyInspector } from '@/components/entity-list/PropertyInspector'
 import { ColumnWidthCalculator } from '@/components/entity-list/ColumnWidthCalculator'
 import { CellFormatter } from '@/components/entity-list/CellFormatter'
 import Button from 'primevue/button'
+import { isDark as darkMode } from '@/composables/useTheme'
 
 @Component({
   components: {
@@ -93,6 +94,10 @@ class EntityList extends Vue {
     first: 0,
     sortField: '',
     sortOrder: 1
+  }
+
+  get isDark(): boolean {
+    return darkMode.value
   }
 
   get expandedColumns() { return this._expansion.expandedColumns }
@@ -631,24 +636,24 @@ export default EntityList
 </script>
 
 <template>
-  <div class="w-full h-full flex flex-col">
+  <div :class="['entity-list flex h-full w-full flex-col', isDark ? 'entity-list--dark bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
     <EntityTableToolbar 
       v-model:searchText="searchText"
       @search="search"
       @clearSearch="clearSearch"
     />
 
-    <div class="flex-1 overflow-auto relative" style="min-height: 0;">
+    <div :class="['relative flex-1 overflow-auto', isDark ? 'bg-surface-900' : 'bg-surface-0']" style="min-height: 0;">
       <table class="w-full border-collapse table-fixed" style="box-sizing: border-box;">
         <EntityTableHeaders />
         <EntityTableBody />
       </table>
 
-      <div v-if="items.length === 0 && !loading" class="p-8 text-center">
+      <div v-if="items.length === 0 && !loading" :class="['p-8 text-center', isDark ? 'text-surface-200' : 'text-surface-700']">
         <Button label="No Data - Click To Search Again" @click="find" />
       </div>
 
-      <div v-if="loading" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
+      <div v-if="loading" :class="['absolute inset-0 flex items-center justify-center', isDark ? 'bg-surface-900/80 text-surface-0' : 'bg-surface-0/75 text-surface-950']">
         <div class="text-lg font-semibold">Loading...</div>
       </div>
     </div>
@@ -733,5 +738,63 @@ export default EntityList
   overflow: hidden;
   border-top: none !important;
   border-bottom: none !important;
+}
+
+.entity-list--dark :deep(.p-toolbar) {
+  border-color: var(--p-surface-700) !important;
+  background: var(--p-surface-900) !important;
+  color: var(--p-surface-0) !important;
+}
+
+.entity-list--dark :deep(.p-toolbar-start) {
+  width: 100% !important;
+}
+
+.entity-list--dark :deep(.p-inputtext) {
+  border-color: var(--p-surface-600) !important;
+  background: var(--p-surface-950) !important;
+  color: var(--p-surface-0) !important;
+  box-shadow: none !important;
+}
+
+.entity-list--dark :deep(.p-inputtext::placeholder) {
+  color: var(--p-surface-400) !important;
+}
+
+.entity-list--dark :deep(.p-button) {
+  box-shadow: none !important;
+}
+
+.entity-list--dark :deep(.border-gray-300) {
+  border-color: var(--p-surface-700) !important;
+}
+
+.entity-list--dark :deep(.border-gray-200) {
+  border-color: var(--p-surface-700) !important;
+}
+
+.entity-list--dark :deep(.bg-gray-50) {
+  background-color: var(--p-surface-800) !important;
+}
+
+.entity-list--dark :deep(.hover\:bg-gray-50:hover),
+.entity-list--dark :deep(.hover\:bg-gray-100:hover) {
+  background-color: var(--p-surface-700) !important;
+}
+
+.entity-list--dark :deep(.text-gray-400) {
+  color: var(--p-surface-400) !important;
+}
+
+.entity-list--dark :deep(.text-gray-500),
+.entity-list--dark :deep(.text-gray-600) {
+  color: var(--p-surface-400) !important;
+}
+
+.entity-list--dark :deep(td),
+.entity-list--dark :deep(td > div),
+.entity-list--dark :deep(td span),
+.entity-list--dark :deep(td div) {
+  color: inherit;
 }
 </style>

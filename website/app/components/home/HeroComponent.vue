@@ -1,52 +1,60 @@
 <template>
-  <div>
-    <div v-if="!isMounted" class="fixed inset-0 flex items-center justify-center bg-black text-white z-50 transition-opacity duration-300">
-      <div class="animate-spin w-10 h-10 border-4 border-white border-t-transparent rounded-full"></div>
-    </div>
-    <div v-if="isMounted" class="w-full bg-cover flex items-center justify-between bg-center bg-no-repeat py-1 transition-opacity duration-500 ease-in xl:pb-10" :style="{
-      backgroundImage: `url(images/${colorMode.value === 'dark' ? 'mask.svg' : 'mask-light.svg'})`,
-      backgroundColor: colorMode.value === 'dark' ? '#000000' : '#FFFFFF'
-    }">
-      <div class="w-full bg-cover max-w-[1700px] mx-auto flex items-center justify-between xl:flex-row flex-col-reverse bg-center bg-no-repeat py-1 transition-opacity duration-500 ease-in">
-        <BaseContainer>
-          <div class="w-full flex justify-between items-center xl:px-0 pr-5 !pl-[30px]">
-            <div class="max-w-full xl:max-w-[550px] mt-0 mb-[54px] xl:mb-0 text-white shadow-none border-none bg-transparent">
-              <p class="flex flex-col xl:mb-10 mb-3">
-                <span class="xl:text-[68px] text-4xl text-center xl:text-left font-[BauhausNanoDisplayRegular] leading-[110%] dark:text-[#EDEEF2] text-[#101010]">
-                  Data Evolution Made Simple
-                </span>
-              </p>
-              <p class="xl:text-[22px] text-[17px] text-center xl:text-left dark:text-[#BBBBBF] text-black font-[InterRegular]">
-                Streamline your management of complex data structures with our powerful
-                open-source framework for schema evolution and data manipulation.
-              </p>
-              <div class="xl:mt-10 mt-7 flex justify-center xl:justify-start items-center gap-6">
-                <UButton
-                  label="Sign up for Beta"
-                  class="px-4 py-2 xl:text-lg text-[17px] rounded-lg bg-[#3651ED] text-white font-[InterMedium]"
-                />
-                <UButton
-                  label="View on Github"
-                  variant="outline"
-                  class="px-4 py-2 xl:text-lg text-[17px] rounded-lg bg-[#3651ED]/10 text-[#3651ED] dark:bg-[#D8DEFF]/10 dark:text-[#EDEEF2] font-medium"
-                />
-              </div>
-            </div>
+  <section class="hero-surface overflow-hidden">
+    <div class="mx-auto w-full max-w-[1440px] px-5 py-24 lg:px-[110px] lg:py-[130px] xl:min-h-[700px]">
+      <div class="grid items-center gap-14 xl:min-h-[440px] xl:grid-cols-[650px_1fr] xl:gap-0">
+        <div class="relative z-10 w-full xl:w-[650px]">
+          <h1 class="w-full font-[InterBold] text-[44px] leading-[120%] tracking-[-0.02em] text-white sm:text-[52px] xl:text-[61px]">
+            The open-source framework for flexible data management.
+          </h1>
+          <p class="mt-6 w-full font-[InterRegular] text-[17px] leading-[140%] tracking-[0] text-[#AFAFB4] xl:text-[18px]">
+            Streamline your data management with Structures — the powerful framework for schema evolution and data manipulation.
+          </p>
+
+          <div class="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
+            <NuxtLink
+              to="/getting-started/introduction"
+              class="inline-flex h-[44px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#FF2D7A_0%,#FF2A55_100%)] px-6 font-[InterMedium] text-[14px] leading-[120%] text-white shadow-[0_20px_50px_rgba(255,45,122,0.28)] transition hover:scale-[1.02]"
+            >
+              Get Started
+            </NuxtLink>
+            <a
+              href="https://github.com/kinotic-ai/kinotic"
+              target="_blank"
+              rel="noreferrer"
+              class="inline-flex h-[44px] items-center justify-center rounded-full border border-white px-6 font-[InterMedium] text-[14px] leading-[120%] text-white transition hover:border-white hover:bg-white/5"
+            >
+              View on GitHub
+            </a>
           </div>
-        </BaseContainer>
-        <div class="mb-11 xl:mb-0">
-          <img src="/images/rectangle-cut.png" alt="Hero Section Image" class="max-w-[800px] w-full" />
         </div>
+
+        <div class="hidden xl:block"></div>
       </div>
     </div>
-  </div>
+  </section>
 </template>
 
-<script setup>
-const colorMode = useColorMode()
-const isMounted = ref(false)
+<style scoped>
+.hero-surface {
+  background-color: #171717;
+  background-image:
+    linear-gradient(90deg, rgba(23, 23, 23, 0.98) 0%, rgba(23, 23, 23, 0.96) 34%, rgba(23, 23, 23, 0.72) 48%, rgba(23, 23, 23, 0.18) 65%, rgba(23, 23, 23, 0) 100%),
+    url('/images/Background.svg');
+  background-position: center top, center top;
+  background-repeat: no-repeat, no-repeat;
+  background-size: cover, cover;
+  min-height: 740px;
+}
 
-onMounted(() => {
-  isMounted.value = true
-})
-</script>
+@media (max-width: 1279px) {
+  .hero-surface {
+    min-height: auto;
+    background-image:
+      linear-gradient(180deg, rgba(23, 23, 23, 0.92) 0%, rgba(23, 23, 23, 0.82) 48%, rgba(23, 23, 23, 0.92) 100%),
+      url('/images/Background.svg');
+    background-position: center top, 72% top;
+    background-size: cover, cover;
+    min-height: auto;
+  }
+}
+</style>

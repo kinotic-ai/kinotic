@@ -1,194 +1,150 @@
 <template>
-  <div class="flex w-full justify-center items-center h-screen mx-auto">
-    <div v-if="isInitialized && state?.oidcCallbackLoading" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
-      <div class="text-center">
-        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <h2 class="text-xl font-semibold text-gray-800 mb-2">Validating Login...</h2>
-        <p class="text-gray-600">Please wait while we complete your authentication.</p>
+  <div class="login-page">
+    <div v-if="isInitialized && state?.oidcCallbackLoading" class="login-overlay">
+      <div class="login-overlay__content">
+        <div class="login-spinner"></div>
+        <h2 class="login-overlay__title">Validating Login...</h2>
+        <p class="login-overlay__text">Please wait while we complete your authentication.</p>
       </div>
     </div>
 
-         <div class="relative w-1/2 h-full bg-gradient-to-br from-[#0A0A0B] from-0% via-[#0A0A0B] via-70% to-[#293A9E] to-100% hidden md:block">
-       <img src="@/assets/login-page-symbol-new.svg" class="absolute right-0 bottom-0 h-screen"/>
-       <img src="@/assets/login-page-logo-new.svg" class="absolute left-[75px] bottom-[56px] max-w-[300px] h-[63px] w-auto xl:max-w-[300px] xl:h-[63px] lg:max-w-[250px] lg:h-[52px] md:max-w-[200px] md:h-[42px] sm:max-w-[150px] sm:h-[32px]"/>
-     </div>
-    <div class="w-1/2 h-full flex flex-col justify-center items-center bg-center bg-cover relative">
-      <div class="w-[320px] flex flex-col items-center">
-        <img src="@/assets/login-page-logo.svg" class="w-[218px] h-[45px] mb-[53px]" />
+    <div class="login-shell">
+      <aside class="login-art" aria-hidden="true">
+        <img :src="loginBackgroundArt" alt="" class="login-art__image" />
+      </aside>
 
-        <div v-if="isInitialized && shouldShowLoginForm">
-          <div v-if="state?.showRetryOption" class="w-full mb-6 p-4 border border-red-200 bg-red-50 rounded-lg">
-            <div class="text-center">
-              <div class="flex items-center justify-center mb-3">
-                <svg class="w-5 h-5 text-red-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+      <main class="login-panel">
+        <button type="button" class="login-theme-toggle" @click="toggleTheme" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
+          <span :class="isDark ? 'pi pi-sun' : 'pi pi-moon'"></span>
+        </button>
+        <div class="login-panel__content">
+          <img :src="loginBrandMark" alt="Kinotic" class="login-brand" />
+
+          <div v-if="isInitialized && shouldShowLoginForm" class="login-form">
+            <div v-if="state?.showRetryOption" class="login-alert">
+              <div class="login-alert__header">
+                <svg class="login-alert__icon" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
                 </svg>
-                <p class="text-red-700 font-medium">OIDC login encountered an error</p>
+                <p class="login-alert__title">OIDC login encountered an error</p>
               </div>
-              <p class="text-red-600 mb-4 text-sm">You can try again or use an alternative login method:</p>
-              
-              <div class="mb-4">
-                <button 
-                  @click="toggleErrorDetails"
-                  class="text-red-600 hover:text-red-800 text-sm underline flex items-center mx-auto"
-                >
-                  <span>{{ state?.showErrorDetails ? 'Hide' : 'Show' }} error details</span>
-                  <svg 
-                    class="w-4 h-4 ml-1 transition-transform" 
-                    :class="{ 'rotate-180': state?.showErrorDetails }"
-                    fill="currentColor" 
-                    viewBox="0 0 20 20"
-                  >
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                  </svg>
-                </button>
-                
-                <div v-if="state?.showErrorDetails && currentOidcError" class="mt-3 p-3 bg-red-100 border border-red-200 rounded text-left">
-                  <div class="text-xs text-red-700 font-mono">
-                    <div><strong>Error:</strong> {{ currentOidcError.error }}</div>
-                    <div v-if="currentOidcError.description" class="mt-1">
-                      <strong>Description:</strong> {{ currentOidcError.description }}
-                    </div>
-                  </div>
-                </div>
+              <p class="login-alert__copy">You can try again or use an alternative login method.</p>
+
+              <button @click="toggleErrorDetails" class="login-link login-link--alert">
+                {{ state?.showErrorDetails ? 'Hide' : 'Show' }} error details
+              </button>
+
+              <div v-if="state?.showErrorDetails && currentOidcError" class="login-alert__details">
+                <div><strong>Error:</strong> {{ currentOidcError.error }}</div>
+                <div v-if="currentOidcError.description"><strong>Description:</strong> {{ currentOidcError.description }}</div>
               </div>
-              
-              <div class="flex flex-wrap gap-2 justify-center">
-                <Button
-                  label="Try OIDC Again"
-                  class="rounded-[10px] max-h-[40px] !py-2 !px-4 !text-sm bg-blue-600 hover:bg-blue-700"
-                  @click="retryOidcLogin"
-                />
-                <Button
-                  label="Use Password Instead"
-                  class="rounded-[10px] max-h-[40px] !py-2 !px-4 !text-sm bg-gray-600 hover:bg-gray-700"
-                  @click="usePasswordInstead"
-                />
-                <Button
-                  label="Back to Email"
-                  class="rounded-[10px] max-h-[40px] !py-2 !px-4 !text-sm bg-gray-500 hover:bg-gray-600"
-                  @click="goBackToEmail"
-                />
-                <Button
-                  label="Clear Error"
-                  class="rounded-[10px] max-h-[40px] !py-2 !px-4 !text-sm bg-red-600 hover:bg-blue-700"
-                  @click="clearErrorAndReset"
-                />
+
+              <div class="login-alert__actions">
+                <Button label="Try OIDC Again" class="login-alert-button login-alert-button--primary" @click="retryOidcLogin" />
+                <Button label="Use Password Instead" class="login-alert-button login-alert-button--neutral" @click="usePasswordInstead" />
+                <Button label="Back to Email" class="login-alert-button login-alert-button--neutral" @click="goBackToEmail" />
+                <Button label="Clear Error" class="login-alert-button login-alert-button--danger" @click="clearErrorAndReset" />
               </div>
             </div>
-          </div>
-          <div v-if="!state?.emailEntered" class="w-full">
-            <IconField class="!mb-6 !flex !items-center !relative !w-full">
-              <InputText
-                ref="emailInput"
-                v-model="login"
-                class="w-[320px] max-w-[700px] h-[56px] !pl-4"
-                placeholder="Username or Email"
-                @focus="hideAlert"
-                @keyup.enter="handleEmailSubmit"
+
+            <div v-if="!state?.emailEntered" class="login-form__step">
+              <IconField class="login-field">
+                <InputText
+                  ref="emailInput"
+                  v-model="login"
+                  class="login-input"
+                  placeholder="Username or Email"
+                  @focus="hideAlert"
+                  @keyup.enter="handleEmailSubmit"
+                />
+              </IconField>
+
+              <Button
+                label="Continue"
+                class="login-submit"
+                :loading="state?.loading || false"
+                @click="handleEmailSubmit"
               />
-            </IconField>
+            </div>
 
-            <Button
-              label="Continue"
-              class="rounded-[10px] max-h-[56px] !py-[18px] !w-full !text-base"
-              :loading="state?.loading || false"
-              @click="handleEmailSubmit"
-            />
-          </div>
-          <div v-if="state?.emailEntered" class="w-full">
-            <div v-if="state?.matchedProvider && !state?.showPassword" class="w-full">
-              <h2 class="text-xl font-semibold text-gray-800 mb-6 text-center">
-                Continue with {{ state?.providerDisplayName || state?.matchedProvider }}
-              </h2>
-              
-              <div class="flex border border-[#B8BCBD] w-full p-4 mb-6 rounded-[5px] text-black/50 cursor-pointer hover:bg-gray-50 transition-colors"
-                   :class="{ 'opacity-50 cursor-not-allowed': state?.loading }"
-                   @click="handleOidcLogin(state?.matchedProvider)">
-                <img :src="getProviderIcon(state?.matchedProvider)" class="mr-6 w-6 h-6" />
-                <span v-if="!state?.loading">Continue with {{ state?.providerDisplayName || state?.matchedProvider }}</span>
-                <span v-else class="flex items-center">
-                  <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                  Connecting...
-                </span>
-              </div>
+            <div v-if="state?.emailEntered" class="login-form__step">
+              <div v-if="state?.matchedProvider && !state?.showPassword" class="login-provider">
+                <h2 class="login-provider__title">Continue with {{ state?.providerDisplayName || state?.matchedProvider }}</h2>
 
-              <div class="text-center">
-                <button 
-                  @click="showPassword = true" 
-                  class="text-[#0568FD] hover:underline cursor-pointer">
+                <button
+                  class="login-provider__button"
+                  :class="{ 'login-provider__button--disabled': state?.loading }"
+                  @click="handleOidcLogin(state?.matchedProvider)"
+                >
+                  <img :src="getProviderIcon(state?.matchedProvider)" class="login-provider__icon" alt="" />
+                  <span v-if="!state?.loading">Continue with {{ state?.providerDisplayName || state?.matchedProvider }}</span>
+                  <span v-else class="login-provider__loading">
+                    <span class="login-provider__spinner"></span>
+                    Connecting...
+                  </span>
+                </button>
+
+                <button @click="showPassword = true" class="login-link">
                   Or sign in with password
                 </button>
               </div>
-            </div>
-            <div v-if="state?.showPassword" class="w-full">
-              <IconField class="!mb-6 !flex !items-center !relative !w-full">
-                <InputText
-                  :value="login"
-                  disabled
-                  class="w-[320px] max-w-[700px] h-[56px] !pl-4 !bg-gray-100 !text-gray-600"
-                  placeholder="Username or Email"
+
+              <div v-if="state?.showPassword" class="login-password-step">
+                <IconField class="login-field">
+                  <InputText
+                    :value="login"
+                    disabled
+                    class="login-input login-input--disabled"
+                    placeholder="Username or Email"
+                  />
+                </IconField>
+
+                <IconField class="login-field">
+                  <Password
+                    ref="passwordInput"
+                    v-model="password"
+                    input-class="login-password-input"
+                    class="login-password"
+                    placeholder="Password"
+                    toggleMask
+                    :feedback="false"
+                    @focus="hideAlert"
+                    @keyup.enter="handleLogin"
+                  />
+                </IconField>
+
+                <Button
+                  label="Sign in"
+                  class="login-submit"
+                  :loading="state?.loading || false"
+                  @click="handleLogin"
                 />
-              </IconField>
 
-              <IconField class="!mb-6 !flex !items-center !relative !w-full">
-                <Password
-                  ref="passwordInput"
-                  v-model="password"
-                  input-class="w-full h-[56px]"
-                  class="!w-full max-w-[700px]"
-                  placeholder="Password"
-                  toggleMask
-                  :feedback="false"
-                  @focus="hideAlert"
-                  @keyup.enter="handleLogin"
-                />
-              </IconField>
-              <Button
-                label="Sign In"
-                class="rounded-[10px] max-h-[56px] !py-[18px] !w-full !text-base !mb-5"
-                :loading="state?.loading || false"
-                @click="handleLogin"
-              />
-              <Button
-                label="< Back"
-                text
-                class="!p-3 !w-full !text-base"
-                style="color: #3651ED; background: transparent;"
-                @click="resetToEmail"
-              />
-
-            </div>
-
-            <div v-if="!state?.matchedProvider && !state?.showPassword && state?.emailEntered" class="w-full text-center">
-              <div class="text-red-600 mb-4">
-                No authentication method found for this email domain.
+                <button type="button" class="login-back-link" @click="resetToEmail">
+                  <span class="pi pi-angle-left login-back-link__icon" aria-hidden="true"></span>
+                  <span>Back</span>
+                </button>
               </div>
-              <button 
-                @click="resetToEmail" 
-                class="text-[#0568FD] hover:underline cursor-pointer">
-                Try a different email
-              </button>
+
+              <div v-if="!state?.matchedProvider && !state?.showPassword && state?.emailEntered" class="login-form__empty">
+                <div class="login-form__empty-message">No authentication method found for this email domain.</div>
+                <button @click="resetToEmail" class="login-link">Try a different email</button>
+              </div>
             </div>
+          </div>
+
+          <div v-if="!isInitialized" class="login-loading-state">
+            <div class="login-spinner login-spinner--small"></div>
+            <p class="login-loading-state__text">Initializing...</p>
           </div>
         </div>
 
-        <div v-if="!isInitialized" class="w-full text-center">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p class="text-gray-600">Initializing...</p>
-        </div>
-      </div>
-      <div class="flex gap-2 absolute bottom-8 left-0 right-0 justify-center"> 
-          <a href="#" class="text-[#0568FD] border-b-1">
-            Terms of use
-          </a>
-          <span class="text-gray-400">
-            |
-          </span>
-          <span class="text-[#0568FD] border-b-1">
-            Privacy policy
-          </span>
-        </div>
+        <footer class="login-footer">
+          <a href="#" class="login-footer__link">Terms of use</a>
+          <span class="login-footer__divider">|</span>
+          <a href="#" class="login-footer__link">Privacy policy</a>
+        </footer>
+      </main>
     </div>
 
     <Toast />
@@ -209,6 +165,10 @@ import { type IUserState } from "@/states/IUserState"
 import { CONTINUUM_UI } from "@/IContinuumUI"
 import { StructuresStates } from "@/states/index"
 import { createDebug } from '@/util/debug';
+import loginPageLeft from '@/assets/login-page-left.svg'
+import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
+import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
+import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
 
 const debug = createDebug('login');
 
@@ -222,7 +182,12 @@ const debug = createDebug('login');
 })
 export default class Login extends Vue {
   private auth = new AuthenticationService();
-  
+  private readonly loginBackgroundArt = loginPageLeft
+  get loginBrandMark() { return darkMode.value ? loginPageLogo : loginPageLogoLight }
+
+  get isDark() { return darkMode.value }
+  toggleTheme() { toggleDark() }
+
   get login() { return this.auth.login; }
   set login(value: string) { this.auth.login = value; }
   
@@ -673,3 +638,478 @@ export default class Login extends Vue {
 
 }
 </script>
+
+<style scoped>
+/* ─── Login page layout & theming — CSS vars defined in style.css ─ */
+.login-page {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  background: var(--lp-page-bg);
+  color: var(--lp-text);
+  overflow: hidden;
+}
+
+.login-shell {
+  display: grid;
+  height: 100%;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.login-art {
+  display: none;
+  overflow: hidden;
+  background: linear-gradient(135deg, #171717 45%, rgba(236, 31, 82, 0.3) 100%);
+}
+
+.login-art__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.login-panel {
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  height: 100%;
+  align-items: center;
+  justify-items: center;
+  background: var(--lp-panel-bg);
+  overflow: hidden;
+  padding: 2rem 0 1.25rem;
+}
+
+.login-panel::before {
+  content: '';
+  position: absolute;
+  inset: auto auto -12rem -8rem;
+  width: 20rem;
+  height: 20rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(236, 31, 82, var(--lp-radial-opacity)) 0%, rgba(236, 31, 82, 0) 70%);
+  pointer-events: none;
+}
+
+.login-panel__content {
+  width: min(100%, 26rem);
+  padding: 1.5rem 2rem;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.login-brand {
+  width: 9.5rem;
+  max-width: 100%;
+  margin-bottom: 2.25rem;
+}
+
+.login-form,
+.login-form__step,
+.login-password-step,
+.login-provider {
+  width: min(100%, 20rem);
+}
+
+.login-field {
+  display: flex;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.login-submit,
+.login-submit:deep(.p-button),
+.login-back-button,
+.login-back-button:deep(.p-button) {
+  width: 100%;
+}
+
+:deep(.login-input.p-inputtext),
+:deep(.login-password.p-password),
+:deep(.login-password .p-inputtext),
+:deep(.login-password-input) {
+  width: 100%;
+}
+
+:deep(.login-password.p-password) {
+  display: flex;
+}
+
+:deep(.login-input.p-inputtext),
+:deep(.login-password .p-inputtext),
+:deep(.login-password-input) {
+  height: 3.5rem;
+  min-height: 3.5rem;
+  border-radius: 5px;
+  border: 1px solid var(--lp-input-border);
+  background: var(--lp-input-bg);
+  color: var(--lp-input-color);
+  box-shadow: none;
+  outline: none;
+}
+
+:deep(.login-input.p-inputtext::placeholder),
+:deep(.login-password .p-inputtext::placeholder),
+:deep(.login-password-input::placeholder) {
+  color: var(--lp-input-placeholder);
+}
+
+:deep(.login-input.p-inputtext:enabled:focus),
+:deep(.login-password .p-inputtext:enabled:focus),
+:deep(.login-password-input:enabled:focus) {
+  border-color: var(--p-primary-500);
+}
+
+:deep(.login-password .p-inputtext) {
+  padding-right: 3rem;
+}
+
+:deep(.login-password .p-password-toggle-mask-icon),
+:deep(.login-password .p-inputicon),
+:deep(.login-password .p-icon-field-icon) {
+  color: var(--lp-icon-color);
+}
+
+:deep(.login-password .p-password-toggle-mask-icon:hover),
+:deep(.login-password .p-inputicon:hover),
+:deep(.login-password .p-icon-field-icon:hover) {
+  color: var(--lp-icon-hover);
+}
+
+:deep(.login-input--disabled.p-inputtext) {
+  color: var(--lp-input-disabled-color);
+  background: var(--lp-input-disabled-bg);
+  border-color: var(--lp-input-disabled-border);
+  opacity: 1;
+}
+
+:deep(.login-submit.p-button) {
+  width: 100%;
+  height: 3.5rem;
+  min-height: 3.5rem;
+  border-radius: 5px;
+  border: none;
+  background: var(--p-primary-500);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: none;
+  outline: none;
+}
+
+:deep(.login-submit.p-button:focus),
+:deep(.login-submit.p-button:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+:deep(.login-submit.p-button:hover) {
+  background: var(--p-primary-600);
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+
+.login-back-link {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 0.75rem;
+  padding: 0.75rem 0;
+  border: none;
+  background: transparent;
+  color: var(--p-primary-500);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.login-back-link:hover {
+  color: var(--p-primary-600);
+}
+
+.login-back-link__icon {
+  font-size: 0.9rem;
+}
+
+.login-theme-toggle {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 1px solid var(--lp-input-border);
+  background: transparent;
+  color: var(--lp-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.login-theme-toggle:hover {
+  color: var(--lp-text);
+  border-color: var(--lp-text-muted);
+}
+
+.login-provider__title {
+  margin-bottom: 1.5rem;
+  text-align: center;
+  color: var(--lp-text);
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.login-provider__button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--lp-provider-border);
+  border-radius: 5px;
+  background: var(--lp-provider-bg);
+  color: var(--lp-provider-color);
+  padding: 1rem 1.25rem;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.login-provider__button:hover {
+  border-color: var(--lp-provider-border-hover);
+  background: var(--lp-provider-bg-hover);
+}
+
+.login-provider__button--disabled {
+  opacity: 0.65;
+}
+
+.login-provider__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.login-provider__loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.login-provider__spinner,
+.login-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--p-primary-500);
+  animation: login-spin 0.9s linear infinite;
+}
+
+.login-spinner {
+  width: 3rem;
+  height: 3rem;
+}
+
+.login-spinner--small {
+  width: 2rem;
+  height: 2rem;
+}
+
+.login-link {
+  color: var(--lp-link-color);
+  font-size: 0.95rem;
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
+}
+
+.login-link:hover {
+  color: var(--lp-link-hover);
+}
+
+.login-link--alert {
+  color: #ff9db7;
+}
+
+.login-alert {
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(236, 31, 82, 0.35);
+  border-radius: 12px;
+  background: rgba(236, 31, 82, 0.08);
+  padding: 1rem;
+}
+
+.login-alert__header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.login-alert__icon {
+  width: 1rem;
+  height: 1rem;
+  color: #ff8baa;
+}
+
+.login-alert__title {
+  color: #ffe3ea;
+  font-weight: 600;
+}
+
+.login-alert__copy {
+  margin-bottom: 0.75rem;
+  color: #ffc2d0;
+  font-size: 0.92rem;
+  text-align: center;
+}
+
+.login-alert__details {
+  margin-top: 0.75rem;
+  margin-bottom: 1rem;
+  border-radius: 8px;
+  background: rgba(16, 16, 16, 0.45);
+  padding: 0.75rem;
+  color: #ffdbe4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+  font-size: 0.75rem;
+}
+
+.login-alert__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+:deep(.login-alert-button.p-button) {
+  border-radius: 999px;
+  padding-inline: 0.9rem;
+  min-height: 2.35rem;
+  font-size: 0.8rem;
+}
+
+:deep(.login-alert-button--primary.p-button) {
+  background: var(--p-primary-500);
+  border-color: var(--p-primary-500);
+}
+
+:deep(.login-alert-button--neutral.p-button) {
+  background: #27272a;
+  border-color: #27272a;
+  color: #f4f4f5;
+}
+
+:deep(.login-alert-button--danger.p-button) {
+  background: #7a1634;
+  border-color: #7a1634;
+}
+
+.login-form__empty {
+  text-align: center;
+}
+
+.login-form__empty-message {
+  margin-bottom: 1rem;
+  color: #ff9db7;
+}
+
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--lp-overlay-bg);
+  backdrop-filter: blur(10px);
+}
+
+.login-overlay__content,
+.login-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.login-overlay__title {
+  margin: 1rem 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--lp-overlay-title);
+}
+
+.login-overlay__text,
+.login-loading-state__text {
+  color: var(--lp-overlay-muted);
+}
+
+.login-footer {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 1;
+  padding-inline: 1rem;
+}
+
+.login-footer__link,
+.login-footer__divider {
+  font-size: 0.75rem;
+}
+
+.login-footer__link {
+  color: var(--lp-footer-link);
+  text-decoration: underline;
+  text-underline-offset: 0.16rem;
+}
+
+.login-footer__divider {
+  color: var(--lp-footer-divider);
+}
+
+@keyframes login-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (min-width: 960px) {
+  .login-shell {
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 1fr);
+  }
+
+  .login-art {
+    display: block;
+  }
+
+  .login-brand {
+    width: 12rem;
+  }
+}
+
+@media (max-width: 959px) {
+  .login-panel__content {
+    padding-inline: 1.5rem;
+  }
+
+  .login-panel {
+    padding-top: 1.5rem;
+    padding-bottom: 1rem;
+  }
+}
+</style>

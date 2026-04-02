@@ -1,5 +1,5 @@
 <template>
-    <div class="h-screen bg-surface-0  w-full">
+    <div :class="['h-screen w-full transition-colors', isDark ? 'bg-[#171717]' : 'bg-surface-0']">
         <!-- <div id="app-sidebar" class="h-full hidden lg:block lg:sticky absolute left-0 top-0 z-50">
             <div :class="[
                 isCollapsed ? 'w-[72px] px-3' : 'w-[258px] px-8',
@@ -31,11 +31,10 @@
             </div>
         </div> -->
         <Header />
-        <div class="py-10"
-        >
+        <div class="py-10">
         <!-- :style="[isCollapsed ? {'width' :'calc(100% - 72px)'}: {'width' :'calc(100% - 250px)'}]" -->
             <!-- <MainLayoutBreadcrumb separator-icon="pi pi-chevron-right" /> -->
-            <div class="flex-1 px-[33px] overflow-y-auto">
+            <div :class="['flex-1 px-[33px] overflow-y-auto transition-colors', isDark ? 'bg-[#171717] text-white' : 'bg-transparent text-[#101010]']">
                 <router-view />
             </div>
         </div>
@@ -45,12 +44,15 @@
 <script setup lang="ts">
 // import SideNav from '@/components/SideNav.vue'
 import Header from '@/layouts/Header.vue'
+import { isDark as darkMode } from '@/composables/useTheme'
 // import { StructuresStates } from '@/states/index.js'
 // import Avatar from 'primevue/avatar'
 // import MainLayoutBreadcrumb from './MainLayoutBreadcrumb.vue'
 // import { ref } from 'vue'
 
 // const isCollapsed = ref(false)
+
+const isDark = darkMode
 
 // const applicationState = StructuresStates.getApplicationState()
 

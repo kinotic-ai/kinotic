@@ -9,6 +9,7 @@ import Textarea from 'primevue/textarea';
 import Button from 'primevue/button';
 import Select from 'primevue/select';
 import { createDebug } from '@/util/debug';
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('new-project-sidebar');
 
@@ -39,10 +40,23 @@ export default class NewProjectSidebar extends Vue {
 
     loading = false;
 
+    get isDark() {
+        return darkMode.value;
+    }
+
     get languageOptions() {
         return [
             { label: 'TypeScript', value: ProjectType.TYPESCRIPT },
             { label: 'GraphQL', value: ProjectType.GRAPHQL }
+        ];
+    }
+
+    get inputClass() {
+        return [
+            'w-full !shadow-none',
+            this.isDark
+                ? 'border-[#434349] bg-[#262626] text-white placeholder:text-[#8d8d96] focus:border-[#52525b]'
+                : 'border-[#d8dce6] bg-white text-[#101010] placeholder:text-[#9ca3af]'
         ];
     }
 
@@ -104,23 +118,32 @@ export default class NewProjectSidebar extends Vue {
 </script>
 
 <template>
-    <transition name="slide">
+    <transition
+        enter-active-class="transition-transform duration-300 ease-out"
+        enter-from-class="translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition-transform duration-300 ease-in"
+        leave-from-class="translate-x-0"
+        leave-to-class="translate-x-full"
+    >
         <div
             v-if="visible"
             class="fixed inset-0 z-50 flex justify-end"
             @click.self="handleClose"
         >
-            <div class="w-[400px] h-full bg-white shadow-xl overflow-y-auto">
-                <div class="flex justify-between items-center border-b border-[#E6E7EB] p-4">
+            <div :class="['h-full w-[400px] overflow-y-auto shadow-xl', isDark ? 'bg-[#171717] text-white' : 'bg-white text-[#101010]']">
+                <div :class="['flex items-center justify-between border-b p-4', isDark ? 'border-[#2f2f35]' : 'border-[#E6E7EB]']">
                     <div class="flex items-center gap-3">
-                        <img src="@/assets/action-plus-icon.svg" />
-                        <h2 class="text-lg font-semibold text-[#101010]">New Project</h2>
+                        <div :class="['flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-[8px]', isDark ? 'bg-[#262626]' : 'bg-[#f4f5f9]']">
+                            <img src="@/assets/plus.svg" alt="Create project" class="h-6 w-6" />
+                        </div>
+                        <h2 :class="['text-lg font-semibold', isDark ? 'text-white' : 'text-[#101010]']">New Project</h2>
                     </div>
                     <Button
                         @click="handleClose"
                         text
                         rounded
-                        class="p-2 hover:bg-gray-100 transition"
+                        :class="['p-2 transition', isDark ? 'hover:bg-[#262626]' : 'hover:bg-gray-100']"
                     >
                         <img src="@/assets/close-icon.svg" class="w-4 h-4" />
                     </Button>
@@ -128,34 +151,34 @@ export default class NewProjectSidebar extends Vue {
                 <form @submit.prevent="handleSubmit" class="flex flex-col justify-between h-[calc(100vh-100px)] p-4">
                     <div class="flex flex-col gap-5">
                         <div>
-                            <label class="block text-sm font-semibold text-[#101010] mb-2">Name</label>
+                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Name</label>
                             <InputText
                                 v-model="form.name"
                                 placeholder="Project name"
                                 required
-                                class="w-full"
+                                :class="inputClass"
                             />
                         </div>
 
                         <div>
-                            <label class="block text-sm font-semibold text-[#101010] mb-2">Description</label>
+                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Description</label>
                             <Textarea
                                 v-model="form.description"
                                 rows="3"
-                                class="w-full"
+                                :class="inputClass"
                                 placeholder="Optional description"
                             />
                         </div>
 
                         <div>
-                            <label class="block text-sm font-semibold text-[#101010] mb-2">Source of truth</label>
-                            <div class="p-1 bg-[#F4F5F9] rounded-xl w-full flex gap-2">
+                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Source of truth</label>
+                            <div :class="['flex w-full gap-2 rounded-xl p-1', isDark ? 'bg-[#262626]' : 'bg-[#F4F5F9]']">
                                 <Button
                                     type="button"
                                     @click="form.source = 'GUI'"
                                     class="w-1/2 text-sm font-bold py-[10px] rounded-lg transition"
                                     severity="secondary"
-                                    :class="form.source === 'GUI' ? '!bg-white !text-[#101010]' : '!bg-transparent !text-[#5F6165]'"
+                                    :class="form.source === 'GUI' ? (isDark ? '!bg-[#101010] !text-white' : '!bg-white !text-[#101010]') : (isDark ? '!bg-transparent !text-[#9f9fa8]' : '!bg-transparent !text-[#5F6165]')"
                                 >
                                     GUI
                                 </Button>
@@ -164,7 +187,7 @@ export default class NewProjectSidebar extends Vue {
                                     @click="form.source = 'Code'"
                                     class="w-1/2 text-sm font-bold py-[10px] rounded-lg transition"
                                     severity="secondary"
-                                    :class="form.source === 'Code' ? '!bg-white !text-[#101010]' : '!bg-transparent !text-[#5F6165]'"
+                                    :class="form.source === 'Code' ? (isDark ? '!bg-[#101010] !text-white' : '!bg-white !text-[#101010]') : (isDark ? '!bg-transparent !text-[#9f9fa8]' : '!bg-transparent !text-[#5F6165]')"
                                 >
                                     Code
                                 </Button>
@@ -172,14 +195,14 @@ export default class NewProjectSidebar extends Vue {
                         </div>
 
                         <div v-if="form.source === 'Code'">
-                            <label class="block text-sm font-semibold text-[#101010] mb-2">Language</label>
+                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Language</label>
                             <Select
                                 v-model="form.language"
                                 :options="languageOptions"
                                 optionLabel="label"
                                 optionValue="value"
                                 placeholder="Select language"
-                                class="w-full p-2 border border-[#D2D3D9] rounded-lg text-sm text-[#101010]"
+                                :class="['w-full rounded-lg p-2 text-sm', isDark ? 'border border-[#434349] bg-[#262626] text-white' : 'border border-[#D2D3D9] text-[#101010]']"
                             />
                         </div>
                     </div>
@@ -202,21 +225,3 @@ export default class NewProjectSidebar extends Vue {
         </div>
     </transition>
 </template>
-<style scoped>
-.slide-enter-active,
-.slide-leave-active {
-    transition: transform 0.3s ease;
-}
-.slide-enter-from {
-    transform: translateX(100%);
-}
-.slide-enter-to {
-    transform: translateX(0%);
-}
-.slide-leave-from {
-    transform: translateX(0%);
-}
-.slide-leave-to {
-    transform: translateX(100%);
-}
-</style>
