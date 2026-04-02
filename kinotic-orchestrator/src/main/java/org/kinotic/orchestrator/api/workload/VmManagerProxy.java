@@ -15,7 +15,7 @@ import java.util.concurrent.CompletableFuture;
  * to the VmManager instance registered with that node's scope. The scope parameter is
  * automatically stripped before the call is dispatched to the remote service.
  */
-@Proxy(namespace = "org.kinotic.os.api.services", name = "VmManager")
+@Proxy(namespace = "kinotic-ai.vm-manager", name = "VmManager")
 public interface VmManagerProxy {
 
     /**

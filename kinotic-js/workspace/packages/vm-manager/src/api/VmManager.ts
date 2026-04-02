@@ -10,7 +10,7 @@ import { type Workload, VmProviderType } from '@kinotic-ai/os-api'
  * The {@link Scope} decorator on nodeId ensures this service registers with a scope equal to
  * the node's unique id, allowing the orchestrator to route requests to a specific node's VmManager.
  */
-@Publish('org.kinotic.os.api.services')
+@Publish('kinotic-ai.vm-manager')
 export class VmManager {
 
     @Scope
