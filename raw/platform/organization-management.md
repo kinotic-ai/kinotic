@@ -1,0 +1,18 @@
+# Organization Management
+
+> Managing organizations, teams, and users in Kinotic OS.
+
+<alert type="info">
+
+Organization management documentation coming soon.
+
+</alert>
+
+## Overview
+
+Kinotic OS uses an organization model to manage access and resources across the platform. Organizations provide the boundary for teams, applications, and shared configuration.
+
+- **Organizations** — Top-level grouping for teams and applications. Each organization has its own set of users, roles, and OIDC configurations.
+- **User Management** — Invite users to organizations, assign roles, and manage credentials. Supports both email/password and OIDC-based identity.
+- **Teams** — Group users within an organization for easier permission management and collaboration.
+- **Roles** — Define what users can do within an organization and its applications. Roles are referenced in ABAC policies for fine-grained access control.

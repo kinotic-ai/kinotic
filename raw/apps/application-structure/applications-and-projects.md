@@ -1,0 +1,118 @@
+# Applications and Projects
+
+> Learn how to configure Kinotic applications and the projects that compose them.
+
+An application is the deployable unit in Kinotic. Projects are the building blocks that make up an application. This page explains how to configure both.
+
+## Applications
+
+Every application has:
+
+- **Name** -- A unique identifier, typically in reverse-domain style (e.g., `com.example.inventory`).
+- **Description** -- A human-readable summary of what the application does.
+- **Optional API support** -- Applications can optionally expose a GraphQL and/or OpenAPI endpoint that aggregates the services published by their projects.
+
+Applications are created and managed through the Kinotic CLI and the Kinotic OS dashboard.
+
+## Projects
+
+A project is a directory with its own `package.json` and a `.kinotic.json` configuration file. The CLI uses `.kinotic.json` to understand how the project fits into the broader application.
+
+### The `.kinotic.json` File
+
+When you run `kinotic init`, a `.kinotic.json` file is created in your project root:
+
+```json
+{
+    "application": "my.app",
+    "entitiesPaths": ["src/entities"],
+    "generatedPath": "src/generated"
+}
+```
+
+#### Fields
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Field
+    </th>
+    
+    <th>
+      Description
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        application
+      </code>
+    </td>
+    
+    <td>
+      The application identifier this project belongs to. Must match the application name registered with Kinotic OS.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        entitiesPaths
+      </code>
+    </td>
+    
+    <td>
+      An array of directories containing entity definitions. The CLI scans these paths when you run <code>
+        kinotic sync
+      </code>
+      
+      .
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        generatedPath
+      </code>
+    </td>
+    
+    <td>
+      The directory where the CLI writes auto-generated service classes. This path is typically added to <code>
+        .gitignore
+      </code>
+      
+       or committed depending on your workflow preference.
+    </td>
+  </tr>
+</tbody>
+</table>
+
+### Project Dependencies
+
+Projects within the same application can depend on each other. For example, a microservice project might import entity types defined in a persistence project. These dependencies are managed through standard `package.json` -- you add the dependency just like any other Bun package.
+
+```json
+{
+    "dependencies": {
+        "@my-org/data": "workspace:*"
+    }
+}
+```
+
+When the application is deployed, the platform resolves these internal dependencies and ensures all projects are available to each other through the Service Directory.
+
+## Typical Setup
+
+Most applications start with a single project that handles persistence:
+
+```bash
+mkdir my-app && cd my-app
+kinotic init --application my.app --entities src/entities --generated src/generated
+```
+
+As the application grows, you can add additional projects for microservices, batch jobs, or frontends -- each with its own `.kinotic.json` pointing to the same application identifier.

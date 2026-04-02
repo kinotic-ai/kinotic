@@ -1,0 +1,42 @@
+# Overview
+
+> How services work in Kinotic and the communication patterns they support.
+
+Services are the building blocks of Kinotic applications. Any TypeScript class can be published as a remote service, making its methods callable from any connected client or other service.
+
+## How It Works
+
+1. **Publish** -- Decorate a class with `@Publish` and its methods become remotely callable
+2. **Discover** -- The platform automatically registers the service and generates proxy classes for consumers
+3. **Call** -- Other services and frontends invoke methods through the generated proxies as if they were local
+
+You don't configure routing, serialization, or service discovery. The platform handles all of that.
+
+## Communication Patterns
+
+Kinotic supports two communication patterns.
+
+### Request-Response
+
+Standard RPC. The caller invokes a method and receives a single result as a `Promise`.
+
+```typescript
+const result = await greetingService.hello('World')
+```
+
+### Streaming
+
+The service pushes multiple values over time. The caller receives an `Observable` and can process each value as it arrives.
+
+```typescript
+const stream$ = sensorService.streamReadings('sensor-1')
+stream$.subscribe((reading) => console.log(reading))
+```
+
+## Service-to-Service Calls
+
+Services can call other services transparently. A published service uses a proxy to another service and invokes it the same way any external client would. The platform routes the call without the caller needing to know where the target service is running.
+
+## Access Control
+
+You can attach `@AbacPolicy` expressions to service methods to enforce authorization before the method runs. See [Access Control](/apps/security/access-control) for details.

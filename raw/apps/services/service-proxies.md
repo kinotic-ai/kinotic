@@ -1,0 +1,119 @@
+# Service Proxies
+
+> How to call remote services using service proxies in Kinotic.
+
+Service proxies let you call remote services as if they were local objects. You define a typed interface, create a class that implements it, and delegate calls to the remote service through the Kinotic connection.
+
+## Writing a Service Proxy
+
+The pattern is:
+
+1. Define an interface describing the service methods
+2. Create a class that implements the interface
+3. In the constructor, obtain a proxy via `kinotic.serviceProxy()`
+4. Implement methods by calling `invoke()` or `invokeStream()` on the proxy
+
+### Example
+
+```typescript
+import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
+import type { Observable } from 'rxjs'
+
+export interface INotificationService {
+    sendAlert(message: string): Promise<void>
+    watchAlerts(severity: string): Observable<Alert>
+}
+
+export class NotificationService implements INotificationService {
+
+    private readonly serviceProxy: IServiceProxy
+
+    constructor(kinotic: IKinotic) {
+        this.serviceProxy = kinotic.serviceProxy('com.example.NotificationService')
+    }
+
+    sendAlert(message: string): Promise<void> {
+        return this.serviceProxy.invoke('sendAlert', [message])
+    }
+
+    watchAlerts(severity: string): Observable<Alert> {
+        return this.serviceProxy.invokeStream('watchAlerts', [severity])
+    }
+}
+```
+
+### Usage
+
+```typescript
+import { Kinotic } from '@kinotic-ai/core'
+
+const notifications = new NotificationService(Kinotic)
+
+// Request-response
+await notifications.sendAlert('High CPU usage detected')
+
+// Streaming (returns an Observable)
+notifications.watchAlerts('critical').subscribe((alert) => {
+    console.log('Alert:', alert)
+})
+```
+
+## Invocation Methods
+
+Each proxy provides two ways to call the remote service:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Method
+    </th>
+    
+    <th>
+      Returns
+    </th>
+    
+    <th>
+      Use When
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        invoke(method, args?)
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        Promise<any>
+      </code>
+    </td>
+    
+    <td>
+      The service returns a single result
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        invokeStream(method, args?)
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        Observable<any>
+      </code>
+    </td>
+    
+    <td>
+      The service pushes multiple values over time
+    </td>
+  </tr>
+</tbody>
+</table>

@@ -1,0 +1,114 @@
+# Overview
+
+> Understand how Kinotic apps are organized -- from organizations down to individual artifacts.
+
+Kinotic applications follow a clear hierarchy that keeps large systems organized while giving individual teams autonomy over their own pieces.
+
+## The Hierarchy
+
+```text
+Organization
+ └── Application
+      └── Project
+           └── Artifact(s)
+```
+
+### Organizations
+
+An organization is the top-level grouping. It represents a company, team, or any logical boundary that owns one or more applications. Organizations control billing, membership, and shared configuration.
+
+### Applications
+
+An application is the primary unit of deployment. It is the top-level container for a system that you build, ship, and run. A single organization can own many applications, and each application has its own name, configuration, and lifecycle.
+
+### Projects
+
+A project is a functional unit within an application. Each project has its own `package.json` and a `.kinotic.json` configuration file that tells the CLI how the project relates to the broader application.
+
+Projects exist so that different concerns can live in separate packages while still participating in the same application. For example, one project might define the domain entities, another might contain the business-logic microservices, and a third might be the frontend.
+
+### Artifacts
+
+Artifacts are the outputs that a project contributes to the application. A single project can produce one or more artifacts -- a set of persisted entities, a microservice, a batch job, a UI component library, or a complete frontend. See [Artifact Types](/apps/application-structure/artifact-types) for the full list.
+
+## The Service Directory
+
+Kinotic OS maintains a **Service Directory** -- a live registry of all services published across an application. When a project publishes a service (either explicitly or through generated entity services), it is registered in the directory and becomes callable by any other project in the same application.
+
+This means you never have to hard-code service endpoints or manage connection strings between internal services. The platform handles discovery and routing automatically.
+
+## Putting It Together
+
+A typical application looks something like this:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Project
+    </th>
+    
+    <th>
+      Artifacts
+    </th>
+    
+    <th>
+      Purpose
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        data
+      </code>
+    </td>
+    
+    <td>
+      Persistence
+    </td>
+    
+    <td>
+      Defines entities and gets auto-generated CRUD services
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        services
+      </code>
+    </td>
+    
+    <td>
+      Microservice
+    </td>
+    
+    <td>
+      Contains business logic that orchestrates across entities
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        web
+      </code>
+    </td>
+    
+    <td>
+      Frontend
+    </td>
+    
+    <td>
+      A user interface that consumes services from the other projects
+    </td>
+  </tr>
+</tbody>
+</table>
+
+Each project is developed, tested, and versioned independently, but they all deploy as part of the same application and can call each other through the Service Directory.
+
+For details on how to configure an application and its projects, see [Applications and Projects](/apps/application-structure/applications-and-projects).
