@@ -4,15 +4,16 @@
       <div class="grid items-center gap-14 xl:min-h-[440px] xl:grid-cols-[650px_1fr] xl:gap-0">
         <div class="relative z-10 w-full xl:w-[650px]">
           <h1 class="w-full font-[InterBold] text-[44px] leading-[120%] tracking-[-0.02em] text-white sm:text-[52px] xl:text-[61px]">
-            The open-source framework for flexible data management.
+            Humane Representation of Thought
           </h1>
           <p class="mt-6 w-full font-[InterRegular] text-[17px] leading-[140%] tracking-[0] text-[#AFAFB4] xl:text-[18px]">
-            Streamline your data management with Structures — the powerful framework for schema evolution and data manipulation.
+            Build enterprise-grade applications at internet scale. Kinotic OS abstracts
+            away the complexity of cloud infrastructure so you can focus on what matters.
           </p>
 
           <div class="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
             <NuxtLink
-              to="/getting-started/introduction"
+              to="/apps/introduction"
               class="inline-flex h-[44px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#FF2D7A_0%,#FF2A55_100%)] px-6 font-[InterMedium] text-[14px] leading-[120%] text-white shadow-[0_20px_50px_rgba(255,45,122,0.28)] transition hover:scale-[1.02]"
             >
               Get Started
@@ -23,7 +24,7 @@
               rel="noreferrer"
               class="inline-flex h-[44px] items-center justify-center rounded-full border border-white px-6 font-[InterMedium] text-[14px] leading-[120%] text-white transition hover:border-white hover:bg-white/5"
             >
-              View on GitHub
+              View on Github
             </a>
           </div>
         </div>

@@ -44,8 +44,8 @@ watch(isMenuOpen, (val) => {
         </NuxtLink>
 
         <div class="hidden items-center gap-8 lg:flex">
-          <NuxtLink to="/getting-started/introduction" class="text-[14px] font-medium leading-[120%] text-white transition hover:opacity-80">Guide</NuxtLink>
-          <NuxtLink to="/reference" class="text-[14px] font-medium leading-[120%] text-white transition hover:opacity-80">Reference</NuxtLink>
+          <NuxtLink to="/apps/introduction" class="text-[14px] font-medium leading-[120%] text-white transition hover:opacity-80">Guide</NuxtLink>
+          <NuxtLink to="/reference/sdk-packages" class="text-[14px] font-medium leading-[120%] text-white transition hover:opacity-80">Reference</NuxtLink>
           <NuxtLink to="/test-status" class="text-[14px] font-medium leading-[120%] text-white transition hover:opacity-80">Test Status</NuxtLink>
           <span class="h-5 w-px bg-white/20"></span>
           <a
@@ -103,8 +103,8 @@ watch(isMenuOpen, (val) => {
 
         <div class="flex flex-col justify-between items-center gap-6 h-screen">
           <div class="flex flex-col justify-between items-center gap-8">
-            <NuxtLink to="/getting-started/introduction" class="text-sm text-[#EDEEF2]" @click="isMenuOpen = false">Guide</NuxtLink>
-            <NuxtLink to="/reference" class="text-sm text-[#EDEEF2]" @click="isMenuOpen = false">Reference</NuxtLink>
+            <NuxtLink to="/apps/introduction" class="text-sm text-[#EDEEF2]" @click="isMenuOpen = false">Guide</NuxtLink>
+            <NuxtLink to="/reference/sdk-packages" class="text-sm text-[#EDEEF2]" @click="isMenuOpen = false">Reference</NuxtLink>
             <NuxtLink to="/test-status" class="text-sm text-[#EDEEF2]" @click="isMenuOpen = false">Test Status</NuxtLink>
           </div>
           <a
