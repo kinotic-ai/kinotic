@@ -1,5 +1,5 @@
 import { Kinotic } from '@kinotic-ai/core'
-import type { ConnectionInfo } from '@kinotic-ai/core'
+import type { ConnectionInfo, IServiceProxy } from '@kinotic-ai/core'
 import { VmNode, VmNodeStatus } from '@kinotic-ai/os-api'
 import { VmManager } from '@/api/VmManager'
 import os from 'node:os'
@@ -13,6 +13,19 @@ if (!nodeId) {
 
 const serverHost = process.env.KINOTIC_SERVER_HOST ?? 'localhost'
 const serverPort = Number(process.env.KINOTIC_SERVER_PORT ?? '58503')
+const heartbeatIntervalMs = Number(process.env.KINOTIC_HEARTBEAT_INTERVAL_MS ?? '30000')
+
+let heartbeatTimer: Timer | null = null
+
+function startHeartbeat(proxy: IServiceProxy) {
+    heartbeatTimer = setInterval(async () => {
+        try {
+            await proxy.invoke('heartbeat', [nodeId])
+        } catch (error) {
+            console.error('Heartbeat failed:', error)
+        }
+    }, heartbeatIntervalMs)
+}
 
 async function start() {
     // Connect to the Kinotic server
@@ -34,11 +47,34 @@ async function start() {
 
     // Register this node with the NodeOrchestrationService on the server
     const nodeOrchestratorProxy = Kinotic.serviceProxy('org.kinotic.orchestrator.api.workload.NodeOrchestrationService')
-    const registeredNode = await nodeOrchestratorProxy.invoke('registerNode', [node])
+    await nodeOrchestratorProxy.invoke('registerNode', [node])
 
     console.log(`VM Manager registered on node: ${nodeId}`)
     console.log(`  CPUs: ${node.totalCpus}, Memory: ${node.totalMemoryMb}MB`)
+
+    // Start sending periodic heartbeats
+    startHeartbeat(nodeOrchestratorProxy)
+    console.log(`Heartbeat started (every ${heartbeatIntervalMs / 1000}s)`)
 }
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+    console.log('Shutting down VM Manager...')
+    if (heartbeatTimer) {
+        clearInterval(heartbeatTimer)
+    }
+    await Kinotic.disconnect()
+    process.exit(0)
+})
+
+process.on('SIGTERM', async () => {
+    console.log('Shutting down VM Manager...')
+    if (heartbeatTimer) {
+        clearInterval(heartbeatTimer)
+    }
+    await Kinotic.disconnect()
+    process.exit(0)
+})
 
 start().catch(error => {
     console.error('Failed to start VM Manager:', error)

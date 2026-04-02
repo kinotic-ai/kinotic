@@ -10,6 +10,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Service responsible for tracking and managing VmManager nodes in the cluster.
  * When a vm-manager process starts on a node it registers itself with this service.
+ * Nodes must send periodic heartbeats to remain in ONLINE status.
  */
 @Publish
 public interface NodeOrchestrationService {
@@ -22,6 +23,15 @@ public interface NodeOrchestrationService {
      * @return a future that will complete with the registered node
      */
     CompletableFuture<VmNode> registerNode(VmNode node);
+
+    /**
+     * Heartbeat from a running vm-manager node.
+     * Updates the node's {@code lastSeen} timestamp to indicate it is still alive.
+     *
+     * @param nodeId the id of the node sending the heartbeat
+     * @return a future that will complete with the updated node, or fail if the node is not registered
+     */
+    CompletableFuture<VmNode> heartbeat(String nodeId);
 
     /**
      * Removes a node from the orchestrator. The node must have no active workloads.
