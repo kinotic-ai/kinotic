@@ -105,7 +105,7 @@ watch(isMenuOpen, (val) => {
           <div class="flex flex-col justify-between items-center gap-8">
             <NuxtLink to="/apps/introduction" class="text-sm text-[#EDEEF2]" @click="isMenuOpen = false">Guide</NuxtLink>
             <NuxtLink to="/reference/sdk-packages" class="text-sm text-[#EDEEF2]" @click="isMenuOpen = false">Reference</NuxtLink>
-            <NuxtLink to="/test-status" class="text-sm text-[#EDEEF2]" @click="isMenuOpen = false">Test Status</NuxtLink>
+<!--            <NuxtLink to="/test-status" class="text-sm text-[#EDEEF2]" @click="isMenuOpen = false">Test Status</NuxtLink>-->
           </div>
           <a
             href="https://github.com/kinotic-ai/kinotic"
