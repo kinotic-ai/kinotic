@@ -3,7 +3,6 @@ package org.kinotic.orchestrator.api.workload;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.os.api.model.workload.VmNode;
 import org.kinotic.os.api.model.workload.Workload;
 
 import java.util.concurrent.CompletableFuture;
@@ -69,29 +68,5 @@ public interface WorkloadOrchestrationService {
      * @return a future that will complete with a page of workloads
      */
     CompletableFuture<Page<Workload>> listWorkloadsForNode(String nodeId, Pageable pageable);
-
-    /**
-     * Registers a VmNode with the orchestrator so it can receive workload deployments.
-     *
-     * @param node the node to register
-     * @return a future that will complete with the registered node
-     */
-    CompletableFuture<VmNode> registerNode(VmNode node);
-
-    /**
-     * Removes a node from the orchestrator. The node must have no active workloads.
-     *
-     * @param nodeId the id of the node to deregister
-     * @return a future that will complete when the node has been removed
-     */
-    CompletableFuture<Void> deregisterNode(String nodeId);
-
-    /**
-     * Lists all registered nodes in the cluster.
-     *
-     * @param pageable the page to return
-     * @return a future that will complete with a page of nodes
-     */
-    CompletableFuture<Page<VmNode>> listNodes(Pageable pageable);
 
 }

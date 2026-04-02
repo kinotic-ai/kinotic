@@ -33,6 +33,8 @@ export * from '@/api/model/insights/InsightRequest'
 export * from '@/api/model/Workload'
 export * from '@/api/model/WorkloadStatus'
 export * from '@/api/model/VmProviderType'
+export * from '@/api/model/VmNode'
+export * from '@/api/model/VmNodeStatus'
 
 // Services
 export * from '@/api/services/IApplicationService'

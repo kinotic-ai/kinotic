@@ -3,9 +3,9 @@ package org.kinotic.orchestrator.internal.api.workload;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.orchestrator.api.workload.NodeOrchestrationService;
 import org.kinotic.orchestrator.api.workload.VmManagerProxy;
 import org.kinotic.orchestrator.api.workload.WorkloadOrchestrationService;
-import org.kinotic.os.api.model.workload.VmNode;
 import org.kinotic.os.api.model.workload.Workload;
 import org.kinotic.os.api.model.workload.WorkloadStatus;
 import org.kinotic.os.api.services.VmNodeService;
@@ -21,13 +21,16 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
     private static final Logger log = LoggerFactory.getLogger(DefaultWorkloadOrchestrationService.class);
 
+    private final NodeOrchestrationService nodeOrchestrationService;
     private final VmManagerProxy vmManagerProxy;
     private final VmNodeService vmNodeService;
     private final WorkloadService workloadService;
 
-    public DefaultWorkloadOrchestrationService(VmManagerProxy vmManagerProxy,
+    public DefaultWorkloadOrchestrationService(NodeOrchestrationService nodeOrchestrationService,
+                                               VmManagerProxy vmManagerProxy,
                                                VmNodeService vmNodeService,
                                                WorkloadService workloadService) {
+        this.nodeOrchestrationService = nodeOrchestrationService;
         this.vmManagerProxy = vmManagerProxy;
         this.vmNodeService = vmNodeService;
         this.workloadService = workloadService;
@@ -40,7 +43,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
         Validate.notNull(workload.getImage(), "Workload image cannot be null");
 
         // Find a node with sufficient resources
-        return vmNodeService.findAvailableNode(workload.getVcpus(), workload.getMemoryMb(), workload.getDiskSizeMb())
+        return nodeOrchestrationService.findAvailableNode(workload.getVcpus(), workload.getMemoryMb(), workload.getDiskSizeMb())
                 .thenCompose(node -> {
                     if (node == null) {
                         return CompletableFuture.failedFuture(
@@ -149,33 +152,5 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     @Override
     public CompletableFuture<Page<Workload>> listWorkloadsForNode(String nodeId, Pageable pageable) {
         return workloadService.findAllForNode(nodeId, pageable);
-    }
-
-    @Override
-    public CompletableFuture<VmNode> registerNode(VmNode node) {
-        Validate.notNull(node, "Node cannot be null");
-        Validate.notNull(node.getId(), "Node id cannot be null");
-        log.info("Registering VmNode: {} ({})", node.getName(), node.getId());
-        return vmNodeService.save(node);
-    }
-
-    @Override
-    public CompletableFuture<Void> deregisterNode(String nodeId) {
-        Validate.notNull(nodeId, "Node id cannot be null");
-
-        return workloadService.countForNode(nodeId)
-                .thenCompose(count -> {
-                    if (count > 0) {
-                        return CompletableFuture.failedFuture(
-                                new IllegalStateException("Cannot deregister node with active workloads. "
-                                        + "Destroy all workloads on node " + nodeId + " first."));
-                    }
-                    return vmNodeService.deleteById(nodeId);
-                });
-    }
-
-    @Override
-    public CompletableFuture<Page<VmNode>> listNodes(Pageable pageable) {
-        return vmNodeService.findAll(pageable);
     }
 }
