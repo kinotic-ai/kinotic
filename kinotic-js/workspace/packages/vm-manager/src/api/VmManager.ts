@@ -1,11 +1,13 @@
 import type { IVmProvider } from '@/api/providers/IVmProvider'
 import { BoxliteProvider } from '@/api/providers/BoxliteProvider'
+import { Publish } from '@kinotic-ai/core'
 import { type Workload, VmProviderType } from '@kinotic-ai/os-api'
 
 /**
  * VmManager is the main service that manages VM workloads.
  * It delegates to the appropriate {@link IVmProvider} based on the workload's provider type.
  */
+@Publish('org.kinotic.os.api.services')
 export class VmManager {
 
     private readonly providers: Map<VmProviderType, IVmProvider> = new Map()
