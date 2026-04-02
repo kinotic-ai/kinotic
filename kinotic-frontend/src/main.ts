@@ -68,7 +68,7 @@ app.use(PrimeVue, {
     theme: {
         preset: StructuresPreset,
         options: {
-            darkModeSelector: '.structures-admin-dark',
+            darkModeSelector: '.dark',
             cssLayer: false,
             prefix: 'p',
         }

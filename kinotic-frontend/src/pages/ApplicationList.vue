@@ -18,6 +18,7 @@ import type { Identifiable } from "@kinotic-ai/core";
 import { shallowRef } from "vue";
 import DatetimeUtil from "@/util/DatetimeUtil";
 import { createDebug } from "@/util/debug";
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('application-list');
 
@@ -96,6 +97,10 @@ export default class NamespaceList extends Vue {
     return this.itemCount > 3;
   }
 
+  get isDark() {
+    return darkMode.value;
+  }
+
   onAddItem(): void {
     this.showSidebar = true;
   }
@@ -155,24 +160,26 @@ export default class NamespaceList extends Vue {
 
 <template>
   <ContainerMedium>
-    <h1 class="text-2xl font-semibold mb-5 text-surface-950">Applications</h1>
-    <CrudTable
-      ref="crudTable"
-      createNewButtonText="New application"
-      rowHoverColor=""
-      :data-source="dataSource"
-      :headers="headers"
-      :singleExpand="false"
-      :enableViewSwitcher="true"
-      emptyStateText="No applications yet"
-      :search="searchText"
-      @update:search="updateRouteQuery"
-      @add-item="onAddItem"
-      @edit-item="onEditItem"
-      @onRowClick="toApplicationPage"
-      class="!text-sm"
-      :show-pagination="false"
-    >
+    <div :class="['application-list transition-colors', isDark ? 'application-list--dark text-white' : 'text-[#101010]']">
+      <h1 :class="['mb-5 text-2xl font-semibold', isDark ? 'text-white' : 'text-surface-950']">Applications</h1>
+      <CrudTable
+        ref="crudTable"
+        createNewButtonText="New application"
+        rowHoverColor=""
+        transparent-dark-cards
+        :data-source="dataSource"
+        :headers="headers"
+        :singleExpand="false"
+        :enableViewSwitcher="true"
+        emptyStateText="No applications yet"
+        :search="searchText"
+        @update:search="updateRouteQuery"
+        @add-item="onAddItem"
+        @edit-item="onEditItem"
+        @onRowClick="toApplicationPage"
+        class="application-list__table !text-sm"
+        :show-pagination="false"
+      >
       <template #item.id="{ item }">
         <span>{{ item.id }}</span>
       </template>
@@ -212,39 +219,18 @@ export default class NamespaceList extends Vue {
           <img class="!w-[24px] !h-[24px]" src="@/assets/scalar.svg" />
         </Button>
       </template>
-    </CrudTable>
+      </CrudTable>
 
-    <GraphQLModal :visible="showGraphQLModal" @close="closeGraphQL" />
-    <OpenAPIModal :visible="showOpenAPIModal" @close="closeOpenAPI" />
+      <GraphQLModal :visible="showGraphQLModal" @close="closeGraphQL" />
+      <OpenAPIModal :visible="showOpenAPIModal" @close="closeOpenAPI" />
 
-    <div v-show="showSidebar" ref="sidebarWrapper">
-      <ApplicationSidebar
-        :visible="showSidebar"
-        @close="onSidebarClose"
-        @submit="onApplicationSubmit"
-      />
+      <div v-show="showSidebar" ref="sidebarWrapper">
+        <ApplicationSidebar
+          :visible="showSidebar"
+          @close="onSidebarClose"
+          @submit="onApplicationSubmit"
+        />
+      </div>
     </div>
   </ContainerMedium>
 </template>
-
-<style scoped>
-.p-row-even,
-.p-row-odd {
-  cursor: pointer;
-}
-
-:deep(.p-datatable .p-datatable-tbody > tr) {
-  height: 64px;
-}
-
-:deep(.p-datatable .p-datatable-tbody > tr > td) {
-  vertical-align: middle;
-}
-
-:deep(.p-datatable .p-datatable-tbody > tr > td:last-child) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 64px;
-}
-</style>

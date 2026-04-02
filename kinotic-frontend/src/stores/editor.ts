@@ -1,4 +1,4 @@
-import { reactive } from 'vue'
+import { shallowRef, triggerRef } from 'vue'
 import {
     ArrayC3Type,
     C3Decorator,
@@ -33,13 +33,45 @@ export interface IStructureStore {
     renameProperty(parentId: string, oldName: string, newName: string): void
     updatePropertyType(parentId: string, propertyName: string, typeCode: string): void
     updateStructureName(newName: string): void
+    updateStructureDescription(description: string): void
+    updateEntityType(entityType: string): void
+    updateMultiTenancyType(multiTenancyType: string): void
     findObjectById(obj: ObjectC3Type, id: string): ObjectC3Type | null
 }
 
+interface EntityDecorator extends C3Decorator {
+    entityType?: string
+    multiTenancyType?: string
+}
+
 class StructureStore implements IStructureStore {
-    public structure: EntityDefinition | null = null
-    public nodes: Node[] = []
-    public edges: Edge[] = []
+    private readonly structureRef = shallowRef<EntityDefinition | null>(null)
+    private readonly nodesRef = shallowRef<Node[]>([])
+    private readonly edgesRef = shallowRef<Edge[]>([])
+
+    get structure(): EntityDefinition | null {
+        return this.structureRef.value
+    }
+
+    set structure(value: EntityDefinition | null) {
+        this.structureRef.value = value
+    }
+
+    get nodes(): Node[] {
+        return this.nodesRef.value
+    }
+
+    set nodes(value: Node[]) {
+        this.nodesRef.value = value
+    }
+
+    get edges(): Edge[] {
+        return this.edgesRef.value
+    }
+
+    set edges(value: Edge[]) {
+        this.edgesRef.value = value
+    }
 
     initNewStructure(applicationId: string, projectId: string) {
         const rootType = new ObjectC3Type('NewStructure123', 'default.namespace')
@@ -80,6 +112,7 @@ class StructureStore implements IStructureStore {
             }
             prop.name = newName
         }
+        triggerRef(this.structureRef)
         this.generateGraph()
     }
 
@@ -92,6 +125,7 @@ class StructureStore implements IStructureStore {
         if (prop) {
             prop.type = this.buildType(typeCode, propertyName)
         }
+        triggerRef(this.structureRef)
         this.generateGraph()
     }
 
@@ -137,8 +171,29 @@ class StructureStore implements IStructureStore {
             const finalName = newName.replace(/\s+/g, "")
             this.structure.name = finalName
             this.structure.schema.name = finalName
+            triggerRef(this.structureRef)
             this.generateGraph()
         }
+    }
+
+    updateStructureDescription(description: string) {
+        if (!this.structure) return
+        this.structure.description = description
+        triggerRef(this.structureRef)
+    }
+
+    updateEntityType(entityType: string) {
+        const entityDecorator = this.getEntityDecorator()
+        if (!entityDecorator) return
+        entityDecorator.entityType = entityType
+        triggerRef(this.structureRef)
+    }
+
+    updateMultiTenancyType(multiTenancyType: string) {
+        const entityDecorator = this.getEntityDecorator()
+        if (!entityDecorator) return
+        entityDecorator.multiTenancyType = multiTenancyType
+        triggerRef(this.structureRef)
     }
 
     private generateGraph() {
@@ -146,6 +201,12 @@ class StructureStore implements IStructureStore {
         const {nodes, edges} = generateVueFlowGraphFromSchema(this.structure.schema)
         this.nodes = nodes
         this.edges = edges
+    }
+
+    private getEntityDecorator(): EntityDecorator | undefined {
+        return this.structure?.schema.decorators?.find(
+            (decorator): decorator is EntityDecorator => decorator.type === 'Entity'
+        )
     }
 
     findObjectById(obj: ObjectC3Type, id: string): ObjectC3Type | null {
@@ -166,7 +227,7 @@ class StructureStore implements IStructureStore {
     }
 }
 
-const STRUCTURE_STORE: IStructureStore = reactive(new StructureStore())
+const STRUCTURE_STORE: IStructureStore = new StructureStore()
 
 export const useStructureStore = (): IStructureStore => {
     return STRUCTURE_STORE
