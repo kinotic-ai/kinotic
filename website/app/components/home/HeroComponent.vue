@@ -7,8 +7,7 @@
             Humane Representation of Thought
           </h1>
           <p class="mt-6 w-full font-[InterRegular] text-[17px] leading-[140%] tracking-[0] text-[#AFAFB4] xl:text-[18px]">
-            Build enterprise-grade applications at internet scale. Kinotic OS abstracts
-            away the complexity of cloud infrastructure so you can focus on what matters.
+              Kinotic is a next-generation Operating System for the Cloud. Just as traditional OSs (like Linux or Windows) abstracted away the complexity of hardware, Kinotic OS abstracts away the complexity of modern cloud-based applications. We believe that by removing the friction of infrastructure, networking, and deployment, we enable AI to rapidly prototype and build enterprise-grade applications that can operate at internet scale.
           </p>
 
           <div class="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
