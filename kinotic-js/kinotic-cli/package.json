@@ -19,7 +19,7 @@
   ],
   "dependencies": {
     "@inquirer/prompts": "^8.3.2",
-    "@kinotic-ai/core": "^1.0.9",
+    "@kinotic-ai/core": "^1.1.1",
     "@kinotic-ai/idl": "^1.0.9",
     "@kinotic-ai/os-api": "^1.0.9",
     "@kinotic-ai/persistence": "^1.0.9",
