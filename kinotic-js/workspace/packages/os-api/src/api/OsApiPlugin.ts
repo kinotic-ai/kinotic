@@ -7,7 +7,6 @@ import { EntityDefinitionService, type IEntityDefinitionService } from '@/api/se
 import {type INamedQueriesDefinitionService, NamedQueriesDefinitionService} from '@/api/services/INamedQueriesDefinitionService'
 import { MigrationService, type IMigrationService } from '@/api/services/IMigrationService'
 import { DataInsightsService, type IDataInsightsService } from '@/api/services/IDataInsightsService'
-import { VmManagerService, type IVmManagerService } from '@/api/services/IVmManagerService'
 
 export interface IOsApiExtension {
     applications: IApplicationService
@@ -17,7 +16,6 @@ export interface IOsApiExtension {
     namedQueriesDefinitions: INamedQueriesDefinitionService
     migrations: IMigrationService
     dataInsights: IDataInsightsService
-    vmManager: IVmManagerService
 }
 
 export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
@@ -30,7 +28,6 @@ export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
             namedQueriesDefinitions: new NamedQueriesDefinitionService(kinotic),
             migrations: new MigrationService(kinotic),
             dataInsights: new DataInsightsService(kinotic),
-            vmManager: new VmManagerService(kinotic),
         }
     }
 }

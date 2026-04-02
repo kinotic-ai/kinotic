@@ -43,7 +43,6 @@ export * from '@/api/services/IEntityDefinitionService'
 export * from '@/api/services/INamedQueriesDefinitionService'
 export * from '@/api/services/IMigrationService'
 export * from '@/api/services/IDataInsightsService'
-export * from '@/api/services/IVmManagerService'
 
 // Plugin
 export * from '@/api/OsApiPlugin'
