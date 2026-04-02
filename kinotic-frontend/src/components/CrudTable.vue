@@ -32,6 +32,7 @@ import {
 import type { CrudHeader } from "@/types/CrudHeader";
 import type { DescriptiveIdentifiable } from "@/types/DescriptiveIdentifiable";
 import { createDebug } from "@/util/debug";
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('crud-table');
 
@@ -66,6 +67,7 @@ class CrudTable extends Vue {
   @Prop({ default: true }) showPagination!: boolean
   @Prop({ default: true }) enableRowHover!: boolean
   @Prop({ default: 10 }) defaultPageSize!: number
+  @Prop({ default: false }) transparentDarkCards!: boolean
 
   private toast = useToast()
 
@@ -122,6 +124,50 @@ class CrudTable extends Vue {
       options.sort((a, b) => a - b);
     }
     return options;
+  }
+
+  get isDark(): boolean {
+    return darkMode.value;
+  }
+  
+  get dataTablePt() {
+    return {
+      root: {
+        class: 'bg-transparent'
+      },
+      tableContainer: {
+        class: 'bg-transparent'
+      },
+      table: {
+        class: 'bg-transparent border-separate border-spacing-0'
+      },
+      header: {
+        class: 'hidden'
+      },
+      headerCell: {
+        class: [
+          'bg-transparent px-[14px] pb-[0.9rem] pt-4 text-sm font-semibold',
+          this.isDark ? 'border-[#34343a] text-[#f4f4f5]' : 'border-[#ececf1] text-[#101010]'
+        ]
+      },
+      bodyRow: {
+        class: [
+          'bg-transparent',
+          this.isDark ? 'border-[#2c2c31] text-[#e4e4e7]' : 'border-[#f1f2f5] text-[#101010]'
+        ]
+      },
+      bodyCell: {
+        class: [
+          'bg-transparent px-[14px] py-4 text-sm align-middle',
+          this.isDark ? 'border-[#34343a] text-[#e4e4e7]' : 'border-[#ececf1] text-[#101010]'
+        ]
+      },
+      pcPaginator: {
+        root: {
+          class: 'justify-end border-0 bg-transparent px-0 pb-[0.875rem] pt-3 shadow-none'
+        }
+      }
+    };
   }
 
   mounted() {
@@ -271,12 +317,18 @@ export default toNative(CrudTable);
 </script>
 
 <template>
-  <div :style="{ '--row-hover-color': rowHoverColor }">
-    <div class="flex justify-between items-center mb-6">
-      <IconField class="max-w-sm">
+  <div class="crud-table" :class="isDark ? 'crud-table--dark' : 'crud-table--light'" :style="{ '--row-hover-color': rowHoverColor }">
+    <div class="crud-table__toolbar flex items-center justify-between mb-6 gap-4">
+      <IconField class="crud-table__search w-[236px] max-w-sm">
         <InputIcon class="pi pi-search" />
         <InputText
           v-model="searchText"
+          :class="[
+            '!shadow-none',
+            isDark
+              ? 'border-[#434349] bg-[#101010] text-white placeholder:text-[#7f7f86]'
+              : 'border-[#d8dce6] bg-white text-[#101010] placeholder:text-[#9ca3af]'
+          ]"
           placeholder="Search"
           size="small"
           @input="onSearchChange"
@@ -284,8 +336,9 @@ export default toNative(CrudTable);
         />
       </IconField>
 
-      <div class="flex items-center gap-2 h-[33px]">
+      <div class="crud-table__actions flex items-center gap-2 h-[36px]">
         <SelectButton
+          class="crud-table__view-switcher"
           size="small"
           v-if="enableViewSwitcher"
           v-model="activeView"
@@ -298,6 +351,12 @@ export default toNative(CrudTable);
           </template>
         </SelectButton>
         <Button
+          :class="[
+            '!border-transparent !shadow-none',
+            isDark
+              ? 'hover:!bg-primary-600'
+              : 'hover:!bg-primary-600'
+          ]"
           size="small"
           v-if="!disableModifications && isShowAddNew"
           @click="addItem"
@@ -316,15 +375,23 @@ export default toNative(CrudTable);
           <Card
             v-for="(item, index) in items"
             :key="item.id || index"
-            class="cursor-pointer relative hover:shadow-md transition-shadow h-[170px] flex flex-col justify-between"
+            :class="[
+              'relative flex h-[170px] cursor-pointer flex-col justify-between border transition-shadow',
+              isDark
+                ? [
+                    transparentDarkCards ? 'border-[#3a3a40] bg-transparent text-white shadow-none' : 'border-[#3a3a40] bg-[#1b1b1f] text-white shadow-none',
+                    'hover:shadow-[0_8px_28px_rgba(0,0,0,0.35)]'
+                  ]
+                : 'border-[#e6e7eb] bg-white text-[#101010] hover:shadow-md'
+            ]"
             @click="handleCardClick(item, index)"
           >
             <template #title>
-              <h3 class="">{{ item?.id }}</h3>
+              <h3 :class="isDark ? 'text-white font-semibold' : ''">{{ item?.id }}</h3>
             </template>
 
             <template #content>
-              <p class="truncate-multiline max-h-[46px]">
+              <p :class="['max-h-[46px] overflow-hidden text-sm [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]', isDark ? 'text-[#a1a1aa]' : 'text-surface-500']">
                 {{ item?.description }}
               </p>
             </template>
@@ -368,7 +435,7 @@ export default toNative(CrudTable);
         </div>
         <div
           v-else
-          class="flex flex-col items-center justify-center text-gray-500 py-20 h-[calc(100vh-300px)]"
+          :class="['flex flex-col items-center justify-center py-20 h-[calc(100vh-300px)]', isDark ? 'text-[#8d8d96]' : 'text-gray-500']"
         >
           <p class="text-sm">{{ emptyStateText }}</p>
         </div>
@@ -385,9 +452,14 @@ export default toNative(CrudTable);
 
       <div
         v-if="isBurgerView"
-        class="p-4 border text-[color:var(--surface-200)] rounded-xl"
+        :class="[
+          'crud-table__table-shell rounded-[14px] border px-4 pt-2 pb-0 transition-colors',
+          isDark ? 'border-[#3a3a40] bg-transparent text-white shadow-[0_0_0_1px_rgba(58,58,64,0.15)]' : 'border-[#e6e7eb] bg-transparent text-[#101010]'
+        ]"
       >
         <DataTable
+          class="crud-table__datatable"
+          :pt="dataTablePt"
           :value="items"
           :rows="options.rows"
           :totalRecords="totalItems"
@@ -419,30 +491,32 @@ export default toNative(CrudTable);
                 </slot>
               </div>
               <template v-else>
-                <slot :name="`item.${col.field}`" :item="slotProps.data">
-                  {{ slotProps.data[col.field] }}
-                </slot>
+                <div class="flex min-h-[64px] items-center">
+                  <slot :name="`item.${col.field}`" :item="slotProps.data">
+                    {{ slotProps.data[col.field] }}
+                  </slot>
+                </div>
               </template>
             </template>
           </Column>
 
           <Column v-if="editable || $slots['additional-actions']" header="">
             <template #body="slotProps">
-              <div class="flex justify-center">
+              <div class="flex min-h-[64px] w-full items-center justify-center">
                 <slot name="additional-actions" :item="slotProps.data" />
               </div>
             </template>
           </Column>
           <template #loading>
             <div
-              class="flex justify-center bg-white h-full items-center py-20 text-gray-500 w-full"
+              :class="['flex h-full w-full items-center justify-center py-20', isDark ? 'bg-transparent text-[#9f9fa8]' : 'bg-transparent text-[#8b8b95]']"
             >
               <i class="pi pi-spin pi-spinner text-2xl text-primary" />
             </div>
           </template>
           <template #empty>
             <div
-              class="flex justify-center items-center text-gray-500 py-8 h-[calc(100vh-450px)] w-full"
+              :class="['flex h-[calc(100vh-450px)] w-full items-center justify-center py-8', isDark ? 'text-[#9f9fa8]' : 'text-[#8b8b95]']"
             >
               {{ emptyStateText }}
             </div>
@@ -461,25 +535,79 @@ export default toNative(CrudTable);
   box-shadow: none !important;
 }
 
-.p-datatable .p-datatable-tbody > tr > td {
-  vertical-align: middle;
+.crud-table--light .crud-table__view-switcher.p-selectbutton {
+  border-radius: 0.625rem;
+  border: 1px solid #ececf1;
+  background: #f8f8fa;
 }
 
-.p-datatable .p-datatable-tbody > tr > td > * {
-  vertical-align: middle;
+.crud-table--light .crud-table__view-switcher .p-togglebutton {
+  border: none;
+  background: transparent;
+  color: #8b8b95;
 }
 
-.truncate-multiline {
-  display: -webkit-box;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.crud-table--light .crud-table__view-switcher .p-togglebutton.p-togglebutton-checked {
+  background: #ffffff;
+  color: #101010;
+}
+
+.crud-table--light .crud-table__add-button.p-button {
+  border: none;
+  background: var(--p-primary-500);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.crud-table--light .crud-table__add-button.p-button:hover {
+  background: var(--p-primary-600);
+}
+
+html.dark .p-selectbutton {
+  border-radius: 0.625rem;
+  border: 1px solid #3a3a40;
+  background: #1b1b1f;
+}
+
+html.dark .p-selectbutton .p-togglebutton {
+  border: none;
+  background: transparent;
+  color: #8d8d96;
+}
+
+html.dark .p-selectbutton .p-togglebutton.p-togglebutton-checked {
+  background: #2a2a30;
+  color: #ffffff;
+}
+
+html.dark .crud-table .p-button {
+  border-color: transparent;
+}
+
+html.dark .crud-table .p-button.p-button-sm:not(.p-button-text):not(.p-selectbutton-button) {
+  background: var(--p-primary-500);
+  color: #ffffff;
+}
+
+html.dark .crud-table .p-button.p-button-sm:not(.p-button-text):not(.p-selectbutton-button):hover {
+  background: var(--p-primary-600);
+}
+
+html.dark .p-paginator .p-paginator-page,
+html.dark .p-paginator .p-paginator-next,
+html.dark .p-paginator .p-paginator-prev,
+html.dark .p-paginator .p-paginator-first,
+html.dark .p-paginator .p-paginator-last {
+  color: #d4d4d8 !important;
 }
 
 .dynamic-hover:hover {
   cursor: pointer;
   background-color: var(--row-hover-color, #eff6ff) !important;
   transition: background-color 0.3s ease !important;
+}
+
+html.dark .dynamic-hover:hover {
+  background-color: #232328 !important;
 }
 </style>

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type { DataInsightsWidget } from '@/domain/DataInsightsWidget'
 import { createDebug } from '@/util/debug'
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('saved-widget-item');
 
@@ -14,6 +15,7 @@ const emit = defineEmits<{
 }>()
 
 const previewLoaded = ref(false)
+const isDark = computed(() => darkMode.value)
 
 const getWidgetTitle = (): string => {
   try {
@@ -191,16 +193,16 @@ onMounted(() => {
 <template>
   <div
     :data-widget-id="widget.id || ''"
-    class="widget-card bg-white rounded-lg border border-surface-200 overflow-hidden h-[220px]"
+    :class="['widget-card h-[220px] overflow-hidden rounded-lg border', isDark ? 'border-[#2f2f35] bg-[#171717]' : 'bg-white border-surface-200']"
   >
-    <div class="widget-chart-area bg-gray-50 p-2 relative">
+    <div :class="['widget-chart-area relative p-2', isDark ? 'bg-[#202024]' : 'bg-gray-50']">
       <div 
         v-if="!previewLoaded"
-        class="widget-loading-overlay absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-10"
+        :class="['widget-loading-overlay absolute inset-0 z-10 flex items-center justify-center', isDark ? 'bg-[#171717]/90' : 'bg-white bg-opacity-90']"
       >
         <div class="text-center">
           <i class="pi pi-spin pi-spinner text-blue-500 text-lg mb-1"></i>
-          <div class="text-xs text-gray-600">Loading...</div>
+          <div :class="['text-xs', isDark ? 'text-[#9f9fa8]' : 'text-gray-600']">Loading...</div>
         </div>
       </div>
       
@@ -211,13 +213,13 @@ onMounted(() => {
       </div>
     </div>
     
-    <div class="p-3 relative">
-      <div class="font-semibold text-sm text-gray-900 mb-1 pr-6">{{ getWidgetTitle() }}</div>
-      <div class="text-xs text-gray-500 line-clamp-2 pr-6">{{ getWidgetSubtitle() }}</div>
+    <div class="relative p-3">
+      <div :class="['mb-1 pr-6 text-sm font-semibold', isDark ? 'text-white' : 'text-gray-900']">{{ getWidgetTitle() }}</div>
+      <div :class="['line-clamp-2 pr-6 text-xs', isDark ? 'text-[#9f9fa8]' : 'text-gray-500']">{{ getWidgetSubtitle() }}</div>
       
       <button
         @click.stop="emit('delete', widget.id!)"
-        class="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition-colors p-1"
+        :class="['absolute right-2 top-2 p-1 transition-colors', isDark ? 'text-[#7f7f86] hover:text-red-500' : 'text-gray-400 hover:text-red-500']"
         title="Delete Widget"
       >
         <i class="pi pi-trash text-xs"></i>

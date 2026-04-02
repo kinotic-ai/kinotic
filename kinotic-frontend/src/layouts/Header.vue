@@ -1,24 +1,26 @@
 <template>
-  <div ref="headerRef" class="px-6 py-4 bg-surface-950 flex justify-between items-center sticky top-0 left-0 z-50">
-    <div class="flex items-center gap-2 text-white relative">
+  <div ref="headerRef" class="sticky top-0 left-0 z-50 flex h-16 items-center justify-between border-b border-[#262626] bg-[#101010] px-6">
+    <div class="relative flex items-center gap-3 text-white">
       <RouterLink to="/applications" class="flex items-center gap-2">
-        <img v-if="!isApplicationDetailsPage && !isProjectStructuresPage && !isApplicationSettingsPage && !isDashboardsPage && !isDataInsightsPage && !isSavedWidgetsPage" src="@/assets/logo.svg" class="h-8" />
-        <img v-else src="@/assets/sidebar-logo.svg" class="!h-8 !w-8" />
+        <img src="@/assets/header-logo.svg" class="h-6 w-[27px]" alt="Kinotic" />
       </RouterLink>
 
       <template v-if="isApplicationDetailsPage || isProjectStructuresPage || isApplicationSettingsPage || isDashboardsPage || isDataInsightsPage || isSavedWidgetsPage">
-        <span class="text-surface-400 text-lg">/</span>
+        <span class="text-lg text-[#5f5f65]">/</span>
 
         <div ref="appDropdownRef" class="relative inline-block mr-8">
           <button @click="toggleAppDropdown"
-            class="flex items-center gap-2 text-surface-400 font-medium text-sm hover:opacity-80 w-full justify-between">
+            class="flex w-full items-center justify-between gap-2 text-sm font-medium text-[#d4d4d8] transition-opacity hover:opacity-80">
             {{ currentAppName }}
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
           <div v-if="appDropdownOpen"
-            class="absolute top-full left-0 mt-1 bg-white rounded shadow-lg w-64 max-h-80 overflow-y-auto z-50 p-2">
+            :class="[
+              'absolute top-full left-0 z-50 mt-2 max-h-80 w-64 overflow-y-auto rounded-xl border p-2 shadow-lg',
+              isDark ? 'border-[#2f2f35] bg-[#171717]' : 'border-[#e5e7eb] bg-white'
+            ]">
             <div class="w-full mb-2">
               <IconField class="w-full">
                 <InputIcon class="pi pi-search" />
@@ -27,22 +29,22 @@
             </div>
             <div v-for="app in filteredApplications" :key="app.id" @click="selectApp(app)"
               :class="[
-                'px-4 py-2 cursor-pointer text-sm rounded flex items-center justify-between',
+                'flex cursor-pointer items-center justify-between rounded-lg px-4 py-2 text-sm',
                 currentApp?.id === app.id 
-                  ? 'bg-blue-100 text-blue-700 font-medium' 
-                  : 'hover:bg-gray-100 text-surface-950'
+                  ? 'bg-primary-50 text-primary-600 font-medium' 
+                  : isDark ? 'text-surface-0 hover:bg-[#222225]' : 'text-surface-950 hover:bg-gray-100'
               ]">
               <span>{{ app.id }}</span>
-              <i v-if="currentApp?.id === app.id" class="pi pi-check text-blue-600"></i>
+              <i v-if="currentApp?.id === app.id" class="pi pi-check text-primary-500"></i>
             </div>
           </div>
         </div>
 
                  <template v-if="currentApp && !isApplicationSettingsPage && !isDashboardsPage && !isDataInsightsPage && !isSavedWidgetsPage">
-           <span class="text-surface-400 text-lg">/</span>
+           <span class="text-lg text-[#5f5f65]">/</span>
            <div ref="projectDropdownRef" class="relative inline-block">
             <button @click="toggleProjectDropdown"
-              class="flex items-center gap-2 text-surface-400 font-medium text-sm hover:opacity-80 w-full justify-between">
+              class="flex w-full items-center justify-between gap-2 text-sm font-medium text-[#d4d4d8] transition-opacity hover:opacity-80">
               {{ currentProjectName }}
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
@@ -50,7 +52,10 @@
             </button>
 
             <div v-if="projectDropdownOpen"
-              class="absolute top-full left-0 mt-1 bg-white rounded shadow-lg w-64 max-h-80 overflow-y-auto z-50 p-2">
+              :class="[
+                'absolute top-full left-0 z-50 mt-2 max-h-80 w-64 overflow-y-auto rounded-xl border p-2 shadow-lg',
+                isDark ? 'border-[#2f2f35] bg-[#171717]' : 'border-[#e5e7eb] bg-white'
+              ]">
               <div class="w-full mb-2">
                 <IconField class="w-full">
                   <InputIcon class="pi pi-search" />
@@ -59,13 +64,13 @@
               </div>
               <div v-for="proj in filteredProjects" :key="proj.id ?? ''" @click="selectProject(proj)"
                 :class="[
-                  'px-4 py-2 cursor-pointer text-sm rounded flex items-center justify-between',
+                  'flex cursor-pointer items-center justify-between rounded-lg px-4 py-2 text-sm',
                   currentProject?.id === proj.id 
-                    ? 'bg-blue-100 text-blue-700 font-medium' 
-                    : 'hover:bg-gray-100 text-surface-950'
+                    ? 'bg-primary-50 text-primary-600 font-medium' 
+                    : isDark ? 'text-surface-0 hover:bg-[#222225]' : 'text-surface-950 hover:bg-gray-100'
                 ]">
                 <span>{{ proj.name }}</span>
-                <i v-if="currentProject?.id === proj.id" class="pi pi-check text-blue-600"></i>
+                <i v-if="currentProject?.id === proj.id" class="pi pi-check text-primary-500"></i>
               </div>
             </div>
           </div>
@@ -73,21 +78,38 @@
       </template>
     </div>
 
+         <div class="flex items-center gap-3">
+       <button
+         type="button"
+         class="flex h-9 w-9 items-center justify-center rounded-full border border-[#2d2d31] bg-transparent text-[#a1a1aa] transition-colors hover:border-[#4a4a50] hover:text-white"
+         :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+         @click="toggleTheme"
+       >
+         <span :class="isDark ? 'pi pi-sun' : 'pi pi-moon'"></span>
+       </button>
+
          <div ref="avatarDropdownRef" class="relative">
        <button @click="toggleAvatarDropdown" class="flex items-center">
          <img src="@/assets/avatar.png" class="h-8 w-8 rounded-full cursor-pointer hover:opacity-80" />
        </button>
        
        <div v-if="avatarDropdownOpen" 
-         class="absolute top-full right-0 mt-1 bg-white rounded shadow-lg w-48 z-50">
+         :class="[
+           'absolute top-full right-0 z-50 mt-2 w-48 rounded-xl border shadow-lg',
+           isDark ? 'border-[#2f2f35] bg-[#171717]' : 'border-[#e5e7eb] bg-white'
+         ]">
          <div class="py-1">
            <button @click="handleLogout" 
-             class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+             :class="[
+               'flex w-full items-center px-4 py-2 text-left text-sm',
+               isDark ? 'text-surface-0 hover:bg-[#222225]' : 'text-gray-700 hover:bg-gray-100'
+             ]">
              <i class="pi pi-sign-out mr-2"></i>
              Logout
            </button>
          </div>
        </div>
+     </div>
      </div>
   </div>
 </template>
@@ -101,6 +123,7 @@ import type { Application, Project } from '@kinotic-ai/os-api';
 import InputText from 'primevue/inputtext';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
+import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
 
 @Component({
   components: {
@@ -165,6 +188,14 @@ export default class Header extends Vue {
 
   get currentProjectName() {
     return this.currentProject?.name || 'Select Project';
+  }
+
+  get isDark() {
+    return darkMode.value;
+  }
+
+  toggleTheme() {
+    toggleDark();
   }
 
   @Watch('$route.fullPath', { immediate: true })

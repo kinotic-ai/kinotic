@@ -8,6 +8,7 @@ import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@/util/debug'
 import type {Application} from "@kinotic-ai/os-api";
 import {Kinotic} from "@kinotic-ai/core";
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('application-sidebar');
 
@@ -35,6 +36,13 @@ const form = reactive<ApplicationForm>({
 })
 
 const loading = ref(false)
+const isDark = darkMode
+const inputClass = computed(() => [
+  'w-full !shadow-none',
+  isDark.value
+    ? 'border-[#434349] bg-[#262626] text-white placeholder:text-[#8d8d96] focus:border-[#52525b]'
+    : 'border-[#d8dce6] bg-white text-[#101010] placeholder:text-[#9ca3af]'
+])
 
 const isSubmitDisabled = computed(() => loading.value || form.name.trim() === '')
 
@@ -100,11 +108,20 @@ function handleClose(): void {
 </script>
 
 <template>
-  <transition name="slide">
-    <div v-if="props.visible" class="fixed inset-y-0 right-0 w-[400px] h-screen bg-white shadow-xl z-50 overflow-y-auto">
-      <div class="flex justify-between items-center mb-4 border-b border-b-[#E6E7EB] p-4">
+  <transition
+    enter-active-class="transition-transform duration-300 ease-out"
+    enter-from-class="translate-x-full"
+    enter-to-class="translate-x-0"
+    leave-active-class="transition-transform duration-300 ease-in"
+    leave-from-class="translate-x-0"
+    leave-to-class="translate-x-full"
+  >
+    <div v-if="props.visible" :class="['fixed inset-y-0 right-0 z-50 h-screen w-[400px] overflow-y-auto shadow-xl', isDark ? 'bg-[#171717] text-white' : 'bg-white text-[#101010]']">
+      <div :class="['mb-4 flex items-center justify-between border-b p-4', isDark ? 'border-b-[#2f2f35]' : 'border-b-[#E6E7EB]']">
         <div class="flex items-center gap-3">
-          <img src="@/assets/action-plus-icon.svg" />
+          <div :class="['flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-[8px]', isDark ? 'bg-[#262626]' : 'bg-[#f4f5f9]']">
+            <img src="@/assets/plus.svg" alt="Create application" class="h-6 w-6" />
+          </div>
           <h2 class="text-lg font-semibold">New Application</h2>
         </div>
         <span @click="handleClose" class="w-[11px] h-[11px] cursor-pointer">
@@ -114,27 +131,27 @@ function handleClose(): void {
       <form @submit.prevent="handleSubmit" class="flex flex-col h-[calc(100vh-100px)] justify-between gap-4 p-4">
         <div>
           <div class="mb-5">
-            <label class="block text-sm text-[#101010] mb-3 font-semibold">Name</label>
-            <InputText v-model="form.name" type="text" class="w-full" required />
+            <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Name</label>
+            <InputText v-model="form.name" type="text" :class="inputClass" required />
           </div>
           <div class="mb-5">
-            <label class="block text-sm text-[#101010] mb-3 font-semibold">Description</label>
-            <Textarea v-model="form.description" class="w-full" rows="3" />
+            <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Description</label>
+            <Textarea v-model="form.description" :class="inputClass" rows="3" />
           </div>
           <div>
-            <label class="block text-sm text-[#101010] mb-3 font-semibold">API configuration</label>
-            <div class="border border-[#E6E7EB] rounded-2xl w-full divide-y divide-[#E6E7EB]">
+            <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">API configuration</label>
+            <div :class="['w-full divide-y rounded-2xl border', isDark ? 'border-[#2f2f35] divide-[#2f2f35] bg-[#171717]' : 'border-[#E6E7EB] divide-[#E6E7EB]']">
               <div class="flex items-center justify-between p-4">
                 <div class="flex items-center gap-2">
                   <img src="@/assets/graphql.svg" />
-                  <span class="text-[#3F424D] text-sm font-normal">GraphQL</span>
+                  <span :class="['text-sm font-normal', isDark ? 'text-[#f4f4f5]' : 'text-[#3F424D]']">GraphQL</span>
                 </div>
                 <ToggleButton v-model="form.graphql" onLabel="On" offLabel="Off" />
               </div>
               <div class="flex items-center justify-between p-4">
                 <div class="flex items-center gap-2">
                   <img src="@/assets/scalar.svg" />
-                  <span class="text-[#3F424D] text-sm font-normal">OpenAPI</span>
+                  <span :class="['text-sm font-normal', isDark ? 'text-[#f4f4f5]' : 'text-[#3F424D]']">OpenAPI</span>
                 </div>
                 <ToggleButton v-model="form.openapi" onLabel="On" offLabel="Off" />
               </div>

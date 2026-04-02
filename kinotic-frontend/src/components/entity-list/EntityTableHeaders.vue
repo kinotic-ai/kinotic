@@ -1,6 +1,6 @@
 <template>
   <thead class="sticky top-0 z-10">
-    <tr style="background-color: #101010;">
+    <tr style="background-color: var(--p-surface-950);">
       <th
         v-for="header in el.headers"
         :key="header.field"
@@ -11,8 +11,8 @@
           position: 'relative',
           height: '38px'
         }"
-        class="px-0 py-0 text-left text-xs font-medium text-white"
-        style="border: 1px solid #28282B;"
+        class="px-0 py-0 text-left text-xs font-medium text-surface-0"
+        style="border: 1px solid var(--p-surface-800);"
       >
         <div class="flex items-center gap-1 h-full px-2 min-w-0 overflow-hidden">
           <span 
@@ -21,10 +21,10 @@
             @click.stop="el.toggleColumnExpansion(header.field)"
           >
             <svg v-if="el.isColumnExpanded(header.field)" width="7" height="4" viewBox="0 0 7 4" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M1 0.5L3.5 3L6 0.5" stroke="#9B87F5" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M1 0.5L3.5 3L6 0.5" stroke="var(--p-primary-400)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             <svg v-else width="4" height="7" viewBox="0 0 4 7" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M0.5 1L3 3.5L0.5 6" stroke="#9B87F5" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M0.5 1L3 3.5L0.5 6" stroke="var(--p-primary-400)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </span>
           <span 
@@ -53,10 +53,11 @@
         :style="{ 
           width: (el.isColumnExpanded(header.field) ? el.getExpandedColumnWidth(header.field) : header.width) + 'px',
           maxWidth: (el.isColumnExpanded(header.field) ? el.getExpandedColumnWidth(header.field) : header.width) + 'px',
-          boxSizing: 'border-box', flexShrink: '0', height: '29px'
+          boxSizing: 'border-box', flexShrink: '0', height: '29px',
+          border: '1px solid var(--p-surface-0)',
+          color: getHeaderTextColorForDepth()
         }"
         class="px-0 py-0 text-left text-xs font-medium"
-        style="border: 1px solid white;"
       >
         <div v-if="el.isColumnExpanded(header.field)" class="flex w-full h-full">
           <RecursiveHeaderCell
@@ -116,10 +117,10 @@ const RecursiveHeaderCell = defineComponent({
             }, [
               isExpanded
                 ? h('svg', { width: '7', height: '4', viewBox: '0 0 7 4', fill: 'none', xmlns: 'http://www.w3.org/2000/svg' }, [
-                    h('path', { d: 'M1 0.5L3.5 3L6 0.5', stroke: '#AFB0B8', 'stroke-width': '1', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })
+                    h('path', { d: 'M1 0.5L3.5 3L6 0.5', stroke: '#3f3f46', 'stroke-width': '1', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })
                   ])
                 : h('svg', { width: '4', height: '7', viewBox: '0 0 4 7', fill: 'none', xmlns: 'http://www.w3.org/2000/svg' }, [
-                    h('path', { d: 'M0.5 1L3 3.5L0.5 6', stroke: '#AFB0B8', 'stroke-width': '1', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })
+                    h('path', { d: 'M0.5 1L3 3.5L0.5 6', stroke: '#3f3f46', 'stroke-width': '1', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })
                   ])
             ])
           )
@@ -155,7 +156,7 @@ const RecursiveHeaderCell = defineComponent({
         children.push(
           h('div', {
             key: childPath.join('.'),
-            class: 'px-2 py-1 border-r last:border-r-0 border-white relative',
+            class: 'px-2 py-1 border-r last:border-r-0 relative',
             style: {
               width: width + 'px',
               minWidth: '80px',
@@ -163,7 +164,9 @@ const RecursiveHeaderCell = defineComponent({
               flexShrink: '0',
               height: '29px',
               display: 'flex',
-              alignItems: 'center'
+              alignItems: 'center',
+              borderColor: 'var(--p-surface-0)',
+              color: 'var(--p-surface-800)'
             }
           }, [
             h('div', { class: 'flex items-center gap-1 min-w-0 overflow-hidden w-full' }, cellChildren)
@@ -177,12 +180,13 @@ const RecursiveHeaderCell = defineComponent({
         children.push(
           h('div', {
             key: childPath.join('.'),
-            class: 'border-r last:border-r-0 border-white',
+            class: 'border-r last:border-r-0',
             style: {
               width: width + 'px',
               minWidth: '80px',
               boxSizing: 'border-box',
-              flexShrink: '0'
+              flexShrink: '0',
+              borderColor: 'var(--p-surface-0)'
             }
           }, [
             h('div', { class: 'flex w-full h-full' }, [
@@ -202,12 +206,13 @@ const RecursiveHeaderCell = defineComponent({
         children.push(
           h('div', {
             key: childPath.join('.'),
-            class: 'border-r last:border-r-0 border-white',
+            class: 'border-r last:border-r-0',
             style: {
               width: width + 'px',
               minWidth: '80px',
               boxSizing: 'border-box',
-              flexShrink: '0'
+              flexShrink: '0',
+              borderColor: 'var(--p-surface-0)'
             }
           })
         )
@@ -290,7 +295,11 @@ export default defineComponent({
       return `hsl(${hue} ${saturation}% ${lightness}%)`
     }
 
-    return { el, nestedDepthLevels, getHeaderColorForDepth }
+    function getHeaderTextColorForDepth(): string {
+      return 'var(--p-surface-800)'
+    }
+
+    return { el, nestedDepthLevels, getHeaderColorForDepth, getHeaderTextColorForDepth }
   }
 })
 </script>

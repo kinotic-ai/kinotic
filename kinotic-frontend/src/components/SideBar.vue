@@ -4,6 +4,7 @@ import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import SidebarItem from './SidebarItem.vue'
 import strCollapse from '@/assets/str-collapse.svg'
 import strExpand from '@/assets/str-expand.svg'
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const COLLAPSE_KEY = 'sidebar-collapsed'
 
@@ -37,6 +38,10 @@ export default class Sidebar extends Vue {
 
   get route(): RouteLocationNormalizedLoaded {
     return this.$route
+  }
+
+  get isDark() {
+    return darkMode.value
   }
 
   toggleSidebar() {
@@ -83,7 +88,11 @@ export default class Sidebar extends Vue {
 <template>
   <div class="fixed rounded-xl top-[64px] left-0 z-40 h-[calc(100vh-67px)] pl-[8px] pt-[8px] pb-[8px] box-border"
     :class="[collapsed ? 'w-[75px]' : 'w-[256px]']">
-    <div :class="['bg-surface-50 rounded-xl flex flex-col justify-between h-full', 'transition-[width] duration-300 ease-in-out w-full box-border', collapsed ? 'px-1 py-2 items-center' : 'px-2 py-2']">
+    <div :class="[
+      'flex h-full flex-col justify-between rounded-xl transition-[width,background-color,border-color] duration-300 ease-in-out w-full box-border border',
+      collapsed ? 'px-1 py-2 items-center' : 'px-2 py-2',
+      isDark ? 'border-[#2b2b2f] bg-[#262626]' : 'border-[#ececf1] bg-[#f7f7f8]'
+    ]">
       <div class="flex flex-col w-full" :class="collapsed ? 'justify-center items-center' : 'pl-[10px]'">
         <SidebarItem
           v-for="item in sidebarItems"
@@ -97,8 +106,14 @@ export default class Sidebar extends Vue {
         />
       </div>
 
-      <div @click="toggleSidebar" class="cursor-pointer p-2 hover:bg-gray-200 rounded-lg transition w-max !pl-3">
-        <img :style="{ width: '14px', height: '14px' }" :src="collapsed ? strExpand : strCollapse" alt="Toggle Sidebar" class="w-5 h-5 transition-transform duration-300" :class="collapsed ? 'rotate-180' : ''"/>
+      <div
+        @click="toggleSidebar"
+        :class="[
+          'w-max cursor-pointer rounded-lg p-2 !pl-3 transition-colors',
+          isDark ? 'hover:bg-[#2f2f34]' : 'hover:bg-gray-200'
+        ]"
+      >
+        <img :style="{ width: '14px', height: '14px' }" :src="collapsed ? strExpand : strCollapse" alt="Toggle Sidebar" class="w-5 h-5 transition-transform duration-300" :class="[collapsed ? 'rotate-180' : '', isDark ? 'opacity-70 invert' : 'opacity-70']"/>
       </div>
     </div>
   </div>

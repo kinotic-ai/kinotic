@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const props = defineProps<{
   icon: string,
@@ -10,20 +11,24 @@ const props = defineProps<{
   isActive: boolean
 }>()
 
+const isDark = computed(() => darkMode.value)
+
 const textClass = computed(() => {
-  return props.isActive ? 'text-surface-800' : 'text-surface-500';
-});
+  if (props.isActive) return isDark.value ? 'text-white' : 'text-[#101010]'
+  return isDark.value ? 'text-[#a3a3a3]' : 'text-[#71717a]'
+})
 
 const iconClass = computed(() => {
-  return props.isActive ? 'text-primary-500' : 'text-surface-500';
-});
+  return props.isActive ? 'text-primary-500' : isDark.value ? 'text-[#7b7b83]' : 'text-[#8e8e96]'
+})
 </script>
 
 <template>
   <div
     :class="[
-      'flex items-center cursor-pointer w-max pb-2 rounded-md hover:bg-surface-200 pl-1 transition-colors duration-200',
-      props.isActive ? '' : 'bg-transparent', 
+      'flex w-full items-center rounded-md pl-1 pb-2 transition-colors duration-200 cursor-pointer',
+      props.isActive ? '' : 'bg-transparent',
+      isDark ? 'hover:bg-[#2f2f34]' : 'hover:bg-surface-200',
       props.collapsed ? 'justify-center' : 'px-2 '
     ]"
     @click="$emit('click')"
@@ -38,8 +43,9 @@ const iconClass = computed(() => {
     <div v-if="!props.collapsed">
       <span
         :class="[ 
-          'inline-block whitespace-nowrap text-sm font-normal transform transition-all duration-300 origin-left', 
+          'inline-block whitespace-nowrap text-sm transform transition-all duration-300 origin-left',
           textClass, 
+          props.isActive ? 'font-medium' : 'font-normal',
           props.collapsed ? 'opacity-0 scale-x-0' : 'opacity-100 scale-x-100'
         ]"
       >

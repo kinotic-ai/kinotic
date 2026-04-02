@@ -5,6 +5,7 @@ import Column from 'primevue/column'
 import Toolbar from 'primevue/toolbar'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
+import { isDark as darkMode } from '@/composables/useTheme'
 
 import { Pageable, type Page, Order, Direction, type Identifiable } from '@kinotic-ai/core'
 import { Kinotic } from '@kinotic-ai/core'
@@ -26,7 +27,7 @@ const debug = createDebug('entity-list-old');
     InputText
   }
 })
-export default class EntityList extends Vue {
+class EntityList extends Vue {
   @Prop({ type: String }) structureId?: string
 
   loading = false
@@ -48,6 +49,10 @@ export default class EntityList extends Vue {
     first: 0,
     sortField: '',
     sortOrder: 1
+  }
+
+  get isDark(): boolean {
+    return darkMode.value
   }
 
   mounted() {
@@ -169,24 +174,27 @@ if (!id) {
       })
   }
 }
+
+export default EntityList
 </script>
 
 <template>
-  <div class="overflow-y-auto w-full">
-    <Toolbar class="!w-full">
+  <div :class="['entity-list-old w-full overflow-y-auto', isDark ? 'entity-list-old--dark bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
+    <Toolbar :class="['!w-full', isDark ? '!border-surface-700 !bg-surface-900 !text-surface-0' : '']">
       <template #start>
         <InputText
           v-model="searchText" 
           placeholder="Search" 
           @keyup.enter="search" 
           @focus="($event.target as HTMLInputElement)?.select()"
-          class="w-1/2"
+          :class="['w-1/2 !shadow-none', isDark ? 'border-surface-600 !bg-surface-950 !text-surface-0 placeholder:!text-surface-400' : '']"
         />
         <Button icon="pi pi-times" class="ml-2" v-if="searchText" @click="clearSearch" />
       </template>
     </Toolbar>
 
     <DataTable :value="items" :loading="loading" :paginator="true" :rows="options.rows" :totalRecords="totalItems"
+      :class="isDark ? 'entity-list-old__table' : ''"
       :first="options.first" :lazy="true" :sortField="options.sortField" :sortOrder="options.sortOrder" @page="onPage"
       @sort="onSort" :scrollable="true" scrollHeight="flex" :resizableColumns="true" columnResizeMode="expand">
       <template v-if="headers.length > 0">
@@ -228,5 +236,41 @@ if (!id) {
 }
 .p-toolbar-start {
   width: 100% !important;
+}
+
+.entity-list-old--dark .p-datatable,
+.entity-list-old--dark .p-datatable-wrapper,
+.entity-list-old--dark .p-datatable-table-container,
+.entity-list-old--dark .p-datatable-table,
+.entity-list-old--dark .p-datatable-header,
+.entity-list-old--dark .p-paginator {
+  background: var(--p-surface-900) !important;
+  color: var(--p-surface-0) !important;
+}
+
+.entity-list-old--dark .p-datatable-thead > tr > th {
+  background: var(--p-surface-950) !important;
+  border-color: var(--p-surface-700) !important;
+  color: var(--p-surface-100) !important;
+}
+
+.entity-list-old--dark .p-datatable-tbody > tr,
+.entity-list-old--dark .p-datatable-tbody > tr > td {
+  background: var(--p-surface-900) !important;
+  border-color: var(--p-surface-700) !important;
+  color: var(--p-surface-100) !important;
+}
+
+.entity-list-old--dark .p-datatable-tbody > tr:hover,
+.entity-list-old--dark .p-datatable-tbody > tr:hover > td {
+  background: var(--p-surface-800) !important;
+}
+
+.entity-list-old--dark .p-paginator .p-paginator-page,
+.entity-list-old--dark .p-paginator .p-paginator-next,
+.entity-list-old--dark .p-paginator .p-paginator-prev,
+.entity-list-old--dark .p-paginator .p-paginator-first,
+.entity-list-old--dark .p-paginator .p-paginator-last {
+  color: var(--p-surface-200) !important;
 }
 </style>

@@ -19,7 +19,7 @@
       </template>
 
       <template #additional-actions="{ item }">
-        <Button text class="!text-[#334155] !bg-white" title="OpenAPI">
+        <Button text :class="isDark ? '!text-[#d4d4d8] !bg-[#171717]' : '!text-[#334155] !bg-white'" title="OpenAPI">
           <RouterLink target="_blank" :to="'/scalar-ui.html?namespace=' + item.id">
             <svg width="20" height="20" viewBox="0 0 24 24">
               <path :d="icons.api" fill="currentColor" />
@@ -27,7 +27,7 @@
           </RouterLink>
         </Button>
 
-        <Button text class="!text-[#334155] !bg-white" title="GraphQL">
+        <Button text :class="isDark ? '!text-[#d4d4d8] !bg-[#171717]' : '!text-[#334155] !bg-white'" title="GraphQL">
           <RouterLink target="_blank" :to="'/gql-ui.html?namespace=' + item.id">
             <svg width="20" height="20" viewBox="0 0 24 24">
               <path :d="icons.graph" fill="currentColor" />
@@ -48,6 +48,7 @@ import { type IApplicationService } from '@kinotic-ai/os-api'
 import { mdiGraphql, mdiApi } from '@mdi/js'
 import type { CrudHeader } from '@/types/CrudHeader'
 import { createDebug } from '@/util/debug'
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('users');
 
@@ -66,6 +67,10 @@ export default class Users extends Vue {
   icons = {
     graph: mdiGraphql,
     api: mdiApi
+  }
+
+  get isDark() {
+    return darkMode.value
   }
 
   async mounted(): Promise<void> {
