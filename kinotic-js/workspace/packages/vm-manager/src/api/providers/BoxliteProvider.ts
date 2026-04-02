@@ -1,13 +1,15 @@
+import { SimpleBox } from '@boxlite-ai/boxlite'
 import type { IVmProvider } from '@/api/providers/IVmProvider'
 import { Workload, WorkloadStatus } from '@kinotic-ai/os-api'
 
 /**
- * VM provider implementation using boxlite for micro VM management.
+ * VM provider implementation using the boxlite Node.js SDK for micro VM management.
  * @see https://github.com/boxlite-ai/boxlite
  */
 export class BoxliteProvider implements IVmProvider {
 
     private readonly workloads: Map<string, Workload> = new Map()
+    private readonly boxes: Map<string, SimpleBox> = new Map()
 
     async start(workload: Workload): Promise<Workload> {
         const id = workload.id ?? crypto.randomUUID()
@@ -19,21 +21,28 @@ export class BoxliteProvider implements IVmProvider {
         this.workloads.set(id, workload)
 
         try {
-            const args = this.buildBoxliteArgs(workload)
-            const proc = Bun.spawn(['boxlite', 'run', ...args], {
-                stdout: 'inherit',
-                stderr: 'inherit',
+            const box = new SimpleBox({
+                image: workload.image,
+                name: id,
+                cpus: workload.vcpus,
+                memoryMib: workload.memoryMb,
+                env: workload.environment,
+                ports: Object.entries(workload.portMappings).map(([hostPort, guestPort]) => ({
+                    hostPort: Number(hostPort),
+                    guestPort: Number(guestPort),
+                })),
+                autoRemove: false,
             })
 
-            await proc.exited
+            this.boxes.set(id, box)
 
-            if (proc.exitCode === 0) {
-                workload.status = WorkloadStatus.RUNNING
-            } else {
-                workload.status = WorkloadStatus.FAILED
-            }
+            // Verify the box is responsive
+            await box.exec('echo', ['ready'])
+
+            workload.status = WorkloadStatus.RUNNING
         } catch (error) {
             workload.status = WorkloadStatus.FAILED
+            this.boxes.delete(id)
             throw error
         } finally {
             workload.updated = Date.now()
@@ -48,18 +57,19 @@ export class BoxliteProvider implements IVmProvider {
             throw new Error(`Workload not found: ${workloadId}`)
         }
 
+        const box = this.boxes.get(workloadId)
+        if (!box) {
+            throw new Error(`Box not found for workload: ${workloadId}`)
+        }
+
         workload.status = WorkloadStatus.STOPPING
         workload.updated = Date.now()
 
-        const proc = Bun.spawn(['boxlite', 'stop', workloadId], {
-            stdout: 'inherit',
-            stderr: 'inherit',
-        })
-
-        await proc.exited
+        await box.stop()
 
         workload.status = WorkloadStatus.STOPPED
         workload.updated = Date.now()
+        this.boxes.delete(workloadId)
     }
 
     async destroy(workloadId: string): Promise<void> {
@@ -68,12 +78,11 @@ export class BoxliteProvider implements IVmProvider {
             throw new Error(`Workload not found: ${workloadId}`)
         }
 
-        const proc = Bun.spawn(['boxlite', 'rm', '-f', workloadId], {
-            stdout: 'inherit',
-            stderr: 'inherit',
-        })
-
-        await proc.exited
+        const box = this.boxes.get(workloadId)
+        if (box) {
+            await box.stop()
+            this.boxes.delete(workloadId)
+        }
 
         this.workloads.delete(workloadId)
     }
@@ -88,25 +97,5 @@ export class BoxliteProvider implements IVmProvider {
 
     async listWorkloads(): Promise<Workload[]> {
         return Array.from(this.workloads.values())
-    }
-
-    private buildBoxliteArgs(workload: Workload): string[] {
-        const args: string[] = []
-
-        args.push('--name', workload.id!)
-        args.push('--cpus', String(workload.vcpus))
-        args.push('--memory', `${workload.memoryMb}M`)
-
-        for (const [hostPort, guestPort] of Object.entries(workload.portMappings)) {
-            args.push('-p', `${hostPort}:${guestPort}`)
-        }
-
-        for (const [key, value] of Object.entries(workload.environment)) {
-            args.push('-e', `${key}=${value}`)
-        }
-
-        args.push(workload.image)
-
-        return args
     }
 }

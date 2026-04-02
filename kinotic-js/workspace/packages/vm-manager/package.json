@@ -12,6 +12,7 @@
     "dev": "bun run src/index.ts"
   },
   "dependencies": {
+    "@boxlite-ai/boxlite": "^0.8.2",
     "@kinotic-ai/core": "workspace:*",
     "@kinotic-ai/os-api": "workspace:*"
   },
