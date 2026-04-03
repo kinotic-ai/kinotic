@@ -6,14 +6,14 @@ Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true
 
 ## Package Structure
 
-Both Java and TypeScript modules follow the same layout convention:
+Both Java and TypeScript modules follow the same layout convention. The rule is: if something will be used by another module/node, it belongs in `api/`. If not, it belongs in `internal/`. The `internal/` structure mirrors `api/` for implementations.
 
-- `api/` — Public interfaces and types meant to be used externally
-- `internal/api/` — Implementations (annotated with `@Publish`, `@Component`, etc.)
-- `model/` — DTOs and value objects
-- `services/` — Service proxies for calling remote services
+- `api/` — Public interfaces, types, and DTOs used by other modules or nodes
+- `internal/` — Everything private to this module; mirrors the `api/` structure
+  - `internal/api/` — Implementations of public interfaces (`@Publish`, `@Component`, etc.)
+  - `internal/services/` — Service proxies only used within this module
 
-In Java, `@Publish` goes on the interface in `api/`, and `@Component` on the implementation in `internal/api/`. In TypeScript, `@Publish` goes on the implementation class in `internal/api/`, with a plain interface in `api/`.
+Example: `api/services/ITodoService` with its implementation at `internal/api/services/DefaultTodoService`.
 
 ## Publishing Services
 
