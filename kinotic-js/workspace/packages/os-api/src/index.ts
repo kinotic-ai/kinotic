@@ -34,7 +34,6 @@ export * from '@/api/model/Workload'
 export * from '@/api/model/WorkloadStatus'
 export * from '@/api/model/VmProviderType'
 export * from '@/api/model/VmNode'
-export * from '@/api/model/VmNodeRegistration'
 export * from '@/api/model/VmNodeStatus'
 
 // Services

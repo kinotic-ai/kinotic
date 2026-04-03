@@ -1,6 +1,7 @@
 import { Kinotic } from '@kinotic-ai/core'
-import type { ConnectionInfo, IServiceProxy } from '@kinotic-ai/core'
-import { VmNodeRegistration } from '@kinotic-ai/os-api'
+import type { ConnectionInfo } from '@kinotic-ai/core'
+import { VmNodeRegistration } from '@/api/VmNodeRegistration'
+import { VmNodeOrchestrationServiceProxy } from '@/api/VmNodeOrchestrationServiceProxy'
 import { VmManager } from '@/api/VmManager'
 import os from 'node:os'
 
@@ -19,10 +20,10 @@ const heartbeatIntervalMs = Number(process.env.KINOTIC_HEARTBEAT_INTERVAL_MS ?? 
 
 let heartbeatTimer: Timer | null = null
 
-function startHeartbeat(proxy: IServiceProxy) {
+function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy) {
     heartbeatTimer = setInterval(async () => {
         try {
-            await proxy.invoke('heartbeat', [nodeId])
+            await nodeOrchestrator.heartbeat(nodeId!)
         } catch (error) {
             console.error('Heartbeat failed:', error)
         }
@@ -49,14 +50,16 @@ async function start() {
     registration.totalMemoryMb = Math.floor(os.totalmem() / (1024 * 1024))
 
     // Register this node with the VmNodeOrchestrationService on the server
-    const nodeOrchestratorProxy = Kinotic.serviceProxy('org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService')
-    await nodeOrchestratorProxy.invoke('registerNode', [registration])
+    const nodeOrchestrator = new VmNodeOrchestrationServiceProxy(
+        Kinotic.serviceProxy('org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService')
+    )
+    await nodeOrchestrator.registerNode(registration)
 
     console.log(`VM Manager registered on node: ${nodeId}`)
     console.log(`  CPUs: ${registration.totalCpus}, Memory: ${registration.totalMemoryMb}MB`)
 
     // Start sending periodic heartbeats
-    startHeartbeat(nodeOrchestratorProxy)
+    startHeartbeat(nodeOrchestrator)
     console.log(`Heartbeat started (every ${heartbeatIntervalMs / 1000}s)`)
 }
 
