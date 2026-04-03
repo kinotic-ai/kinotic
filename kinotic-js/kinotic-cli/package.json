@@ -21,8 +21,8 @@
     "@inquirer/prompts": "^8.3.2",
     "@kinotic-ai/core": "^1.1.1",
     "@kinotic-ai/idl": "^1.0.9",
-    "@kinotic-ai/os-api": "^1.0.9",
-    "@kinotic-ai/persistence": "^1.0.9",
+    "@kinotic-ai/os-api": "^1.0.10",
+    "@kinotic-ai/persistence": "^1.0.10",
     "@oclif/core": "^4.9.0",
     "@oclif/plugin-autocomplete": "^3.2.41",
     "@oclif/plugin-help": "^6",
@@ -58,7 +58,7 @@
     "@types/uuid": "^11.0.0",
     "@types/ws": "^8.18.1",
     "chai": "^6",
-    "eslint": "^10",
+    "eslint": "^9",
     "eslint-config-oclif": "^6",
     "eslint-config-prettier": "^10",
     "mocha": "^11",
@@ -89,7 +89,7 @@
     }
   },
   "scripts": {
-    "build": "shx rm -rf dist && tsc -b && tsc-alias && pnpm run copy-files",
+    "build": "shx rm -rf dist && tsc -b && tsc-alias -f && pnpm run copy-files",
     "lint": "eslint . --ext .ts --config .eslintrc",
     "postpack": "shx rm -f oclif.manifest.json",
     "posttest": "pnpm lint",

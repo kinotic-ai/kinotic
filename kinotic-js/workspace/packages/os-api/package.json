@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/os-api",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "type": "module",
   "files": [
     "dist"
@@ -32,13 +32,16 @@
     "coverage": "vitest run --coverage",
     "ui-test": "vitest --ui --coverage.enabled=true --mode development"
   },
+  "peerDependencies": {
+    "@kinotic-ai/core": ">=1.0.0"
+  },
   "dependencies": {
-    "@kinotic-ai/core": "workspace:*",
     "@kinotic-ai/idl": "workspace:*",
     "@kinotic-ai/persistence": "workspace:*",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
+    "@kinotic-ai/core": "workspace:*",
     "@types/node": "^25.3.2",
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/runner": "^4.0.18",

@@ -12,7 +12,7 @@ $ npm install -g @kinotic-ai/kinotic-cli
 $ kinotic COMMAND
 running command...
 $ kinotic (--version)
-@kinotic-ai/kinotic-cli/1.0.3 darwin-arm64 node-v22.13.1
+@kinotic-ai/kinotic-cli/2.0.0 darwin-arm64 node-v22.13.1
 $ kinotic --help [COMMAND]
 USAGE
   $ kinotic COMMAND
@@ -22,6 +22,7 @@ USAGE
 # Commands
 <!-- commands -->
 * [`kinotic autocomplete [SHELL]`](#kinotic-autocomplete-shell)
+* [`kinotic create project NAME`](#kinotic-create-project-name)
 * [`kinotic gen`](#kinotic-gen)
 * [`kinotic generate`](#kinotic-generate)
 * [`kinotic help [COMMAND]`](#kinotic-help-command)
@@ -72,19 +73,40 @@ EXAMPLES
 
 _See code: [@oclif/plugin-autocomplete](https://github.com/oclif/plugin-autocomplete/blob/v3.2.41/src/commands/autocomplete/index.ts)_
 
-## `kinotic gen`
+## `kinotic create project NAME`
 
-This will generate all Entity Service classes.
+Creates a Kinotic Project
 
 ```
 USAGE
-  $ kinotic gen [-v]
+  $ kinotic create project NAME
+
+ARGUMENTS
+  NAME  The name for the project
+
+DESCRIPTION
+  Creates a Kinotic Project
+
+EXAMPLES
+  $ kinotic create project MyProjectName
+```
+
+_See code: [src/commands/create/project.ts](https://github.com/kinotic-ai/kinotic/blob/v2.0.0/src/commands/create/project.ts)_
+
+## `kinotic gen`
+
+This will generate all Repository classes.
+
+```
+USAGE
+  $ kinotic gen [-v] [-f]
 
 FLAGS
+  -f, --force    Force full regeneration, ignoring incremental change detection
   -v, --verbose  Enable verbose logging
 
 DESCRIPTION
-  This will generate all Entity Service classes.
+  This will generate all Repository classes.
 
 ALIASES
   $ kinotic gen
@@ -95,21 +117,24 @@ EXAMPLES
   $ kinotic gen
 
   $ kinotic gen -v
+
+  $ kinotic gen --force
 ```
 
 ## `kinotic generate`
 
-This will generate all Entity Service classes.
+This will generate all Repository classes.
 
 ```
 USAGE
-  $ kinotic generate [-v]
+  $ kinotic generate [-v] [-f]
 
 FLAGS
+  -f, --force    Force full regeneration, ignoring incremental change detection
   -v, --verbose  Enable verbose logging
 
 DESCRIPTION
-  This will generate all Entity Service classes.
+  This will generate all Repository classes.
 
 ALIASES
   $ kinotic gen
@@ -120,9 +145,11 @@ EXAMPLES
   $ kinotic gen
 
   $ kinotic gen -v
+
+  $ kinotic gen --force
 ```
 
-_See code: [src/commands/generate.ts](https://github.com/kinotic-ai/kinotic/blob/v1.0.3/src/commands/generate.ts)_
+_See code: [src/commands/generate.ts](https://github.com/kinotic-ai/kinotic/blob/v2.0.0/src/commands/generate.ts)_
 
 ## `kinotic help [COMMAND]`
 
@@ -150,12 +177,13 @@ This will initialize a new Kinotic Project for use with the Kinotic CLI.
 
 ```
 USAGE
-  $ kinotic init [-a <value>] [-e <value>] [-g <value>]
+  $ kinotic init [-a <value>] [-e <value>] [-r <value>] [-m]
 
 FLAGS
   -a, --application=<value>  The name of the application you want to use
   -e, --entities=<value>     Path to the directory containing the Entity definitions
-  -g, --generated=<value>    Path to the directory to write generated Services
+  -m, --mirror               Mirror the entity folder structure under the repository path
+  -r, --repository=<value>   Path to the directory to write generated Repository classes
 
 DESCRIPTION
   This will initialize a new Kinotic Project for use with the Kinotic CLI.
@@ -164,11 +192,13 @@ ALIASES
   $ kinotic init
 
 EXAMPLES
-  $ kinotic initialize --application my.app --entities path/to/entities --generated path/to/services
+  $ kinotic initialize --application my.app --entities path/to/entities --repository path/to/repository
 
-  $ kinotic init --application my.app --entities path/to/entities --generated path/to/services
+  $ kinotic init --application my.app --entities path/to/entities --repository path/to/repository
 
-  $ kinotic init -a my.app -e path/to/entities -g path/to/services
+  $ kinotic init -a my.app -e path/to/entities -r path/to/repository
+
+  $ kinotic init -a my.app -e path/to/entities -r path/to/repository --mirror
 ```
 
 ## `kinotic initialize`
@@ -177,12 +207,13 @@ This will initialize a new Kinotic Project for use with the Kinotic CLI.
 
 ```
 USAGE
-  $ kinotic initialize [-a <value>] [-e <value>] [-g <value>]
+  $ kinotic initialize [-a <value>] [-e <value>] [-r <value>] [-m]
 
 FLAGS
   -a, --application=<value>  The name of the application you want to use
   -e, --entities=<value>     Path to the directory containing the Entity definitions
-  -g, --generated=<value>    Path to the directory to write generated Services
+  -m, --mirror               Mirror the entity folder structure under the repository path
+  -r, --repository=<value>   Path to the directory to write generated Repository classes
 
 DESCRIPTION
   This will initialize a new Kinotic Project for use with the Kinotic CLI.
@@ -191,14 +222,16 @@ ALIASES
   $ kinotic init
 
 EXAMPLES
-  $ kinotic initialize --application my.app --entities path/to/entities --generated path/to/services
+  $ kinotic initialize --application my.app --entities path/to/entities --repository path/to/repository
 
-  $ kinotic init --application my.app --entities path/to/entities --generated path/to/services
+  $ kinotic init --application my.app --entities path/to/entities --repository path/to/repository
 
-  $ kinotic init -a my.app -e path/to/entities -g path/to/services
+  $ kinotic init -a my.app -e path/to/entities -r path/to/repository
+
+  $ kinotic init -a my.app -e path/to/entities -r path/to/repository --mirror
 ```
 
-_See code: [src/commands/initialize.ts](https://github.com/kinotic-ai/kinotic/blob/v1.0.3/src/commands/initialize.ts)_
+_See code: [src/commands/initialize.ts](https://github.com/kinotic-ai/kinotic/blob/v2.0.0/src/commands/initialize.ts)_
 
 ## `kinotic plugins`
 
@@ -496,7 +529,7 @@ Synchronize the local Entity definitions with the Kinotic Server
 
 ```
 USAGE
-  $ kinotic sync [-s <value>] [-p] [-v] [-f <value>] [--dryRun]
+  $ kinotic sync [-s <value>] [-p] [-v] [-f <value>] [--dryRun] [--force]
 
 FLAGS
   -f, --authHeaderFile=<value>  JSON File containing authentication headers
@@ -504,6 +537,7 @@ FLAGS
   -s, --server=<value>          The Kinotic server to connect to
   -v, --verbose                 Enable verbose logging
       --dryRun                  Dry run enables verbose logging and does not save any changes to the server
+      --force                   Force full regeneration, ignoring incremental change detection
 
 DESCRIPTION
   Synchronize the local Entity definitions with the Kinotic Server
@@ -527,7 +561,7 @@ Synchronize the local Entity definitions with the Kinotic Server
 
 ```
 USAGE
-  $ kinotic synchronize [-s <value>] [-p] [-v] [-f <value>] [--dryRun]
+  $ kinotic synchronize [-s <value>] [-p] [-v] [-f <value>] [--dryRun] [--force]
 
 FLAGS
   -f, --authHeaderFile=<value>  JSON File containing authentication headers
@@ -535,6 +569,7 @@ FLAGS
   -s, --server=<value>          The Kinotic server to connect to
   -v, --verbose                 Enable verbose logging
       --dryRun                  Dry run enables verbose logging and does not save any changes to the server
+      --force                   Force full regeneration, ignoring incremental change detection
 
 DESCRIPTION
   Synchronize the local Entity definitions with the Kinotic Server
@@ -552,7 +587,7 @@ EXAMPLES
   $ kinotic sync -p -v -s http://localhost:9090
 ```
 
-_See code: [src/commands/synchronize.ts](https://github.com/kinotic-ai/kinotic/blob/v1.0.3/src/commands/synchronize.ts)_
+_See code: [src/commands/synchronize.ts](https://github.com/kinotic-ai/kinotic/blob/v2.0.0/src/commands/synchronize.ts)_
 
 ## `kinotic update [CHANNEL]`
 
