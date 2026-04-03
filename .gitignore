@@ -76,6 +76,9 @@ node_modules/
 structures-frontend/.env.development
 structures-frontend/.env.production
 
+kinotic-js/workspace/packages/vm-manager/.env.local
+kinotic-js/workspace/packages/vm-manager/.env.production
+
 structures-js/structures-cli/.structures/
 structures-js/structures-ui-example/.structures/
 
