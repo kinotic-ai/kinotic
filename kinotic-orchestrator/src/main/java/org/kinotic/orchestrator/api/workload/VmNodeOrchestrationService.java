@@ -2,7 +2,7 @@ package org.kinotic.orchestrator.api.workload;
 
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.os.api.model.workload.VmNode;
-import org.kinotic.os.api.model.workload.VmNodeRegistration;
+import org.kinotic.orchestrator.api.workload.VmNodeRegistration;
 
 import java.util.concurrent.CompletableFuture;
 

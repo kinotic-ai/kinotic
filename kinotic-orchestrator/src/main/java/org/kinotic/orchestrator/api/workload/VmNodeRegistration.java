@@ -1,4 +1,4 @@
-package org.kinotic.os.api.model.workload;
+package org.kinotic.orchestrator.api.workload;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

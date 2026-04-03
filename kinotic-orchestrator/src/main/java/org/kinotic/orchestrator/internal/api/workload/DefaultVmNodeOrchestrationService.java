@@ -10,7 +10,7 @@ import org.kinotic.orchestrator.api.config.KinoticOrchestratorProperties;
 import org.kinotic.orchestrator.api.config.VmNodeProperties;
 import org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService;
 import org.kinotic.os.api.model.workload.VmNode;
-import org.kinotic.os.api.model.workload.VmNodeRegistration;
+import org.kinotic.orchestrator.api.workload.VmNodeRegistration;
 import org.kinotic.os.api.model.workload.VmNodeStatus;
 import org.kinotic.os.api.model.workload.Workload;
 import org.kinotic.os.api.model.workload.WorkloadStatus;
