@@ -1,7 +1,7 @@
 {
   "name": "@kinotic-ai/kinotic-cli",
-  "version": "1.0.3",
-  "description": "Kinotic CLI provides the ability to interact with the Kinotic Server",
+  "version": "2.0.0",
+  "description": "Kinotic CLI provides the ability to build, deploy, and manage Kinotic applications that run on the Kinotic OS.",
   "author": "Kinotic Developers",
   "bin": {
     "kinotic": "./bin/run.js"
