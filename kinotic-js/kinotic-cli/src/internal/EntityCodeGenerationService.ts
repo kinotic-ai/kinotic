@@ -5,7 +5,7 @@ import path from 'path'
 import {Project, Type} from 'ts-morph'
 import {fileURLToPath} from 'url'
 import {PageableC3Type, PageC3Type} from '@kinotic-ai/os-api'
-import {KinoticProjectConfig} from '@kinotic-ai/core'
+import {type EntitiesPathConfig, KinoticProjectConfig} from '@kinotic-ai/core'
 import {createImportString, StatementMapper} from './converter/codegen/StatementMapper'
 import {StatementMapperConversionState} from './converter/codegen/StatementMapperConversionState'
 import {StatementMapperConverterStrategy} from './converter/codegen/StatementMapperConverterStrategy'
@@ -22,6 +22,7 @@ import {
     getRelativeImportPath,
     tryGetNodeModuleName, writeEntityJsonToFilesystem, writeGeneratedServiceInfoToFilesystem
 } from './Utils'
+import {GitChangeDetector} from './GitChangeDetector'
 import chalk from 'chalk'
 
 export type GeneratedEntityProcessor = (entityInfo: EntityInfo, serviceInfo: GeneratedServiceInfo[]) => Promise<void>
@@ -56,29 +57,73 @@ export class EntityCodeGenerationService {
 
     public async generateAllEntities(projectConfig: KinoticProjectConfig,
                                      verbose: boolean,
-                                     entityProcessor?: GeneratedEntityProcessor){
+                                     entityProcessor?: GeneratedEntityProcessor,
+                                     force: boolean = false){
 
-        for(const entitiesPath of projectConfig.entitiesPaths) {
+        const changeDetector = new GitChangeDetector(this.logger)
+
+        // Resolve all entity paths for change detection
+        const resolvedConfigs = projectConfig.entitiesPaths.map(entry => this.resolveEntitiesPathConfig(entry, projectConfig))
+        const allEntitiesPaths = resolvedConfigs.map(c => c.path)
+
+        // Determine which files have changed (null means full scan)
+        const changedFiles = force ? null : await changeDetector.getChangedEntityFiles(allEntitiesPaths)
+
+        if (changedFiles !== null && changedFiles.size === 0) {
+            this.logger.log('No entity files changed since last generation, skipping')
+            return
+        }
+
+        if (changedFiles !== null) {
+            this.logger.log(`Incremental generation: ${changedFiles.size} changed file(s) detected`)
+        }
+
+        for (const resolvedPathConfig of resolvedConfigs) {
             const config: ConversionConfiguration = {
                 application        : projectConfig.application,
-                entitiesPath       : entitiesPath,
+                entitiesPath       : resolvedPathConfig.path,
                 verbose            : verbose,
                 logger             : this.logger
             }
-            await this.processEntities(config, projectConfig, entityProcessor)
+            await this.processEntities(config, projectConfig, resolvedPathConfig, changedFiles, entityProcessor)
         }
 
+        await changeDetector.saveLastGenerationHash()
+    }
+
+    /**
+     * Normalizes an entitiesPaths entry into a fully resolved {@link EntitiesPathConfig}.
+     */
+    private resolveEntitiesPathConfig(entry: string | EntitiesPathConfig,
+                                      projectConfig: KinoticProjectConfig): EntitiesPathConfig {
+        if (typeof entry === 'string') {
+            if (!projectConfig.generatedPath) {
+                throw new Error(`entitiesPaths contains a plain string "${entry}" but no generatedPath is configured. `
+                    + `Either use an EntitiesPathConfig object or set generatedPath.`)
+            }
+            return {
+                path: entry,
+                repositoryPath: projectConfig.generatedPath,
+                mirrorFolderStructure: false
+            }
+        }
+        return {
+            ...entry,
+            mirrorFolderStructure: entry.mirrorFolderStructure ?? true
+        }
     }
 
     private async processEntities(config: ConversionConfiguration,
                                   projectConfig: KinoticProjectConfig,
+                                  pathConfig: EntitiesPathConfig,
+                                  changedFiles: Set<string> | null,
                                   entityProcessor?: GeneratedEntityProcessor): Promise<void>{
 
         if (!fs.existsSync(config.entitiesPath)) {
             throw new Error(`Entities path does not exist: ${config.entitiesPath}`)
         }
 
-        const convertedEntities: EntityInfo[] = convertAllEntities(config)
+        const convertedEntities: EntityInfo[] = convertAllEntities(config, changedFiles)
 
         if (convertedEntities.length > 0) {
 
@@ -86,27 +131,31 @@ export class EntityCodeGenerationService {
 
                 this.logger.logVerbose(`Generated Persistence Mapping for ${entityInfo.entity.namespace}.${entityInfo.entity.name}`, config.verbose)
 
+                const repositoryOutputPath = this.resolveRepositoryOutputPath(entityInfo, pathConfig)
+
                 const generatedServices: GeneratedServiceInfo[] = []
 
-                generatedServices.push(await this.generateEntityService(false,
-                                                             entityInfo,
-                                                                        projectConfig))
+                generatedServices.push(await this.generateRepository(false,
+                                                                     entityInfo,
+                                                                     projectConfig,
+                                                                     repositoryOutputPath))
 
                 if(entityInfo.multiTenantSelectionEnabled){
-                    generatedServices.push(await this.generateEntityService(true,
-                                                                            entityInfo,
-                                                                            projectConfig))
+                    generatedServices.push(await this.generateRepository(true,
+                                                                         entityInfo,
+                                                                         projectConfig,
+                                                                         repositoryOutputPath))
                 }
 
                 if(config.verbose){
 
-                    await writeEntityJsonToFilesystem(projectConfig.generatedPath,
+                    await writeEntityJsonToFilesystem(repositoryOutputPath,
                                                       entityInfo.entity,
                                                       this.logger)
 
                     for(let generatedServiceInfo of generatedServices) {
                         if (generatedServiceInfo.namedQueries.length > 0) {
-                            await writeGeneratedServiceInfoToFilesystem(projectConfig.generatedPath,
+                            await writeGeneratedServiceInfoToFilesystem(repositoryOutputPath,
                                                                         generatedServiceInfo,
                                                                         this.logger)
                         }
@@ -123,15 +172,33 @@ export class EntityCodeGenerationService {
         }
     }
 
-    private async generateEntityService(adminService: boolean,
-                                        entityInfo: EntityInfo,
-                                        projectConfig: KinoticProjectConfig): Promise<GeneratedServiceInfo> {
+    /**
+     * Resolves the output path for generated repository files based on the entity's source location
+     * and the path configuration.
+     */
+    private resolveRepositoryOutputPath(entityInfo: EntityInfo, pathConfig: EntitiesPathConfig): string {
+        const absEntitiesPath = path.resolve(pathConfig.path)
+        const absRepositoryPath = path.resolve(pathConfig.repositoryPath)
+
+        if (pathConfig.mirrorFolderStructure) {
+            // Compute the entity's relative directory within the entities path
+            const absEntityDir = path.dirname(path.resolve(entityInfo.exportedFromFile))
+            const relativeDir = path.relative(absEntitiesPath, absEntityDir)
+            return path.resolve(absRepositoryPath, relativeDir)
+        }
+
+        return absRepositoryPath
+    }
+
+    private async generateRepository(adminService: boolean,
+                                      entityInfo: EntityInfo,
+                                      projectConfig: KinoticProjectConfig,
+                                      repositoryOutputPath: string): Promise<GeneratedServiceInfo> {
 
         const adminPrefix = (adminService ? 'Admin' : '')
         const fileExtensionForImports = this.fileExtensionForImports
-        const generatedPath = projectConfig.generatedPath
-        const baseEntityServicePath = path.resolve(generatedPath, 'generated', `Base${entityInfo.entity.name}${adminPrefix}EntityService.ts`)
-        const entityServicePath = path.resolve(generatedPath, `${entityInfo.entity.name}${adminPrefix}EntityService.ts`)
+        const baseEntityServicePath = path.resolve(repositoryOutputPath, 'generated', `Base${entityInfo.entity.name}${adminPrefix}Repository.ts`)
+        const entityServicePath = path.resolve(repositoryOutputPath, `${entityInfo.entity.name}${adminPrefix}Repository.ts`)
 
         const entityName = entityInfo.entity.name
         const entityNamespace = entityInfo.entity.namespace
@@ -155,7 +222,7 @@ export class EntityCodeGenerationService {
 
         //  We always generate the base entity service. This way if our internal logic changes we can update it
         fs.mkdirSync(path.dirname(baseEntityServicePath), {recursive: true})
-        const baseReadStream= await this.engine.renderFileToNodeStream(`Base${adminPrefix}EntityService`,
+        const baseReadStream= await this.engine.renderFileToNodeStream(`Base${adminPrefix}Repository`,
                                                                        {
                                                                            entityName,
                                                                            entityNamespace,
@@ -170,7 +237,7 @@ export class EntityCodeGenerationService {
         //  we only generate if the file does not exist
         let namedQueries: FunctionDefinition[] = []
         if (!fs.existsSync(entityServicePath)) {
-            const readStream= await this.engine.renderFileToNodeStream(`${adminPrefix}EntityService`,
+            const readStream= await this.engine.renderFileToNodeStream(`${adminPrefix}Repository`,
                                                                        {
                                                                            entityName,
                                                                            entityNamespace,
@@ -181,12 +248,12 @@ export class EntityCodeGenerationService {
             readStream.pipe(writeStream)
         } else {
             // if it already exists we check if there are any named queries defined
-            namedQueries = await this.processNamedQueries(`${entityName}${adminPrefix}EntityService`,
+            namedQueries = await this.processNamedQueries(`${entityName}${adminPrefix}Repository`,
                                                           entityServicePath)
         }
 
         return {
-            entityServiceName: `${entityName}${adminPrefix}EntityService`,
+            entityServiceName: `${entityName}${adminPrefix}Repository`,
             namedQueries: namedQueries
         }
     }

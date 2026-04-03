@@ -17,8 +17,11 @@ async function buildEntityDefinitions() {
         const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
         namespaceConfig.application = namespace
         namespaceConfig.validate = false
-        namespaceConfig.entitiesPaths = [path.resolve(__dirname, '../entity/domain/ecommerce')]
-        namespaceConfig.generatedPath = path.resolve(__dirname, '../services/ecommerce')
+        namespaceConfig.entitiesPaths = [{
+            path: path.resolve(__dirname, '../entity/domain/ecommerce'),
+            repositoryPath: path.resolve(__dirname, '../services/ecommerce'),
+            mirrorFolderStructure: false
+        }]
 
         // Ensure output directory exists
         await fs.mkdir(outputDir, { recursive: true })
@@ -42,8 +45,11 @@ async function buildEntityDefinitions() {
         const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
         namespaceConfig.application = namespace
         namespaceConfig.validate = false
-        namespaceConfig.entitiesPaths = [path.resolve(__dirname, '../entity/domain/health')]
-        namespaceConfig.generatedPath = path.resolve(__dirname, '../services/health')
+        namespaceConfig.entitiesPaths = [{
+            path: path.resolve(__dirname, '../entity/domain/health'),
+            repositoryPath: path.resolve(__dirname, '../services/health'),
+            mirrorFolderStructure: false
+        }]
 
         // Ensure output directory exists
         await fs.mkdir(outputDir, { recursive: true })

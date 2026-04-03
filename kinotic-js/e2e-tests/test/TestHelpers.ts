@@ -83,8 +83,11 @@ export async function createSchema(applicationId: string, projectId: string, ent
 
         const config = new KinoticProjectConfig()
         config.application = applicationId
-        config.entitiesPaths = [path.resolve(__dirname, './domain')]
-        config.generatedPath = path.resolve(__dirname, './services')
+        config.entitiesPaths = [{
+            path: path.resolve(__dirname, './domain'),
+            repositoryPath: path.resolve(__dirname, './services'),
+            mirrorFolderStructure: false
+        }]
         config.validate = false
         config.fileExtensionForImports = ''
         
