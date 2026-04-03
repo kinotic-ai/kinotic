@@ -242,7 +242,12 @@ export function createTsMorphProject(): Project {
     })
 }
 
-export function convertAllEntities(config: ConversionConfiguration): EntityInfo[]{
+/**
+ * Converts all entities found in the given path configuration.
+ * @param config the conversion configuration
+ * @param changedFiles optional set of absolute file paths to limit processing to. If null, all files are processed.
+ */
+export function convertAllEntities(config: ConversionConfiguration, changedFiles?: Set<string> | null): EntityInfo[]{
     const entities: EntityInfo[] = []
 
     const project = createTsMorphProject()
@@ -264,6 +269,11 @@ export function convertAllEntities(config: ConversionConfiguration): EntityInfo[
 
         // make sure this file is in our configured paths and not just introduced by the ts-config
         if(absSourcePath.startsWith(absEntitiesPath)) {
+
+            // Skip files that haven't changed if incremental mode is active
+            if(changedFiles && !changedFiles.has(absSourcePath)) {
+                continue
+            }
 
             const conversionContext =
                       createConversionContext(new TypescriptConverterStrategy(new TypescriptConversionState(config.application),

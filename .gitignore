@@ -59,6 +59,9 @@ build/
 # IntelliJ
 out/
 
+# Kinotic CLI local state
+.kinotic/
+
 # Node Projects
 node_modules/
 

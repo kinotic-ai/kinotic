@@ -10,7 +10,7 @@ export class EntityDefinitionGenerator {
     constructor(
         private readonly application: string,
         private readonly entitiesPath: string,
-        private readonly generatedPath: string
+        private readonly repositoryPath: string
     ) {
         this.logger = new ConsoleLogger()
         this.codeGenerationService = new CodeGenerationService(application, '.js', this.logger)
@@ -22,8 +22,11 @@ export class EntityDefinitionGenerator {
         const projectConfig = new KinoticProjectConfig()
         projectConfig.application = this.application
         projectConfig.validate = false
-        projectConfig.entitiesPaths = [this.entitiesPath]
-        projectConfig.generatedPath = this.generatedPath
+        projectConfig.entitiesPaths = [{
+            path: this.entitiesPath,
+            repositoryPath: this.repositoryPath,
+            mirrorFolderStructure: false
+        }]
 
         await this.codeGenerationService.generateAllEntities(
             projectConfig,

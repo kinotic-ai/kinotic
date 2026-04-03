@@ -1,5 +1,5 @@
 {
-  "name": "Kinotic",
+  "name": "kinotic-website",
   "scripts": {
     "dev": "nuxt dev",
     "build": "nuxt build",
