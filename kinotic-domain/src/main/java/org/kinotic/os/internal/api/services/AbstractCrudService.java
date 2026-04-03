@@ -49,8 +49,17 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         return esAsyncClient.index(i -> i
                 .index(indexName)
                 .id(entity.getId())
+                .document(entity))
+                .thenCompose(indexResponse -> findById(indexResponse.id()));
+    }
+
+    @Override
+    public CompletableFuture<T> saveSync(T entity) {
+        return esAsyncClient.index(i -> i
+                .index(indexName)
+                .id(entity.getId())
                 .document(entity)
-                .refresh(Refresh.True))
+                .refresh(Refresh.WaitFor))
                 .thenCompose(indexResponse -> findById(indexResponse.id()));
     }
 
