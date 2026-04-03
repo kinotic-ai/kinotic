@@ -1,4 +1,4 @@
-import {PersonEntityService} from '@/services/PersonEntityService.js'
+import {PersonRepository} from '@/repository/PersonRepository.js'
 import {KinoticOperationTaskGenerator} from '@/tasks/KinoticOperationTaskGenerator.ts'
 import {ITaskFactory} from '@/tasks/ITaskFactory.js'
 import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
@@ -16,7 +16,7 @@ import info from '../../package.json' assert {type: 'json'}
 export class MultiTenantFindTaskGenerator implements ITaskGenerator {
 
     private continuumTaskGenerator: KinoticOperationTaskGenerator
-    private personEntityService: PersonEntityService
+    private personRepository: PersonRepository
     private tracer: Tracer
 
     constructor(connectionInfoSupplier: () => Promise<ConnectionInfo>,
@@ -26,7 +26,7 @@ export class MultiTenantFindTaskGenerator implements ITaskGenerator {
 
         const kinotic = new KinoticSingleton()
         kinotic.use(OsApiPlugin).use(PersistencePlugin)
-        this.personEntityService = new PersonEntityService(new EntitiesService(kinotic))
+        this.personRepository = new PersonRepository(new EntitiesService(kinotic))
 
         this.continuumTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,
                                                                         kinotic,
@@ -61,7 +61,7 @@ export class MultiTenantFindTaskGenerator implements ITaskGenerator {
                                 kind: SpanKind.CLIENT
                             },
                             async(span) => {
-                                return this.personEntityService.findAll(Pageable.create(0, pageSize))
+                                return this.personRepository.findAll(Pageable.create(0, pageSize))
                                            .then(
                                                async (value) => {
                                                    span.end()
