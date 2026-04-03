@@ -16,11 +16,11 @@ import tools.jackson.databind.module.SimpleModule;
  * Created by navid on 2019-07-24.
  */
 @Configuration
-public class KinoticOsApiJacksonConfig {
+public class KinoticDomainJacksonConfig {
 
     @Bean
-    public SimpleModule kinoticOsApiModule(){
-        SimpleModule ret = new SimpleModule("KinoticOsApiModule", Version.unknownVersion());
+    public SimpleModule kinoticDomainModule(){
+        SimpleModule ret = new SimpleModule("KinoticDomainModule", Version.unknownVersion());
 
         ret.addDeserializer(RawJson.class, new RawJsonDeserializer(new ObjectMapper()));
         ret.addSerializer(RawJson.class, new RawJsonSerializer());
