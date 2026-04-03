@@ -48,8 +48,8 @@ async function start() {
     node.totalCpus = os.cpus().length
     node.totalMemoryMb = Math.floor(os.totalmem() / (1024 * 1024))
 
-    // Register this node with the NodeOrchestrationService on the server
-    const nodeOrchestratorProxy = Kinotic.serviceProxy('org.kinotic.orchestrator.api.workload.NodeOrchestrationService')
+    // Register this node with the VmNodeOrchestrationService on the server
+    const nodeOrchestratorProxy = Kinotic.serviceProxy('org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService')
     await nodeOrchestratorProxy.invoke('registerNode', [node])
 
     console.log(`VM Manager registered on node: ${nodeId}`)

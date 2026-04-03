@@ -3,7 +3,7 @@ package org.kinotic.orchestrator.internal.api.workload;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.orchestrator.api.workload.NodeOrchestrationService;
+import org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService;
 import org.kinotic.orchestrator.api.workload.VmManagerProxy;
 import org.kinotic.orchestrator.api.workload.WorkloadOrchestrationService;
 import org.kinotic.os.api.model.workload.Workload;
@@ -21,12 +21,12 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
     private static final Logger log = LoggerFactory.getLogger(DefaultWorkloadOrchestrationService.class);
 
-    private final NodeOrchestrationService nodeOrchestrationService;
+    private final VmNodeOrchestrationService nodeOrchestrationService;
     private final VmManagerProxy vmManagerProxy;
     private final VmNodeService vmNodeService;
     private final WorkloadService workloadService;
 
-    public DefaultWorkloadOrchestrationService(NodeOrchestrationService nodeOrchestrationService,
+    public DefaultWorkloadOrchestrationService(VmNodeOrchestrationService nodeOrchestrationService,
                                                VmManagerProxy vmManagerProxy,
                                                VmNodeService vmNodeService,
                                                WorkloadService workloadService) {

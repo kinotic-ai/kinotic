@@ -7,7 +7,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.orchestrator.api.config.KinoticOrchestratorProperties;
 import org.kinotic.orchestrator.api.config.NodeProperties;
-import org.kinotic.orchestrator.api.workload.NodeOrchestrationService;
+import org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService;
 import org.kinotic.os.api.model.workload.VmNode;
 import org.kinotic.os.api.model.workload.VmNodeStatus;
 import org.kinotic.os.api.model.workload.Workload;
@@ -25,16 +25,16 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 @Component
-public class DefaultNodeOrchestrationService implements NodeOrchestrationService {
+public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationService {
 
-    private static final Logger log = LoggerFactory.getLogger(DefaultNodeOrchestrationService.class);
+    private static final Logger log = LoggerFactory.getLogger(DefaultVmNodeOrchestrationService.class);
 
     private final KinoticOrchestratorProperties orchestratorProperties;
     private final VmNodeService vmNodeService;
     private final WorkloadService workloadService;
     private ScheduledExecutorService scheduler;
 
-    public DefaultNodeOrchestrationService(KinoticOrchestratorProperties orchestratorProperties,
+    public DefaultVmNodeOrchestrationService(KinoticOrchestratorProperties orchestratorProperties,
                                            VmNodeService vmNodeService,
                                            WorkloadService workloadService) {
         this.orchestratorProperties = orchestratorProperties;

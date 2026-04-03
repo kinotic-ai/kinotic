@@ -13,7 +13,7 @@ import java.util.concurrent.CompletableFuture;
  * Nodes must send periodic heartbeats to remain in ONLINE status.
  */
 @Publish
-public interface NodeOrchestrationService {
+public interface VmNodeOrchestrationService {
 
     /**
      * Registers a VmNode with the orchestrator so it can receive workload deployments.
