@@ -27,6 +27,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     private final WorkloadService workloadService;
 
     public DefaultWorkloadOrchestrationService(VmNodeOrchestrationService nodeOrchestrationService,
+                                               @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
                                                VmManagerProxy vmManagerProxy,
                                                VmNodeService vmNodeService,
                                                WorkloadService workloadService) {

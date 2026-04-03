@@ -91,7 +91,6 @@ public class DefaultProjectService extends AbstractCrudService<Project> implemen
             String projectId = (project.getApplicationId()+"_"+slg.slugify(project.getName())).toLowerCase();
             project.setId(projectId);
         }
-
         project.setUpdated(new Date());
         return super.save(project);
     }

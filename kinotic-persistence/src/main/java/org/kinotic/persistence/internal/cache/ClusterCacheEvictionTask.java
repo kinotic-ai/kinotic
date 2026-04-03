@@ -3,12 +3,12 @@ package org.kinotic.persistence.internal.cache;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.lang.IgniteRunnable;
+import org.apache.ignite.resources.SpringApplicationContextResource;
 import org.apache.ignite.resources.SpringResource;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.cache.events.EvictionSourceOperation;
 import org.kinotic.persistence.internal.cache.events.EvictionSourceType;
-import org.springframework.context.ApplicationEventPublisher;
-import org.kinotic.persistence.internal.config.CacheEvictionConfiguration;
+import org.springframework.context.ApplicationContext;
 
 /**
  * Simple Ignite Compute Grid task for cluster-wide cache eviction.
@@ -25,8 +25,6 @@ import org.kinotic.persistence.internal.config.CacheEvictionConfiguration;
  * - Use {@code resourceClass} to inject by type, or {@code resourceName} to inject by bean name
  * - Injection happens automatically when the task is executed on each cluster node
  * - Each node must have the Spring ApplicationContext available (handled by Continuum)
- * - Note: We inject {@link ApplicationEventPublisher} using bean name "applicationEventPublisher"
- *   which is provided by {@link CacheEvictionConfiguration#applicationEventPublisher()}
  *   This bean wraps the ApplicationContext and makes it available for Ignite task injection
  */
 @Slf4j
@@ -45,8 +43,8 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
      * This bean is provided by CacheEvictionConfiguration.applicationEventPublisher().
      * Marked as transient to prevent serialization (injection happens on each node).
      */
-    @SpringResource(resourceName = "applicationEventPublisher")
-    private transient ApplicationEventPublisher eventPublisher;
+    @SpringApplicationContextResource
+    private ApplicationContext eventPublisher;
 
 
     /**
