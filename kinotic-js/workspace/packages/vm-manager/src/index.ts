@@ -35,6 +35,7 @@ async function start() {
         host: serverHost,
         port: serverPort,
         connectHeaders: { login: serverLogin, passcode: serverPasscode },
+        disableStickySession: true
     }
     await Kinotic.connect(connectionInfo)
     console.log(`Connected to Kinotic server at ${serverHost}:${serverPort}`)
