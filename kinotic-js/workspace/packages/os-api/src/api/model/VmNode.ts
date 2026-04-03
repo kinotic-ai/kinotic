@@ -63,11 +63,6 @@ export class VmNode implements Identifiable<string> {
     public lastSeen: number | null = null
 
     /**
-     * The date and time the node was registered.
-     */
-    public created: number | null = null
-
-    /**
      * The date and time the node was last updated.
      */
     public updated: number | null = null

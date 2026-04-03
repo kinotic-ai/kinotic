@@ -53,9 +53,6 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
         Validate.notNull(entity, "VmNode cannot be null");
         Validate.notNull(entity.getId(), "VmNode id cannot be null");
         entity.setUpdated(new Date());
-        if (entity.getCreated() == null) {
-            entity.setCreated(new Date());
-        }
         return super.save(entity);
     }
 

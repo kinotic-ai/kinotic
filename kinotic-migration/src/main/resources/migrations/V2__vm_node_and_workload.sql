@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     allocatedMemoryMb INTEGER,
     allocatedDiskMb INTEGER,
     lastSeen DATE,
-    created DATE,
     updated DATE
 );
 

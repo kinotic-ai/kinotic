@@ -75,11 +75,6 @@ public class VmNode implements Identifiable<String> {
     private Date lastSeen;
 
     /**
-     * The date and time the node was registered.
-     */
-    private Date created;
-
-    /**
      * The date and time the node was last updated.
      */
     private Date updated;
