@@ -12,10 +12,10 @@ bun install -g @kinotic-ai/kinotic-cli
 
 ### `kinotic init` / `kinotic initialize`
 
-Initialize a new Kinotic project. Creates the configuration file and directory structure for entity definitions and generated services.
+Initialize a new Kinotic project. Creates the configuration file and directory structure for entity definitions and generated repositories.
 
 ```bash
-kinotic init --application my.app --entities src/entities --generated src/generated
+kinotic init --application my.app --entities src/model --repository src/repository
 ```
 
 **Flags:**
@@ -61,12 +61,24 @@ kinotic init --application my.app --entities src/entities --generated src/genera
   <tr>
     <td>
       <code>
-        -g, --generated
+        -r, --repository
       </code>
     </td>
     
     <td>
-      Path for generated service classes
+      Path for generated repository classes
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        -m, --mirror
+      </code>
+    </td>
+    
+    <td>
+      Mirror the entity folder structure under the repository path (default: true)
     </td>
   </tr>
 </tbody>
@@ -76,7 +88,7 @@ kinotic init --application my.app --entities src/entities --generated src/genera
 
 ### `kinotic generate` / `kinotic gen`
 
-Generate Entity Service classes from synced entity definitions. This reads the entity definitions that have been synchronized with the server and produces TypeScript service classes you can import and use.
+Generate Repository classes from synced entity definitions. This reads the entity definitions that have been synchronized with the server and produces TypeScript repository classes you can import and use.
 
 ```bash
 kinotic generate

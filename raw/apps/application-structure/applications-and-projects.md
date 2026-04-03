@@ -25,8 +25,13 @@ When you run `kinotic init`, a `.kinotic.json` file is created in your project r
 ```json
 {
     "application": "my.app",
-    "entitiesPaths": ["src/entities"],
-    "generatedPath": "src/generated"
+    "entitiesPaths": [
+        {
+            "path": "src/entities",
+            "repositoryPath": "src/generated",
+            "mirrorFolderStructure": true
+        }
+    ]
 }
 ```
 
@@ -66,27 +71,27 @@ When you run `kinotic init`, a `.kinotic.json` file is created in your project r
     </td>
     
     <td>
-      An array of directories containing entity definitions. The CLI scans these paths when you run <code>
+      An array of <code>
+        EntitiesPathConfig
+      </code>
+      
+       objects. Each object specifies <code>
+        path
+      </code>
+      
+       (the directory containing entity definitions), <code>
+        repositoryPath
+      </code>
+      
+       (where the CLI writes auto-generated repository classes), and <code>
+        mirrorFolderStructure
+      </code>
+      
+       (whether to replicate the entity directory structure in the output). The CLI scans these paths when you run <code>
         kinotic sync
       </code>
       
       .
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        generatedPath
-      </code>
-    </td>
-    
-    <td>
-      The directory where the CLI writes auto-generated service classes. This path is typically added to <code>
-        .gitignore
-      </code>
-      
-       or committed depending on your workflow preference.
     </td>
   </tr>
 </tbody>
@@ -112,7 +117,7 @@ Most applications start with a single project that handles persistence:
 
 ```bash
 mkdir my-app && cd my-app
-kinotic init --application my.app --entities src/entities --generated src/generated
+kinotic init --application my.app --entities src/entities --repository src/generated
 ```
 
 As the application grows, you can add additional projects for microservices, batch jobs, or frontends -- each with its own `.kinotic.json` pointing to the same application identifier.
