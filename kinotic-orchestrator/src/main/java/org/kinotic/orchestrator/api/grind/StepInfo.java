@@ -1,6 +1,6 @@
 
 
-package org.kinotic.orchestrator.api;
+package org.kinotic.orchestrator.api.grind;
 
 /**
  * The sequence of {@link Step}'s that have been executed to get to a specific {@link Result}

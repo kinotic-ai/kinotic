@@ -1,6 +1,6 @@
 
 
-package org.kinotic.orchestrator.api;
+package org.kinotic.orchestrator.api.grind;
 
 /**
  * Represents the progress of a {@link JobDefinition} or {@link Task}

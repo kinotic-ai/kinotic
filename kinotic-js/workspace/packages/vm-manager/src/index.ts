@@ -40,10 +40,10 @@ async function start() {
     console.log(`Connected to Kinotic server at ${serverHost}:${serverPort}`)
 
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
-    const vmManager = new VmManager(nodeId)
+    const vmManager = new VmManager(nodeId!)
 
     // Build node info from system resources
-    const node = new VmNode(nodeId, os.hostname(), os.hostname())
+    const node = new VmNode(nodeId!, os.hostname(), os.hostname())
     node.status = VmNodeStatus.ONLINE
     node.totalCpus = os.cpus().length
     node.totalMemoryMb = Math.floor(os.totalmem() / (1024 * 1024))

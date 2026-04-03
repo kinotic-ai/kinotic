@@ -1,8 +1,8 @@
 
 
-package org.kinotic.orchestrator.api;
+package org.kinotic.orchestrator.api.grind;
 
-import org.kinotic.orchestrator.internal.api.GrindConstants;
+import org.kinotic.orchestrator.internal.api.grind.GrindConstants;
 import org.apache.commons.lang3.Validate;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.core.env.MapPropertySource;

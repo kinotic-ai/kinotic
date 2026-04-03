@@ -1,13 +1,13 @@
 
 
-package org.kinotic.orchestrator.internal.api;
+package org.kinotic.orchestrator.internal.api.grind;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.orchestrator.api.DiagnosticLevel;
-import org.kinotic.orchestrator.api.JobDefinition;
-import org.kinotic.orchestrator.api.JobService;
-import org.kinotic.orchestrator.api.Result;
-import org.kinotic.orchestrator.api.ResultOptions;
+import org.kinotic.orchestrator.api.grind.DiagnosticLevel;
+import org.kinotic.orchestrator.api.grind.JobDefinition;
+import org.kinotic.orchestrator.api.grind.JobService;
+import org.kinotic.orchestrator.api.grind.Result;
+import org.kinotic.orchestrator.api.grind.ResultOptions;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;

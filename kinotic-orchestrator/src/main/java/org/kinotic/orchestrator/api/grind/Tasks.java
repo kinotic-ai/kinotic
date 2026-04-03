@@ -1,11 +1,11 @@
 
 
-package org.kinotic.orchestrator.api;
+package org.kinotic.orchestrator.api.grind;
 
 import org.apache.commons.io.IOUtils;
-import org.kinotic.orchestrator.internal.api.InstanceTask;
-import org.kinotic.orchestrator.internal.api.NoopTask;
-import org.kinotic.orchestrator.internal.api.ValueTask;
+import org.kinotic.orchestrator.internal.api.grind.InstanceTask;
+import org.kinotic.orchestrator.internal.api.grind.NoopTask;
+import org.kinotic.orchestrator.internal.api.grind.ValueTask;
 import org.springframework.context.support.GenericApplicationContext;
 
 import java.nio.charset.StandardCharsets;

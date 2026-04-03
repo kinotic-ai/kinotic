@@ -1,11 +1,11 @@
 
 
-package org.kinotic.orchestrator.internal.api;
+package org.kinotic.orchestrator.internal.api.grind;
 
-import org.kinotic.orchestrator.api.JobDefinition;
-import org.kinotic.orchestrator.api.JobScope;
-import org.kinotic.orchestrator.api.Step;
-import org.kinotic.orchestrator.api.Task;
+import org.kinotic.orchestrator.api.grind.JobDefinition;
+import org.kinotic.orchestrator.api.grind.JobScope;
+import org.kinotic.orchestrator.api.grind.Step;
+import org.kinotic.orchestrator.api.grind.Task;
 
 import java.util.LinkedList;
 import java.util.List;

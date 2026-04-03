@@ -1,8 +1,8 @@
 
 
-package org.kinotic.orchestrator.internal.api;
+package org.kinotic.orchestrator.internal.api.grind;
 
-import org.kinotic.orchestrator.api.*;
+import org.kinotic.orchestrator.api.grind.*;
 import org.slf4j.Logger;
 import reactor.core.publisher.FluxSink;
 
@@ -31,7 +31,7 @@ public abstract class AbstractStep implements Step {
         log.debug("{} ({}%)", progress.getMessage(), progress.getPercentageComplete());
 
         if(options.isEnableProgressResults()){
-            sink.next(new org.kinotic.orchestrator.internal.api.DefaultResult<>(new StepInfo(sequence), ResultType.PROGRESS, progress));
+            sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.PROGRESS, progress));
         }
     }
 
@@ -43,7 +43,7 @@ public abstract class AbstractStep implements Step {
         }
 
         if(options.getDiagnosticsLevel().ordinal() >= diagnosticLevel.ordinal()){
-            sink.next(new org.kinotic.orchestrator.internal.api.DefaultResult<>(new StepInfo(sequence), ResultType.DIAGNOSTIC, new Diagnostic(diagnosticLevel, message)));
+            sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.DIAGNOSTIC, new Diagnostic(diagnosticLevel, message)));
         }
     }
 
@@ -55,7 +55,7 @@ public abstract class AbstractStep implements Step {
         }
 
         if(options.isEnableProgressResults()) {
-            sink.next(new org.kinotic.orchestrator.internal.api.DefaultResult<>(new StepInfo(sequence), ResultType.EXCEPTION, message + " Exception: " + throwable.getMessage()));
+            sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.EXCEPTION, message + " Exception: " + throwable.getMessage()));
         }
     }
 

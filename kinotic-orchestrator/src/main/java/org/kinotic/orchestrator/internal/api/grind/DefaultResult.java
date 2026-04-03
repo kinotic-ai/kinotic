@@ -1,10 +1,10 @@
 
 
-package org.kinotic.orchestrator.internal.api;
+package org.kinotic.orchestrator.internal.api.grind;
 
-import org.kinotic.orchestrator.api.Result;
-import org.kinotic.orchestrator.api.ResultType;
-import org.kinotic.orchestrator.api.StepInfo;
+import org.kinotic.orchestrator.api.grind.Result;
+import org.kinotic.orchestrator.api.grind.ResultType;
+import org.kinotic.orchestrator.api.grind.StepInfo;
 
 /**
  *

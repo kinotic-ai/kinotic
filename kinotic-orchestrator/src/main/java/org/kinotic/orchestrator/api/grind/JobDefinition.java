@@ -1,8 +1,8 @@
 
 
-package org.kinotic.orchestrator.api;
+package org.kinotic.orchestrator.api.grind;
 
-import org.kinotic.orchestrator.internal.api.DefaultJobDefinition;
+import org.kinotic.orchestrator.internal.api.grind.DefaultJobDefinition;
 
 import java.util.List;
 

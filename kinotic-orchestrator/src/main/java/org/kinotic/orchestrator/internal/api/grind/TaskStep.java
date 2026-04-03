@@ -1,9 +1,9 @@
 
 
-package org.kinotic.orchestrator.internal.api;
+package org.kinotic.orchestrator.internal.api.grind;
 
 import org.apache.commons.lang3.ClassUtils;
-import org.kinotic.orchestrator.api.*;
+import org.kinotic.orchestrator.api.grind.*;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

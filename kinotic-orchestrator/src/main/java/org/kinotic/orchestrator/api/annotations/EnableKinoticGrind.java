@@ -1,6 +1,6 @@
 package org.kinotic.orchestrator.api.annotations;
 
-import org.kinotic.orchestrator.api.Task;
+import org.kinotic.orchestrator.api.grind.Task;
 import org.kinotic.orchestrator.internal.api.config.KinoticGrindConfiguration;
 import org.springframework.context.annotation.Import;
 

@@ -1,6 +1,6 @@
 
 
-package org.kinotic.orchestrator.api;
+package org.kinotic.orchestrator.api.grind;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

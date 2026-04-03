@@ -1,8 +1,8 @@
 
 
-package org.kinotic.orchestrator.internal.api;
+package org.kinotic.orchestrator.internal.api.grind;
 
-import org.kinotic.orchestrator.api.Task;
+import org.kinotic.orchestrator.api.grind.Task;
 import org.springframework.context.support.GenericApplicationContext;
 
 /**

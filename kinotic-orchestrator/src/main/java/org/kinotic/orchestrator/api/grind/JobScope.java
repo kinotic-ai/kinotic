@@ -1,6 +1,6 @@
 
 
-package org.kinotic.orchestrator.api;
+package org.kinotic.orchestrator.api.grind;
 
 /**
  * The "Scope" that a {@link JobDefinition} should be executed in.
