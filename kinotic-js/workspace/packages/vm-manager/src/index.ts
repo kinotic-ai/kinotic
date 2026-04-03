@@ -1,7 +1,7 @@
 import { Kinotic } from '@kinotic-ai/core'
 import type { ConnectionInfo } from '@kinotic-ai/core'
 import { VmNodeRegistration } from '@/model/VmNodeRegistration'
-import { VmNodeOrchestrationServiceProxy } from '@/services/VmNodeOrchestrationServiceProxy'
+import { VmNodeOrchestrationServiceProxy } from '@/internal/services/VmNodeOrchestrationServiceProxy'
 import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
 import os from 'node:os'
 
