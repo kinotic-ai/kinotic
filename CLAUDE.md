@@ -34,7 +34,7 @@ public interface MyServiceProxy {
 }
 ```
 
-The `@Scope` parameter is stripped before dispatch. A `package-info.java` with `@Version` is required for the proxy package.
+The `@Scope` parameter is stripped before dispatch to the backend method. A `package-info.java` with `@Version` is required for the proxy package.
 
 From TypeScript, use `Kinotic.serviceProxy('fully.qualified.ServiceName')` and call `.invoke('methodName', [args])`.
 
@@ -44,25 +44,4 @@ Elasticsearch index migrations live in `kinotic-migration/src/main/resources/mig
 
 Files must follow `V<N>__<description>.sql` naming (e.g. `V2__add_widgets.sql`). Versions must be unique positive integers. Type mappings:
 
-| Java Type | SQL Type |
-|-----------|----------|
-| String (filterable) | KEYWORD |
-| String (searchable) | TEXT |
-| int / long | INTEGER |
-| boolean | BOOLEAN |
-| Date | DATE |
-| Map / complex object | JSON NOT INDEXED |
-
-Example:
-
-```sql
-CREATE TABLE IF NOT EXISTS kinotic_my_entity (
-    id KEYWORD,
-    name KEYWORD,
-    description TEXT,
-    count INTEGER,
-    active BOOLEAN,
-    metadata JSON NOT INDEXED,
-    created DATE
-);
-```
+And use the ANTLR4 grammar in `kinotic-migration/src/main/antlr4/KinoticMigration.g4`.
