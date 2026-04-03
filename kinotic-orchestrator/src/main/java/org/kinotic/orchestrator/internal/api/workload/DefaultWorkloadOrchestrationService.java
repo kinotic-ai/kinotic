@@ -1,5 +1,7 @@
 package org.kinotic.orchestrator.internal.api.workload;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -10,32 +12,20 @@ import org.kinotic.os.api.model.workload.Workload;
 import org.kinotic.os.api.model.workload.WorkloadStatus;
 import org.kinotic.os.api.services.VmNodeService;
 import org.kinotic.os.api.services.WorkloadService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class DefaultWorkloadOrchestrationService implements WorkloadOrchestrationService {
 
-    private static final Logger log = LoggerFactory.getLogger(DefaultWorkloadOrchestrationService.class);
-
     private final VmNodeOrchestrationService nodeOrchestrationService;
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
     private final VmManagerProxy vmManagerProxy;
     private final VmNodeService vmNodeService;
     private final WorkloadService workloadService;
-
-    public DefaultWorkloadOrchestrationService(VmNodeOrchestrationService nodeOrchestrationService,
-                                               @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
-                                               VmManagerProxy vmManagerProxy,
-                                               VmNodeService vmNodeService,
-                                               WorkloadService workloadService) {
-        this.nodeOrchestrationService = nodeOrchestrationService;
-        this.vmManagerProxy = vmManagerProxy;
-        this.vmNodeService = vmNodeService;
-        this.workloadService = workloadService;
-    }
 
     @Override
     public CompletableFuture<Workload> deployWorkload(Workload workload) {

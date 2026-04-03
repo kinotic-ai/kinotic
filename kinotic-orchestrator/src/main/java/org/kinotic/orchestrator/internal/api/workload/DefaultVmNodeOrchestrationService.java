@@ -2,6 +2,8 @@ package org.kinotic.orchestrator.internal.api.workload;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -14,8 +16,6 @@ import org.kinotic.os.api.model.workload.Workload;
 import org.kinotic.os.api.model.workload.WorkloadStatus;
 import org.kinotic.os.api.services.VmNodeService;
 import org.kinotic.os.api.services.WorkloadService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -24,23 +24,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationService {
-
-    private static final Logger log = LoggerFactory.getLogger(DefaultVmNodeOrchestrationService.class);
 
     private final KinoticOrchestratorProperties orchestratorProperties;
     private final VmNodeService vmNodeService;
     private final WorkloadService workloadService;
     private ScheduledExecutorService scheduler;
-
-    public DefaultVmNodeOrchestrationService(KinoticOrchestratorProperties orchestratorProperties,
-                                           VmNodeService vmNodeService,
-                                           WorkloadService workloadService) {
-        this.orchestratorProperties = orchestratorProperties;
-        this.vmNodeService = vmNodeService;
-        this.workloadService = workloadService;
-    }
 
     @PostConstruct
     public void init() {

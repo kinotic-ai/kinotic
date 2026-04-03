@@ -1,5 +1,9 @@
 # kinotic
 
+## Java Conventions
+
+Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true)`, `@NoArgsConstructor`, `@RequiredArgsConstructor`, `@Slf4j`, `@Data`, `@Builder`. Prefer `@RequiredArgsConstructor` over hand-written constructors for dependency injection. Use `@Slf4j` instead of manual `LoggerFactory.getLogger()` calls.
+
 ## Publishing Services
 
 Java services that need to be called remotely must have `@Publish` on the interface:
