@@ -1,5 +1,5 @@
 import { SimpleBox } from '@boxlite-ai/boxlite'
-import type { IVmProvider } from '@/api/providers/IVmProvider'
+import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { Workload, WorkloadStatus } from '@kinotic-ai/os-api'
 
 /**

@@ -1,8 +1,8 @@
 import { Kinotic } from '@kinotic-ai/core'
 import type { ConnectionInfo } from '@kinotic-ai/core'
-import { VmNodeRegistration } from '@/api/VmNodeRegistration'
-import { VmNodeOrchestrationServiceProxy } from '@/api/VmNodeOrchestrationServiceProxy'
-import { VmManager } from '@/api/VmManager'
+import { VmNodeRegistration } from '@/model/VmNodeRegistration'
+import { VmNodeOrchestrationServiceProxy } from '@/services/VmNodeOrchestrationServiceProxy'
+import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
 import os from 'node:os'
 
 // Required configuration
@@ -42,7 +42,7 @@ async function start() {
     console.log(`Connected to Kinotic server at ${serverHost}:${serverPort}`)
 
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
-    const vmManager = new VmManager(nodeId!)
+    const vmManager = new DefaultVmManager(nodeId!)
 
     // Build registration info from system resources
     const registration = new VmNodeRegistration(nodeId!, os.hostname(), os.hostname())
@@ -87,6 +87,5 @@ start().catch(error => {
     process.exit(1)
 })
 
-export { VmManager } from '@/api/VmManager'
-export type { IVmProvider } from '@/api/providers/IVmProvider'
-export { BoxliteProvider } from '@/api/providers/BoxliteProvider'
+export type { IVmManager } from '@/api/IVmManager'
+export type { IVmProvider } from '@/internal/api/providers/IVmProvider'

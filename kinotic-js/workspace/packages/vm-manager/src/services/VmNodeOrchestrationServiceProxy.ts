@@ -1,6 +1,6 @@
 import type { IServiceProxy } from '@kinotic-ai/core'
 import type { VmNode } from '@kinotic-ai/os-api'
-import type { VmNodeRegistration } from '@/api/VmNodeRegistration'
+import type { VmNodeRegistration } from '@/model/VmNodeRegistration'
 
 /**
  * Proxy for communicating with the VmNodeOrchestrationService on the Kinotic server.

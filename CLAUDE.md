@@ -4,6 +4,17 @@
 
 Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true)`, `@NoArgsConstructor`, `@RequiredArgsConstructor`, `@Slf4j`, `@Data`, `@Builder`. Prefer `@RequiredArgsConstructor` over hand-written constructors for dependency injection. Use `@Slf4j` instead of manual `LoggerFactory.getLogger()` calls.
 
+## Package Structure
+
+Both Java and TypeScript modules follow the same layout convention:
+
+- `api/` — Public interfaces and types meant to be used externally
+- `internal/api/` — Implementations (annotated with `@Publish`, `@Component`, etc.)
+- `model/` — DTOs and value objects
+- `services/` — Service proxies for calling remote services
+
+In Java, `@Publish` goes on the interface in `api/`, and `@Component` on the implementation in `internal/api/`. In TypeScript, `@Publish` goes on the implementation class in `internal/api/`, with a plain interface in `api/`.
+
 ## Publishing Services
 
 Java services that need to be called remotely must have `@Publish` on the interface:
