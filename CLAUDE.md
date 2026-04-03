@@ -8,12 +8,13 @@ Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true
 
 Both Java and TypeScript modules follow the same layout convention. The rule is: if something will be used by another module/node, it belongs in `api/`. If not, it belongs in `internal/`. The `internal/` structure mirrors `api/` for implementations.
 
-- `api/` — Public interfaces, types, and DTOs used by other modules or nodes
-- `internal/` — Everything private to this module; mirrors the `api/` structure
-  - `internal/api/` — Implementations of public interfaces (`@Publish`, `@Component`, etc.)
-  - `internal/services/` — Service proxies only used within this module
+- `api/` — Public interfaces, types, and DTOs used by other modules or nodes (shared/exported)
+- `internal/` — Everything private to this module (not shared/exported)
+  - `internal/api/` — Implementations of public `api/` interfaces (`@Publish`, `@Component`, etc.)
+  - `internal/services/` — Service proxies and services only used within this module
+  - `internal/model/` — DTOs and value objects only used within this module
 
-Example: `api/services/ITodoService` with its implementation at `internal/api/services/DefaultTodoService`.
+The `internal/api/` structure mirrors `api/` for implementations. Example: `api/services/ITodoService` -> `internal/api/services/DefaultTodoService`. Use `internal/services/` or `internal/model/` for things that don't correspond to a public interface and should stay private.
 
 ## Publishing Services
 
