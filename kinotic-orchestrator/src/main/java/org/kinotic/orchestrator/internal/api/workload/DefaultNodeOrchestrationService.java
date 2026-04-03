@@ -5,6 +5,8 @@ import jakarta.annotation.PreDestroy;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.orchestrator.api.config.KinoticOrchestratorProperties;
+import org.kinotic.orchestrator.api.config.NodeProperties;
 import org.kinotic.orchestrator.api.workload.NodeOrchestrationService;
 import org.kinotic.os.api.model.workload.VmNode;
 import org.kinotic.os.api.model.workload.VmNodeStatus;
@@ -14,7 +16,6 @@ import org.kinotic.os.api.services.VmNodeService;
 import org.kinotic.os.api.services.WorkloadService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -28,41 +29,33 @@ public class DefaultNodeOrchestrationService implements NodeOrchestrationService
 
     private static final Logger log = LoggerFactory.getLogger(DefaultNodeOrchestrationService.class);
 
-    /**
-     * How long (in seconds) since the last heartbeat before a node is considered stale and marked OFFLINE.
-     */
-    @Value("${kinotic.orchestrator.node.heartbeatTimeoutSeconds:90}")
-    private long heartbeatTimeoutSeconds;
-
-    /**
-     * How often (in seconds) the health check runs to look for stale nodes.
-     */
-    @Value("${kinotic.orchestrator.node.healthCheckIntervalSeconds:30}")
-    private long healthCheckIntervalSeconds;
-
+    private final KinoticOrchestratorProperties orchestratorProperties;
     private final VmNodeService vmNodeService;
     private final WorkloadService workloadService;
     private ScheduledExecutorService scheduler;
 
-    public DefaultNodeOrchestrationService(VmNodeService vmNodeService,
+    public DefaultNodeOrchestrationService(KinoticOrchestratorProperties orchestratorProperties,
+                                           VmNodeService vmNodeService,
                                            WorkloadService workloadService) {
+        this.orchestratorProperties = orchestratorProperties;
         this.vmNodeService = vmNodeService;
         this.workloadService = workloadService;
     }
 
     @PostConstruct
     public void init() {
+        NodeProperties nodeProps = orchestratorProperties.getOrchestrator().getNode();
         scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "node-health-check");
             t.setDaemon(true);
             return t;
         });
         scheduler.scheduleAtFixedRate(this::checkNodeHealth,
-                                      healthCheckIntervalSeconds,
-                                      healthCheckIntervalSeconds,
+                                      nodeProps.getHealthCheckIntervalSeconds(),
+                                      nodeProps.getHealthCheckIntervalSeconds(),
                                       TimeUnit.SECONDS);
         log.info("Node health check scheduled every {}s, timeout {}s",
-                 healthCheckIntervalSeconds, heartbeatTimeoutSeconds);
+                 nodeProps.getHealthCheckIntervalSeconds(), nodeProps.getHeartbeatTimeoutSeconds());
     }
 
     @PreDestroy
@@ -155,6 +148,7 @@ public class DefaultNodeOrchestrationService implements NodeOrchestrationService
      */
     private void checkNodeHealth() {
         try {
+            long heartbeatTimeoutSeconds = orchestratorProperties.getOrchestrator().getNode().getHeartbeatTimeoutSeconds();
             long cutoff = System.currentTimeMillis() - (heartbeatTimeoutSeconds * 1000);
             Date cutoffDate = new Date(cutoff);
 
