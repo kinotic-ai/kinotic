@@ -58,12 +58,12 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     workload.setStatus(WorkloadStatus.STARTING);
 
                     // Persist the workload and update node resource allocation
-                    return workloadService.save(workload)
+                    return workloadService.saveSync(workload)
                             .thenCompose(savedWorkload -> {
                                 node.setAllocatedCpus(node.getAllocatedCpus() + savedWorkload.getVcpus());
                                 node.setAllocatedMemoryMb(node.getAllocatedMemoryMb() + savedWorkload.getMemoryMb());
                                 node.setAllocatedDiskMb(node.getAllocatedDiskMb() + savedWorkload.getDiskSizeMb());
-                                return vmNodeService.save(node)
+                                return vmNodeService.saveSync(node)
                                         .thenApply(updatedNode -> savedWorkload);
                             })
                             .thenCompose(savedWorkload ->
@@ -72,13 +72,13 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                         .thenCompose(startedWorkload -> {
                                             // VmManager started the workload, mark as RUNNING
                                             startedWorkload.setStatus(WorkloadStatus.RUNNING);
-                                            return workloadService.save(startedWorkload);
+                                            return workloadService.saveSync(startedWorkload);
                                         })
                                         .exceptionallyCompose(error -> {
                                             log.error("Failed to start workload {} on node {}",
                                                       savedWorkload.getId(), node.getId(), error);
                                             savedWorkload.setStatus(WorkloadStatus.FAILED);
-                                            return workloadService.save(savedWorkload)
+                                            return workloadService.saveSync(savedWorkload)
                                                     .thenCompose(failed -> CompletableFuture.failedFuture(error));
                                         })
                             );
@@ -97,13 +97,13 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     }
 
                     workload.setStatus(WorkloadStatus.STOPPING);
-                    return workloadService.save(workload);
+                    return workloadService.saveSync(workload);
                 })
                 .thenCompose(workload ->
                     vmManagerProxy.stopWorkload(workload.getNodeId(), workloadId)
                             .thenCompose(v -> {
                                 workload.setStatus(WorkloadStatus.STOPPED);
-                                return workloadService.save(workload);
+                                return workloadService.saveSync(workload);
                             })
                 )
                 .thenApply(workload -> null);
@@ -130,7 +130,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                                 node.setAllocatedCpus(Math.max(0, node.getAllocatedCpus() - workload.getVcpus()));
                                                 node.setAllocatedMemoryMb(Math.max(0, node.getAllocatedMemoryMb() - workload.getMemoryMb()));
                                                 node.setAllocatedDiskMb(Math.max(0, node.getAllocatedDiskMb() - workload.getDiskSizeMb()));
-                                                return vmNodeService.save(node);
+                                                return vmNodeService.saveSync(node);
                                             }
                                             return CompletableFuture.completedFuture(node);
                                         })

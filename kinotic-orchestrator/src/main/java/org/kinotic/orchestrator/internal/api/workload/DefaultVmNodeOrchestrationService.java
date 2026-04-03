@@ -81,12 +81,12 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                 .setStatus(VmNodeStatus.ONLINE)
                                 .setLastSeen(new Date());
                         log.info("Re-registering VmNode: {} ({})", existing.getName(), existing.getId());
-                        return vmNodeService.save(existing);
+                        return vmNodeService.saveSync(existing);
                     } else {
                         node.setStatus(VmNodeStatus.ONLINE);
                         node.setLastSeen(new Date());
                         log.info("Registering new VmNode: {} ({})", node.getName(), node.getId());
-                        return vmNodeService.save(node);
+                        return vmNodeService.saveSync(node);
                     }
                 });
     }
@@ -106,7 +106,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         log.info("VmNode {} came back online", nodeId);
                         node.setStatus(VmNodeStatus.ONLINE);
                     }
-                    return vmNodeService.save(node);
+                    return vmNodeService.saveSync(node);
                 });
     }
 
@@ -163,7 +163,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                          node.getName(), node.getId());
 
                                 node.setStatus(VmNodeStatus.OFFLINE);
-                                vmNodeService.save(node)
+                                vmNodeService.saveSync(node)
                                         .thenCompose(offlineNode -> markNodeWorkloadsFailed(offlineNode.getId()))
                                         .exceptionally(error -> {
                                             log.error("Error handling offline node {}", node.getId(), error);
@@ -192,7 +192,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                 log.warn("Marking workload {} as FAILED due to node {} going offline",
                                          workload.getId(), nodeId);
                                 workload.setStatus(WorkloadStatus.FAILED);
-                                return workloadService.save(workload).thenApply(w -> null);
+                                return workloadService.saveSync(workload).thenApply(w -> null);
                             });
                         }
                     }
