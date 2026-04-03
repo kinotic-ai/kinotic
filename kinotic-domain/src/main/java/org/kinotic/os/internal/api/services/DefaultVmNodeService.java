@@ -52,7 +52,7 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
     public CompletableFuture<VmNode> save(VmNode entity) {
         Validate.notNull(entity, "VmNode cannot be null");
         Validate.notNull(entity.getId(), "VmNode id cannot be null");
-        entity.setUpdated(new Date());
+        entity.setLastSeen(new Date());
         return super.save(entity);
     }
 

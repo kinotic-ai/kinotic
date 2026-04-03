@@ -2,6 +2,7 @@ package org.kinotic.orchestrator.api.workload;
 
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.os.api.model.workload.VmNode;
+import org.kinotic.os.api.model.workload.VmNodeRegistration;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -17,12 +18,12 @@ public interface VmNodeOrchestrationService {
 
     /**
      * Registers a VmNode with the orchestrator so it can receive workload deployments.
-     * If a node with the same id already exists it will be updated.
+     * If a node with the same id already exists it will be updated with the new resource info.
      *
-     * @param node the node to register
+     * @param registration the node registration info
      * @return a future that will complete with the registered node
      */
-    CompletableFuture<VmNode> registerNode(VmNode node);
+    CompletableFuture<VmNode> registerNode(VmNodeRegistration registration);
 
     /**
      * Heartbeat from a running vm-manager node.

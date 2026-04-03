@@ -1,6 +1,6 @@
 import { Kinotic } from '@kinotic-ai/core'
 import type { ConnectionInfo, IServiceProxy } from '@kinotic-ai/core'
-import { VmNode, VmNodeStatus } from '@kinotic-ai/os-api'
+import { VmNodeRegistration } from '@kinotic-ai/os-api'
 import { VmManager } from '@/api/VmManager'
 import os from 'node:os'
 
@@ -43,18 +43,17 @@ async function start() {
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
     const vmManager = new VmManager(nodeId!)
 
-    // Build node info from system resources
-    const node = new VmNode(nodeId!, os.hostname(), os.hostname())
-    node.status = VmNodeStatus.ONLINE
-    node.totalCpus = os.cpus().length
-    node.totalMemoryMb = Math.floor(os.totalmem() / (1024 * 1024))
+    // Build registration info from system resources
+    const registration = new VmNodeRegistration(nodeId!, os.hostname(), os.hostname())
+    registration.totalCpus = os.cpus().length
+    registration.totalMemoryMb = Math.floor(os.totalmem() / (1024 * 1024))
 
     // Register this node with the VmNodeOrchestrationService on the server
     const nodeOrchestratorProxy = Kinotic.serviceProxy('org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService')
-    await nodeOrchestratorProxy.invoke('registerNode', [node])
+    await nodeOrchestratorProxy.invoke('registerNode', [registration])
 
     console.log(`VM Manager registered on node: ${nodeId}`)
-    console.log(`  CPUs: ${node.totalCpus}, Memory: ${node.totalMemoryMb}MB`)
+    console.log(`  CPUs: ${registration.totalCpus}, Memory: ${registration.totalMemoryMb}MB`)
 
     // Start sending periodic heartbeats
     startHeartbeat(nodeOrchestratorProxy)

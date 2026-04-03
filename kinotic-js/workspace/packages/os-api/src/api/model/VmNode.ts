@@ -62,11 +62,6 @@ export class VmNode implements Identifiable<string> {
      */
     public lastSeen: number | null = null
 
-    /**
-     * The date and time the node was last updated.
-     */
-    public updated: number | null = null
-
     constructor(id: string, name: string, hostname: string) {
         this.id = id
         this.name = name

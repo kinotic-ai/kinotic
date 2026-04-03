@@ -10,6 +10,7 @@ import org.kinotic.orchestrator.api.config.KinoticOrchestratorProperties;
 import org.kinotic.orchestrator.api.config.VmNodeProperties;
 import org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService;
 import org.kinotic.os.api.model.workload.VmNode;
+import org.kinotic.os.api.model.workload.VmNodeRegistration;
 import org.kinotic.os.api.model.workload.VmNodeStatus;
 import org.kinotic.os.api.model.workload.Workload;
 import org.kinotic.os.api.model.workload.WorkloadStatus;
@@ -57,25 +58,27 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     }
 
     @Override
-    public CompletableFuture<VmNode> registerNode(VmNode node) {
-        Validate.notNull(node, "Node cannot be null");
-        Validate.notNull(node.getId(), "Node id cannot be null");
+    public CompletableFuture<VmNode> registerNode(VmNodeRegistration registration) {
+        Validate.notNull(registration, "Registration cannot be null");
+        Validate.notNull(registration.getId(), "Node id cannot be null");
 
-        return vmNodeService.findById(node.getId())
+        return vmNodeService.findById(registration.getId())
                 .thenCompose(existing -> {
                     if (existing != null) {
-                        existing.setHostname(node.getHostname())
-                                .setName(node.getName())
-                                .setTotalCpus(node.getTotalCpus())
-                                .setTotalMemoryMb(node.getTotalMemoryMb())
-                                .setTotalDiskMb(node.getTotalDiskMb())
-                                .setStatus(VmNodeStatus.ONLINE)
-                                .setLastSeen(new Date());
+                        existing.setHostname(registration.getHostname())
+                                .setName(registration.getName())
+                                .setTotalCpus(registration.getTotalCpus())
+                                .setTotalMemoryMb(registration.getTotalMemoryMb())
+                                .setTotalDiskMb(registration.getTotalDiskMb())
+                                .setStatus(VmNodeStatus.ONLINE);
                         log.info("Re-registering VmNode: {} ({})", existing.getName(), existing.getId());
                         return vmNodeService.saveSync(existing);
                     } else {
+                        VmNode node = new VmNode(registration.getId(), registration.getName(), registration.getHostname());
+                        node.setTotalCpus(registration.getTotalCpus());
+                        node.setTotalMemoryMb(registration.getTotalMemoryMb());
+                        node.setTotalDiskMb(registration.getTotalDiskMb());
                         node.setStatus(VmNodeStatus.ONLINE);
-                        node.setLastSeen(new Date());
                         log.info("Registering new VmNode: {} ({})", node.getName(), node.getId());
                         return vmNodeService.saveSync(node);
                     }

@@ -74,11 +74,6 @@ public class VmNode implements Identifiable<String> {
      */
     private Date lastSeen;
 
-    /**
-     * The date and time the node was last updated.
-     */
-    private Date updated;
-
     public VmNode(String id, String name, String hostname) {
         this.id = id;
         this.name = name;
