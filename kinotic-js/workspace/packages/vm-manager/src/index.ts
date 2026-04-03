@@ -13,6 +13,8 @@ if (!nodeId) {
 
 const serverHost = process.env.KINOTIC_SERVER_HOST ?? 'localhost'
 const serverPort = Number(process.env.KINOTIC_SERVER_PORT ?? '58503')
+const serverLogin = process.env.KINOTIC_SERVER_LOGIN ?? 'kinotic'
+const serverPasscode = process.env.KINOTIC_SERVER_PASSCODE ?? 'kinotic'
 const heartbeatIntervalMs = Number(process.env.KINOTIC_HEARTBEAT_INTERVAL_MS ?? '30000')
 
 let heartbeatTimer: Timer | null = null
@@ -32,6 +34,7 @@ async function start() {
     const connectionInfo: ConnectionInfo = {
         host: serverHost,
         port: serverPort,
+        connectHeaders: { login: serverLogin, passcode: serverPasscode },
     }
     await Kinotic.connect(connectionInfo)
     console.log(`Connected to Kinotic server at ${serverHost}:${serverPort}`)
