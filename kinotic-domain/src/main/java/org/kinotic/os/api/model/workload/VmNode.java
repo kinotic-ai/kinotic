@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
+import tools.jackson.annotation.JsonIgnore;
 
 import java.util.Date;
 
@@ -92,6 +93,7 @@ public class VmNode implements Identifiable<String> {
     /**
      * @return the number of vCPUs available (not allocated) on this node
      */
+    @JsonIgnore
     public int getAvailableCpus() {
         return totalCpus - allocatedCpus;
     }
@@ -99,6 +101,7 @@ public class VmNode implements Identifiable<String> {
     /**
      * @return the memory available (not allocated) on this node in megabytes
      */
+    @JsonIgnore
     public int getAvailableMemoryMb() {
         return totalMemoryMb - allocatedMemoryMb;
     }
@@ -106,6 +109,7 @@ public class VmNode implements Identifiable<String> {
     /**
      * @return the disk space available (not allocated) on this node in megabytes
      */
+    @JsonIgnore
     public int getAvailableDiskMb() {
         return totalDiskMb - allocatedDiskMb;
     }
