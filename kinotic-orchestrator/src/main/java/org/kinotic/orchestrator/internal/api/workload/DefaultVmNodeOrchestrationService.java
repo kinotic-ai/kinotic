@@ -6,7 +6,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.orchestrator.api.config.KinoticOrchestratorProperties;
-import org.kinotic.orchestrator.api.config.NodeProperties;
+import org.kinotic.orchestrator.api.config.VmNodeProperties;
 import org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService;
 import org.kinotic.os.api.model.workload.VmNode;
 import org.kinotic.os.api.model.workload.VmNodeStatus;
@@ -44,7 +44,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
 
     @PostConstruct
     public void init() {
-        NodeProperties nodeProps = orchestratorProperties.getOrchestrator().getNode();
+        VmNodeProperties nodeProps = orchestratorProperties.getOrchestrator().getVmNode();
         scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "node-health-check");
             t.setDaemon(true);
@@ -148,7 +148,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
      */
     private void checkNodeHealth() {
         try {
-            long heartbeatTimeoutSeconds = orchestratorProperties.getOrchestrator().getNode().getHeartbeatTimeoutSeconds();
+            long heartbeatTimeoutSeconds = orchestratorProperties.getOrchestrator().getVmNode().getHeartbeatTimeoutSeconds();
             long cutoff = System.currentTimeMillis() - (heartbeatTimeoutSeconds * 1000);
             Date cutoffDate = new Date(cutoff);
 

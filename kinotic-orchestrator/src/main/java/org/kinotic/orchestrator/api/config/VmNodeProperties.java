@@ -13,7 +13,7 @@ import lombok.experimental.Accessors;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class NodeProperties {
+public class VmNodeProperties {
 
     /**
      * How long (in seconds) since the last heartbeat before a node is considered stale and marked OFFLINE.

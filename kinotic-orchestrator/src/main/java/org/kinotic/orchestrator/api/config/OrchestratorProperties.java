@@ -18,6 +18,6 @@ public class OrchestratorProperties {
     /**
      * Node health monitoring configuration.
      */
-    private NodeProperties node = new NodeProperties();
+    private VmNodeProperties vmNode = new VmNodeProperties();
 
 }
