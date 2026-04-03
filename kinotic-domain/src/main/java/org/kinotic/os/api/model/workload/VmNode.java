@@ -1,11 +1,11 @@
 package org.kinotic.os.api.model.workload;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.util.Date;
 
