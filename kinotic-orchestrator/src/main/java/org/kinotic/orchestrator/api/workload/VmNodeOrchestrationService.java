@@ -1,8 +1,6 @@
 package org.kinotic.orchestrator.api.workload;
 
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.os.api.model.workload.VmNode;
 
 import java.util.concurrent.CompletableFuture;
@@ -11,6 +9,8 @@ import java.util.concurrent.CompletableFuture;
  * Service responsible for tracking and managing VmManager nodes in the cluster.
  * When a vm-manager process starts on a node it registers itself with this service.
  * Nodes must send periodic heartbeats to remain in ONLINE status.
+ * <p>
+ * For querying nodes (findById, findAll, search) use {@link org.kinotic.os.api.services.VmNodeService} directly.
  */
 @Publish
 public interface VmNodeOrchestrationService {
@@ -40,22 +40,6 @@ public interface VmNodeOrchestrationService {
      * @return a future that will complete when the node has been removed
      */
     CompletableFuture<Void> deregisterNode(String nodeId);
-
-    /**
-     * Gets a registered node by id.
-     *
-     * @param nodeId the id of the node
-     * @return a future that will complete with the node, or null if not found
-     */
-    CompletableFuture<VmNode> getNode(String nodeId);
-
-    /**
-     * Lists all registered nodes in the cluster.
-     *
-     * @param pageable the page to return
-     * @return a future that will complete with a page of nodes
-     */
-    CompletableFuture<Page<VmNode>> listNodes(Pageable pageable);
 
     /**
      * Finds a node with sufficient resources to host a workload with the given requirements.

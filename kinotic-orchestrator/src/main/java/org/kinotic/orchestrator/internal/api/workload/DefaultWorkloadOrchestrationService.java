@@ -3,8 +3,6 @@ package org.kinotic.orchestrator.internal.api.workload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService;
 import org.kinotic.orchestrator.api.workload.VmManagerProxy;
 import org.kinotic.orchestrator.api.workload.WorkloadOrchestrationService;
@@ -127,21 +125,5 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                             )
                             .thenCompose(node -> workloadService.deleteById(workloadId));
                 });
-    }
-
-    @Override
-    public CompletableFuture<Workload> getWorkload(String workloadId) {
-        Validate.notNull(workloadId, "Workload id cannot be null");
-        return workloadService.findById(workloadId);
-    }
-
-    @Override
-    public CompletableFuture<Page<Workload>> listWorkloads(Pageable pageable) {
-        return workloadService.findAll(pageable);
-    }
-
-    @Override
-    public CompletableFuture<Page<Workload>> listWorkloadsForNode(String nodeId, Pageable pageable) {
-        return workloadService.findAllForNode(nodeId, pageable);
     }
 }

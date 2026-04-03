@@ -5,7 +5,6 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.orchestrator.api.config.KinoticOrchestratorProperties;
 import org.kinotic.orchestrator.api.config.VmNodeProperties;
@@ -116,17 +115,6 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                     log.info("Deregistering VmNode: {}", nodeId);
                     return vmNodeService.deleteById(nodeId);
                 });
-    }
-
-    @Override
-    public CompletableFuture<VmNode> getNode(String nodeId) {
-        Validate.notNull(nodeId, "Node id cannot be null");
-        return vmNodeService.findById(nodeId);
-    }
-
-    @Override
-    public CompletableFuture<Page<VmNode>> listNodes(Pageable pageable) {
-        return vmNodeService.findAll(pageable);
     }
 
     @Override

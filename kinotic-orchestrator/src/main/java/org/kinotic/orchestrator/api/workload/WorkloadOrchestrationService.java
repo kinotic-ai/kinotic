@@ -1,8 +1,6 @@
 package org.kinotic.orchestrator.api.workload;
 
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.os.api.model.workload.Workload;
 
 import java.util.concurrent.CompletableFuture;
@@ -13,6 +11,8 @@ import java.util.concurrent.CompletableFuture;
  * <p>
  * Handles node selection based on available resources, access control,
  * and lifecycle management of workloads.
+ * <p>
+ * For querying workloads (findById, findAll, search) use {@link org.kinotic.os.api.services.WorkloadService} directly.
  */
 @Publish
 public interface WorkloadOrchestrationService {
@@ -43,30 +43,5 @@ public interface WorkloadOrchestrationService {
      * @return a future that will complete when the workload has been destroyed
      */
     CompletableFuture<Void> destroyWorkload(String workloadId);
-
-    /**
-     * Gets the current state of a workload.
-     *
-     * @param workloadId the id of the workload
-     * @return a future that will complete with the workload
-     */
-    CompletableFuture<Workload> getWorkload(String workloadId);
-
-    /**
-     * Lists all workloads across the cluster.
-     *
-     * @param pageable the page to return
-     * @return a future that will complete with a page of workloads
-     */
-    CompletableFuture<Page<Workload>> listWorkloads(Pageable pageable);
-
-    /**
-     * Lists all workloads deployed on a specific node.
-     *
-     * @param nodeId the id of the node
-     * @param pageable the page to return
-     * @return a future that will complete with a page of workloads
-     */
-    CompletableFuture<Page<Workload>> listWorkloadsForNode(String nodeId, Pageable pageable);
 
 }
