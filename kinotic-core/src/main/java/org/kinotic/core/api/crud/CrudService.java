@@ -68,4 +68,12 @@ public interface CrudService<T, ID> {
      * @return a page of entities
      */
     CompletableFuture<Page<T>> search(String searchText, Pageable pageable);
+
+    /**
+     * Forces a refresh of the underlying index, making all recent writes immediately available for search.
+     * This should only be used in test or batch-load scenarios.
+     *
+     * @return {@link CompletableFuture} signaling when the index has been refreshed
+     */
+    CompletableFuture<Void> syncIndex();
 }

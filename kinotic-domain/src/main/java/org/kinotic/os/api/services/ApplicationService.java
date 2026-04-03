@@ -17,10 +17,4 @@ public interface ApplicationService extends IdentifiableCrudService<Application,
      */
     CompletableFuture<Application> createApplicationIfNotExist(String id, String description);
 
-    /**
-     * This operation makes all the recent writes immediately available for search.
-     * @return a future that will complete when the index has been synced
-     */
-    CompletableFuture<Void> syncIndex();
-
 }

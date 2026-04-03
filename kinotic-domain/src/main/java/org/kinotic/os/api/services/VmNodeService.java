@@ -22,10 +22,4 @@ public interface VmNodeService extends IdentifiableCrudService<VmNode, String> {
      */
     CompletableFuture<VmNode> findAvailableNode(int requiredCpus, int requiredMemoryMb, int requiredDiskMb);
 
-    /**
-     * This operation makes all the recent writes immediately available for search.
-     * @return a future that will complete when the index has been synced
-     */
-    CompletableFuture<Void> syncIndex();
-
 }

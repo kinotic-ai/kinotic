@@ -54,6 +54,18 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     }
 
     @Override
+    public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
+        return crudServiceTemplate.search(indexName, pageable, type, builder -> builder.q(searchText));
+    }
+
+    @Override
+    public CompletableFuture<Void> syncIndex() {
+        return esAsyncClient.indices()
+                            .refresh(b -> b.index(indexName))
+                            .thenApply(unused -> null);
+    }
+
+    @Override
     public CompletableFuture<T> saveSync(T entity) {
         return esAsyncClient.index(i -> i
                 .index(indexName)
