@@ -37,7 +37,7 @@ export class BoxliteProvider implements IVmProvider {
             this.boxes.set(id, box)
 
             // Verify the box is responsive
-            await box.exec('echo', ['ready'])
+            await box.exec('echo ready')
 
             workload.status = WorkloadStatus.RUNNING
         } catch (error) {
