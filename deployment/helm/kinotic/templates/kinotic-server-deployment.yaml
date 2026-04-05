@@ -11,6 +11,9 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/kinotic-server-config-map.yaml") . | sha256sum }}
+        {{- if .Values.tls.enabled }}
+        secret.reloader.stakater.com/reload: {{ .Values.tls.secretName | quote }}
+        {{- end }}
       labels:
         app: {{ include "kinotic-server.name" . }}
         release: {{ .Release.Name }}
@@ -30,6 +33,9 @@ spec:
             httpGet:
               path: "{{ .Values.properties.structures.healthCheckPath }}"
               port: {{ .Values.properties.structures.webServerPort }}
+              {{- if .Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
             initialDelaySeconds: 10
             failureThreshold: 15
             periodSeconds: 10
@@ -38,6 +44,9 @@ spec:
             httpGet:
               path: "{{ .Values.properties.structures.healthCheckPath }}"
               port: {{ .Values.properties.structures.webServerPort }}
+              {{- if .Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
             initialDelaySeconds: 30
             failureThreshold: 15
             periodSeconds: 10
@@ -46,6 +55,9 @@ spec:
             httpGet:
               path: "{{ .Values.properties.structures.healthCheckPath }}"
               port: {{ .Values.properties.structures.webServerPort }}
+              {{- if .Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
             initialDelaySeconds: 30
             failureThreshold: 30
             periodSeconds: 30
@@ -81,6 +93,11 @@ spec:
           volumeMounts:
             - name: tmp-work
               mountPath: /workspace/ignite/work
+            {{- if .Values.tls.enabled }}
+            - name: tls-certs
+              mountPath: /certs
+              readOnly: true
+            {{- end }}
             {{- if .Values.evictionTracking.enabled }}
             - name: eviction-data
               mountPath: {{ .Values.evictionTracking.mountPath | default "/eviction-data" }}
@@ -91,6 +108,11 @@ spec:
         - name: tmp-work
           emptyDir:
             sizeLimit: 1Gi
+        {{- if .Values.tls.enabled }}
+        - name: tls-certs
+          secret:
+            secretName: {{ .Values.tls.secretName }}
+        {{- end }}
         {{- if .Values.evictionTracking.enabled }}
         - name: eviction-data
           hostPath:

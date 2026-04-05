@@ -9,9 +9,27 @@ output "kubeconfig" {
   sensitive   = true
 }
 
-output "app_url" {
-  description = "Kinotic application URL (via ingress)"
-  value       = "https://localhost"
+output "endpoints" {
+  description = "Kinotic service endpoints"
+  value = var.use_mkcert ? {
+    ui      = "https://localhost/"
+    api     = "https://localhost:8080/api/"
+    graphql = "https://localhost:4000/graphql/"
+    stomp   = "wss://localhost:58503/v1"
+  } : {
+    ui      = "http://localhost:9090/"
+    api     = "http://localhost:8080/api/"
+    graphql = "http://localhost:4000/graphql/"
+    stomp   = "ws://localhost:58503/v1"
+  }
+}
+
+output "keycloak" {
+  description = "Keycloak endpoints (when enabled)"
+  value = var.enable_keycloak ? {
+    admin_console = var.use_mkcert ? "https://localhost:8888/auth/admin" : "http://localhost:8888/auth/admin"
+    credentials   = "admin / admin"
+  } : null
 }
 
 output "port_forward_commands" {
@@ -22,7 +40,6 @@ output "port_forward_commands" {
     },
     var.enable_keycloak ? {
       postgresql = "kubectl port-forward svc/keycloak-db-postgresql 5432:5432"
-      keycloak   = "kubectl port-forward svc/keycloak 8888:8888"
     } : {}
   )
 }

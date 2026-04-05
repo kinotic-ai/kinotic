@@ -46,70 +46,93 @@ terraform apply -var="kinotic_version=4.2.0-SNAPSHOT"
 terraform destroy
 ```
 
+## Architecture
+
+No ingress controller or reverse proxy. Vert.x handles TLS directly in each pod,
+matching the Azure production deployment pattern. KinD `extraPortMappings` route
+host ports through NodePort services to the pods.
+
+```
+localhost:443   ──> NodePort 30443 ──> kinotic-server (Vert.x TLS, Web UI)
+localhost:8080  ──> NodePort 30080 ──> kinotic-server (Vert.x TLS, OpenAPI)
+localhost:4000  ──> NodePort 30400 ──> kinotic-server (Vert.x TLS, GraphQL)
+localhost:58503 ──> NodePort 30503 ──> kinotic-server (Vert.x TLS, STOMP/WS)
+localhost:8888  ──> NodePort 30888 ──> keycloak       (Keycloak TLS, when enabled)
+```
+
+### Namespaces
+
+| Namespace | Contents |
+|---|---|
+| `elastic-system` | ECK operator |
+| `elastic` | Elasticsearch cluster |
+| `kinotic` | Kinotic server, TLS secret, Keycloak, PostgreSQL, load generator |
+
 ## Service Access
 
-### Via Ingress (HTTPS)
+### With mkcert (default)
 
 | Service | URL |
 |---------|-----|
 | Kinotic UI | https://localhost/ |
-| Kinotic API | https://localhost/api/ |
-| GraphQL | https://localhost/graphql/ |
-| WebSocket | wss://localhost/v1 |
+| OpenAPI | https://localhost:8080/api/ |
+| GraphQL | https://localhost:4000/graphql/ |
+| WebSocket (STOMP) | wss://localhost:58503/v1 |
+| Keycloak Admin | https://localhost:8888/auth/admin |
+
+### Without mkcert (`-var="use_mkcert=false"`)
+
+| Service | URL |
+|---------|-----|
+| Kinotic UI | http://localhost:9090/ |
+| OpenAPI | http://localhost:8080/api/ |
+| GraphQL | http://localhost:4000/graphql/ |
+| WebSocket (STOMP) | ws://localhost:58503/v1 |
 
 ### Direct Access (kubectl port-forward)
 
 ```bash
-kubectl port-forward svc/kinotic-es-es-http 9200:9200    # Elasticsearch
-kubectl port-forward svc/keycloak-db-postgresql 5432:5432  # PostgreSQL (with Keycloak)
-kubectl port-forward svc/keycloak 8888:8888                # Keycloak (with Keycloak)
+kubectl port-forward svc/kinotic-es-es-http -n elastic 9200:9200    # Elasticsearch
+kubectl port-forward svc/keycloak-db-postgresql -n kinotic 5432:5432  # PostgreSQL (with Keycloak)
 ```
 
-## Optional Setup
+## TLS (mkcert)
 
-### Browser-Trusted TLS (mkcert)
-
-With mkcert installed, Terraform automatically generates browser-trusted certificates. No manual steps needed — just ensure the CA is set up once:
+With mkcert installed, Terraform automatically generates browser-trusted certificates
+and mounts them into pods. Vert.x and Keycloak read the PEM files directly.
+No manual steps needed -- just ensure the CA is set up once:
 
 ```bash
 brew install mkcert nss && mkcert -install
-# Or: ./setup.sh --all (does this + /etc/hosts)
 ```
 
-To fall back to cert-manager self-signed certs (browser warnings): `terraform apply -var="use_mkcert=false"`
+To disable TLS: `terraform apply -var="use_mkcert=false"`
 
-### OIDC / Keycloak
-
-Keycloak provides OIDC authentication. When enabled, Terraform deploys PostgreSQL + Keycloak and
-redeploys kinotic-server with the `kubernetes-oidc` Spring profile and `oidc.enabled=true`.
+### CLI Tools
 
 ```bash
-# 1. Add kinotic.local to /etc/hosts (required — OIDC browser redirects use this hostname)
-./setup.sh --hosts
+# Add to .zshrc / .bashrc for tools like curl and Node.js
+export NODE_EXTRA_CA_CERTS=~/.kinotic/kind/ca.crt
+```
 
-# 2. Deploy with Keycloak (first deploy or adding to existing cluster)
-cd terraform
+## OIDC / Keycloak
+
+Keycloak provides OIDC authentication. When enabled, Terraform deploys PostgreSQL + Keycloak
+and redeploys kinotic-server with the `kubernetes-oidc` Spring profile.
+
+```bash
 terraform apply -var="enable_keycloak=true"
 ```
 
-If the cluster is already running without Keycloak, re-running `terraform apply -var="enable_keycloak=true"`
-will deploy Keycloak and **redeploy kinotic-server** with the OIDC configuration — no manual steps needed.
+If the cluster is already running, re-running with `enable_keycloak=true` will deploy
+Keycloak and redeploy kinotic-server with OIDC -- no manual steps needed.
 
-**Access:**
+**Credentials:**
 
-| Service | URL                               | Credentials |
-|---------|-----------------------------------|-------------|
-| Kinotic (OIDC login) | https://kinotic.local/login       | testuser@example.com / password123 |
-| Keycloak Admin Console | https://kinotic.local/auth/admin | admin / admin |
-
-To access the Keycloak admin console directly: `kubectl port-forward svc/keycloak 8888:8888`
-
-### CLI Tools with Self-Signed Certs
-
-```bash
-# Add to .zshrc / .bashrc
-export NODE_EXTRA_CA_CERTS=~/.kinotic/kind/ca.crt
-```
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| Kinotic (OIDC login) | https://localhost/login | testuser@example.com / password123 |
+| Keycloak Admin | https://localhost:8888/auth/admin | admin / admin |
 
 ## Terraform Variables
 
@@ -125,7 +148,13 @@ export NODE_EXTRA_CA_CERTS=~/.kinotic/kind/ca.crt
 
 ## Load Generator
 
-The load generator creates sample entity definitions and data for testing. It connects to the Kinotic server through the ingress and runs as a Kubernetes Job.
+The load generator creates sample entity definitions and data for testing.
+It connects directly to the kinotic-server service and runs as a Kubernetes Job.
+
+**Note:** The load generator currently uses basic (default) authentication. It cannot
+run when Keycloak/OIDC is enabled as the sole auth provider — run the load generator
+first to seed data, then enable Keycloak. Bearer token support for the load generator
+is planned.
 
 ### Via Terraform
 
@@ -135,12 +164,9 @@ terraform apply -var="enable_load_generator=true"
 
 ### Via Helm (standalone)
 
-Useful for re-running after the cluster is already up, or with custom configuration:
-
 ```bash
 cd deployment/kind
 
-# Deploy (runs the generateComplexEntities test)
 helm install load-generator ../helm/load-generator \
   -f config/load-generator/values.yaml \
   --kube-context kind-kinotic-cluster
@@ -148,7 +174,7 @@ helm install load-generator ../helm/load-generator \
 # Watch progress
 kubectl logs -l app.kubernetes.io/name=kinotic-load-generator -f
 
-# Clean up when done (required before re-running — Jobs are immutable)
+# Clean up (required before re-running -- Jobs are immutable)
 helm uninstall load-generator --kube-context kind-kinotic-cluster
 ```
 
@@ -158,10 +184,9 @@ Override values in `config/load-generator/values.yaml`:
 
 | Value | Default (KinD) | Description |
 |-------|----------------|-------------|
-| `kinotic.host` | `kinotic.local` | Server hostname |
-| `kinotic.port` | `443` | Server port |
-| `kinotic.useSsl` | `true` | Use HTTPS/WSS |
-| `kinotic.tlsInsecure` | `true` | Skip cert validation |
+| `kinotic.host` | `kinotic-server` | Service hostname (cluster-internal) |
+| `kinotic.port` | `58503` | STOMP port |
+| `kinotic.useSsl` | `false` | Use TLS (false for cluster-internal) |
 | `loadGenerator.config.testName` | `generateComplexEntities` | Test to run |
 | `loadGenerator.config.maxConcurrentRequests` | `1` | Parallel requests |
 | `loadGenerator.config.maxRequestsPerSecond` | `100` | Rate limit |
@@ -181,10 +206,11 @@ kubectl rollout restart deployment/kinotic-server
 
 ## Troubleshooting
 
-**Port conflicts on 80/443:**
+**Port conflicts:**
 ```bash
-lsof -i :80
 lsof -i :443
+lsof -i :8080
+lsof -i :58503
 ```
 
 **Pods stuck in ImagePullBackOff:**
@@ -195,19 +221,23 @@ kubectl describe pod <pod-name>
 
 **View logs:**
 ```bash
-kubectl logs -l app.kubernetes.io/name=kinotic -f
+kubectl logs -l app=kinotic-server -n kinotic -f
+kubectl logs -l app=keycloak -n kinotic -f        # if Keycloak enabled
 ```
 
 **Check cluster state:**
 ```bash
-kubectl get pods,svc,ingress
-kubectl get elasticsearch
+kubectl get pods,svc -n kinotic
+kubectl get pods,svc -n elastic
+kubectl get elasticsearch -n elastic
 ```
 
 **Clean slate:**
 ```bash
+kind delete cluster --name kinotic-cluster
 cd terraform
-terraform destroy
+rm -rf .terraform terraform.tfstate terraform.tfstate.backup .terraform.lock.hcl
+terraform init
 terraform apply
 ```
 
@@ -215,25 +245,21 @@ terraform apply
 
 ```
 deployment/kind/
-├── setup.sh                         # One-time environment setup (prerequisites, /etc/hosts, mkcert CA)
+├── setup.sh                         # One-time environment setup (prerequisites, mkcert CA)
 ├── terraform/
-│   ├── main.tf                      # KinD cluster + providers
+│   ├── main.tf                      # KinD cluster + providers + port mappings
 │   ├── tls.tf                       # mkcert certificate generation
-│   ├── ingress.tf                   # ingress-nginx + cert-manager + CoreDNS
-│   ├── elasticsearch.tf             # ECK operator + Elasticsearch
-│   ├── kinotic.tf                   # Kinotic server
-│   ├── keycloak.tf                  # PostgreSQL + Keycloak (conditional)
+│   ├── elasticsearch.tf             # ECK operator + Elasticsearch (eck-stack chart)
+│   ├── kinotic.tf                   # Kinotic server (NodePort + TLS)
+│   ├── keycloak.tf                  # PostgreSQL + Keycloak (conditional, NodePort + TLS)
 │   ├── load-generator.tf            # Load generator (conditional)
 │   ├── variables.tf                 # Input variables
 │   └── outputs.tf                   # Cluster info + access URLs
 ├── config/                          # Helm values overrides for KinD
-│   ├── cert-manager/values.yaml
 │   ├── eck-operator/values.yaml
-│   ├── elasticsearch/values.yaml
-│   ├── ingress-nginx/values.yaml
 │   ├── keycloak/values.yaml
+│   ├── kinotic-server/values.yaml
 │   ├── load-generator/values.yaml
-│   ├── postgresql/values.yaml
-│   └── kinotic-server/values.yaml
-└── charts/keycloak/                 # Local Keycloak Helm chart
+│   └── postgresql/values.yaml
+└── charts/keycloak/                 # Local Keycloak Helm chart (with TLS support)
 ```

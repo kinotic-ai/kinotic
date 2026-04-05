@@ -3,6 +3,7 @@ package org.kinotic.persistence.internal.endpoints;
 import io.vertx.core.Future;
 import io.vertx.core.VerticleBase;
 import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.web.Route;
@@ -12,6 +13,8 @@ import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.StaticHandler;
 import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.core.api.config.SslHelper;
+import org.kinotic.core.api.config.SslProperties;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.core.api.config.OidcSecurityServiceProperties;
 import org.slf4j.Logger;
@@ -30,13 +33,16 @@ public class WebServerVerticle extends VerticleBase {
     private final ObjectMapper objectMapper;
     private final HealthChecks healthChecks;
     private final PersistenceProperties properties;
+    private final SslProperties sslProperties;
     private final OidcSecurityServiceProperties oidcSecurityServiceProperties;
     private HttpServer server;
 
 
     @Override
     public Future<?> start() throws Exception {
-        server = vertx.createHttpServer();
+        HttpServerOptions serverOptions = new HttpServerOptions();
+        SslHelper.applySsl(serverOptions, sslProperties);
+        server = vertx.createHttpServer(serverOptions);
 
         Router router = Router.router(vertx);
 

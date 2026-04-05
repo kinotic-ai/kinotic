@@ -4,7 +4,7 @@ nameOverride: ""
 image:
   repository: kinoticai/kinotic-server
   pullPolicy: Always
-  tag: "3.5.2"
+  tag: "4.2.0-SNAPSHOT"
   sha: ""
 
 # Resource requests and limits for kinotic-server containers
@@ -18,7 +18,7 @@ migration:
   activeDeadlineSeconds: 300
   image:
     repository: kinoticai/kinotic-migration
-    tag: "3.5.2"
+    tag: "4.2.0-SNAPSHOT"
     pullPolicy: Always
     sha: ""
 
@@ -45,15 +45,14 @@ properties:
     initializeWithSampleData: false
     elastic:
       connections:
-        - host: "minds-test-elasticsearch.es.centralus.azure.elastic-cloud.com"
-          port: 443
-          scheme: "https"
-      connectionTimeout: "1M"
-      socketTimeout: "1M"
+        - host: "kinotic-es-es-http.elastic.svc"
+          port: 9200
+          scheme: "http"
+      connectionTimeout: "5s"
+      socketTimeout: "60s"
       username: "elastic"
-      # Kubernetes secret containing the ES password (required).
       # ECK creates a secret named <cluster>-es-elastic-user with key "elastic".
-      secretName: ""   # e.g., "kinotic-es-es-elastic-user"
+      secretName: "kinotic-es-es-elastic-user"
       secretKey: "elastic"
     ai:
       apiKey: "noop"
@@ -71,7 +70,7 @@ continuum:
   maxNumberOfCoresToUse: 4
   maxOffHeapMemory: "419430400"
   cluster:
-    discoveryType: LOCAL ## SHAREDFS or KUBERNETES
+    discoveryType: KUBERNETES
     joinTimeoutMs: 0
     # Test instance local address: bind to 0.0.0.0 (all interfaces) so containers can reach it
     # Containers connect via host.docker.internal:47500
@@ -84,7 +83,7 @@ continuum:
     localAddresses: null
     # Note: sharedFsPath is still used for Structure data sharing, not for Ignite discovery
     sharedFsPath: /sharedfs  # Shared with containers via bind mount
-    kubernetesNamespace: default
+    kubernetesNamespace: kinotic
     kubernetesServiceName: kinotic
     kubernetesIncludeNotReadyAddresses: false
     kubernetesMasterUrl: ""
@@ -113,6 +112,16 @@ oidc:
       silentRedirectUri: "http://localhost:9090/login/silent-renew"
     
 
+# TLS configuration
+# When enabled, mounts a Kubernetes TLS secret into the pods and configures
+# Vert.x to use PEM certificates for all HTTP/WebSocket servers.
+# cert-manager creates and auto-renews the secret; Reloader restarts pods
+# when the secret changes.
+tls:
+  enabled: false
+  # Name of the Kubernetes TLS secret (created by cert-manager Certificate)
+  secretName: kinotic-tls
+
 # Eviction tracking configuration
 # When enabled, cache evictions are written to CSV files for testing/analysis
 evictionTracking:
@@ -128,19 +137,9 @@ nodeSelector: {}
 service:
   # Service type: ClusterIP (default), NodePort, or LoadBalancer
   type: ClusterIP
-
-# Ingress configuration
-ingress:
-  enabled: false
-  className: nginx
-  # Hostnames for ingress rules and TLS certificate
-  hosts:
-    - localhost
-  # TLS configuration
-  tls:
-    enabled: false
-    # Secret name for TLS certificate
-    secretName: kinotic-tls-secret
-    # Set to true if TLS secret is created externally (e.g., by mkcert)
-    # When false, cert-manager will create a self-signed certificate
-    existingSecret: false
+  # NodePort values (only used when type: NodePort)
+  nodePorts:
+    ui: null
+    openApi: null
+    graphql: null
+    stomp: null

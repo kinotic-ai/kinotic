@@ -46,5 +46,13 @@ export function createConnectionInfo(): ConnectionInfo {
         && window.location.port === '') {
         connectionInfo.port = 443
     }
+
+    // kind config
+    if (connectionInfo.useSSL
+        && window.location.port === ''
+        && window.location.hostname === 'localhost') {
+        connectionInfo.port = 58503
+    }
+
     return connectionInfo
 }

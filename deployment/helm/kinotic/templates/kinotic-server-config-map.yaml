@@ -17,7 +17,6 @@ data:
   KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_{{ $index }}_HOST: "{{ $value.host }}"
   KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
   {{ end }}
-
   # ── AI (environment-specific) ─────────────────────────────
   SPRING_AI_OPENAI_BASE_URL: "{{ .Values.properties.structures.ai.baseUrl }}"
   SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "{{ .Values.properties.structures.ai.model }}"
@@ -26,6 +25,13 @@ data:
   {{- if .Values.evictionTracking.enabled }}
   # ── Eviction tracking ─────────────────────────────────────
   KINOTIC_CACHE_EVICTION_CSV_PATH: "{{ .Values.evictionTracking.mountPath | default "/eviction-data" }}/evictions-${POD_NAME}.csv"
+  {{- end }}
+
+  {{- if .Values.tls.enabled }}
+  # ── SSL/TLS ──────────────────────────────────────────────
+  KINOTIC_SSL_ENABLED: "true"
+  KINOTIC_SSL_CERTPATH: "/certs/tls.crt"
+  KINOTIC_SSL_KEYPATH: "/certs/tls.key"
   {{- end }}
 
   {{- if .Values.oidc.enabled }}
@@ -40,6 +46,9 @@ data:
   OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_AUDIENCE: "{{ $value.audience }}"
   OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_CLIENT_ID: "{{ $value.clientId }}"
   OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_AUTHORITY: "{{ $value.authority }}"
+  {{- if $value.backchannelAuthority }}
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_BACKCHANNEL_AUTHORITY: "{{ $value.backchannelAuthority }}"
+  {{- end }}
   OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_REDIRECT_URI: "{{ $value.redirectUri }}"
   OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_POST_LOGOUT_REDIRECT_URI: "{{ $value.postLogoutRedirectUri }}"
   OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_SILENT_REDIRECT_URI: "{{ $value.silentRedirectUri }}"

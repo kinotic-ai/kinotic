@@ -1,59 +1,50 @@
+# ── Cluster ───────────────────────────────────────────────────────────────────
+
+output "cluster_name" {
+  value = module.aks.cluster_name
+}
+
 output "resource_group_name" {
-  description = "Name of the resource group"
-  value       = azurerm_resource_group.main.name
+  value = azurerm_resource_group.main.name
 }
 
-output "vm_public_ip" {
-  description = "Public IP address of the VM"
-  value       = azurerm_public_ip.main.ip_address
+output "get_credentials" {
+  description = "Run this to configure kubectl"
+  value       = "az aks get-credentials --resource-group ${azurerm_resource_group.main.name} --name ${module.aks.cluster_name}"
 }
 
-output "vm_name" {
-  description = "Name of the virtual machine"
-  value       = azurerm_linux_virtual_machine.main.name
+# ── Elasticsearch ─────────────────────────────────────────────────────────────
+
+output "elasticsearch_internal_endpoint" {
+  description = "Internal HTTPS endpoint - reachable within the VNet only"
+  value       = "http://kinotic-es-es-http.elastic.svc:9200"
 }
 
-output "private_key_file" {
-  description = "Path to the generated private key file"
-  value       = local_file.private_key.filename
-  sensitive   = false
+output "get_elastic_password" {
+  description = "Run this to retrieve the elastic user password after deploy"
+  value       = "kubectl get secret kinotic-es-es-elastic-user -n elastic -o jsonpath='{.data.elastic}' | base64 -d"
 }
 
-output "ssh_command" {
-  description = "SSH command to connect to the VM"
-  value       = "ssh -i ${local_file.private_key.filename} ${var.admin_username}@${azurerm_public_ip.main.ip_address}"
+# ── DNS ───────────────────────────────────────────────────────────────────────
+
+output "dns_nameservers" {
+  description = "Set these as NS records at your domain registrar (Namecheap)"
+  value       = azurerm_dns_zone.main.name_servers
 }
 
-output "verify_nested_virtualization" {
-  description = "Commands to verify nested virtualization is enabled"
-  value = <<-EOT
-    # Connect to the VM and run:
-    ssh -i ${local_file.private_key.filename} ${var.admin_username}@${azurerm_public_ip.main.ip_address}
-    
-    # Check if virtualization extensions are available:
-    grep -c vmx /proc/cpuinfo
-    
-    # Should return a number > 0. For AMD processors, use:
-    grep -c svm /proc/cpuinfo
-    
-    # Check if KVM is working:
-    kvm-ok
-    
-    # Should indicate "KVM acceleration can be used"
-  EOT
+# ── Firecracker (conditional) ─────────────────────────────────────────────────
+
+output "firecracker_ssh_commands" {
+  description = "SSH commands to connect to Firecracker host VMs"
+  value       = var.enable_firecracker ? module.firecracker[0].ssh_commands : []
 }
 
-output "storage_account_name" {
-  description = "Name of the storage account for Firecracker images"
-  value       = azurerm_storage_account.firecracker_images.name
+output "firecracker_vm_public_ips" {
+  description = "Public IPs of Firecracker host VMs"
+  value       = var.enable_firecracker ? module.firecracker[0].vm_public_ips : []
 }
 
-output "storage_container_name" {
-  description = "Name of the blob container for Firecracker images"
-  value       = azurerm_storage_container.firecracker_images.name
-}
-
-output "storage_account_resource_group" {
-  description = "Resource group name for the storage account"
-  value       = azurerm_resource_group.main.name
+output "firecracker_storage_account" {
+  description = "Storage account for Firecracker VM images"
+  value       = var.enable_firecracker ? module.firecracker[0].storage_account_name : null
 }

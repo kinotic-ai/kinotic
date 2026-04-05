@@ -1,11 +1,11 @@
 # Kind-specific values for the load-generator chart
-# Connects through nginx ingress for full-path testing
+# Connects directly to kinotic-server service (TLS enabled)
 
 kinotic:
   useSsl: true
-  tlsInsecure: true  # Accept mkcert/self-signed certs
-  host: kinotic.local
-  port: 443
+  tlsInsecure: true  # Accept mkcert self-signed certs
+  host: kinotic-server
+  port: 58503
 
 loadGenerator:
   image:
