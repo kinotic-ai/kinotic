@@ -1,263 +1,184 @@
-# Azure VM with Nested Virtualization - Terraform Configuration
+# AKS + ECK Platform
 
-This Terraform configuration deploys an Azure VM with nested virtualization enabled, configured to run Ubuntu guest VMs using KVM.
+Modular Terraform + Helm for an AKS cluster running Kinotic and Elasticsearch
+via the ECK operator. Single `terraform apply` deploys everything end-to-end.
 
-## Prerequisites
+Two deployment tiers controlled by `beta_mode`:
+- **Beta** (default) — all workloads on shared system pool, single ES node (~$511/mo)
+- **Production** — dedicated ES node pool, 3 master + 3 data ES nodes, AKS SLA (~$2,035/mo)
 
-- [Terraform](https://www.terraform.io/downloads) >= 1.5.0
-- Azure CLI installed (recommended) or Azure credentials configured
-- Appropriate Azure subscription and permissions
+See [COST.md](COST.md) for full cost breakdown and [PRODUCTION.md](PRODUCTION.md) for readiness status.
 
-## Azure Authentication
+## Directory Layout
 
-The Azure Terraform provider supports multiple authentication methods. Choose the one that best fits your use case:
+```
+deployment/terraform/azure/
+├── main.tf                           # Root — providers, resource group, modules
+├── variables.tf                      # All input variable declarations
+├── outputs.tf                        # Cluster name, endpoints, helper commands
+├── helm.tf                           # Helm/K8s providers, namespaces, ECK, NetworkPolicy
+├── kinotic.tf                        # Kinotic server + ES secret sync
+├── tls.tf                            # Azure DNS, cert-manager, Let's Encrypt, Reloader
+├── dns.tf                            # DNS A records (dynamic LB IP)
+├── nodepools.tf                      # ES dedicated node pool (production only)
+├── load-generator.tf                 # Conditional load generator
+├── firecracker.tf                    # Conditional Firecracker VM host(s)
+├── bootstrap-state.sh                # One-time: create remote state storage
+├── terraform.tfvars                  # Environment variable values
+├── config/
+│   ├── kinotic-server/values.yaml    # Azure kinotic-server overrides
+│   └── load-generator/values.yaml    # Azure load generator config
+├── modules/
+│   ├── identity/                     # Managed identities + RBAC
+│   ├── networking/                   # VNet, subnets, NSGs
+│   ├── aks/                          # AKS cluster (tier based on beta_mode)
+│   └── firecracker/                  # VM, storage account, user_data
+└── helm/
+    └── eck-operator/values.yaml      # ECK operator config
 
-### Option 1: Azure CLI Authentication (Recommended for Local Development)
-
-This is the simplest method for local development:
-
-1. **Install Azure CLI** (if not already installed):
-   ```bash
-   # On Ubuntu/Debian
-   curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-   
-   # On macOS
-   brew install azure-cli
-   
-   # On Windows
-   # Download from https://aka.ms/installazurecliwindows
-   ```
-
-2. **Login to Azure**:
-   ```bash
-   az login
-   ```
-   
-   This will open a browser window for you to authenticate. After successful login, you'll see your subscription information.
-
-3. **Set your subscription** (if you have multiple subscriptions):
-   ```bash
-   # List available subscriptions
-   az account list --output table
-   
-   # Set the active subscription
-   az account set --subscription "Your-Subscription-Name-or-ID"
-   ```
-
-4. **Verify authentication**:
-   ```bash
-   az account show
-   ```
-
-The Terraform Azure provider will automatically use your Azure CLI credentials when you run `terraform plan` or `terraform apply`.
-
-### Option 2: Service Principal with Client ID and Secret
-
-This is recommended for CI/CD pipelines and automation:
-
-1. **Create a Service Principal**:
-   ```bash
-   az ad sp create-for-rbac --role="Contributor" --scopes="/subscriptions/YOUR_SUBSCRIPTION_ID"
-   ```
-
-   This command outputs JSON with:
-   - `appId` (Client ID)
-   - `password` (Client Secret)
-   - `tenant` (Tenant ID)
-
-2. **Set Environment Variables**:
-   ```bash
-   export ARM_CLIENT_ID="your-app-id"
-   export ARM_CLIENT_SECRET="your-client-secret"
-   export ARM_SUBSCRIPTION_ID="your-subscription-id"
-   export ARM_TENANT_ID="your-tenant-id"
-   ```
-
-   Or create a `.env` file and source it:
-   ```bash
-   # .env file
-   export ARM_CLIENT_ID="your-app-id"
-   export ARM_CLIENT_SECRET="your-client-secret"
-   export ARM_SUBSCRIPTION_ID="your-subscription-id"
-   export ARM_TENANT_ID="your-tenant-id"
-   
-   # Source it
-   source .env
-   ```
-
-### Option 3: Service Principal with Client Certificate
-
-For certificate-based authentication:
-
-1. **Create a Service Principal with certificate**:
-   ```bash
-   az ad sp create-for-rbac --name "terraform-sp" --create-cert
-   ```
-
-2. **Set Environment Variables**:
-   ```bash
-   export ARM_CLIENT_ID="your-app-id"
-   export ARM_CLIENT_CERTIFICATE_PATH="/path/to/certificate.pfx"
-   export ARM_CLIENT_CERTIFICATE_PASSWORD="certificate-password"
-   export ARM_SUBSCRIPTION_ID="your-subscription-id"
-   export ARM_TENANT_ID="your-tenant-id"
-   ```
-
-### Option 4: Configure in Terraform Provider Block
-
-You can also configure credentials directly in the provider block (not recommended for production):
-
-```hcl
-provider "azurerm" {
-  features {}
-  
-  subscription_id = "your-subscription-id"
-  tenant_id       = "your-tenant-id"
-  client_id       = "your-client-id"
-  client_secret   = "your-client-secret"
-}
+Shared Helm charts (deployment/helm/):
+  eck-stack/
+  ├── values.yaml                     # Base (version, name, Kibana off)
+  ├── values-kind.yaml                # KinD overlay
+  ├── values-azure.yaml               # Production overlay (master+data, zones, ZRS)
+  └── values-azure-beta.yaml          # Beta overlay (single node, shared pool)
+  kinotic/                            # Kinotic server chart
+  es-secret-sync/                     # ES credential copy (elastic → kinotic namespace)
+  load-generator/                     # Load testing Job
 ```
 
-**Note**: Hardcoding credentials in Terraform files is a security risk. Use environment variables or Azure CLI instead.
+## First-Time Setup
 
-### Required Permissions
+### 1. Bootstrap remote state
 
-Your Azure account or Service Principal needs the following permissions:
-- **Contributor** role (recommended) - Allows creating, updating, and deleting resources
-- Or at minimum:
-  - Virtual Machine Contributor
-  - Network Contributor
-  - Storage Account Contributor
-
-### Verify Authentication
-
-Test your authentication setup:
-
-```bash
-# Using Azure CLI
-az account show
-
-# Using Terraform (should not error)
-cd terraform/azure
-terraform init
-terraform plan
-```
-
-## Usage
-
-1. **Navigate to the Azure directory**:
-   ```bash
-   cd terraform/azure
-   ```
-
-2. **Initialize Terraform**:
-   ```bash
-   terraform init
-   ```
-
-3. **Review and customize variables** (optional):
-   ```bash
-   # Edit variables.tf or use terraform.tfvars
-   cat > terraform.tfvars <<EOF
-   location            = "eastus"
-   resource_group_name = "my-kinotic-rg"
-   vm_name             = "my-vm"
-   vm_size             = "Standard_D4s_v3"
-   admin_username      = "azureuser"
-   EOF
-   ```
-
-4. **Plan the deployment**:
-   ```bash
-   terraform plan
-   ```
-
-5. **Apply the configuration**:
-   ```bash
-   terraform apply
-   ```
-
-6. **Get connection information**:
-   ```bash
-   terraform output ssh_command
-   terraform output vm_public_ip
-   ```
-
-## Verify Nested Virtualization
-
-After the VM is deployed, connect via SSH and verify nested virtualization:
-
-```bash
-# Connect to the VM
-ssh -i azure-vm-key-*.pem azureuser@<public-ip>
-
-# Check for virtualization extensions
-grep -c vmx /proc/cpuinfo
-# Should return a number > 0
-
-# For AMD processors
-grep -c svm /proc/cpuinfo
-
-# Check KVM status
-kvm-ok
-# Should indicate "KVM acceleration can be used"
-
-# Check libvirt
-sudo systemctl status libvirtd
-virsh list --all
-```
-
-## Creating Ubuntu Guest VMs
-
-Once nested virtualization is verified, you can create Ubuntu guest VMs using:
-
-```bash
-# Using virt-install
-sudo virt-install \
-  --name ubuntu-guest \
-  --ram 2048 \
-  --disk path=/var/lib/libvirt/images/ubuntu-guest.qcow2,size=20 \
-  --vcpus 2 \
-  --os-type linux \
-  --os-variant ubuntu22.04 \
-  --network network=default \
-  --graphics none \
-  --console pty,target_type=serial \
-  --location 'http://archive.ubuntu.com/ubuntu/dists/jammy/main/installer-amd64/' \
-  --extra-args 'console=ttyS0,115200n8 serial'
-```
-
-Or use `virt-manager` GUI (via X11 forwarding) for a graphical interface.
-
-## Troubleshooting Authentication Issues
-
-### Issue: "Azure CLI not found"
-**Solution**: Install Azure CLI or use environment variables for Service Principal authentication.
-
-### Issue: "No subscription found"
-**Solution**: 
 ```bash
 az login
-az account list --output table
-az account set --subscription "Your-Subscription-ID"
+cd deployment/terraform/azure
+./bootstrap-state.sh
 ```
 
-### Issue: "Insufficient permissions"
-**Solution**: Ensure your account has Contributor role or equivalent permissions:
-```bash
-az role assignment list --assignee $(az account show --query user.name -o tsv) --scope /subscriptions/YOUR_SUBSCRIPTION_ID
-```
-
-### Issue: "Invalid client secret"
-**Solution**: Regenerate the Service Principal secret:
-```bash
-az ad sp credential reset --name "your-service-principal-name"
-```
-
-## Cleanup
-
-To destroy all resources:
+### 2. Get your Terraform principal object ID
 
 ```bash
-terraform destroy
+az ad signed-in-user show --query id -o tsv
 ```
+
+### 3. Update terraform.tfvars
+
+```hcl
+terraform_principal_object_id = "<paste-id-here>"
+lets_encrypt_email            = "<your-email>"
+```
+
+### 4. Deploy
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
+### 5. Update DNS nameservers
+
+After the first apply, point your domain's NS records to Azure:
+
+```bash
+terraform output dns_nameservers
+```
+
+Set these as the nameservers at your domain registrar. cert-manager will issue
+the Let's Encrypt certificate once DNS propagates.
+
+## Deploy Options
+
+```bash
+# Beta (default) — single ES node, shared system pool
+terraform apply
+
+# With load generator (sample data)
+terraform apply -var="enable_load_generator=true"
+
+# With Firecracker VM hosts
+terraform apply -var="enable_firecracker=true"
+
+# Scale to production topology
+terraform apply -var="beta_mode=false"
+```
+
+## Deployment Order
+
+Automatic via terraform dependency graph:
+
+```
+Resource Group
+  Managed Identities + RBAC
+    VNet + Subnet(s) + NSG
+      AKS Cluster (system nodepool)
+        [if !beta_mode] ES Node Pool (3x Standard_E8s_v5)
+        Namespaces (elastic-system, elastic, kinotic, cert-manager)
+          ECK Operator (elastic-system)
+            Elasticsearch (elastic) — beta: 1 node / prod: 3 master + 3 data
+          ES Secret Sync Job (kinotic)
+          NetworkPolicy on ES (elastic)
+        Azure DNS Zone + cert-manager + Let's Encrypt Certificate
+        Reloader (kube-system)
+          Kinotic Server (kinotic) — 3 replicas, TLS, sticky sessions
+            [if enable_load_generator] Load Generator Job (kinotic)
+        DNS A records (kinotic.ai → LB IP)
+      [if enable_firecracker]
+        Firecracker VM(s) + Storage Account
+```
+
+## Namespaces
+
+| Namespace | Contents |
+|---|---|
+| `elastic-system` | ECK operator |
+| `elastic` | Elasticsearch cluster, NetworkPolicy |
+| `kinotic` | Kinotic server, ES secret copy, TLS cert, load generator |
+| `cert-manager` | cert-manager |
+| `kube-system` | Reloader, system components |
+
+## Verify After Deploy
+
+```bash
+az aks get-credentials --resource-group rg-kinotic-dev --name aks-kinotic-dev
+
+kubectl get nodes -o wide
+kubectl get elasticsearch -n elastic
+kubectl get pods -n elastic
+kubectl get pods -n kinotic
+
+# Health check
+curl -sk https://kinotic.ai/health/
+
+# Get elastic password
+kubectl get secret kinotic-es-es-elastic-user \
+  -n elastic -o jsonpath='{.data.elastic}' | base64 -d && echo
+```
+
+## RBAC
+
+| Principal | Role | Scope | Purpose |
+|---|---|---|---|
+| Terraform runner | AKS RBAC Cluster Admin | Resource Group | Helm/K8s providers connect to AKS |
+| Control plane identity | AKS RBAC Cluster Admin | Resource Group | ECK operator API server access |
+| Control plane identity | Managed Identity Operator | Kubelet identity | Assign kubelet identity to nodes |
+| Kubelet identity | Network Contributor | Subnet + VNet | Manage Azure Load Balancers |
+| cert-manager identity | DNS Zone Contributor | DNS Zone | Let's Encrypt DNS-01 challenges |
+
+## Day-2 Operations
+
+**Scale to production:** `terraform apply -var="beta_mode=false"` — adds ES node pool, ECK migrates pods to dedicated VMs, system pool gets tainted. No storage migration needed — both beta and production use Premium ZRS.
+
+**Expand ES storage:** increase `storage:` in the eck-stack values overlay, then `terraform apply`. ECK expands PVCs online with zero downtime (one node at a time). Premium ZRS supports online expansion. You can only grow, never shrink.
+
+**Upgrade ES version:** bump `version:` in `deployment/helm/eck-stack/values.yaml`, then `terraform apply`.
+
+**Scale data nodes:** change `count:` in the eck-stack values overlay, then `terraform apply`.
+
+**Rotate ES credentials:** re-run `helm upgrade es-secret-sync` in the kinotic namespace to copy the updated secret.
+
+**Enable Kibana:** set `eck-kibana.enabled: true` in values, then `terraform apply`.
+
+**Add Firecracker hosts:** `terraform apply -var="enable_firecracker=true"`.

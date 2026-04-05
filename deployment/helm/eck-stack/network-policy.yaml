@@ -1,0 +1,26 @@
+# NetworkPolicy for Elasticsearch — restrict ingress to same namespace
+# and ECK operator. Blocks all other namespaces.
+#
+# Applied via terraform kubernetes_network_policy, not as part of the
+# eck-stack chart. This file is a reference.
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: elasticsearch-ingress
+  namespace: kinotic
+spec:
+  podSelector:
+    matchLabels:
+      elasticsearch.k8s.elastic.co/cluster-name: kinotic-es
+  policyTypes:
+    - Ingress
+  ingress:
+    # All pods in the kinotic namespace (server, migration, ES inter-node)
+    - from:
+        - podSelector: {}
+    # ECK operator in elastic-system namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: elastic-system

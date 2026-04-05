@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Silent Renew</title>
+</head>
+<body>
+    <script src="https://cdn.jsdelivr.net/npm/oidc-client-ts@3.3.0/dist/browser/oidc-client-ts.min.js"></script>
+    <script>
+        // This page is loaded in a hidden iframe by oidc-client-ts
+        // It completes the silent token renewal and posts the result back to the parent
+        new oidc.UserManager({ response_mode: 'query' })
+            .signinSilentCallback()
+            .then(() => {
+                console.log('Silent renew callback successful');
+            })
+            .catch((error) => {
+                console.error('Silent renew callback error:', error);
+            });
+    </script>
+</body>
+</html>

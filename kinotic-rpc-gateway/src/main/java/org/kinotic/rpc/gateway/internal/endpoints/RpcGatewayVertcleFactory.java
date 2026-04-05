@@ -9,6 +9,7 @@ import io.vertx.ext.stomp.lite.StompServerVerticleFactory;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.StaticHandler;
 import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.rpc.gateway.api.config.KinoticRpcGatewayProperties;
 import org.kinotic.rpc.gateway.api.config.RpcGatewayProperties;
 import org.springframework.stereotype.Component;
@@ -49,6 +50,7 @@ public class RpcGatewayVertcleFactory {
         HttpServerOptions serverOptions = new HttpServerOptions();
         serverOptions.setWebSocketSubProtocols(List.of("v12.stomp"));
         serverOptions.setMaxWebSocketFrameSize(kinoticProperties.getMaxEventPayloadSize());
+        SslHelper.applySsl(serverOptions, kinoticProperties.getSsl());
 
         return StompServerVerticleFactory.create(serverOptions, stompServerOptions, stompServerHandlerFactory, router);
     }

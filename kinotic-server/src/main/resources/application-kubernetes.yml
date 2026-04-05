@@ -9,6 +9,8 @@ kinotic:
   ignite:
     discoveryType: KUBERNETES
     localAddress: "0.0.0.0"
+    kubernetesNamespace: kinotic
+    kubernetesServiceName: kinotic
     kubernetesIncludeNotReadyAddresses: true
 
   persistence:
