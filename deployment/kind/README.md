@@ -58,6 +58,7 @@ localhost:8080  ──> NodePort 30080 ──> kinotic-server (Vert.x TLS, OpenA
 localhost:4000  ──> NodePort 30400 ──> kinotic-server (Vert.x TLS, GraphQL)
 localhost:58503 ──> NodePort 30503 ──> kinotic-server (Vert.x TLS, STOMP/WS)
 localhost:8888  ──> NodePort 30888 ──> keycloak       (Keycloak TLS, when enabled)
+localhost:3000  ─���> NodePort 30300 ──> grafana        (Grafana TLS)
 ```
 
 ### Namespaces
@@ -67,6 +68,7 @@ localhost:8888  ──> NodePort 30888 ──> keycloak       (Keycloak TLS, whe
 | `elastic-system` | ECK operator |
 | `elastic` | Elasticsearch cluster |
 | `kinotic` | Kinotic server, TLS secret, Keycloak, PostgreSQL, load generator |
+| `observability` | Loki, Alloy, Grafana |
 
 ## Service Access
 
@@ -79,6 +81,7 @@ localhost:8888  ──> NodePort 30888 ──> keycloak       (Keycloak TLS, whe
 | GraphQL | https://localhost:4000/graphql/ |
 | WebSocket (STOMP) | wss://localhost:58503/v1 |
 | Keycloak Admin | https://localhost:8888/auth/admin |
+| Grafana | https://localhost:3000/ |
 
 ### Without mkcert (`-var="use_mkcert=false"`)
 
@@ -88,6 +91,7 @@ localhost:8888  ──> NodePort 30888 ──> keycloak       (Keycloak TLS, whe
 | OpenAPI | http://localhost:8080/api/ |
 | GraphQL | http://localhost:4000/graphql/ |
 | WebSocket (STOMP) | ws://localhost:58503/v1 |
+| Grafana | http://localhost:3000/ |
 
 ### Direct Access (kubectl port-forward)
 
@@ -229,6 +233,7 @@ kubectl logs -l app=keycloak -n kinotic -f        # if Keycloak enabled
 ```bash
 kubectl get pods,svc -n kinotic
 kubectl get pods,svc -n elastic
+kubectl get pods,svc -n observability
 kubectl get elasticsearch -n elastic
 ```
 
@@ -251,6 +256,7 @@ deployment/kind/
 │   ├── tls.tf                       # mkcert certificate generation
 │   ├── elasticsearch.tf             # ECK operator + Elasticsearch (eck-stack chart)
 │   ├── kinotic.tf                   # Kinotic server (NodePort + TLS)
+│   ├── observability.tf             # Loki + Alloy + Grafana (TLS)
 │   ├── keycloak.tf                  # PostgreSQL + Keycloak (conditional, NodePort + TLS)
 │   ├── load-generator.tf            # Load generator (conditional)
 │   ├── variables.tf                 # Input variables

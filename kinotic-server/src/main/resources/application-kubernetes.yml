@@ -5,6 +5,11 @@
 # and are required for Kubernetes deployments.
 # Elasticsearch host/port/credentials come from env vars or secretKeyRef.
 
+logging:
+  structured:
+    format:
+      console: logstash
+
 kinotic:
   ignite:
     discoveryType: KUBERNETES

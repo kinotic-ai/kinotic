@@ -32,6 +32,14 @@ output "keycloak" {
   } : null
 }
 
+output "grafana" {
+  description = "Grafana log dashboard"
+  value = {
+    url         = var.use_mkcert ? "https://localhost:3000" : "http://localhost:3000"
+    credentials = "admin / admin"
+  }
+}
+
 output "port_forward_commands" {
   description = "Commands for direct access to infrastructure services"
   value = merge(

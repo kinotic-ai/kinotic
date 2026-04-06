@@ -99,6 +99,14 @@ variable "enable_load_generator" {
   default     = false
 }
 
+# ── Grafana / Entra ID ────────────────────────────────────────────────────────
+
+variable "disable_grafana_entra" {
+  description = "Disable Azure Entra ID login for Grafana (falls back to local admin/admin)"
+  type        = bool
+  default     = false
+}
+
 # ── TLS / DNS ─────────────────────────────────────────────────────────────────
 
 variable "domain_name" {

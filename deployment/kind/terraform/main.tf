@@ -76,6 +76,12 @@ resource "kind_cluster" "kinotic" {
         host_port      = 8888
         protocol       = "TCP"
       }
+      # Grafana
+      extra_port_mappings {
+        container_port = 30300
+        host_port      = 3000
+        protocol       = "TCP"
+      }
     }
 
     dynamic "node" {

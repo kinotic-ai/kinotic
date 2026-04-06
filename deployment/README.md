@@ -17,9 +17,12 @@ helm/
 ├── eck-stack/          # Elasticsearch via the official elastic/eck-stack chart
 │   ├── values.yaml     # Base: version, cluster name, Kibana off
 │   ├── values-kind.yaml
-│   └── values-azure.yaml
+│   ├── values-azure.yaml
+│   └── values-azure-beta.yaml
 ├── kinotic/            # Kinotic server (Deployment, Service, ConfigMap, RBAC)
-└── load-generator/     # Load testing Job
+├── es-secret-sync/     # ES credential copy (elastic → kinotic namespace)
+├── load-generator/     # Load testing Job
+└── observability/      # Loki, Alloy, Grafana values + Alloy pipeline config
 ```
 
 Charts use a **layered values** pattern. The base `values.yaml` contains defaults that work across environments. Environment-specific files override what differs (resource limits, TLS, service type, storage classes, node topology).
@@ -35,6 +38,7 @@ Both KinD and Azure use the same layout:
 | `elastic-system` | ECK operator |
 | `elastic` | Elasticsearch cluster |
 | `kinotic` | Kinotic server, TLS certs, Keycloak (when enabled), load generator |
+| `observability` | Loki, Alloy, Grafana |
 
 ## Elasticsearch Storage
 
@@ -55,7 +59,17 @@ No ingress controller or reverse proxy in either environment. Vert.x handles TLS
 | KinD | mkcert (browser-trusted local CA) | N/A (dev) |
 | Azure | cert-manager + Let's Encrypt (DNS-01 via Azure DNS) | Automatic (Reloader restarts pods) |
 
-Keycloak also reads from the same TLS secret when enabled.
+Keycloak and Grafana also read from the same TLS secret.
+
+## Observability
+
+Centralized log collection using Grafana's stack:
+
+- **Alloy** — DaemonSet on each node, collects pod logs, ships to Loki. Pipeline config in `helm/observability/alloy-config.alloy`.
+- **Loki** — Log storage. Filesystem in KinD, Azure Blob Storage in Azure.
+- **Grafana** — Query and dashboards. Local auth in KinD, Entra ID (Azure AD) in Azure.
+
+To add a new log source (e.g. Firecracker VM logs), add a `local.file_match` + `loki.source.file` block to the Alloy config and apply.
 
 ## Quick Reference
 
