@@ -1,7 +1,7 @@
 # ── Dev Environment ───────────────────────────────────────────────────────────
-# Apply with: terraform apply -var-file="environments/dev/terraform.tfvars"
+# Apply with: terraform apply -var-file="environments/production/terraform.tfvars"
 
-environment        = "dev"
+environment        = "production"
 project            = "kinotic"
 location           = "westus2"
 kubernetes_version = "1.29"
@@ -29,11 +29,11 @@ kinotic_version = "4.2.0-SNAPSHOT"  # <-- pin to a release tag before production
 
 # ── TLS / DNS ─────────────────────────────────────────────────────────────────
 domain_name        = "kinotic.ai"
-lets_encrypt_email = ""  # <-- replace with your email
+lets_encrypt_email = "devops@mindsignited.com"
 
 # ── Tags ──────────────────────────────────────────────────────────────────────
 tags = {
-  environment = "dev"
+  environment = "production"
   project     = "kinotic"
   owner       = "platform-team"
   cost_center = "engineering"

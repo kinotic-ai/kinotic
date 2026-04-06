@@ -13,6 +13,15 @@ LOCATION="westus2"
 SA_NAME="stkinotictfstate"
 CONTAINER="tfstate"
 
+echo "==> Registering required resource providers"
+for PROVIDER in Microsoft.Storage Microsoft.Compute Microsoft.ContainerService \
+                Microsoft.Network Microsoft.ManagedIdentity Microsoft.Authorization \
+                Microsoft.OperationsManagement Microsoft.OperationalInsights; do
+  az provider register --namespace "$PROVIDER" --wait 2>/dev/null &
+done
+wait
+echo "    Providers registered"
+
 echo "==> Creating resource group ${RG_NAME}"
 az group create --name "$RG_NAME" --location "$LOCATION" --output none
 

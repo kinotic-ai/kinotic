@@ -142,7 +142,42 @@ resource "kubernetes_manifest" "tls_certificate" {
     }
   }
 
-  depends_on = [kubernetes_manifest.letsencrypt_issuer]
+  depends_on = [
+    kubernetes_manifest.letsencrypt_issuer,
+    kubernetes_namespace.kinotic,
+  ]
+}
+
+# ── Wait for TLS cert to be issued ───────────────────────────────────────────
+# cert-manager issues the cert asynchronously after the Certificate resource
+# is created. On first deploy, this requires DNS propagation (NS records
+# pointing to Azure DNS). This resource blocks until the TLS secret exists
+# with data, ensuring kinotic-server only starts after TLS is ready.
+
+resource "terraform_data" "tls_cert_ready" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -e
+      echo "Waiting for TLS certificate to be issued..."
+      echo "If this is the first deploy, ensure NS records for ${var.domain_name} point to Azure DNS."
+      echo "Check: terraform output dns_nameservers"
+      for i in $(seq 1 120); do
+        DATA=$(kubectl get secret ${var.tls_secret_name} -n kinotic \
+          -o jsonpath='{.data.tls\.crt}' 2>/dev/null || true)
+        if [ -n "$DATA" ]; then
+          echo "TLS certificate is ready"
+          exit 0
+        fi
+        echo "  Attempt $i/120 — cert not issued yet, waiting 30s..."
+        sleep 30
+      done
+      echo "ERROR: Timed out waiting for TLS certificate (60 min)."
+      echo "Check: kubectl describe certificate ${var.tls_secret_name} -n kinotic"
+      exit 1
+    EOT
+  }
+
+  depends_on = [kubernetes_manifest.tls_certificate]
 }
 
 # ── Reloader ──────────────────────────────────────────────────────────────────

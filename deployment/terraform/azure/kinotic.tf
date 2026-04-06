@@ -50,7 +50,7 @@ resource "helm_release" "kinotic_server" {
   depends_on = [
     helm_release.eck_stack,
     helm_release.es_secret_sync,
-    kubernetes_manifest.tls_certificate,
+    terraform_data.tls_cert_ready,
     helm_release.reloader,
   ]
 }
