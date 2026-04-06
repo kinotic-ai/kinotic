@@ -76,7 +76,9 @@ To add a new log source (e.g. Firecracker VM logs), add a `local.file_match` + `
 ### KinD
 
 ```bash
-cd deployment/kind/terraform
+cd deployment/kind
+./setup.sh                            # one-time: install tools + mkcert CA
+cd terraform
 terraform init && terraform apply
 
 # With OIDC:  terraform apply -var="enable_keycloak=true"

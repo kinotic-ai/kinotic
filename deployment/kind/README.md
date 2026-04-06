@@ -2,33 +2,35 @@
 
 Local Kubernetes development environment for Kinotic using KinD (Kubernetes in Docker) and Terraform.
 
-## Prerequisites
+## Setup
 
-**Required:**
-- [Docker](https://docs.docker.com/get-docker/) (Docker Desktop or Docker Engine)
-- [Terraform](https://developer.hashicorp.com/terraform/install) (>= 1.5)
-
-**Optional:**
-- [kubectl](https://kubernetes.io/docs/tasks/tools/) — for debugging, logs, port-forwarding
-- [mkcert](https://github.com/FiloSottile/mkcert) — browser-trusted local TLS (no cert warnings)
+The setup script installs all required tools via Homebrew and configures mkcert
+for browser-trusted TLS certificates:
 
 ```bash
-# macOS
-brew install terraform kubectl
-brew install --cask docker
-
-# Optional: browser-trusted certs
-brew install mkcert nss && mkcert -install
+cd deployment/kind
+./setup.sh
 ```
 
-Run `./setup.sh` to verify prerequisites.
+This installs: Docker (or Colima), Terraform, kubectl, Helm, KinD, mkcert, jq, nss.
+It also installs the mkcert local CA into your system trust store.
+
+To check what's installed without making changes: `./setup.sh --check`
+
+### Manual install (if you prefer)
+
+```bash
+brew install terraform kubectl helm kind mkcert nss jq
+brew install --cask docker    # or: brew install docker colima && colima start
+mkcert -install               # one-time CA setup
+```
 
 ## Quick Start
 
 ```bash
 cd deployment/kind
 
-# Check prerequisites
+# Install tools + configure mkcert (one-time)
 ./setup.sh
 
 # Create cluster and deploy everything
@@ -39,8 +41,8 @@ terraform apply
 # With Keycloak/OIDC
 terraform apply -var="enable_keycloak=true"
 
-# Specific image version
-terraform apply -var="kinotic_version=4.2.0-SNAPSHOT"
+# Rebuild and reload kinotic-server after code changes
+../dev-reload.sh
 
 # Tear down
 terraform destroy
