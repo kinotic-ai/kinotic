@@ -234,3 +234,36 @@ Resource Group
 **Enable Kibana:** set `eck-kibana.enabled: true` in values, then `terraform apply`.
 
 **Add Firecracker hosts:** `terraform apply -var="enable_firecracker=true"`.
+
+## Authentication (Entra ID)
+
+Terraform creates two App Registrations automatically:
+- **kinotic-production-platform** — OIDC login for the kinotic application
+- **kinotic-production-grafana** — OIDC login for Grafana dashboards
+
+### Multi-tenant user isolation
+
+Each user has a `kinoticTenantId` directory extension attribute that controls which
+tenant's data they can access. After deploy:
+
+```bash
+# Get the claim name and set command
+terraform output kinotic_oidc_tenant_id_claim
+terraform output set_user_tenant_id
+```
+
+Assign a user to a tenant:
+
+```bash
+# Get the user's object ID
+az ad user list --filter "mail eq 'nic@kinotic.ai'" --query "[0].id" -o tsv
+
+# Use the terraform output for the exact command with the correct claim name
+terraform output set_user_tenant_id
+```
+
+The claim name includes an Azure-generated prefix (`extension_{appId}_kinoticTenantId`).
+Use `terraform output kinotic_oidc_tenant_id_claim` to get the exact name, then set
+`tenantIdFieldName` in the kinotic-server OIDC config to match.
+
+No Entra ID licenses are required — Azure AD Free tier handles OIDC authentication.
