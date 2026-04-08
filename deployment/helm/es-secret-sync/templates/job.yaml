@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: es-secret-sync-{{ .Release.Revision }}
+  namespace: {{ .Values.target.namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: {{ mul .Values.retries .Values.retryInterval | add 30 }}
+  template:
+    metadata:
+      labels:
+        app: es-secret-sync
+    spec:
+      serviceAccountName: es-secret-sync
+      restartPolicy: Never
+      containers:
+        - name: sync
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              SOURCE_NS="{{ .Values.source.namespace }}"
+              TARGET_NS="{{ .Values.target.namespace }}"
+              SECRET="{{ .Values.source.secretName }}"
+
+              echo "Waiting for secret $SECRET in $SOURCE_NS to be populated..."
+              for i in $(seq 1 {{ .Values.retries }}); do
+                DATA=$(kubectl get secret "$SECRET" -n "$SOURCE_NS" \
+                  -o jsonpath='{.data}' 2>/dev/null || true)
+                if [ -n "$DATA" ] && [ "$DATA" != "{}" ]; then
+                  echo "Secret is populated, copying to $TARGET_NS"
+                  kubectl get secret "$SECRET" -n "$SOURCE_NS" -o json \
+                    | jq "del(.metadata.namespace,.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp,.metadata.ownerReferences,.metadata.managedFields)" \
+                    | jq ".metadata.namespace = \"$TARGET_NS\"" \
+                    | kubectl apply -n "$TARGET_NS" -f -
+                  echo "Secret synced successfully"
+                  exit 0
+                fi
+                echo "  Attempt $i/{{ .Values.retries }} — secret not ready, waiting {{ .Values.retryInterval }}s..."
+                sleep {{ .Values.retryInterval }}
+              done
+              echo "ERROR: Timed out waiting for secret $SECRET in $SOURCE_NS"
+              exit 1

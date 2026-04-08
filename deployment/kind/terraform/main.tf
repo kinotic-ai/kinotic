@@ -46,14 +46,40 @@ resource "kind_cluster" "kinotic" {
     node {
       role = "control-plane"
 
+      # Web UI / health check
       extra_port_mappings {
-        container_port = 80
-        host_port      = 80
+        container_port = 30443
+        host_port      = 443
         protocol       = "TCP"
       }
+      # OpenAPI
       extra_port_mappings {
-        container_port = 443
-        host_port      = 443
+        container_port = 30080
+        host_port      = 8080
+        protocol       = "TCP"
+      }
+      # GraphQL
+      extra_port_mappings {
+        container_port = 30400
+        host_port      = 4000
+        protocol       = "TCP"
+      }
+      # STOMP / WebSocket
+      extra_port_mappings {
+        container_port = 30503
+        host_port      = 58503
+        protocol       = "TCP"
+      }
+      # Keycloak (conditional, but port mapping is harmless if unused)
+      extra_port_mappings {
+        container_port = 30888
+        host_port      = 8888
+        protocol       = "TCP"
+      }
+      # Grafana
+      extra_port_mappings {
+        container_port = 30300
+        host_port      = 3000
         protocol       = "TCP"
       }
     }
@@ -91,19 +117,3 @@ provider "kubernetes" {
   client_key             = kind_cluster.kinotic.client_key
 }
 
-# ── Control-plane node label for ingress scheduling ───────
-
-resource "kubernetes_labels" "control_plane_ingress_ready" {
-  api_version = "v1"
-  kind        = "Node"
-
-  metadata {
-    name = "${var.cluster_name}-control-plane"
-  }
-
-  labels = {
-    "ingress-ready" = "true"
-  }
-
-  depends_on = [kind_cluster.kinotic]
-}

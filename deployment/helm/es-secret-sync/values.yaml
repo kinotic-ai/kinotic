@@ -1,0 +1,12 @@
+# Source secret (created by ECK in the elastic namespace)
+source:
+  namespace: elastic
+  secretName: kinotic-es-es-elastic-user
+
+# Target namespace where the secret will be copied
+target:
+  namespace: kinotic
+
+# Retry configuration — ECK creates the secret asynchronously
+retries: 30
+retryInterval: 5

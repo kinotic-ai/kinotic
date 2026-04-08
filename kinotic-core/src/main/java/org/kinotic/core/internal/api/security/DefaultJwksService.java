@@ -10,6 +10,8 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.config.OidcProvider;
+import org.kinotic.core.api.config.OidcSecurityServiceProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
@@ -17,6 +19,8 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.security.Key;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Slf4j
@@ -29,11 +33,23 @@ public class DefaultJwksService implements JwksService {
     private final ObjectMapper objectMapper;
     private final Cache<String, Jwk<? extends Key>> keyCache;
     private final Cache<String, JsonNode> wellKnownCache;
+    private final Map<String, String> issuerToBackchannel;
 
-    public DefaultJwksService(Vertx vertx) {
+    public DefaultJwksService(Vertx vertx, OidcSecurityServiceProperties oidcProperties) {
         this.webClient = WebClient.create(vertx);
         this.insecureWebClient = createInsecureWebClient(vertx);
         this.objectMapper = new ObjectMapper();
+
+        // Build issuer -> backchannelAuthority map from configured providers
+        this.issuerToBackchannel = new HashMap<>();
+        if (oidcProperties.getOidcProviders() != null) {
+            for (OidcProvider provider : oidcProperties.getOidcProviders()) {
+                if (provider.getBackchannelAuthority() != null && provider.getAuthority() != null) {
+                    issuerToBackchannel.put(provider.getAuthority(), provider.getBackchannelAuthority());
+                    log.info("OIDC backchannel: {} -> {}", provider.getAuthority(), provider.getBackchannelAuthority());
+                }
+            }
+        }
 
         // Cache for individual keys, with 1 hour TTL
         this.keyCache = Caffeine.newBuilder()
@@ -67,14 +83,38 @@ public class DefaultJwksService implements JwksService {
 
     /**
      * Get the appropriate WebClient based on the URL.
-     * Uses an insecure client for .local domains (development only).
+     * Uses an insecure client for backchannel URLs (cluster-internal, self-signed certs)
+     * and .local domains (development).
      */
     private WebClient getWebClientForUrl(String url) {
-        if (url != null && url.contains(".local")) {
-            log.debug("Using insecure WebClient for .local domain: {}", url);
-            return insecureWebClient;
+        if (url != null) {
+            if (url.contains(".local")) {
+                log.debug("Using insecure WebClient for .local domain: {}", url);
+                return insecureWebClient;
+            }
+            // Use insecure client for any backchannel URL (cluster-internal, self-signed certs)
+            for (String backchannel : issuerToBackchannel.values()) {
+                if (url.startsWith(backchannel)) {
+                    log.debug("Using insecure WebClient for backchannel URL: {}", url);
+                    return insecureWebClient;
+                }
+            }
         }
         return webClient;
+    }
+
+    /**
+     * Resolves the fetch URL for an issuer. If a backchannelAuthority is configured
+     * for this issuer, returns it instead — allowing the server to reach the OIDC
+     * provider via a cluster-internal URL while the JWT iss claim uses the external URL.
+     */
+    private String resolveIssuerUrl(String issuer) {
+        String backchannel = issuerToBackchannel.get(issuer);
+        if (backchannel != null) {
+            log.debug("Resolving issuer {} to backchannel {}", issuer, backchannel);
+            return backchannel;
+        }
+        return issuer;
     }
 
     /**
@@ -87,7 +127,8 @@ public class DefaultJwksService implements JwksService {
             return Future.succeededFuture(cached);
         }
 
-        String wellKnownUrl = issuer + "/.well-known/openid-configuration";
+        String fetchUrl = resolveIssuerUrl(issuer);
+        String wellKnownUrl = fetchUrl + "/.well-known/openid-configuration";
 
         return getWebClientForUrl(wellKnownUrl)
                 .getAbs(wellKnownUrl)
@@ -105,7 +146,9 @@ public class DefaultJwksService implements JwksService {
     }
 
     /**
-     * Get the JWKS URL from the well-known configuration
+     * Get the JWKS URL from the well-known configuration.
+     * Rewrites the URL to use the backchannel authority if configured,
+     * since Keycloak's well-known response contains the external hostname.
      */
     private Future<String> getJwksUrl(String issuer) {
         return getWellKnownConfiguration(issuer)
@@ -114,7 +157,14 @@ public class DefaultJwksService implements JwksService {
                     if (jwksUri == null || jwksUri.isNull()) {
                         throw new RuntimeException("JWKS URI not found in OIDC configuration for issuer: " + issuer);
                     }
-                    return jwksUri.asString();
+                    String url = jwksUri.asString();
+                    // Rewrite the JWKS URL if we have a backchannel for this issuer
+                    String backchannel = issuerToBackchannel.get(issuer);
+                    if (backchannel != null) {
+                        url = url.replace(issuer, backchannel);
+                        log.debug("Rewrote JWKS URL to backchannel: {}", url);
+                    }
+                    return url;
                 });
     }
 

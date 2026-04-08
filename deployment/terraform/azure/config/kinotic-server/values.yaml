@@ -1,0 +1,44 @@
+# Azure AKS production overrides for kinotic-server.
+# Layered on top of deployment/helm/kinotic/values.yaml base.
+
+replicaCount: 3
+
+image:
+  pullPolicy: Always
+
+migration:
+  backoffLimit: 5
+  activeDeadlineSeconds: 600
+
+properties:
+  springActiveProfiles: "production,kubernetes"
+  corsAllowedOriginPattern: "https://.*\\.kinotic\\.ai|https://kinotic\\.ai"
+  structures:
+    elastic:
+      connections:
+        - host: "kinotic-es-es-http.elastic.svc"
+          port: 9200
+          scheme: "http"
+      connectionTimeout: "5s"
+      socketTimeout: "60s"
+
+continuum:
+  debug: false
+  cluster:
+    discoveryType: KUBERNETES
+    kubernetesNamespace: kinotic
+    kubernetesServiceName: kinotic
+    kubernetesIncludeNotReadyAddresses: true
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: 2
+    memory: 2Gi
+
+# Service — Azure Load Balancer (L4 TCP passthrough)
+# loadBalancerIP is set by terraform via helm set
+service:
+  type: LoadBalancer

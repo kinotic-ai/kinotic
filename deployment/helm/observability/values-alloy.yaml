@@ -1,0 +1,24 @@
+# Shared Alloy base values.
+# Runs as a DaemonSet — one instance per node, collects pod logs.
+
+alloy:
+  # The pipeline config is mounted from a ConfigMap (alloy-config.alloy).
+  # This keeps the pipeline definition centralized and version-controlled.
+  configMap:
+    create: false
+    name: alloy-config
+
+  extraEnv:
+    - name: LOKI_URL
+      value: "http://loki:3100/loki/api/v1/push"
+
+  mounts:
+    # Mount /var/log for pod log access
+    varlog: true
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 256Mi

@@ -91,23 +91,8 @@ public class DefaultProjectService extends AbstractCrudService<Project> implemen
             String projectId = (project.getApplicationId()+"_"+slg.slugify(project.getName())).toLowerCase();
             project.setId(projectId);
         }
-
         project.setUpdated(new Date());
         return super.save(project);
     }
 
-    @Override
-    public CompletableFuture<Page<Project>> search(String searchText, Pageable pageable) {
-        return crudServiceTemplate.search(indexName,
-                                          pageable,
-                                          Project.class,
-                                          builder -> builder.q(searchText));
-    }
-
-    @Override
-    public CompletableFuture<Void> syncIndex() {
-        return esAsyncClient.indices()
-        .refresh(b -> b.index(indexName))
-        .thenApply(unused -> null);
-    }
 }

@@ -91,6 +91,13 @@ class ConfigService {
       if(staticSitePort === -1 && connectionInfo.port){
         staticSitePort = connectionInfo.port;
       }
+
+      // kind config
+      if (connectionInfo.useSSL
+          && window.location.hostname === 'localhost') {
+        staticSitePort = -1
+      }
+
       const resp = await fetch(`${connectionInfo.useSSL ? 'https' : 'http'}://${connectionInfo.host}${staticSitePort === -1 ? '' : ':' + staticSitePort}/${this.config?.frontendConfigurationPath || 'app-config.override.json'}`);
       if (resp.ok) {
         const text = await resp.text();

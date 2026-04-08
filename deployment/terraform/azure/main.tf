@@ -1,234 +1,137 @@
-# ========================================
-# Provider Configuration
-# ========================================
+terraform {
+  required_version = ">= 1.7"
+
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.110"
+    }
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "~> 2.50"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.0"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.13"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.30"
+    }
+  }
+
+  # ── Remote state ─────────────────────────────────────────────────────────────
+  # Bootstrap first: ./bootstrap-state.sh
+  backend "azurerm" {
+    resource_group_name  = "rg-kinotic-tfstate"
+    storage_account_name = "stkinotictfstate"
+    container_name       = "tfstate"
+    key                  = "aks/terraform.tfstate"
+  }
+}
 
 provider "azurerm" {
-  features {}
-}
-
-# ========================================
-# Resource Group
-# ========================================
-
-resource "azurerm_resource_group" "main" {
-  name     = var.resource_group_name
-  location = var.location
-
-  tags = {
-    Name        = var.vm_name
-    Environment = "development"
+  features {
+    resource_group {
+      # Prevents accidental deletion of non-empty resource groups
+      prevent_deletion_if_contains_resources = true
+    }
+    key_vault {
+      purge_soft_delete_on_destroy    = false
+      recover_soft_deleted_key_vaults = true
+    }
   }
 }
 
-# ========================================
-# SSH Key Management
-# ========================================
-
-resource "tls_private_key" "vm_ssh" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
-
-resource "random_id" "key_suffix" {
-  byte_length = 4
-}
-
-resource "random_id" "storage_suffix" {
-  byte_length = 4
-}
-
-# Use provided public key if specified, otherwise use generated key
+# ── Locals ────────────────────────────────────────────────────────────────────
 locals {
-  ssh_public_key_content = var.ssh_public_key != "" ? file(var.ssh_public_key) : tls_private_key.vm_ssh.public_key_openssh
-  
-  # Storage account name: must be 3-24 chars, lowercase alphanumeric only
-  # Format: {sanitized-vm-name}fcimg{8-char-random-suffix}
-  # Truncate vm_name part to max 11 chars to leave room for "fcimg" (5) + random hex (8) = 24 total
-  storage_account_base = lower(replace(var.vm_name, "-", ""))
-  storage_account_name = length(local.storage_account_base) > 11 ? "${substr(local.storage_account_base, 0, 11)}fcimg${random_id.storage_suffix.hex}" : "${local.storage_account_base}fcimg${random_id.storage_suffix.hex}"
+  name_prefix = "${var.project}-${var.environment}"
+
+  common_tags = merge(var.tags, {
+    environment = var.environment
+    project     = var.project
+    managed_by  = "terraform"
+  })
 }
 
-# Save private key to local file
-resource "local_file" "private_key" {
-  content         = tls_private_key.vm_ssh.private_key_pem
-  filename        = "${path.module}/azure-vm-key-${random_id.key_suffix.hex}.pem"
-  file_permission = "0400"
+# ── Resource Group ────────────────────────────────────────────────────────────
+resource "azurerm_resource_group" "main" {
+  name     = "rg-${local.name_prefix}"
+  location = var.location
+  tags     = local.common_tags
 }
 
-# ========================================
-# Network Infrastructure
-# ========================================
+# ── Identity Module ───────────────────────────────────────────────────────────
+module "identity" {
+  source = "./modules/identity"
 
-# Virtual Network
-resource "azurerm_virtual_network" "main" {
-  name                = "${var.vm_name}-vnet"
-  address_space       = [var.vnet_cidr]
-  location            = azurerm_resource_group.main.location
+  name_prefix                   = local.name_prefix
+  location                      = var.location
+  resource_group_name           = azurerm_resource_group.main.name
+  tags                          = local.common_tags
+  terraform_principal_object_id = var.terraform_principal_object_id
+}
+
+# ── Networking Module ─────────────────────────────────────────────────────────
+module "networking" {
+  source = "./modules/networking"
+
+  name_prefix         = local.name_prefix
+  location            = var.location
   resource_group_name = azurerm_resource_group.main.name
+  vnet_address_space  = var.vnet_address_space
+  aks_subnet_cidr     = var.aks_subnet_cidr
+  tags                = local.common_tags
 
-  tags = {
-    Name = "${var.vm_name}-vnet"
-  }
+  # Grant the cluster identity Network Contributor on the subnet
+  # so it can attach/detach Azure Load Balancers automatically
+  aks_identity_principal_id = module.identity.kubelet_identity_principal_id
+
+  # Firecracker subnet — created only when enable_firecracker = true
+  enable_firecracker      = var.enable_firecracker
+  firecracker_subnet_cidr = var.firecracker_subnet_cidr
 }
 
-# Subnet
-resource "azurerm_subnet" "main" {
-  name                 = "${var.vm_name}-subnet"
-  resource_group_name  = azurerm_resource_group.main.name
-  virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = [var.subnet_cidr]
+# ── AKS Module ────────────────────────────────────────────────────────────────
+module "aks" {
+  source = "./modules/aks"
+
+  name_prefix            = local.name_prefix
+  location               = var.location
+  resource_group_name    = azurerm_resource_group.main.name
+  kubernetes_version     = var.kubernetes_version
+  dns_prefix             = "${local.name_prefix}-aks"
+
+  # Identity
+  control_plane_identity_id   = module.identity.control_plane_identity_id
+  kubelet_identity_id         = module.identity.kubelet_identity_id
+  kubelet_identity_client_id  = module.identity.kubelet_identity_client_id
+  kubelet_identity_object_id  = module.identity.kubelet_identity_object_id
+
+  # Networking
+  aks_subnet_id  = module.networking.aks_subnet_id
+  pod_cidr       = var.pod_cidr
+  service_cidr   = var.service_cidr
+  dns_service_ip = var.dns_service_ip
+
+  # System node pool
+  system_node_count = var.system_node_count
+  system_vm_size    = var.system_vm_size
+  os_disk_size_gb   = var.os_disk_size_gb
+
+  beta_mode = var.beta_mode
+
+  tags = local.common_tags
 }
-
-# Public IP
-resource "azurerm_public_ip" "main" {
-  name                = "${var.vm_name}-pip"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  allocation_method   = "Static"
-  sku                 = "Standard"
-
-  tags = {
-    Name = "${var.vm_name}-pip"
-  }
-}
-
-# Network Security Group
-resource "azurerm_network_security_group" "main" {
-  name                = "${var.vm_name}-nsg"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-
-  security_rule {
-    name                       = "SSH"
-    priority                   = 1001
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-  tags = {
-    Name = "${var.vm_name}-nsg"
-  }
-}
-
-# Network Interface
-resource "azurerm_network_interface" "main" {
-  name                = "${var.vm_name}-nic"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.main.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.main.id
-  }
-
-  tags = {
-    Name = "${var.vm_name}-nic"
-  }
-}
-
-# Associate NSG with NIC
-resource "azurerm_network_interface_security_group_association" "main" {
-  network_interface_id      = azurerm_network_interface.main.id
-  network_security_group_id = azurerm_network_security_group.main.id
-}
-
-# ========================================
-# Storage Account for Firecracker Images
-# ========================================
-
-resource "azurerm_storage_account" "firecracker_images" {
-  name                     = local.storage_account_name
-  resource_group_name      = azurerm_resource_group.main.name
-  location                 = azurerm_resource_group.main.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
-  min_tls_version          = "TLS1_2"
-
-  tags = {
-    Name = "${var.vm_name}-firecracker-images"
-  }
-}
-
-resource "azurerm_storage_container" "firecracker_images" {
-  name                  = "firecracker-images"
-  storage_account_name  = azurerm_storage_account.firecracker_images.name
-  container_access_type = "private"
-}
-
-# ========================================
-# Virtual Machine
-# ========================================
-
-
-resource "azurerm_linux_virtual_machine" "main" {
-  name                = var.vm_name
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  size                = var.vm_size
-  admin_username      = var.admin_username
-
-  # Critical: Use Standard security type (not Trusted Launch) for nested virtualization
-  # Don't set security_type to ensure Standard security type (default)
-  disable_password_authentication = true
-
-  network_interface_ids = [
-    azurerm_network_interface.main.id,
-  ]
-
-  # Enable managed identity for blob storage access
-  identity {
-    type = "SystemAssigned"
-  }
-
-  admin_ssh_key {
-    username   = var.admin_username
-    public_key = local.ssh_public_key_content
-  }
-
-  # Image must support nested virtualization
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts"
-    version   = "latest"
-  }
-
-  os_disk {
-    name                 = "${var.vm_name}-osdisk"
-    caching              = "ReadWrite"
-    storage_account_type = "Premium_LRS"
-  }
-
-  # User data script to install and configure KVM
-  # Pass admin username to the script via template
-  custom_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    admin_username = var.admin_username
-  }))
-
-  tags = {
-    Name = var.vm_name
-  }
-}
-
-# Assign Storage Blob Data Reader role to VM's managed identity
-# This allows the VM to read from the blob storage container
-resource "azurerm_role_assignment" "vm_storage_reader" {
-  scope                = azurerm_storage_account.firecracker_images.id
-  role_definition_name = "Storage Blob Data Reader"
-  principal_id         = azurerm_linux_virtual_machine.main.identity[0].principal_id
-}
-
-# Note: Azure VMs with nested virtualization support are automatically enabled
-# when using supported VM sizes (Dv3, Ev3 series). The user_data script will
-# install and configure KVM and Firecracker on the VM after it boots.
-# 
-# Firecracker kernel and rootfs images should be uploaded to the blob storage
-# container by an external process. The VM has Storage Blob Data Reader permissions
-# to access these images.

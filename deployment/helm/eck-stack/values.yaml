@@ -1,0 +1,17 @@
+# Shared base values for the elastic/eck-stack Helm chart.
+#
+# Layer environment-specific overrides on top:
+#   values-kind.yaml  - local KinD development
+#   values-azure.yaml - Azure AKS production
+#
+# Usage:
+#   helm install elastic-stack elastic/eck-stack \
+#     -f values.yaml -f values-<env>.yaml
+
+eck-kibana:
+  enabled: false
+
+eck-elasticsearch:
+  enabled: true
+  fullnameOverride: kinotic-es
+  version: "9.0.2"
