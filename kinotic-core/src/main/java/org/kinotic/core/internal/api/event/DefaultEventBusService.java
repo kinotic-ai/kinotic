@@ -95,16 +95,9 @@ public class DefaultEventBusService implements EventBusService {
     public Future<EventConsumer> listenWithAck(String cri) {
         Validate.notEmpty(cri, "The cri must be provided");
         MessageConsumer<byte[]> consumer = vertx.eventBus().consumer(cri);
-        // Set an initial handler to trigger consumer registration with the event bus.
-        // completion() won't fire until a handler is set (see MessageConsumerImpl).
-        // Messages received before the caller sets the real handler are acked but not processed.
-        // This matches the original "hot" semantics.
-        consumer.handler(message -> {
-            if (message.replyAddress() != null) {
-                message.reply(null);
-            }
-        });
-        return consumer.completion().map(v -> new DefaultEventConsumer(consumer));
+        // DefaultEventConsumer sets the handler in its constructor, which triggers registration.
+        DefaultEventConsumer eventConsumer = new DefaultEventConsumer(consumer);
+        return consumer.completion().map(v -> eventConsumer);
     }
 
     @Override
