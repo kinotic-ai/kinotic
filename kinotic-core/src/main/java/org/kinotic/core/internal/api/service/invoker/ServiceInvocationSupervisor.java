@@ -3,24 +3,12 @@
 
 package org.kinotic.core.internal.api.service.invoker;
 
-import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-
+import io.opentelemetry.api.OpenTelemetry;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.exceptions.RpcMissingMethodException;
-import org.kinotic.core.api.event.CRI;
-import org.kinotic.core.api.event.Event;
-import org.kinotic.core.api.event.EventBusService;
-import org.kinotic.core.api.event.EventConstants;
-import org.kinotic.core.api.event.EventConsumer;
-import org.kinotic.core.api.event.ListenerStatus;
-import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.ServiceFunction;
 import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
@@ -35,11 +23,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.core.ReactiveAdapter;
 import org.springframework.core.ReactiveAdapterRegistry;
-
-import io.opentelemetry.api.OpenTelemetry;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.SignalType;
+
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Class handles invoking services that are published to the Continuum.
@@ -505,7 +497,7 @@ public class ServiceInvocationSupervisor {
         @Override
         protected void hookOnNext(Object value) {
             if(log.isTraceEnabled()){
-                log.trace("Next stream value " + value);
+                log.trace("Next stream value {}", value);
             }
             convertAndSend(incomingMetadata, handlerMethod, value);
         }
