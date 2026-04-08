@@ -45,14 +45,16 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
 
             log.info("Registering Service {}", serviceIdentifier);
 
-            serviceRegistry.register(serviceIdentifier, clazz, bean)
-                           .onComplete(ar -> {
-                               if(ar.succeeded()){
-                                   log.trace("Successfully Registered service {}", serviceIdentifier);
-                               }else{
-                                   log.error("Error Registering service {}", serviceIdentifier, ar.cause());
-                               }
-                           });
+            try {
+                serviceRegistry.register(serviceIdentifier, clazz, bean)
+                               .toCompletionStage()
+                               .toCompletableFuture()
+                               .join();
+
+                log.trace("Successfully Registered service {}", serviceIdentifier);
+            } catch (Exception e) {
+                log.error("Error Registering service {}", serviceIdentifier, e);
+            }
         });
         return bean;
     }
@@ -63,14 +65,16 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
 
             log.info("Un-Registering Service {}", serviceIdentifier);
 
-            serviceRegistry.unregister(serviceIdentifier)
-                           .onComplete(ar -> {
-                               if(ar.succeeded()){
-                                   log.trace("Successfully Un-Registered service {}", serviceIdentifier);
-                               }else{
-                                   log.error("Error Un-Registering service {}", serviceIdentifier, ar.cause());
-                               }
-                           });
+            try {
+                serviceRegistry.unregister(serviceIdentifier)
+                               .toCompletionStage()
+                               .toCompletableFuture()
+                               .join();
+
+                log.trace("Successfully Un-Registered service {}", serviceIdentifier);
+            } catch (Exception e) {
+                log.error("Error Un-Registering service {}", serviceIdentifier, e);
+            }
         });
     }
 
