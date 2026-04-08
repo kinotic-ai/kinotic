@@ -1,0 +1,29 @@
+{
+  "name": "@kinotic-ai/vm-manager",
+  "version": "1.0.9",
+  "type": "module",
+  "files": [
+    "bin"
+  ],
+  "exports": {
+    "./package.json": "./package.json"
+  },
+  "homepage": "https://github.com/kinotic-ai/kinotic",
+  "license": "Elastic License 2.0",
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "dev": "bun run src/index.ts",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "ui-test": "vitest --ui --coverage.enabled=true --mode development"
+  },
+  "dependencies": {
+    "@boxlite-ai/boxlite": "^0.8.2",
+    "@kinotic-ai/core": "workspace:*",
+    "@kinotic-ai/os-api": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.9",
+    "typescript": "^5.9.3"
+  }
+}

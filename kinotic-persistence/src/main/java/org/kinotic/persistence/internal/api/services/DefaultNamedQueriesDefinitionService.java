@@ -81,19 +81,4 @@ public class DefaultNamedQueriesDefinitionService extends AbstractCrudService<Na
                 });
     }
 
-    @Override
-    public CompletableFuture<Page<NamedQueriesDefinition>> search(String searchText, Pageable pageable) {
-        return crudServiceTemplate.search(indexName,
-                                          pageable,
-                                          NamedQueriesDefinition.class,
-                                          builder -> builder.q(searchText));
-    }
-
-    @Override
-    public CompletableFuture<Void> syncIndex() {
-        return esAsyncClient.indices()
-                            .refresh(b -> b.index(indexName))
-                            .thenApply(unused -> null);
-    }
-
 }
