@@ -2,6 +2,7 @@ package org.kinotic.persistence.internal.endpoints;
 
 import io.vertx.ext.healthchecks.HealthChecks;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.core.api.config.OidcSecurityServiceProperties;
@@ -21,6 +22,7 @@ import tools.jackson.databind.ObjectMapper;
 public class PersistenceVerticleFactory {
 
     // Common Deps
+    private final KinoticProperties kinoticProperties;
     private final PersistenceProperties properties;
     private final SecurityService securityService;
 
@@ -37,14 +39,14 @@ public class PersistenceVerticleFactory {
 
     
     public GqlVerticle createGqlVerticle(){
-        return new GqlVerticle(delegatingGqlHandler, properties, securityService);
+        return new GqlVerticle(delegatingGqlHandler, properties, kinoticProperties.getSsl(), securityService);
     }
 
     public OpenApiVerticle createOpenApiVerticle(){
-        return new OpenApiVerticle(properties, openApiVertxRouterFactory.createRouter());
+        return new OpenApiVerticle(properties, kinoticProperties.getSsl(), openApiVertxRouterFactory.createRouter());
     }
 
     public WebServerVerticle createWebServerNextVerticle(){
-        return new WebServerVerticle(objectMapper, healthChecks, properties, oidcSecurityServiceProperties);
+        return new WebServerVerticle(objectMapper, healthChecks, properties, kinoticProperties.getSsl(), oidcSecurityServiceProperties);
     }
 }

@@ -11,8 +11,8 @@
 # - No localAddresses needed (Kubernetes DNS handles discovery)
 # - No sharedFsPath needed (Kubernetes handles network coordination)
 
-# Number of kinotic-server replicas (3 for testing HA and cluster coordination)
-replicaCount: 3
+# Number of kinotic-server replicas
+replicaCount: 2
 nameOverride: ""
 
 # Image configuration
@@ -39,7 +39,7 @@ migration:
 resources:
   requests:
     cpu: 500m
-    memory: 1Gi
+    memory: 2Gi
   limits:
     cpu: 2
     memory: 2Gi
@@ -57,7 +57,7 @@ properties:
     openApiSecurityType: "BASIC"
     openApiPort: 8080
     openApiPath: "/api/"
-    openApiServerUrl: "https://kinotic.local/"
+    openApiServerUrl: "https://localhost:8080/"
     graphqlPort: 4000
     graphqlPath: "/graphql/"
     webServerPort: 9090
@@ -66,7 +66,7 @@ properties:
     initializeWithSampleData: false
     elastic:
       connections:
-        - host: "kinotic-es-es-http"  # ECK-managed Elasticsearch service
+        - host: "kinotic-es-es-http.elastic.svc"  # ECK-managed Elasticsearch service
           port: 9200
           scheme: "http"  # TLS disabled in KinD values
       connectionTimeout: "5s"
@@ -105,30 +105,15 @@ continuum:
     # localAddresses: null
     # Note: sharedFsPath is still used for Structure data sharing, not for Ignite discovery
     # sharedFsPath: /sharedfs  # Shared with containers via bind mount
-    kubernetesNamespace: default
+    kubernetesNamespace: kinotic
     kubernetesServiceName: kinotic
     kubernetesIncludeNotReadyAddresses: true
     # kubernetesMasterUrl: ""
     # kubernetesAccountToken: ""
 
-# Ingress configuration - enabled for kind cluster
-ingress:
-  enabled: true
-  className: nginx
-  hosts:
-    - localhost
-    - kinotic.local
-  tls:
-    enabled: true
-    secretName: kinotic-tls-secret
-    # Set to true when mkcert creates the secret before helm install
-    # Set to false to use cert-manager self-signed fallback
-    existingSecret: true
-
-
 # OIDC security service configuration
 # Note: authority uses localhost because OIDC flows happen in the browser,
-# which accesses Keycloak via the ingress at https://kinotic.local/auth
+# which accesses Keycloak via the host at https://localhost
 oidc:
   debug: true
   frontendConfigurationPath: "/app-config.override.json"
@@ -143,10 +128,11 @@ oidc:
         - "admin"
       audience: "kinotic-client"
       clientId: "kinotic-client"
-      authority: "https://kinotic.local/auth/realms/test"
-      redirectUri: "https://kinotic.local/login"
-      postLogoutRedirectUri: "https://kinotic.local"
-      silentRedirectUri: "https://kinotic.local/silent-renew.html"
+      authority: "https://localhost:8888/auth/realms/test"
+      backchannelAuthority: "https://keycloak:8888/auth/realms/test"
+      redirectUri: "https://localhost/login"
+      postLogoutRedirectUri: "https://localhost"
+      silentRedirectUri: "https://localhost/silent-renew.html"
     
 
 # Eviction tracking - writes per-pod CSV files to shared host directory

@@ -12,7 +12,11 @@ spec:
   type: {{ .Values.service.type }}
   ports:
   - port: {{ .Values.service.port }}
+    {{- if .Values.tls.enabled }}
+    targetPort: {{ .Values.keycloak.httpsPort | default 8443 }}
+    {{- else }}
     targetPort: {{ .Values.keycloak.httpPort }}
+    {{- end }}
     {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
     nodePort: {{ .Values.service.nodePort }}
     {{- end }}

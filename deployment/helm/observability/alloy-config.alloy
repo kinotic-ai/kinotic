@@ -1,0 +1,103 @@
+// ── Kinotic Observability Pipeline ────────────────────────────────────────────
+// Centralized Alloy configuration for log collection.
+// Deployed as a ConfigMap, referenced by the Alloy DaemonSet.
+//
+// To add a new log source:
+//   1. Add a discovery + source block below
+//   2. Forward to loki.process.pipeline.receiver
+//   3. helm upgrade alloy ... (Alloy hot-reloads config changes)
+
+// ── Kubernetes pod log discovery ─────────────────────────────────────────────
+// Discovers all pods in the cluster and collects their stdout/stderr logs.
+// Labels are automatically extracted from Kubernetes metadata.
+
+discovery.kubernetes "pods" {
+  role = "pod"
+}
+
+discovery.relabel "pod_logs" {
+  targets = discovery.kubernetes.pods.targets
+
+  // Keep only running pods
+  rule {
+    source_labels = ["__meta_kubernetes_pod_phase"]
+    regex         = "Pending|Succeeded|Failed|Unknown"
+    action        = "drop"
+  }
+
+  // Namespace label
+  rule {
+    source_labels = ["__meta_kubernetes_namespace"]
+    target_label  = "namespace"
+  }
+
+  // Pod name label
+  rule {
+    source_labels = ["__meta_kubernetes_pod_name"]
+    target_label  = "pod"
+  }
+
+  // Container name label
+  rule {
+    source_labels = ["__meta_kubernetes_pod_container_name"]
+    target_label  = "container"
+  }
+
+  // App label (from pod labels)
+  rule {
+    source_labels = ["__meta_kubernetes_pod_label_app"]
+    target_label  = "app"
+  }
+
+  // Node name
+  rule {
+    source_labels = ["__meta_kubernetes_pod_node_name"]
+    target_label  = "node"
+  }
+}
+
+loki.source.kubernetes "pods" {
+  targets    = discovery.relabel.pod_logs.output
+  forward_to = [loki.process.pipeline.receiver]
+}
+
+// ── Firecracker / customer workload logs (future) ────────────────────────────
+// Uncomment when Firecracker VMs write logs to a known host path.
+// Each customer's logs are auto-discovered via glob pattern.
+// The customer ID is extracted from the directory name.
+//
+// local.file_match "firecracker" {
+//   path_targets = [{
+//     __path__ = "/var/log/firecracker/*/*.log",
+//     job      = "firecracker",
+//   }]
+// }
+//
+// loki.source.file "firecracker" {
+//   targets    = local.file_match.firecracker.targets
+//   forward_to = [loki.process.pipeline.receiver]
+// }
+
+// ── Processing pipeline ──────────────────────────────────────────────────────
+// Shared processing for all log sources. Add stages here for filtering,
+// parsing, or enriching logs before they reach Loki.
+
+loki.process "pipeline" {
+  // Drop logs from noisy system containers (optional)
+  stage.drop {
+    source          = ""
+    expression      = ".*kube-probe.*"
+    drop_counter_reason = "health_probe"
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+// ── Loki destination ─────────────────────────────────────────────────────────
+// The URL is overridden per environment via Alloy helm values.
+
+loki.write "default" {
+  endpoint {
+    url = env("LOKI_URL")
+  }
+}

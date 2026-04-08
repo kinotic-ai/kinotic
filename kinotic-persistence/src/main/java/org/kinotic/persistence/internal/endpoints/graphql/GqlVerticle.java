@@ -7,6 +7,8 @@ import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.core.api.config.SslHelper;
+import org.kinotic.core.api.config.SslProperties;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.security.AuthenticationHandler;
 import org.kinotic.persistence.api.config.PersistenceProperties;
@@ -22,6 +24,7 @@ public class GqlVerticle extends VerticleBase {
 
     private final DelegatingGqlHandler gqlHandler;
     private final PersistenceProperties properties;
+    private final SslProperties sslProperties;
     private final SecurityService securityService;
     private HttpServer server;
 
@@ -30,6 +33,7 @@ public class GqlVerticle extends VerticleBase {
     public Future<?> start() throws Exception {
         HttpServerOptions options = new HttpServerOptions();
         options.setMaxHeaderSize(properties.getMaxHttpHeaderSize());
+        SslHelper.applySsl(options, sslProperties);
         server = vertx.createHttpServer(options);
 
         Router router = VertxWebUtil.createRouterWithCors(vertx, properties);
