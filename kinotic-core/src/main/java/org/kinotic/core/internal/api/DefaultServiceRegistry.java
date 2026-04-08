@@ -122,7 +122,6 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   rpcArgumentConverter,
                                                   rpcReturnValueHandlerFactory,
                                                   eventBusService,
-                                                  vertx,
                                                   Thread.currentThread().getContextClassLoader());
     }
 
@@ -137,7 +136,6 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   rpcArgumentConverter,
                                                   rpcReturnValueHandlerFactory,
                                                   eventBusService,
-                                                  vertx,
                                                   Thread.currentThread().getContextClassLoader());
     }
 

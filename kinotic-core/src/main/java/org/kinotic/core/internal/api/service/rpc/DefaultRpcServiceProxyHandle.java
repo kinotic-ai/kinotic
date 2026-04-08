@@ -3,7 +3,6 @@
 
 package org.kinotic.core.internal.api.service.rpc;
 
-import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
@@ -48,7 +47,6 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     private final RpcArgumentConverter rpcArgumentConverter;
     private final RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory;
     private final EventBusService eventBusService;
-    private final Vertx vertx;
 
     private final Map<Method, Integer> methodsWithScopeAnnotation = new HashMap<>();
     private final EventConsumer replyEventConsumer;
@@ -63,7 +61,6 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                         RpcArgumentConverter rpcArgumentConverter,
                                         RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory,
                                         EventBusService eventBusService,
-                                        Vertx vertx,
                                         ClassLoader classLoader) {
 
         Validate.notNull(serviceIdentifier, "serviceIdentifier must not be null");
@@ -72,7 +69,6 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         Validate.notNull(rpcArgumentConverter, "argumentConverter must not be null");
         Validate.notNull(rpcReturnValueHandlerFactory, "returnValueHandlerFactory must not be null");
         Validate.notNull(eventBusService, "eventBusService must not be null");
-        Validate.notNull(vertx, "vertx must not be null");
         Validate.notNull(classLoader, "classLoader must not be null");
 
         this.serviceIdentifier = serviceIdentifier;
@@ -82,7 +78,6 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         this.rpcArgumentConverter = rpcArgumentConverter;
         this.rpcReturnValueHandlerFactory = rpcReturnValueHandlerFactory;
         this.eventBusService = eventBusService;
-        this.vertx = vertx;
 
         this.handlerCRI = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, encodedNodeName + ":" + UUID.randomUUID(), KinoticUtil.safeEncodeURI(serviceClass.getName())+"RpcProxyResponseHandler");
 
@@ -108,7 +103,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
           Response handler logic to correlate response from remote service invocation's
          */
         replyEventConsumer = eventBusService.listen(this.handlerCRI.raw());
-        replyEventConsumer.handler(event -> vertx.executeBlocking(() -> {
+        replyEventConsumer.handler(event -> {
 
                     String correlationId = event.metadata().get(EventConstants.CORRELATION_ID_HEADER);
                     if(correlationId != null){
@@ -130,8 +125,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                     }else{
                         log.error("Received Message with no " + EventConstants.CORRELATION_ID_HEADER +" header");
                     }
-                    return null;
-                }))
+                })
                 .exceptionHandler(throwable -> log.error("Reply Event listener error", throwable))
                 .endHandler(v -> log.error("Should not happen! Reply Event listener stopped for some reason!!"));
     }
