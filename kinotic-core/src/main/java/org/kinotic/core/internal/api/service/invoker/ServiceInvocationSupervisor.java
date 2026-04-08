@@ -117,7 +117,10 @@ public class ServiceInvocationSupervisor {
                                   .map(eventConsumer -> {
                                       methodInvocationEventConsumer = eventConsumer;
 
-                                      eventConsumer.handler(this::processEvent)
+                                      eventConsumer.handler(event -> vertx.executeBlocking(() -> {
+                                                       processEvent(event);
+                                                       return null;
+                                                   }))
                                                    .exceptionHandler(throwable -> log.error("Event listener error", throwable))
                                                    .endHandler(v -> {
                                                        log.error("Should not happen! Event listener stopped for some reason!! Changing supervisor state to inactive");
