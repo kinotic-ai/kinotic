@@ -1,5 +1,5 @@
 import {Kinotic} from '@kinotic-ai/core'
-import {AdminEntityService, IAdminEntityService, IEntityService, EntityService} from '@kinotic-ai/persistence'
+import {AdminEntityRepository, IAdminEntityRepository, IEntityRepository, EntityRepository} from '@kinotic-ai/persistence'
 import {EntityDefinition} from '@kinotic-ai/os-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
@@ -18,8 +18,8 @@ interface LocalTestContext {
     entityDefinition: EntityDefinition
     applicationIdUsed: string
     projectIdUsed: string
-    adminEntityService: IAdminEntityService<PersonWithTenant>
-    entityService: IEntityService<PersonWithTenant>
+    adminEntityService: IAdminEntityRepository<PersonWithTenant>
+    entityService: IEntityRepository<PersonWithTenant>
 }
 
 describe('End To End Tests', () => {
@@ -39,9 +39,9 @@ describe('End To End Tests', () => {
         context.projectIdUsed = generateRandomString(5)
         context.entityDefinition = await createPersonEntityDefinitionIfNotExist(context.applicationIdUsed, context.projectIdUsed, true)
         expect(context.entityDefinition).toBeDefined()
-        context.adminEntityService = new AdminEntityService(context.entityDefinition.applicationId, context.entityDefinition.name)
+        context.adminEntityService = new AdminEntityRepository(context.entityDefinition.applicationId, context.entityDefinition.name)
         expect(context.adminEntityService).toBeDefined()
-        context.entityService = new EntityService(context.entityDefinition.applicationId, context.entityDefinition.name)
+        context.entityService = new EntityRepository(context.entityDefinition.applicationId, context.entityDefinition.name)
         expect(context.entityService).toBeDefined()
     })
 

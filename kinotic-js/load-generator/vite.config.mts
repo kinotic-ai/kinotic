@@ -20,12 +20,7 @@ export default defineConfig({
       '@opentelemetry/sdk-node',
       '@opentelemetry/sdk-trace-node',
       '@opentelemetry/semantic-conventions'
-    ],
-    rolldownOptions: {
-      output: {
-        target: 'node18'
-      }
-    }
+    ]
   },
   ssr: {
     noExternal: [
