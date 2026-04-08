@@ -64,7 +64,7 @@ describe('End To End Tests', () => {
             const {namedQueriesDefinition} = await createSchema(applicationIdUsed, projectIdUsed, 'PersonWithTenant')
 
             const namedQueriesService = Kinotic.namedQueriesDefinitions
-            await namedQueriesService.save(namedQueriesDefinition)
+            await namedQueriesService.saveSync(namedQueriesDefinition)
 
             const countResult: any = await entityService.namedQuery('adminCountByLastName',
                                                                     [

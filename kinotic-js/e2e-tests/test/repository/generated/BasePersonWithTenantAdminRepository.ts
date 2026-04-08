@@ -9,7 +9,7 @@ import { PersonWithTenant } from '../../domain/PersonWithTenant.js'
 export class BasePersonWithTenantAdminRepository extends AdminEntityRepository<PersonWithTenant> {
 
   constructor(adminEntitiesService?: IAdminEntitiesRepository) {
-    super('aDpmctuamm', 'PersonWithTenant', adminEntitiesService)
+    super('KHuUoiczec', 'PersonWithTenant', adminEntitiesService)
   }
 
 }

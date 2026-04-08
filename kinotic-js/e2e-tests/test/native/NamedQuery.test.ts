@@ -72,7 +72,7 @@ describe('End To End Tests', () => {
 
 
             const namedQueriesService = Kinotic.namedQueriesDefinitions
-            await namedQueriesService.save(namedQueriesDefinition)
+            await namedQueriesService.saveSync(namedQueriesDefinition)
 
             const countResult: any = await entityService.namedQuery('countAllPeople', [])
             expect(countResult).toBeDefined()
@@ -106,7 +106,7 @@ describe('End To End Tests', () => {
 
 
             const namedQueriesService = Kinotic.namedQueriesDefinitions
-            await namedQueriesService.save(namedQueriesDefinition)
+            await namedQueriesService.saveSync(namedQueriesDefinition)
 
             const countResult: any = await entityService.namedQuery('countPeopleByLastNameWithLastName',
                                                                     [{key: 'lastName', value: 'Doe'}])
@@ -141,7 +141,7 @@ describe('End To End Tests', () => {
 
 
             const namedQueriesService = Kinotic.namedQueriesDefinitions
-            await namedQueriesService.save(namedQueriesDefinition)
+            await namedQueriesService.saveSync(namedQueriesDefinition)
 
             const pageable = Pageable.createWithCursor(null, 1)
             const personPage: Page<Person> = await entityService.namedQueryPage('countPeopleByLastNamePage',
@@ -199,7 +199,7 @@ describe('End To End Tests', () => {
                                                                       projectIdUsed,
                                                                       entityService.entityName,
                                                                       [namedQuery, namedQuery2, namedQuery3])
-            await namedQueriesService.save(namedQueriesDefinition)
+            await namedQueriesService.saveSync(namedQueriesDefinition)
         }
     )
 
