@@ -1,19 +1,20 @@
 
 
+
 package org.kinotic.rpc.gateway.internal.endpoints.stomp;
 
 import org.kinotic.core.api.event.Event;
 import io.vertx.ext.stomp.lite.StompServerConnection;
 import io.vertx.ext.stomp.lite.frame.Frame;
+import org.kinotic.rpc.gateway.internal.endpoints.StompSubscriptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import reactor.core.publisher.BaseSubscriber;
 
 
 /**
  * Handles messages sent to the event bus for a stomp based subscription
  */
-public class StompSubscriptionEventSubscriber extends BaseSubscriber<Event<byte[]>> {
+public class StompSubscriptionEventSubscriber implements StompSubscriptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(StompSubscriptionEventSubscriber.class);
 
@@ -30,7 +31,7 @@ public class StompSubscriptionEventSubscriber extends BaseSubscriber<Event<byte[
     }
 
     @Override
-    protected void hookOnNext(Event<byte[]> event) {
+    public void handleEvent(Event<byte[]> event) {
         try {
             Frame frame = GatewayUtils.eventToStompFrame(event);
             // Set Subscription ID header
@@ -45,13 +46,12 @@ public class StompSubscriptionEventSubscriber extends BaseSubscriber<Event<byte[
         } catch (Exception e) {
             log.error("Unexpected Error in Handler {}", e.getMessage(), e);
             log.error("Closing connection");
-            dispose();
             connection.close();
         }
     }
 
     @Override
-    protected void hookOnError(Throwable throwable) {
+    public void handleError(Throwable throwable) {
         log.error("Error on event bus subscription for destination {}", destination, throwable);
     }
 

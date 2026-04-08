@@ -1,17 +1,9 @@
 package org.kinotic.core.internal;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
-import java.util.stream.Stream;
-
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import io.vertx.core.spi.cluster.ClusterManager;
+import jakarta.annotation.PreDestroy;
 import org.apache.commons.text.WordUtils;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.kinotic.core.api.Kinotic;
@@ -27,12 +19,19 @@ import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.core.ReactiveTypeDescriptor;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
-
-import io.vertx.core.Future;
-import io.vertx.core.Vertx;
-import io.vertx.core.spi.cluster.ClusterManager;
-import jakarta.annotation.PreDestroy;
 import reactor.core.publisher.Mono;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 
 /**
@@ -82,15 +81,18 @@ public class DefaultKinotic implements Kinotic {
                                                                                                 (Supplier<Future<?>>) Future::succeededFuture),
                                                      source -> {
                                                          Future<?> future = (Future<?>) source;
-                                                         return Mono.create(monoSink -> {
-                                                             future.onComplete(event -> {
-                                                                 if (event.succeeded()) {
-                                                                     monoSink.success(event.result());
-                                                                 } else {
-                                                                     monoSink.error(event.cause());
-                                                                 }
-                                                             });
-                                                         });
+                                                         // Short-circuit for already-completed futures to avoid Vert.x
+                                                         // context dispatch. Both future.onComplete() and toCompletionStage()
+                                                         // dispatch through the event loop even for resolved futures.
+                                                         if (future.isComplete()) {
+                                                             if (future.succeeded()) {
+                                                                 Object result = future.result();
+                                                                 return result != null ? Mono.just(result) : Mono.empty();
+                                                             } else {
+                                                                 return Mono.error(future.cause());
+                                                             }
+                                                         }
+                                                         return Mono.fromCompletionStage(future.toCompletionStage());
                                                      },
                                                      publisher -> Future.future(promise -> Mono.from(publisher)
                                                                                                .doOnSuccess((Consumer<Object>) o -> {

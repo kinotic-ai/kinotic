@@ -1,7 +1,7 @@
 import {Kinotic, Pageable} from '@kinotic-ai/core'
 import {PropertyDefinition, StringC3Type} from '@kinotic-ai/idl'
 import {EntityDefinition} from '@kinotic-ai/os-api'
-import {EntityService, IEntityService} from '@kinotic-ai/persistence'
+import {EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
@@ -21,7 +21,7 @@ Object.assign(global, { WebSocket })
 
 interface LocalTestContext {
     entityDefinition: EntityDefinition
-    entityService: IEntityService<Alert>
+    entityService: IEntityRepository<Alert>
 }
 
 describe('End To End Tests', () => {
@@ -38,7 +38,7 @@ describe('End To End Tests', () => {
     beforeEach<LocalTestContext>(async (context) => {
         context.entityDefinition = await createAlertEntityDefinitionIfNotExist(generateRandomString(10), generateRandomString(5))
         expect(context.entityDefinition).toBeDefined()
-        context.entityService = new EntityService(context.entityDefinition.applicationId, context.entityDefinition.name)
+        context.entityService = new EntityRepository(context.entityDefinition.applicationId, context.entityDefinition.name)
         expect(context.entityService).toBeDefined()
     })
 

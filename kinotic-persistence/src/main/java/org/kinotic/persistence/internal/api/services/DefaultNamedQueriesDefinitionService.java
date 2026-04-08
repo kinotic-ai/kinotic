@@ -3,7 +3,6 @@ package org.kinotic.persistence.internal.api.services;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.os.internal.api.services.AbstractCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
@@ -38,6 +37,7 @@ public class DefaultNamedQueriesDefinitionService extends AbstractCrudService<Na
 
     @Override
     public CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId, String entityDefinitionName) {
+        // FIXME: this should be filtered by tenant
         return crudServiceTemplate.search(indexName, Pageable.ofSize(1), type, builder -> builder
                 .query(q -> q
                         .bool(b -> b

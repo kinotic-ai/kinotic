@@ -2,8 +2,12 @@
 
 package org.kinotic.rpc.gateway.internal.endpoints.stomp;
 
-import java.util.Map;
-
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import io.vertx.ext.stomp.lite.StompServerConnection;
+import io.vertx.ext.stomp.lite.StompServerHandler;
+import io.vertx.ext.stomp.lite.frame.Frame;
+import io.vertx.ext.stomp.lite.frame.InvalidConnectFrame;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.rpc.gateway.internal.endpoints.EndpointConnectionHandler;
@@ -12,12 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
 
-import io.vertx.core.Future;
-import io.vertx.core.Vertx;
-import io.vertx.ext.stomp.lite.StompServerConnection;
-import io.vertx.ext.stomp.lite.StompServerHandler;
-import io.vertx.ext.stomp.lite.frame.Frame;
-import io.vertx.ext.stomp.lite.frame.InvalidConnectFrame;
+import java.util.Map;
 
 /**
  *
@@ -58,12 +57,14 @@ public class DefaultStompServerHandler implements StompServerHandler {
 
         endpointConnectionHandler
                 .send(incomingEvent)
-                .subscribe(null,
-                           connection::sendErrorAndDisconnect,
-                           () -> {
-                               connection.sendReceiptIfNeeded(frame);
-                               connection.resume();
-                           });
+                .onComplete(ar -> {
+                    if(ar.failed()){
+                        connection.sendErrorAndDisconnect(ar.cause());
+                    }else{
+                        connection.sendReceiptIfNeeded(frame);
+                        connection.resume();
+                    }
+                });
     }
 
     @Override
@@ -103,27 +104,27 @@ public class DefaultStompServerHandler implements StompServerHandler {
 
     @Override
     public void begin(Frame frame) {
-        log.debug("Frame received\n" + frame.toString());
+        log.debug("begin Frame received\n{}", frame.toString());
     }
 
     @Override
     public void abort(Frame frame) {
-        log.debug("Frame received\n" + frame.toString());
+        log.debug("abort Frame received\n{}", frame.toString());
     }
 
     @Override
     public void commit(Frame frame) {
-        log.debug("Frame received\n" + frame.toString());
+        log.debug("commit Frame received\n{}", frame.toString());
     }
 
     @Override
     public void ack(Frame frame) {
-        log.debug("Frame received\n" + frame.toString());
+        log.debug("ack Frame received\n{}", frame.toString());
     }
 
     @Override
     public void nack(Frame frame) {
-        log.debug("Frame received\n" + frame.toString());
+        log.debug("nack Frame received\n{}", frame.toString());
     }
 
     @Override

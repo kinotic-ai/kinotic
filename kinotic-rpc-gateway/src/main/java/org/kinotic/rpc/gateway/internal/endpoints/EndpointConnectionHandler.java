@@ -1,7 +1,9 @@
 
 
+
 package org.kinotic.rpc.gateway.internal.endpoints;
 
+import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
@@ -14,13 +16,12 @@ import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.security.Session;
 import org.kinotic.rpc.gateway.internal.api.security.CliSecurityService;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import reactor.core.publisher.BaseSubscriber;
-import reactor.core.publisher.Mono;
 import tools.jackson.core.JacksonException;
 
 import java.util.HashMap;
@@ -40,7 +41,7 @@ public class EndpointConnectionHandler {
     private static final Logger log = LoggerFactory.getLogger(EndpointConnectionHandler.class);
     private final SecurityService securityService;
     private final Services services;
-    private final Map<String, BaseSubscriber<Event<byte[]>>> subscriptions = new HashMap<>();
+    private final Map<String, EventConsumer> subscriptions = new HashMap<>();
     private Session session;
     private boolean disableStickySession = false;
     private long sessionTimer = -1;
@@ -135,63 +136,57 @@ public class EndpointConnectionHandler {
         }
     }
 
-    public Mono<Void> send(Event<byte[]> incomingEvent) {
-        Mono<Void> ret;
-        if (session.sendAllowed(incomingEvent.cri())) {
-
-            if (incomingEvent.cri().scheme().equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {
-
-                try {
-
-                    // FIXME: when the invocation is local this happens for no reason. If the event stays on the local bus we shouldn't do this..
-                    incomingEvent.metadata().put(EventConstants.SENDER_HEADER, services.jsonMapper.writeValueAsString(session.participant()));
-
-                    // make sure reply-to if present is scoped to sender
-                    // FIXME: a reply should not need a reply, therefore a replyCri probably should not be a EventConstants.SERVICE_DESTINATION_PREFIX
-                    validateReplyToForServiceRequest(incomingEvent);
-
-                    ret = services.eventBusService
-                            .sendWithAck(incomingEvent)
-                            .onErrorMap(throwable -> { // map errors that occurred because no Service invoker was listening
-                                boolean predicateRet = false;
-                                if (throwable instanceof ReplyException replyException) {
-                                    if (replyException.failureType() == ReplyFailure.NO_HANDLERS) {
-                                        predicateRet = true;
-                                    }
-                                }
-                                return predicateRet;
-                            }, RpcMissingServiceException::new)
-                            .onErrorResume(throwable -> {
-                                try {
-                                    Event<byte[]> convertedEvent = services.exceptionConverter.convert(incomingEvent.metadata(), throwable);
-                                    // since we don't know the subscription id used by the stomp client for this request we send through the eventbus
-                                    services.eventBusService.send(convertedEvent);
-                                    return Mono.empty();
-                                } catch (Exception ex) {
-                                    if(log.isDebugEnabled()){
-                                        log.debug("Exception occurred converting exception\n{}",
-                                                  EventUtil.toString(incomingEvent, true),
-                                                  throwable);
-                                    }
-                                    return Mono.error(ex);
-                                }
-                            });
-
-                } catch (Exception e) {
-                    ret = Mono.error(e);
-                }
-
-            } else if (incomingEvent.cri().scheme().equals(EventConstants.STREAM_DESTINATION_SCHEME)) {
-
-                ret = services.eventStreamService.send(incomingEvent);
-
-            } else {
-                ret = Mono.error(new IllegalArgumentException("CRI scheme not supported"));
-            }
-        } else {
-            ret = Mono.error(new AuthorizationException("Not Authorized to send to " + incomingEvent.cri()));
+    public Future<Void> send(Event<byte[]> incomingEvent) {
+        if (!session.sendAllowed(incomingEvent.cri())) {
+            return Future.failedFuture(new AuthorizationException("Not Authorized to send to " + incomingEvent.cri()));
         }
-        return ret;
+
+        if (incomingEvent.cri().scheme().equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {
+
+            try {
+
+                // FIXME: when the invocation is local this happens for no reason. If the event stays on the local bus we shouldn't do this..
+                incomingEvent.metadata().put(EventConstants.SENDER_HEADER, services.jsonMapper.writeValueAsString(session.participant()));
+
+                // make sure reply-to if present is scoped to sender
+                // FIXME: a reply should not need a reply, therefore a replyCri probably should not be a EventConstants.SERVICE_DESTINATION_PREFIX
+                validateReplyToForServiceRequest(incomingEvent);
+
+                return services.eventBusService
+                        .sendWithAck(incomingEvent)
+                        .recover(throwable -> {
+                            // map errors that occurred because no Service invoker was listening
+                            if (throwable instanceof ReplyException replyException) {
+                                if (replyException.failureType() == ReplyFailure.NO_HANDLERS) {
+                                    throwable = new RpcMissingServiceException(throwable);
+                                }
+                            }
+                            try {
+                                Event<byte[]> convertedEvent = services.exceptionConverter.convert(incomingEvent.metadata(), throwable);
+                                // since we don't know the subscription id used by the stomp client for this request we send through the eventbus
+                                services.eventBusService.send(convertedEvent);
+                                return Future.succeededFuture();
+                            } catch (Exception ex) {
+                                if(log.isDebugEnabled()){
+                                    log.debug("Exception occurred converting exception\n{}",
+                                              EventUtil.toString(incomingEvent, true),
+                                              throwable);
+                                }
+                                return Future.failedFuture(ex);
+                            }
+                        });
+
+            } catch (Exception e) {
+                return Future.failedFuture(e);
+            }
+
+        } else if (incomingEvent.cri().scheme().equals(EventConstants.STREAM_DESTINATION_SCHEME)) {
+
+            return services.eventStreamService.send(incomingEvent);
+
+        } else {
+            return Future.failedFuture(new IllegalArgumentException("CRI scheme not supported"));
+        }
     }
 
     public void shutdown() {
@@ -203,15 +198,17 @@ public class EndpointConnectionHandler {
                 services.vertx.cancelTimer(sessionTimer);
                 sessionTimer = -1;
             }
-            subscriptions.forEach((s, messageConsumer) -> messageConsumer.cancel());
+            subscriptions.forEach((s, eventConsumer) -> eventConsumer.unregister());
             subscriptions.clear();
         }
     }
 
-    public void subscribe(CRI cri, String subscriptionIdentifier, BaseSubscriber<Event<byte[]>> subscriber) {
+    public void subscribe(CRI cri,
+                          String subscriptionIdentifier,
+                          StompSubscriptionHandler subscriptionHandler) {
         Validate.notNull(cri, "CRI must not be null");
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
-        Validate.notNull(subscriber, "Subscriber must not be null");
+        Validate.notNull(subscriptionHandler, "subscriptionHandler must not be null");
 
         if (!session.subscribeAllowed(cri)) {
             throw new AuthorizationException("Not Authorized to subscribe to " + cri);
@@ -219,31 +216,32 @@ public class EndpointConnectionHandler {
 
         if (cri.scheme().equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {
 
-            services.eventBusService.listen(cri.baseResource())
-                                    .doOnNext(event -> {
-                                        // If reply-to is set we implicitly allow the subscriber to send a single message to the given destination
-                                        // Reply-To is known to be scoped to the sender because there is a check when the system receives the event above
-                                        // Ex:
-                                        // Device -> subscribes to srv://MAC@device.rpc.channel
-                                        // JS Client sends message to Device with a reply to of srv://REPLY_TO_ID@continuum.js.EventBus/replyHandler
-                                        //
-                                        // When the system receives the message in the send() handler above it verifies the reply-to matches the sender reply to id
-                                        // Then we temporarily allow the device to send to the clients reply-to.
-                                        // Which will allow the message to be routed back to the client.
-                                        String replyTo = event.metadata().get(EventConstants.REPLY_TO_HEADER);
-                                        if (replyTo != null) {
-                                            // wildcard in the reply to are not allowed since they could bypass security constraints
-                                            if (!replyTo.contains("*")) {
-                                                session.addTemporarySendAllowed(replyTo);
-                                            } else {
-                                                log.warn("reply-to header contains * and will NOT be ALLOWED for message {}",
-                                                         event);
-                                            }
-                                        }
-                                    }) // services we want to make sure reply addresses are implicitly allowed
-                                    .subscribe(subscriber);
+            EventConsumer eventConsumer = services.eventBusService.listen(cri.baseResource());
+            eventConsumer.handler(event -> {
+                        // If reply-to is set we implicitly allow the subscriber to send a single message to the given destination
+                        // Reply-To is known to be scoped to the sender because there is a check when the system receives the event above
+                        // Ex:
+                        // Device -> subscribes to srv://MAC@device.rpc.channel
+                        // JS Client sends message to Device with a reply to of srv://REPLY_TO_ID@continuum.js.EventBus/replyHandler
+                        //
+                        // When the system receives the message in the send() handler above it verifies the reply-to matches the sender reply to id
+                        // Then we temporarily allow the device to send to the clients reply-to.
+                        // Which will allow the message to be routed back to the client.
+                        String replyTo = event.metadata().get(EventConstants.REPLY_TO_HEADER);
+                        if (replyTo != null) {
+                            // wildcard in the reply to are not allowed since they could bypass security constraints
+                            if (!replyTo.contains("*")) {
+                                session.addTemporarySendAllowed(replyTo);
+                            } else {
+                                log.warn("reply-to header contains * and will NOT be ALLOWED for message {}",
+                                         event);
+                            }
+                        }
+                        subscriptionHandler.handleEvent(event);
+                    })
+                    .exceptionHandler(subscriptionHandler::handleError);
 
-            subscriptions.put(subscriptionIdentifier, subscriber);
+            subscriptions.put(subscriptionIdentifier, eventConsumer);
 
             log.debug("New Service Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
@@ -253,9 +251,11 @@ public class EndpointConnectionHandler {
 
         } else if (cri.scheme().equals(EventConstants.STREAM_DESTINATION_SCHEME)) {
 
-            services.eventStreamService.listen(cri).subscribe(subscriber);
+            EventConsumer eventConsumer = services.eventStreamService.listen(cri);
+            eventConsumer.handler(subscriptionHandler::handleEvent)
+                         .exceptionHandler(subscriptionHandler::handleError);
 
-            subscriptions.put(subscriptionIdentifier, subscriber);
+            subscriptions.put(subscriptionIdentifier, eventConsumer);
 
             log.debug("New Event Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
@@ -270,8 +270,9 @@ public class EndpointConnectionHandler {
     public void unsubscribe(String subscriptionIdentifier) {
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
 
-        if (subscriptions.containsKey(subscriptionIdentifier)) {
-            subscriptions.remove(subscriptionIdentifier).cancel();
+        EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
+        if (consumer != null) {
+            consumer.unregister();
         } else {
             log.debug("No subscription exists for subscriptionIdentifier: {}", subscriptionIdentifier);
         }

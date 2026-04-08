@@ -1,42 +1,37 @@
 
 
+
 package org.kinotic.core.internal.api.service.invoker;
 
-import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
-
+import io.opentelemetry.api.OpenTelemetry;
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.exceptions.RpcMissingMethodException;
-import org.kinotic.core.api.event.CRI;
-import org.kinotic.core.api.event.Event;
-import org.kinotic.core.api.event.EventBusService;
-import org.kinotic.core.api.event.EventConstants;
-import org.kinotic.core.api.event.ListenerStatus;
-import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.ServiceFunction;
 import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
 import org.kinotic.core.internal.api.event.MetadataTextMapGetter;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
 import org.kinotic.core.internal.utils.EventUtil;
+import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.core.ReactiveAdapter;
 import org.springframework.core.ReactiveAdapterRegistry;
-
-import io.opentelemetry.api.OpenTelemetry;
-import io.vertx.core.Vertx;
-import reactor.core.Disposable;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
+
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Class handles invoking services that are published to the Continuum.
@@ -62,7 +57,7 @@ public class ServiceInvocationSupervisor {
     private final OpenTelemetry openTelemetry;
 
 
-    private Disposable methodInvocationEventListenerDisposable;
+    private EventConsumer methodInvocationEventConsumer;
 
 
 
@@ -104,57 +99,47 @@ public class ServiceInvocationSupervisor {
 
     /**
      * Starts this {@link ServiceInvocationSupervisor}
-     * @return a Mono that will succeed on Start and fail on an error
+     * @return a Future that will succeed on Start and fail on an error
      */
-    public Mono<Void> start(){
-        return Mono.create(startSink -> {
-            if(active.compareAndSet(false,true)){
+    public Future<Void> start(){
+        if(active.compareAndSet(false, true)){
+            // begin listening on the event bus for service invocation requests
+            methodInvocationEventConsumer = eventBusService.listen(serviceDescriptor.serviceIdentifier().cri().baseResource());
 
-                // begin listening on the event bus for Buffer's
-                // use listenWithAck variant so remote sender will know that the data was received
-                Mono<Flux<Event<byte[]>>> eventMono = eventBusService.listenWithAck(serviceDescriptor.serviceIdentifier().cri().baseResource());
+            methodInvocationEventConsumer
+                    .handler(event -> vertx.executeBlocking(() -> {
+                        processEvent(event);
+                        return null;
+                    }))
+                    .exceptionHandler(throwable -> log.error("Event listener error", throwable))
+                    .endHandler(v -> {
+                        log.error("Should not happen! Event listener stopped for some reason!! Changing supervisor state to inactive");
+                        active.set(false);
+                    });
 
-                eventMono.subscribe(eventFlux -> {
-
-                    methodInvocationEventListenerDisposable =
-                        eventFlux.subscribe(this::processEvent, // will be called on new event to do some work
-                                            // received error
-                                            throwable -> log.error("Event listener error", throwable),
-                                            // listener completed
-                                            () -> {
-                                                log.error("Should not happen! Event listener stopped for some reason!! Changing supervisor state to inactive");
-                                                active.set(false);
-                                            });
-
-                    startSink.success();
-
-                }, startSink::error);
-            }else{
-                startSink.error(new IllegalStateException("Service already started"));
-            }
-        });
+            return methodInvocationEventConsumer.completion();
+        }else{
+            return Future.failedFuture(new IllegalStateException("Service already started"));
+        }
     }
 
     /**
      * Stops this {@link ServiceInvocationSupervisor}
-     * @return a Mono that will succeed on Stop and fail on an error
+     * @return a Future that will succeed on Stop and fail on an error
      */
-    public Mono<Void> stop(){
-        return Mono.create(stopSink -> {
-            if (active.compareAndSet(true, false)) {
-                if(methodInvocationEventListenerDisposable != null){
-                    methodInvocationEventListenerDisposable.dispose();
-                }
-
-                for(Map.Entry<String, StreamSubscriber> streamSubscribers : activeStreamingResults.entrySet()){
-                    streamSubscribers.getValue().cancel();
-                }
-
-                stopSink.success();
-            }else{
-                stopSink.error(new IllegalStateException("Service already stopped"));
+    public Future<Void> stop(){
+        if (active.compareAndSet(true, false)) {
+            for(Map.Entry<String, StreamSubscriber> streamSubscribers : activeStreamingResults.entrySet()){
+                streamSubscribers.getValue().cancel();
             }
-        });
+
+            if(methodInvocationEventConsumer != null){
+                return methodInvocationEventConsumer.unregister();
+            }
+            return Future.succeededFuture();
+        }else{
+            return Future.failedFuture(new IllegalStateException("Service already stopped"));
+        }
     }
 
     private Map<String, HandlerMethod> buildMethodMap(ServiceDescriptor serviceDescriptor,
@@ -250,13 +235,6 @@ public class ServiceInvocationSupervisor {
     private void processInvocationRequest(Event<byte[]> incomingEvent) {
 
         // TODO: add support for context propagation
-//        Context extractedContext = openTelemetry.getPropagators()
-//                                                .getTextMapPropagator()
-//                                                .extract(Context.current(),
-//                                                         incomingEvent.metadata(),
-//                                                         textMapGetter);
-
-//        Span extractedSpan = Span.fromContextOrNull(extractedContext);
 
         // Ensure there is an argument resolver that can handle the incoming data
         if (argumentResolver.supports(incomingEvent)) {
@@ -294,6 +272,7 @@ public class ServiceInvocationSupervisor {
         }
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private void processMethodInvocationResult(Event<byte[]> incomingEvent, HandlerMethod handlerMethod, Object result){
 
         Metadata incomingMetadata = incomingEvent.metadata();
@@ -308,16 +287,8 @@ public class ServiceInvocationSupervisor {
 
             if(!reactiveAdapter.isMultiValue()){
 
-                Mono<?> mono = Mono.from(reactiveAdapter.toPublisher(result));
-                mono.doOnSuccess((Consumer<Object>) o -> convertAndSend(incomingMetadata, handlerMethod, o))
-                    .subscribe(v -> {}, t -> {
-                        if(log.isDebugEnabled()){
-                            log.debug("Exception occurred processing service request\n{}",
-                                      EventUtil.toString(incomingEvent, true),
-                                      t);
-                        }
-                        handleException(incomingMetadata, t);
-                    }); // We use an empty consumer this is handled with doOnSuccess, this is done so, we get a single "signal" instead of onNext, onComplete type logic..
+                Publisher<?> publisher = reactiveAdapter.toPublisher(result);
+                publisher.subscribe(new SingleValueSubscriber(incomingMetadata, handlerMethod, incomingEvent));
 
             }else{
 
@@ -366,6 +337,52 @@ public class ServiceInvocationSupervisor {
             log.warn("No reply-to header found in event");
         }
         return ret;
+    }
+
+    /**
+     * Subscriber that handles a single-value reactive result from a method invocation.
+     * Replaces the previous Mono.from() pattern.
+     */
+    private class SingleValueSubscriber implements Subscriber<Object> {
+
+        private final Metadata incomingMetadata;
+        private final HandlerMethod handlerMethod;
+        private final Event<byte[]> incomingEvent;
+        private boolean valueReceived = false;
+
+        public SingleValueSubscriber(Metadata incomingMetadata, HandlerMethod handlerMethod, Event<byte[]> incomingEvent) {
+            this.incomingMetadata = incomingMetadata;
+            this.handlerMethod = handlerMethod;
+            this.incomingEvent = incomingEvent;
+        }
+
+        @Override
+        public void onSubscribe(Subscription s) {
+            s.request(1);
+        }
+
+        @Override
+        public void onNext(Object value) {
+            valueReceived = true;
+            convertAndSend(incomingMetadata, handlerMethod, value);
+        }
+
+        @Override
+        public void onError(Throwable t) {
+            if(log.isDebugEnabled()){
+                log.debug("Exception occurred processing service request\n{}",
+                          EventUtil.toString(incomingEvent, true),
+                          t);
+            }
+            handleException(incomingMetadata, t);
+        }
+
+        @Override
+        public void onComplete() {
+            if(!valueReceived){
+                convertAndSend(incomingMetadata, handlerMethod, null);
+            }
+        }
     }
 
     /**
@@ -480,7 +497,7 @@ public class ServiceInvocationSupervisor {
         @Override
         protected void hookOnNext(Object value) {
             if(log.isTraceEnabled()){
-                log.trace("Next stream value " + value);
+                log.trace("Next stream value {}", value);
             }
             convertAndSend(incomingMetadata, handlerMethod, value);
         }
