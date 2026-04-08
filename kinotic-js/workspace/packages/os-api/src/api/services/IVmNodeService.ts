@@ -1,6 +1,6 @@
 import type { IKinotic } from '@kinotic-ai/core'
 import { CrudServiceProxy, type ICrudServiceProxy } from '@kinotic-ai/core'
-import { VmNode } from '@/api/model/VmNode'
+import { VmNode } from '@/api/model/workload/VmNode'
 
 
 export interface IVmNodeService extends ICrudServiceProxy<VmNode> {

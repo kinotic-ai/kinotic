@@ -1,5 +1,5 @@
 import { CrudServiceProxy, FunctionalIterablePage, type IKinotic, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
-import { Workload } from '@/api/model/Workload'
+import { Workload } from '@/api/model/workload/Workload'
 
 
 export interface IWorkloadService extends ICrudServiceProxy<Workload> {

@@ -1,6 +1,6 @@
 import type { Identifiable } from '@kinotic-ai/core'
-import { WorkloadStatus } from '@/api/model/WorkloadStatus'
-import { VmProviderType } from '@/api/model/VmProviderType'
+import { WorkloadStatus } from '@/api/model/workload/WorkloadStatus'
+import { VmProviderType } from '@/api/model/workload/VmProviderType'
 
 /**
  * Represents a workload to be managed by the VM manager.

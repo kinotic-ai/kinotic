@@ -1,5 +1,5 @@
 import type { Identifiable } from '@kinotic-ai/core'
-import { VmNodeStatus } from '@/api/model/VmNodeStatus'
+import { VmNodeStatus } from '@/api/model/workload/VmNodeStatus'
 
 /**
  * Represents a node in the cluster that is running a VmManager process
