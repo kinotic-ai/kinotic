@@ -19,7 +19,7 @@ async function buildEntityDefinitions() {
         namespaceConfig.validate = false
         namespaceConfig.entitiesPaths = [{
             path: path.resolve(__dirname, '../entity/domain/ecommerce'),
-            repositoryPath: path.resolve(__dirname, '../services/ecommerce'),
+            repositoryPath: path.resolve(__dirname, '../repository/ecommerce'),
             mirrorFolderStructure: false
         }]
 
@@ -47,7 +47,7 @@ async function buildEntityDefinitions() {
         namespaceConfig.validate = false
         namespaceConfig.entitiesPaths = [{
             path: path.resolve(__dirname, '../entity/domain/health'),
-            repositoryPath: path.resolve(__dirname, '../services/health'),
+            repositoryPath: path.resolve(__dirname, '../repository/health'),
             mirrorFolderStructure: false
         }]
 

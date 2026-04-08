@@ -1,4 +1,4 @@
-import {PersonEntityService} from '@/services/PersonEntityService.js'
+import {PersonRepository} from '@/repository/PersonRepository.js'
 import {KinoticOperationTaskGenerator} from '@/tasks/KinoticOperationTaskGenerator.ts'
 import {ITaskFactory} from '@/tasks/ITaskFactory.js'
 import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
@@ -15,7 +15,7 @@ import { ITask } from './ITask';
 export class SaveTaskGenerator implements ITaskGenerator {
 
     private continuumTaskGenerator: KinoticOperationTaskGenerator
-    private personEntityService: PersonEntityService
+    private personRepository: PersonRepository
 
     /**
      * Constructs a {@link SaveTaskGenerator}
@@ -33,7 +33,7 @@ export class SaveTaskGenerator implements ITaskGenerator {
         }
         const kinotic = new KinoticSingleton()
         kinotic.use(OsApiPlugin).use(PersistencePlugin)
-        this.personEntityService = new PersonEntityService(new EntitiesService(kinotic))
+        this.personRepository = new PersonRepository(new EntitiesService(kinotic))
 
         this.continuumTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,
                                                                         kinotic,
@@ -56,7 +56,7 @@ export class SaveTaskGenerator implements ITaskGenerator {
                     return {
                         name   : () => 'Bulk Save People',
                         execute: async () => {
-                            return this.personEntityService.save(generatePeople(batchSize)[0])
+                            return this.personRepository.save(generatePeople(batchSize)[0])
                                                            .then(() => {})
                         }
                     }
@@ -68,7 +68,7 @@ export class SaveTaskGenerator implements ITaskGenerator {
                     return {
                         name   : () => 'Bulk Save People',
                         execute: async () => {
-                            return this.personEntityService.bulkSave(generatePeople(batchSize))
+                            return this.personRepository.bulkSave(generatePeople(batchSize))
                         }
                     }
                 }
