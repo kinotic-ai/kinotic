@@ -1,5 +1,6 @@
 
 
+
 package org.kinotic.core.internal;
 
 import org.apache.commons.lang3.StringUtils;
@@ -8,7 +9,8 @@ import org.kinotic.core.api.RpcServiceProxy;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.internal.utils.KinoticUtil;
-import org.kinotic.core.internal.utils.MetaUtil;import org.slf4j.Logger;
+import org.kinotic.core.internal.utils.MetaUtil;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.FatalBeanException;
@@ -44,8 +46,13 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             log.info("Registering Service {}", serviceIdentifier);
 
             serviceRegistry.register(serviceIdentifier, clazz, bean)
-                           .subscribe(v -> log.trace("Successfully Registered service {}", serviceIdentifier),
-                                      throwable -> log.error("Error Registering service {}", serviceIdentifier, throwable));
+                           .onComplete(ar -> {
+                               if(ar.succeeded()){
+                                   log.trace("Successfully Registered service {}", serviceIdentifier);
+                               }else{
+                                   log.error("Error Registering service {}", serviceIdentifier, ar.cause());
+                               }
+                           });
         });
         return bean;
     }
@@ -57,8 +64,13 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             log.info("Un-Registering Service {}", serviceIdentifier);
 
             serviceRegistry.unregister(serviceIdentifier)
-                           .subscribe(v -> log.trace("Successfully Un-Registered service {}", serviceIdentifier),
-                                      throwable -> log.error("Error Un-Registering service {}", serviceIdentifier, throwable));
+                           .onComplete(ar -> {
+                               if(ar.succeeded()){
+                                   log.trace("Successfully Un-Registered service {}", serviceIdentifier);
+                               }else{
+                                   log.error("Error Un-Registering service {}", serviceIdentifier, ar.cause());
+                               }
+                           });
         });
     }
 

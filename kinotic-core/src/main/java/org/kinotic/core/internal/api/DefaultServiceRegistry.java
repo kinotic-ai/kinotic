@@ -1,5 +1,6 @@
 
 
+
 package org.kinotic.core.internal.api;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,8 +30,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 
 import io.opentelemetry.api.OpenTelemetry;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import reactor.core.publisher.Mono;
 
 /**
  *
@@ -64,44 +66,51 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     private OpenTelemetry openTelemetry;
 
     @Override
-    public Mono<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
+    public Future<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
         try {
             return register(ServiceDescriptor.create(serviceIdentifier, serviceInterface), ServiceFunctionInstanceProvider.create(instance));
         } catch (Exception e) {
-            return Mono.error(e);
+            return Future.failedFuture(e);
         }
     }
 
     @Override
-    public Mono<Void> register(ServiceDescriptor serviceDescriptor, ServiceFunctionInstanceProvider instanceProvider) {
-        return Mono.create(sink -> supervisors.compute(serviceDescriptor.serviceIdentifier(),
-                                                       (serviceIdentifier, serviceInvocationSupervisor) -> {
-                                                           if(serviceInvocationSupervisor == null){
-                                                               try {
-                                                                   serviceInvocationSupervisor = new ServiceInvocationSupervisor(
-                                                                           serviceDescriptor,
-                                                                           instanceProvider,
-                                                                           argumentResolver,
-                                                                           returnValueConverter,
-                                                                           exceptionConverter,
-                                                                           eventBusService,
-                                                                           reactiveAdapterRegistry,
-                                                                           vertx,
-                                                                           openTelemetry);
+    public Future<Void> register(ServiceDescriptor serviceDescriptor, ServiceFunctionInstanceProvider instanceProvider) {
+        Promise<Void> promise = Promise.promise();
+        supervisors.compute(serviceDescriptor.serviceIdentifier(),
+                            (serviceIdentifier, serviceInvocationSupervisor) -> {
+                                if(serviceInvocationSupervisor == null){
+                                    try {
+                                        serviceInvocationSupervisor = new ServiceInvocationSupervisor(
+                                                serviceDescriptor,
+                                                instanceProvider,
+                                                argumentResolver,
+                                                returnValueConverter,
+                                                exceptionConverter,
+                                                eventBusService,
+                                                reactiveAdapterRegistry,
+                                                vertx,
+                                                openTelemetry);
 
-                                                                   serviceInvocationSupervisor
-                                                                           .start()
-                                                                           .subscribe(sink::success,
-                                                                                      sink::error);
+                                        serviceInvocationSupervisor
+                                                .start()
+                                                .onComplete(ar -> {
+                                                    if(ar.succeeded()){
+                                                        promise.complete();
+                                                    }else{
+                                                        promise.fail(ar.cause());
+                                                    }
+                                                });
 
-                                                               } catch (Exception e) {
-                                                                   sink.error(e);
-                                                               }
-                                                           }else{
-                                                               sink.error(new IllegalArgumentException("Service already registered for ServiceIdentifier "+ serviceDescriptor.serviceIdentifier()));
-                                                           }
-                                                           return serviceInvocationSupervisor;
-                                                       }));
+                                    } catch (Exception e) {
+                                        promise.fail(e);
+                                    }
+                                }else{
+                                    promise.fail(new IllegalArgumentException("Service already registered for ServiceIdentifier "+ serviceDescriptor.serviceIdentifier()));
+                                }
+                                return serviceInvocationSupervisor;
+                            });
+        return promise.future();
     }
 
     @Override
@@ -148,18 +157,25 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     }
 
     @Override
-    public Mono<Void> unregister(ServiceIdentifier serviceIdentifier) {
-        return Mono.create(sink -> supervisors.compute(serviceIdentifier,
-                                                       (serviceIdentifier1, serviceInvocationSupervisor) -> {
-                                                           if(serviceInvocationSupervisor != null){
-                                                               serviceInvocationSupervisor
-                                                                       .stop()
-                                                                       .subscribe(sink::success,
-                                                                                  sink::error);
-                                                           }else{
-                                                               sink.error(new IllegalArgumentException(" No Service registered for for ServiceIdentifier "+ serviceIdentifier));
-                                                           }
-                                                           return null; // remove from map
-                                                       }));
+    public Future<Void> unregister(ServiceIdentifier serviceIdentifier) {
+        Promise<Void> promise = Promise.promise();
+        supervisors.compute(serviceIdentifier,
+                            (serviceIdentifier1, serviceInvocationSupervisor) -> {
+                                if(serviceInvocationSupervisor != null){
+                                    serviceInvocationSupervisor
+                                            .stop()
+                                            .onComplete(ar -> {
+                                                if(ar.succeeded()){
+                                                    promise.complete();
+                                                }else{
+                                                    promise.fail(ar.cause());
+                                                }
+                                            });
+                                }else{
+                                    promise.fail(new IllegalArgumentException(" No Service registered for for ServiceIdentifier "+ serviceIdentifier));
+                                }
+                                return null; // remove from map
+                            });
+        return promise.future();
     }
 }

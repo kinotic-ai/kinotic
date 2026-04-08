@@ -1,8 +1,10 @@
 
 
+
 package org.kinotic.core.internal.api.event;
 
 import io.vertx.core.Context;
+import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.DeliveryOptions;
@@ -18,6 +20,7 @@ import org.apache.ignite.IgniteCache;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.internal.config.IgniteCacheConstants;
 import org.kinotic.core.internal.api.aignite.SubscriptionInfoCacheEntryEventFilter;
@@ -27,9 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.ConnectableFlux;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
@@ -76,36 +77,25 @@ public class DefaultEventBusService implements EventBusService {
     }
 
     @Override
-    public Mono<Boolean> isAnybodyListening(String cri) {
+    public Future<Boolean> isAnybodyListening(String cri) {
         if(ignite == null){
             throw new IllegalStateException("This method is not available when ignite is disabled");
         }
-        return IgniteUtil.futureToMono(() -> subscriptionsCache.containsKeyAsync(cri));
+        return IgniteUtil.futureToVertxFuture(() -> subscriptionsCache.containsKeyAsync(cri));
     }
 
     @Override
-    public Flux<Event<byte[]>> listen(String cri) {
+    public EventConsumer listen(String cri) {
         Validate.notEmpty(cri, "The cri must be provided");
-
-        return _listen(cri, null);
+        MessageConsumer<byte[]> consumer = vertx.eventBus().consumer(cri);
+        return new DefaultEventConsumer(consumer);
     }
 
     @Override
-    public Mono<Flux<Event<byte[]>>> listenWithAck(String cri) {
+    public Future<EventConsumer> listenWithAck(String cri) {
         Validate.notEmpty(cri, "The cri must be provided");
-
-        return Mono.create(sink -> {
-            final MessageConsumer<byte[]> consumer = vertx.eventBus().consumer(cri);
-            final ConnectableFlux<Event<byte[]>> flux = _listen(null, consumer).publish();
-            consumer.completion().onComplete(ar ->{
-                if(ar.succeeded()){
-                    sink.success(flux);
-                }else{
-                    sink.error(ar.cause());
-                }
-            });
-            flux.connect(); // we have to connect now so flux create will be signaled and vertx consumer handler will be set
-        });
+        MessageConsumer<byte[]> consumer = vertx.eventBus().consumer(cri);
+        return consumer.completion().map(v -> new DefaultEventConsumer(consumer));
     }
 
     @Override
@@ -177,57 +167,14 @@ public class DefaultEventBusService implements EventBusService {
     }
 
     @Override
-    public Mono<Void> sendWithAck(Event<byte[]> event) {
+    public Future<Void> sendWithAck(Event<byte[]> event) {
         Validate.notNull(event, "Event must not be null");
-        return Mono.create(sink -> {
-            DeliveryOptions deliveryOptions = createDeliveryOptions(event);
-            // We expect that a response will be sent upon receipt. This will happen automatically if the listener is created with this class.
-            vertx.eventBus()
-                 .request(event.cri().baseResource(),
-                          event.data(),
-                          deliveryOptions)
-                 .onComplete(reply -> {
-                     if(reply.succeeded()){
-                         sink.success();
-                     }else{
-                         sink.error(reply.cause());
-                     }
-                 });
-        }).subscribeOn(scheduler).then();
-    }
-
-    private Flux<Event<byte[]>> _listen(String cri, MessageConsumer<byte[]> vertxEventBusConsumer) {
-        MessageConsumer<byte[]> consumer;
-        if(vertxEventBusConsumer != null){
-            consumer = vertxEventBusConsumer;
-        }else{
-            consumer = vertx.eventBus().consumer(cri);
-        }
-
-        Flux<Event<byte[]>> ret = Flux.create(fluxSink -> {
-            // Setup all required handlers that are needed prior to consuming messages
-            fluxSink.onDispose(consumer::unregister);
-
-            // TODO: deal with back pressure properly.. ?
-            //fluxSink.onRequest()
-
-            consumer.exceptionHandler(fluxSink::error);
-            consumer.endHandler(event -> fluxSink.complete()); // this should never occur, but we handle in case..
-
-            // now activate handler to start consuming messages
-            consumer.handler(message -> {
-                // ack that we received the message if desired by sender.
-                if (message.replyAddress() != null){
-                    message.reply(null);
-                }
-
-                if(!fluxSink.isCancelled()) {
-                    vertx.executeBlocking(() -> fluxSink.next(new MessageEventAdapter<>(message)));
-                }
-            });
-        });
-
-        return ret; // ensure message delivery happens on vertx event loop, not sure but this by itself did not move the next above to the work loop
+        DeliveryOptions deliveryOptions = createDeliveryOptions(event);
+        return vertx.eventBus()
+                    .request(event.cri().baseResource(),
+                             event.data(),
+                             deliveryOptions)
+                    .mapEmpty();
     }
 
     private DeliveryOptions createDeliveryOptions(Event<?> event){
