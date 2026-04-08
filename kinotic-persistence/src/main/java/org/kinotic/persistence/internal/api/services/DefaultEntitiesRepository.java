@@ -10,7 +10,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.TenantSpecificId;
-import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.cache.events.EvictionSourceType;
@@ -27,12 +27,12 @@ import java.util.concurrent.CompletableFuture;
  */
 @Slf4j
 @Component
-public class DefaultEntitiesService implements EntitiesService {
+public class DefaultEntitiesRepository implements EntitiesRepository {
 
     private final AsyncLoadingCache<String, EntityService> entityServiceCache;
 
-    public DefaultEntitiesService(EntityServiceCacheLoader entityServiceCacheLoader,
-                                  DefaultCaffeineCacheFactory cacheFactory) {
+    public DefaultEntitiesRepository(EntityServiceCacheLoader entityServiceCacheLoader,
+                                     DefaultCaffeineCacheFactory cacheFactory) {
         this.entityServiceCache
                 = cacheFactory.<String, EntityService>newBuilder()
                           .name("entityServiceCache")

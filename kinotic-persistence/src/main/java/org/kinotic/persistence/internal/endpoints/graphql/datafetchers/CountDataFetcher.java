@@ -3,7 +3,7 @@ package org.kinotic.persistence.internal.endpoints.graphql.datafetchers;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.vertx.ext.web.RoutingContext;
-import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.internal.endpoints.openapi.RoutingContextToEntityContextAdapter;
 
 import java.util.Objects;
@@ -15,11 +15,11 @@ import java.util.concurrent.CompletableFuture;
 public class CountDataFetcher implements DataFetcher<CompletableFuture<Long>> {
 
     private final String entityDefinitionId;
-    private final EntitiesService entitiesService;
+    private final EntitiesRepository entitiesRepository;
 
-    public CountDataFetcher(String entityDefinitionId, EntitiesService entitiesService) {
+    public CountDataFetcher(String entityDefinitionId, EntitiesRepository entitiesRepository) {
         this.entityDefinitionId = entityDefinitionId;
-        this.entitiesService = entitiesService;
+        this.entitiesRepository = entitiesRepository;
     }
 
     @Override
@@ -27,6 +27,6 @@ public class CountDataFetcher implements DataFetcher<CompletableFuture<Long>> {
         RoutingContext rc = environment.getGraphQlContext().get(RoutingContext.class);
         Objects.requireNonNull(rc);
 
-        return entitiesService.count(entityDefinitionId, new RoutingContextToEntityContextAdapter(rc));
+        return entitiesRepository.count(entityDefinitionId, new RoutingContextToEntityContextAdapter(rc));
     }
 }

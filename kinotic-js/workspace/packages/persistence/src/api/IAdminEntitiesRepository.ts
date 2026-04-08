@@ -11,7 +11,7 @@ import {
 
 export type TenantSelection = string[]
 
-export interface IAdminEntitiesService {
+export interface IAdminEntitiesRepository {
 
     /**
      * Returns the number of entities available.
@@ -119,12 +119,12 @@ export interface IAdminEntitiesService {
 
 }
 
-export class AdminEntitiesService implements IAdminEntitiesService {
+export class AdminEntitiesRepository implements IAdminEntitiesRepository {
 
     protected serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy('org.kinotic.persistence.api.services.AdminJsonEntitiesService')
+        this.serviceProxy = kinotic.serviceProxy('org.kinotic.persistence.api.services.AdminJsonEntitiesRepository')
     }
 
     public count(structureId: string, tenantSelection: TenantSelection): Promise<number> {

@@ -4,7 +4,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.vertx.ext.web.RoutingContext;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.internal.endpoints.openapi.RoutingContextToEntityContextAdapter;
 
 import java.util.Map;
@@ -18,11 +18,11 @@ import java.util.concurrent.CompletableFuture;
 public class UpdateDataFetcher implements DataFetcher<CompletableFuture<Map>> {
 
     private final String entityDefinitionId;
-    private final EntitiesService entitiesService;
+    private final EntitiesRepository entitiesRepository;
 
-    public UpdateDataFetcher(String entityDefinitionId, EntitiesService entitiesService) {
+    public UpdateDataFetcher(String entityDefinitionId, EntitiesRepository entitiesRepository) {
         this.entityDefinitionId = entityDefinitionId;
-        this.entitiesService = entitiesService;
+        this.entitiesRepository = entitiesRepository;
     }
 
     @Override
@@ -33,6 +33,6 @@ public class UpdateDataFetcher implements DataFetcher<CompletableFuture<Map>> {
 
         Map entity = environment.getArgument("input");
 
-        return entitiesService.update(entityDefinitionId, entity, ec);
+        return entitiesRepository.update(entityDefinitionId, entity, ec);
     }
 }

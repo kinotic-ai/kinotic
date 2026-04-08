@@ -2,26 +2,26 @@ import type { QueryParameter } from '@/api/model/QueryParameter'
 import type { TenantSpecificId } from '@/api/model/TenantSpecificId'
 import { Kinotic } from '@kinotic-ai/core'
 import { type Page, type Pageable, type IterablePage } from '@kinotic-ai/core'
-import { AdminEntitiesService, type IAdminEntitiesService, type TenantSelection } from '@/api/IAdminEntitiesService'
+import { AdminEntitiesRepository, type IAdminEntitiesRepository, type TenantSelection } from '@/api/IAdminEntitiesRepository'
 
 /**
- * This is the base interface for all admin entity services.
+ * This is the base interface for all admin entity repositories.
  * It provides the basic CRUD operations for entities with multi-tenancy support.
  */
-export interface IAdminEntityService<T> {
+export interface IAdminEntityRepository<T> {
 
     /**
-     * The application id of the Entity this service is for
+     * The application id of the Entity this repository is for
      */
     entityApplicationId: string
 
     /**
-     * The name of the Entity this service is for
+     * The name of the Entity this repository is for
      */
     entityName: string
 
     /**
-     * The id of the Entity this service is for
+     * The id of the Entity this repository is for
      * Which is the applicationId + '.' + name
      */
     entityId: string
@@ -122,67 +122,67 @@ export interface IAdminEntityService<T> {
 }
 
 /**
- * This is the base class for all admin entity services.
+ * This is the base class for all admin entity repositories.
  * It provides the basic CRUD operations for entities with multi-tenancy support.
  */
-export class AdminEntityService<T> implements IAdminEntityService<T> {
+export class AdminEntityRepository<T> implements IAdminEntityRepository<T> {
 
     public entityApplicationId: string
     public entityName: string
     public entityId: string
 
-    private readonly adminEntitiesService: IAdminEntitiesService
+    private readonly adminEntitiesRepository: IAdminEntitiesRepository
 
     public constructor(structureApplicationId: string,
                        structureName: string,
-                       adminEntitiesService?: IAdminEntitiesService) {
+                       adminEntitiesRepository?: IAdminEntitiesRepository) {
         this.entityApplicationId = structureApplicationId
         this.entityName = structureName
         this.entityId = (structureApplicationId + '.' + structureName).toLowerCase()
-        this.adminEntitiesService = adminEntitiesService ?? new AdminEntitiesService(Kinotic)
+        this.adminEntitiesRepository = adminEntitiesRepository ?? new AdminEntitiesRepository(Kinotic)
     }
 
     public count(tenantSelection: TenantSelection): Promise<number> {
-        return this.adminEntitiesService.count(this.entityId, tenantSelection)
+        return this.adminEntitiesRepository.count(this.entityId, tenantSelection)
     }
 
     public countByQuery(query: string, tenantSelection: TenantSelection): Promise<number> {
-        return this.adminEntitiesService.countByQuery(this.entityId, query, tenantSelection)
+        return this.adminEntitiesRepository.countByQuery(this.entityId, query, tenantSelection)
     }
 
     public deleteById(id: TenantSpecificId): Promise<void> {
-        return this.adminEntitiesService.deleteById(this.entityId, id)
+        return this.adminEntitiesRepository.deleteById(this.entityId, id)
     }
 
     public deleteByQuery(query: string, tenantSelection: TenantSelection): Promise<void> {
-        return this.adminEntitiesService.deleteByQuery(this.entityId, query, tenantSelection)
+        return this.adminEntitiesRepository.deleteByQuery(this.entityId, query, tenantSelection)
     }
 
     public findAll(tenantSelection: TenantSelection, pageable: Pageable): Promise<IterablePage<T>> {
-        return this.adminEntitiesService.findAll(this.entityId, tenantSelection, pageable)
+        return this.adminEntitiesRepository.findAll(this.entityId, tenantSelection, pageable)
     }
 
     public findById(id: TenantSpecificId): Promise<T> {
-        return this.adminEntitiesService.findById(this.entityId, id)
+        return this.adminEntitiesRepository.findById(this.entityId, id)
     }
 
     public findByIds(ids: TenantSpecificId[]): Promise<T[]> {
-        return this.adminEntitiesService.findByIds(this.entityId, ids)
+        return this.adminEntitiesRepository.findByIds(this.entityId, ids)
     }
 
     public namedQuery<U>(queryName: string,
                          queryParameters: QueryParameter[]): Promise<U> {
-        return this.adminEntitiesService.namedQuery(this.entityId, queryName, queryParameters)
+        return this.adminEntitiesRepository.namedQuery(this.entityId, queryName, queryParameters)
     }
 
     public namedQueryPage<U>(queryName: string,
                              queryParameters: QueryParameter[],
                              pageable: Pageable): Promise<IterablePage<U>> {
-        return this.adminEntitiesService.namedQueryPage(this.entityId, queryName, queryParameters, pageable)
+        return this.adminEntitiesRepository.namedQueryPage(this.entityId, queryName, queryParameters, pageable)
     }
 
     public search(searchText: string, tenantSelection: TenantSelection, pageable: Pageable): Promise<IterablePage<T>> {
-        return this.adminEntitiesService.search(this.entityId, searchText, tenantSelection, pageable)
+        return this.adminEntitiesRepository.search(this.entityId, searchText, tenantSelection, pageable)
     }
 
 }

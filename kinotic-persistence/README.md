@@ -154,10 +154,10 @@ String defId = "com.example.myapp.Person";
 Person p = new Person().setFirstName("Alice").setLastName("Smith");
 EntityContext ctx = new DefaultEntityContext(participant);
 
-Person saved = entitiesService.save(defId, p, ctx).join();
+Person saved = entitiesRepository.save(defId, p, ctx).join();
 
 // 4. Read back a page
-Page<Person> page = entitiesService.findAll(defId, Pageable.of(0, 20), Person.class, ctx).join();
+Page<Person> page = entitiesRepository.findAll(defId, Pageable.of(0, 20), Person.class, ctx).join();
 ```
 
 ## Notes

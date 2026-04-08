@@ -1,26 +1,26 @@
 import type { QueryParameter } from '@/api/model/QueryParameter'
 import { Kinotic } from '@kinotic-ai/core'
 import { type Page, type Pageable, type IterablePage } from '@kinotic-ai/core'
-import { EntitiesService, type IEntitiesService } from '@/api/IEntitiesService'
+import { EntitiesRepository, type IEntitiesRepository } from '@/api/IEntitiesRepository'
 
 /**
- * This is the base interface for all entity services.
+ * This is the base interface for all entity repositories.
  * It provides the basic CRUD operations for entities.
  */
-export interface IEntityService<T> {
+export interface IEntityRepository<T> {
 
     /**
-     * The applicationId of the Entity this service is for
+     * The applicationId of the Entity this repository is for
      */
     entityApplicationId: string
 
     /**
-     * The name of the Entity this service is for
+     * The name of the Entity this repository is for
      */
     entityName: string
 
     /**
-     * The id of the Entity this service is for
+     * The id of the Entity this repository is for
      * Which is the applicationId + '.' + name
      */
     entityId: string
@@ -154,88 +154,88 @@ export interface IEntityService<T> {
 }
 
 /**
- * This is the base class for all entity services.
+ * This is the base class for all entity repositories.
  * It provides the basic CRUD operations for entities.
  */
-export class EntityService<T> implements IEntityService<T> {
+export class EntityRepository<T> implements IEntityRepository<T> {
 
     public entityApplicationId: string
     public entityName: string
     public entityId: string
 
-    private readonly entitiesService: IEntitiesService
+    private readonly entitiesRepository: IEntitiesRepository
 
     public constructor(structureApplicationId: string,
                        structureName: string,
-                       entitiesService?: IEntitiesService) {
+                       entitiesRepository?: IEntitiesRepository) {
         this.entityApplicationId = structureApplicationId
         this.entityName = structureName
         this.entityId = (structureApplicationId + '.' + structureName).toLowerCase()
-        this.entitiesService = entitiesService ?? new EntitiesService(Kinotic)
+        this.entitiesRepository = entitiesRepository ?? new EntitiesRepository(Kinotic)
     }
 
     public async bulkSave(entities: T[]): Promise<void> {
         const entitiesToSave = await this.beforeBulkSaveOrUpdate(entities)
-        return this.entitiesService.bulkSave(this.entityId, entitiesToSave)
+        return this.entitiesRepository.bulkSave(this.entityId, entitiesToSave)
     }
 
     public async bulkUpdate(entities: T[]): Promise<void> {
         const entitiesToSave = await this.beforeBulkSaveOrUpdate(entities)
-        return this.entitiesService.bulkUpdate(this.entityId, entitiesToSave)
+        return this.entitiesRepository.bulkUpdate(this.entityId, entitiesToSave)
     }
 
     public count(): Promise<number> {
-        return this.entitiesService.count(this.entityId)
+        return this.entitiesRepository.count(this.entityId)
     }
 
     public countByQuery(query: string): Promise<number> {
-        return this.entitiesService.countByQuery(this.entityId, query)
+        return this.entitiesRepository.countByQuery(this.entityId, query)
     }
 
     public deleteById(id: string): Promise<void> {
-        return this.entitiesService.deleteById(this.entityId, id)
+        return this.entitiesRepository.deleteById(this.entityId, id)
     }
 
     public deleteByQuery(query: string): Promise<void> {
-        return this.entitiesService.deleteByQuery(this.entityId, query)
+        return this.entitiesRepository.deleteByQuery(this.entityId, query)
     }
 
     public findAll(pageable: Pageable): Promise<IterablePage<T>> {
-        return this.entitiesService.findAll(this.entityId, pageable)
+        return this.entitiesRepository.findAll(this.entityId, pageable)
     }
 
     public findById(id: string): Promise<T> {
-        return this.entitiesService.findById(this.entityId, id)
+        return this.entitiesRepository.findById(this.entityId, id)
     }
 
     public findByIds(ids: string[]): Promise<T[]> {
-        return this.entitiesService.findByIds(this.entityId, ids)
+        return this.entitiesRepository.findByIds(this.entityId, ids)
     }
 
     public namedQuery<U>(queryName: string, queryParameters: QueryParameter[]): Promise<U> {
-        return this.entitiesService.namedQuery(this.entityId, queryName, queryParameters)
+        return this.entitiesRepository.namedQuery(this.entityId, queryName, queryParameters)
     }
 
     public namedQueryPage<U>(queryName: string, queryParameters: QueryParameter[], pageable: Pageable): Promise<IterablePage<U>> {
-        return this.entitiesService.namedQueryPage(this.entityId, queryName, queryParameters, pageable)
+        return this.entitiesRepository.namedQueryPage(this.entityId, queryName, queryParameters, pageable)
     }
 
     public async save(entity: T): Promise<T> {
         const entityToSave = await this.beforeSaveOrUpdate(entity)
-        return this.entitiesService.save(this.entityId, entityToSave)
+        return this.entitiesRepository.save(this.entityId, entityToSave)
     }
 
     public search(searchText: string, pageable: Pageable): Promise<IterablePage<T>> {
-        return this.entitiesService.search(this.entityId, searchText, pageable)
+        return this.entitiesRepository.search(this.entityId, searchText, pageable)
     }
 
     public async syncIndex(): Promise<void> {
-        return this.entitiesService.syncIndex(this.entityId)
+        return this.entitiesRepository.syncIndex(this.entityId)
     }
 
     public async update(entity: T): Promise<T> {
         const entityToSave = await this.beforeSaveOrUpdate(entity)
-        return this.entitiesService.update(this.entityId, entityToSave)
+        return this.entitiesRepository.update(this.entityId, entityToSave)
     }
 
     protected async beforeBulkSaveOrUpdate(entities: T[]): Promise<T[]> {

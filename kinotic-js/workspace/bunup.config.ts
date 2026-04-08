@@ -19,28 +19,6 @@ export default defineWorkspace(
 		{
 			name: 'persistence',
 			root: 'packages/persistence'
-		},
-		{
-			name: 'vm-manager',
-			root: 'packages/vm-manager',
-			config: [
-				{
-					name   : "vm-manager-linux-64",
-					entry  : "src/index.ts",
-					compile: {
-						target : "bun-linux-x64",
-						outfile: "vm-manager-linux-64",
-					},
-				},
-				// {
-				// 	name   : "vm-manager-macos",
-				// 	entry  : "src/index.ts",
-				// 	compile: {
-				// 		target : "bun-darwin-arm64",
-				// 		outfile: "vm-manager-macos",
-				// 	},
-				// }
-			]
 		}
 	],
 	{

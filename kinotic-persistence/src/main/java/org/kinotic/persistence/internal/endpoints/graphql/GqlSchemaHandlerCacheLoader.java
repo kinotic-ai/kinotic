@@ -17,7 +17,7 @@ import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsDecorator;
-import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.api.services.EntityDefinitionConversionService;
 import org.kinotic.persistence.internal.api.services.EntityDefinitionDAO;
@@ -81,7 +81,7 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
         """;
 
     private final DefaultCaffeineCacheFactory cacheFactory;
-    private final EntitiesService entitiesService;
+    private final EntitiesRepository entitiesRepository;
     private final EntityDefinitionDAO entityDefinitionDAO;
     private final EntityDefinitionConversionService entityDefinitionConversionService;
     private final GqlOperationDefinitionService gqlOperationDefinitionService;
@@ -214,7 +214,7 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
                         GraphQLSchema graphQLSchema = graphQLSchemaBuilder.build();
                         graphQLSchema = Federation.transform(graphQLSchema)
                                                   .setFederation2(true)
-                                                  .fetchEntities(new EntitiesDataFetcher(entitiesService, applicationId))
+                                                  .fetchEntities(new EntitiesDataFetcher(entitiesRepository, applicationId))
                                                   .resolveEntityType(ENTITIES_TYPE_RESOLVER)
                                                   .build();
 

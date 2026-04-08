@@ -8,7 +8,7 @@ import {
     FunctionalIterablePage
 } from '@kinotic-ai/core'
 
-export interface IEntitiesService {
+export interface IEntitiesRepository {
 
     /**
      * Saves all given entities.
@@ -169,12 +169,12 @@ export interface IEntitiesService {
 
 }
 
-export class EntitiesService implements IEntitiesService {
+export class EntitiesRepository implements IEntitiesRepository {
 
     protected serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy('org.kinotic.persistence.api.services.JsonEntitiesService')
+        this.serviceProxy = kinotic.serviceProxy('org.kinotic.persistence.api.services.JsonEntitiesRepository')
     }
 
     public bulkSave<T>(structureId: string, entities: T[]): Promise<void> {

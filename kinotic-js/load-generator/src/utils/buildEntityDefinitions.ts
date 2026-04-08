@@ -1,4 +1,4 @@
-import { CodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/CodeGenerationService.js'
+import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
 import { KinoticProjectConfig } from '@kinotic-ai/core'
 import path from 'path'
@@ -12,7 +12,7 @@ async function buildEntityDefinitions() {
     async function buildEcommerceDefinitions() {
         const logger = new ConsoleLogger()
         const namespace = 'ecommerce'
-        const codeGenerationService = new CodeGenerationService(namespace, '.js', logger)
+        const codeGenerationService = new EntityCodeGenerationService(namespace, '.js', logger)
 
         const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
         namespaceConfig.application = namespace
@@ -40,7 +40,7 @@ async function buildEntityDefinitions() {
     async function buildHealthDefinitions() {
         const logger = new ConsoleLogger()
         const namespace = 'healthcare'
-        const codeGenerationService = new CodeGenerationService(namespace, '.js', logger)
+        const codeGenerationService = new EntityCodeGenerationService(namespace, '.js', logger)
 
         const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
         namespaceConfig.application = namespace

@@ -19,7 +19,7 @@ import java.util.concurrent.CompletableFuture;
  * Created by Nic Padilla 🤪on 6/18/23.
  */
 @Publish
-public interface JsonEntitiesService {
+public interface JsonEntitiesRepository {
 
     /**
      * Updates all given entities; this gives an opportunity to perform partial updates of the data EntityDefinition.

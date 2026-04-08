@@ -18,11 +18,11 @@ importers:
         specifier: ^1.0.9
         version: 1.0.9(typescript@5.9.3)
       '@kinotic-ai/os-api':
-        specifier: ^1.0.10
-        version: 1.0.10(@kinotic-ai/core@1.1.1(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^1.0.11
+        version: 1.0.11(@kinotic-ai/core@1.1.1(typescript@5.9.3))(typescript@5.9.3)
       '@kinotic-ai/persistence':
-        specifier: ^1.0.10
-        version: 1.0.10(@kinotic-ai/core@1.1.1(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^1.1.0
+        version: 1.1.0(@kinotic-ai/core@1.1.1(typescript@5.9.3))(typescript@5.9.3)
       '@oclif/core':
         specifier: ^4.9.0
         version: 4.9.0
@@ -60,8 +60,8 @@ importers:
         specifier: ^16.13.1
         version: 16.13.1
       liquidjs:
-        specifier: ^10.25.0
-        version: 10.25.0
+        specifier: 10.25.1
+        version: 10.25.1
       open:
         specifier: ^11.0.0
         version: 11.0.0
@@ -93,8 +93,8 @@ importers:
         specifier: ^8.19.0
         version: 8.19.0
       yaml:
-        specifier: ^2.8.2
-        version: 2.8.2
+        specifier: 2.8.3
+        version: 2.8.3
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -903,8 +903,8 @@ packages:
       typescript:
         optional: true
 
-  '@kinotic-ai/os-api@1.0.10':
-    resolution: {integrity: sha512-U1fC/xBgu29JypMjEfBSM/Q3371+75Vd6TMkEQ6AbNElC1k/OzRMt+PeCR3ixtYc+wlcatTnW16KfkwkAXmbKA==}
+  '@kinotic-ai/os-api@1.0.11':
+    resolution: {integrity: sha512-qc/8XxbgXQeQtBBG2q8eFJAVa3nGJZ+jtuCF7QyNBevvIbpEDFZIVbjLfAZLJS+tpeAfAlLWDA9c+9oqIuSRww==}
     peerDependencies:
       '@kinotic-ai/core': '>=1.0.0'
       typescript: '*'
@@ -912,8 +912,8 @@ packages:
       typescript:
         optional: true
 
-  '@kinotic-ai/persistence@1.0.10':
-    resolution: {integrity: sha512-tYxc/NNSFtOaPo/Ppd/Xv/I0ADGhlE3HKt/FBVpMhvdmbBlsGKrwqqAiYf0N8hrzzR6NcApiEC81xukQOrvmIw==}
+  '@kinotic-ai/persistence@1.1.0':
+    resolution: {integrity: sha512-qDKevlOdmv3Sj3hybLCyWnMSVPlHjk135XNB15VS1KuacleJFMQydDuorY13vt9q7wbnl47niH4/kQJi1/WUcQ==}
     peerDependencies:
       '@kinotic-ai/core': '>=1.0.0'
       typescript: '*'
@@ -2941,8 +2941,8 @@ packages:
   lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
 
-  liquidjs@10.25.0:
-    resolution: {integrity: sha512-XpO7AiGULTG4xcTlwkcTI5JreFG7b6esLCLp+aUSh7YuQErJZEoUXre9u9rbdb0057pfWG4l0VursvLd5Q/eAw==}
+  liquidjs@10.25.1:
+    resolution: {integrity: sha512-D+jsJvkGigFn8qNUgh8U6XNHhGFBp+p8Dk26ea/Hl+XrjFVSg9OXlN31hGAfS3MYQ3Kr8Xi9sEVBVQa/VTVSmg==}
     engines: {node: '>=16'}
     hasBin: true
 
@@ -4119,8 +4119,8 @@ packages:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
     engines: {node: '>=10'}
 
-  yaml@2.8.2:
-    resolution: {integrity: sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==}
+  yaml@2.8.3:
+    resolution: {integrity: sha512-AvbaCLOO2Otw/lW5bmh9d/WEdcDFdQp2Z2ZUH3pX9U2ihyUY0nvLv7J6TrWowklRGPYbB/IuIMfYgxaCPg5Bpg==}
     engines: {node: '>= 14.6'}
     hasBin: true
 
@@ -5179,16 +5179,16 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
-  '@kinotic-ai/os-api@1.0.10(@kinotic-ai/core@1.1.1(typescript@5.9.3))(typescript@5.9.3)':
+  '@kinotic-ai/os-api@1.0.11(@kinotic-ai/core@1.1.1(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
       '@kinotic-ai/core': 1.1.1(typescript@5.9.3)
       '@kinotic-ai/idl': 1.0.9(typescript@5.9.3)
-      '@kinotic-ai/persistence': 1.0.10(@kinotic-ai/core@1.1.1(typescript@5.9.3))(typescript@5.9.3)
+      '@kinotic-ai/persistence': 1.1.0(@kinotic-ai/core@1.1.1(typescript@5.9.3))(typescript@5.9.3)
       rxjs: 7.8.2
     optionalDependencies:
       typescript: 5.9.3
 
-  '@kinotic-ai/persistence@1.0.10(@kinotic-ai/core@1.1.1(typescript@5.9.3))(typescript@5.9.3)':
+  '@kinotic-ai/persistence@1.1.0(@kinotic-ai/core@1.1.1(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
       '@kinotic-ai/core': 1.1.1(typescript@5.9.3)
       '@kinotic-ai/idl': 1.0.9(typescript@5.9.3)
@@ -7599,7 +7599,7 @@ snapshots:
 
   lines-and-columns@1.2.4: {}
 
-  liquidjs@10.25.0:
+  liquidjs@10.25.1:
     dependencies:
       commander: 10.0.1
 
@@ -8819,7 +8819,7 @@ snapshots:
 
   y18n@5.0.8: {}
 
-  yaml@2.8.2: {}
+  yaml@2.8.3: {}
 
   yargs-parser@21.1.1: {}
 

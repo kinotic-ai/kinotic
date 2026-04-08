@@ -1,5 +1,6 @@
 package org.kinotic.persistence.internal.endpoints.graphql.datafetchers;
 
+import org.kinotic.persistence.api.services.EntitiesRepository;
 import tools.jackson.databind.ObjectMapper;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -7,7 +8,6 @@ import io.vertx.ext.web.RoutingContext;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.endpoints.openapi.RoutingContextToEntityContextAdapter;
 import org.kinotic.persistence.internal.utils.GqlUtils;
 
@@ -22,14 +22,14 @@ import java.util.concurrent.CompletableFuture;
 public class FindAllDataFetcher implements DataFetcher<CompletableFuture<Page<Map>>> {
 
     private final String entityDefinitionId;
-    private final EntitiesService entitiesService;
+    private final EntitiesRepository entitiesRepository;
     private final ObjectMapper objectMapper;
 
     public FindAllDataFetcher(String entityDefinitionId,
-                              EntitiesService entitiesService,
+                              EntitiesRepository entitiesRepository,
                               ObjectMapper objectMapper) {
         this.entityDefinitionId = entityDefinitionId;
-        this.entitiesService = entitiesService;
+        this.entitiesRepository = entitiesRepository;
         this.objectMapper = objectMapper;
     }
     
@@ -44,9 +44,9 @@ public class FindAllDataFetcher implements DataFetcher<CompletableFuture<Page<Ma
                                                     Pageable.class,
                                                     objectMapper);
 
-        return entitiesService.findAll(entityDefinitionId,
-                                       pageable,
-                                       Map.class,
-                                       ec);
+        return entitiesRepository.findAll(entityDefinitionId,
+                                          pageable,
+                                          Map.class,
+                                          ec);
     }
 }

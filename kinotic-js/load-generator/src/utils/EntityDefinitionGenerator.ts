@@ -1,10 +1,10 @@
 import { ObjectC3Type } from '@kinotic-ai/idl'
 import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import { CodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/CodeGenerationService.js'
+import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import { KinoticProjectConfig } from '@kinotic-ai/core'
 
 export class EntityDefinitionGenerator {
-    private readonly codeGenerationService: CodeGenerationService
+    private readonly codeGenerationService: EntityCodeGenerationService
     private readonly logger: ConsoleLogger
 
     constructor(
@@ -13,7 +13,7 @@ export class EntityDefinitionGenerator {
         private readonly repositoryPath: string
     ) {
         this.logger = new ConsoleLogger()
-        this.codeGenerationService = new CodeGenerationService(application, '.js', this.logger)
+        this.codeGenerationService = new EntityCodeGenerationService(application, '.js', this.logger)
     }
 
     async generateDefinitions(): Promise<Map<string, ObjectC3Type>> {

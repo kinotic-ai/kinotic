@@ -17,7 +17,7 @@ import java.util.concurrent.CompletableFuture;
  * Created by Nic Padilla 🤪on 6/18/23.
  */
 @Publish
-public interface AdminJsonEntitiesService {
+public interface AdminJsonEntitiesRepository {
 
     /**
      * Returns the number of entities available.
