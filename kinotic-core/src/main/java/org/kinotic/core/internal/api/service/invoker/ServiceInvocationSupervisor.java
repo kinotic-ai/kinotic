@@ -37,7 +37,9 @@ import org.springframework.core.ReactiveAdapter;
 import org.springframework.core.ReactiveAdapterRegistry;
 
 import io.opentelemetry.api.OpenTelemetry;
+import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.SignalType;
 
 /**
  * Class handles invoking services that are published to the Continuum.
@@ -50,7 +52,7 @@ public class ServiceInvocationSupervisor {
     private static final Logger log = LoggerFactory.getLogger(ServiceInvocationSupervisor.class);
 
     private final AtomicBoolean active = new AtomicBoolean(false);
-    private final ConcurrentHashMap<String, StreamResultHandler> activeStreamingResults = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, StreamSubscriber> activeStreamingResults = new ConcurrentHashMap<>();
     private final MetadataTextMapGetter textMapGetter = new MetadataTextMapGetter();
     private final ArgumentResolver argumentResolver;
     private final EventBusService eventBusService;
@@ -135,8 +137,8 @@ public class ServiceInvocationSupervisor {
      */
     public Future<Void> stop(){
         if (active.compareAndSet(true, false)) {
-            for(Map.Entry<String, StreamResultHandler> streamHandlers : activeStreamingResults.entrySet()){
-                streamHandlers.getValue().cancel();
+            for(Map.Entry<String, StreamSubscriber> streamSubscribers : activeStreamingResults.entrySet()){
+                streamSubscribers.getValue().cancel();
             }
 
             if(methodInvocationEventConsumer != null){
@@ -198,9 +200,9 @@ public class ServiceInvocationSupervisor {
         String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
         Validate.notNull(correlationId, "Streaming control plain messages require a CORRELATION_ID_HEADER to be set");
 
-        activeStreamingResults.computeIfPresent(correlationId, (s, streamHandler) -> {
-            streamHandler.processControlEvent(incomingEvent);
-            return streamHandler;
+        activeStreamingResults.computeIfPresent(correlationId, (s, streamSubscriber) -> {
+            streamSubscriber.processControlEvent(incomingEvent);
+            return streamSubscriber;
         });
     }
 
@@ -306,15 +308,14 @@ public class ServiceInvocationSupervisor {
                 String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
                 activeStreamingResults.computeIfAbsent(correlationId, s -> {
                     //  FIXME: logic error here clients like the js client will stay alive during multiple requests even though previous request was invalidated indirectly
-                    Publisher publisher = reactiveAdapter.toPublisher(result);
+                    Flux<?> flux = Flux.from(reactiveAdapter.toPublisher(result));
 
                     CRI replyCRI = CRI.create(incomingEvent.metadata().get(EventConstants.REPLY_TO_HEADER));
                     Flux<ListenerStatus> replyListenerStatus = eventBusService.monitorListenerStatus(replyCRI.baseResource());
 
-                    StreamResultHandler streamHandler = new StreamResultHandler(incomingMetadata, handlerMethod, replyListenerStatus, correlationId);
-
-                    publisher.subscribe(streamHandler);
-                    return streamHandler;
+                    StreamSubscriber streamSubscriber = new StreamSubscriber(incomingMetadata, handlerMethod, replyListenerStatus);
+                    flux.subscribe(streamSubscriber);
+                    return streamSubscriber;
                 });
             }
         }
@@ -394,113 +395,62 @@ public class ServiceInvocationSupervisor {
 
     /**
      * This subscriber handles monitoring the remote ends subscription for reply events.
-     * If it detects that the remote ends subscription for reply events is removed, it will terminate the {@link StreamResultHandler}
+     * If it detects that the remote ends subscription for reply events is removed, it will terminate the {@link StreamSubscriber}
      */
-    private static class ReplyListenerStatusSubscriber implements Subscriber<ListenerStatus> {
-        private final StreamResultHandler streamHandler;
-        private Subscription subscription;
+    private static class ReplyListenerStatusSubscriber extends BaseSubscriber<ListenerStatus> {
+        private final StreamSubscriber streamSubscription;
 
-        public ReplyListenerStatusSubscriber(StreamResultHandler streamHandler) {
-            this.streamHandler = streamHandler;
+        public ReplyListenerStatusSubscriber(StreamSubscriber streamSubscription) {
+            this.streamSubscription = streamSubscription;
         }
 
         @Override
-        public void onSubscribe(Subscription s) {
-            this.subscription = s;
-            s.request(Long.MAX_VALUE);
+        protected void hookOnComplete() {
+            // This condition should not occur under normal operation
+            log.error("Reply Listener Monitor completed for some reason! Terminating streaming result.");
+            streamSubscription.cancel();
         }
 
         @Override
-        public void onNext(ListenerStatus status) {
+        protected void hookOnError(Throwable throwable) {
+            // This condition should not occur under normal operation
+            log.error("Reply Listener Monitor threw an exception. Terminating streaming result.", throwable);
+            streamSubscription.cancel();
+        }
+
+        @Override
+        protected void hookOnNext(ListenerStatus status) {
             if(log.isTraceEnabled()){
                 log.trace("Received ListenerStatus {}", status);
             }
             // TODO: handle resume restart type logic
             if(status == ListenerStatus.INACTIVE){
-                if(!streamHandler.isCancelled()) {
+                if(!streamSubscription.isDisposed()) {
                     log.trace("No more listeners active terminating streaming result.");
-                    streamHandler.cancel();
-                    // ReplyListenerStatusSubscriber will be canceled by the streamHandler
+                    streamSubscription.cancel();
+                    // ReplyListenerStatusSubscriber will be canceled by the streamSubscription
                 }
-            }
-        }
-
-        @Override
-        public void onError(Throwable throwable) {
-            // This condition should not occur under normal operation
-            log.error("Reply Listener Monitor threw an exception. Terminating streaming result.", throwable);
-            streamHandler.cancel();
-        }
-
-        @Override
-        public void onComplete() {
-            // This condition should not occur under normal operation
-            log.error("Reply Listener Monitor completed for some reason! Terminating streaming result.");
-            streamHandler.cancel();
-        }
-
-        public void cancel() {
-            if(subscription != null){
-                subscription.cancel();
             }
         }
     }
 
     /**
-     * Handles streaming results from a {@link Publisher} returned by a method invocation.
-     * Subscribes directly to the Publisher and sends each item via the event bus.
-     * Supports cancel/suspend/resume via the underlying {@link Subscription}.
+     * This subscriber will handle processing for any {@link org.reactivestreams.Publisher} returned by a method invocation
+     * It may be acted on by the remote end by sending control requests to this supervisor
      */
-    private class StreamResultHandler implements Subscriber<Object> {
+    private class StreamSubscriber extends BaseSubscriber<Object> {
 
         private final HandlerMethod handlerMethod;
         private final Metadata incomingMetadata;
-        private final String correlationId;
-        private final ReplyListenerStatusSubscriber replyListenerStatusSubscriber;
-        private Subscription subscription;
-        private volatile boolean cancelled = false;
+        private final Flux<ListenerStatus> replyListenerStatus;
+        private ReplyListenerStatusSubscriber replyListenerStatusSubscriber;
 
-        public StreamResultHandler(Metadata incomingMetadata,
-                                   HandlerMethod handlerMethod,
-                                   Flux<ListenerStatus> replyListenerStatus,
-                                   String correlationId) {
+        public StreamSubscriber(Metadata incomingMetadata,
+                                HandlerMethod handlerMethod,
+                                Flux<ListenerStatus> replyListenerStatus) {
             this.incomingMetadata = incomingMetadata;
             this.handlerMethod = handlerMethod;
-            this.correlationId = correlationId;
-
-            // Monitor reply listener status
-            replyListenerStatusSubscriber = new ReplyListenerStatusSubscriber(this);
-            replyListenerStatus.subscribe(replyListenerStatusSubscriber);
-        }
-
-        @Override
-        public void onSubscribe(Subscription s) {
-            this.subscription = s;
-            s.request(Long.MAX_VALUE);
-        }
-
-        @Override
-        public void onNext(Object value) {
-            if(log.isTraceEnabled()){
-                log.trace("Next stream value " + value);
-            }
-            convertAndSend(incomingMetadata, handlerMethod, value);
-        }
-
-        @Override
-        public void onError(Throwable t) {
-            if(log.isTraceEnabled()){
-                log.trace("Stream Error", t);
-            }
-            handleException(incomingMetadata, t);
-            cleanup();
-        }
-
-        @Override
-        public void onComplete() {
-            log.trace("Stream Complete");
-            sendCompletionEvent(incomingMetadata);
-            cleanup();
+            this.replyListenerStatus = replyListenerStatus;
         }
 
         public void processControlEvent(Event<byte[]> incomingEvent){
@@ -510,39 +460,26 @@ public class ServiceInvocationSupervisor {
             }
             switch (control) {
                 case EventConstants.CONTROL_VALUE_CANCEL:
-                    cancel();
+                    this.cancel();
                     break;
                 case EventConstants.CONTROL_VALUE_SUSPEND:
-                    // Stop requesting from upstream
-                    // Note: reactive streams spec doesn't support pause/resume directly,
-                    // but cancelling and re-subscribing is not practical here.
-                    // For now, suspend is a no-op — items already requested will still arrive.
+                    this.request(0);
                     break;
                 case EventConstants.CONTROL_VALUE_RESUME:
-                    // No-op — see suspend comment above
+                    this.requestUnbounded();
                     break;
                 default:
                     throw new IllegalArgumentException("Unknown control header value " + control);
             }
         }
 
-        public boolean isCancelled() {
-            return cancelled;
-        }
-
-        public void cancel() {
-            if(!cancelled) {
-                cancelled = true;
-                if(subscription != null) {
-                    subscription.cancel();
-                }
-                cleanup();
-            }
-        }
-
-        private void cleanup() {
+        @Override
+        protected void hookFinally(SignalType type) {
             log.trace("Stream Cleanup Now");
+
             replyListenerStatusSubscriber.cancel();
+
+            String correlationId = incomingMetadata.get(EventConstants.CORRELATION_ID_HEADER);
             // we must do this in a background thread since if the flux is created like Flux.just this will be executed in the same thread as the invocation
             // and hence inside the activeStreamingResults.computeIfAbsent block
             vertx.executeBlocking(() -> {
@@ -550,6 +487,38 @@ public class ServiceInvocationSupervisor {
                 return null;
             });
         }
+
+        @Override
+        protected void hookOnComplete() {
+            log.trace("Stream Complete");
+            sendCompletionEvent(incomingMetadata);
+        }
+
+        @Override
+        protected void hookOnError(Throwable throwable) {
+            if(log.isTraceEnabled()){
+                log.trace("Stream Error",throwable);
+            }
+            handleException(incomingMetadata, throwable);
+        }
+
+        @Override
+        protected void hookOnNext(Object value) {
+            if(log.isTraceEnabled()){
+                log.trace("Next stream value " + value);
+            }
+            convertAndSend(incomingMetadata, handlerMethod, value);
+        }
+
+        @Override
+        protected void hookOnSubscribe(Subscription subscription) {
+
+            replyListenerStatusSubscriber = new ReplyListenerStatusSubscriber(this);
+            replyListenerStatus.subscribe(replyListenerStatusSubscriber);
+
+            super.hookOnSubscribe(subscription);
+        }
+
     }
 
 }
