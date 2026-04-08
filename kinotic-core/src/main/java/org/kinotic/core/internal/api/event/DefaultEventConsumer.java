@@ -18,7 +18,6 @@ import org.kinotic.core.api.event.EventConsumer;
 public class DefaultEventConsumer implements EventConsumer {
 
     private final MessageConsumer<byte[]> delegate;
-    private volatile Handler<Event<byte[]>> eventHandler;
 
     public DefaultEventConsumer(MessageConsumer<byte[]> delegate) {
         this.delegate = delegate;
@@ -31,10 +30,7 @@ public class DefaultEventConsumer implements EventConsumer {
             if (message.replyAddress() != null) {
                 message.reply(null);
             }
-            Handler<Event<byte[]>> h = eventHandler;
-            if (h != null) {
-                h.handle(new MessageEventAdapter<>(message));
-            }
+            handler.handle(new MessageEventAdapter<>(message));
         });
         return this;
     }

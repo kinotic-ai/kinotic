@@ -111,24 +111,21 @@ public class ServiceInvocationSupervisor {
      */
     public Future<Void> start(){
         if(active.compareAndSet(false, true)){
-            // begin listening on the event bus
-            // use listenWithAck variant so remote sender will know that the data was received
-            return eventBusService.listenWithAck(serviceDescriptor.serviceIdentifier().cri().baseResource())
-                                  .map(eventConsumer -> {
-                                      methodInvocationEventConsumer = eventConsumer;
+            // begin listening on the event bus for service invocation requests
+            methodInvocationEventConsumer = eventBusService.listen(serviceDescriptor.serviceIdentifier().cri().baseResource());
 
-                                      eventConsumer.handler(event -> vertx.executeBlocking(() -> {
-                                                       processEvent(event);
-                                                       return null;
-                                                   }))
-                                                   .exceptionHandler(throwable -> log.error("Event listener error", throwable))
-                                                   .endHandler(v -> {
-                                                       log.error("Should not happen! Event listener stopped for some reason!! Changing supervisor state to inactive");
-                                                       active.set(false);
-                                                   });
+            methodInvocationEventConsumer
+                    .handler(event -> vertx.executeBlocking(() -> {
+                        processEvent(event);
+                        return null;
+                    }))
+                    .exceptionHandler(throwable -> log.error("Event listener error", throwable))
+                    .endHandler(v -> {
+                        log.error("Should not happen! Event listener stopped for some reason!! Changing supervisor state to inactive");
+                        active.set(false);
+                    });
 
-                                      return (Void) null;
-                                  });
+            return methodInvocationEventConsumer.completion();
         }else{
             return Future.failedFuture(new IllegalStateException("Service already started"));
         }

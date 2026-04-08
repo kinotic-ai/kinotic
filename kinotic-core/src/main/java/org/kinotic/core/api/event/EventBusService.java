@@ -29,19 +29,13 @@ public interface EventBusService {
     Future<Void> sendWithAck(Event<byte[]> event);
 
     /**
-     * Creates a new {@link EventConsumer} that will receive {@link Event<byte[]>} from the given cri
+     * Creates a new {@link EventConsumer} that will receive {@link Event<byte[]>} from the given cri.
+     * The consumer is not registered with the event bus until {@link EventConsumer#handler} is called.
+     * Use {@link EventConsumer#completion()} to wait for registration to complete.
      * @param cri to subscribe to
      * @return the newly created {@link EventConsumer} for the given cri
      */
     EventConsumer listen(String cri);
-
-    /**
-     * Returns an {@link EventConsumer} that will emit {@link Event}'s from the given cri.
-     *
-     * @param cri to subscribe to
-     * @return the {@link Future<EventConsumer>} for the given cri
-     */
-    EventConsumer listenWithAck(String cri);
 
     /**
      * Checks if any listeners have been registered for the given {@link CRI}

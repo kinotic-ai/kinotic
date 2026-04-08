@@ -92,13 +92,6 @@ public class DefaultEventBusService implements EventBusService {
     }
 
     @Override
-    public EventConsumer listenWithAck(String cri) {
-        Validate.notEmpty(cri, "The cri must be provided");
-        MessageConsumer<byte[]> consumer = vertx.eventBus().consumer(cri);
-        return new DefaultEventConsumer(consumer);
-    }
-
-    @Override
     public Flux<ListenerStatus> monitorListenerStatus(String cri) {
         if(ignite == null){
             throw new IllegalStateException("This method is not available when ignite is disabled");
