@@ -1,8 +1,8 @@
 # Local frontend runtime config overrides (not for source control)
-structures-frontend-next/public/app-config.override.json
-structures-frontend-next/public/app-config.json.local
-structures-frontend-next/public/config/app-config.override.json
-structures-frontend-next/public/config/app-config.json.local
+kinotic-frontend/public/app-config.override.json
+kinotic-frontend/public/app-config.json.local
+kinotic-frontend/public/config/app-config.override.json
+kinotic-frontend/public/config/app-config.json.local
 # Local service config overrides (not for source control)
 structures-server/src/main/resources/application-local.yml
 
@@ -76,32 +76,7 @@ node_modules/
 
 .idea/jpa-buddy.xml
 
-structures-frontend/.env.development
-structures-frontend/.env.production
-
-kinotic-js/workspace/packages/vm-manager/.env.local
-kinotic-js/workspace/packages/vm-manager/.env.production
-
-structures-js/structures-cli/.structures/
-structures-js/structures-ui-example/.structures/
-
-structures-js/structures-cli/structures.json
-
-structures-js/structures-cli/yalc.lock
-
-structures-js/structures-e2e/test/services/generated/
-
 allure-results/
-
-structures-sql/allure-results/
-
-structures-auth/allure-results/
-
-structures-server/allure-results/
-
-structures-server/src/main/resources/webroot/
-
-structures-server/src/main/resources/webroot2/
 
 .vscode/chrome-debug-profile/
 

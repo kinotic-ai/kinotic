@@ -2,9 +2,7 @@
 CREATE TABLE IF NOT EXISTS kinotic_application (
     id KEYWORD,
     description TEXT,
-    updated DATE,
-    enableGraphQL BOOLEAN,
-    enableOpenAPI BOOLEAN
+    updated DATE
 );
 
 -- Create the named_query_service_definition table if it does not exist

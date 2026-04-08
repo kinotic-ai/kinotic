@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
 public interface JsonEntitiesService {
 
     /**
-     * Updates all given entities, this gives an opportunity to perform partial updates of the data EntityDefinition.
+     * Updates all given entities; this gives an opportunity to perform partial updates of the data EntityDefinition.
      *
      * @param entityDefinitionId the id of the {@link EntityDefinition} to save the entities for
      * @param entities    all the entities to save
@@ -54,7 +54,7 @@ public interface JsonEntitiesService {
      * Returns the number of entities available for the given query.
      *
      * @param entityDefinitionId the id of the {@link EntityDefinition} to count. (this is the {@link EntityDefinition#getApplicationId()} + "." + {@link EntityDefinition#getName()})
-     * @param query       the query used to limit result
+     * @param query       the query used to limit results
      * @param participant the participant of the logged-in user
      * @return {@link CompletableFuture} emitting the number of entities.
      */

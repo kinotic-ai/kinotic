@@ -1,16 +1,16 @@
 package org.kinotic.os.api.model.cluster;
 
-import java.util.List;
-
 import lombok.Builder;
 import lombok.Data;
+
+import java.util.List;
 
 /**
  * Contains information about the Ignite cluster.
  */
 @Data
 @Builder
-public class ClusterInfo {
+public class KinoticClusterInfo {
 
     /**
      * Indicates whether clustering is enabled.
@@ -41,7 +41,7 @@ public class ClusterInfo {
     /**
      * Information about all server nodes in the cluster.
      */
-    private List<NodeInfo> nodes;
+    private List<KinoticNodeInfo> nodes;
     
     /**
      * Indicates whether the cluster is active.

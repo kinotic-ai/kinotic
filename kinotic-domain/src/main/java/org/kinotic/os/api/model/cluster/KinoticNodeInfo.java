@@ -1,12 +1,12 @@
 package org.kinotic.os.api.model.cluster;
 
-import java.util.Collection;
-import java.util.Map;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.Collection;
+import java.util.Map;
 
 /**
  * Contains information about a single node in the Ignite cluster.
@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class NodeInfo {
+public class KinoticNodeInfo {
     
     /**
      * The unique identifier of the node.
