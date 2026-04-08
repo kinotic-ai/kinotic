@@ -58,12 +58,14 @@ public class DefaultStompServerHandler implements StompServerHandler {
 
         endpointConnectionHandler
                 .send(incomingEvent)
-                .subscribe(null,
-                           connection::sendErrorAndDisconnect,
-                           () -> {
-                               connection.sendReceiptIfNeeded(frame);
-                               connection.resume();
-                           });
+                .onComplete(ar -> {
+                    if(ar.failed()){
+                        connection.sendErrorAndDisconnect(ar.cause());
+                    }else{
+                        connection.sendReceiptIfNeeded(frame);
+                        connection.resume();
+                    }
+                });
     }
 
     @Override
