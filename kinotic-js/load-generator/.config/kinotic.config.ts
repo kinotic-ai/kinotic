@@ -4,9 +4,9 @@ const config: KinoticProjectConfig = {
   application: "load-testing",
   entitiesPaths: [
     {
-      path: "src/entity/domain/ecommerce",
-      repositoryPath: "src/entity/services/ecommerce",
-      mirrorFolderStructure: false
+      path: "src/entity/domain",
+      repositoryPath: "src/repository",
+      mirrorFolderStructure: true
     }
   ],
   fileExtensionForImports: ".js",

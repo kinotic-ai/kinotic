@@ -6,7 +6,7 @@ import graphql.schema.DataFetchingEnvironment;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.internal.endpoints.openapi.RoutingContextToEntityContextAdapter;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 
@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EntitiesDataFetcher implements DataFetcher<CompletableFuture<List<Map>>> {
 
-    private final EntitiesService entitiesService;
+    private final EntitiesRepository entitiesRepository;
     private final String application;
 
     @SuppressWarnings("unchecked")
@@ -43,11 +43,11 @@ public class EntitiesDataFetcher implements DataFetcher<CompletableFuture<List<M
                 String typename = (String) representation.get("__typename");
                 String id = (String) representation.get("id");
                 String entityDefinitionId = PersistenceUtil.entityDefinitionNameToId(application, typename);
-                futures.add(entitiesService.findById(entityDefinitionId,
-                                                     id,
-                                                     Map.class,
-                                                     ec)
-                                           .thenApply(entity -> new EntityMap(entity, typename)));
+                futures.add(entitiesRepository.findById(entityDefinitionId,
+                                                        id,
+                                                        Map.class,
+                                                        ec)
+                                              .thenApply(entity -> new EntityMap(entity, typename)));
             }
 
             return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))

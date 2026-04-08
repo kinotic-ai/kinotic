@@ -4,7 +4,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.vertx.ext.web.RoutingContext;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.internal.endpoints.openapi.RoutingContextToEntityContextAdapter;
 
 import java.util.Objects;
@@ -16,11 +16,11 @@ import java.util.concurrent.CompletableFuture;
 public class SyncIndexDataFetcher implements DataFetcher<CompletableFuture<String>> {
 
     private final String entityDefinitionId;
-    private final EntitiesService entitiesService;
+    private final EntitiesRepository entitiesRepository;
 
-    public SyncIndexDataFetcher(String entityDefinitionId, EntitiesService entitiesService) {
+    public SyncIndexDataFetcher(String entityDefinitionId, EntitiesRepository entitiesRepository) {
         this.entityDefinitionId = entityDefinitionId;
-        this.entitiesService = entitiesService;
+        this.entitiesRepository = entitiesRepository;
     }
 
     @Override
@@ -29,7 +29,7 @@ public class SyncIndexDataFetcher implements DataFetcher<CompletableFuture<Strin
         Objects.requireNonNull(rc);
         EntityContext ec = new RoutingContextToEntityContextAdapter(rc);
 
-        return entitiesService.syncIndex(entityDefinitionId, ec)
-                              .thenCompose(aVoid -> CompletableFuture.completedFuture(entityDefinitionId));
+        return entitiesRepository.syncIndex(entityDefinitionId, ec)
+                                 .thenCompose(aVoid -> CompletableFuture.completedFuture(entityDefinitionId));
     }
 }

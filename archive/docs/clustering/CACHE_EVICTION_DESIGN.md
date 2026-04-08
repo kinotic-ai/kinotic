@@ -62,7 +62,7 @@ The `DefaultCacheEvictionService` handles cache eviction with proper ordering an
 public class DefaultCacheEvictionService implements CacheEvictionService {
 
     // Clean dependencies - no circular issues
-    private final EntitiesService entitiesService;
+    private final EntitiesService entitiesRepository;
     private final GqlOperationDefinitionService gqlOperationDefinitionService;
     private final DelegatingGqlHandler delegatingGqlHandler;
     private final StructureDAO entityDefinitionDAO;
@@ -91,7 +91,7 @@ public class DefaultCacheEvictionService implements CacheEvictionService {
 
     // Private methods with proper ordering
     private void evictStructure(Structure entityDefinition) {
-        entitiesService.evictCachesFor(entityDefinition);              // Step 1
+        entitiesRepository.evictCachesFor(entityDefinition);              // Step 1
         gqlOperationDefinitionService.evictCachesFor(entityDefinition); // Step 2
         delegatingGqlHandler.evictCachesFor(entityDefinition);          // Step 3
     }

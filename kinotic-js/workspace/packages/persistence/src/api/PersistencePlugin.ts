@@ -1,17 +1,17 @@
+import {AdminEntitiesRepository, type IAdminEntitiesRepository} from '@/api/IAdminEntitiesRepository'
+import {EntitiesRepository, type IEntitiesRepository} from '@/api/IEntitiesRepository'
 import type { IKinotic, KinoticPlugin } from '@kinotic-ai/core'
-import { EntitiesService, type IEntitiesService } from '@/api/IEntitiesService'
-import { AdminEntitiesService, type IAdminEntitiesService } from '@/api/IAdminEntitiesService'
 
 export interface IPersistenceExtension {
-    entities: IEntitiesService
-    adminEntities: IAdminEntitiesService
+    entities: IEntitiesRepository
+    adminEntities: IAdminEntitiesRepository
 }
 
 export const PersistencePlugin: KinoticPlugin<IPersistenceExtension> = {
     install(kinotic: IKinotic): IPersistenceExtension {
         return {
-            entities: new EntitiesService(kinotic),
-            adminEntities: new AdminEntitiesService(kinotic),
+            entities: new EntitiesRepository(kinotic),
+            adminEntities: new AdminEntitiesRepository(kinotic),
         }
     }
 }

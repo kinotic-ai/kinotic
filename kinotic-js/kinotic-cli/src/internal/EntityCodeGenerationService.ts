@@ -45,7 +45,7 @@ export class EntityCodeGenerationService {
         this.fileExtensionForImports = fileExtensionForImports
         this.logger = logger
         this.engine = new Liquid({
-                                     root: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../templates/'),  // root for templates lookup
+                                     root: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../templates/entity/'),  // root for templates lookup
                                      extname: '.liquid'
                                  });
         this.tsMorphProject = createTsMorphProject()

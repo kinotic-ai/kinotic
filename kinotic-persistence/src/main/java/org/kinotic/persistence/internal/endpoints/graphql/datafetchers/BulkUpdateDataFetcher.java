@@ -4,7 +4,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.vertx.ext.web.RoutingContext;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.internal.endpoints.openapi.RoutingContextToEntityContextAdapter;
 
 import java.util.List;
@@ -19,11 +19,11 @@ import java.util.concurrent.CompletableFuture;
 public class BulkUpdateDataFetcher implements DataFetcher<CompletableFuture<Boolean>> {
 
     private final String entityDefinitionId;
-    private final EntitiesService entitiesService;
+    private final EntitiesRepository entitiesRepository;
 
-    public BulkUpdateDataFetcher(String entityDefinitionId, EntitiesService entitiesService) {
+    public BulkUpdateDataFetcher(String entityDefinitionId, EntitiesRepository entitiesRepository) {
         this.entityDefinitionId = entityDefinitionId;
-        this.entitiesService = entitiesService;
+        this.entitiesRepository = entitiesRepository;
     }
 
     @Override
@@ -34,7 +34,7 @@ public class BulkUpdateDataFetcher implements DataFetcher<CompletableFuture<Bool
 
         List<Map> entity = environment.getArgument("input");
 
-        return entitiesService.bulkUpdate(entityDefinitionId, entity, ec)
-                              .thenApply(v -> true);
+        return entitiesRepository.bulkUpdate(entityDefinitionId, entity, ec)
+                                 .thenApply(v -> true);
     }
 }

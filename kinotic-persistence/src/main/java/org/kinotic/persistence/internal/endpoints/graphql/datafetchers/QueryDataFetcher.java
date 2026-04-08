@@ -5,7 +5,7 @@ import graphql.schema.DataFetchingEnvironment;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.internal.api.services.sql.MapParameterHolder;
 import org.kinotic.persistence.internal.endpoints.openapi.RoutingContextToEntityContextAdapter;
 
@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class QueryDataFetcher implements DataFetcher<CompletableFuture<List<Map>>> {
 
-    private final EntitiesService entitiesService;
+    private final EntitiesRepository entitiesRepository;
     private final String queryName;
     private final String entityDefinitionId;
 
@@ -31,10 +31,10 @@ public class QueryDataFetcher implements DataFetcher<CompletableFuture<List<Map>
         Objects.requireNonNull(rc);
         EntityContext ec = new RoutingContextToEntityContextAdapter(rc);
 
-        return entitiesService.namedQuery(entityDefinitionId,
-                                          queryName,
-                                          new MapParameterHolder(environment.getArguments()),
-                                          Map.class,
-                                          ec);
+        return entitiesRepository.namedQuery(entityDefinitionId,
+                                             queryName,
+                                             new MapParameterHolder(environment.getArguments()),
+                                             Map.class,
+                                             ec);
     }
 }

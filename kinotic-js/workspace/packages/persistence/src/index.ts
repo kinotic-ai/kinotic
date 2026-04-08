@@ -15,11 +15,11 @@ export * from '@/api/idl/PolicyDecorator'
 export * from '@/api/idl/PrecisionType'
 export * from '@/api/idl/RoleDecorator'
 
-// Services
-export * from '@/api/IEntitiesService'
-export * from '@/api/IAdminEntitiesService'
-export * from '@/api/IEntityService'
-export * from '@/api/IAdminEntityService'
+// Repositories
+export * from '@/api/IEntitiesRepository'
+export * from '@/api/IAdminEntitiesRepository'
+export * from '@/api/IEntityRepository'
+export * from '@/api/IAdminEntityRepository'
 
 // Plugin
 export * from '@/api/PersistencePlugin'
