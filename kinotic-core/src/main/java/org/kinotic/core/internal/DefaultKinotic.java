@@ -82,15 +82,10 @@ public class DefaultKinotic implements Kinotic {
                                                                                                 (Supplier<Future<?>>) Future::succeededFuture),
                                                      source -> {
                                                          Future<?> future = (Future<?>) source;
-                                                         return Mono.create(monoSink -> {
-                                                             future.onComplete(event -> {
-                                                                 if (event.succeeded()) {
-                                                                     monoSink.success(event.result());
-                                                                 } else {
-                                                                     monoSink.error(event.cause());
-                                                                 }
-                                                             });
-                                                         });
+                                                         // Use CompletionStage to avoid Vert.x context dispatch overhead.
+                                                         // future.onComplete() dispatches through the event loop even for
+                                                         // already-completed futures, adding unnecessary latency.
+                                                         return Mono.fromCompletionStage(future.toCompletionStage());
                                                      },
                                                      publisher -> Future.future(promise -> Mono.from(publisher)
                                                                                                .doOnSuccess((Consumer<Object>) o -> {
