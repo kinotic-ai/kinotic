@@ -81,6 +81,17 @@ public class DefaultKinotic implements Kinotic {
                                                                                                 (Supplier<Future<?>>) Future::succeededFuture),
                                                      source -> {
                                                          Future<?> future = (Future<?>) source;
+                                                         // Short-circuit for already-completed futures to avoid Vert.x
+                                                         // context dispatch. Both future.onComplete() and toCompletionStage()
+                                                         // dispatch through the event loop even for resolved futures.
+                                                         if (future.isComplete()) {
+                                                             if (future.succeeded()) {
+                                                                 Object result = future.result();
+                                                                 return result != null ? Mono.just(result) : Mono.empty();
+                                                             } else {
+                                                                 return Mono.error(future.cause());
+                                                             }
+                                                         }
                                                          return Mono.fromCompletionStage(future.toCompletionStage());
                                                      },
                                                      publisher -> Future.future(promise -> Mono.from(publisher)
