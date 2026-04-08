@@ -92,12 +92,10 @@ public class DefaultEventBusService implements EventBusService {
     }
 
     @Override
-    public Future<EventConsumer> listenWithAck(String cri) {
+    public EventConsumer listenWithAck(String cri) {
         Validate.notEmpty(cri, "The cri must be provided");
         MessageConsumer<byte[]> consumer = vertx.eventBus().consumer(cri);
-        // DefaultEventConsumer sets the handler in its constructor, which triggers registration.
-        DefaultEventConsumer eventConsumer = new DefaultEventConsumer(consumer);
-        return consumer.completion().map(v -> eventConsumer);
+        return new DefaultEventConsumer(consumer);
     }
 
     @Override

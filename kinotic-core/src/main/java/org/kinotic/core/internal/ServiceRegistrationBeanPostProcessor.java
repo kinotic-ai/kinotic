@@ -78,11 +78,6 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
         });
     }
 
-    @Override
-    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-        return bean;
-    }
-
     private void processBean(Object instance, BiConsumer<ServiceIdentifier, Class<?>> consumer){
         // Do not wrap RpcServiceProxies with invokers. Infinite Recursion boom!
         if(!(instance instanceof RpcServiceProxy)) {

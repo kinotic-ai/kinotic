@@ -36,15 +36,12 @@ public interface EventBusService {
     EventConsumer listen(String cri);
 
     /**
-     * Returns a {@link Future} that will produce an {@link EventConsumer} that will emit {@link Event}'s from the given cri.
-     *
-     * NOTE: the {@link Future} will not complete until the listener is published cluster wide.
-     *       This is handy if you want to know that a listener will receive a message from a remote node before sending it.
+     * Returns an {@link EventConsumer} that will emit {@link Event}'s from the given cri.
      *
      * @param cri to subscribe to
      * @return the {@link Future<EventConsumer>} for the given cri
      */
-    Future<EventConsumer> listenWithAck(String cri);
+    EventConsumer listenWithAck(String cri);
 
     /**
      * Checks if any listeners have been registered for the given {@link CRI}

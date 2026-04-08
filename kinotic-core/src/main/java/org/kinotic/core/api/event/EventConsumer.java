@@ -55,4 +55,19 @@ public interface EventConsumer {
      */
     Future<Void> unregister();
 
+    /**
+     * @return true if the current consumer is registered
+     */
+    boolean isRegistered();
+
+    /**
+     * @return The address the handler was registered with.
+     */
+    String address();
+
+    /**
+     * @return a future notified when the message consumer is registered
+     */
+    Future<Void> completion();
+
 }
