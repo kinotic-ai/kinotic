@@ -24,6 +24,9 @@ import java.util.List;
 @NoArgsConstructor
 public class OidcConfiguration implements Identifiable<String> {
 
+    /**
+     * Unique identifier for this configuration (UUID).
+     */
     private String id;
 
     /**
@@ -42,6 +45,10 @@ public class OidcConfiguration implements Identifiable<String> {
      */
     private boolean builtIn;
 
+    /**
+     * The OAuth 2.0 client identifier issued by the provider when Kinotic OS was registered as an application.
+     * Sent during the authorization flow and used to validate the JWT's audience claim.
+     */
     private String clientId;
 
     /**
@@ -55,10 +62,22 @@ public class OidcConfiguration implements Identifiable<String> {
      */
     private String backchannelAuthority;
 
+    /**
+     * The URI the provider will redirect to after a successful authorization.
+     * Must be registered with the provider during Kinotic OS's application registration.
+     */
     private String redirectUri;
 
+    /**
+     * The URI the provider will redirect to after the user logs out.
+     * Optional — only used if the provider supports logout redirects.
+     */
     private String postLogoutRedirectUri;
 
+    /**
+     * The URI used for silent token renewal in the browser (hidden iframe).
+     * Optional — only used by frontends that implement silent refresh flows.
+     */
     private String silentRedirectUri;
 
     /**
@@ -78,12 +97,26 @@ public class OidcConfiguration implements Identifiable<String> {
      */
     private String rolesClaimPath;
 
+    /**
+     * Additional OAuth scopes to request beyond the defaults (typically "openid profile email").
+     * Space-separated string passed to the provider during the authorization request.
+     */
     private String additionalScopes;
 
+    /**
+     * When {@code false}, this configuration is ignored during authentication even if
+     * it is referenced by a scope's {@code oidcConfigurationIds} list.
+     */
     private boolean enabled;
 
+    /**
+     * Timestamp when this configuration was first created.
+     */
     private Date created;
 
+    /**
+     * Timestamp when this configuration was last modified.
+     */
     private Date updated;
 
 }
