@@ -11,6 +11,12 @@ import lombok.experimental.Accessors;
 @Setter
 @Accessors(chain = true)
 public class ChronicleMapSettings {
+    /**
+     * Path to the Chronicle Map file on disk where secrets are persisted.
+     */
     private String filePath;
+    /**
+     * Maximum number of entries the Chronicle Map can hold. Defaults to {@code 10000}.
+     */
     private int maxEntries = 10000;
 }

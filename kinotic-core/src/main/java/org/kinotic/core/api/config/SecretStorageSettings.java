@@ -19,6 +19,12 @@ public class SecretStorageSettings {
      * Base64-encoded 32-byte HKDF master key for deriving opaque secret names.
      */
     private String masterKey;
+    /**
+     * Azure Key Vault settings. Required when {@code backend} is {@code "azure"}.
+     */
     private AzureSettings azure;
+    /**
+     * Chronicle Map settings. Required when {@code backend} is {@code "chronicle-map"}.
+     */
     private ChronicleMapSettings chronicleMap;
 }

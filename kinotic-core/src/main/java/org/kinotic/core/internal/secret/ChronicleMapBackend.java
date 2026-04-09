@@ -1,6 +1,7 @@
 package org.kinotic.core.internal.secret;
 
 import net.openhft.chronicle.map.ChronicleMap;
+import org.kinotic.core.api.config.ChronicleMapSettings;
 import org.springframework.beans.factory.DisposableBean;
 
 import java.io.File;
@@ -18,13 +19,25 @@ public class ChronicleMapBackend implements SecretStorageBackend, DisposableBean
 
     private final ChronicleMap<String, String> map;
 
-    public ChronicleMapBackend(String filePath, int maxEntries) throws IOException {
-        this.map = ChronicleMap.of(String.class, String.class)
-                               .name("kinotic-secrets")
-                               .averageKeySize(43)    // base64url HMAC-SHA256 output
-                               .averageValueSize(256)
-                               .entries(maxEntries)
-                               .createPersistedTo(new File(filePath));
+    public ChronicleMapBackend(ChronicleMapSettings settings) throws IOException {
+        String filePath = System.getProperty("java.io.tmpdir") + "/kinotic-secrets.dat";
+        int maxEntries = 10000;
+        if (settings != null) {
+            if (settings.getFilePath() != null) {
+                filePath = settings.getFilePath();
+            }
+            maxEntries = settings.getMaxEntries();
+        }
+        this.map = buildMap(filePath, maxEntries);
+    }
+
+    private static ChronicleMap<String, String> buildMap(String filePath, int maxEntries) throws IOException {
+        return ChronicleMap.of(String.class, String.class)
+                           .name("kinotic-secrets")
+                           .averageKeySize(43)    // base64url HMAC-SHA256 output
+                           .averageValueSize(256)
+                           .entries(maxEntries)
+                           .createPersistedTo(new File(filePath));
     }
 
     @Override

@@ -11,5 +11,8 @@ import lombok.experimental.Accessors;
 @Setter
 @Accessors(chain = true)
 public class AzureSettings {
+    /**
+     * The full URL of the Azure Key Vault instance (e.g. {@code https://my-vault.vault.azure.net/}).
+     */
     private String vaultUrl;
 }
