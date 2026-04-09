@@ -7,6 +7,7 @@ import io.jsonwebtoken.lang.Collections;
 import io.jsonwebtoken.security.Jwk;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.DefaultParticipant;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
@@ -45,7 +46,7 @@ public class IamSecurityService implements SecurityService {
         String authScopeId = authenticationInfo.get("authScopeId");
 
         if (authScopeType == null) {
-            return CompletableFuture.failedFuture(new RuntimeException("authScopeType header is required"));
+            return CompletableFuture.failedFuture(new AuthenticationException("authScopeType header is required"));
         }
 
         String authHeader = getAuthorizationHeader(authenticationInfo);
@@ -75,19 +76,19 @@ public class IamSecurityService implements SecurityService {
         String password = authInfo.get("passcode");
 
         if (email == null || password == null) {
-            return CompletableFuture.failedFuture(new RuntimeException("login and passcode headers are required for email/password authentication"));
+            return CompletableFuture.failedFuture(new AuthenticationException("login and passcode headers are required for email/password authentication"));
         }
 
         return userService.findByEmailAndScope(email, authScopeType, authScopeId)
                 .thenCompose(user -> {
                     if (user == null) {
-                        return CompletableFuture.failedFuture(new RuntimeException("Invalid credentials"));
+                        return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
                     }
                     if (!user.isEnabled()) {
-                        return CompletableFuture.failedFuture(new RuntimeException("User account is disabled"));
+                        return CompletableFuture.failedFuture(new AuthenticationException("User account is disabled"));
                     }
                     if (!AuthType.LOCAL.name().equals(user.getAuthType())) {
-                        return CompletableFuture.failedFuture(new RuntimeException("User is not a local account"));
+                        return CompletableFuture.failedFuture(new AuthenticationException("User is not a local account"));
                     }
                     return credentialStore.findById(user.getId())
                             .thenCompose(credential -> verifyPasswordAndCreateParticipant(user, credential, password));
@@ -98,10 +99,10 @@ public class IamSecurityService implements SecurityService {
                                                                               IamCredential credential,
                                                                               String password) {
         if (credential == null) {
-            return CompletableFuture.failedFuture(new RuntimeException("Invalid credentials"));
+            return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
         }
         if (!passwordService.verify(password, credential.getPasswordHash())) {
-            return CompletableFuture.failedFuture(new RuntimeException("Invalid credentials"));
+            return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
         }
         return CompletableFuture.completedFuture(createParticipantFromUser(user));
     }
@@ -135,7 +136,7 @@ public class IamSecurityService implements SecurityService {
                 .thenCompose(configs -> {
                     if (configs == null || configs.isEmpty()) {
                         return CompletableFuture.failedFuture(
-                                new RuntimeException("No OIDC configurations found for scope " + authScopeType + "/" + authScopeId));
+                                new AuthenticationException("No OIDC configurations found for scope " + authScopeType + "/" + authScopeId));
                     }
                     return jwksService.getKeyFromToken(token)
                             .thenCompose(jwk -> validateOidcToken(token, jwk, configs, authScopeType, authScopeId));
@@ -150,7 +151,7 @@ public class IamSecurityService implements SecurityService {
         try {
             Key key = jwk.toKey();
             if (!(key instanceof PublicKey publicKey)) {
-                return CompletableFuture.failedFuture(new RuntimeException("Jwk does not contain a PublicKey instance"));
+                return CompletableFuture.failedFuture(new AuthenticationException("Jwk does not contain a PublicKey instance"));
             }
 
             Claims claims = Jwts.parser()
@@ -162,7 +163,7 @@ public class IamSecurityService implements SecurityService {
             // Extract email from standard claims
             String email = extractEmail(claims);
             if (email == null) {
-                return CompletableFuture.failedFuture(new RuntimeException("No email found in JWT claims"));
+                return CompletableFuture.failedFuture(new AuthenticationException("No email found in JWT claims"));
             }
 
             // Match issuer + email domain against available OIDC configs
@@ -170,20 +171,20 @@ public class IamSecurityService implements SecurityService {
             String emailDomain = email.contains("@") ? email.split("@")[1] : null;
             OidcConfiguration matchedConfig = matchOidcConfig(configs, issuer, emailDomain);
             if (matchedConfig == null) {
-                return CompletableFuture.failedFuture(new RuntimeException("No matching OIDC configuration for issuer: " + issuer));
+                return CompletableFuture.failedFuture(new AuthenticationException("No matching OIDC configuration for issuer: " + issuer));
             }
 
             // Validate audience
             Set<String> audiences = claims.getAudience();
             if (matchedConfig.getAudience() != null && !matchedConfig.getAudience().isEmpty()) {
                 if (audiences == null || audiences.stream().noneMatch(a -> matchedConfig.getAudience().equals(a))) {
-                    return CompletableFuture.failedFuture(new RuntimeException("Invalid audience: " + audiences));
+                    return CompletableFuture.failedFuture(new AuthenticationException("Invalid audience: " + audiences));
                 }
             }
 
             // Validate expiration
             if (claims.getExpiration() != null && claims.getExpiration().before(Date.from(Instant.now()))) {
-                return CompletableFuture.failedFuture(new RuntimeException("Token has expired"));
+                return CompletableFuture.failedFuture(new AuthenticationException("Token has expired"));
             }
 
             // Extract roles if configured
@@ -196,10 +197,10 @@ public class IamSecurityService implements SecurityService {
 
         } catch (JwtException e) {
             log.error("JWT parsing/validation failed", e);
-            return CompletableFuture.failedFuture(new RuntimeException("JWT parsing/validation failed", e));
+            return CompletableFuture.failedFuture(new AuthenticationException("JWT parsing/validation failed", e));
         } catch (Exception e) {
             log.error("Unexpected error during JWT validation", e);
-            return CompletableFuture.failedFuture(new RuntimeException("Unexpected error during JWT validation", e));
+            return CompletableFuture.failedFuture(new AuthenticationException("Unexpected error during JWT validation", e));
         }
     }
 
@@ -275,13 +276,13 @@ public class IamSecurityService implements SecurityService {
                 .thenCompose(user -> {
                     if (user == null) {
                         return CompletableFuture.<IamUser>failedFuture(
-                                new RuntimeException("No user found for email " + email
+                                new AuthenticationException("No user found for email " + email
                                         + " in scope " + authScopeType + "/" + authScopeId
                                         + ". User must be pre-created by an administrator."));
                     }
                     if (!user.isEnabled()) {
                         return CompletableFuture.<IamUser>failedFuture(
-                                new RuntimeException("User account is disabled"));
+                                new AuthenticationException("User account is disabled"));
                     }
                     // If oidcSubject is not yet set, populate it on first OIDC login
                     if (user.getOidcSubject() == null) {
