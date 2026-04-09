@@ -3,7 +3,6 @@ package org.kinotic.core.api.config;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.ignite.configuration.DataStorageConfiguration;
-import org.kinotic.core.api.secret.SecretStorageSettings;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;

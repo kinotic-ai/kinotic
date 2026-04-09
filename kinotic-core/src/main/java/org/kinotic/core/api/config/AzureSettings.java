@@ -1,4 +1,4 @@
-package org.kinotic.core.api.secret;
+package org.kinotic.core.api.config;
 
 import lombok.Getter;
 import lombok.Setter;
