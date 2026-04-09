@@ -30,7 +30,10 @@ dependencies {
 
     // lombok
     implementation "io.freefair.gradle:lombok-plugin:${lombokPluginVersion}"
-    
-    // JReleaser plugin
-    implementation "org.jreleaser:jreleaser-gradle-plugin:${jreleaserVersion}"
+
+    // JReleaser plugin — only needed for publishing/release builds.
+    // Set SKIP_PUBLISHING=true to skip resolving this dependency (e.g., in CI or dev environments).
+    if (!Boolean.parseBoolean(System.getenv('SKIP_PUBLISHING'))) {
+        implementation "org.jreleaser:jreleaser-gradle-plugin:${jreleaserVersion}"
+    }
 }

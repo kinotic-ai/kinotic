@@ -1,7 +1,13 @@
 rootProject.name = 'kinotic'
 
+// When SKIP_FRONTEND=true, exclude kinotic-frontend to avoid resolving node-gradle plugin
+def skipFrontend = Boolean.parseBoolean(System.getenv('SKIP_FRONTEND'))
+
 rootDir.listFiles().each {
     if (it.directory && new File(it, 'settings.gradle').exists()) {
+        if (skipFrontend && it.name == 'kinotic-frontend') {
+            return // skip
+        }
         include ":${it.name}"
     }
 }
