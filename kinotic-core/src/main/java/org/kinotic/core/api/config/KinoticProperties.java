@@ -86,11 +86,47 @@ public class KinoticProperties {
      */
     private SslProperties ssl = new SslProperties();
 
+    /**
+     * Secret storage configuration. If null, an in-memory backend is used.
+     */
+    private SecretStorageSettings secretStorage;
+
     private long sessionTimeout = DEFAULT_SESSION_TIMEOUT;
 
     public void setMaxNumberOfCoresToUse(int maxNumberOfCoresToUse) {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         this.maxNumberOfCoresToUse = maxNumberOfCoresToUse > 0 ? Math.min(availableProcessors, maxNumberOfCoresToUse) : Math.max(availableProcessors, 1);
+    }
+
+    @Getter
+    @Setter
+    @Accessors(chain = true)
+    public static class SecretStorageSettings {
+        /**
+         * Backend type: "azure" or "chronicle-map". If null, in-memory storage is used.
+         */
+        private String backend;
+        /**
+         * Base64-encoded 32-byte HKDF master key for deriving opaque secret names.
+         */
+        private String masterKey;
+        private AzureSettings azure;
+        private ChronicleMapSettings chronicleMap;
+    }
+
+    @Getter
+    @Setter
+    @Accessors(chain = true)
+    public static class AzureSettings {
+        private String vaultUrl;
+    }
+
+    @Getter
+    @Setter
+    @Accessors(chain = true)
+    public static class ChronicleMapSettings {
+        private String filePath;
+        private int maxEntries = 10000;
     }
 
     @Override
