@@ -5,7 +5,7 @@ import com.azure.security.keyvault.secrets.SecretAsyncClient;
 import com.azure.security.keyvault.secrets.SecretClientBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.core.api.config.KinoticProperties.SecretStorageSettings;
+import org.kinotic.core.api.secret.SecretStorageSettings;
 import org.kinotic.core.internal.secret.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
