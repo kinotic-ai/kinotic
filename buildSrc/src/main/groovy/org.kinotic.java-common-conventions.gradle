@@ -7,8 +7,8 @@ plugins {
 
 group 'org.kinotic'
 version "${kinoticVersion}"
-// Allow overriding Java toolchain version via JAVA_TOOLCHAIN_VERSION env var (default: 25)
-def toolchainVersion = Integer.parseInt(System.getenv('JAVA_TOOLCHAIN_VERSION') ?: '25')
+// When CLAUDE_CLOUD_COMPILE=true, fall back to Java 21 (cloud env lacks JDK 25)
+def toolchainVersion = Boolean.parseBoolean(System.getenv('CLAUDE_CLOUD_COMPILE')) ? 21 : 25
 java {
     sourceCompatibility = "${toolchainVersion}"
     toolchain {

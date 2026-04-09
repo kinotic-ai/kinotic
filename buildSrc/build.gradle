@@ -32,8 +32,8 @@ dependencies {
     implementation "io.freefair.gradle:lombok-plugin:${lombokPluginVersion}"
 
     // JReleaser plugin — only needed for publishing/release builds.
-    // Set SKIP_PUBLISHING=true to skip resolving this dependency (e.g., in CI or dev environments).
-    if (!Boolean.parseBoolean(System.getenv('SKIP_PUBLISHING'))) {
+    // Skipped when CLAUDE_CLOUD_COMPILE=true (cloud environments lack access to Gradle plugin portal).
+    if (!Boolean.parseBoolean(System.getenv('CLAUDE_CLOUD_COMPILE'))) {
         implementation "org.jreleaser:jreleaser-gradle-plugin:${jreleaserVersion}"
     }
 }

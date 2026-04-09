@@ -1,5 +1,18 @@
 # kinotic
 
+## Building in Claude Code Cloud
+
+When running in the Claude Code cloud environment, always prefix Gradle commands with `CLAUDE_CLOUD_COMPILE=true`. This single flag:
+- Skips jreleaser/publishing (unavailable in cloud due to Gradle plugin portal restrictions)
+- Excludes kinotic-frontend (node-gradle plugin also unavailable)
+- Falls back to Java 21 toolchain (cloud environment lacks JDK 25)
+
+```bash
+CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-domain:compileJava
+```
+
+This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing and frontend support.
+
 ## Java Conventions
 
 Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true)`, `@NoArgsConstructor`, `@RequiredArgsConstructor`, `@Slf4j`, `@Data`, `@Builder`. Prefer `@RequiredArgsConstructor` over hand-written constructors for dependency injection. Use `@Slf4j` instead of manual `LoggerFactory.getLogger()` calls.

@@ -13,9 +13,8 @@ java {
     withSourcesJar()
 }
 
-// Apply publishing conventions only when SKIP_PUBLISHING is not set.
-// Set SKIP_PUBLISHING=true to skip jreleaser/publishing (e.g., in dev or AI-assisted environments).
-if (!Boolean.parseBoolean(System.getenv('SKIP_PUBLISHING'))) {
+// Publishing conventions are skipped when CLAUDE_CLOUD_COMPILE=true (jreleaser unavailable in cloud).
+if (!Boolean.parseBoolean(System.getenv('CLAUDE_CLOUD_COMPILE'))) {
     apply plugin: 'org.kinotic.java-publish-conventions'
 }
 
