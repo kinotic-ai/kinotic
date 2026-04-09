@@ -60,7 +60,7 @@ public class OidcConfiguration implements Identifiable<String> {
      * Optional cluster-internal URL used for backchannel token validation when the
      * browser-facing authority is not reachable from within the cluster.
      */
-    private String backchannelAuthority;
+    private String backChannelAuthority;
 
     /**
      * The URI the provider will redirect to after a successful authorization.

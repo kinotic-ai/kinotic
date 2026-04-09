@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     builtIn BOOLEAN,
     clientId KEYWORD NOT INDEXED,
     authority KEYWORD,
-    backchannelAuthority KEYWORD NOT INDEXED,
+    backChannelAuthority KEYWORD NOT INDEXED,
     redirectUri KEYWORD NOT INDEXED,
     postLogoutRedirectUri KEYWORD NOT INDEXED,
     silentRedirectUri KEYWORD NOT INDEXED,
