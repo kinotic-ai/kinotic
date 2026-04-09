@@ -28,15 +28,8 @@ public class OidcConfigLookup {
 
     private final ElasticsearchAsyncClient esAsyncClient;
 
-    public CompletableFuture<List<OidcConfiguration>> getConfigsForScope(String authScopeType, String authScopeId) {
-        AuthScope scope;
-        try {
-            scope = AuthScope.valueOf(authScopeType);
-        } catch (IllegalArgumentException e) {
-            return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid authScopeType: " + authScopeType));
-        }
-
-        return switch (scope) {
+    public CompletableFuture<List<OidcConfiguration>> getConfigsForScope(AuthScope authScopeType, String authScopeId) {
+        return switch (authScopeType) {
             case SYSTEM -> getConfigIdsFromSystem()
                     .thenCompose(this::fetchOidcConfigurations);
             case ORGANIZATION -> getConfigIdsFromEntity(ORGANIZATION_INDEX, authScopeId, Organization.class)

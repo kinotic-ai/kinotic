@@ -31,7 +31,7 @@ public class IamUser implements Identifiable<String> {
     /**
      * Authentication method: {@link AuthType#LOCAL} for email/password or {@link AuthType#OIDC} for federated identity.
      */
-    private String authType;
+    private AuthType authType;
 
     /**
      * The {@code sub} claim from the OIDC token. Populated automatically on first successful OIDC login
@@ -48,7 +48,7 @@ public class IamUser implements Identifiable<String> {
      * The IAM scope layer this user belongs to: SYSTEM, ORGANIZATION, or APPLICATION.
      * @see AuthScope
      */
-    private String authScopeType;
+    private AuthScope authScopeType;
 
     /**
      * The scope identifier: {@code null} for SYSTEM, the organization ID for ORGANIZATION,
