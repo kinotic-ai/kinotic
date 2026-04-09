@@ -77,6 +77,74 @@ public class OnboardingService {
 }
 ```
 
+## IAM Authentication
+
+Kinotic OS uses a three-layer IAM authentication system with separate user pools:
+
+- **System** — Platform operators managing the Kinotic OS deployment
+- **Organization** — Organizations developing applications on the platform
+- **Application** — End-users or machines consuming applications
+
+Users authenticate via **email/password** (local accounts) or **OIDC** (federated identity via Google, Microsoft, etc.).
+
+### Setting Up Built-In OIDC Configurations
+
+Built-in OIDC configurations represent Kinotic OS's single registration with identity providers (e.g., Google, Microsoft). They are created once by a system administrator and can be enabled by any organization or application.
+
+1. **Register Kinotic OS with the provider** — Register a single OAuth application with Google, Microsoft, etc. The consent screen shows "Kinotic OS" as the requesting application.
+
+2. **Create the OidcConfiguration entity** via `OidcConfigurationService`:
+
+```json
+{
+  "name": "Google",
+  "provider": "google",
+  "builtIn": true,
+  "clientId": "<your-google-client-id>",
+  "authority": "https://accounts.google.com",
+  "redirectUri": "https://your-kinotic-domain/auth/callback",
+  "domains": ["gmail.com", "your-company.com"],
+  "audience": "<your-google-client-id>",
+  "enabled": true
+}
+```
+
+Key fields: `builtIn: true` (immutable for org/app admins), `authority` (must match JWT `iss` claim), `domains` (email domains handled), `audience` (expected JWT `aud` claim).
+
+3. **Enable the config for a scope** — Add the configuration's ID to the `oidcConfigurationIds` list on the target entity (`KinoticSystem`, `Organization`, or `Application`) via its service's `save()` method.
+
+### Creating Users for OIDC Login
+
+OIDC users must be **pre-created** by an administrator before they can log in. This ensures a valid Google/Microsoft token does not automatically grant access to any application.
+
+Use `IamUserService.createUser()` with `password: null`:
+
+```json
+{
+  "email": "user@example.com",
+  "displayName": "Jane Doe",
+  "authType": "OIDC",
+  "authScopeType": "APPLICATION",
+  "authScopeId": "<application-id>"
+}
+```
+
+On first OIDC login, the system populates `oidcSubject` and `oidcConfigId` by matching the JWT email against the pre-created user. The login flow: browser gets JWT from provider, connects via STOMP with `Authorization: Bearer <jwt>`, `authScopeType`, and `authScopeId` headers. `IamSecurityService` validates the JWT and looks up the user by email + scope.
+
+For **local accounts**, pass a password to `createUser()`. The password is bcrypt-hashed and stored in a separate `IamCredential` entity.
+
+### What Remains for Sign-Up
+
+The current implementation requires administrators to pre-create all users. Planned future work:
+
+- **Self-registration flows** with per-scope registration policies (`OPEN`, `CLOSED`, `DOMAIN_RESTRICTED`)
+- **Invitation-based onboarding** via email invitations
+- **Admin approval workflows** for self-registration
+
+The current data model supports all of these without schema changes.
+
+---
+
 ## Notes
 
 - **Elasticsearch index defaults.** `CrudServiceTemplate.createIndex` always creates indices with 3 shards, 2 replicas, and `fs` storage type. These values are hard-coded and not exposed as configurable properties. The mapping `dynamic` setting is always `Strict` when mappings are supplied, so unmapped fields are rejected at index time.

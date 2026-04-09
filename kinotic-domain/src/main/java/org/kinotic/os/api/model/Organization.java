@@ -1,6 +1,8 @@
 package org.kinotic.os.api.model;
 
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
 
@@ -11,18 +13,22 @@ import java.util.List;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class Application implements Identifiable<String> {
+public class Organization implements Identifiable<String> {
 
     private String id;
+
+    private String name;
+
+    private String slug;
 
     private String description;
 
     private List<String> oidcConfigurationIds;
 
-    private Date updated = null;
+    private String createdBy;
 
-    public Application(String id, String description) {
-        this.id = id;
-        this.description = description;
-    }
+    private Date created;
+
+    private Date updated;
+
 }

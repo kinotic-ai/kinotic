@@ -11,6 +11,8 @@ dependencies {
 
     implementation "com.github.slugify:slugify:${slugifyVersion}"
 
+    implementation 'org.springframework.security:spring-security-crypto'
+
     implementation 'org.apache.ignite:ignite-core'
 
     // jackson impl
