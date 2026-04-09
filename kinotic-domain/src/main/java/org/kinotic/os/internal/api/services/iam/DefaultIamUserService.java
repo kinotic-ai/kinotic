@@ -6,6 +6,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.crud.Sort;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.services.iam.IamUserService;
@@ -48,7 +49,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
 
     @Override
     public CompletableFuture<IamUser> findByEmailAndScope(String email, String authScopeType, String authScopeId) {
-        return crudServiceTemplate.search(indexName, Pageable.create(0, 1), type, builder -> builder
+        return crudServiceTemplate.search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builder -> builder
                 .query(q -> q.bool(BoolQuery.of(b -> {
                     b.filter(TermQuery.of(t -> t.field("email").value(email))._toQuery());
                     b.filter(TermQuery.of(t -> t.field("authScopeType").value(authScopeType))._toQuery());

@@ -7,10 +7,12 @@ plugins {
 
 group 'org.kinotic'
 version "${kinoticVersion}"
+// Allow overriding Java toolchain version via JAVA_TOOLCHAIN_VERSION env var (default: 25)
+def toolchainVersion = Integer.parseInt(System.getenv('JAVA_TOOLCHAIN_VERSION') ?: '25')
 java {
-    sourceCompatibility = '25'
+    sourceCompatibility = "${toolchainVersion}"
     toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
+        languageVersion = JavaLanguageVersion.of(toolchainVersion)
     }
     withJavadocJar()
     withSourcesJar()

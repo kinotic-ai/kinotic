@@ -13,6 +13,11 @@ dependencies {
 
     implementation 'org.springframework.security:spring-security-crypto'
 
+    // JWT/OIDC - needed by IamSecurityService for token validation
+    implementation 'io.jsonwebtoken:jjwt-api'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson'
+
     implementation 'org.apache.ignite:ignite-core'
 
     // jackson impl
