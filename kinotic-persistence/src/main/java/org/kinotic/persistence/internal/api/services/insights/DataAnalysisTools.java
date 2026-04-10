@@ -4,10 +4,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.insights.InsightProgress;
-import org.kinotic.persistence.api.services.EntitiesService;
 import reactor.core.publisher.FluxSink;
 
 import java.time.Instant;
@@ -24,12 +24,12 @@ import java.util.stream.Collectors;
 @SuppressWarnings("rawtypes")
 public class DataAnalysisTools {
 
-    private final EntitiesService entitiesService;
+    private final EntitiesRepository entitiesRepository;
     private final Participant participant;
     private final FluxSink<InsightProgress> progressSink;
     
-    public DataAnalysisTools(EntitiesService entitiesService, Participant participant, FluxSink<InsightProgress> progressSink) {
-        this.entitiesService = entitiesService;
+    public DataAnalysisTools(EntitiesRepository entitiesRepository, Participant participant, FluxSink<InsightProgress> progressSink) {
+        this.entitiesRepository = entitiesRepository;
         this.participant = participant;
         this.progressSink = progressSink;
     }
@@ -61,7 +61,7 @@ public class DataAnalysisTools {
             EntityContext context = createEntityContext();
             
             Pageable pageable = Pageable.ofSize(limitedSampleSize);
-            CompletableFuture<Page<Map>> future = entitiesService.findAll(entityDefinitionId, pageable, Map.class, context);
+            CompletableFuture<Page<Map>> future = entitiesRepository.findAll(entityDefinitionId, pageable, Map.class, context);
             Page<Map> dataPage = future.join(); // Blocking wait - not ideal but needed for tool interface
             
             if (dataPage.getContent().isEmpty()) {
@@ -111,7 +111,7 @@ public class DataAnalysisTools {
             EntityContext context = createEntityContext();
             
             // Get total count
-            CompletableFuture<Long> countFuture = entitiesService.count(entityDefinitionId, context);
+            CompletableFuture<Long> countFuture = entitiesRepository.count(entityDefinitionId, context);
             long totalCount = countFuture.join();
             
             if (totalCount == 0) {
@@ -120,7 +120,7 @@ public class DataAnalysisTools {
             
             // Get sample for field analysis
             Pageable pageable = Pageable.ofSize(Math.min(100, (int) totalCount));
-            CompletableFuture<Page<Map>> dataFuture = entitiesService.findAll(entityDefinitionId, pageable, Map.class, context);
+            CompletableFuture<Page<Map>> dataFuture = entitiesRepository.findAll(entityDefinitionId, pageable, Map.class, context);
             Page<Map> sampleData = dataFuture.join();
             
             StringBuilder result = new StringBuilder();
@@ -159,7 +159,7 @@ public class DataAnalysisTools {
             EntityContext context = createEntityContext();
             Pageable pageable = Pageable.ofSize(limitedSize);
             
-            CompletableFuture<Page<Map>> searchFuture = entitiesService.search(entityDefinitionId, searchQuery, pageable, Map.class, context);
+            CompletableFuture<Page<Map>> searchFuture = entitiesRepository.search(entityDefinitionId, searchQuery, pageable, Map.class, context);
             Page<Map> searchResults = searchFuture.join();
             
             StringBuilder result = new StringBuilder();
@@ -205,7 +205,7 @@ public class DataAnalysisTools {
             // Get sample data to analyze the field
             EntityContext context = createEntityContext();
             Pageable pageable = Pageable.ofSize(100);
-            CompletableFuture<Page<Map>> dataFuture = entitiesService.findAll(entityDefinitionId, pageable, Map.class, context);
+            CompletableFuture<Page<Map>> dataFuture = entitiesRepository.findAll(entityDefinitionId, pageable, Map.class, context);
             Page<Map> sampleData = dataFuture.join();
             
             if (sampleData.getContent().isEmpty()) {

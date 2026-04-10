@@ -1,4 +1,4 @@
-import {PersonEntityService} from '@/services/PersonEntityService.js'
+import {PersonRepository} from '@/repository/PersonRepository.js'
 import {KinoticOperationTaskGenerator} from '@/tasks/KinoticOperationTaskGenerator.ts'
 import {ITaskFactory} from '@/tasks/ITaskFactory.js'
 import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
@@ -14,7 +14,7 @@ import { ITask } from './ITask';
 export class FindTaskGenerator implements ITaskGenerator {
 
     private continuumTaskGenerator: KinoticOperationTaskGenerator
-    private personEntityService: PersonEntityService
+    private personRepository: PersonRepository
 
     constructor(connectionInfoSupplier: () => Promise<ConnectionInfo>,
                 totalToExecute: number,
@@ -22,7 +22,7 @@ export class FindTaskGenerator implements ITaskGenerator {
 
         const kinotic = new KinoticSingleton()
         kinotic.use(OsApiPlugin).use(PersistencePlugin)
-        this.personEntityService = new PersonEntityService(new EntitiesService(kinotic))
+        this.personRepository = new PersonRepository(new EntitiesService(kinotic))
 
         this.continuumTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,
                                                                         kinotic,
@@ -44,7 +44,7 @@ export class FindTaskGenerator implements ITaskGenerator {
                 return {
                     name   : () => 'Find All People',
                     execute: async () => {
-                        return this.personEntityService.findAll(Pageable.create(0, pageSize))
+                        return this.personRepository.findAll(Pageable.create(0, pageSize))
                                                        .then(() =>{})
                     }
                 }

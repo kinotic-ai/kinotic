@@ -1,8 +1,6 @@
 package org.kinotic.os.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.os.api.model.Application;
 import org.kinotic.os.api.services.ApplicationService;
 import org.kinotic.os.api.services.ProjectService;
@@ -56,18 +54,4 @@ public class DefaultApplicationService extends AbstractCrudService<Application> 
         return super.save(entity);
     }
 
-    @Override
-    public CompletableFuture<Page<Application>> search(String searchText, Pageable pageable) {
-        return crudServiceTemplate.search(indexName,
-                                          pageable,
-                                          Application.class,
-                                          builder -> builder.q(searchText));
-    }
-
-    @Override
-    public CompletableFuture<Void> syncIndex() {
-        return esAsyncClient.indices()
-                            .refresh(b -> b.index(indexName))
-                            .thenApply(unused -> null);
-    }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/os-api",
-  "version": "1.0.10",
+  "version": "1.0.13",
   "type": "module",
   "files": [
     "dist"
@@ -33,7 +33,7 @@
     "ui-test": "vitest --ui --coverage.enabled=true --mode development"
   },
   "peerDependencies": {
-    "@kinotic-ai/core": ">=1.0.0"
+    "@kinotic-ai/core": ">=1.2.0"
   },
   "dependencies": {
     "@kinotic-ai/idl": "workspace:*",

@@ -51,10 +51,4 @@ public interface EntityDefinitionDAO extends IdentifiableCrudService<EntityDefin
      */
     CompletableFuture<Page<EntityDefinition>> findAllForProject(String projectId, Pageable pageable);
 
-    /**
-     * This operation makes all the recent writes immediately available for search.
-     * @return a future that will complete when the index has been synced
-     */
-    CompletableFuture<Void> syncIndex();
-
 }

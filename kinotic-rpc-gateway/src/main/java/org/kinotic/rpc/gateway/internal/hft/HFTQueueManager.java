@@ -1,9 +1,10 @@
 
 
+
 package org.kinotic.rpc.gateway.internal.hft;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.event.Event;
-import reactor.core.publisher.Mono;
 
 /**
  *
@@ -16,8 +17,8 @@ public interface HFTQueueManager {
      *
      * @param event to write to the queue
      *
-     * @return a {@link Mono} that will succeed on successful writing and fail if there is an error
+     * @return a {@link Future} that will succeed on successful writing and fail if there is an error
      */
-    Mono<Void> write(Event<byte[]> event);
+    Future<Void> write(Event<byte[]> event);
 
 }

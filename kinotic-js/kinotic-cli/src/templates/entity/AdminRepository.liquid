@@ -1,4 +1,4 @@
-import { type IAdminEntitiesService } from '@kinotic-ai/persistence'
+import { type IAdminEntitiesRepository } from '@kinotic-ai/persistence'
 import { Base{{ entityName }}AdminRepository } from './generated/Base{{ entityName }}AdminRepository{{ fileExtensionForImports }}'
 
 /**
@@ -7,7 +7,7 @@ import { Base{{ entityName }}AdminRepository } from './generated/Base{{ entityNa
  */
 export class {{ entityName }}AdminRepository extends Base{{ entityName }}AdminRepository {
 
-  constructor(adminEntitiesService?: IAdminEntitiesService) {
+  constructor(adminEntitiesService?: IAdminEntitiesRepository) {
     super(adminEntitiesService)
   }
 

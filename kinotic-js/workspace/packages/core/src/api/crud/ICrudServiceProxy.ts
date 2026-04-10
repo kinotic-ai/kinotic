@@ -26,6 +26,16 @@ export interface ICrudServiceProxy<T extends Identifiable<string>> extends IEdit
     save(entity: T): Promise<T>
 
     /**
+     * Saves a given entity and waits for the changes to be visible in search results before returning.
+     * Use the returned instance for further operations as the save operation might have changed the entity instance completely.
+     *
+     * @param entity must not be {@literal null}.
+     * @return a {@link Promise} emitting the saved entity.
+     * @throws Error in case the given {@literal entity} is {@literal null}.
+     */
+    saveSync(entity: T): Promise<T>
+
+    /**
      * Retrieves an entity by its id.
      *
      * @param id must not be {@literal null}.
