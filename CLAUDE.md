@@ -29,6 +29,8 @@ Both Java and TypeScript modules follow the same layout convention. The rule is:
 
 The `internal/api/` structure mirrors `api/` for implementations. Example: `api/services/ITodoService` -> `internal/api/services/DefaultTodoService`. Use `internal/services/` or `internal/model/` for things that don't correspond to a public interface and should stay private.
 
+Configuration follows the same split: `api/config/` contains `@ConfigurationProperties` classes and settings POJOs meant to be configured by users, while `internal/config/` contains Spring `@Configuration` classes that wire beans internally. This applies to all modules.
+
 ## Publishing Services
 
 Java services that need to be called remotely must have `@Publish` on the interface:

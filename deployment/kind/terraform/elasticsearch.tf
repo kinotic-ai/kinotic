@@ -29,15 +29,10 @@ resource "helm_release" "eck_operator" {
 
   values = [file("${path.module}/../config/eck-operator/values.yaml")]
 
-  set {
-    name  = "installCRDs"
-    value = "true"
-  }
-
-  set {
-    name  = "managedNamespaces"
-    value = "{elastic}"
-  }
+  set = [
+    { name = "installCRDs", value = "true" },
+    { name = "managedNamespaces", value = "{elastic}" },
+  ]
 
   depends_on = [kubernetes_namespace.elastic_system]
 }

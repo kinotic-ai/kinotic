@@ -72,10 +72,9 @@ resource "helm_release" "alloy" {
 
   values = [file("${path.module}/../../helm/observability/values-alloy.yaml")]
 
-  set {
-    name  = "alloy.extraEnv[0].value"
-    value = "http://loki.observability.svc:3100/loki/api/v1/push"
-  }
+  set = [
+    { name = "alloy.extraEnv[0].value", value = "http://loki.observability.svc:3100/loki/api/v1/push" },
+  ]
 
   depends_on = [
     helm_release.loki,
@@ -96,87 +95,27 @@ resource "helm_release" "grafana" {
 
   values = [file("${path.module}/../../helm/observability/values-grafana.yaml")]
 
-  set {
-    name  = "datasources.datasources\\.yaml.datasources[0].url"
-    value = "http://loki.observability.svc:3100"
-  }
-
-  # NodePort for KinD access
-  set {
-    name  = "service.type"
-    value = "NodePort"
-  }
-  set {
-    name  = "service.nodePort"
-    value = "30300"
-  }
-
-  # TLS when mkcert is available
-  dynamic "set" {
-    for_each = var.use_mkcert ? [1] : []
-    content {
-      name  = "grafana\\.ini.server.protocol"
-      value = "https"
-    }
-  }
-  dynamic "set" {
-    for_each = var.use_mkcert ? [1] : []
-    content {
-      name  = "grafana\\.ini.server.cert_file"
-      value = "/certs/tls.crt"
-    }
-  }
-  dynamic "set" {
-    for_each = var.use_mkcert ? [1] : []
-    content {
-      name  = "grafana\\.ini.server.cert_key"
-      value = "/certs/tls.key"
-    }
-  }
-  dynamic "set" {
-    for_each = var.use_mkcert ? [1] : []
-    content {
-      name  = "extraSecretMounts[0].name"
-      value = "tls-certs"
-    }
-  }
-  dynamic "set" {
-    for_each = var.use_mkcert ? [1] : []
-    content {
-      name  = "extraSecretMounts[0].secretName"
-      value = "kinotic-tls"
-    }
-  }
-  dynamic "set" {
-    for_each = var.use_mkcert ? [1] : []
-    content {
-      name  = "extraSecretMounts[0].mountPath"
-      value = "/certs"
-    }
-  }
-  dynamic "set" {
-    for_each = var.use_mkcert ? [1] : []
-    content {
-      name  = "extraSecretMounts[0].readOnly"
-      value = "true"
-    }
-  }
-
-  # Health probes must use HTTPS when TLS is enabled
-  dynamic "set" {
-    for_each = var.use_mkcert ? [1] : []
-    content {
-      name  = "readinessProbe.httpGet.scheme"
-      value = "HTTPS"
-    }
-  }
-  dynamic "set" {
-    for_each = var.use_mkcert ? [1] : []
-    content {
-      name  = "livenessProbe.httpGet.scheme"
-      value = "HTTPS"
-    }
-  }
+  set = concat(
+    [
+      { name = "datasources.datasources\\.yaml.datasources[0].url", value = "http://loki.observability.svc:3100" },
+      # NodePort for KinD access
+      { name = "service.type", value = "NodePort" },
+      { name = "service.nodePort", value = "30300" },
+    ],
+    # TLS when mkcert is available
+    var.use_mkcert ? [
+      { name = "grafana\\.ini.server.protocol", value = "https" },
+      { name = "grafana\\.ini.server.cert_file", value = "/certs/tls.crt" },
+      { name = "grafana\\.ini.server.cert_key", value = "/certs/tls.key" },
+      { name = "extraSecretMounts[0].name", value = "tls-certs" },
+      { name = "extraSecretMounts[0].secretName", value = "kinotic-tls" },
+      { name = "extraSecretMounts[0].mountPath", value = "/certs" },
+      { name = "extraSecretMounts[0].readOnly", value = "true" },
+      # Health probes must use HTTPS when TLS is enabled
+      { name = "readinessProbe.httpGet.scheme", value = "HTTPS" },
+      { name = "livenessProbe.httpGet.scheme", value = "HTTPS" },
+    ] : [],
+  )
 
   depends_on = [
     helm_release.loki,

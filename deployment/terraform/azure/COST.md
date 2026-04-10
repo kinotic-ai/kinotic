@@ -79,17 +79,26 @@ Includes observability stack (Loki + Alloy + Grafana) and Entra ID auth.
 
 ### Beta Resource Utilization (48 GB across 3 nodes)
 
-| Pod | Memory | Count | Total |
+Kubernetes reserves ~2 GB per node, leaving ~42 GB usable.
+Memory reservations (requests) determine scheduling, not actual usage.
+
+| Pod | Memory (reserved) | Count | Total |
 |---|---|---|---|
 | ES master | 2 GB | 1 | 2 GB |
-| ES data | 8 GB | 3 | 24 GB |
-| kinotic-server | 2 GB | 3 | 6 GB |
+| ES data | 6 GB | 3 | 18 GB |
+| kinotic-server | 2 GB | 2 | 4 GB |
 | Loki | 512 MB | 1 | 0.5 GB |
 | Grafana | 256 MB | 1 | 0.25 GB |
 | Alloy (per node) | 256 MB | 3 | 0.75 GB |
-| System (kube, ECK, cert-mgr, Reloader) | — | — | ~3 GB |
-| **Used** | | | **~36.5 GB** |
+| System (kube, ECK, cert-mgr, Reloader, Cilium) | — | — | ~5 GB |
+| **Reserved** | | | **~30.5 GB** |
 | **Available for rolling updates** | | | **~11.5 GB** |
+
+**Beta sizing notes:**
+- ES data reduced from 8 GB to 6 GB (actual usage ~4.6 GB per pod)
+- kinotic-server at 2 replicas (3 in production)
+- Loki caches disabled (chunksCache, resultsCache) — not needed at beta volume
+- Alloy DaemonSet runs on every node, minimal memory
 
 ---
 

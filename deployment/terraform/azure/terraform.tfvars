@@ -3,8 +3,8 @@
 
 environment        = "production"
 project            = "kinotic"
-location           = "westus2"
-kubernetes_version = "1.29"
+location           = "centralus"
+kubernetes_version = "1.32"
 
 # ── Networking ────────────────────────────────────────────────────────────────
 vnet_address_space = ["10.0.0.0/8"]
@@ -29,7 +29,7 @@ kinotic_version = "4.2.0-SNAPSHOT"  # <-- pin to a release tag before production
 
 # ── TLS / DNS ─────────────────────────────────────────────────────────────────
 domain_name        = "kinotic.ai"
-lets_encrypt_email = "devops@mindsignited.com"
+lets_encrypt_email = ""  # set in local.auto.tfvars
 
 # ── Tags ──────────────────────────────────────────────────────────────────────
 tags = {

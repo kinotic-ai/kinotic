@@ -19,7 +19,7 @@ terraform {
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.17"
+      version = "~> 3.0"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
@@ -102,7 +102,7 @@ resource "kind_cluster" "kinotic" {
 # ── Providers configured from cluster output ──────────────
 
 provider "helm" {
-  kubernetes {
+  kubernetes = {
     host                   = kind_cluster.kinotic.endpoint
     cluster_ca_certificate = kind_cluster.kinotic.cluster_ca_certificate
     client_certificate     = kind_cluster.kinotic.client_certificate

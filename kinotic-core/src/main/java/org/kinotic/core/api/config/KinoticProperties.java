@@ -86,6 +86,11 @@ public class KinoticProperties {
      */
     private SslProperties ssl = new SslProperties();
 
+    /**
+     * Secret storage configuration. If null, an in-memory backend is used.
+     */
+    private SecretStorageSettings secretStorage;
+
     private long sessionTimeout = DEFAULT_SESSION_TIMEOUT;
 
     public void setMaxNumberOfCoresToUse(int maxNumberOfCoresToUse) {

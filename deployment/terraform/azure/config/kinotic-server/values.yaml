@@ -1,7 +1,8 @@
-# Azure AKS production overrides for kinotic-server.
-# Layered on top of deployment/helm/kinotic/values.yaml base.
+# Azure AKS overrides for kinotic-server.
+# Most config comes from application-kubernetes.yml Spring profile.
+# Only override what differs between environments here.
 
-replicaCount: 3
+replicaCount: 2
 
 image:
   pullPolicy: Always
@@ -12,23 +13,15 @@ migration:
 
 properties:
   springActiveProfiles: "production,kubernetes"
-  corsAllowedOriginPattern: "https://.*\\.kinotic\\.ai|https://kinotic\\.ai"
-  structures:
-    elastic:
-      connections:
-        - host: "kinotic-es-es-http.elastic.svc"
-          port: 9200
-          scheme: "http"
-      connectionTimeout: "5s"
-      socketTimeout: "60s"
 
-continuum:
-  debug: false
-  cluster:
-    discoveryType: KUBERNETES
-    kubernetesNamespace: kinotic
-    kubernetesServiceName: kinotic
-    kubernetesIncludeNotReadyAddresses: true
+kinotic:
+  # Web UI on 443 — Azure LB is L4, can't remap ports
+  webServerPort: 8443
+  elastic:
+    connections:
+      - host: "kinotic-es-es-http.elastic.svc"
+        port: 9200
+        scheme: "http"
 
 resources:
   requests:
@@ -39,6 +32,12 @@ resources:
     memory: 2Gi
 
 # Service — Azure Load Balancer (L4 TCP passthrough)
-# loadBalancerIP is set by terraform via helm set
 service:
   type: LoadBalancer
+  externalPorts:
+    ui: 443
+
+# Override web server port via Spring env var
+extraEnv:
+  KINOTIC_PERSISTENCE_WEBSERVERPORT: "8443"
+  KINOTIC_PERSISTENCE_CORSALLOWEDORIGINPATTERN: "https://.*\\.kinotic\\.ai(:\\d+)?|https://kinotic\\.ai(:\\d+)?"

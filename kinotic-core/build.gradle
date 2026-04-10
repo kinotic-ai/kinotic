@@ -4,7 +4,10 @@ plugins {
 
 dependencies {
     implementation "com.github.ben-manes.caffeine:caffeine"
+    implementation 'com.azure:azure-identity:1.15.4'
+    implementation 'com.azure:azure-security-keyvault-secrets:4.9.2'
     implementation 'commons-io:commons-io'
+    implementation 'net.openhft:chronicle-map:3.27ea2'
 
     implementation 'io.jsonwebtoken:jjwt-api'
     implementation 'io.jsonwebtoken:jjwt-impl'

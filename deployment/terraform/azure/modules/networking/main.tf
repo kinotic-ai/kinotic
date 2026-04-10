@@ -40,19 +40,9 @@ resource "azurerm_subnet" "aks" {
   address_prefixes     = [var.aks_subnet_cidr]
 }
 
-# ── NSG ───────────────────────────────────────────────────────────────────────
-
-resource "azurerm_network_security_group" "aks" {
-  name                = "nsg-${var.name_prefix}-aks"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  tags                = var.tags
-}
-
-resource "azurerm_subnet_network_security_group_association" "aks" {
-  subnet_id                 = azurerm_subnet.aks.id
-  network_security_group_id = azurerm_network_security_group.aks.id
-}
+# NOTE: No custom NSG on the AKS subnet. AKS manages its own NSG in the MC_
+# resource group with rules for LoadBalancer health probes and service ports.
+# A custom empty NSG blocks all inbound internet traffic by default.
 
 # ── Firecracker Subnet (conditional) ──────────────────────────────────────────
 

@@ -6,7 +6,7 @@ Status and next steps for the Azure deployment. Items are ordered by priority wi
 
 - [x] AKS cluster with Azure RBAC, OIDC issuer, workload identity
 - [x] Elasticsearch via ECK (1 master + 3 data in beta, 3 master + 3 data in production)
-- [x] Kinotic server (3 replicas, TLS, production Spring profile, sticky sessions)
+- [x] Kinotic server (2 replicas beta / 3 production, TLS on 8443, sticky sessions)
 - [x] TLS via cert-manager + Let's Encrypt (DNS-01 via Azure DNS, auto-renewal, Reloader)
 - [x] Azure DNS zone for kinotic.ai with dynamic A records from LB IPs
 - [x] Consistent namespace layout (elastic-system, elastic, kinotic, observability)
@@ -50,3 +50,5 @@ Status and next steps for the Azure deployment. Items are ordered by priority wi
 - [ ] Pod Security Standards — enforce restricted pod security at the namespace level to prevent privileged containers (except ES sysctl init containers)
 - [ ] Cost optimization — reserved instances for ES node pool VMs, spot instances for non-critical workloads, right-sizing based on actual usage metrics
 - [ ] Grafana dashboard provisioning — pre-built dashboards for kinotic-server, ES health, and Alloy pipeline metrics deployed via ConfigMap
+- [ ] Cilium externalTrafficPolicy: Local — currently using Cluster because Local doesn't work with Cilium on AKS. Revisit when Cilium fixes this or evaluate switching to kube-proxy for the dataplane
+- [ ] Port 443 binding — currently using 8443 internally with LB port remap. Investigate adding `NET_BIND_SERVICE` capability or `sysctl net.ipv4.ip_unprivileged_port_start=0` to allow direct 443 binding
