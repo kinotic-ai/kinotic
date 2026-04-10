@@ -81,14 +81,14 @@ eck-elasticsearch:
             - name: elasticsearch
               resources:
                 requests:
-                  memory: "8Gi"
+                  memory: "6Gi"
                   cpu: "1000m"
                 limits:
-                  memory: "8Gi"
+                  memory: "6Gi"
                   cpu: "2000m"
               env:
                 - name: ES_JAVA_OPTS
-                  value: "-Xms4g -Xmx4g"
+                  value: "-Xms3g -Xmx3g"
 
       volumeClaimTemplates:
         - metadata:

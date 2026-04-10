@@ -24,15 +24,15 @@ spec:
           imagePullPolicy: {{ .Values.migration.image.pullPolicy }}
           env:
             - name: KINOTIC_MIGRATION_ELASTIC_SCHEME
-              value: "{{ (index .Values.properties.structures.elastic.connections 0).scheme }}"
+              value: "{{ (index .Values.kinotic.elastic.connections 0).scheme }}"
             - name: KINOTIC_MIGRATION_ELASTIC_HOST
-              value: "{{ (index .Values.properties.structures.elastic.connections 0).host }}"
+              value: "{{ (index .Values.kinotic.elastic.connections 0).host }}"
             - name: KINOTIC_MIGRATION_ELASTIC_PORT
-              value: "{{ (index .Values.properties.structures.elastic.connections 0).port }}"
+              value: "{{ (index .Values.kinotic.elastic.connections 0).port }}"
             - name: KINOTIC_MIGRATION_ELASTIC_USERNAME
-              value: "{{ .Values.properties.structures.elastic.username }}"
+              value: "{{ .Values.kinotic.elastic.username }}"
             - name: KINOTIC_MIGRATION_ELASTIC_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.properties.structures.elastic.secretName }}
-                  key: {{ .Values.properties.structures.elastic.secretKey }}
+                  name: {{ .Values.kinotic.elastic.secretName }}
+                  key: {{ .Values.kinotic.elastic.secretKey }}

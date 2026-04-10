@@ -14,7 +14,6 @@ resource "azurerm_kubernetes_cluster_node_pool" "elasticsearch" {
   node_count            = 3
   vnet_subnet_id        = module.networking.aks_subnet_id
 
-  # Spread across all 3 AZs — matches ES zone awareness config in values.yaml
   zones           = ["1", "2", "3"]
   os_disk_size_gb = 256
   os_disk_type    = "Managed"

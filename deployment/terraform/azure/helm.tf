@@ -1,18 +1,28 @@
-# ── Providers — connect using AKS cluster credentials ─────────────────────────
+# ── Providers — connect using AKS credentials via kubelogin ───────────────────
+# With local_account_disabled=true, cert-based auth doesn't work.
+# Use exec-based auth with kubelogin (Azure AD / Azure RBAC).
+# Requires: az aks get-credentials + kubelogin convert-kubeconfig -l azurecli
+
 provider "helm" {
-  kubernetes {
+  kubernetes = {
     host                   = data.azurerm_kubernetes_cluster.main.kube_config.0.host
-    client_certificate     = base64decode(data.azurerm_kubernetes_cluster.main.kube_config.0.client_certificate)
-    client_key             = base64decode(data.azurerm_kubernetes_cluster.main.kube_config.0.client_key)
     cluster_ca_certificate = base64decode(data.azurerm_kubernetes_cluster.main.kube_config.0.cluster_ca_certificate)
+    exec = {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "kubelogin"
+      args        = ["get-token", "--login", "azurecli", "--server-id", "6dae42f8-4368-4678-94ff-3960e28e3630"]
+    }
   }
 }
 
 provider "kubernetes" {
   host                   = data.azurerm_kubernetes_cluster.main.kube_config.0.host
-  client_certificate     = base64decode(data.azurerm_kubernetes_cluster.main.kube_config.0.client_certificate)
-  client_key             = base64decode(data.azurerm_kubernetes_cluster.main.kube_config.0.client_key)
   cluster_ca_certificate = base64decode(data.azurerm_kubernetes_cluster.main.kube_config.0.cluster_ca_certificate)
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "kubelogin"
+    args        = ["get-token", "--login", "azurecli", "--server-id", "6dae42f8-4368-4678-94ff-3960e28e3630"]
+  }
 }
 
 data "azurerm_kubernetes_cluster" "main" {
@@ -48,25 +58,21 @@ resource "kubernetes_namespace" "kinotic" {
 }
 
 # ── StorageClass: Premium ZRS for Elasticsearch ───────────────────────────────
-resource "kubernetes_manifest" "sc_es_premium_zrs" {
-  manifest = {
-    apiVersion = "storage.k8s.io/v1"
-    kind       = "StorageClass"
-    metadata = {
-      name = "es-premium-zrs"
-      annotations = {
-        "storageclass.kubernetes.io/is-default-class" = "false"
-      }
+resource "kubernetes_storage_class_v1" "es_premium_zrs" {
+  metadata {
+    name = "es-premium-zrs"
+    annotations = {
+      "storageclass.kubernetes.io/is-default-class" = "false"
     }
-    provisioner           = "disk.csi.azure.com"
-    reclaimPolicy         = "Retain"
-    volumeBindingMode     = "WaitForFirstConsumer"
-    allowVolumeExpansion  = true
-    parameters = {
-      skuName     = "Premium_ZRS"
-      cachingmode = "None"
-      fsType      = "ext4"
-    }
+  }
+  storage_provisioner    = "disk.csi.azure.com"
+  reclaim_policy         = "Retain"
+  volume_binding_mode    = "WaitForFirstConsumer"
+  allow_volume_expansion = true
+  parameters = {
+    skuName     = "Premium_ZRS"
+    cachingmode = "None"
+    fsType      = "ext4"
   }
   depends_on = [module.aks]
 }
@@ -87,7 +93,7 @@ resource "helm_release" "eck_operator" {
 
   depends_on = [
     kubernetes_namespace.elastic_system,
-    kubernetes_manifest.sc_es_premium_zrs,
+    kubernetes_storage_class_v1.es_premium_zrs,
     module.identity,
   ]
 }

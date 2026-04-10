@@ -1,10 +1,8 @@
 # ── Kinotic Platform OIDC App Registration ────────────────────────────────────
 # Enables Entra ID (Azure AD) authentication for the kinotic platform.
-# Creates a directory extension attribute (kinoticTenantId) for multi-tenant
-# data isolation. Set per user via the Azure Portal or Graph API.
 #
-# After deploy, use the terraform output command to assign tenants:
-#   terraform output set_user_tenant_id
+# After deploy, create the kinoticTenantId directory extension and assign
+# per-user tenants. See the outputs for commands.
 
 data "azurerm_client_config" "auth" {}
 
@@ -16,8 +14,8 @@ resource "azuread_application" "kinotic_platform" {
 
   web {
     redirect_uris = [
-      "https://${var.domain_name}/login",
-      "https://${var.domain_name}/silent-renew.html",
+      "https://portal.${var.domain_name}/login",
+      "https://portal.${var.domain_name}/silent-renew.html",
     ]
 
     implicit_grant {
@@ -29,8 +27,8 @@ resource "azuread_application" "kinotic_platform" {
   # SPA redirect URIs (for browser-based OIDC flows)
   single_page_application {
     redirect_uris = [
-      "https://${var.domain_name}/login",
-      "https://${var.domain_name}/silent-renew.html",
+      "https://portal.${var.domain_name}/login",
+      "https://portal.${var.domain_name}/silent-renew.html",
     ]
   }
 
@@ -70,27 +68,53 @@ resource "azuread_application" "kinotic_platform" {
   }
 }
 
-# ── Service Principal (required for directory extensions) ─────────────────────
+# ── Service Principal ─────────────────────────────────────────────────────────
 
 resource "azuread_service_principal" "kinotic_platform" {
   client_id = azuread_application.kinotic_platform.client_id
 }
 
-# ── Directory Extension: tenantId ─────────────────────────────────────────────
-# Creates a custom attribute on the app registration that can be set per user.
-# The attribute appears in tokens as "extension_<appObjectId>_tenantId".
-# Set per user via Graph API or Azure Portal.
+# ── Directory Extension: kinoticTenantId ──────────────────────────────────────
+# The azuread terraform provider doesn't support extension properties natively.
+# Create once after first deploy using the output command, then assign per user.
 
-resource "azuread_application_extension_property" "tenant_id" {
-  application_object_id = azuread_application.kinotic_platform.object_id
-  name                  = "kinoticTenantId"
-  data_type             = "String"
-  target_objects        = ["User"]
+resource "terraform_data" "create_tenant_id_extension" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -e
+      APP_OBJECT_ID="${azuread_application.kinotic_platform.object_id}"
+
+      # Check if extension already exists
+      EXISTING=$(az rest --method GET \
+        --url "https://graph.microsoft.com/v1.0/applications/$APP_OBJECT_ID/extensionProperties" \
+        --query "value[?name=='extension_${replace(azuread_application.kinotic_platform.client_id, "-", "")}_kinoticTenantId'].name" \
+        -o tsv 2>/dev/null || true)
+
+      if [ -n "$EXISTING" ]; then
+        echo "Extension property kinoticTenantId already exists"
+        exit 0
+      fi
+
+      echo "Creating extension property kinoticTenantId..."
+      az rest --method POST \
+        --url "https://graph.microsoft.com/v1.0/applications/$APP_OBJECT_ID/extensionProperties" \
+        --body '{
+          "name": "kinoticTenantId",
+          "dataType": "String",
+          "targetObjects": ["User"]
+        }'
+      echo "Extension property created"
+    EOT
+  }
 
   depends_on = [azuread_service_principal.kinotic_platform]
 }
 
 # ── Outputs ───────────────────────────────────────────────────────────────────
+
+locals {
+  tenant_id_claim = "extension_${replace(azuread_application.kinotic_platform.client_id, "-", "")}_kinoticTenantId"
+}
 
 output "kinotic_oidc_client_id" {
   description = "Client ID for kinotic platform OIDC — use in frontend config"
@@ -104,10 +128,10 @@ output "kinotic_oidc_authority" {
 
 output "kinotic_oidc_tenant_id_claim" {
   description = "The claim name to use for tenantIdFieldName in kinotic config"
-  value       = azuread_application_extension_property.tenant_id.name
+  value       = local.tenant_id_claim
 }
 
 output "set_user_tenant_id" {
-  description = "Command to set a user's tenantId (replace <user-id> and <tenant-value>)"
-  value       = "az rest --method PATCH --url 'https://graph.microsoft.com/v1.0/users/<user-id>' --body '{\"${azuread_application_extension_property.tenant_id.name}\": \"<tenant-value>\"}'"
+  description = "Command to set a user's kinoticTenantId (replace <user-object-id> and <tenant-value>)"
+  value       = "az rest --method PATCH --url 'https://graph.microsoft.com/v1.0/users/<user-object-id>' --body '{\"${local.tenant_id_claim}\": \"<tenant-value>\"}'"
 }

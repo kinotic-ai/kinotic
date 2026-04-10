@@ -1,14 +1,14 @@
 terraform {
-  required_version = ">= 1.7"
+  required_version = ">= 1.9"
 
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.110"
+      version = "~> 4.0"
     }
     azuread = {
       source  = "hashicorp/azuread"
-      version = "~> 2.50"
+      version = "~> 3.0"
     }
     tls = {
       source  = "hashicorp/tls"
@@ -24,11 +24,11 @@ terraform {
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.13"
+      version = "~> 3.0"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.30"
+      version = "~> 2.35"
     }
   }
 
@@ -66,7 +66,16 @@ locals {
   })
 }
 
-# ── Resource Group ────────────────────────────────────────────────────────────
+# ── Resource Groups ───────────────────────────────────────────────────────────
+# Global RG — DNS zone and other region-independent resources. Persists across
+# region changes and AKS rebuilds.
+resource "azurerm_resource_group" "global" {
+  name     = "rg-${var.project}-global"
+  location = var.location
+  tags     = local.common_tags
+}
+
+# Main RG — AKS, networking, compute. Tied to the deployment region.
 resource "azurerm_resource_group" "main" {
   name     = "rg-${local.name_prefix}"
   location = var.location

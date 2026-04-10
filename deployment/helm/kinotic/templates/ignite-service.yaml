@@ -1,31 +1,22 @@
-{{- if .Values.continuum.cluster.discoveryType | eq "KUBERNETES" }}
+# Headless service for Ignite node discovery in Kubernetes.
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.continuum.cluster.kubernetesServiceName | default "kinotic" }}
+  name: kinotic
   labels:
     app: {{ include "kinotic.name" . }}
-    chart: {{ include "kinotic.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
     component: ignite-discovery
 spec:
-  # Headless service (no ClusterIP) for Ignite node discovery
   clusterIP: None
   selector:
     app: {{ include "kinotic.name" . }}
-    release: {{ .Release.Name }}
   ports:
     - name: discovery
-      port: {{ .Values.continuum.cluster.discoveryPort | default 47500 }}
-      targetPort: {{ .Values.continuum.cluster.discoveryPort | default 47500 }}
+      port: {{ .Values.kinotic.cluster.discoveryPort | default 47500 }}
+      targetPort: {{ .Values.kinotic.cluster.discoveryPort | default 47500 }}
       protocol: TCP
     - name: communication
-      port: {{ .Values.continuum.cluster.communicationPort | default 47100 }}
-      targetPort: {{ .Values.continuum.cluster.communicationPort | default 47100 }}
+      port: {{ .Values.kinotic.cluster.communicationPort | default 47100 }}
+      targetPort: {{ .Values.kinotic.cluster.communicationPort | default 47100 }}
       protocol: TCP
-  publishNotReadyAddresses: {{ .Values.continuum.cluster.kubernetesIncludeNotReadyAddresses | default false }}  # Important: Allow DNS lookup before pods are ready
-{{- end }}
-
-
-
+  publishNotReadyAddresses: true

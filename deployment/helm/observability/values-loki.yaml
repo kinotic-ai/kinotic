@@ -60,6 +60,13 @@ monitoring:
 gateway:
   enabled: false
 
+# Disable caches — not needed for beta with filesystem/small volume
+chunksCache:
+  enabled: false
+
+resultsCache:
+  enabled: false
+
 # Don't deploy test pods
 test:
   enabled: false

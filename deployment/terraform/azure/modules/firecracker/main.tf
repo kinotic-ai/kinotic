@@ -128,7 +128,7 @@ resource "azurerm_storage_account" "firecracker_images" {
 
 resource "azurerm_storage_container" "firecracker_images" {
   name                  = "firecracker-images"
-  storage_account_name  = azurerm_storage_account.firecracker_images.name
+  storage_account_id    = azurerm_storage_account.firecracker_images.id
   container_access_type = "private"
 }
 

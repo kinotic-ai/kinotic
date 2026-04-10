@@ -7,12 +7,8 @@ image:
   tag: "4.2.0-SNAPSHOT"
   sha: ""
 
-# Resource requests and limits for kinotic-server containers
 resources: {}
 
-# Migration configuration
-# Runs as a Helm pre-install/pre-upgrade hook Job.
-# The migration must complete successfully before the Deployment is rolled out.
 migration:
   backoffLimit: 3
   activeDeadlineSeconds: 300
@@ -22,124 +18,73 @@ migration:
     pullPolicy: Always
     sha: ""
 
+# JVM / Buildpack
 properties:
   springActiveProfiles: "production,debug"
-  corsAllowedOriginPattern: "*"
   enableJmx: true
   enableNmt: true
-  javaToolOptions: "-Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m" ## -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar 
-
+  javaToolOptions: "-Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m"
   bplJvmHeadRoom: 10
-  structures:
-    tenantIdFieldName: "tenantId"
-    indexPrefix: "struct_"
-    openApiSecurityType: "BASIC"
-    openApiPort: 8080
-    openApiPath: "/api/"
-    openApiServerUrl: "http://127.0.0.1:8080"
-    graphqlPort: 4000
-    graphqlPath: "/graphql/"
-    webServerPort: 9090
-    healthCheckPath: "/health"
-    enableStaticFileServer: true
-    initializeWithSampleData: false
-    elastic:
-      connections:
-        - host: "kinotic-es-es-http.elastic.svc"
-          port: 9200
-          scheme: "http"
-      connectionTimeout: "5s"
-      socketTimeout: "60s"
-      username: "elastic"
-      # ECK creates a secret named <cluster>-es-elastic-user with key "elastic".
-      secretName: "kinotic-es-es-elastic-user"
-      secretKey: "elastic"
-    ai:
-      apiKey: "noop"
-      baseUrl: "https://api.x.ai"
-      model: "grok-4"
 
-continuum_gateway:
+# Kinotic platform — mirrors the Spring property structure:
+#   kinotic.persistence.*  → ports, ES, health
+#   kinotic.rpcGateway.*   → STOMP
+#   kinotic.ignite.*       → cluster (set in application-kubernetes.yml)
+#   kinotic.ssl.*          → TLS (set via tls.enabled below)
+kinotic:
+  # kinotic.persistence.*
+  webServerPort: 9090
+  healthCheckPath: "/health"
+  openApiPort: 8080
+  graphqlPort: 4000
+  restPort: 58504
+  elastic:
+    connections:
+      - host: "kinotic-es-es-http.elastic.svc"
+        port: 9200
+        scheme: "http"
+    connectionTimeout: "5s"
+    socketTimeout: "60s"
+    username: "elastic"
+    secretName: "kinotic-es-es-elastic-user"
+    secretKey: "elastic"
+  # kinotic.rpcGateway.stomp.*
   stomp:
     port: 58503
     websocketPath: /v1
-
-continuum:
-  debug: true
-  disableClustering: false
-  maxNumberOfCoresToUse: 4
-  maxOffHeapMemory: "419430400"
+  # kinotic.ignite.cluster.* — used by ignite-service template
   cluster:
-    discoveryType: KUBERNETES
-    joinTimeoutMs: 0
-    # Test instance local address: bind to 0.0.0.0 (all interfaces) so containers can reach it
-    # Containers connect via host.docker.internal:47500
-    localAddress: 0.0.0.0
-    # Test instance ports (must be unique from container nodes)
-    discoveryPort: 47500      
-    communicationPort: 47100 
-    # Static IP addresses for all nodes in the cluster
-    # Format: host:port,host:port,...
-    localAddresses: null
-    # Note: sharedFsPath is still used for Structure data sharing, not for Ignite discovery
-    sharedFsPath: /sharedfs  # Shared with containers via bind mount
-    kubernetesNamespace: kinotic
-    kubernetesServiceName: kinotic
-    kubernetesIncludeNotReadyAddresses: false
-    kubernetesMasterUrl: ""
-    kubernetesAccountToken: ""
+    discoveryPort: 47500
+    communicationPort: 47100
 
-# TODO: adjust for this later
-# OIDC security service configuration
+# OIDC (oidc-security-service.*)
 oidc:
   enabled: false
-  debug: true
-  frontendConfigurationPath: "/app-config.override.json"
-  oidcProviders:
-    - provider: "keycloak"
-      displayName: "Keycloak"
-      enabled: true
-      rolesClaimPath: "realm_access.roles"
-      domains:
-        - "example.com"
-      roles:
-        - "admin"
-      audience: "kinotic-client"
-      clientId: "kinotic-client"
-      authority: "http://keycloak:8888/auth/realms/test"
-      redirectUri: "http://localhost:9090/login"
-      postLogoutRedirectUri: "http://localhost:9090"
-      silentRedirectUri: "http://localhost:9090/login/silent-renew"
-    
 
-# TLS configuration
-# When enabled, mounts a Kubernetes TLS secret into the pods and configures
-# Vert.x to use PEM certificates for all HTTP/WebSocket servers.
-# cert-manager creates and auto-renews the secret; Reloader restarts pods
-# when the secret changes.
+# TLS (kinotic.ssl.*)
 tls:
   enabled: false
-  # Name of the Kubernetes TLS secret (created by cert-manager Certificate)
   secretName: kinotic-tls
 
-# Eviction tracking configuration
-# When enabled, cache evictions are written to CSV files for testing/analysis
 evictionTracking:
   enabled: false
-  # Mount path inside the container for eviction data
   mountPath: "/eviction-data"
-  # Host path on the Kubernetes node (for hostPath volume)
   hostPath: "/tmp/kinotic-eviction-data"
 
 nodeSelector: {}
 
-# Service configuration
 service:
-  # Service type: ClusterIP (default), NodePort, or LoadBalancer
   type: ClusterIP
-  # NodePort values (only used when type: NodePort)
   nodePorts:
     ui: null
     openApi: null
     graphql: null
     stomp: null
+  # External ports for LoadBalancer (remap external → internal)
+  externalPorts:
+    ui: null
+    stomp: null
+
+# Extra environment variables — override any Spring property via env var convention.
+# Example: KINOTIC_PERSISTENCE_WEBSERVERPORT: "443"
+extraEnv: {}

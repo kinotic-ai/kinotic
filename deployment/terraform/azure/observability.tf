@@ -50,11 +50,10 @@ resource "helm_release" "loki" {
   chart      = "loki"
   version    = "6.29.0"
   wait       = true
-  timeout    = 300
+  timeout    = 600
 
   values = [
     file("${path.module}/../../helm/observability/values-loki.yaml"),
-    file("${path.module}/../../helm/observability/values-loki-azure.yaml"),
   ]
 
   depends_on = [kubernetes_namespace.observability]
@@ -88,10 +87,9 @@ resource "helm_release" "alloy" {
 
   values = [file("${path.module}/../../helm/observability/values-alloy.yaml")]
 
-  set {
-    name  = "alloy.extraEnv[0].value"
-    value = "http://loki.observability.svc:3100/loki/api/v1/push"
-  }
+  set = [
+    { name = "alloy.extraEnv[0].value", value = "http://loki.observability.svc:3100/loki/api/v1/push" },
+  ]
 
   depends_on = [
     helm_release.loki,
@@ -177,61 +175,27 @@ resource "helm_release" "grafana" {
     !var.disable_grafana_entra ? [file("${path.module}/../../helm/observability/values-grafana-azure.yaml")] : [],
   )
 
-  set {
-    name  = "datasources.datasources\\.yaml.datasources[0].url"
-    value = "http://loki.observability.svc:3100"
-  }
-
   # Entra ID OAuth (when enabled)
-  dynamic "set" {
-    for_each = !var.disable_grafana_entra ? [1] : []
-    content {
-      name  = "grafana\\.ini.auth\\.azuread.client_id"
-      value = azuread_application.grafana[0].client_id
-    }
-  }
+  set = concat(
+    [
+      { name = "datasources.datasources\\.yaml.datasources[0].url", value = "http://loki.observability.svc:3100" },
+      # Health probes must use HTTPS
+      { name = "readinessProbe.httpGet.scheme", value = "HTTPS" },
+      { name = "livenessProbe.httpGet.scheme", value = "HTTPS" },
+      # Disable client-side secret leak detection — we use set_sensitive for secrets
+      { name = "assertNoLeakedSecrets", value = "false" },
+    ],
+    !var.disable_grafana_entra ? [
+      { name = "grafana\\.ini.auth\\.azuread.client_id", value = azuread_application.grafana[0].client_id },
+      { name = "grafana\\.ini.auth\\.azuread.tenant_id", value = data.azurerm_client_config.tls.tenant_id },
+      { name = "grafana\\.ini.auth\\.azuread.auth_url", value = "https://login.microsoftonline.com/${data.azurerm_client_config.tls.tenant_id}/oauth2/v2.0/authorize" },
+      { name = "grafana\\.ini.auth\\.azuread.token_url", value = "https://login.microsoftonline.com/${data.azurerm_client_config.tls.tenant_id}/oauth2/v2.0/token" },
+    ] : [],
+  )
 
-  dynamic "set" {
-    for_each = !var.disable_grafana_entra ? [1] : []
-    content {
-      name  = "grafana\\.ini.auth\\.azuread.tenant_id"
-      value = data.azurerm_client_config.tls.tenant_id
-    }
-  }
-
-  dynamic "set" {
-    for_each = !var.disable_grafana_entra ? [1] : []
-    content {
-      name  = "grafana\\.ini.auth\\.azuread.auth_url"
-      value = "https://login.microsoftonline.com/${data.azurerm_client_config.tls.tenant_id}/oauth2/v2.0/authorize"
-    }
-  }
-
-  dynamic "set" {
-    for_each = !var.disable_grafana_entra ? [1] : []
-    content {
-      name  = "grafana\\.ini.auth\\.azuread.token_url"
-      value = "https://login.microsoftonline.com/${data.azurerm_client_config.tls.tenant_id}/oauth2/v2.0/token"
-    }
-  }
-
-  dynamic "set_sensitive" {
-    for_each = !var.disable_grafana_entra ? [1] : []
-    content {
-      name  = "grafana\\.ini.auth\\.azuread.client_secret"
-      value = azuread_application_password.grafana[0].value
-    }
-  }
-
-  # Health probes must use HTTPS
-  set {
-    name  = "readinessProbe.httpGet.scheme"
-    value = "HTTPS"
-  }
-  set {
-    name  = "livenessProbe.httpGet.scheme"
-    value = "HTTPS"
-  }
+  set_sensitive = !var.disable_grafana_entra ? [
+    { name = "grafana\\.ini.auth\\.azuread.client_secret", value = azuread_application_password.grafana[0].value },
+  ] : []
 
   depends_on = [
     helm_release.loki,
