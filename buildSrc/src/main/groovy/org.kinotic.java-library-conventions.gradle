@@ -3,6 +3,7 @@ plugins {
     id 'org.kinotic.java-common-conventions'
     id 'java-library'
     id 'maven-publish'
+    id 'org.jreleaser'
 }
 
 dependencies {
@@ -64,36 +65,31 @@ publishing {
     }
 }
 
-// JReleaser is skipped when CLAUDE_CLOUD_COMPILE=true (unavailable in cloud environments).
-if (!Boolean.parseBoolean(System.getenv('CLAUDE_CLOUD_COMPILE'))) {
-    apply plugin: 'org.jreleaser'
-
-    jreleaser {
-        signing {
-            active = 'ALWAYS'
-            armored = true
-            verify = false
-        }
-        deploy {
-            maven {
-                mavenCentral {
-                    'release-deploy' {
-                        active = 'RELEASE'
-                        url = 'https://central.sonatype.com/api/v1/publisher'
-                        applyMavenCentralRules = true
-                        stagingRepository('build/staging-deploy')
-                    }
+jreleaser {
+    signing {
+        active = 'ALWAYS'
+        armored = true
+        verify = false
+    }
+    deploy {
+        maven {
+            mavenCentral {
+                'release-deploy' {
+                    active = 'RELEASE'
+                    url = 'https://central.sonatype.com/api/v1/publisher'
+                    applyMavenCentralRules = true
+                    stagingRepository('build/staging-deploy')
                 }
-                nexus2 {
-                    'snapshot-deploy' {
-                        active = 'SNAPSHOT'
-                        snapshotUrl = 'https://central.sonatype.com/repository/maven-snapshots/'
-                        applyMavenCentralRules = true
-                        snapshotSupported = true
-                        closeRepository = true
-                        releaseRepository = true
-                        stagingRepository('build/staging-deploy')
-                    }
+            }
+            nexus2 {
+                'snapshot-deploy' {
+                    active = 'SNAPSHOT'
+                    snapshotUrl = 'https://central.sonatype.com/repository/maven-snapshots/'
+                    applyMavenCentralRules = true
+                    snapshotSupported = true
+                    closeRepository = true
+                    releaseRepository = true
+                    stagingRepository('build/staging-deploy')
                 }
             }
         }

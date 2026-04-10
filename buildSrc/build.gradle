@@ -22,6 +22,15 @@ rootDir.toPath()
         }
 properties.each { key, val -> project.ext."$key" = val }
 
+def cloudCompile = Boolean.parseBoolean(System.getenv('CLAUDE_CLOUD_COMPILE'))
+
+// When CLAUDE_CLOUD_COMPILE=true, use stripped convention plugins from src/cloud/groovy
+// that don't reference jreleaser (unavailable in cloud environments).
+// Otherwise, use the full convention plugins from src/main/groovy.
+if (cloudCompile) {
+    sourceSets.main.groovy.srcDirs = ['src/cloud/groovy']
+}
+
 dependencies {
     implementation "org.springframework.boot:org.springframework.boot.gradle.plugin:${springBootVersion}"
 
@@ -31,9 +40,8 @@ dependencies {
     // lombok
     implementation "io.freefair.gradle:lombok-plugin:${lombokPluginVersion}"
 
-    // JReleaser plugin — only needed for publishing/release builds.
-    // Skipped when CLAUDE_CLOUD_COMPILE=true (cloud environments lack access to Gradle plugin portal).
-    if (!Boolean.parseBoolean(System.getenv('CLAUDE_CLOUD_COMPILE'))) {
+    // JReleaser plugin — only needed when publishing. Skipped in cloud builds.
+    if (!cloudCompile) {
         implementation "org.jreleaser:jreleaser-gradle-plugin:${jreleaserVersion}"
     }
 }
