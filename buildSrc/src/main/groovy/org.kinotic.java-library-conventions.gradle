@@ -2,6 +2,7 @@ plugins {
     // Apply the common convention plugin for shared build configuration between library and application projects.
     id 'org.kinotic.java-common-conventions'
     id 'java-library'
+    id 'maven-publish'
 }
 
 dependencies {
@@ -13,9 +14,90 @@ java {
     withSourcesJar()
 }
 
-// Publishing conventions are skipped when CLAUDE_CLOUD_COMPILE=true (jreleaser unavailable in cloud).
+// Stages files for use by JReleaser
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+
+            from components.java
+
+            // Use resolved versions since we are not directly depending on the spring POM
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+
+            pom {
+                name = 'Kinotic'
+                description = 'Rapid development platform for AI powered applications'
+                url = 'https://kinotic.ai'
+
+                licenses {
+                    license {
+                        name = 'Elastic License 2.0'
+                        url = 'https://www.elastic.co/licensing/elastic-license'
+                    }
+                }
+                developers {
+                    developer {
+                        name = 'Kinotic AI Development Team'
+                        email = 'develop@kinotic.ai'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:https://github.com/kinotic-ai/kinotic.git'
+                    developerConnection = 'scm:git:https://github.com/kinotic-ai/kinotic.git'
+                    url = 'https://github.com/kinotic-ai/kinotic'
+                }
+            }
+        }
+    }
+    // Here is where JReleaser will look for the staged files
+    repositories {
+        maven {
+            url = layout.buildDirectory.dir('staging-deploy')
+        }
+    }
+}
+
+// JReleaser is skipped when CLAUDE_CLOUD_COMPILE=true (unavailable in cloud environments).
 if (!Boolean.parseBoolean(System.getenv('CLAUDE_CLOUD_COMPILE'))) {
-    apply plugin: 'org.kinotic.java-publish-conventions'
+    apply plugin: 'org.jreleaser'
+
+    jreleaser {
+        signing {
+            active = 'ALWAYS'
+            armored = true
+            verify = false
+        }
+        deploy {
+            maven {
+                mavenCentral {
+                    'release-deploy' {
+                        active = 'RELEASE'
+                        url = 'https://central.sonatype.com/api/v1/publisher'
+                        applyMavenCentralRules = true
+                        stagingRepository('build/staging-deploy')
+                    }
+                }
+                nexus2 {
+                    'snapshot-deploy' {
+                        active = 'SNAPSHOT'
+                        snapshotUrl = 'https://central.sonatype.com/repository/maven-snapshots/'
+                        applyMavenCentralRules = true
+                        snapshotSupported = true
+                        closeRepository = true
+                        releaseRepository = true
+                        stagingRepository('build/staging-deploy')
+                    }
+                }
+            }
+        }
+    }
 }
 
 javadoc {
