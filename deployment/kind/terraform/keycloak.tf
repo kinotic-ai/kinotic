@@ -14,18 +14,11 @@ resource "helm_release" "postgresql" {
   values = [file("${path.module}/../config/postgresql/values.yaml")]
 
   # Override credentials from variables (not hardcoded in values.yaml)
-  set_sensitive {
-    name  = "global.postgresql.auth.postgresPassword"
-    value = var.keycloak_db_password
-  }
-  set_sensitive {
-    name  = "global.postgresql.auth.username"
-    value = var.keycloak_db_username
-  }
-  set_sensitive {
-    name  = "global.postgresql.auth.password"
-    value = var.keycloak_db_password
-  }
+  set_sensitive = [
+    { name = "global.postgresql.auth.postgresPassword", value = var.keycloak_db_password },
+    { name = "global.postgresql.auth.username", value = var.keycloak_db_username },
+    { name = "global.postgresql.auth.password", value = var.keycloak_db_password },
+  ]
 
   depends_on = [kind_cluster.kinotic]
 }
@@ -60,21 +53,15 @@ resource "helm_release" "keycloak" {
 
   values = [file("${path.module}/../config/keycloak/values.yaml")]
 
-  set_sensitive {
-    name  = "auth.adminPassword"
-    value = var.keycloak_admin_password
-  }
-
-  set_sensitive {
-    name  = "database.password"
-    value = var.keycloak_db_password
-  }
+  set_sensitive = [
+    { name = "auth.adminPassword", value = var.keycloak_admin_password },
+    { name = "database.password", value = var.keycloak_db_password },
+  ]
 
   # TLS — use mkcert cert when available
-  set {
-    name  = "tls.enabled"
-    value = var.use_mkcert ? "true" : "false"
-  }
+  set = [
+    { name = "tls.enabled", value = var.use_mkcert ? "true" : "false" },
+  ]
 
   depends_on = [
     helm_release.postgresql,

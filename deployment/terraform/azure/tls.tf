@@ -4,9 +4,16 @@
 
 resource "azurerm_dns_zone" "main" {
   name                = var.domain_name
-  resource_group_name = azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.global.name
   tags                = local.common_tags
 }
+
+# NOTE: Management lock removed — CanNotDelete on the DNS zone also prevents
+# cert-manager from cleaning up _acme-challenge TXT records during renewal.
+# The DNS zone is protected by:
+#   1. Being in a separate resource group (rg-kinotic-global)
+#   2. Terraform's prevent_deletion_if_contains_resources feature flag
+# For production, consider a lock with automation to temporarily remove during renewal.
 
 # ── Managed Identity for cert-manager DNS-01 challenges ───────────────────────
 # cert-manager uses this identity to create TXT records in Azure DNS
@@ -28,9 +35,8 @@ resource "azurerm_role_assignment" "cert_manager_dns_contributor" {
 # Federated credential so the cert-manager pod (via its ServiceAccount) can
 # authenticate as this managed identity without any secrets.
 resource "azurerm_federated_identity_credential" "cert_manager" {
-  name                = "cert-manager-federated"
-  resource_group_name = azurerm_resource_group.main.name
-  parent_id           = azurerm_user_assigned_identity.cert_manager.id
+  name      = "cert-manager-federated"
+  user_assigned_identity_id = azurerm_user_assigned_identity.cert_manager.id
   audience            = ["api://AzureADTokenExchange"]
   issuer              = data.azurerm_kubernetes_cluster.main.oidc_issuer_url
   subject             = "system:serviceaccount:cert-manager:cert-manager"
@@ -53,24 +59,13 @@ resource "helm_release" "cert_manager" {
   version    = "v1.16.3"
   namespace  = kubernetes_namespace.cert_manager.metadata[0].name
 
-  set {
-    name  = "installCRDs"
-    value = "true"
-  }
-
   # Enable workload identity on the cert-manager pod
-  set {
-    name  = "serviceAccount.labels.azure\\.workload\\.identity/use"
-    value = "true"
-  }
-  set {
-    name  = "serviceAccount.annotations.azure\\.workload\\.identity/client-id"
-    value = azurerm_user_assigned_identity.cert_manager.client_id
-  }
-  set {
-    name  = "podLabels.azure\\.workload\\.identity/use"
-    value = "true"
-  }
+  set = [
+    { name = "installCRDs", value = "true" },
+    { name = "serviceAccount.labels.azure\\.workload\\.identity/use", value = "true", type = "string" },
+    { name = "serviceAccount.annotations.azure\\.workload\\.identity/client-id", value = azurerm_user_assigned_identity.cert_manager.client_id },
+    { name = "podLabels.azure\\.workload\\.identity/use", value = "true", type = "string" },
+  ]
 
   wait    = true
   timeout = 300
@@ -81,69 +76,61 @@ resource "helm_release" "cert_manager" {
   ]
 }
 
-# ── Let's Encrypt ClusterIssuer (DNS-01 via Azure DNS) ────────────────────────
+# ── Let's Encrypt ClusterIssuer + Certificate ─────────────────────────────────
+# These are cert-manager CRDs — kubernetes_manifest tries to validate at plan
+# time before the cluster exists. Using kubectl apply instead.
 
-resource "kubernetes_manifest" "letsencrypt_issuer" {
-  manifest = {
-    apiVersion = "cert-manager.io/v1"
-    kind       = "ClusterIssuer"
-    metadata = {
-      name = "letsencrypt-prod"
-    }
-    spec = {
-      acme = {
-        server = "https://acme-v2.api.letsencrypt.org/directory"
-        email  = var.lets_encrypt_email
-        privateKeySecretRef = {
-          name = "letsencrypt-prod-account-key"
-        }
-        solvers = [{
-          dns01 = {
-            azureDNS = {
-              subscriptionID    = data.azurerm_client_config.tls.subscription_id
-              resourceGroupName = azurerm_resource_group.main.name
-              hostedZoneName    = var.domain_name
-              environment       = "AzurePublicCloud"
-              managedIdentity = {
-                clientID = azurerm_user_assigned_identity.cert_manager.client_id
-              }
-            }
-          }
-        }]
-      }
-    }
-  }
+resource "terraform_data" "cert_manager_issuer_and_cert" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -e
 
-  depends_on = [helm_release.cert_manager]
-}
+      echo "Creating Let's Encrypt ClusterIssuer..."
+      kubectl apply -f - <<YAML
+      apiVersion: cert-manager.io/v1
+      kind: ClusterIssuer
+      metadata:
+        name: letsencrypt-prod
+      spec:
+        acme:
+          server: https://acme-v02.api.letsencrypt.org/directory
+          email: ${var.lets_encrypt_email}
+          privateKeySecretRef:
+            name: letsencrypt-prod-account-key
+          solvers:
+            - dns01:
+                azureDNS:
+                  subscriptionID: ${data.azurerm_client_config.tls.subscription_id}
+                  resourceGroupName: ${azurerm_resource_group.global.name}
+                  hostedZoneName: ${var.domain_name}
+                  environment: AzurePublicCloud
+                  managedIdentity:
+                    clientID: ${azurerm_user_assigned_identity.cert_manager.client_id}
+      YAML
 
-# ── TLS Certificate ───────────────────────────────────────────────────────────
-# cert-manager will request a wildcard cert from Let's Encrypt and store
-# it in the specified Kubernetes secret. Auto-renews ~30 days before expiry.
+      echo "Creating TLS Certificate..."
+      kubectl apply -f - <<YAML
+      apiVersion: cert-manager.io/v1
+      kind: Certificate
+      metadata:
+        name: ${var.tls_secret_name}
+        namespace: kinotic
+      spec:
+        secretName: ${var.tls_secret_name}
+        issuerRef:
+          name: letsencrypt-prod
+          kind: ClusterIssuer
+        dnsNames:
+          - ${var.domain_name}
+          - "*.${var.domain_name}"
+      YAML
 
-resource "kubernetes_manifest" "tls_certificate" {
-  manifest = {
-    apiVersion = "cert-manager.io/v1"
-    kind       = "Certificate"
-    metadata = {
-      name      = var.tls_secret_name
-      namespace = "kinotic"
-    }
-    spec = {
-      secretName = var.tls_secret_name
-      issuerRef = {
-        name = "letsencrypt-prod"
-        kind = "ClusterIssuer"
-      }
-      dnsNames = [
-        var.domain_name,
-        "*.${var.domain_name}",
-      ]
-    }
+      echo "ClusterIssuer and Certificate created"
+    EOT
   }
 
   depends_on = [
-    kubernetes_manifest.letsencrypt_issuer,
+    helm_release.cert_manager,
     kubernetes_namespace.kinotic,
   ]
 }
@@ -177,7 +164,7 @@ resource "terraform_data" "tls_cert_ready" {
     EOT
   }
 
-  depends_on = [kubernetes_manifest.tls_certificate]
+  depends_on = [terraform_data.cert_manager_issuer_and_cert]
 }
 
 # ── Reloader ──────────────────────────────────────────────────────────────────
@@ -193,10 +180,9 @@ resource "helm_release" "reloader" {
   version    = "1.2.1"
   namespace  = "kube-system"
 
-  set {
-    name  = "reloader.watchGlobally"
-    value = "true"
-  }
+  set = [
+    { name = "reloader.watchGlobally", value = "true" },
+  ]
 
   wait = true
 

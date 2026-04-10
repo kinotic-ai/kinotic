@@ -18,11 +18,11 @@ data "kubernetes_service" "grafana" {
   depends_on = [helm_release.grafana]
 }
 
-# kinotic.ai → kinotic-server LB
-resource "azurerm_dns_a_record" "root" {
-  name                = "@"
+# portal.kinotic.ai → kinotic-server LB
+resource "azurerm_dns_a_record" "portal" {
+  name                = "portal"
   zone_name           = azurerm_dns_zone.main.name
-  resource_group_name = azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.global.name
   ttl                 = 300
   records             = [data.kubernetes_service.kinotic_server.status[0].load_balancer[0].ingress[0].ip]
 }
@@ -31,7 +31,7 @@ resource "azurerm_dns_a_record" "root" {
 resource "azurerm_dns_a_record" "grafana" {
   name                = "grafana"
   zone_name           = azurerm_dns_zone.main.name
-  resource_group_name = azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.global.name
   ttl                 = 300
   records             = [data.kubernetes_service.grafana.status[0].load_balancer[0].ingress[0].ip]
 }

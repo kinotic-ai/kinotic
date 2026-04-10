@@ -31,8 +31,8 @@ spec:
                 command: ["/bin/sh", "-c", "sleep 15"]
           readinessProbe:
             httpGet:
-              path: "{{ .Values.properties.structures.healthCheckPath }}"
-              port: {{ .Values.properties.structures.webServerPort }}
+              path: "{{ .Values.kinotic.healthCheckPath }}"
+              port: {{ .Values.kinotic.webServerPort }}
               {{- if .Values.tls.enabled }}
               scheme: HTTPS
               {{- end }}
@@ -42,8 +42,8 @@ spec:
             timeoutSeconds: 7
           startupProbe:
             httpGet:
-              path: "{{ .Values.properties.structures.healthCheckPath }}"
-              port: {{ .Values.properties.structures.webServerPort }}
+              path: "{{ .Values.kinotic.healthCheckPath }}"
+              port: {{ .Values.kinotic.webServerPort }}
               {{- if .Values.tls.enabled }}
               scheme: HTTPS
               {{- end }}
@@ -53,8 +53,8 @@ spec:
             timeoutSeconds: 7
           livenessProbe:
             httpGet:
-              path: "{{ .Values.properties.structures.healthCheckPath }}"
-              port: {{ .Values.properties.structures.webServerPort }}
+              path: "{{ .Values.kinotic.healthCheckPath }}"
+              port: {{ .Values.kinotic.webServerPort }}
               {{- if .Values.tls.enabled }}
               scheme: HTTPS
               {{- end }}
@@ -63,13 +63,13 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 7
           ports:
-            - containerPort: {{ .Values.properties.structures.webServerPort| default 9090 }} # UI PORT
-            - containerPort: {{ .Values.properties.structures.graphqlPort| default 4000 }} # GraphQL Port
-            - containerPort: {{ .Values.properties.structures.openApiPort| default 8080 }} # OpenAPI Port
-            - containerPort: {{ .Values.continuum_gateway.stomp.port| default 58503 }} # Continuum Stomp Port
-            - containerPort: {{ .Values.properties.structures.restPort| default 58504 }} # Continuum REST Port
-            - containerPort: {{ .Values.continuum.cluster.discoveryPort | default 47500 }} # Ignite Discovery Port
-            - containerPort: {{ .Values.continuum.cluster.communicationPort | default 47100 }} # Ignite Communication Port
+            - containerPort: {{ .Values.kinotic.webServerPort| default 9090 }} # UI PORT
+            - containerPort: {{ .Values.kinotic.graphqlPort| default 4000 }} # GraphQL Port
+            - containerPort: {{ .Values.kinotic.openApiPort| default 8080 }} # OpenAPI Port
+            - containerPort: {{ .Values.kinotic.stomp.port| default 58503 }} # STOMP Port
+            - containerPort: {{ .Values.kinotic.restPort| default 58504 }} # REST Port
+            - containerPort: {{ .Values.kinotic.cluster.discoveryPort | default 47500 }} # Ignite Discovery Port
+            - containerPort: {{ .Values.kinotic.cluster.communicationPort | default 47100 }} # Ignite Communication Port
           {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -84,12 +84,12 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: KINOTIC_PERSISTENCE_ELASTICUSERNAME
-              value: "{{ .Values.properties.structures.elastic.username }}"
+              value: "{{ .Values.kinotic.elastic.username }}"
             - name: KINOTIC_PERSISTENCE_ELASTICPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.properties.structures.elastic.secretName }}
-                  key: {{ .Values.properties.structures.elastic.secretKey }}
+                  name: {{ .Values.kinotic.elastic.secretName }}
+                  key: {{ .Values.kinotic.elastic.secretKey }}
           volumeMounts:
             - name: tmp-work
               mountPath: /workspace/ignite/work

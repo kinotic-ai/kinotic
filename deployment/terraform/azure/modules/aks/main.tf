@@ -23,6 +23,8 @@ variable "system_node_count" { type = number }
 variable "system_vm_size" { type = string }
 variable "os_disk_size_gb" { type = number }
 
+data "azurerm_client_config" "current" {}
+
 # ── AKS Cluster ───────────────────────────────────────────────────────────────
 
 resource "azurerm_kubernetes_cluster" "main" {
@@ -39,8 +41,8 @@ resource "azurerm_kubernetes_cluster" "main" {
   role_based_access_control_enabled = true
 
   azure_active_directory_role_based_access_control {
-    managed                = true
-    azure_rbac_enabled     = true
+    azure_rbac_enabled = true
+    tenant_id          = data.azurerm_client_config.current.tenant_id
   }
 
   # Required for cert-manager workload identity (DNS-01 challenges)
@@ -59,24 +61,27 @@ resource "azurerm_kubernetes_cluster" "main" {
     user_assigned_identity_id = var.kubelet_identity_id
   }
 
-  # Azure CNI Overlay — pods get IPs from pod_cidr, not the VNet
+  # Azure CNI Overlay with Cilium — pods get IPs from pod_cidr, not the VNet.
+  # Cilium replaces Calico as the network policy engine and enforces our
+  # NetworkPolicy resources (e.g. ES ingress restrictions).
   network_profile {
     network_plugin      = "azure"
     network_plugin_mode = "overlay"
+    network_data_plane  = "cilium"
     pod_cidr            = var.pod_cidr
     service_cidr        = var.service_cidr
     dns_service_ip      = var.dns_service_ip
-    network_policy      = "calico"
   }
 
-  # System node pool — runs kube-system workloads and the ECK operator
+  # System node pool
   default_node_pool {
-    name                = "system"
-    node_count          = var.system_node_count
-    vm_size             = var.system_vm_size
-    os_disk_size_gb     = var.os_disk_size_gb
-    vnet_subnet_id      = var.aks_subnet_id
-    zones               = ["1", "2", "3"]
+    name            = "system"
+    node_count      = var.system_node_count
+    vm_size         = var.system_vm_size
+    os_disk_size_gb = var.os_disk_size_gb
+    vnet_subnet_id  = var.aks_subnet_id
+    zones           = ["1", "2", "3"]
+
     # In beta mode, all workloads share the system pool — no taint.
     # In production, only kube-system pods schedule here.
     only_critical_addons_enabled = var.beta_mode ? false : true

@@ -26,26 +26,13 @@ resource "helm_release" "kinotic_server" {
   ]
 
   # TLS — uses the Let's Encrypt cert from cert-manager
-  set {
-    name  = "tls.enabled"
-    value = "true"
-  }
-
-  set {
-    name  = "tls.secretName"
-    value = var.tls_secret_name
-  }
-
   # Image version — no SNAPSHOT tags in production
-  set {
-    name  = "image.tag"
-    value = var.kinotic_version
-  }
-
-  set {
-    name  = "migration.image.tag"
-    value = var.kinotic_version
-  }
+  set = [
+    { name = "tls.enabled", value = "true" },
+    { name = "tls.secretName", value = var.tls_secret_name },
+    { name = "image.tag", value = var.kinotic_version },
+    { name = "migration.image.tag", value = var.kinotic_version },
+  ]
 
   depends_on = [
     helm_release.eck_stack,

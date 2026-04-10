@@ -40,6 +40,15 @@ Both KinD and Azure use the same layout:
 | `kinotic` | Kinotic server, TLS certs, Keycloak (when enabled), load generator |
 | `observability` | Loki, Alloy, Grafana |
 
+## Network Policy
+
+Both environments enforce `NetworkPolicy` resources to restrict Elasticsearch access:
+
+- **KinD** — uses kindnet (supports NetworkPolicy since KinD v0.23+)
+- **Azure** — uses Azure CNI with Cilium (`network_data_plane = "cilium"`), which replaces Calico as the network policy engine. Cilium is eBPF-based, built into AKS, and fully managed by Azure.
+
+The ES NetworkPolicy allows ingress only from the `kinotic` namespace (server + migration) and `elastic-system` (ECK operator). All other namespaces are blocked.
+
 ## Elasticsearch Storage
 
 Azure deployments use **Premium ZRS** (zone-redundant) storage for ES in both beta
@@ -98,7 +107,12 @@ terraform init && terraform apply
 # With load generator: terraform apply -var="enable_load_generator=true"
 ```
 
-See [terraform/azure/README.md](terraform/azure/README.md) for first-time setup and day-2 operations.
+Azure documentation:
+- [README.md](terraform/azure/README.md) — Deploy day guide
+- [OPS.md](terraform/azure/OPS.md) — Day-2 operations (scaling, upgrades, certs)
+- [TROUBLESHOOTING.md](terraform/azure/TROUBLESHOOTING.md) — Common errors and fixes
+- [PRODUCTION.md](terraform/azure/PRODUCTION.md) — Production readiness checklist
+- [COST.md](terraform/azure/COST.md) — Cost projections (beta ~$596/mo, production ~$2,065/mo)
 
 ## Firecracker
 
