@@ -30,6 +30,24 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+/**
+ * Sole {@link SecurityService} implementation for Kinotic OS. Handles both email/password
+ * and OIDC authentication across all three scope layers (System, Organization, Application).
+ * <p>
+ * <b>Authentication is two-phase:</b>
+ * <ol>
+ *   <li><b>Identity verification</b> — prove the caller is who they claim to be
+ *       (password check or JWT signature validation)</li>
+ *   <li><b>Scope authorization</b> — confirm a pre-created {@link IamUser} exists in the
+ *       target scope. A valid Google token alone does not grant access — the user must have
+ *       been explicitly created in the specific scope (application, organization, or system)
+ *       by an administrator.</li>
+ * </ol>
+ * This two-phase design means the same OIDC provider (e.g., one Google registration) can be
+ * shared across many applications without users in one application automatically gaining
+ * access to another. The JWT proves identity; the scoped user lookup proves authorization
+ * to access that particular scope.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -41,6 +59,16 @@ public class IamSecurityService implements SecurityService {
     private final JwksService jwksService;
     private final PasswordService passwordService;
 
+    /**
+     * Entry point for all authentication. Parses the {@code authScopeType} header to determine
+     * the target scope, then dispatches to either OIDC or email/password authentication based
+     * on the presence of a Bearer token in the Authorization header.
+     *
+     * @param authenticationInfo headers from the STOMP CONNECT frame. Required: {@code authScopeType}.
+     *                          For email/password: {@code login}, {@code passcode}.
+     *                          For OIDC: {@code Authorization: Bearer <jwt>}.
+     *                          Optional: {@code authScopeId} (null for SYSTEM scope).
+     */
     @Override
     public CompletableFuture<Participant> authenticate(Map<String, String> authenticationInfo) {
         String authScopeTypeHeader = authenticationInfo.get("authScopeType");
@@ -75,8 +103,17 @@ public class IamSecurityService implements SecurityService {
         return null;
     }
 
-    // ---- Email/Password Authentication ----
-
+    /**
+     * Authenticates a user via email and password within the target scope.
+     * <p>
+     * Flow:
+     * <ol>
+     *   <li>Look up IamUser by email + scope — fails if no pre-created user exists</li>
+     *   <li>Verify the user is enabled and is a LOCAL auth type</li>
+     *   <li>Retrieve the IamCredential and verify the bcrypt password hash</li>
+     *   <li>Return a Participant with the user's identity and scope as tenant context</li>
+     * </ol>
+     */
     private CompletableFuture<Participant> authenticateEmailPassword(AuthScope authScopeType,
                                                                      String authScopeId,
                                                                      Map<String, String> authInfo) {
@@ -133,8 +170,10 @@ public class IamSecurityService implements SecurityService {
         return new DefaultParticipant(tenantId, user.getId(), metadata, List.of());
     }
 
-    // ---- OIDC Authentication ----
-
+    /**
+     * Initiates OIDC authentication by loading the OIDC configurations enabled for the target
+     * scope, fetching the JWKS key for the token, and delegating to {@link #validateOidcToken}.
+     */
     private CompletableFuture<Participant> authenticateOidc(AuthScope authScopeType,
                                                             String authScopeId,
                                                             String authHeader) {
@@ -151,6 +190,25 @@ public class IamSecurityService implements SecurityService {
                                });
     }
 
+    /**
+     * Validates an OIDC JWT token and resolves it to a Participant within the target scope.
+     * <p>
+     * This method performs identity verification AND scope authorization as separate steps:
+     * <ol>
+     *   <li><b>Verify JWT signature</b> using the JWKS public key</li>
+     *   <li><b>Extract email</b> from standard claims (email, preferred_username, sub, upn, unique_name)</li>
+     *   <li><b>Match OIDC config</b> — find which of the scope's enabled configurations matches
+     *       the token's issuer and the user's email domain</li>
+     *   <li><b>Validate audience</b> — ensure the token's {@code aud} claim matches the config's expected audience</li>
+     *   <li><b>Validate expiration</b></li>
+     *   <li><b>Look up IamUser by email + scope</b> — this is the scope authorization gate.
+     *       A valid JWT from a trusted provider is not enough; a user record must have been
+     *       pre-created in this specific scope by an administrator. This prevents a user who
+     *       is signed up for Application A from using the same Google token to access Application B.</li>
+     *   <li><b>Link OIDC identity on first login</b> — if the user's oidcSubject is not yet set,
+     *       populate it from the JWT's {@code sub} claim so subsequent logins can be correlated</li>
+     * </ol>
+     */
     private CompletableFuture<Participant> validateOidcToken(String token,
                                                              Jwk<? extends Key> jwk,
                                                              List<OidcConfiguration> configs,
@@ -273,13 +331,21 @@ public class IamSecurityService implements SecurityService {
         return currentValue;
     }
 
+    /**
+     * Looks up a pre-created IamUser by email within the target scope. This is the enforcement
+     * point for scope isolation: even though the JWT has already been cryptographically verified,
+     * access is denied unless an administrator has explicitly created a user record for this
+     * email in this specific scope.
+     * <p>
+     * On first successful OIDC login, the user's {@code oidcSubject} and {@code oidcConfigId}
+     * are populated from the JWT so the identity link is recorded for future reference.
+     */
     private CompletableFuture<IamUser> lookupOrProvisionOidcUser(String oidcSubject,
                                                                  String email,
                                                                  OidcConfiguration config,
                                                                  AuthScope authScopeType,
                                                                  String authScopeId,
                                                                  Claims claims) {
-        // First try to find by email + scope (admin may have pre-created the user)
         return userService.findByEmailAndScope(email, authScopeType, authScopeId)
                           .thenCompose(user -> {
                               if (user == null) {
