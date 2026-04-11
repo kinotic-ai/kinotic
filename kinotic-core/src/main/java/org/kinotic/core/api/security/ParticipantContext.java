@@ -3,7 +3,7 @@ package org.kinotic.core.api.security;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import io.vertx.core.spi.context.storage.ContextLocal;
-import org.springframework.beans.factory.annotation.Qualifier;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
@@ -18,13 +18,10 @@ import org.springframework.stereotype.Component;
  * Created by Navíd Mitchell on 2026-04-11.
  */
 @Component
+@RequiredArgsConstructor
 public class ParticipantContext {
 
     private final ContextLocal<Participant> participantLocal;
-
-    public ParticipantContext(@Qualifier("participantContextLocal") ContextLocal<Participant> participantLocal) {
-        this.participantLocal = participantLocal;
-    }
 
     /**
      * Returns the {@link Participant} for the current Vert.x context, or null if none is set.
