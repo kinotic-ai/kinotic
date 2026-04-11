@@ -4,6 +4,7 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.internal.config.KinoticContextLocalProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -42,7 +43,7 @@ public class DefaultTestService implements ITestService{
         if (context == null) {
             throw new IllegalStateException("No Vert.x context available");
         }
-        Participant participant = context.getLocal(Participant.CONTEXT_LOCAL);
+        Participant participant = context.getLocal(KinoticContextLocalProvider.PARTICIPANT_LOCAL);
         if (participant == null) {
             throw new IllegalStateException("No Participant in Vert.x context");
         }
@@ -64,7 +65,7 @@ public class DefaultTestService implements ITestService{
             if (context == null) {
                 throw new IllegalStateException("No Vert.x context available in executeBlocking");
             }
-            Participant participant = context.getLocal(Participant.CONTEXT_LOCAL);
+            Participant participant = context.getLocal(KinoticContextLocalProvider.PARTICIPANT_LOCAL);
             if (participant == null) {
                 throw new IllegalStateException("No Participant in Vert.x context in executeBlocking");
             }
@@ -84,7 +85,7 @@ public class DefaultTestService implements ITestService{
         if (context == null) {
             throw new IllegalStateException("No Vert.x context available");
         }
-        Participant participant = context.getLocal(Participant.CONTEXT_LOCAL);
+        Participant participant = context.getLocal(KinoticContextLocalProvider.PARTICIPANT_LOCAL);
         if (participant == null) {
             throw new IllegalStateException("No Participant in Vert.x context");
         }

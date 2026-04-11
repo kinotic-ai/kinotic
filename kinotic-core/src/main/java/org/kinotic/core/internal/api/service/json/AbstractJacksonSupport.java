@@ -11,6 +11,7 @@ import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.internal.config.KinoticContextLocalProvider;
 import org.kinotic.core.internal.api.service.invoker.ServiceInvocationSupervisor;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.apache.commons.lang3.Validate;
@@ -110,7 +111,7 @@ public abstract class AbstractJacksonSupport {
                 if(Participant.class.isAssignableFrom(methodParameter.getParameterType())){
 
                     Context context = Vertx.currentContext();
-                    Participant participant = context != null ? context.getLocal(Participant.CONTEXT_LOCAL) : null;
+                    Participant participant = context != null ? context.getLocal(KinoticContextLocalProvider.PARTICIPANT_LOCAL) : null;
                     if(participant != null){
                         ret.add(participant);
                     }else{
