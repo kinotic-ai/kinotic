@@ -7,12 +7,10 @@ plugins {
 
 group 'org.kinotic'
 version "${kinoticVersion}"
-// When CLAUDE_CLOUD_COMPILE=true, fall back to Java 21 (cloud env lacks JDK 25)
-def toolchainVersion = Boolean.parseBoolean(System.getenv('CLAUDE_CLOUD_COMPILE')) ? 21 : 25
 java {
-    sourceCompatibility = "${toolchainVersion}"
+    sourceCompatibility = '25'
     toolchain {
-        languageVersion = JavaLanguageVersion.of(toolchainVersion)
+        languageVersion = JavaLanguageVersion.of(25)
     }
     withJavadocJar()
     withSourcesJar()
