@@ -96,38 +96,43 @@ public abstract class AbstractJacksonSupport {
                                                    .block();
 
         List<Object> ret = new LinkedList<>();
-        if(tokens!= null && !tokens.isEmpty()){
+        int tokenCount = (tokens != null) ? tokens.size() : 0;
 
-            if(tokens.size() > parameters.length){
-                // Error could be misleading / inaccurate, Should we keep the number of participant args in mind?
-                throw new IllegalArgumentException("Received too many json arguments, Expected: " + parameters.length + " Got: " +tokens.size());
+        // Count the number of parameters that come from JSON tokens (i.e. not Participant)
+        int jsonParamCount = 0;
+        for (MethodParameter p : parameters) {
+            if (!Participant.class.isAssignableFrom(p.nestedIfOptional().getParameterType())) {
+                jsonParamCount++;
             }
+        }
 
-            int tokenIdx = 0;
-            for(MethodParameter methodParameter: parameters){
+        if (tokenCount > jsonParamCount) {
+            throw new IllegalArgumentException("Received too many json arguments, Expected: " + jsonParamCount + " Got: " + tokenCount);
+        }
 
-                methodParameter = methodParameter.nestedIfOptional();
+        int tokenIdx = 0;
+        for (MethodParameter methodParameter : parameters) {
 
-                // If the parameter is a Participant we get this from the Vert.x context
-                if(Participant.class.isAssignableFrom(methodParameter.getParameterType())){
+            methodParameter = methodParameter.nestedIfOptional();
 
-                    Participant participant = participantContext.currentParticipant();
-                    if(participant != null){
-                        ret.add(participant);
-                    }else{
-                        throw new IllegalArgumentException("Participant parameter is required but no Participant is available in the Vert.x context");
-                    }
+            // If the parameter is a Participant we get this from the Vert.x context
+            if (Participant.class.isAssignableFrom(methodParameter.getParameterType())) {
 
-                }else{
-                    if(tokenIdx + 1 > tokens.size()){ // index is zero base..
-                        // Error could be misleading / inaccurate, Should we keep the number of participant args in mind?
-                        throw new IllegalArgumentException("Received too few json arguments, Expected: " + parameters.length + " Got: " +tokens.size());
-                    }
-
-                    Object arg = decodeInternal(tokens.get(tokenIdx), methodParameter);
-                    ret.add(arg);
-                    tokenIdx++;
+                Participant participant = participantContext.currentParticipant();
+                if (participant != null) {
+                    ret.add(participant);
+                } else {
+                    throw new IllegalArgumentException("Participant parameter is required but no Participant is available in the Vert.x context");
                 }
+
+            } else {
+                if (tokenIdx >= tokenCount) {
+                    throw new IllegalArgumentException("Received too few json arguments, Expected: " + jsonParamCount + " Got: " + tokenCount);
+                }
+
+                Object arg = decodeInternal(tokens.get(tokenIdx), methodParameter);
+                ret.add(arg);
+                tokenIdx++;
             }
         }
         return ret.toArray();
