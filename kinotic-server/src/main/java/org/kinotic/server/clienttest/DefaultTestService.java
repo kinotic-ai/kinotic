@@ -7,10 +7,9 @@ import org.kinotic.core.api.security.ParticipantContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -42,11 +41,7 @@ public class DefaultTestService implements ITestService{
     @WithSpan
     @Override
     public String getParticipantIdFromContext() {
-        Participant participant = participantContext.currentParticipant();
-        if (participant == null) {
-            throw new IllegalStateException("No Participant in Vert.x context");
-        }
-        return participant.getId();
+        return requireParticipant().getId();
     }
 
     @WithSpan
@@ -60,11 +55,7 @@ public class DefaultTestService implements ITestService{
     public CompletableFuture<String> getParticipantIdFromContextInExecuteBlocking() {
         CompletableFuture<String> future = new CompletableFuture<>();
         vertx.<String>executeBlocking(() -> {
-            Participant participant = participantContext.currentParticipant();
-            if (participant == null) {
-                throw new IllegalStateException("No Participant in Vert.x context in executeBlocking");
-            }
-            return participant.getId();
+            return requireParticipant().getId();
         }).onComplete(ar -> {
             if (ar.succeeded()) {
                 future.complete(ar.result());
@@ -78,13 +69,16 @@ public class DefaultTestService implements ITestService{
     @WithSpan
     @Override
     public String verifyParticipantParameterMatchesContext(Participant participant) {
-        Participant fromContext = participantContext.currentParticipant();
-        if (fromContext == null) {
-            throw new IllegalStateException("No Participant in Vert.x context");
-        }
+        Participant fromContext = requireParticipant();
         if (!participant.getId().equals(fromContext.getId())) {
             throw new IllegalStateException("Participant parameter ID (" + participant.getId()
                                             + ") does not match context ID (" + fromContext.getId() + ")");
+        }
+        if (!Objects.equals(participant.getTenantId(), fromContext.getTenantId())) {
+            throw new IllegalStateException("Participant parameter tenantId does not match context tenantId");
+        }
+        if (!Objects.equals(participant.getRoles(), fromContext.getRoles())) {
+            throw new IllegalStateException("Participant parameter roles do not match context roles");
         }
         return participant.getId();
     }
@@ -92,24 +86,111 @@ public class DefaultTestService implements ITestService{
     @WithSpan
     @Override
     public Map<String, Object> getFullParticipantFromContext() {
+        return participantToMap(requireParticipant());
+    }
+
+    @WithSpan
+    @Override
+    public Map<String, Object> getParticipantOnlyParam(Participant participant) {
+        // Also verify context matches
+        Participant fromContext = requireParticipant();
+        if (!participant.getId().equals(fromContext.getId())) {
+            throw new IllegalStateException("Participant-only param ID does not match context ID");
+        }
+        return participantToMap(participant);
+    }
+
+    @WithSpan
+    @Override
+    public CompletableFuture<String> getParticipantIdFromMonoChain() {
+        return Mono.fromCallable(() -> requireParticipant().getId())
+                   .map(id -> "mono:" + id)
+                   .toFuture();
+    }
+
+    @WithSpan
+    @Override
+    public CompletableFuture<String> getParticipantIdFromNestedExecuteBlocking() {
+        CompletableFuture<String> future = new CompletableFuture<>();
+        vertx.<String>executeBlocking(() -> {
+            // First level: read participant
+            String firstId = requireParticipant().getId();
+
+            // Second level: nested executeBlocking
+            return vertx.<String>executeBlocking(() -> {
+                String nestedId = requireParticipant().getId();
+                if (!firstId.equals(nestedId)) {
+                    throw new IllegalStateException("Nested executeBlocking participant ID (" + nestedId
+                                                    + ") does not match outer ID (" + firstId + ")");
+                }
+                return nestedId;
+            }).toCompletionStage().toCompletableFuture().get();
+        }).onComplete(ar -> {
+            if (ar.succeeded()) {
+                future.complete(ar.result());
+            } else {
+                future.completeExceptionally(ar.cause());
+            }
+        });
+        return future;
+    }
+
+    @WithSpan
+    @Override
+    public List<String> getParticipantIdRepeated(int count) {
+        List<String> ids = new ArrayList<>(count);
+        String firstId = requireParticipant().getId();
+        ids.add(firstId);
+        for (int i = 1; i < count; i++) {
+            String id = requireParticipant().getId();
+            if (!firstId.equals(id)) {
+                throw new IllegalStateException("Participant ID changed during invocation at iteration " + i
+                                                + ": expected " + firstId + " got " + id);
+            }
+            ids.add(id);
+        }
+        return ids;
+    }
+
+    @WithSpan
+    @Override
+    public String participantFirstArgWithContext(Participant participant, String suffix) {
+        Participant fromContext = requireParticipant();
+        if (!participant.getId().equals(fromContext.getId())) {
+            throw new IllegalStateException("First-arg participant ID does not match context ID");
+        }
+        return participant.getId() + suffix;
+    }
+
+    @WithSpan
+    @Override
+    public String participantLastArgWithContext(String prefix, Participant participant) {
+        Participant fromContext = requireParticipant();
+        if (!participant.getId().equals(fromContext.getId())) {
+            throw new IllegalStateException("Last-arg participant ID does not match context ID");
+        }
+        return prefix + participant.getId();
+    }
+
+    private String internalGetParticipantId() {
+        return requireParticipant().getId();
+    }
+
+    private Participant requireParticipant() {
         Participant participant = participantContext.currentParticipant();
         if (participant == null) {
             throw new IllegalStateException("No Participant in Vert.x context");
         }
+        return participant;
+    }
+
+    private Map<String, Object> participantToMap(Participant participant) {
         Map<String, Object> result = new HashMap<>();
         result.put("id", participant.getId());
         result.put("tenantId", participant.getTenantId());
         result.put("roles", participant.getRoles());
         result.put("metadata", participant.getMetadata());
         return result;
-    }
-
-    private String internalGetParticipantId() {
-        Participant participant = participantContext.currentParticipant();
-        if (participant == null) {
-            throw new IllegalStateException("No Participant in Vert.x context");
-        }
-        return participant.getId();
     }
 
 }

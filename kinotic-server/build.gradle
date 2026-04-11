@@ -24,6 +24,8 @@ dependencies {
 
 	implementation 'io.vertx:vertx-core'
 
+	implementation 'io.projectreactor:reactor-core'
+
 }
 
 tasks.named('processResources') {

@@ -5,6 +5,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Version;
 import org.kinotic.core.api.security.Participant;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -44,5 +45,36 @@ public interface ITestService {
      * Returns a map of all Participant fields from the context (id, tenantId, roles, metadata)
      */
     Map<String, Object> getFullParticipantFromContext();
+
+    /**
+     * Method with only a Participant parameter, returns the participant's info.
+     * Exercises the zero-JSON-args code path.
+     */
+    Map<String, Object> getParticipantOnlyParam(Participant participant);
+
+    /**
+     * Reads Participant inside a Mono reactive chain
+     */
+    CompletableFuture<String> getParticipantIdFromMonoChain();
+
+    /**
+     * Reads Participant inside a nested vertx.executeBlocking() call
+     */
+    CompletableFuture<String> getParticipantIdFromNestedExecuteBlocking();
+
+    /**
+     * Reads the Participant N times in a loop to verify consistency within a single invocation
+     */
+    List<String> getParticipantIdRepeated(int count);
+
+    /**
+     * Participant as first arg with a suffix, verifies context matches param
+     */
+    String participantFirstArgWithContext(Participant participant, String suffix);
+
+    /**
+     * Participant as last arg with a prefix, verifies context matches param
+     */
+    String participantLastArgWithContext(String prefix, Participant participant);
 
 }
