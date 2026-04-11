@@ -54,9 +54,7 @@ public class DefaultTestService implements ITestService{
     @Override
     public CompletableFuture<String> getParticipantIdFromContextInExecuteBlocking() {
         CompletableFuture<String> future = new CompletableFuture<>();
-        vertx.<String>executeBlocking(() -> {
-            return requireParticipant().getId();
-        }).onComplete(ar -> {
+        vertx.executeBlocking(() -> requireParticipant().getId()).onComplete(ar -> {
             if (ar.succeeded()) {
                 future.complete(ar.result());
             } else {
@@ -112,12 +110,12 @@ public class DefaultTestService implements ITestService{
     @Override
     public CompletableFuture<String> getParticipantIdFromNestedExecuteBlocking() {
         CompletableFuture<String> future = new CompletableFuture<>();
-        vertx.<String>executeBlocking(() -> {
+        vertx.executeBlocking(() -> {
             // First level: read participant
             return requireParticipant().getId();
         }).compose(firstId -> {
             // Second level: nested executeBlocking, chained non-blocking
-            return vertx.<String>executeBlocking(() -> {
+            return vertx.executeBlocking(() -> {
                 String nestedId = requireParticipant().getId();
                 if (!firstId.equals(nestedId)) {
                     throw new IllegalStateException("Nested executeBlocking participant ID (" + nestedId
