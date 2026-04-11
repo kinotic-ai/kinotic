@@ -13,6 +13,21 @@ CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-domain:compileJava
 
 This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing and frontend support.
 
+If JDK 25 is not already present, download it first (Oracle CDN is in the egress allowlist):
+
+```bash
+curl -sL "https://download.oracle.com/java/25/latest/jdk-25_linux-x64_bin.tar.gz" -o /tmp/jdk25.tar.gz
+cd /tmp && tar xzf jdk25.tar.gz
+```
+
+Then build with JDK 21 as the daemon (has proxy CA certs) and JDK 25 for compilation:
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-domain:compileJava \
+  -Porg.gradle.java.installations.paths=/tmp/jdk-25.0.2
+```
+
 ## Java Conventions
 
 Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true)`, `@NoArgsConstructor`, `@RequiredArgsConstructor`, `@Slf4j`, `@Data`, `@Builder`. Prefer `@RequiredArgsConstructor` over hand-written constructors for dependency injection. Use `@Slf4j` instead of manual `LoggerFactory.getLogger()` calls.
