@@ -242,47 +242,48 @@ public class ServiceInvocationSupervisor {
 
     private void processInvocationRequest(Event<byte[]> incomingEvent) {
 
-        // Inject the Participant into the Vert.x context so service methods can access it
-        String participantJson = incomingEvent.metadata().get(EventConstants.SENDER_HEADER);
-        if (participantJson != null) {
-            try {
-                Participant participant = jsonMapper.readValue(participantJson, Participant.class);
-                ParticipantContext.setCurrentParticipant(participant);
-            } catch (JacksonException e) {
-                log.warn("Failed to deserialize Participant from event metadata", e);
-            }
-        }
-
         // Ensure there is an argument resolver that can handle the incoming data
         if (argumentResolver.supports(incomingEvent)) {
 
-                // Resolve arguments based on handler method and incoming data
-                HandlerMethod handlerMethod = methodMap.get(incomingEvent.cri().path());
-                if(handlerMethod == null){
-                    throw new RpcMissingMethodException("No method could be resolved for methodId " + incomingEvent.cri().path());
-                }
+            // Resolve arguments based on handler method and incoming data
+            HandlerMethod handlerMethod = methodMap.get(incomingEvent.cri().path());
+            if(handlerMethod == null){
+                throw new RpcMissingMethodException("No method could be resolved for methodId " + incomingEvent.cri().path());
+            }
 
-                if (!returnValueConverter.supports(incomingEvent.metadata(),
-                                                   handlerMethod.getReturnType().getParameterType())) {
-                    throw new IllegalStateException("No compatible ReturnValueConverter found");
-                }
+            if (!returnValueConverter.supports(incomingEvent.metadata(),
+                                               handlerMethod.getReturnType().getParameterType())) {
+                throw new IllegalStateException("No compatible ReturnValueConverter found");
+            }
 
-                Object[] arguments = argumentResolver.resolveArguments(incomingEvent, handlerMethod);
-
-                // separate try catch since we do not want to log invocation errors
-                Object result = null;
-                boolean error = false;
+            // Inject the Participant into the Vert.x context so service methods can access it
+            String participantJson = incomingEvent.metadata().get(EventConstants.SENDER_HEADER);
+            if (participantJson != null) {
                 try {
-                    // Invoke the method and then handle the result
-                    result = handlerMethod.invoke(arguments);
-                } catch (Exception e) {
-                    error = true;
-                    handleException(incomingEvent.metadata(), e);
+                    Participant participant = jsonMapper.readValue(participantJson, Participant.class);
+                    ParticipantContext.setCurrentParticipant(participant);
+                } catch (JacksonException e) {
+                    log.warn("Failed to deserialize Participant from event metadata", e);
                 }
+            }
 
-                if (!error) {
-                    processMethodInvocationResult(incomingEvent, handlerMethod, result);
-                }
+
+            Object[] arguments = argumentResolver.resolveArguments(incomingEvent, handlerMethod);
+
+            // separate try catch since we do not want to log invocation errors
+            Object result = null;
+            boolean error = false;
+            try {
+                // Invoke the method and then handle the result
+                result = handlerMethod.invoke(arguments);
+            } catch (Exception e) {
+                error = true;
+                handleException(incomingEvent.metadata(), e);
+            }
+
+            if (!error) {
+                processMethodInvocationResult(incomingEvent, handlerMethod, result);
+            }
 
         } else {
             throw new IllegalStateException("No compatible ArgumentResolver found");
