@@ -107,6 +107,19 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     updated DATE
 );
 
+-- Pending sign-ups awaiting email verification
+CREATE TABLE IF NOT EXISTS kinotic_pending_signup (
+    id KEYWORD,
+    orgName KEYWORD,
+    orgDescription TEXT,
+    email KEYWORD,
+    displayName KEYWORD,
+    passwordHash KEYWORD NOT INDEXED,
+    verificationToken KEYWORD,
+    expiresAt DATE,
+    created DATE
+);
+
 -- Seed the KinoticSystem singleton
 INSERT INTO kinotic_system (id) VALUES ('kinotic-system') WITH REFRESH;
 
