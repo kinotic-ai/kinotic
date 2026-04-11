@@ -11,6 +11,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.exceptions.RpcMissingMethodException;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.internal.config.KinoticVertxConfig;
 import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.ServiceFunction;
 import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
@@ -264,7 +265,7 @@ public class ServiceInvocationSupervisor {
                         Participant participant = jsonMapper.readValue(participantJson, Participant.class);
                         Context context = Vertx.currentContext();
                         if (context != null) {
-                            context.putLocal(KinoticVertxConfig.PARTICIPANT_LOCAL, participant);
+                            KinoticVertxConfig.ParticipantContext.setParticipant(context, participant);
                         }
                     } catch (JacksonException e) {
                         log.warn("Failed to deserialize Participant from event metadata", e);

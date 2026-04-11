@@ -1,5 +1,6 @@
 package org.kinotic.core.internal.config;
 
+import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxBuilder;
 import io.vertx.core.VertxOptions;
@@ -28,10 +29,41 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class KinoticVertxConfig {
 
     /**
-     * {@link ContextLocal} key for storing the {@link Participant} on the Vert.x context.
-     * Registered here so it is captured before any {@link Vertx} instance is created.
+     * Provides access to the {@link Participant} associated with the current Vert.x context.
+     * The {@link Participant} is set by the service invocation infrastructure before a service method is called,
+     * and is available for the duration of the invocation including nested method calls and {@code vertx.executeBlocking()} blocks.
+     * <p>
+     * Defined as a static inner class of {@link KinoticVertxConfig} to ensure the {@link ContextLocal} is registered
+     * before the {@link Vertx} instance is created.
      */
-    public static final ContextLocal<Participant> PARTICIPANT_LOCAL = ContextLocal.registerLocal(Participant.class);
+    public static class ParticipantContext {
+
+        private static final ContextLocal<Participant> CONTEXT_LOCAL = ContextLocal.registerLocal(Participant.class);
+
+        /**
+         * Returns the {@link Participant} for the current Vert.x context, or null if none is set.
+         *
+         * @return the current {@link Participant} or null
+         */
+        public static Participant currentParticipant() {
+            Context context = Vertx.currentContext();
+            if (context != null) {
+                return context.getLocal(CONTEXT_LOCAL);
+            }
+            return null;
+        }
+
+        /**
+         * Sets the {@link Participant} on the given Vert.x context.
+         *
+         * @param context the Vert.x {@link Context}
+         * @param participant the {@link Participant} to set
+         */
+        public static void setParticipant(Context context, Participant participant) {
+            context.putLocal(CONTEXT_LOCAL, participant);
+        }
+
+    }
 
     @Bean
     @ConditionalOnProperty(
