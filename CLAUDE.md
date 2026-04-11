@@ -2,31 +2,30 @@
 
 ## Building in Claude Code Cloud
 
-When running in the Claude Code cloud environment, always prefix Gradle commands with `CLAUDE_CLOUD_COMPILE=true`. This single flag:
-- Skips jreleaser/publishing (unavailable in cloud due to Gradle plugin portal restrictions)
-- Excludes kinotic-frontend (node-gradle plugin also unavailable)
-- Falls back to Java 21 toolchain (cloud environment lacks JDK 25)
-
-```bash
-CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-domain:compileJava
-```
-
-This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing and frontend support.
-
-If JDK 25 is not already present, download it first (Oracle CDN is in the egress allowlist):
+The cloud environment has JDK 21 installed but the project requires JDK 25. Download it first if not already present (Oracle CDN is in the egress allowlist):
 
 ```bash
 curl -sL "https://download.oracle.com/java/25/latest/jdk-25_linux-x64_bin.tar.gz" -o /tmp/jdk25.tar.gz
 cd /tmp && tar xzf jdk25.tar.gz
 ```
 
-Then build with JDK 21 as the daemon (has proxy CA certs) and JDK 25 for compilation:
+Then build with JDK 21 as the Gradle daemon (has the egress proxy CA certs) and JDK 25 for compilation:
 
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-domain:compileJava \
+./gradlew :kinotic-core:compileJava \
   -Porg.gradle.java.installations.paths=/tmp/jdk-25.0.2
 ```
+
+If the build fails resolving jreleaser or node-gradle plugins (403 from the Gradle plugin portal), add `CLAUDE_CLOUD_COMPILE=true`. This swaps to convention plugins that omit jreleaser/publishing and excludes kinotic-frontend:
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-core:compileJava \
+  -Porg.gradle.java.installations.paths=/tmp/jdk-25.0.2
+```
+
+This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing and frontend support.
 
 ## Java Conventions
 
