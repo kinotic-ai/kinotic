@@ -10,8 +10,11 @@ import java.util.Date;
 
 /**
  * Represents an authenticated identity at any scope layer in the IAM system.
- * Each user is scoped to exactly one layer ({@link AuthScope}) and is unique by email within that scope.
+ * Each user is scoped to exactly one layer and is unique by email within that scope.
  * Users must be pre-created by an administrator before they can authenticate.
+ * <p>
+ * The {@code authScopeType} is a plain String to keep the scope system extensible —
+ * customers using kinotic-core for RPC without the full IAM stack can define their own scope types.
  */
 @Getter
 @Setter
@@ -45,14 +48,14 @@ public class IamUser implements Identifiable<String> {
     private String oidcConfigId;
 
     /**
-     * The IAM scope layer this user belongs to: SYSTEM, ORGANIZATION, or APPLICATION.
-     * @see AuthScope
+     * The scope layer this user belongs to. Well-known values are "SYSTEM", "ORGANIZATION",
+     * and "APPLICATION", but custom values are allowed for extensibility.
      */
-    private AuthScope authScopeType;
+    private String authScopeType;
 
     /**
-     * The scope identifier: {@code null} for SYSTEM, the organization ID for ORGANIZATION,
-     * or the application ID for APPLICATION.
+     * The scope identifier: "kinotic" for SYSTEM, the organization ID for ORGANIZATION,
+     * or the application ID for APPLICATION. Always set — never null.
      */
     private String authScopeId;
 

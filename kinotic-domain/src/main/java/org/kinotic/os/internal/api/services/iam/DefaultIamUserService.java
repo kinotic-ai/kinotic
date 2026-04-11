@@ -7,7 +7,6 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
-import org.kinotic.os.api.model.iam.AuthScope;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.services.iam.IamUserService;
@@ -49,31 +48,25 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     }
 
     @Override
-    public CompletableFuture<IamUser> findByEmailAndScope(String email, AuthScope authScopeType, String authScopeId) {
+    public CompletableFuture<IamUser> findByEmailAndScope(String email, String authScopeType, String authScopeId) {
+        Validate.notNull(authScopeId, "authScopeId cannot be null");
         return crudServiceTemplate.search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builder -> builder
                 .query(q -> q.bool(BoolQuery.of(b -> {
                     b.filter(TermQuery.of(t -> t.field("email").value(email))._toQuery());
-                    b.filter(TermQuery.of(t -> t.field("authScopeType").value(authScopeType.name()))._toQuery());
-                    if (authScopeId != null) {
-                        b.filter(TermQuery.of(t -> t.field("authScopeId").value(authScopeId))._toQuery());
-                    } else {
-                        b.mustNot(mn -> mn.exists(e -> e.field("authScopeId")));
-                    }
+                    b.filter(TermQuery.of(t -> t.field("authScopeType").value(authScopeType))._toQuery());
+                    b.filter(TermQuery.of(t -> t.field("authScopeId").value(authScopeId))._toQuery());
                     return b;
                 }))))
                 .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
     @Override
-    public CompletableFuture<Page<IamUser>> findByScope(AuthScope authScopeType, String authScopeId, Pageable pageable) {
+    public CompletableFuture<Page<IamUser>> findByScope(String authScopeType, String authScopeId, Pageable pageable) {
+        Validate.notNull(authScopeId, "authScopeId cannot be null");
         return crudServiceTemplate.search(indexName, pageable, type, builder -> builder
                 .query(q -> q.bool(BoolQuery.of(b -> {
-                    b.filter(TermQuery.of(t -> t.field("authScopeType").value(authScopeType.name()))._toQuery());
-                    if (authScopeId != null) {
-                        b.filter(TermQuery.of(t -> t.field("authScopeId").value(authScopeId))._toQuery());
-                    } else {
-                        b.mustNot(mn -> mn.exists(e -> e.field("authScopeId")));
-                    }
+                    b.filter(TermQuery.of(t -> t.field("authScopeType").value(authScopeType))._toQuery());
+                    b.filter(TermQuery.of(t -> t.field("authScopeId").value(authScopeId))._toQuery());
                     return b;
                 }))));
     }

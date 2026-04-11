@@ -13,7 +13,6 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.internal.api.security.JwksService;
-import org.kinotic.os.api.model.iam.AuthScope;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
@@ -67,22 +66,18 @@ public class IamSecurityService implements SecurityService {
      * @param authenticationInfo headers from the STOMP CONNECT frame. Required: {@code authScopeType}.
      *                          For email/password: {@code login}, {@code passcode}.
      *                          For OIDC: {@code Authorization: Bearer <jwt>}.
-     *                          Optional: {@code authScopeId} (null for SYSTEM scope).
+     *                          Required: {@code authScopeId} (e.g., "kinotic" for SYSTEM).
      */
     @Override
     public CompletableFuture<Participant> authenticate(Map<String, String> authenticationInfo) {
-        String authScopeTypeHeader = authenticationInfo.get("authScopeType");
+        String authScopeType = authenticationInfo.get("authScopeType");
         String authScopeId = authenticationInfo.get("authScopeId");
 
-        if (authScopeTypeHeader == null) {
+        if (authScopeType == null) {
             return CompletableFuture.failedFuture(new AuthenticationException("authScopeType header is required"));
         }
-
-        AuthScope authScopeType;
-        try {
-            authScopeType = AuthScope.valueOf(authScopeTypeHeader);
-        } catch (IllegalArgumentException e) {
-            return CompletableFuture.failedFuture(new AuthenticationException("Invalid authScopeType: " + authScopeTypeHeader));
+        if (authScopeId == null) {
+            return CompletableFuture.failedFuture(new AuthenticationException("authScopeId header is required"));
         }
 
         String authHeader = getAuthorizationHeader(authenticationInfo);
@@ -114,7 +109,7 @@ public class IamSecurityService implements SecurityService {
      *   <li>Return a Participant with the user's identity and scope as tenant context</li>
      * </ol>
      */
-    private CompletableFuture<Participant> authenticateEmailPassword(AuthScope authScopeType,
+    private CompletableFuture<Participant> authenticateEmailPassword(String authScopeType,
                                                                      String authScopeId,
                                                                      Map<String, String> authInfo) {
         String email = authInfo.get("login");
@@ -153,28 +148,23 @@ public class IamSecurityService implements SecurityService {
     }
 
     private Participant createParticipantFromUser(IamUser user) {
-        String tenantId = user.getAuthScopeId() != null ? user.getAuthScopeId() : "system";
-
         Map<String, String> metadata = new HashMap<>(Map.of(
                 ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
                 "email", user.getEmail(),
                 "displayName", user.getDisplayName() != null ? user.getDisplayName() : user.getEmail(),
-                "authScopeType", user.getAuthScopeType().name(),
+                "authScopeType", user.getAuthScopeType(),
+                "authScopeId", user.getAuthScopeId(),
                 "authType", user.getAuthType().name()
         ));
 
-        if (user.getAuthScopeId() != null) {
-            metadata.put("authScopeId", user.getAuthScopeId());
-        }
-
-        return new DefaultParticipant(tenantId, user.getId(), metadata, List.of());
+        return new DefaultParticipant(user.getAuthScopeId(), user.getId(), metadata, List.of());
     }
 
     /**
      * Initiates OIDC authentication by loading the OIDC configurations enabled for the target
      * scope, fetching the JWKS key for the token, and delegating to {@link #validateOidcToken}.
      */
-    private CompletableFuture<Participant> authenticateOidc(AuthScope authScopeType,
+    private CompletableFuture<Participant> authenticateOidc(String authScopeType,
                                                             String authScopeId,
                                                             String authHeader) {
         String token = authHeader.substring(7); // Strip "Bearer "
@@ -212,7 +202,7 @@ public class IamSecurityService implements SecurityService {
     private CompletableFuture<Participant> validateOidcToken(String token,
                                                              Jwk<? extends Key> jwk,
                                                              List<OidcConfiguration> configs,
-                                                             AuthScope authScopeType,
+                                                             String authScopeType,
                                                              String authScopeId) {
         try {
             Key key = jwk.toKey();
@@ -343,7 +333,7 @@ public class IamSecurityService implements SecurityService {
     private CompletableFuture<IamUser> lookupOrProvisionOidcUser(String oidcSubject,
                                                                  String email,
                                                                  OidcConfiguration config,
-                                                                 AuthScope authScopeType,
+                                                                 String authScopeType,
                                                                  String authScopeId,
                                                                  Claims claims) {
         return userService.findByEmailAndScope(email, authScopeType, authScopeId)
@@ -370,7 +360,6 @@ public class IamSecurityService implements SecurityService {
     }
 
     private Participant createOidcParticipant(IamUser user, List<String> roles, Claims claims) {
-        String tenantId = user.getAuthScopeId() != null ? user.getAuthScopeId() : "system";
         String name = claims.get("name", String.class);
         String preferredUsername = claims.get("preferred_username", String.class);
 
@@ -378,17 +367,14 @@ public class IamSecurityService implements SecurityService {
                 ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
                 "email", user.getEmail(),
                 "displayName", name != null ? name : (preferredUsername != null ? preferredUsername : user.getEmail()),
-                "authScopeType", user.getAuthScopeType().name(),
+                "authScopeType", user.getAuthScopeType(),
+                "authScopeId", user.getAuthScopeId(),
                 "authType", AuthType.OIDC.name(),
                 "iss", claims.getIssuer(),
                 "aud", claims.getAudience().stream().collect(Collectors.joining(", "))
         ));
 
-        if (user.getAuthScopeId() != null) {
-            metadata.put("authScopeId", user.getAuthScopeId());
-        }
-
-        return new DefaultParticipant(tenantId, user.getId(), metadata, roles);
+        return new DefaultParticipant(user.getAuthScopeId(), user.getId(), metadata, roles);
     }
 
 }
