@@ -114,9 +114,9 @@ public class DefaultTestService implements ITestService{
         CompletableFuture<String> future = new CompletableFuture<>();
         vertx.<String>executeBlocking(() -> {
             // First level: read participant
-            String firstId = requireParticipant().getId();
-
-            // Second level: nested executeBlocking
+            return requireParticipant().getId();
+        }).compose(firstId -> {
+            // Second level: nested executeBlocking, chained non-blocking
             return vertx.<String>executeBlocking(() -> {
                 String nestedId = requireParticipant().getId();
                 if (!firstId.equals(nestedId)) {
@@ -124,7 +124,7 @@ public class DefaultTestService implements ITestService{
                                                     + ") does not match outer ID (" + firstId + ")");
                 }
                 return nestedId;
-            }).toCompletionStage().toCompletableFuture().get();
+            });
         }).onComplete(ar -> {
             if (ar.succeeded()) {
                 future.complete(ar.result());
