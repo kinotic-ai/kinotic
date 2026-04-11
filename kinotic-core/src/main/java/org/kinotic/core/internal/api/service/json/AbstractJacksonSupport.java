@@ -6,6 +6,7 @@ package org.kinotic.core.internal.api.service.json;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
@@ -40,6 +41,7 @@ import java.util.Map;
  *
  * Created by Navid Mitchell on 2019-04-08.
  */
+@Slf4j
 public abstract class AbstractJacksonSupport {
 
     @Getter
@@ -81,6 +83,20 @@ public abstract class AbstractJacksonSupport {
     protected Object[] createJavaObjectsFromJsonEvent(Event<byte[]> event, MethodParameter[] parameters, boolean dataInArray){
         Validate.notNull(event, "event must not be null");
         Validate.notNull(parameters, "parameters must not be null");
+
+        // Inject the Participant into the Vert.x context so service methods can access it via context.getLocal()
+        String participantJson = event.metadata().get(EventConstants.SENDER_HEADER);
+        if (participantJson != null) {
+            try {
+                Participant participant = jsonMapper.readValue(participantJson, Participant.class);
+                Context context = Vertx.currentContext();
+                if (context != null) {
+                    context.putLocal(KinoticContextLocalProvider.PARTICIPANT_LOCAL, participant);
+                }
+            } catch (JacksonException e) {
+                log.warn("Failed to deserialize Participant from event metadata", e);
+            }
+        }
 
         // TODO: remove the use of the Spring Tokenizer since I have found out about the performance issues with reactor
         // Should we use the JacksonTokenizer borrowed from spring? We are not really taking advantage of the claimed non blocking or the Flux themselves
