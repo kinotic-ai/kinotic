@@ -1,9 +1,9 @@
 package org.kinotic.server.clienttest;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.ParticipantContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -38,7 +38,11 @@ public class DefaultTestService implements ITestService{
     @WithSpan
     @Override
     public String getParticipantIdFromContext() {
-        Participant participant = ParticipantContext.currentParticipant();
+        Context context = Vertx.currentContext();
+        if (context == null) {
+            throw new IllegalStateException("No Vert.x context available");
+        }
+        Participant participant = context.getLocal(Participant.CONTEXT_LOCAL);
         if (participant == null) {
             throw new IllegalStateException("No Participant in Vert.x context");
         }
@@ -56,9 +60,13 @@ public class DefaultTestService implements ITestService{
     public CompletableFuture<String> getParticipantIdFromContextInExecuteBlocking() {
         CompletableFuture<String> future = new CompletableFuture<>();
         vertx.<String>executeBlocking(() -> {
-            Participant participant = ParticipantContext.currentParticipant();
+            Context context = Vertx.currentContext();
+            if (context == null) {
+                throw new IllegalStateException("No Vert.x context available in executeBlocking");
+            }
+            Participant participant = context.getLocal(Participant.CONTEXT_LOCAL);
             if (participant == null) {
-                throw new IllegalStateException("No Participant in Vert.x context");
+                throw new IllegalStateException("No Participant in Vert.x context in executeBlocking");
             }
             return participant.getId();
         }).onComplete(ar -> {
@@ -72,7 +80,11 @@ public class DefaultTestService implements ITestService{
     }
 
     private String internalGetParticipantId() {
-        Participant participant = ParticipantContext.currentParticipant();
+        Context context = Vertx.currentContext();
+        if (context == null) {
+            throw new IllegalStateException("No Vert.x context available");
+        }
+        Participant participant = context.getLocal(Participant.CONTEXT_LOCAL);
         if (participant == null) {
             throw new IllegalStateException("No Participant in Vert.x context");
         }

@@ -3,13 +3,14 @@
 package org.kinotic.core.internal.api.service.json;
 
 
+import io.vertx.core.Context;
+import io.vertx.core.Vertx;
 import lombok.Getter;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.ParticipantContext;
 import org.kinotic.core.internal.api.service.invoker.ServiceInvocationSupervisor;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.apache.commons.lang3.Validate;
@@ -108,7 +109,8 @@ public abstract class AbstractJacksonSupport {
                 // If the parameter is a Participant we get this from the Vert.x context
                 if(Participant.class.isAssignableFrom(methodParameter.getParameterType())){
 
-                    Participant participant = ParticipantContext.currentParticipant();
+                    Context context = Vertx.currentContext();
+                    Participant participant = context != null ? context.getLocal(Participant.CONTEXT_LOCAL) : null;
                     if(participant != null){
                         ret.add(participant);
                     }else{

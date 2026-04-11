@@ -1,5 +1,7 @@
 package org.kinotic.core.api.security;
 
+import io.vertx.core.spi.context.storage.ContextLocal;
+
 import java.util.List;
 import java.util.Map;
 
@@ -9,6 +11,13 @@ import java.util.Map;
  * Created by Navíd Mitchell 🤪on 6/16/23.
  */
 public interface Participant {
+
+    /**
+     * {@link ContextLocal} key for storing the {@link Participant} on the Vert.x context.
+     * Set by the service invocation infrastructure before a service method is called.
+     */
+    ContextLocal<Participant> CONTEXT_LOCAL = ContextLocal.registerLocal(Participant.class);
+
     /**
      * The identity of the participant
      *

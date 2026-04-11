@@ -4,13 +4,13 @@
 package org.kinotic.core.internal.api.service.invoker;
 
 import io.opentelemetry.api.OpenTelemetry;
+import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.exceptions.RpcMissingMethodException;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.ParticipantContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.ServiceFunction;
 import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
@@ -261,12 +261,14 @@ public class ServiceInvocationSupervisor {
             if (participantJson != null) {
                 try {
                     Participant participant = jsonMapper.readValue(participantJson, Participant.class);
-                    ParticipantContext.setCurrentParticipant(participant);
+                    Context context = Vertx.currentContext();
+                    if (context != null) {
+                        context.putLocal(Participant.CONTEXT_LOCAL, participant);
+                    }
                 } catch (JacksonException e) {
                     log.warn("Failed to deserialize Participant from event metadata", e);
                 }
             }
-
 
             Object[] arguments = argumentResolver.resolveArguments(incomingEvent, handlerMethod);
 
