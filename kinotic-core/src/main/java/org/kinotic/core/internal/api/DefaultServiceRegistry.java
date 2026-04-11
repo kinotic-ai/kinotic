@@ -33,6 +33,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  *
@@ -64,6 +65,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     private Vertx vertx; //TODO: move thread scheduling and execution functionality into Continuum API such as Scheduling Service ect..
     @Autowired
     private OpenTelemetry openTelemetry;
+    @Autowired
+    private JsonMapper jsonMapper;
 
     @Override
     public Future<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
@@ -90,7 +93,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                 eventBusService,
                                                 reactiveAdapterRegistry,
                                                 vertx,
-                                                openTelemetry);
+                                                openTelemetry,
+                                                jsonMapper);
 
                                         serviceInvocationSupervisor
                                                 .start()
