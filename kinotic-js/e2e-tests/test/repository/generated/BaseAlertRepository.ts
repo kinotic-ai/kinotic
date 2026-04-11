@@ -11,7 +11,7 @@ export class BaseAlertRepository extends EntityRepository<Alert> {
   private readonly shouldValidate: boolean
 
   constructor(shouldValidate: boolean = true, entitiesRepository?: IEntitiesRepository) {
-    super('openapi', 'Alert', entitiesRepository)
+    super('pyEpiAfRQQ', 'Alert', entitiesRepository)
     this.shouldValidate = shouldValidate
   }
 
