@@ -13,7 +13,7 @@ export class BasePersonRepository extends EntityRepository<Person> {
   private readonly shouldValidate: boolean
 
   constructor(shouldValidate: boolean = true, entitiesRepository?: IEntitiesRepository) {
-    super('KHuUoiczec', 'Person', entitiesRepository)
+    super('openapi', 'Person', entitiesRepository)
     this.shouldValidate = shouldValidate
   }
 
