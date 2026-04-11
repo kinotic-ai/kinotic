@@ -1,8 +1,8 @@
 package org.kinotic.core.api.security;
 
 import io.vertx.core.Context;
-import io.vertx.core.ContextLocal;
 import io.vertx.core.Vertx;
+import io.vertx.core.spi.context.storage.ContextLocal;
 
 /**
  * Provides access to the {@link Participant} associated with the current Vert.x context.
@@ -25,7 +25,7 @@ public final class ParticipantContext {
     public static Participant currentParticipant() {
         Context context = Vertx.currentContext();
         if (context != null) {
-            return context.getLocal(PARTICIPANT_LOCAL);
+            return PARTICIPANT_LOCAL.get(context);
         }
         return null;
     }
@@ -38,7 +38,7 @@ public final class ParticipantContext {
     public static void setCurrentParticipant(Participant participant) {
         Context context = Vertx.currentContext();
         if (context != null) {
-            context.putLocal(PARTICIPANT_LOCAL, participant);
+            PARTICIPANT_LOCAL.put(context, participant);
         }
     }
 
