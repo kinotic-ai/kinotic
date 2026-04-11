@@ -172,6 +172,22 @@ public class DefaultTestService implements ITestService{
         return prefix + participant.getId();
     }
 
+    @WithSpan
+    @Override
+    public CompletableFuture<String> verifyParticipantInMonoChain(Participant participant) {
+        return Mono.fromCallable(() -> {
+            Participant fromContext = requireParticipant();
+            if (!participant.getId().equals(fromContext.getId())) {
+                throw new IllegalStateException("Mono chain: param ID (" + participant.getId()
+                                                + ") does not match context ID (" + fromContext.getId() + ")");
+            }
+            if (!Objects.equals(participant.getRoles(), fromContext.getRoles())) {
+                throw new IllegalStateException("Mono chain: param roles do not match context roles");
+            }
+            return fromContext.getId();
+        }).toFuture();
+    }
+
     private String internalGetParticipantId() {
         return requireParticipant().getId();
     }

@@ -77,4 +77,9 @@ public interface ITestService {
      */
     String participantLastArgWithContext(String prefix, Participant participant);
 
+    /**
+     * Takes Participant as a param and reads from context inside a Mono chain, verifies they match
+     */
+    CompletableFuture<String> verifyParticipantInMonoChain(Participant participant);
+
 }

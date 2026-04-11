@@ -30,6 +30,8 @@ export interface ITestService {
 
     participantLastArgWithContext(prefix: string): Promise<string>;
 
+    verifyParticipantInMonoChain(): Promise<string>;
+
 }
 
 export class TestService implements ITestService {
@@ -95,6 +97,10 @@ export class TestService implements ITestService {
 
     participantLastArgWithContext(prefix: string): Promise<string> {
         return this.serviceProxy.invoke('participantLastArgWithContext', [prefix])
+    }
+
+    verifyParticipantInMonoChain(): Promise<string> {
+        return this.serviceProxy.invoke('verifyParticipantInMonoChain')
     }
 }
 

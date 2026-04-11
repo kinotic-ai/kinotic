@@ -127,6 +127,12 @@ describe('Kinotic RPC Tests', () => {
         }
     })
 
+    it('should verify participant param matches context inside Mono chain', async () => {
+        const result = await TEST_SERVICE.verifyParticipantInMonoChain()
+        expect(result).toBeDefined()
+        expect(result.length).toBeGreaterThan(0)
+    })
+
     it('should maintain participant across mixed concurrent requests', async () => {
         const [contextId, dispatchId, blockingId, monoId, fullParticipant] = await Promise.all([
             TEST_SERVICE.getParticipantIdFromContext(),
