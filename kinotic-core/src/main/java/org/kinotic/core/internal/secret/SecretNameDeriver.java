@@ -31,8 +31,7 @@ public class SecretNameDeriver {
         if (settings != null && settings.getMasterKey() != null) {
             this.masterKey = Base64.getDecoder().decode(settings.getMasterKey());
         } else {
-            log.warn("No secret storage master key configured, using insecure default key");
-            this.masterKey = new byte[32];
+            throw new IllegalStateException("No secret storage master key configured");
         }
     }
 

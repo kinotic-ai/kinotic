@@ -88,19 +88,19 @@ public class IamSecurityService implements SecurityService {
         }
 
         return userService.findByEmailAndScope(email, authScopeType, authScopeId)
-                .thenCompose(user -> {
-                    if (user == null) {
-                        return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
-                    }
-                    if (!user.isEnabled()) {
-                        return CompletableFuture.failedFuture(new AuthenticationException("User account is disabled"));
-                    }
-                    if (user.getAuthType() != AuthType.LOCAL) {
-                        return CompletableFuture.failedFuture(new AuthenticationException("User is not a local account"));
-                    }
-                    return credentialStore.findById(user.getId())
-                            .thenCompose(credential -> verifyPasswordAndCreateParticipant(user, credential, password));
-                });
+                          .thenCompose(user -> {
+                              if (user == null) {
+                                  return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
+                              }
+                              if (!user.isEnabled()) {
+                                  return CompletableFuture.failedFuture(new AuthenticationException("User account is disabled"));
+                              }
+                              if (user.getAuthType() != AuthType.LOCAL) {
+                                  return CompletableFuture.failedFuture(new AuthenticationException("User is not a local account"));
+                              }
+                              return credentialStore.findById(user.getId())
+                                                    .thenCompose(credential -> verifyPasswordAndCreateParticipant(user, credential, password));
+                          });
     }
 
     private CompletableFuture<Participant> verifyPasswordAndCreateParticipant(IamUser user,
@@ -141,21 +141,21 @@ public class IamSecurityService implements SecurityService {
         String token = authHeader.substring(7); // Strip "Bearer "
 
         return oidcConfigLookup.getConfigsForScope(authScopeType, authScopeId)
-                .thenCompose(configs -> {
-                    if (configs == null || configs.isEmpty()) {
-                        return CompletableFuture.failedFuture(
-                                new AuthenticationException("No OIDC configurations found for scope " + authScopeType + "/" + authScopeId));
-                    }
-                    return jwksService.getKeyFromToken(token)
-                            .thenCompose(jwk -> validateOidcToken(token, jwk, configs, authScopeType, authScopeId));
-                });
+                               .thenCompose(configs -> {
+                                   if (configs == null || configs.isEmpty()) {
+                                       return CompletableFuture.failedFuture(
+                                               new AuthenticationException("No OIDC configurations found for scope " + authScopeType + "/" + authScopeId));
+                                   }
+                                   return jwksService.getKeyFromToken(token)
+                                                     .thenCompose(jwk -> validateOidcToken(token, jwk, configs, authScopeType, authScopeId));
+                               });
     }
 
     private CompletableFuture<Participant> validateOidcToken(String token,
-                                                              Jwk<? extends Key> jwk,
-                                                              List<OidcConfiguration> configs,
-                                                              AuthScope authScopeType,
-                                                              String authScopeId) {
+                                                             Jwk<? extends Key> jwk,
+                                                             List<OidcConfiguration> configs,
+                                                             AuthScope authScopeType,
+                                                             String authScopeId) {
         try {
             Key key = jwk.toKey();
             if (!(key instanceof PublicKey publicKey)) {
@@ -163,10 +163,10 @@ public class IamSecurityService implements SecurityService {
             }
 
             Claims claims = Jwts.parser()
-                    .verifyWith(publicKey)
-                    .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
+                                .verifyWith(publicKey)
+                                .build()
+                                .parseSignedClaims(token)
+                                .getPayload();
 
             // Extract email from standard claims
             String email = extractEmail(claims);
@@ -228,13 +228,13 @@ public class IamSecurityService implements SecurityService {
             return null;
         }
         return configs.stream()
-                .filter(config -> issuer.equals(config.getAuthority()))
-                .filter(config -> emailDomain == null
-                        || config.getDomains() == null
-                        || config.getDomains().isEmpty()
-                        || config.getDomains().contains(emailDomain))
-                .findFirst()
-                .orElse(null);
+                      .filter(config -> issuer.equals(config.getAuthority()))
+                      .filter(config -> emailDomain == null
+                              || config.getDomains() == null
+                              || config.getDomains().isEmpty()
+                              || config.getDomains().contains(emailDomain))
+                      .findFirst()
+                      .orElse(null);
     }
 
     private List<String> extractRoles(OidcConfiguration config, Claims claims) {
@@ -274,33 +274,33 @@ public class IamSecurityService implements SecurityService {
     }
 
     private CompletableFuture<IamUser> lookupOrProvisionOidcUser(String oidcSubject,
-                                                                  String email,
-                                                                  OidcConfiguration config,
-                                                                  AuthScope authScopeType,
-                                                                  String authScopeId,
-                                                                  Claims claims) {
+                                                                 String email,
+                                                                 OidcConfiguration config,
+                                                                 AuthScope authScopeType,
+                                                                 String authScopeId,
+                                                                 Claims claims) {
         // First try to find by email + scope (admin may have pre-created the user)
         return userService.findByEmailAndScope(email, authScopeType, authScopeId)
-                .thenCompose(user -> {
-                    if (user == null) {
-                        return CompletableFuture.<IamUser>failedFuture(
-                                new AuthenticationException("No user found for email " + email
-                                        + " in scope " + authScopeType + "/" + authScopeId
-                                        + ". User must be pre-created by an administrator."));
-                    }
-                    if (!user.isEnabled()) {
-                        return CompletableFuture.<IamUser>failedFuture(
-                                new AuthenticationException("User account is disabled"));
-                    }
-                    // If oidcSubject is not yet set, populate it on first OIDC login
-                    if (user.getOidcSubject() == null) {
-                        user.setOidcSubject(oidcSubject);
-                        user.setOidcConfigId(config.getId());
-                        user.setAuthType(AuthType.OIDC);
-                        return userService.save(user);
-                    }
-                    return CompletableFuture.completedFuture(user);
-                });
+                          .thenCompose(user -> {
+                              if (user == null) {
+                                  return CompletableFuture.<IamUser>failedFuture(
+                                          new AuthenticationException("No user found for email " + email
+                                                                              + " in scope " + authScopeType + "/" + authScopeId
+                                                                              + ". User must be pre-created by an administrator."));
+                              }
+                              if (!user.isEnabled()) {
+                                  return CompletableFuture.<IamUser>failedFuture(
+                                          new AuthenticationException("User account is disabled"));
+                              }
+                              // If oidcSubject is not yet set, populate it on first OIDC login
+                              if (user.getOidcSubject() == null) {
+                                  user.setOidcSubject(oidcSubject);
+                                  user.setOidcConfigId(config.getId());
+                                  user.setAuthType(AuthType.OIDC);
+                                  return userService.save(user);
+                              }
+                              return CompletableFuture.completedFuture(user);
+                          });
     }
 
     private Participant createOidcParticipant(IamUser user, List<String> roles, Claims claims) {
