@@ -9,12 +9,16 @@ import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.exceptions.RpcMissingMethodException;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.ParticipantContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.ServiceFunction;
 import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
 import org.kinotic.core.internal.api.event.MetadataTextMapGetter;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
 import org.kinotic.core.internal.utils.EventUtil;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -49,6 +53,7 @@ public class ServiceInvocationSupervisor {
     private final ArgumentResolver argumentResolver;
     private final EventBusService eventBusService;
     private final ExceptionConverter exceptionConverter;
+    private final JsonMapper jsonMapper;
     private final Map<String, HandlerMethod> methodMap;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final ReturnValueConverter returnValueConverter;
@@ -69,7 +74,8 @@ public class ServiceInvocationSupervisor {
                                        EventBusService eventBusService,
                                        ReactiveAdapterRegistry reactiveAdapterRegistry,
                                        Vertx vertx,
-                                       OpenTelemetry openTelemetry) {
+                                       OpenTelemetry openTelemetry,
+                                       JsonMapper jsonMapper) {
 
         Validate.notNull(serviceDescriptor, "ServiceDescriptor must not be null");
         Validate.notNull(instanceProvider, "ServiceFunctionInstanceProvider must not be null");
@@ -80,12 +86,14 @@ public class ServiceInvocationSupervisor {
         Validate.notNull(reactiveAdapterRegistry, "reactiveAdapterRegistry must not be null");
         Validate.notNull(vertx, "vertx must not be null");
         Validate.notNull(openTelemetry, "OpenTelemetry must not be null");
+        Validate.notNull(jsonMapper, "jsonMapper must not be null");
 
         this.serviceDescriptor = serviceDescriptor;
         this.argumentResolver = argumentResolver;
         this.returnValueConverter = returnValueConverter;
         this.exceptionConverter = exceptionConverter;
         this.eventBusService = eventBusService;
+        this.jsonMapper = jsonMapper;
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
         this.vertx = vertx;
         this.openTelemetry = openTelemetry;
@@ -234,7 +242,16 @@ public class ServiceInvocationSupervisor {
 
     private void processInvocationRequest(Event<byte[]> incomingEvent) {
 
-        // TODO: add support for context propagation
+        // Inject the Participant into the Vert.x context so service methods can access it
+        String participantJson = incomingEvent.metadata().get(EventConstants.SENDER_HEADER);
+        if (participantJson != null) {
+            try {
+                Participant participant = jsonMapper.readValue(participantJson, Participant.class);
+                ParticipantContext.setCurrentParticipant(participant);
+            } catch (JacksonException e) {
+                log.warn("Failed to deserialize Participant from event metadata", e);
+            }
+        }
 
         // Ensure there is an argument resolver that can handle the incoming data
         if (argumentResolver.supports(incomingEvent)) {

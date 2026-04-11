@@ -8,6 +8,12 @@ export interface ITestService {
 
     getTestUUID(): Promise<string>;
 
+    getParticipantIdFromContext(): Promise<string>;
+
+    getParticipantIdFromContextViaDispatch(): Promise<string>;
+
+    getParticipantIdFromContextInExecuteBlocking(): Promise<string>;
+
 }
 
 export class TestService implements ITestService {
@@ -29,6 +35,18 @@ export class TestService implements ITestService {
 
     getTestUUID(): Promise<string> {
         return this.serviceProxy.invoke('getTestUUID')
+    }
+
+    getParticipantIdFromContext(): Promise<string> {
+        return this.serviceProxy.invoke('getParticipantIdFromContext')
+    }
+
+    getParticipantIdFromContextViaDispatch(): Promise<string> {
+        return this.serviceProxy.invoke('getParticipantIdFromContextViaDispatch')
+    }
+
+    getParticipantIdFromContextInExecuteBlocking(): Promise<string> {
+        return this.serviceProxy.invoke('getParticipantIdFromContextInExecuteBlocking')
     }
 }
 

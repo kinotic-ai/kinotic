@@ -9,6 +9,7 @@ import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.ParticipantContext;
 import org.kinotic.core.internal.api.service.invoker.ServiceInvocationSupervisor;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.apache.commons.lang3.Validate;
@@ -104,21 +105,14 @@ public abstract class AbstractJacksonSupport {
 
                 methodParameter = methodParameter.nestedIfOptional();
 
-                // FIXME: when the invocation is local this happens for no reason. If the event stays on the local bus we shouldn't do this..
-                // if the parameter is a participant we get this from the even metadata
+                // If the parameter is a Participant we get this from the Vert.x context
                 if(Participant.class.isAssignableFrom(methodParameter.getParameterType())){
 
-                    String participantJson = event.metadata().get(EventConstants.SENDER_HEADER);
-
-                    if(participantJson != null){
-                        try {
-                            Participant participant = jsonMapper.readValue(participantJson, Participant.class);
-                            ret.add(participant);
-                        } catch (JacksonException e) {
-                            throw new DecodingException("JSON decoding error: " + e.getOriginalMessage(), e);
-                        }
+                    Participant participant = ParticipantContext.currentParticipant();
+                    if(participant != null){
+                        ret.add(participant);
                     }else{
-                        throw new IllegalArgumentException("Participant parameter is required but no Participant is available");
+                        throw new IllegalArgumentException("Participant parameter is required but no Participant is available in the Vert.x context");
                     }
 
                 }else{

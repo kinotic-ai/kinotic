@@ -33,4 +33,22 @@ describe('Kinotic RPC Tests', () => {
         await expect(NON_EXISTENT_SERVICE.probablyNotHome()).rejects.toThrowError('(NO_HANDLERS,-1) No handlers for address srv://com.namespace.NonExistentService')
     })
 
+    it('should get participant id from vert.x context', async () => {
+        const result = await TEST_SERVICE.getParticipantIdFromContext()
+        expect(result).toBeDefined()
+        expect(result.length).toBeGreaterThan(0)
+    })
+
+    it('should get participant id from vert.x context via dispatch', async () => {
+        const result = await TEST_SERVICE.getParticipantIdFromContextViaDispatch()
+        expect(result).toBeDefined()
+        expect(result.length).toBeGreaterThan(0)
+    })
+
+    it('should get participant id from vert.x context in executeBlocking', async () => {
+        const result = await TEST_SERVICE.getParticipantIdFromContextInExecuteBlocking()
+        expect(result).toBeDefined()
+        expect(result.length).toBeGreaterThan(0)
+    })
+
 })
