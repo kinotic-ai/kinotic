@@ -13,7 +13,6 @@ import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.ParticipantContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -35,8 +34,8 @@ public class KinoticVertxConfig {
     private static final ContextLocal<Participant> PARTICIPANT_LOCAL = ContextLocal.registerLocal(Participant.class);
 
     @Bean
-    public ParticipantContext participantContext() {
-        return new ParticipantContext(PARTICIPANT_LOCAL);
+    public ContextLocal<Participant> participantContextLocal() {
+        return PARTICIPANT_LOCAL;
     }
 
     @Bean

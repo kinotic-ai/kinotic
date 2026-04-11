@@ -51,4 +51,36 @@ describe('Kinotic RPC Tests', () => {
         expect(result.length).toBeGreaterThan(0)
     })
 
+    it('should have participant parameter match context participant', async () => {
+        const result = await TEST_SERVICE.verifyParticipantParameterMatchesContext()
+        expect(result).toBeDefined()
+        expect(result.length).toBeGreaterThan(0)
+    })
+
+    it('should get full participant with all fields from context', async () => {
+        const result = await TEST_SERVICE.getFullParticipantFromContext()
+        expect(result).toBeDefined()
+        expect(result.id).toBeDefined()
+        expect(result.id.length).toBeGreaterThan(0)
+        expect(result.roles).toBeDefined()
+        expect(Array.isArray(result.roles)).toBe(true)
+        expect(result.roles.length).toBeGreaterThan(0)
+    })
+
+    it('should maintain participant context isolation across concurrent requests', async () => {
+        const results = await Promise.all([
+            TEST_SERVICE.getParticipantIdFromContext(),
+            TEST_SERVICE.getParticipantIdFromContext(),
+            TEST_SERVICE.getParticipantIdFromContext(),
+            TEST_SERVICE.getParticipantIdFromContext(),
+            TEST_SERVICE.getParticipantIdFromContext(),
+        ])
+        // All should succeed and return the same participant id (same authenticated user)
+        expect(results.length).toBe(5)
+        const firstId = results[0]
+        for (const id of results) {
+            expect(id).toBe(firstId)
+        }
+    })
+
 })

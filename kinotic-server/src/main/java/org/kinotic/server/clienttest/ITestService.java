@@ -3,7 +3,9 @@ package org.kinotic.server.clienttest;
 
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Version;
+import org.kinotic.core.api.security.Participant;
 
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -32,5 +34,15 @@ public interface ITestService {
      * Reads Participant from context inside vertx.executeBlocking()
      */
     CompletableFuture<String> getParticipantIdFromContextInExecuteBlocking();
+
+    /**
+     * Takes a Participant as a method parameter and also reads from context, verifies they match
+     */
+    String verifyParticipantParameterMatchesContext(Participant participant);
+
+    /**
+     * Returns a map of all Participant fields from the context (id, tenantId, roles, metadata)
+     */
+    Map<String, Object> getFullParticipantFromContext();
 
 }

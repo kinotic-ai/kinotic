@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -71,6 +73,35 @@ public class DefaultTestService implements ITestService{
             }
         });
         return future;
+    }
+
+    @WithSpan
+    @Override
+    public String verifyParticipantParameterMatchesContext(Participant participant) {
+        Participant fromContext = participantContext.currentParticipant();
+        if (fromContext == null) {
+            throw new IllegalStateException("No Participant in Vert.x context");
+        }
+        if (!participant.getId().equals(fromContext.getId())) {
+            throw new IllegalStateException("Participant parameter ID (" + participant.getId()
+                                            + ") does not match context ID (" + fromContext.getId() + ")");
+        }
+        return participant.getId();
+    }
+
+    @WithSpan
+    @Override
+    public Map<String, Object> getFullParticipantFromContext() {
+        Participant participant = participantContext.currentParticipant();
+        if (participant == null) {
+            throw new IllegalStateException("No Participant in Vert.x context");
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", participant.getId());
+        result.put("tenantId", participant.getTenantId());
+        result.put("roles", participant.getRoles());
+        result.put("metadata", participant.getMetadata());
+        return result;
     }
 
     private String internalGetParticipantId() {

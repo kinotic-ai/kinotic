@@ -14,6 +14,10 @@ export interface ITestService {
 
     getParticipantIdFromContextInExecuteBlocking(): Promise<string>;
 
+    verifyParticipantParameterMatchesContext(): Promise<string>;
+
+    getFullParticipantFromContext(): Promise<Record<string, any>>;
+
 }
 
 export class TestService implements ITestService {
@@ -47,6 +51,14 @@ export class TestService implements ITestService {
 
     getParticipantIdFromContextInExecuteBlocking(): Promise<string> {
         return this.serviceProxy.invoke('getParticipantIdFromContextInExecuteBlocking')
+    }
+
+    verifyParticipantParameterMatchesContext(): Promise<string> {
+        return this.serviceProxy.invoke('verifyParticipantParameterMatchesContext')
+    }
+
+    getFullParticipantFromContext(): Promise<Record<string, any>> {
+        return this.serviceProxy.invoke('getFullParticipantFromContext')
     }
 }
 
