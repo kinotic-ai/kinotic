@@ -22,6 +22,10 @@ dependencies {
 	implementation 'io.jsonwebtoken:jjwt-impl'
 	implementation 'io.jsonwebtoken:jjwt-jackson'
 
+	implementation 'io.vertx:vertx-core'
+
+	implementation 'io.projectreactor:reactor-core'
+
 }
 
 tasks.named('processResources') {
