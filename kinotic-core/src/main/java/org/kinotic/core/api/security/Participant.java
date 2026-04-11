@@ -24,6 +24,25 @@ public interface Participant {
     String getTenantId();
 
     /**
+     * The scope layer this participant authenticated against.
+     * Well-known values are "SYSTEM", "ORGANIZATION", and "APPLICATION",
+     * but custom values are allowed for extensibility.
+     *
+     * @return the auth scope type, or null if not using scoped authentication
+     */
+    String getAuthScopeType();
+
+    /**
+     * The identifier of the specific scope this participant belongs to.
+     * For example, "kinotic" for system scope, an organization ID, or an application ID.
+     * Together with {@link #getAuthScopeType()}, uniquely identifies which user pool
+     * this participant was authenticated from.
+     *
+     * @return the auth scope id, or null if not using scoped authentication
+     */
+    String getAuthScopeId();
+
+    /**
      * Metadata is a map of key value pairs that can be used to store additional information about a participant
      *
      * @return a map of key value pairs

@@ -8,7 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.os.api.model.Application;
 import org.kinotic.os.api.model.KinoticSystem;
 import org.kinotic.os.api.model.Organization;
-import org.kinotic.os.api.model.iam.AuthScope;
+import org.kinotic.os.api.model.iam.AuthScopeType;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.springframework.stereotype.Component;
 
@@ -29,9 +29,9 @@ public class OidcConfigLookup {
     private final ElasticsearchAsyncClient esAsyncClient;
 
     public CompletableFuture<List<OidcConfiguration>> getConfigsForScope(String authScopeType, String authScopeId) {
-        AuthScope scope;
+        AuthScopeType scope;
         try {
-            scope = AuthScope.valueOf(authScopeType);
+            scope = AuthScopeType.valueOf(authScopeType);
         } catch (IllegalArgumentException e) {
             return CompletableFuture.failedFuture(
                     new IllegalArgumentException("Unsupported authScopeType for OIDC lookup: " + authScopeType));

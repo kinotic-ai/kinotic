@@ -152,12 +152,11 @@ public class IamSecurityService implements SecurityService {
                 ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
                 "email", user.getEmail(),
                 "displayName", user.getDisplayName() != null ? user.getDisplayName() : user.getEmail(),
-                "authScopeType", user.getAuthScopeType(),
-                "authScopeId", user.getAuthScopeId(),
                 "authType", user.getAuthType().name()
         ));
 
-        return new DefaultParticipant(user.getAuthScopeId(), user.getId(), metadata, List.of());
+        return new DefaultParticipant(user.getAuthScopeId(), user.getId(),
+                user.getAuthScopeType(), user.getAuthScopeId(), metadata, List.of());
     }
 
     /**
@@ -367,14 +366,13 @@ public class IamSecurityService implements SecurityService {
                 ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
                 "email", user.getEmail(),
                 "displayName", name != null ? name : (preferredUsername != null ? preferredUsername : user.getEmail()),
-                "authScopeType", user.getAuthScopeType(),
-                "authScopeId", user.getAuthScopeId(),
                 "authType", AuthType.OIDC.name(),
                 "iss", claims.getIssuer(),
                 "aud", claims.getAudience().stream().collect(Collectors.joining(", "))
         ));
 
-        return new DefaultParticipant(user.getAuthScopeId(), user.getId(), metadata, roles);
+        return new DefaultParticipant(user.getAuthScopeId(), user.getId(),
+                user.getAuthScopeType(), user.getAuthScopeId(), metadata, roles);
     }
 
 }

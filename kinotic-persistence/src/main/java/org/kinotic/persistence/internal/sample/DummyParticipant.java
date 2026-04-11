@@ -23,6 +23,8 @@ public class DummyParticipant implements Participant {
 
     private String tenantId = "kinotic";
     private String id = "dummy";
+    private String authScopeType = null;
+    private String authScopeId = null;
     private Map<String, String> metadata = Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
                                                   ParticipantConstants.PARTICIPANT_TYPE_USER);
     private List<String> roles = List.of("DUMMY");
