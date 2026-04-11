@@ -81,13 +81,13 @@ public class OidcConfiguration implements Identifiable<String> {
     private String silentRedirectUri;
 
     /**
-     * Email domains this provider handles (e.g., ["gmail.com", "company.com"]).
+     * Email domains this provider handles (e.g., ["gmail.com", "company.com"]), or null for any domain.
      * Used to match incoming JWTs to the correct OIDC configuration by the user's email domain.
      */
     private List<String> domains;
 
     /**
-     * Expected {@code aud} claim value in JWTs. Typically the OAuth client ID.
+     * Expected {@code aud} claim value in JWTs, or null for any audience. Typically the OAuth client ID.
      */
     private String audience;
 
