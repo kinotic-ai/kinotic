@@ -265,7 +265,7 @@ public class ServiceInvocationSupervisor {
                         Participant participant = jsonMapper.readValue(participantJson, Participant.class);
                         Context context = Vertx.currentContext();
                         if (context != null) {
-                            KinoticVertxConfig.ParticipantContext.setParticipant(context, participant);
+                            KinoticVertxConfig.setParticipant(context, participant);
                         }
                     } catch (JacksonException e) {
                         log.warn("Failed to deserialize Participant from event metadata", e);

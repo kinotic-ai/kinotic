@@ -28,41 +28,31 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 @Configuration
 public class KinoticVertxConfig {
 
+    private static final ContextLocal<Participant> PARTICIPANT_LOCAL = ContextLocal.registerLocal(Participant.class);
+
     /**
-     * Provides access to the {@link Participant} associated with the current Vert.x context.
+     * Returns the {@link Participant} for the current Vert.x context, or null if none is set.
      * The {@link Participant} is set by the service invocation infrastructure before a service method is called,
      * and is available for the duration of the invocation including nested method calls and {@code vertx.executeBlocking()} blocks.
-     * <p>
-     * Defined as a static inner class of {@link KinoticVertxConfig} to ensure the {@link ContextLocal} is registered
-     * before the {@link Vertx} instance is created.
+     *
+     * @return the current {@link Participant} or null
      */
-    public static class ParticipantContext {
-
-        private static final ContextLocal<Participant> CONTEXT_LOCAL = ContextLocal.registerLocal(Participant.class);
-
-        /**
-         * Returns the {@link Participant} for the current Vert.x context, or null if none is set.
-         *
-         * @return the current {@link Participant} or null
-         */
-        public static Participant currentParticipant() {
-            Context context = Vertx.currentContext();
-            if (context != null) {
-                return context.getLocal(CONTEXT_LOCAL);
-            }
-            return null;
+    public static Participant currentParticipant() {
+        Context context = Vertx.currentContext();
+        if (context != null) {
+            return context.getLocal(PARTICIPANT_LOCAL);
         }
+        return null;
+    }
 
-        /**
-         * Sets the {@link Participant} on the given Vert.x context.
-         *
-         * @param context the Vert.x {@link Context}
-         * @param participant the {@link Participant} to set
-         */
-        public static void setParticipant(Context context, Participant participant) {
-            context.putLocal(CONTEXT_LOCAL, participant);
-        }
-
+    /**
+     * Sets the {@link Participant} on the given Vert.x context.
+     *
+     * @param context the Vert.x {@link Context}
+     * @param participant the {@link Participant} to set
+     */
+    public static void setParticipant(Context context, Participant participant) {
+        context.putLocal(PARTICIPANT_LOCAL, participant);
     }
 
     @Bean

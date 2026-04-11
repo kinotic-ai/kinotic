@@ -3,7 +3,7 @@ package org.kinotic.server.clienttest;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Vertx;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.internal.config.KinoticVertxConfig.ParticipantContext;
+import org.kinotic.core.internal.config.KinoticVertxConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -38,7 +38,7 @@ public class DefaultTestService implements ITestService{
     @WithSpan
     @Override
     public String getParticipantIdFromContext() {
-        Participant participant = ParticipantContext.currentParticipant();
+        Participant participant = KinoticVertxConfig.currentParticipant();
         if (participant == null) {
             throw new IllegalStateException("No Participant in Vert.x context");
         }
@@ -56,7 +56,7 @@ public class DefaultTestService implements ITestService{
     public CompletableFuture<String> getParticipantIdFromContextInExecuteBlocking() {
         CompletableFuture<String> future = new CompletableFuture<>();
         vertx.<String>executeBlocking(() -> {
-            Participant participant = ParticipantContext.currentParticipant();
+            Participant participant = KinoticVertxConfig.currentParticipant();
             if (participant == null) {
                 throw new IllegalStateException("No Participant in Vert.x context in executeBlocking");
             }
@@ -72,7 +72,7 @@ public class DefaultTestService implements ITestService{
     }
 
     private String internalGetParticipantId() {
-        Participant participant = ParticipantContext.currentParticipant();
+        Participant participant = KinoticVertxConfig.currentParticipant();
         if (participant == null) {
             throw new IllegalStateException("No Participant in Vert.x context");
         }

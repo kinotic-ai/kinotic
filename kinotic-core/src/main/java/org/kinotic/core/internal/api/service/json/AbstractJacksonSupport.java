@@ -10,7 +10,7 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.internal.api.service.invoker.ServiceInvocationSupervisor;
-import org.kinotic.core.internal.config.KinoticVertxConfig.ParticipantContext;
+import org.kinotic.core.internal.config.KinoticVertxConfig;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.apache.commons.lang3.Validate;
 import org.springframework.core.GenericTypeResolver;
@@ -108,7 +108,7 @@ public abstract class AbstractJacksonSupport {
                 // If the parameter is a Participant we get this from the Vert.x context
                 if(Participant.class.isAssignableFrom(methodParameter.getParameterType())){
 
-                    Participant participant = ParticipantContext.currentParticipant();
+                    Participant participant = KinoticVertxConfig.currentParticipant();
                     if(participant != null){
                         ret.add(participant);
                     }else{
