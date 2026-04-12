@@ -223,7 +223,7 @@ import { InputText, Textarea, Button, Tabs, TabList, Tab, TabPanels, TabPanel, D
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { Kinotic } from '@kinotic-ai/core'
 import { useToast } from 'primevue/usetoast'
-import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEntityService'
+import { DataInsightsWidgetEntityRepository } from '@/services/DataInsightsWidgetEntityRepository'
 import type { DataInsightsWidget } from '@/domain/DataInsightsWidget'
 import SavedWidgetItem from '@/components/SavedWidgetItem.vue'
 import { isDark as darkMode } from '@/composables/useTheme'
@@ -244,7 +244,7 @@ const enableMCP = ref(false)
 const loading = ref(false)
 const activeTab = ref(0)
 
-const widgetService = new DataInsightsWidgetEntityService()
+const widgetService = new DataInsightsWidgetEntityRepository()
 const savedWidgets = ref<DataInsightsWidget[]>([])
 const loadingWidgets = ref(false)
 const showDeleteDialog = ref(false)
