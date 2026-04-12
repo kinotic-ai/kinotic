@@ -7,7 +7,7 @@ import Column from 'primevue/column'
 import { Pageable, type Page, Order, Direction, type Identifiable } from '@kinotic-ai/core'
 import { Kinotic } from '@kinotic-ai/core'
 import { EntityDefinition, type IEntityDefinitionService } from '@kinotic-ai/os-api'
-import { type IEntitiesService } from '@kinotic-ai/persistence'
+import { type IEntitiesRepository } from '@kinotic-ai/persistence'
 import { createDebug } from '@/util/debug'
 
 const debug = createDebug('entity-list')
@@ -86,7 +86,7 @@ class EntityList extends Vue {
   private _pendingResizeEvent: MouseEvent | null = null
   private _pendingResizeKind: 'column' | 'nested' | 'deep' | 'veryDeep' | 'ultraDeep' | null = null
 
-  entitiesService: IEntitiesService = Kinotic.entities
+  entitiesService: IEntitiesRepository = Kinotic.entities
   structureService: IEntityDefinitionService = Kinotic.entityDefinitions
 
   options = {

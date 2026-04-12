@@ -3,7 +3,6 @@ import { computed, reactive, ref } from 'vue'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
-import ToggleButton from 'primevue/togglebutton'
 import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@/util/debug'
 import type {Application} from "@kinotic-ai/os-api";
@@ -15,8 +14,6 @@ const debug = createDebug('application-sidebar');
 interface ApplicationForm {
   name: string
   description: string
-  graphql: boolean
-  openapi: boolean
 }
 
 const props = defineProps<{ visible: boolean }>()
@@ -30,9 +27,7 @@ const toast = useToast()
 
 const form = reactive<ApplicationForm>({
   name: '',
-  description: '',
-  graphql: true,
-  openapi: false
+  description: ''
 })
 
 const loading = ref(false)
@@ -62,8 +57,6 @@ function sanitizeId(name: string): string {
 function resetForm(): void {
   form.name = ''
   form.description = ''
-  form.graphql = true
-  form.openapi = false
 }
 
 async function handleSubmit(): Promise<void> {
@@ -72,8 +65,6 @@ async function handleSubmit(): Promise<void> {
     const applicationData: Application = {
       id: sanitizeId(form.name),
       description: form.description,
-      enableGraphQL: form.graphql,
-      enableOpenAPI: form.openapi,
       updated: null
     }
 
@@ -137,25 +128,6 @@ function handleClose(): void {
           <div class="mb-5">
             <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Description</label>
             <Textarea v-model="form.description" :class="inputClass" rows="3" />
-          </div>
-          <div>
-            <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">API configuration</label>
-            <div :class="['w-full divide-y rounded-2xl border', isDark ? 'border-[#2f2f35] divide-[#2f2f35] bg-[#171717]' : 'border-[#E6E7EB] divide-[#E6E7EB]']">
-              <div class="flex items-center justify-between p-4">
-                <div class="flex items-center gap-2">
-                  <img src="@/assets/graphql.svg" />
-                  <span :class="['text-sm font-normal', isDark ? 'text-[#f4f4f5]' : 'text-[#3F424D]']">GraphQL</span>
-                </div>
-                <ToggleButton v-model="form.graphql" onLabel="On" offLabel="Off" />
-              </div>
-              <div class="flex items-center justify-between p-4">
-                <div class="flex items-center gap-2">
-                  <img src="@/assets/scalar.svg" />
-                  <span :class="['text-sm font-normal', isDark ? 'text-[#f4f4f5]' : 'text-[#3F424D]']">OpenAPI</span>
-                </div>
-                <ToggleButton v-model="form.openapi" onLabel="On" offLabel="Off" />
-              </div>
-            </div>
           </div>
         </div>
         <div class="flex justify-end gap-2 mt-6">
