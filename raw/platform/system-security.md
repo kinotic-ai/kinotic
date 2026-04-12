@@ -2,17 +2,210 @@
 
 > Platform-level security architecture in Kinotic OS.
 
-<alert type="info">
-
-System security documentation coming soon.
-
-</alert>
-
 ## Overview
 
-Kinotic OS implements security at multiple layers of the platform, from network transport to fine-grained data access control.
+Kinotic OS uses a three-layer Identity and Access Management (IAM) system that separates authentication across distinct scopes. Each layer maintains its own user pool with complete isolation. The system supports email/password and federated OIDC authentication at every layer.
 
-- **Cedar Policy Hierarchies** — Authorization policies are organized across three levels: System (platform administration), Organization (team management), and Application (end-user access). Each level has its own policy scope evaluated by the Cedar policy engine.
-- **OIDC Provider Configuration** — Connect external identity providers (Google, GitHub, Microsoft, Okta, or any standard OIDC provider) at the organization level. Configurations can be shared across applications within the same organization.
-- **Network Security** — All communication between clients and the Kinotic server occurs over WebSocket with TLS. Internal service-to-service communication is secured within the Kubernetes cluster network.
-- **TLS** — TLS termination is handled at the ingress layer with support for automated certificate management.
+This design covers **authentication only**. Authorization (roles, policies, RBAC), group management, and sign-up flows are separate efforts.
+
+## Three-Layer IAM Model
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Layer
+    </th>
+    
+    <th>
+      Who
+    </th>
+    
+    <th>
+      Managed By
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <strong>
+        System
+      </strong>
+    </td>
+    
+    <td>
+      Platform operators
+    </td>
+    
+    <td>
+      System administrators
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Organization
+      </strong>
+    </td>
+    
+    <td>
+      Development teams
+    </td>
+    
+    <td>
+      Organization administrators
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Application
+      </strong>
+    </td>
+    
+    <td>
+      End-users, machines
+    </td>
+    
+    <td>
+      Organization or application administrators
+    </td>
+  </tr>
+</tbody>
+</table>
+
+A user with email `jane@example.com` in Organization A is a fundamentally different identity from `jane@example.com` in Application B. They have separate records, separate credentials, and separate authentication paths. This prevents accidental cross-scope access and allows the same person to have different authentication methods at different scopes (e.g., email/password for testing an app, federated SSO at the org level).
+
+### How Users Are Differentiated
+
+A user's identity is determined by the combination of three values: **email + scope layer + scope identifier**. The same email address can exist in many places across the platform — each combination produces a completely separate user record with its own credentials, enabled state, and identity links.
+
+For example, the same person could have four distinct identities:
+
+- A system administrator account (scope layer: System)
+- A developer account in their organization (scope layer: Organization, identified by org ID)
+- A test account in one of their applications (scope layer: Application, identified by app ID)
+- An end-user account in a different application (scope layer: Application, identified by a different app ID)
+
+Each is a separate record. Deleting one has no effect on the others. Disabling one does not disable the others. Authentication against one does not grant access to any of the others.
+
+This is what enforces scope isolation: every authentication request includes the target scope layer and identifier, and every lookup filters on all three values. There is no query that returns users across scopes — a user in Application A is simply not visible when authenticating against Application B, even if they share an email address.
+
+### Why Three Layers
+
+Two layers (platform vs. tenant) would force organizations and their applications to share a user pool. This doesn't work because:
+
+- An organization's developers should not automatically be end-users of every application they manage
+- Application end-users should not have access to organization-level tooling
+- Different applications under the same organization may serve completely different user populations
+
+Three layers map directly to real-world trust boundaries: the platform operator trusts the infrastructure, the organization trusts its developers, and the application trusts its users.
+
+## Authentication Methods
+
+Both methods are available at every scope layer:
+
+- **Email/Password** — Credentials are verified against bcrypt hashes. Password hashes are stored in a separate internal entity and are architecturally invisible to the rest of the system. This separation means user CRUD operations have no way to accidentally expose credentials.
+- **OIDC (Federated)** — JWT tokens are validated against OIDC configurations enabled for the scope. The platform verifies the token's signature, issuer, audience, and expiration using JWKS.
+
+Every authentication request includes scope headers (`authScopeType` and `authScopeId`) that determine which user pool and which OIDC configurations to check against.
+
+## OIDC Configuration
+
+OIDC configurations are standalone, reusable entities with no embedded scope or ownership. The association between a config and the scopes that use it is stored on the consuming entity (System, Organization, or Application) as a list of configuration IDs.
+
+### Why Standalone
+
+Embedding OIDC configs within each scope entity would require duplication when the same provider is used across multiple scopes, and updating a provider's settings would require updating every copy. Sharing/inheritance models add complexity (who owns the config? what happens when it's modified? do children inherit changes?) without clear benefit.
+
+The standalone model is simpler: an OIDC config exists once, and any number of scopes can reference it by ID. To enable a config for a scope, add the ID. To disable it, remove the ID. No ownership, no inheritance, no cascading updates.
+
+### Built-In Configurations
+
+Kinotic OS registers once with providers like Google and Microsoft. System administrators create these as **built-in** OIDC configurations, which means:
+
+- Organization and application administrators can see and enable them for their scope
+- They cannot modify or delete them
+- End users see "Kinotic OS" on the provider's consent screen — their users are approving a known platform, not an unknown app
+
+This eliminates provider registration friction for every customer. Non-built-in configurations can be created by organization administrators for their own providers (e.g., a corporate Okta instance).
+
+## User Pre-Creation
+
+Users must be created by an administrator before they can authenticate. The platform does not auto-provision users on first login.
+
+### Why No Auto-Provisioning
+
+If Application A and Application B both enable Google login, auto-provisioning would mean any Google user who authenticates against Application A automatically gets access. This breaks scope isolation — the whole point of having separate user pools is that administrators decide who gets in.
+
+For OIDC users, the administrator only needs the user's email address. On first OIDC login, the platform matches the JWT's email to the pre-created user and links the OIDC identity automatically. Subsequent logins match on the linked identity.
+
+### Future: Self-Service Sign-Up
+
+The data model supports future sign-up flows without schema changes:
+
+- **Registration policies** on Organization and Application entities (open, closed, domain-restricted)
+- **Invitation-based onboarding** via email
+- **Admin approval workflows** for self-registration
+
+These are additive features that build on the pre-creation model.
+
+## Design Decisions
+
+### Credential Separation
+
+Password hashes are stored in a separate internal entity, keyed by user ID and not exposed through any published service interface. The user entity is part of the public API — returned by CRUD operations, displayed in UIs, passed around in service calls. Storing credentials separately means password hashes are architecturally invisible to the rest of the system.
+
+### Scope as String Fields
+
+The user entity stores scope type and scope ID as plain string fields rather than typed references. This avoids coupling the user entity to the Organization and Application entities, keeps queries simple (term filters on keyword fields), and allows the scope model to evolve without migrating user records.
+
+### Single User Entity for All Scopes
+
+All three scope layers share the same user entity type, distinguished by the scope fields. Separate user types per scope would triple the service interfaces and implementations with no behavioral difference — the authentication logic and fields are identical across scopes.
+
+### Organization Slug
+
+Organizations have an auto-generated URL-safe slug derived from their name. This supports subdomain-based tenant identification (e.g., `customer.kinotic.ai`) without exposing UUIDs in URLs.
+
+## Authentication Flows
+
+### Email/Password
+
+1. Client connects with `login`, `passcode`, `authScopeType`, and `authScopeId` headers
+2. Platform looks up the user by email within the specified scope
+3. Verifies the password against the stored bcrypt hash
+4. Returns a session with the user's identity and scope as the tenant context
+
+### OIDC
+
+1. Client connects with `Authorization: Bearer <jwt>`, `authScopeType`, and `authScopeId` headers
+2. Platform loads the OIDC configurations enabled for the scope
+3. Matches the JWT's issuer and email domain against the available configurations
+4. Validates the JWT signature, audience, and expiration
+5. Looks up the user by email within the scope — rejects if no pre-created user exists
+6. Links the OIDC identity on first login
+7. Returns a session with the user's identity and scope as the tenant context
+
+## Bootstrap
+
+New deployments are bootstrapped via the migration process. The IAM migration creates all necessary tables and seeds the initial system administrator account. Migrations always run before initial boot — no runtime bootstrap logic is needed.
+
+## Network Security
+
+- All client-to-server communication occurs over WebSocket with TLS
+- Internal service-to-service communication is secured within the Kubernetes cluster network
+- TLS termination is handled at the ingress layer with support for automated certificate management
+
+## What This Design Does Not Cover
+
+- **Authorization** — Roles, policies, RBAC, and ABAC policy engine integration
+- **Groups** — Group entities and membership management
+- **Sign-up** — Self-registration, invitations, and approval workflows
+- **Secret management** — OIDC client secrets (deferred to a dedicated secret store)
+
+The authenticated session currently carries an empty roles list. Future authorization work will populate it from the policy system.

@@ -4,32 +4,74 @@
 
 ## Overview
 
-Kinotic supports multiple authentication methods to secure your applications at every level of the platform.
+Kinotic supports multiple authentication methods to secure your applications. Every connection to a Kinotic server requires authentication — the platform identifies the caller and establishes a session before any service calls are allowed.
 
 ### Authentication Methods
 
 - **Email and Password** — Built-in user management with secure credential storage. Ideal for getting started quickly or for applications that manage their own user base.
-- **OIDC Providers** — Connect any standard OpenID Connect provider including Google, GitHub, Microsoft, Okta, and others. OIDC configurations can be named and shared across applications within an organization.
+- **OIDC Providers** — Connect any standard OpenID Connect provider including Google, Microsoft, Okta, and others. Your platform administrator enables OIDC configurations for your application — including built-in providers pre-registered with Kinotic OS.
 
-## Authorization Hierarchies
+### Scoped Authentication
 
-Kinotic organizes authorization into three distinct levels:
+Every authentication request includes a **scope** that identifies which layer the caller is authenticating against. For application developers, this is always the `APPLICATION` scope with your application's ID.
 
-### System Level
+<table>
+<thead>
+  <tr>
+    <th>
+      Header
+    </th>
+    
+    <th>
+      Value
+    </th>
+    
+    <th>
+      Description
+    </th>
+  </tr>
+</thead>
 
-For Kinotic OS administrators who manage the platform itself. System-level access controls who can create organizations, manage infrastructure, and configure platform-wide settings.
+<tbody>
+  <tr>
+    <td>
+      <code>
+        authScopeType
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        APPLICATION
+      </code>
+    </td>
+    
+    <td>
+      The authentication scope layer
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        authScopeId
+      </code>
+    </td>
+    
+    <td>
+      Your application ID
+    </td>
+    
+    <td>
+      Identifies which application the user belongs to
+    </td>
+  </tr>
+</tbody>
+</table>
 
-### Organization Level
+These headers are required on every connection. They ensure that users are authenticated against the correct user pool — a user in Application A cannot access Application B, even if both applications use the same OIDC provider.
 
-For development teams building applications. Organization-level access controls who can create and manage applications, configure OIDC providers, view observability data, and manage team members.
-
-### Application Level
-
-For end-users and machine-to-machine connections to deployed applications. Application-level access is governed by the policies you define using `@AbacPolicy` decorators on your services and entities.
-
-## Connecting with Authentication
-
-### Email and Password
+## Connecting with Email and Password
 
 Use the `connectHeaders` option to provide credentials when connecting to a Kinotic server:
 
@@ -41,14 +83,18 @@ await Kinotic.connect({
     port: 58503,
     connectHeaders: {
         login: 'user@example.com',
-        passcode: 'password'
+        passcode: 'password',
+        authScopeType: 'APPLICATION',
+        authScopeId: 'my-application'
     }
 })
 ```
 
-### Dynamic Authentication Headers
+The platform looks up the user by email within your application's scope, verifies the password against a securely stored bcrypt hash, and establishes a session.
 
-For token-based authentication (e.g., JWT tokens from an OIDC provider), pass an async function that returns headers. This allows tokens to be refreshed automatically:
+## Connecting with OIDC
+
+For token-based authentication with an OIDC provider (Google, Microsoft, etc.), pass a Bearer token in the Authorization header. Use an async function to support automatic token refresh:
 
 ```typescript
 import { Kinotic } from '@kinotic-ai/core'
@@ -57,13 +103,42 @@ await Kinotic.connect({
     host: 'localhost',
     port: 58503,
     connectHeaders: async () => ({
-        Authorization: `Bearer ${await getToken()}`
+        Authorization: `Bearer ${await getOidcToken()}`,
+        authScopeType: 'APPLICATION',
+        authScopeId: 'my-application'
     })
 })
 ```
 
+The platform validates the JWT against the OIDC configurations enabled for your application, matches the token's email to a pre-existing user in your application's scope, and establishes a session.
+
+### How OIDC Works with Your Application
+
+1. Your platform administrator enables one or more OIDC configurations for your application (e.g., Google, Microsoft)
+2. Your frontend initiates the OAuth flow with the provider — the user sees the provider's consent screen
+3. The provider returns a JWT to your frontend
+4. Your frontend connects to Kinotic with the JWT and your application's scope headers
+5. The platform validates the token, looks up the user, and creates a session
+
+### Built-In Providers
+
+Kinotic OS can register once with providers like Google and Microsoft. These **built-in** OIDC configurations are available for any application to enable — your administrator just adds the configuration ID to your application. End users see "Kinotic OS" on the consent screen, and your application benefits without any provider registration.
+
+## User Management
+
+Users must be **pre-created** by an administrator before they can authenticate. This is a deliberate security design — having a valid Google account does not automatically grant access to your application.
+
+Your organization or platform administrator manages users through the `IamUserService`:
+
+- **Local users** are created with an email and password
+- **OIDC users** are created with an email only — the OIDC subject is linked automatically on first login
+
+For details on user and OIDC configuration management, see the [Organization Management](/platform/organization-management) platform guide.
+
 ## Policy-Based Authorization
 
 Once authenticated, authorization is handled by the platform. Policies are applied declaratively using decorators on your services and entities — no authorization logic in your application code.
+
+The authenticated user's identity (email, roles, metadata) is available in ABAC policy expressions through the `participant` attribute path.
 
 See [Access Control](/apps/security/access-control) for details on writing ABAC policies.
