@@ -1,4 +1,4 @@
-package org.kinotic.os.internal.services.iam;
+package org.kinotic.os.internal.api.services.iam;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.Refresh;
@@ -18,13 +18,14 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class PendingSignUpStore {
+public class DefaultPendingSignUpService implements PendingSignUpService {
 
     private static final String INDEX_NAME = "kinotic_pending_signup";
 
     private final ElasticsearchAsyncClient esAsyncClient;
 
     @PostConstruct
+    @Override
     public void verifyIndexExists() {
         try {
             boolean exists = esAsyncClient.indices()
@@ -43,6 +44,7 @@ public class PendingSignUpStore {
         }
     }
 
+    @Override
     public CompletableFuture<PendingSignUp> save(PendingSignUp pendingSignUp) {
         return esAsyncClient.index(i -> i
                 .index(INDEX_NAME)
@@ -52,6 +54,7 @@ public class PendingSignUpStore {
                 .thenApply(response -> pendingSignUp);
     }
 
+    @Override
     public CompletableFuture<PendingSignUp> findByToken(String verificationToken) {
         return esAsyncClient.search(s -> s
                 .index(INDEX_NAME)
@@ -65,6 +68,7 @@ public class PendingSignUpStore {
                 });
     }
 
+    @Override
     public CompletableFuture<PendingSignUp> findByEmail(String email) {
         return esAsyncClient.search(s -> s
                 .index(INDEX_NAME)
@@ -78,6 +82,7 @@ public class PendingSignUpStore {
                 });
     }
 
+    @Override
     public CompletableFuture<Void> deleteById(String id) {
         return esAsyncClient.delete(d -> d.index(INDEX_NAME).id(id).refresh(Refresh.WaitFor))
                             .thenApply(response -> null);

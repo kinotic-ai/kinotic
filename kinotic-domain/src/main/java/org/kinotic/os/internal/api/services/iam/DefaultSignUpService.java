@@ -10,11 +10,8 @@ import org.kinotic.os.api.model.iam.PendingSignUp;
 import org.kinotic.os.api.model.iam.SignUpRequest;
 import org.kinotic.os.api.services.OrganizationService;
 import org.kinotic.os.api.services.iam.SignUpService;
+import org.kinotic.os.internal.api.services.EmailService;
 import org.kinotic.os.internal.model.iam.IamCredential;
-import org.kinotic.os.internal.services.iam.EmailService;
-import org.kinotic.os.internal.services.iam.IamCredentialStore;
-import org.kinotic.os.internal.services.iam.PasswordService;
-import org.kinotic.os.internal.services.iam.PendingSignUpStore;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -28,7 +25,7 @@ public class DefaultSignUpService implements SignUpService {
 
     private static final long VERIFICATION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-    private final PendingSignUpStore pendingSignUpStore;
+    private final PendingSignUpService pendingSignUpService;
     private final DefaultIamUserService userService;
     private final IamCredentialStore credentialStore;
     private final OrganizationService organizationService;
@@ -43,8 +40,8 @@ public class DefaultSignUpService implements SignUpService {
         Validate.notBlank(request.getPassword(), "Password is required");
 
         // Check if a pending sign-up already exists for this email
-        return pendingSignUpStore.findByEmail(request.getEmail())
-                .thenCompose(existing -> {
+        return pendingSignUpService.findByEmail(request.getEmail())
+                                   .thenCompose(existing -> {
                     if (existing != null) {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("A sign-up is already pending for this email. Check your inbox for the verification link."));
@@ -52,7 +49,7 @@ public class DefaultSignUpService implements SignUpService {
                     // Check if a user with this email already exists in any ORGANIZATION scope
                     return userService.findByEmailAndScope(request.getEmail(), "ORGANIZATION", null);
                 })
-                .thenCompose(existingUser -> {
+                                   .thenCompose(existingUser -> {
                     if (existingUser != null) {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("An account with this email already exists."));
@@ -75,8 +72,8 @@ public class DefaultSignUpService implements SignUpService {
                 .setExpiresAt(new Date(System.currentTimeMillis() + VERIFICATION_EXPIRY_MS))
                 .setCreated(new Date());
 
-        return pendingSignUpStore.save(pending)
-                .thenAccept(saved -> emailService.sendVerificationEmail(
+        return pendingSignUpService.save(pending)
+                                   .thenAccept(saved -> emailService.sendVerificationEmail(
                         request.getEmail(),
                         request.getDisplayName(),
                         verificationToken));
@@ -86,16 +83,16 @@ public class DefaultSignUpService implements SignUpService {
     public CompletableFuture<String> verifySignUp(String verificationToken) {
         Validate.notBlank(verificationToken, "Verification token is required");
 
-        return pendingSignUpStore.findByToken(verificationToken)
-                .thenCompose(pending -> {
+        return pendingSignUpService.findByToken(verificationToken)
+                                   .thenCompose(pending -> {
                     if (pending == null) {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("Invalid or already used verification token."));
                     }
                     if (pending.getExpiresAt().before(new Date())) {
                         // Clean up expired record
-                        return pendingSignUpStore.deleteById(pending.getId())
-                                .thenCompose(v -> CompletableFuture.failedFuture(
+                        return pendingSignUpService.deleteById(pending.getId())
+                                                   .thenCompose(v -> CompletableFuture.failedFuture(
                                         new IllegalArgumentException("Verification link has expired. Please sign up again.")));
                     }
                     return createOrgAndUser(pending);
@@ -140,8 +137,8 @@ public class DefaultSignUpService implements SignUpService {
                 })
                 .thenCompose(orgId ->
                     // Delete the pending record
-                    pendingSignUpStore.deleteById(pending.getId())
-                            .thenApply(v -> orgId));
+                    pendingSignUpService.deleteById(pending.getId())
+                                        .thenApply(v -> orgId));
     }
 
 }

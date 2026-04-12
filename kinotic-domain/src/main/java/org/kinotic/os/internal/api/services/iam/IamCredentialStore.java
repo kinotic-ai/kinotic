@@ -1,4 +1,4 @@
-package org.kinotic.os.internal.services.iam;
+package org.kinotic.os.internal.api.services.iam;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.Refresh;

@@ -1,4 +1,4 @@
-package org.kinotic.os.internal.services.iam;
+package org.kinotic.os.internal.api.services;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

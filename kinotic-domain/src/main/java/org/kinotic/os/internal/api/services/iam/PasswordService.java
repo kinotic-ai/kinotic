@@ -1,4 +1,4 @@
-package org.kinotic.os.internal.services.iam;
+package org.kinotic.os.internal.api.services.iam;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;

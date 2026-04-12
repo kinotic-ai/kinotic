@@ -3,7 +3,6 @@ package org.kinotic.os.internal.api.services.iam;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.lang.Collections;
 import io.jsonwebtoken.security.Jwk;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,9 +16,6 @@ import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.kinotic.os.internal.model.iam.IamCredential;
-import org.kinotic.os.internal.services.iam.IamCredentialStore;
-import org.kinotic.os.internal.services.iam.OidcConfigLookup;
-import org.kinotic.os.internal.services.iam.PasswordService;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
