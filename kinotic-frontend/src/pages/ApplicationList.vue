@@ -3,15 +3,12 @@ import { Component, Vue, Ref, Watch } from "vue-facing-decorator";
 import CrudTable from "@/components/CrudTable.vue";
 import ContainerMedium from "@/components/ContainerMedium.vue";
 import ApplicationSidebar from "@/components/ApplicationSidebar.vue";
-import GraphQLModal from "@/components/modals/GraphQLModal.vue";
-import OpenAPIModal from "@/components/modals/OpenAPIModal.vue";
 import { Kinotic } from "@kinotic-ai/core";
 import {
   type IApplicationService,
   type Application,
 } from "@kinotic-ai/os-api";
 import { APPLICATION_STATE } from "@/states/IApplicationState";
-import { mdiGraphql, mdiApi } from "@mdi/js";
 import { onClickOutside } from "@vueuse/core";
 import type { CrudHeader } from "@/types/CrudHeader";
 import type { Identifiable } from "@kinotic-ai/core";
@@ -27,8 +24,6 @@ const debug = createDebug('application-list');
     CrudTable,
     ContainerMedium,
     ApplicationSidebar,
-    GraphQLModal,
-    OpenAPIModal,
   },
 })
 export default class NamespaceList extends Vue {
@@ -40,9 +35,6 @@ export default class NamespaceList extends Vue {
   ];
 
   dataSource: IApplicationService = Kinotic.applications;
-  icons = { graph: mdiGraphql, api: mdiApi };
-  showGraphQLModal = false;
-  showOpenAPIModal = false;
   showSidebar = false;
   searchText: string = (this?.$route?.query.search as string) || "";
   itemCount: number = 0;
@@ -139,22 +131,6 @@ export default class NamespaceList extends Vue {
   onEditItem(item: Identifiable<string>): void {
     this.$router.push(`${this.$route.path}/edit/${item.id}`);
   }
-
-  openGraphQL(): void {
-    this.showGraphQLModal = true;
-  }
-
-  closeGraphQL(): void {
-    this.showGraphQLModal = false;
-  }
-
-  openOpenAPI(): void {
-    this.showOpenAPIModal = true;
-  }
-
-  closeOpenAPI(): void {
-    this.showOpenAPIModal = false;
-  }
 }
 </script>
 
@@ -200,29 +176,7 @@ export default class NamespaceList extends Vue {
           {{ DatetimeUtil.formatRelativeDate(item.updated) }}
         </span>
       </template>
-      <template #additional-actions="{ item }">
-        <Button
-          v-if="item.enableGraphQL"
-          text
-          title="GraphQL"
-          @click="openGraphQL"
-        >
-          <img class="!w-[24px] !h-[24px]" src="@/assets/graphql.svg" />
-        </Button>
-
-        <Button
-          v-if="item.enableOpenAPI"
-          text
-          title="OpenAPI"
-          @click="openOpenAPI"
-        >
-          <img class="!w-[24px] !h-[24px]" src="@/assets/scalar.svg" />
-        </Button>
-      </template>
       </CrudTable>
-
-      <GraphQLModal :visible="showGraphQLModal" @close="closeGraphQL" />
-      <OpenAPIModal :visible="showOpenAPIModal" @close="closeOpenAPI" />
 
       <div v-show="showSidebar" ref="sidebarWrapper">
         <ApplicationSidebar
