@@ -11,7 +11,7 @@ import io.vertx.ext.web.handler.StaticHandler;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.rpc.gateway.api.config.ApiGatewayProperties;
-import org.kinotic.rpc.gateway.api.config.KinoticRpcGatewayProperties;
+import org.kinotic.rpc.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.rpc.gateway.internal.endpoints.rest.SignUpHandler;
 import org.springframework.stereotype.Component;
 
@@ -31,12 +31,12 @@ public class ApiGatewayVertcleFactory {
     private final Vertx vertx;
 
     public ApiGatewayVertcleFactory(KinoticProperties kinoticProperties,
-                                    KinoticRpcGatewayProperties kinoticRpcGatewayProperties,
+                                    KinoticApiGatewayProperties kinoticApiGatewayProperties,
                                     StompServerHandlerFactory stompServerHandlerFactory,
                                     SignUpHandler signUpHandler,
                                     Vertx vertx) {
         this.kinoticProperties = kinoticProperties;
-        this.gatewayProperties = kinoticRpcGatewayProperties.getRpcGateway();
+        this.gatewayProperties = kinoticApiGatewayProperties.getRpcGateway();
         this.stompServerHandlerFactory = stompServerHandlerFactory;
         this.signUpHandler = signUpHandler;
         this.vertx = vertx;

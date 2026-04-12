@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 @Accessors(chain = true)
 @NoArgsConstructor
 @Component
-public class KinoticRpcGatewayProperties extends KinoticProperties {
+public class KinoticApiGatewayProperties extends KinoticProperties {
 
     /**
      * If true, RPC gateway functionality will not be loaded.
