@@ -4,25 +4,36 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.core.api.crud.Identifiable;
+
+import java.util.Date;
 
 /**
- * Request DTO for initiating an organization sign-up.
- * The password is in plaintext here — it is hashed before being stored in the PendingSignUp record.
+ * Represents an organization sign-up from initial submission through email verification.
+ * <p>
+ * The REST endpoint receives an instance with only the user-provided fields populated
+ * ({@code orgName}, {@code orgDescription}, {@code email}, {@code displayName}). The
+ * service then populates the server-side fields ({@code id}, {@code verificationToken},
+ * {@code expiresAt}, {@code created}) and persists the record. No password is ever
+ * associated with this object — the password is collected separately when the user
+ * completes sign-up by clicking the verification link.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class SignUpRequest {
+public class SignUpRequest implements Identifiable<String> {
 
+    // Server-populated fields
+    private String id;
+    private String verificationToken;
+    private Date expiresAt;
+    private Date created;
+
+    // User-submitted fields
     private String orgName;
-
     private String orgDescription;
-
     private String email;
-
     private String displayName;
-
-    private String password;
 
 }

@@ -10,7 +10,6 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.os.api.model.Organization;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
-import org.kinotic.os.api.model.iam.PendingSignUp;
 import org.kinotic.os.api.model.iam.SignUpRequest;
 import org.kinotic.os.api.services.OrganizationService;
 import org.kinotic.os.api.services.iam.SignUpService;
@@ -29,7 +28,7 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultSignUpService implements SignUpService {
 
     private static final long VERIFICATION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
-    private static final String PENDING_SIGNUP_INDEX = "kinotic_pending_signup";
+    private static final String SIGNUP_REQUEST_INDEX = "kinotic_signup_request";
 
     private final ElasticsearchAsyncClient esAsyncClient;
     private final CrudServiceTemplate crudServiceTemplate;
@@ -41,7 +40,7 @@ public class DefaultSignUpService implements SignUpService {
 
     @PostConstruct
     public void verifyIndexExists() {
-        crudServiceTemplate.verifyIndexExists(PENDING_SIGNUP_INDEX);
+        crudServiceTemplate.verifyIndexExists(SIGNUP_REQUEST_INDEX);
     }
 
     @Override
@@ -49,10 +48,9 @@ public class DefaultSignUpService implements SignUpService {
         Validate.notBlank(request.getOrgName(), "Organization name is required");
         Validate.notBlank(request.getEmail(), "Email is required");
         Validate.notBlank(request.getDisplayName(), "Display name is required");
-        Validate.notBlank(request.getPassword(), "Password is required");
 
-        // Check if a pending sign-up already exists for this email
-        return findPendingByEmail(request.getEmail())
+        // Check if a sign-up is already pending for this email
+        return findByEmail(request.getEmail())
                 .thenCompose(existing -> {
                     if (existing != null) {
                         return CompletableFuture.failedFuture(
@@ -66,25 +64,19 @@ public class DefaultSignUpService implements SignUpService {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("An account with this email already exists."));
                     }
-                    return createPendingSignUp(request);
+                    return populateAndSave(request);
                 });
     }
 
-    private CompletableFuture<Void> createPendingSignUp(SignUpRequest request) {
+    private CompletableFuture<Void> populateAndSave(SignUpRequest request) {
         String verificationToken = UUID.randomUUID().toString();
 
-        PendingSignUp pending = new PendingSignUp()
-                .setId(UUID.randomUUID().toString())
-                .setOrgName(request.getOrgName())
-                .setOrgDescription(request.getOrgDescription())
-                .setEmail(request.getEmail())
-                .setDisplayName(request.getDisplayName())
-                .setPasswordHash(passwordService.hash(request.getPassword()))
-                .setVerificationToken(verificationToken)
-                .setExpiresAt(new Date(System.currentTimeMillis() + VERIFICATION_EXPIRY_MS))
-                .setCreated(new Date());
+        request.setId(UUID.randomUUID().toString())
+               .setVerificationToken(verificationToken)
+               .setExpiresAt(new Date(System.currentTimeMillis() + VERIFICATION_EXPIRY_MS))
+               .setCreated(new Date());
 
-        return savePending(pending)
+        return save(request)
                 .thenAccept(saved -> emailService.sendVerificationEmail(
                         request.getEmail(),
                         request.getDisplayName(),
@@ -92,38 +84,39 @@ public class DefaultSignUpService implements SignUpService {
     }
 
     @Override
-    public CompletableFuture<String> verifySignUp(String verificationToken) {
+    public CompletableFuture<String> completeSignUp(String verificationToken, String password) {
         Validate.notBlank(verificationToken, "Verification token is required");
+        Validate.notBlank(password, "Password is required");
 
-        return findPendingByToken(verificationToken)
-                .thenCompose(pending -> {
-                    if (pending == null) {
+        return findByToken(verificationToken)
+                .thenCompose(request -> {
+                    if (request == null) {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("Invalid or already used verification token."));
                     }
-                    if (pending.getExpiresAt().before(new Date())) {
+                    if (request.getExpiresAt().before(new Date())) {
                         // Clean up expired record
-                        return deletePendingById(pending.getId())
+                        return deleteById(request.getId())
                                 .thenCompose(v -> CompletableFuture.failedFuture(
                                         new IllegalArgumentException("Verification link has expired. Please sign up again.")));
                     }
-                    return createOrgAndUser(pending);
+                    return createOrgAndUser(request, password);
                 });
     }
 
-    private CompletableFuture<String> createOrgAndUser(PendingSignUp pending) {
+    private CompletableFuture<String> createOrgAndUser(SignUpRequest request, String password) {
         // Create the organization
         Organization org = new Organization()
-                .setName(pending.getOrgName())
-                .setDescription(pending.getOrgDescription());
+                .setName(request.getOrgName())
+                .setDescription(request.getOrgDescription());
 
         return organizationService.save(org)
                 .thenCompose(savedOrg -> {
                     // Create the user scoped to the new organization
                     IamUser user = new IamUser()
                             .setId(UUID.randomUUID().toString())
-                            .setEmail(pending.getEmail())
-                            .setDisplayName(pending.getDisplayName())
+                            .setEmail(request.getEmail())
+                            .setDisplayName(request.getDisplayName())
                             .setAuthType(AuthType.LOCAL)
                             .setAuthScopeType("ORGANIZATION")
                             .setAuthScopeId(savedOrg.getId())
@@ -139,36 +132,36 @@ public class DefaultSignUpService implements SignUpService {
                                         .thenApply(updatedOrg -> savedUser);
                             })
                             .thenCompose(savedUser -> {
-                                // Create the credential
+                                // Create the credential with the user-supplied password
                                 IamCredential credential = new IamCredential()
                                         .setId(savedUser.getId())
-                                        .setPasswordHash(pending.getPasswordHash());
+                                        .setPasswordHash(passwordService.hash(password));
                                 return credentialStore.save(credential)
                                         .thenApply(c -> savedOrg.getId());
                             });
                 })
                 .thenCompose(orgId ->
                     // Delete the pending record
-                    deletePendingById(pending.getId())
+                    deleteById(request.getId())
                             .thenApply(v -> orgId));
     }
 
-    // --- PendingSignUp persistence (internal) ---
+    // --- SignUpRequest persistence (internal) ---
 
-    private CompletableFuture<PendingSignUp> savePending(PendingSignUp pendingSignUp) {
+    private CompletableFuture<SignUpRequest> save(SignUpRequest request) {
         return esAsyncClient.index(i -> i
-                .index(PENDING_SIGNUP_INDEX)
-                .id(pendingSignUp.getId())
-                .document(pendingSignUp)
+                .index(SIGNUP_REQUEST_INDEX)
+                .id(request.getId())
+                .document(request)
                 .refresh(Refresh.WaitFor))
-                .thenApply(response -> pendingSignUp);
+                .thenApply(response -> request);
     }
 
-    private CompletableFuture<PendingSignUp> findPendingByToken(String verificationToken) {
+    private CompletableFuture<SignUpRequest> findByToken(String verificationToken) {
         return esAsyncClient.search(s -> s
-                .index(PENDING_SIGNUP_INDEX)
+                .index(SIGNUP_REQUEST_INDEX)
                 .query(q -> q.term(TermQuery.of(t -> t.field("verificationToken").value(verificationToken))))
-                .size(1), PendingSignUp.class)
+                .size(1), SignUpRequest.class)
                 .thenApply(response -> {
                     if (response.hits().hits().isEmpty()) {
                         return null;
@@ -177,11 +170,11 @@ public class DefaultSignUpService implements SignUpService {
                 });
     }
 
-    private CompletableFuture<PendingSignUp> findPendingByEmail(String email) {
+    private CompletableFuture<SignUpRequest> findByEmail(String email) {
         return esAsyncClient.search(s -> s
-                .index(PENDING_SIGNUP_INDEX)
+                .index(SIGNUP_REQUEST_INDEX)
                 .query(q -> q.term(TermQuery.of(t -> t.field("email").value(email))))
-                .size(1), PendingSignUp.class)
+                .size(1), SignUpRequest.class)
                 .thenApply(response -> {
                     if (response.hits().hits().isEmpty()) {
                         return null;
@@ -190,8 +183,8 @@ public class DefaultSignUpService implements SignUpService {
                 });
     }
 
-    private CompletableFuture<Void> deletePendingById(String id) {
-        return esAsyncClient.delete(d -> d.index(PENDING_SIGNUP_INDEX).id(id).refresh(Refresh.WaitFor))
+    private CompletableFuture<Void> deleteById(String id) {
+        return esAsyncClient.delete(d -> d.index(SIGNUP_REQUEST_INDEX).id(id).refresh(Refresh.WaitFor))
                             .thenApply(response -> null);
     }
 

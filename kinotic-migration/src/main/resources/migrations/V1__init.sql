@@ -107,14 +107,13 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     updated DATE
 );
 
--- Pending sign-ups awaiting email verification
-CREATE TABLE IF NOT EXISTS kinotic_pending_signup (
+-- Sign-up requests awaiting email verification
+CREATE TABLE IF NOT EXISTS kinotic_signup_request (
     id KEYWORD,
     orgName KEYWORD,
     orgDescription TEXT,
     email KEYWORD,
     displayName KEYWORD,
-    passwordHash KEYWORD NOT INDEXED,
     verificationToken KEYWORD,
     expiresAt DATE,
     created DATE

@@ -36,8 +36,7 @@ public class SignUpHandler {
                         .setOrgName(body.getString("orgName"))
                         .setOrgDescription(body.getString("orgDescription"))
                         .setEmail(body.getString("email"))
-                        .setDisplayName(body.getString("displayName"))
-                        .setPassword(body.getString("password"));
+                        .setDisplayName(body.getString("displayName"));
 
                 signUpService.initiateSignUp(request)
                         .thenAccept(v -> {
@@ -64,35 +63,38 @@ public class SignUpHandler {
             }
         });
 
-        router.get("/api/signup/verify").handler(ctx -> {
-            String token = ctx.request().getParam("token");
-            if (token == null || token.isBlank()) {
+        router.post("/api/signup/complete").handler(ctx -> {
+            try {
+                JsonObject body = ctx.body().asJsonObject();
+                String token = body.getString("token");
+                String password = body.getString("password");
+
+                signUpService.completeSignUp(token, password)
+                        .thenAccept(orgId -> {
+                            ctx.response()
+                               .setStatusCode(200)
+                               .putHeader("Content-Type", "application/json")
+                               .end(new JsonObject()
+                                       .put("message", "Account created successfully")
+                                       .put("orgId", orgId)
+                                       .encode());
+                        })
+                        .exceptionally(ex -> {
+                            Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                            log.warn("Sign-up completion failed: {}", cause.getMessage());
+                            ctx.response()
+                               .setStatusCode(400)
+                               .putHeader("Content-Type", "application/json")
+                               .end(new JsonObject().put("error", cause.getMessage()).encode());
+                            return null;
+                        });
+            } catch (Exception e) {
+                log.error("Failed to parse sign-up completion request", e);
                 ctx.response()
                    .setStatusCode(400)
                    .putHeader("Content-Type", "application/json")
-                   .end(new JsonObject().put("error", "Missing verification token").encode());
-                return;
+                   .end(new JsonObject().put("error", "Invalid request body").encode());
             }
-
-            signUpService.verifySignUp(token)
-                    .thenAccept(orgId -> {
-                        ctx.response()
-                           .setStatusCode(200)
-                           .putHeader("Content-Type", "application/json")
-                           .end(new JsonObject()
-                                   .put("message", "Email verified successfully")
-                                   .put("orgId", orgId)
-                                   .encode());
-                    })
-                    .exceptionally(ex -> {
-                        Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                        log.warn("Verification failed: {}", cause.getMessage());
-                        ctx.response()
-                           .setStatusCode(400)
-                           .putHeader("Content-Type", "application/json")
-                           .end(new JsonObject().put("error", cause.getMessage()).encode());
-                        return null;
-                    });
         });
     }
 

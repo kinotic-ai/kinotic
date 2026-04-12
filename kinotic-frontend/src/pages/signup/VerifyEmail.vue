@@ -13,34 +13,48 @@
           <img :src="loginBrandMark" alt="Kinotic" class="login-brand" />
 
           <div class="login-form">
-            <!-- Loading state -->
-            <div v-if="verifying" class="verify-state">
-              <div class="login-spinner"></div>
-              <h2 class="verify-title">Verifying your email...</h2>
-              <p class="verify-text">Please wait while we confirm your account.</p>
+            <!-- Password form -->
+            <div v-if="!completed" class="login-form__step">
+              <h2 class="verify-title">Set your password</h2>
+              <p class="verify-text">Choose a password to finish creating your account.</p>
+
+              <Password
+                ref="passwordInput"
+                v-model="password"
+                class="login-input"
+                placeholder="Password"
+                :feedback="false"
+                toggleMask
+                @keyup.enter="focusConfirm"
+              />
+
+              <Password
+                ref="confirmPasswordInput"
+                v-model="confirmPassword"
+                class="login-input"
+                placeholder="Confirm password"
+                :feedback="false"
+                toggleMask
+                @keyup.enter="handleSubmit"
+              />
+
+              <Button
+                label="Create account"
+                class="login-submit"
+                :loading="loading"
+                @click="handleSubmit"
+              />
             </div>
 
             <!-- Success state -->
-            <div v-else-if="success" class="verify-state">
+            <div v-else class="verify-state">
               <span class="pi pi-check-circle verify-icon verify-icon--success"></span>
-              <h2 class="verify-title">Email verified!</h2>
-              <p class="verify-text">Your organization has been created. You can now sign in.</p>
+              <h2 class="verify-title">Account created!</h2>
+              <p class="verify-text">Your organization is ready. You can now sign in.</p>
               <Button
                 label="Sign in"
                 class="login-submit"
                 @click="$router.push('/login')"
-              />
-            </div>
-
-            <!-- Error state -->
-            <div v-else class="verify-state">
-              <span class="pi pi-times-circle verify-icon verify-icon--error"></span>
-              <h2 class="verify-title">Verification failed</h2>
-              <p class="verify-text">{{ errorMessage }}</p>
-              <Button
-                label="Sign up again"
-                class="login-submit"
-                @click="$router.push('/signup')"
               />
             </div>
           </div>
@@ -53,12 +67,17 @@
         </div>
       </main>
     </div>
+
+    <Toast />
   </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-facing-decorator';
+import Password from 'primevue/password'
 import Button from 'primevue/button'
+import Toast from 'primevue/toast'
+import { useToast } from 'primevue/usetoast'
 
 import loginPageLeft from '@/assets/login-page-left.svg'
 import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
@@ -67,43 +86,88 @@ import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
 
 @Component({
   components: {
+    Password,
     Button,
+    Toast,
   }
 })
 export default class VerifyEmail extends Vue {
   private readonly loginBackgroundArt = loginPageLeft
+  private toast = useToast()
 
   get loginBrandMark() { return darkMode.value ? loginPageLogo : loginPageLogoLight }
   get isDark() { return darkMode.value }
   toggleTheme() { toggleDark() }
 
-  verifying = true
-  success = false
-  errorMessage = ''
+  password = ''
+  confirmPassword = ''
+  loading = false
+  completed = false
 
-  async mounted() {
-    const token = this.$route.query.token as string
+  get token(): string {
+    return (this.$route.query.token as string) || ''
+  }
 
-    if (!token) {
-      this.verifying = false
-      this.errorMessage = 'No verification token provided.'
+  mounted() {
+    if (!this.token) {
+      this.displayAlert('No verification token provided.')
+    }
+  }
+
+  private focusConfirm() {
+    const el = this.$refs.confirmPasswordInput as any
+    if (el?.$el) {
+      el.$el.querySelector('input')?.focus()
+    }
+  }
+
+  async handleSubmit() {
+    if (!this.token) {
+      this.displayAlert('No verification token provided.')
+      return
+    }
+    if (!this.password) {
+      this.displayAlert('Password is required')
+      return
+    }
+    if (this.password !== this.confirmPassword) {
+      this.displayAlert('Passwords do not match')
       return
     }
 
+    this.loading = true
     try {
-      const response = await fetch(`/api/signup/verify?token=${encodeURIComponent(token)}`)
+      const response = await fetch('/api/signup/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: this.token,
+          password: this.password,
+        }),
+      })
+
       const data = await response.json()
 
-      if (response.ok) {
-        this.success = true
-      } else {
-        this.errorMessage = data.error || 'Verification failed.'
+      if (!response.ok) {
+        this.displayAlert(data.error || 'Account creation failed')
+        return
       }
+
+      this.completed = true
     } catch (error: unknown) {
-      this.errorMessage = error instanceof Error ? error.message : 'Verification failed.'
+      this.displayAlert(error instanceof Error ? error.message : 'Account creation failed')
     } finally {
-      this.verifying = false
+      this.loading = false
     }
+  }
+
+  private displayAlert(text: string) {
+    this.toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: text,
+      life: 10000
+    })
   }
 }
 </script>
@@ -118,12 +182,14 @@ export default class VerifyEmail extends Vue {
   font-size: 1.25rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
+  text-align: center;
 }
 
 .verify-text {
   margin: 0.5rem 0 1.5rem;
   line-height: 1.5;
   color: var(--p-text-muted-color);
+  text-align: center;
 }
 
 .verify-icon {

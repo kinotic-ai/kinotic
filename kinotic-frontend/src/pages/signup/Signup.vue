@@ -45,26 +45,6 @@
                 v-model="displayName"
                 class="login-input"
                 placeholder="Your name"
-                @keyup.enter="focusNext('password')"
-              />
-
-              <Password
-                ref="password"
-                v-model="password"
-                class="login-input"
-                placeholder="Password"
-                :feedback="false"
-                toggleMask
-                @keyup.enter="focusNext('confirmPassword')"
-              />
-
-              <Password
-                ref="confirmPassword"
-                v-model="confirmPassword"
-                class="login-input"
-                placeholder="Confirm password"
-                :feedback="false"
-                toggleMask
                 @keyup.enter="handleSubmit"
               />
 
@@ -111,7 +91,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-facing-decorator';
 import InputText from 'primevue/inputtext'
-import Password from 'primevue/password'
 import Button from 'primevue/button'
 import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
@@ -124,7 +103,6 @@ import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
 @Component({
   components: {
     InputText,
-    Password,
     Button,
     Toast,
   }
@@ -141,8 +119,6 @@ export default class Signup extends Vue {
   orgDescription = ''
   email = ''
   displayName = ''
-  password = ''
-  confirmPassword = ''
   loading = false
   submitted = false
 
@@ -168,14 +144,6 @@ export default class Signup extends Vue {
       this.displayAlert('Your name is required')
       return
     }
-    if (!this.password) {
-      this.displayAlert('Password is required')
-      return
-    }
-    if (this.password !== this.confirmPassword) {
-      this.displayAlert('Passwords do not match')
-      return
-    }
 
     this.loading = true
     try {
@@ -187,7 +155,6 @@ export default class Signup extends Vue {
           orgDescription: this.orgDescription.trim() || null,
           email: this.email.trim(),
           displayName: this.displayName.trim(),
-          password: this.password,
         }),
       })
 
