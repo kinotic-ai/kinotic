@@ -64,7 +64,7 @@ All properties are nested under the `kinotic` prefix (from `KinoticProperties` a
 The following snippet shows how to embed the gateway in a Spring Boot application and override the default STOMP port programmatically before the context starts.
 
 ```java
-import org.kinotic.rpc.gateway.api.config.KinoticApiGatewayProperties;
+import org.kinotic.api.gateway.api.config.KinoticApiGatewayProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
