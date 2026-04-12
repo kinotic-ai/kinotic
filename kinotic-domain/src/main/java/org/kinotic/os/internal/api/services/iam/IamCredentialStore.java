@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch._types.Refresh;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.kinotic.os.internal.model.iam.IamCredential;
 import org.springframework.stereotype.Component;
 
@@ -18,24 +19,11 @@ public class IamCredentialStore {
     private static final String INDEX_NAME = "kinotic_iam_credential";
 
     private final ElasticsearchAsyncClient esAsyncClient;
+    private final CrudServiceTemplate crudServiceTemplate;
 
     @PostConstruct
     public void verifyIndexExists() {
-        try {
-            boolean exists = esAsyncClient.indices()
-                                          .exists(b -> b.index(INDEX_NAME))
-                                          .get()
-                                          .value();
-            if (!exists) {
-                throw new IllegalStateException(
-                        "Elasticsearch index '" + INDEX_NAME + "' does not exist. "
-                        + "Did you forget to add a migration in kinotic-migration/src/main/resources/migrations/?");
-            }
-        } catch (IllegalStateException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to verify existence of index '" + INDEX_NAME + "'", e);
-        }
+        crudServiceTemplate.verifyIndexExists(INDEX_NAME);
     }
 
     public CompletableFuture<IamCredential> findById(String userId) {

@@ -25,25 +25,12 @@ public class DefaultKinoticSystemService implements KinoticSystemService {
     private static final String SYSTEM_ID = "kinotic-system";
 
     private final ElasticsearchAsyncClient esAsyncClient;
+    private final CrudServiceTemplate crudServiceTemplate;
     private final OidcConfigurationService oidcConfigurationService;
 
     @PostConstruct
     public void verifyIndexExists() {
-        try {
-            boolean exists = esAsyncClient.indices()
-                                          .exists(b -> b.index(INDEX_NAME))
-                                          .get()
-                                          .value();
-            if (!exists) {
-                throw new IllegalStateException(
-                        "Elasticsearch index '" + INDEX_NAME + "' does not exist. "
-                        + "Did you forget to add a migration in kinotic-migration/src/main/resources/migrations/?");
-            }
-        } catch (IllegalStateException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to verify existence of index '" + INDEX_NAME + "'", e);
-        }
+        crudServiceTemplate.verifyIndexExists(INDEX_NAME);
     }
 
     @Override
