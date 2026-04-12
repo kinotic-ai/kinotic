@@ -6,6 +6,7 @@ import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.Metadata;
+import org.kinotic.core.api.security.ParticipantContext;
 import org.kinotic.core.internal.api.service.invoker.ReturnValueConverter;
 import org.kinotic.core.internal.api.service.json.AbstractJacksonSupport;
 import org.springframework.core.ReactiveAdapterRegistry;
@@ -24,8 +25,9 @@ public class JacksonReturnValueConverter extends AbstractJacksonSupport implemen
 
     public JacksonReturnValueConverter(JsonMapper jsonMapper,
                                        ReactiveAdapterRegistry reactiveAdapterRegistry,
-                                       KinoticProperties kinoticProperties) {
-        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties);
+                                       KinoticProperties kinoticProperties,
+                                       ParticipantContext participantContext) {
+        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties, participantContext);
     }
 
     @Override

@@ -10,6 +10,7 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.internal.api.service.invoker.ServiceInvocationSupervisor;
+import org.kinotic.core.api.security.ParticipantContext;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.apache.commons.lang3.Validate;
 import org.springframework.core.GenericTypeResolver;
@@ -41,13 +42,16 @@ public abstract class AbstractJacksonSupport {
 
     @Getter
     private final JsonMapper jsonMapper;
+    private final ParticipantContext participantContext;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final KinoticProperties kinoticProperties;
 
     public AbstractJacksonSupport(JsonMapper jsonMapper,
                                   ReactiveAdapterRegistry reactiveAdapterRegistry,
-                                  KinoticProperties kinoticProperties) {
+                                  KinoticProperties kinoticProperties,
+                                  ParticipantContext participantContext) {
         this.jsonMapper = jsonMapper;
+        this.participantContext = participantContext;
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
         this.kinoticProperties = kinoticProperties;
 
@@ -92,45 +96,43 @@ public abstract class AbstractJacksonSupport {
                                                    .block();
 
         List<Object> ret = new LinkedList<>();
-        if(tokens!= null && !tokens.isEmpty()){
+        int tokenCount = (tokens != null) ? tokens.size() : 0;
 
-            if(tokens.size() > parameters.length){
-                // Error could be misleading / inaccurate, Should we keep the number of participant args in mind?
-                throw new IllegalArgumentException("Received too many json arguments, Expected: " + parameters.length + " Got: " +tokens.size());
+        // Count the number of parameters that come from JSON tokens (i.e. not Participant)
+        int jsonParamCount = 0;
+        for (MethodParameter p : parameters) {
+            if (!Participant.class.isAssignableFrom(p.nestedIfOptional().getParameterType())) {
+                jsonParamCount++;
             }
+        }
 
-            int tokenIdx = 0;
-            for(MethodParameter methodParameter: parameters){
+        if (tokenCount > jsonParamCount) {
+            throw new IllegalArgumentException("Received too many json arguments, Expected: " + jsonParamCount + " Got: " + tokenCount);
+        }
 
-                methodParameter = methodParameter.nestedIfOptional();
+        int tokenIdx = 0;
+        for (MethodParameter methodParameter : parameters) {
 
-                // FIXME: when the invocation is local this happens for no reason. If the event stays on the local bus we shouldn't do this..
-                // if the parameter is a participant we get this from the even metadata
-                if(Participant.class.isAssignableFrom(methodParameter.getParameterType())){
+            methodParameter = methodParameter.nestedIfOptional();
 
-                    String participantJson = event.metadata().get(EventConstants.SENDER_HEADER);
+            // If the parameter is a Participant we get this from the Vert.x context
+            if (Participant.class.isAssignableFrom(methodParameter.getParameterType())) {
 
-                    if(participantJson != null){
-                        try {
-                            Participant participant = jsonMapper.readValue(participantJson, Participant.class);
-                            ret.add(participant);
-                        } catch (JacksonException e) {
-                            throw new DecodingException("JSON decoding error: " + e.getOriginalMessage(), e);
-                        }
-                    }else{
-                        throw new IllegalArgumentException("Participant parameter is required but no Participant is available");
-                    }
-
-                }else{
-                    if(tokenIdx + 1 > tokens.size()){ // index is zero base..
-                        // Error could be misleading / inaccurate, Should we keep the number of participant args in mind?
-                        throw new IllegalArgumentException("Received too few json arguments, Expected: " + parameters.length + " Got: " +tokens.size());
-                    }
-
-                    Object arg = decodeInternal(tokens.get(tokenIdx), methodParameter);
-                    ret.add(arg);
-                    tokenIdx++;
+                Participant participant = participantContext.currentParticipant();
+                if (participant != null) {
+                    ret.add(participant);
+                } else {
+                    throw new IllegalArgumentException("Participant parameter is required but no Participant is available in the Vert.x context");
                 }
+
+            } else {
+                if (tokenIdx >= tokenCount) {
+                    throw new IllegalArgumentException("Received too few json arguments, Expected: " + jsonParamCount + " Got: " + tokenCount);
+                }
+
+                Object arg = decodeInternal(tokens.get(tokenIdx), methodParameter);
+                ret.add(arg);
+                tokenIdx++;
             }
         }
         return ret.toArray();
