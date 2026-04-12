@@ -134,7 +134,7 @@ export class LoadTaskGeneratorFactory {
                 useSSL               : kinoticConnectionConfig.kinoticUseSsl,
                 maxConnectionAttempts: 5,
                 connectHeaders       : {
-                    login   : 'kinotic',
+                    login   : 'admin@kinotic.local',
                     passcode: 'kinotic',
                     tenantId: tenantId
                 }

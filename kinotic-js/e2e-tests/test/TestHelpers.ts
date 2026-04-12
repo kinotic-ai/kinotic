@@ -48,7 +48,7 @@ export async function initKinoticClient(): Promise<void> {
         await Kinotic.connect({
                                     host:host as string,
                                     port:port as number,
-                                    connectHeaders:{login: 'kinotic', passcode: 'kinotic'}
+                                    connectHeaders:{login: 'admin@kinotic.local', passcode: 'kinotic'}
                                 })
 
         console.log('Connected to Kinotic')
