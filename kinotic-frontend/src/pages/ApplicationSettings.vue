@@ -24,85 +24,11 @@
                   </div>
                   <div class="application-settings__field">
                     <label class="application-settings__label">Description</label>
-                    <Textarea 
-                      v-model="appDescription" 
+                    <Textarea
+                      v-model="appDescription"
                       class="application-settings__input application-settings__textarea w-full h-[100px]"
-                      rows="3" 
+                      rows="3"
                     />
-                  </div>
-                  <div class="application-settings__field">
-                    <label class="application-settings__label">API configuration</label>
-                    <div class="application-settings__api-card">
-                      <div class="application-settings__api-row">
-                        <div class="application-settings__api-meta">
-                          <img src="@/assets/graphql.svg" />
-                          <span class="application-settings__api-name">GraphQL</span>
-                        </div>
-                        <button
-                          type="button"
-                          :class="['application-settings__switch', { 'application-settings__switch--on': enableGraphQL }]"
-                          role="switch"
-                          :aria-pressed="enableGraphQL"
-                          :aria-checked="enableGraphQL"
-                          aria-label="Toggle GraphQL"
-                          @click="enableGraphQL = !enableGraphQL"
-                        >
-                          <span class="application-settings__switch-shell">
-                            <span
-                              v-if="enableGraphQL"
-                              class="application-settings__switch-indicator"
-                            ></span>
-                            <span class="application-settings__switch-label">{{ enableGraphQL ? 'On' : 'Off' }}</span>
-                          </span>
-                        </button>
-                      </div>
-                      <div class="application-settings__api-row">
-                        <div class="application-settings__api-meta">
-                          <img src="@/assets/scalar.svg" />
-                          <span class="application-settings__api-name">OpenAPI</span>
-                        </div>
-                        <button
-                          type="button"
-                          :class="['application-settings__switch', { 'application-settings__switch--on': enableOpenAPI }]"
-                          role="switch"
-                          :aria-pressed="enableOpenAPI"
-                          :aria-checked="enableOpenAPI"
-                          aria-label="Toggle OpenAPI"
-                          @click="enableOpenAPI = !enableOpenAPI"
-                        >
-                          <span class="application-settings__switch-shell">
-                            <span
-                              v-if="enableOpenAPI"
-                              class="application-settings__switch-indicator"
-                            ></span>
-                            <span class="application-settings__switch-label">{{ enableOpenAPI ? 'On' : 'Off' }}</span>
-                          </span>
-                        </button>
-                      </div>
-                      <div class="application-settings__api-row">
-                        <div class="application-settings__api-meta">
-                          <img src="@/assets/mcp.svg" />
-                          <span class="application-settings__api-name">MCP (Model Context Protocol)</span>
-                        </div>
-                        <button
-                          type="button"
-                          :class="['application-settings__switch', { 'application-settings__switch--on': enableMCP }]"
-                          role="switch"
-                          :aria-pressed="enableMCP"
-                          :aria-checked="enableMCP"
-                          aria-label="Toggle MCP"
-                          @click="enableMCP = !enableMCP"
-                        >
-                          <span class="application-settings__switch-shell">
-                            <span
-                              v-if="enableMCP"
-                              class="application-settings__switch-indicator"
-                            ></span>
-                            <span class="application-settings__switch-label">{{ enableMCP ? 'On' : 'Off' }}</span>
-                          </span>
-                        </button>
-                      </div>
-                    </div>
                   </div>
                 </div>
                 <div class="application-settings__actions">
@@ -238,9 +164,6 @@ defineProps({
 const toast = useToast()
 const appName = ref('')
 const appDescription = ref('')
-const enableGraphQL = ref(false)
-const enableOpenAPI = ref(false)
-const enableMCP = ref(false)
 const loading = ref(false)
 const activeTab = ref(0)
 
@@ -256,9 +179,6 @@ watch(() => APPLICATION_STATE.currentApplication, (newApp) => {
   if (newApp) {
     appName.value = newApp.id || ''
     appDescription.value = newApp.description || ''
-    enableGraphQL.value = newApp.enableGraphQL || false
-    enableOpenAPI.value = newApp.enableOpenAPI || false
-    enableMCP.value = (newApp as any).enableMCP || false
   }
 }, { immediate: true })
 
@@ -267,9 +187,6 @@ onMounted(() => {
     const app = APPLICATION_STATE.currentApplication
     appName.value = app.id || ''
     appDescription.value = app.description || ''
-    enableGraphQL.value = app.enableGraphQL || false
-    enableOpenAPI.value = app.enableOpenAPI || false
-    enableMCP.value = (app as any).enableMCP || false
   }
 })
 
@@ -288,10 +205,7 @@ const saveSettings = async () => {
   try {
     const updatedApplication = {
       ...APPLICATION_STATE.currentApplication,
-      description: appDescription.value,
-      enableGraphQL: enableGraphQL.value,
-      enableOpenAPI: enableOpenAPI.value,
-      enableMCP: enableMCP.value
+      description: appDescription.value
     }
 
     await Kinotic.applications.save(updatedApplication)
@@ -472,68 +386,10 @@ const filteredWidgets = computed(() => {
   letter-spacing: 0;
 }
 
-.application-settings__api-card {
-  overflow: hidden;
-  border: 1px solid #3a3a40;
-  border-radius: 0.875rem;
-  background: #171717;
-}
-
-.application-settings__api-row {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 17px;
-}
-
-.application-settings__api-row + .application-settings__api-row {
-  border-top: none;
-}
-
-.application-settings__api-row + .application-settings__api-row::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 17px;
-  right: 17px;
-  height: 1px;
-  background: #3a3a40;
-}
-
-.application-settings__api-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-}
-
-.application-settings__api-name {
-  font-size: 0.875rem;
-  color: #f4f4f5;
-}
-
 .application-settings__actions {
   display: flex;
   justify-content: flex-start;
   padding-top: 1.5rem;
-}
-
-.application-settings--light .application-settings__api-card {
-  border-color: #e6e7eb;
-  background: #ffffff;
-}
-
-.application-settings--light .application-settings__api-row + .application-settings__api-row {
-  border-top-color: transparent;
-}
-
-.application-settings--light .application-settings__api-row + .application-settings__api-row::before {
-  background: #e6e7eb;
-}
-
-.application-settings--light .application-settings__api-name {
-  color: #3f424d;
 }
 
 .application-settings--dark :deep(.p-tablist) {
@@ -648,93 +504,6 @@ const filteredWidgets = computed(() => {
 .application-settings :deep(.p-textarea:focus) {
   border-color: #52525b;
   box-shadow: none;
-}
-
-.application-settings__switch {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 70px;
-  min-width: 70px;
-  max-width: 70px;
-  height: 40px;
-  min-height: 40px;
-  max-height: 40px;
-  padding: 0;
-  border: 0;
-  flex: 0 0 70px;
-  box-sizing: border-box;
-  background: transparent;
-  cursor: pointer;
-}
-
-.application-settings__switch-shell {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 70px;
-  min-width: 70px;
-  max-width: 70px;
-  height: 40px;
-  min-height: 40px;
-  max-height: 40px;
-  border-radius: 12px;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-.application-settings__switch-indicator {
-  position: absolute;
-  inset: 4px;
-  border-radius: 8px;
-}
-
-.application-settings__switch-label {
-  position: relative;
-  z-index: 1;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.application-settings__switch:focus-visible {
-  outline: 2px solid #ec1f52;
-  outline-offset: 2px;
-  border-radius: 12px;
-}
-
-.application-settings--dark .application-settings__switch-shell {
-  background: #262626;
-}
-
-.application-settings--dark .application-settings__switch-indicator {
-  background: #0d0d0d;
-}
-
-.application-settings--dark .application-settings__switch-label {
-  color: #a3a3a3;
-}
-
-.application-settings--dark .application-settings__switch--on .application-settings__switch-label {
-  color: #ffffff;
-}
-
-.application-settings--light .application-settings__switch-shell {
-  background: #f4f4f5;
-}
-
-.application-settings--light .application-settings__switch-indicator {
-  background: #ffffff;
-}
-
-.application-settings--light .application-settings__switch-label {
-  color: #71717a;
-}
-
-.application-settings--light .application-settings__switch--on .application-settings__switch-label {
-  color: #101010;
 }
 
 .application-settings :deep(.p-button.application-settings__save-btn) {

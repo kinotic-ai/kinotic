@@ -7,7 +7,6 @@ import { APPLICATION_STATE } from '@/states/IApplicationState';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
 import Button from 'primevue/button';
-import Select from 'primevue/select';
 import { createDebug } from '@/util/debug';
 import { isDark as darkMode } from '@/composables/useTheme'
 
@@ -16,16 +15,13 @@ const debug = createDebug('new-project-sidebar');
 interface ProjectForm {
     name: string;
     description: string;
-    source: 'GUI' | 'Code';
-    language: ProjectType | null;
 }
 
 @Component({
     components: {
         InputText,
         Textarea,
-        Button,
-        Select
+        Button
     }
 })
 export default class NewProjectSidebar extends Vue {
@@ -33,22 +29,13 @@ export default class NewProjectSidebar extends Vue {
 
     form: ProjectForm = {
         name: '',
-        description: '',
-        source: 'GUI',
-        language: null
+        description: ''
     };
 
     loading = false;
 
     get isDark() {
         return darkMode.value;
-    }
-
-    get languageOptions() {
-        return [
-            { label: 'TypeScript', value: ProjectType.TYPESCRIPT },
-            { label: 'GraphQL', value: ProjectType.GRAPHQL }
-        ];
     }
 
     get inputClass() {
@@ -67,15 +54,7 @@ export default class NewProjectSidebar extends Vue {
             if (!app) throw new Error('No current application selected');
 
             const project = new Project(null, app.id, this.form.name, this.form.description);
-
-            if (this.form.source === 'GUI') {
-                project.sourceOfTruth = ProjectType.GRAPHICAL;
-            } else if (this.form.source === 'Code') {
-                if (this.form.language === null) {
-                    throw new Error('Please select a language for Code projects.');
-                }
-                project.sourceOfTruth = this.form.language;
-            }
+            project.sourceOfTruth = ProjectType.TYPESCRIPT;
 
             const createdProject = await Kinotic.projects.create(project);
 
@@ -109,9 +88,7 @@ export default class NewProjectSidebar extends Vue {
     private resetForm(): void {
         this.form = {
             name: '',
-            description: '',
-            source: 'GUI',
-            language: null
+            description: ''
         };
     }
 }
@@ -167,42 +144,6 @@ export default class NewProjectSidebar extends Vue {
                                 rows="3"
                                 :class="inputClass"
                                 placeholder="Optional description"
-                            />
-                        </div>
-
-                        <div>
-                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Source of truth</label>
-                            <div :class="['flex w-full gap-2 rounded-xl p-1', isDark ? 'bg-[#262626]' : 'bg-[#F4F5F9]']">
-                                <Button
-                                    type="button"
-                                    @click="form.source = 'GUI'"
-                                    class="w-1/2 text-sm font-bold py-[10px] rounded-lg transition"
-                                    severity="secondary"
-                                    :class="form.source === 'GUI' ? (isDark ? '!bg-[#101010] !text-white' : '!bg-white !text-[#101010]') : (isDark ? '!bg-transparent !text-[#9f9fa8]' : '!bg-transparent !text-[#5F6165]')"
-                                >
-                                    GUI
-                                </Button>
-                                <Button
-                                    type="button"
-                                    @click="form.source = 'Code'"
-                                    class="w-1/2 text-sm font-bold py-[10px] rounded-lg transition"
-                                    severity="secondary"
-                                    :class="form.source === 'Code' ? (isDark ? '!bg-[#101010] !text-white' : '!bg-white !text-[#101010]') : (isDark ? '!bg-transparent !text-[#9f9fa8]' : '!bg-transparent !text-[#5F6165]')"
-                                >
-                                    Code
-                                </Button>
-                            </div>
-                        </div>
-
-                        <div v-if="form.source === 'Code'">
-                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Language</label>
-                            <Select
-                                v-model="form.language"
-                                :options="languageOptions"
-                                optionLabel="label"
-                                optionValue="value"
-                                placeholder="Select language"
-                                :class="['w-full rounded-lg p-2 text-sm', isDark ? 'border border-[#434349] bg-[#262626] text-white' : 'border border-[#D2D3D9] text-[#101010]']"
                             />
                         </div>
                     </div>
