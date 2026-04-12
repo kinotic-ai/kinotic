@@ -17,7 +17,7 @@
 
             <div class="login-form__step">
               <InputText
-                v-model="orgName"
+                v-model="request.orgName"
                 class="login-input"
                 placeholder="Organization name"
                 @keyup.enter="focusNext('orgDescription')"
@@ -25,7 +25,7 @@
 
               <InputText
                 ref="orgDescription"
-                v-model="orgDescription"
+                v-model="request.orgDescription"
                 class="login-input"
                 placeholder="Organization description (optional)"
                 @keyup.enter="focusNext('email')"
@@ -33,7 +33,7 @@
 
               <InputText
                 ref="email"
-                v-model="email"
+                v-model="request.email"
                 class="login-input"
                 placeholder="Your email"
                 type="email"
@@ -42,7 +42,7 @@
 
               <InputText
                 ref="displayName"
-                v-model="displayName"
+                v-model="request.displayName"
                 class="login-input"
                 placeholder="Your name"
                 @keyup.enter="handleSubmit"
@@ -66,7 +66,7 @@
               <span class="pi pi-envelope signup-success__icon"></span>
               <h2 class="signup-title">Check your email</h2>
               <p class="signup-success__text">
-                We've sent a verification link to <strong>{{ email }}</strong>.
+                We've sent a verification link to <strong>{{ request.email }}</strong>.
                 Click the link to activate your organization.
               </p>
               <p class="signup-success__text signup-success__text--muted">
@@ -116,10 +116,12 @@ export default class Signup extends Vue {
   get isDark() { return darkMode.value }
   toggleTheme() { toggleDark() }
 
-  orgName = ''
-  orgDescription = ''
-  email = ''
-  displayName = ''
+  request: SignUpRequest = {
+    orgName: '',
+    orgDescription: '',
+    email: '',
+    displayName: '',
+  }
   loading = false
   submitted = false
 
@@ -133,24 +135,22 @@ export default class Signup extends Vue {
   }
 
   async handleSubmit() {
-    if (!this.orgName.trim()) {
+    this.request.orgName = this.request.orgName.trim()
+    this.request.email = this.request.email.trim()
+    this.request.displayName = this.request.displayName.trim()
+    this.request.orgDescription = (this.request.orgDescription ?? '').trim() || null
+
+    if (!this.request.orgName) {
       this.displayAlert('Organization name is required')
       return
     }
-    if (!this.email.trim() || !this.email.includes('@')) {
+    if (!this.request.email || !this.request.email.includes('@')) {
       this.displayAlert('Please enter a valid email address')
       return
     }
-    if (!this.displayName.trim()) {
+    if (!this.request.displayName) {
       this.displayAlert('Your name is required')
       return
-    }
-
-    const request: SignUpRequest = {
-      orgName: this.orgName.trim(),
-      orgDescription: this.orgDescription.trim() || null,
-      email: this.email.trim(),
-      displayName: this.displayName.trim(),
     }
 
     this.loading = true
@@ -158,7 +158,7 @@ export default class Signup extends Vue {
       const response = await fetch('/api/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
+        body: JSON.stringify(this.request),
       })
 
       const data = await response.json()

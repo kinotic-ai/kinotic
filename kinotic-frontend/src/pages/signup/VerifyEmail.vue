@@ -20,7 +20,7 @@
 
               <Password
                 ref="passwordInput"
-                v-model="password"
+                v-model="request.password"
                 class="login-input"
                 placeholder="Password"
                 :feedback="false"
@@ -100,17 +100,17 @@ export default class VerifyEmail extends Vue {
   get isDark() { return darkMode.value }
   toggleTheme() { toggleDark() }
 
-  password = ''
+  request: SignUpCompleteRequest = {
+    token: '',
+    password: '',
+  }
   confirmPassword = ''
   loading = false
   completed = false
 
-  get token(): string {
-    return (this.$route.query.token as string) || ''
-  }
-
   mounted() {
-    if (!this.token) {
+    this.request.token = (this.$route.query.token as string) || ''
+    if (!this.request.token) {
       this.displayAlert('No verification token provided.')
     }
   }
@@ -123,22 +123,17 @@ export default class VerifyEmail extends Vue {
   }
 
   async handleSubmit() {
-    if (!this.token) {
+    if (!this.request.token) {
       this.displayAlert('No verification token provided.')
       return
     }
-    if (!this.password) {
+    if (!this.request.password) {
       this.displayAlert('Password is required')
       return
     }
-    if (this.password !== this.confirmPassword) {
+    if (this.request.password !== this.confirmPassword) {
       this.displayAlert('Passwords do not match')
       return
-    }
-
-    const request: SignUpCompleteRequest = {
-      token: this.token,
-      password: this.password,
     }
 
     this.loading = true
@@ -146,7 +141,7 @@ export default class VerifyEmail extends Vue {
       const response = await fetch('/api/signup/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
+        body: JSON.stringify(this.request),
       })
 
       const data = await response.json()
