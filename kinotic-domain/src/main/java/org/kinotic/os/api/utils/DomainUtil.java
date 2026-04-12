@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 /**
  * Created By Navíd Mitchell 🤪on 2/13/26
  */
-public class CoreUtil {
+public class DomainUtil {
 
     private static final Pattern ApplicationPattern = Pattern.compile("^[A-Za-z][A-Za-z0-9._-]*$");
     private static final Pattern ProjectIdPattern = Pattern.compile("^[a-z][a-z0-9._-]*$");

@@ -19,43 +19,6 @@ import java.util.UUID;
  */
 public class GatewayUtils {
 
-    // FIXME: move to HFT specific code
-//    public static void writeHftRawEvent(HftRawEvent event,
-//                                        DocumentContext documentContext){
-//        // We write the destination to the wire directly so not all bytes have to be parsed
-//        documentContext.wire()
-//                       .bytes()
-//                       .writeUtf8(event.cri()) // So we know where the data was sent
-//                       .writeByte(event.dataFormat()) // raw data format
-//                       .writeInt(event.data().length)// length of the rest of the data
-//                       .write(event.data()); // rest of the data
-//    }
-//
-//    public static HftRawEvent readHftRawEvent(DocumentContext documentContext){
-//        Bytes<?> hftBytes = documentContext.wire().bytes();
-//        String cri = hftBytes.readUtf8();
-//        byte dataFormat = hftBytes.readByte();
-//        int length = hftBytes.readInt();
-//
-//        // now read raw data
-//        byte[] dataBytes = {};
-//        if(length > 0) {
-//            dataBytes = new byte[length];
-//            hftBytes.read(dataBytes);
-//        }
-//        return new HftRawEvent(cri, dataFormat, dataBytes);
-//    }
-//
-//    public static HftRawEvent continuumEventToHftRawEvent(Event<byte[]> event){
-//        String rawCri = event.cri().raw();
-//        return new HftRawEvent(rawCri, EventConstants.RAW_EVENT_FORMAT_STOMPISH, toStompBuffer(event).getBytes());
-//    }
-//
-//    public static HftRawEvent stompFrameToHftRawEvent(Frame frame){
-//        String rawCri = frame.getDestination();
-//        return new HftRawEvent(rawCri, EventConstants.RAW_EVENT_FORMAT_STOMPISH, toStompBuffer(frame).getBytes());
-//    }
-
     public static Frame eventToStompFrame(Event<byte[]> event){
         Map<String, String> headers;
         // Stomp spec says that if there are duplicate headers that the later headers overwrite the previous ones

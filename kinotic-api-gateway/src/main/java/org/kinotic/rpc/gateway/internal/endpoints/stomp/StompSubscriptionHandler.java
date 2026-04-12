@@ -1,7 +1,7 @@
 
 
 
-package org.kinotic.rpc.gateway.internal.endpoints;
+package org.kinotic.rpc.gateway.internal.endpoints.stomp;
 
 import org.kinotic.core.api.event.Event;
 

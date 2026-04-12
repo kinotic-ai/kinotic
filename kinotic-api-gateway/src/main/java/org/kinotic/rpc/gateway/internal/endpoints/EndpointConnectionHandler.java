@@ -20,6 +20,7 @@ import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.security.Session;
 import org.kinotic.rpc.gateway.internal.api.security.CliSecurityService;
 import org.kinotic.core.internal.utils.EventUtil;
+import org.kinotic.rpc.gateway.internal.endpoints.stomp.StompSubscriptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.core.JacksonException;

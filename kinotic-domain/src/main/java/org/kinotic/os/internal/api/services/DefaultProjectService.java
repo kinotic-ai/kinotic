@@ -8,7 +8,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.os.api.model.Project;
 import org.kinotic.os.api.services.ProjectService;
-import org.kinotic.os.api.utils.CoreUtil;
+import org.kinotic.os.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -48,7 +48,7 @@ public class DefaultProjectService extends AbstractCrudService<Project> implemen
             project.setId(projectId);
         }
         // Sanity check
-        CoreUtil.validateProjectId(project.getId());
+        DomainUtil.validateProjectId(project.getId());
 
         return findById(project.getId())
                 .thenCompose(existing -> {

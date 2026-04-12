@@ -4,7 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.kinotic.os.api.model.Application;
 import org.kinotic.os.api.services.ApplicationService;
 import org.kinotic.os.api.services.ProjectService;
-import org.kinotic.os.api.utils.CoreUtil;
+import org.kinotic.os.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -27,7 +27,7 @@ public class DefaultApplicationService extends AbstractCrudService<Application> 
 
     @Override
     public CompletableFuture<Application> createApplicationIfNotExist(String id, String description) {
-        CoreUtil.validateApplicationId(id);
+        DomainUtil.validateApplicationId(id);
         return findById(id)
                 .thenCompose(application -> {
                     if(application != null){
@@ -49,7 +49,7 @@ public class DefaultApplicationService extends AbstractCrudService<Application> 
 
     @Override
     public CompletableFuture<Application> save(Application entity) {
-        CoreUtil.validateApplicationId(entity.getId());
+        DomainUtil.validateApplicationId(entity.getId());
         entity.setUpdated(new Date());
         return super.save(entity);
     }

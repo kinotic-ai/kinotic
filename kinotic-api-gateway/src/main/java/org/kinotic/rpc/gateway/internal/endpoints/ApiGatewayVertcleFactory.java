@@ -22,7 +22,7 @@ import java.util.List;
  * Created by Navíd Mitchell 🤪 on 3/6/24.
  */
 @Component
-public class RpcGatewayVertcleFactory {
+public class ApiGatewayVertcleFactory {
 
     private final KinoticProperties kinoticProperties;
     private final RpcGatewayProperties gatewayProperties;
@@ -30,7 +30,7 @@ public class RpcGatewayVertcleFactory {
     private final SignUpHandler signUpHandler;
     private final Vertx vertx;
 
-    public RpcGatewayVertcleFactory(KinoticProperties kinoticProperties,
+    public ApiGatewayVertcleFactory(KinoticProperties kinoticProperties,
                                     KinoticRpcGatewayProperties kinoticRpcGatewayProperties,
                                     StompServerHandlerFactory stompServerHandlerFactory,
                                     SignUpHandler signUpHandler,
@@ -42,13 +42,13 @@ public class RpcGatewayVertcleFactory {
         this.vertx = vertx;
     }
 
-    public StompServerVerticle createStompServerVerticle(){
+    public StompServerVerticle createApiGatewayVerticle(){
         Router router = Router.router(vertx);
 
         // Mount REST endpoints before the static handler catch-all
         signUpHandler.mountRoutes(router);
 
-        router.route().handler(StaticHandler.create("rpc-gateway-static"));
+        router.route().handler(StaticHandler.create("api-gateway-static"));
 
         // FIXME: check CORS, see if it is protected or actually allowing any..?
         StompServerOptions stompServerOptions = gatewayProperties.getStomp();
