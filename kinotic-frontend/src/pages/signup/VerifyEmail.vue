@@ -15,8 +15,8 @@
           <div class="login-form">
             <!-- Password form -->
             <div v-if="!completed" class="login-form__step">
-              <h2 class="verify-title">Set your password</h2>
-              <p class="verify-text">Choose a password to finish creating your account.</p>
+              <h2 class="verify-title">Thank you for verifying your email</h2>
+              <p class="verify-text">Please set your password to finish creating your account.</p>
 
               <Password
                 ref="passwordInput"

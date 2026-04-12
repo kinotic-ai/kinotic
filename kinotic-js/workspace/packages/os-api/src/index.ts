@@ -36,6 +36,9 @@ export * from '@/api/model/workload/VmProviderType'
 export * from '@/api/model/workload/VmNode'
 export * from '@/api/model/workload/VmNodeStatus'
 
+export * from '@/api/model/iam/SignUpRequest'
+export * from '@/api/model/iam/SignUpCompleteRequest'
+
 // Services
 export * from '@/api/services/IApplicationService'
 export * from '@/api/services/ILogManager'
