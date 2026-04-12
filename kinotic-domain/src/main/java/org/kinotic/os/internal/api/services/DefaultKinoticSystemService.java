@@ -6,10 +6,14 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.os.api.model.KinoticSystem;
+import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.kinotic.os.api.services.KinoticSystemService;
+import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Slf4j
@@ -21,6 +25,7 @@ public class DefaultKinoticSystemService implements KinoticSystemService {
     private static final String SYSTEM_ID = "kinotic-system";
 
     private final ElasticsearchAsyncClient esAsyncClient;
+    private final OidcConfigurationService oidcConfigurationService;
 
     @PostConstruct
     public void verifyIndexExists() {
@@ -63,6 +68,17 @@ public class DefaultKinoticSystemService implements KinoticSystemService {
                 .document(system)
                 .refresh(Refresh.WaitFor))
                 .thenApply(response -> system);
+    }
+
+    @Override
+    public CompletableFuture<List<OidcConfiguration>> getOidcConfigurations() {
+        return getSystem()
+                .thenCompose(system -> {
+                    if (system == null) {
+                        return CompletableFuture.completedFuture(Collections.emptyList());
+                    }
+                    return oidcConfigurationService.findEnabledByIds(system.getOidcConfigurationIds());
+                });
     }
 
 }

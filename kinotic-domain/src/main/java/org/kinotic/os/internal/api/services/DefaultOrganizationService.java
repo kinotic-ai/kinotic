@@ -4,10 +4,14 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.os.api.model.Organization;
+import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.kinotic.os.api.services.OrganizationService;
+import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -15,10 +19,13 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultOrganizationService extends AbstractCrudService<Organization> implements OrganizationService {
 
     private final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
+    private final OidcConfigurationService oidcConfigurationService;
 
     public DefaultOrganizationService(CrudServiceTemplate crudServiceTemplate,
-                                      ElasticsearchAsyncClient esAsyncClient) {
+                                      ElasticsearchAsyncClient esAsyncClient,
+                                      OidcConfigurationService oidcConfigurationService) {
         super("kinotic_organization", Organization.class, esAsyncClient, crudServiceTemplate);
+        this.oidcConfigurationService = oidcConfigurationService;
     }
 
     @Override
@@ -33,6 +40,20 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
         entity.setSlug(slg.slugify(entity.getName()).toLowerCase());
         entity.setUpdated(new Date());
         return super.save(entity);
+    }
+
+    @Override
+    public CompletableFuture<List<OidcConfiguration>> getOidcConfigurations(String organizationId) {
+        if (organizationId == null) {
+            return CompletableFuture.completedFuture(Collections.emptyList());
+        }
+        return findById(organizationId)
+                .thenCompose(organization -> {
+                    if (organization == null) {
+                        return CompletableFuture.completedFuture(Collections.emptyList());
+                    }
+                    return oidcConfigurationService.findEnabledByIds(organization.getOidcConfigurationIds());
+                });
     }
 
 }
