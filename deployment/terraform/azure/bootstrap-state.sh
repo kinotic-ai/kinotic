@@ -16,7 +16,8 @@ CONTAINER="tfstate"
 echo "==> Registering required resource providers"
 for PROVIDER in Microsoft.Storage Microsoft.Compute Microsoft.ContainerService \
                 Microsoft.Network Microsoft.ManagedIdentity Microsoft.Authorization \
-                Microsoft.OperationsManagement Microsoft.OperationalInsights; do
+                Microsoft.OperationsManagement Microsoft.OperationalInsights \
+                Microsoft.Communication Microsoft.KeyVault; do
   az provider register --namespace "$PROVIDER" --wait 2>/dev/null &
 done
 wait

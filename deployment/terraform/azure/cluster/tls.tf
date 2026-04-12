@@ -1,20 +1,3 @@
-# ── Azure DNS Zone ────────────────────────────────────────────────────────────
-# After apply, update your domain registrar (Namecheap) NS records to point
-# to the Azure nameservers shown in: terraform output dns_nameservers
-
-resource "azurerm_dns_zone" "main" {
-  name                = var.domain_name
-  resource_group_name = azurerm_resource_group.global.name
-  tags                = local.common_tags
-}
-
-# NOTE: Management lock removed — CanNotDelete on the DNS zone also prevents
-# cert-manager from cleaning up _acme-challenge TXT records during renewal.
-# The DNS zone is protected by:
-#   1. Being in a separate resource group (rg-kinotic-global)
-#   2. Terraform's prevent_deletion_if_contains_resources feature flag
-# For production, consider a lock with automation to temporarily remove during renewal.
-
 # ── Managed Identity for cert-manager DNS-01 challenges ───────────────────────
 # cert-manager uses this identity to create TXT records in Azure DNS
 # for Let's Encrypt domain validation.
@@ -27,7 +10,7 @@ resource "azurerm_user_assigned_identity" "cert_manager" {
 }
 
 resource "azurerm_role_assignment" "cert_manager_dns_contributor" {
-  scope                = azurerm_dns_zone.main.id
+  scope                = local.global.dns_zone_id
   role_definition_name = "DNS Zone Contributor"
   principal_id         = azurerm_user_assigned_identity.cert_manager.principal_id
 }
@@ -85,6 +68,24 @@ resource "terraform_data" "cert_manager_issuer_and_cert" {
     command = <<-EOT
       set -e
 
+      # Refresh credentials and wait for API server to be reachable
+      echo "Refreshing AKS credentials..."
+      az aks get-credentials \
+        --resource-group "${azurerm_resource_group.main.name}" \
+        --name "${module.aks.cluster_name}" \
+        --overwrite-existing 2>/dev/null
+      kubelogin convert-kubeconfig -l azurecli 2>/dev/null
+
+      echo "Waiting for Kubernetes API server..."
+      for i in $(seq 1 30); do
+        if kubectl get nodes >/dev/null 2>&1; then
+          echo "API server is reachable"
+          break
+        fi
+        echo "  Attempt $i/30 — waiting 10s..."
+        sleep 10
+      done
+
       echo "Creating Let's Encrypt ClusterIssuer..."
       kubectl apply -f - <<YAML
       apiVersion: cert-manager.io/v1
@@ -100,9 +101,9 @@ resource "terraform_data" "cert_manager_issuer_and_cert" {
           solvers:
             - dns01:
                 azureDNS:
-                  subscriptionID: ${data.azurerm_client_config.tls.subscription_id}
-                  resourceGroupName: ${azurerm_resource_group.global.name}
-                  hostedZoneName: ${var.domain_name}
+                  subscriptionID: ${local.global.subscription_id}
+                  resourceGroupName: ${local.global.resource_group_name}
+                  hostedZoneName: ${local.global.dns_zone_name}
                   environment: AzurePublicCloud
                   managedIdentity:
                     clientID: ${azurerm_user_assigned_identity.cert_manager.client_id}
@@ -121,8 +122,8 @@ resource "terraform_data" "cert_manager_issuer_and_cert" {
           name: letsencrypt-prod
           kind: ClusterIssuer
         dnsNames:
-          - ${var.domain_name}
-          - "*.${var.domain_name}"
+          - ${local.global.dns_zone_name}
+          - "*.${local.global.dns_zone_name}"
       YAML
 
       echo "ClusterIssuer and Certificate created"
@@ -146,7 +147,7 @@ resource "terraform_data" "tls_cert_ready" {
     command = <<-EOT
       set -e
       echo "Waiting for TLS certificate to be issued..."
-      echo "If this is the first deploy, ensure NS records for ${var.domain_name} point to Azure DNS."
+      echo "If this is the first deploy, ensure NS records for ${local.global.dns_zone_name} point to Azure DNS."
       echo "Check: terraform output dns_nameservers"
       for i in $(seq 1 120); do
         DATA=$(kubectl get secret ${var.tls_secret_name} -n kinotic \
@@ -188,7 +189,3 @@ resource "helm_release" "reloader" {
 
   depends_on = [module.aks]
 }
-
-# ── Outputs ───────────────────────────────────────────────────────────────────
-
-data "azurerm_client_config" "tls" {}

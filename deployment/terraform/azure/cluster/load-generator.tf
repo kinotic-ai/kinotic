@@ -6,7 +6,7 @@ resource "helm_release" "load_generator" {
 
   name      = "load-generator"
   namespace = kubernetes_namespace.kinotic.metadata[0].name
-  chart     = "${path.module}/../../helm/load-generator"
+  chart     = "${path.module}/../../../helm/load-generator"
   wait      = false # Job runs asynchronously
 
   values = [file("${path.module}/config/load-generator/values.yaml")]

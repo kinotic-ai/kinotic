@@ -7,7 +7,7 @@
 # Firecracker VMs will be used for secure multi-tenant customer workloads.
 
 module "firecracker" {
-  source = "./modules/firecracker"
+  source = "../modules/firecracker"
   count  = var.enable_firecracker ? 1 : 0
 
   name_prefix         = local.name_prefix

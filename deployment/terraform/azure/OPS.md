@@ -60,7 +60,11 @@ terraform output set_user_tenant_id
 
 ## Monitoring
 
-**Grafana:** `https://grafana.kinotic.ai` (Entra ID login)
+**Grafana:** port-forward only (no external LB)
+```bash
+kubectl port-forward svc/grafana -n observability 3000:3000
+# Then open http://localhost:3000 (Entra ID login)
+```
 
 **Useful Loki queries:**
 ```

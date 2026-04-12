@@ -1,6 +1,5 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Elasticsearch Node Pool
-# Add to your root main.tf or as a separate nodepools.tf file.
 #
 # This pool is tainted so ONLY ES pods (which tolerate the taint) land here.
 # The system nodepool remains clean for kube-system workloads.

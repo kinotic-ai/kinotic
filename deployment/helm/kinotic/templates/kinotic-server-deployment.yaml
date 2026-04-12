@@ -17,6 +17,9 @@ spec:
       labels:
         app: {{ include "kinotic-server.name" . }}
         release: {{ .Release.Name }}
+        {{- if .Values.workloadIdentity.enabled }}
+        azure.workload.identity/use: "true"
+        {{- end }}
     spec:
       serviceAccountName: {{ include "kinotic-server.fullname" . }}
       terminationGracePeriodSeconds: 60  # Allow time for WebSocket connections to close gracefully

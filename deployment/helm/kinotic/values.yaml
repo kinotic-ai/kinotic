@@ -85,6 +85,11 @@ service:
     ui: null
     stomp: null
 
+# Workload identity (Azure) — enables keyless auth to Azure services
+workloadIdentity:
+  enabled: false
+  clientId: ""
+
 # Extra environment variables — override any Spring property via env var convention.
 # Example: KINOTIC_PERSISTENCE_WEBSERVERPORT: "443"
 extraEnv: {}
