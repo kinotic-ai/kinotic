@@ -78,6 +78,7 @@ import Password from 'primevue/password'
 import Button from 'primevue/button'
 import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
+import type { SignUpCompleteRequest } from '@kinotic-ai/os-api'
 
 import loginPageLeft from '@/assets/login-page-left.svg'
 import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
@@ -135,15 +136,17 @@ export default class VerifyEmail extends Vue {
       return
     }
 
+    const request: SignUpCompleteRequest = {
+      token: this.token,
+      password: this.password,
+    }
+
     this.loading = true
     try {
       const response = await fetch('/api/signup/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: this.token,
-          password: this.password,
-        }),
+        body: JSON.stringify(request),
       })
 
       const data = await response.json()
