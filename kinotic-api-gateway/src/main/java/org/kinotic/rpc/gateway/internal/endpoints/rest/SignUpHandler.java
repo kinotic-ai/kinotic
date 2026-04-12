@@ -31,12 +31,7 @@ public class SignUpHandler {
 
         router.post("/api/signup").handler(ctx -> {
             try {
-                JsonObject body = ctx.body().asJsonObject();
-                SignUpRequest request = new SignUpRequest()
-                        .setOrgName(body.getString("orgName"))
-                        .setOrgDescription(body.getString("orgDescription"))
-                        .setEmail(body.getString("email"))
-                        .setDisplayName(body.getString("displayName"));
+                SignUpRequest request = ctx.body().asPojo(SignUpRequest.class);
 
                 signUpService.initiateSignUp(request)
                         .thenAccept(v -> {
