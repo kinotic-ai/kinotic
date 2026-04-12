@@ -10,6 +10,7 @@ import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.os.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -67,7 +68,11 @@ public class DefaultApplicationService extends AbstractCrudService<Application> 
         return findById(applicationId)
                 .thenCompose(application -> {
                     Validate.notNull(application, "Application not found: %s", applicationId);
-                    return oidcConfigurationService.findEnabledByIds(application.getOidcConfigurationIds());
+                    List<String> ids = application.getOidcConfigurationIds();
+                    if (ids == null || ids.isEmpty()) {
+                        return CompletableFuture.completedFuture(Collections.emptyList());
+                    }
+                    return oidcConfigurationService.findEnabledByIds(ids);
                 });
     }
 

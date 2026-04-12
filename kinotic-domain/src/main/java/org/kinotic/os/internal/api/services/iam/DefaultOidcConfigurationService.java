@@ -10,7 +10,6 @@ import org.kinotic.os.internal.api.services.AbstractCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -37,9 +36,7 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
 
     @Override
     public CompletableFuture<List<OidcConfiguration>> findEnabledByIds(List<String> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
-        }
+        Validate.notEmpty(ids, "ids cannot be null or empty");
 
         List<MultiGetOperation> ops = ids.stream()
                 .map(id -> MultiGetOperation.of(o -> o.index(indexName).id(id)))

@@ -9,6 +9,7 @@ import org.kinotic.os.api.services.OrganizationService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -47,7 +48,11 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
         return findById(organizationId)
                 .thenCompose(organization -> {
                     Validate.notNull(organization, "Organization not found: %s", organizationId);
-                    return oidcConfigurationService.findEnabledByIds(organization.getOidcConfigurationIds());
+                    List<String> ids = organization.getOidcConfigurationIds();
+                    if (ids == null || ids.isEmpty()) {
+                        return CompletableFuture.completedFuture(Collections.emptyList());
+                    }
+                    return oidcConfigurationService.findEnabledByIds(ids);
                 });
     }
 
