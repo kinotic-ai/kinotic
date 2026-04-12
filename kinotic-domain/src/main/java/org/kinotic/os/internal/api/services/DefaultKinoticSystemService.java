@@ -11,7 +11,6 @@ import org.kinotic.os.api.services.KinoticSystemService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -73,12 +72,7 @@ public class DefaultKinoticSystemService implements KinoticSystemService {
     @Override
     public CompletableFuture<List<OidcConfiguration>> getOidcConfigurations() {
         return getSystem()
-                .thenCompose(system -> {
-                    if (system == null) {
-                        return CompletableFuture.completedFuture(Collections.emptyList());
-                    }
-                    return oidcConfigurationService.findEnabledByIds(system.getOidcConfigurationIds());
-                });
+                .thenCompose(system -> oidcConfigurationService.findEnabledByIds(system.getOidcConfigurationIds()));
     }
 
 }

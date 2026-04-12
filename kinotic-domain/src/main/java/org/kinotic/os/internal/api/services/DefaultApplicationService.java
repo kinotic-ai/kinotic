@@ -1,6 +1,7 @@
 package org.kinotic.os.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.os.api.model.Application;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.kinotic.os.api.services.ApplicationService;
@@ -9,7 +10,6 @@ import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.os.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -63,14 +63,10 @@ public class DefaultApplicationService extends AbstractCrudService<Application> 
 
     @Override
     public CompletableFuture<List<OidcConfiguration>> getOidcConfigurations(String applicationId) {
-        if (applicationId == null) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
-        }
+        Validate.notNull(applicationId, "applicationId cannot be null");
         return findById(applicationId)
                 .thenCompose(application -> {
-                    if (application == null) {
-                        return CompletableFuture.completedFuture(Collections.emptyList());
-                    }
+                    Validate.notNull(application, "Application not found: %s", applicationId);
                     return oidcConfigurationService.findEnabledByIds(application.getOidcConfigurationIds());
                 });
     }
