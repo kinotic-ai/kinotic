@@ -9,7 +9,7 @@ import org.kinotic.core.api.crud.Identifiable;
 import java.util.Date;
 
 /**
- * Represents an organization sign-up from initial submission through email verification.
+ * Represents an organization sign-up from the initial submission through email verification.
  * <p>
  * The REST endpoint receives an instance with only the user-provided fields populated
  * ({@code orgName}, {@code orgDescription}, {@code email}, {@code displayName}). The
