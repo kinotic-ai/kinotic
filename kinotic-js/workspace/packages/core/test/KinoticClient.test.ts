@@ -18,7 +18,7 @@ describe('Kinotic Client Tests', () => {
                                                       port: port,
                                                       maxConnectionAttempts: 3,
                                                       connectHeaders: {
-                                                          login: 'kinotic',
+                                                          login: 'admin@kinotic.local',
                                                           passcode: 'kinotic'
                                                       }
                                                   }),
