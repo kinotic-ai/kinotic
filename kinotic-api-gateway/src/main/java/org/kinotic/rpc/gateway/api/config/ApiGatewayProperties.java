@@ -13,7 +13,7 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-public class RpcGatewayProperties {
+public class ApiGatewayProperties {
     public static int DEFAULT_STOMP_PORT = 58503;
     public static String DEFAULT_STOMP_WEBSOCKET_PATH = "/v1";
 
@@ -25,7 +25,7 @@ public class RpcGatewayProperties {
      */
     private boolean enableCLIConnections = true;
 
-    public RpcGatewayProperties(KinoticProperties kinoticProperties) {
+    public ApiGatewayProperties(KinoticProperties kinoticProperties) {
         stomp = new StompServerOptions()
                 .setPort(DEFAULT_STOMP_PORT)
                 .setWebsocketPath(DEFAULT_STOMP_WEBSOCKET_PATH)

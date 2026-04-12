@@ -1,7 +1,7 @@
 package org.kinotic.rpc.gateway.internal.config;
 
 import org.kinotic.rpc.gateway.api.config.KinoticRpcGatewayProperties;
-import org.kinotic.rpc.gateway.api.config.RpcGatewayProperties;
+import org.kinotic.rpc.gateway.api.config.ApiGatewayProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 public class RpcGatewayConfiguration {
 
     @Bean
-    public RpcGatewayProperties rpcGatewayProperties(KinoticRpcGatewayProperties kinoticProperties){
+    public ApiGatewayProperties rpcGatewayProperties(KinoticRpcGatewayProperties kinoticProperties){
         return kinoticProperties.getRpcGateway();
     }
 

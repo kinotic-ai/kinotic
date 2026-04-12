@@ -26,6 +26,6 @@ public class KinoticRpcGatewayProperties extends KinoticProperties {
     /**
      * RPC gateway properties configuration
      */
-    private RpcGatewayProperties rpcGateway = new RpcGatewayProperties(this);
+    private ApiGatewayProperties rpcGateway = new ApiGatewayProperties(this);
 
 }
