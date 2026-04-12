@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.utils;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.os.api.utils.CoreUtil;
+import org.kinotic.os.api.utils.DomainUtil;
 import org.kinotic.persistence.api.model.EntityDefinition;
 
 import java.util.LinkedHashMap;
@@ -34,9 +34,9 @@ public class PersistenceUtil {
 
         validateEntityDefinitionName(entityDefinition.getName());
 
-        CoreUtil.validateApplicationId(entityDefinition.getApplicationId());
+        DomainUtil.validateApplicationId(entityDefinition.getApplicationId());
 
-        CoreUtil.validateProjectId(entityDefinition.getProjectId());
+        DomainUtil.validateProjectId(entityDefinition.getProjectId());
 
         if (entityDefinition.getSchema() == null) {
             throw new IllegalArgumentException("EntityDefinition schema must not be null");

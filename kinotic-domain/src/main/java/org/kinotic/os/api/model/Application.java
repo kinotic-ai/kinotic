@@ -4,8 +4,8 @@ import lombok.*;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
 
-
 import java.util.Date;
+import java.util.List;
 
 @Getter
 @Setter
@@ -16,6 +16,8 @@ public class Application implements Identifiable<String> {
     private String id;
 
     private String description;
+
+    private List<String> oidcConfigurationIds;
 
     private Date updated = null;
 

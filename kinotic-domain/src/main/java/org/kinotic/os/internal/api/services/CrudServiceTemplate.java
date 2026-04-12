@@ -89,6 +89,33 @@ public class CrudServiceTemplate {
     }
 
     /**
+     * Verifies that the given Elasticsearch index exists, throwing {@link IllegalStateException}
+     * if it does not. This is intended to be called from {@code @PostConstruct} methods on
+     * services that depend on a pre-existing index. A missing index typically indicates that
+     * the expected migration has not been applied.
+     *
+     * @param indexName name of the index to check
+     * @throws IllegalStateException if the index does not exist or if the existence check fails
+     */
+    public void verifyIndexExists(String indexName) {
+        try {
+            boolean exists = esAsyncClient.indices()
+                                          .exists(b -> b.index(indexName))
+                                          .get()
+                                          .value();
+            if (!exists) {
+                throw new IllegalStateException(
+                        "Elasticsearch index '" + indexName + "' does not exist. "
+                        + "Did you forget to add a migration in kinotic-migration/src/main/resources/migrations/?");
+            }
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to verify existence of index '" + indexName + "'", e);
+        }
+    }
+
+    /**
      * Creates an index with the given name. Also allows for customization of the {@link CreateIndexRequest}.
      *
      * @param indexName       name of the index to create

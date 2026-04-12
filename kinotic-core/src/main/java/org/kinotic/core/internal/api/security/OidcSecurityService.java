@@ -16,8 +16,6 @@ import org.kinotic.core.api.security.DefaultParticipant;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityService;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.security.PublicKey;
@@ -32,8 +30,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @AllArgsConstructor
-@Component
-@ConditionalOnProperty(prefix = "oidc-security-service", name = "enabled", havingValue = "true", matchIfMissing = false)
+@Deprecated
 public class OidcSecurityService implements SecurityService {
     
     private final OidcSecurityServiceProperties properties;

@@ -19,6 +19,21 @@ export interface IParticipant extends Identifiable<string> {
     tenantId?: string | null;
 
     /**
+     * The scope layer this participant authenticated against.
+     * Well-known values are "SYSTEM", "ORGANIZATION", and "APPLICATION",
+     * but custom values are allowed for extensibility.
+     */
+    authScopeType?: string | null;
+
+    /**
+     * The identifier of the specific scope this participant belongs to.
+     * For example, "kinotic" for system scope, an organization ID, or an application ID.
+     * Together with {@link authScopeType}, uniquely identifies which user pool
+     * this participant was authenticated from.
+     */
+    authScopeId?: string | null;
+
+    /**
      * Metadata is a map of key value pairs that can be used to store additional information about a participant
      *
      * @return a map of key value pairs

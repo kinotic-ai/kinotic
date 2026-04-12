@@ -6,8 +6,6 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import javax.security.sasl.AuthenticationException;
 import java.nio.charset.StandardCharsets;
@@ -17,8 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
-@Component
-@ConditionalOnProperty(prefix = "oidc-security-service", name = "enabled", havingValue = "false", matchIfMissing = true)
+@Deprecated
 public class TemporarySecurityService implements SecurityService {
 
 

@@ -25,21 +25,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @PostConstruct
     public void verifyIndexExists() {
-        try {
-            boolean exists = esAsyncClient.indices()
-                                          .exists(b -> b.index(indexName))
-                                          .get()
-                                          .value();
-            if (!exists) {
-                throw new IllegalStateException(
-                        "Elasticsearch index '" + indexName + "' does not exist. "
-                        + "Did you forget to add a migration in kinotic-migration/src/main/resources/migrations/?");
-            }
-        } catch (IllegalStateException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to verify existence of index '" + indexName + "'", e);
-        }
+        crudServiceTemplate.verifyIndexExists(indexName);
     }
 
     @Override

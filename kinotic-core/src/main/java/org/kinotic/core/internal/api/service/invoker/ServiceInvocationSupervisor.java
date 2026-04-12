@@ -298,7 +298,6 @@ public class ServiceInvocationSupervisor {
         }
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
     private void processMethodInvocationResult(Event<byte[]> incomingEvent, HandlerMethod handlerMethod, Object result){
 
         Metadata incomingMetadata = incomingEvent.metadata();
