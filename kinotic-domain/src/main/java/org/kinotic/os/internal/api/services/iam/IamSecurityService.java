@@ -15,7 +15,7 @@ import org.kinotic.core.internal.api.security.JwksService;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
-import org.kinotic.os.internal.model.iam.IamCredential;
+import org.kinotic.os.internal.api.model.iam.IamCredential;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;

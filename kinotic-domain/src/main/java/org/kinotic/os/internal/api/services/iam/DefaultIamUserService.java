@@ -12,7 +12,7 @@ import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.os.internal.api.services.AbstractCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
-import org.kinotic.os.internal.model.iam.IamCredential;
+import org.kinotic.os.internal.api.model.iam.IamCredential;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;

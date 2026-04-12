@@ -15,7 +15,7 @@ import org.kinotic.os.api.services.OrganizationService;
 import org.kinotic.os.api.services.iam.SignUpService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.kinotic.os.internal.api.services.EmailService;
-import org.kinotic.os.internal.model.iam.IamCredential;
+import org.kinotic.os.internal.api.model.iam.IamCredential;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;

@@ -6,7 +6,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
-import org.kinotic.os.internal.model.iam.IamCredential;
+import org.kinotic.os.internal.api.model.iam.IamCredential;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
