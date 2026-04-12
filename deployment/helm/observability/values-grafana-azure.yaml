@@ -1,31 +1,20 @@
 # Azure overrides for Grafana.
-# TLS using the same Let's Encrypt cert as kinotic-server.
+# Access via: kubectl port-forward svc/grafana -n observability 3000:3000
 # Entra ID OAuth config is injected by terraform.
 
 grafana.ini:
   server:
-    root_url: https://grafana.kinotic.ai
-    protocol: https
-    cert_file: /certs/tls.crt
-    cert_key: /certs/tls.key
+    root_url: http://localhost:3000
   auth.azuread:
     name: Azure AD
     allow_sign_up: true
     auto_login: false
     scopes: openid email profile
 
-# Mount the TLS secret
-extraSecretMounts:
-  - name: tls-certs
-    secretName: kinotic-tls
-    mountPath: /certs
-    readOnly: true
-
-# Expose via LoadBalancer on port 3000
+# ClusterIP — port-forward only, no LB cost
 service:
-  type: LoadBalancer
-  port: 443
-  targetPort: 3000
+  type: ClusterIP
+  port: 3000
 
 persistence:
   storageClassName: managed-csi-premium

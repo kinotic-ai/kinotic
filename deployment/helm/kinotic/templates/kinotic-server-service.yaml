@@ -1,37 +1,26 @@
 {{- if eq (.Values.service.type | default "ClusterIP") "LoadBalancer" }}
 # ── External Service (LoadBalancer) ──────────────────────
-# Only exposes the ports that need internet access.
+# STOMP/WebSocket only — SPA is served by Static Web Apps.
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "kinotic-server.fullname" . }}
 spec:
   type: LoadBalancer
-  # NOTE: externalTrafficPolicy: Local doesn't work with Cilium on AKS.
-  # Using Cluster instead — sticky sessions still work via sessionAffinity.
-  # Revisit when Cilium fixes Local policy support on AKS.
   sessionAffinity: ClientIP
   sessionAffinityConfig:
     clientIP:
       timeoutSeconds: 10800
   ports:
-    - name: "ui"
-      protocol: TCP
-      port: {{ .Values.service.externalPorts.ui | default .Values.kinotic.webServerPort | default 9090 }}
-      targetPort: {{ .Values.kinotic.webServerPort | default 9090 }}
-    - name: "ui-direct"
-      protocol: TCP
-      port: {{ .Values.kinotic.webServerPort | default 9090 }}
-      targetPort: {{ .Values.kinotic.webServerPort | default 9090 }}
     - name: "stomp"
       protocol: TCP
-      port: {{ .Values.service.externalPorts.stomp | default .Values.kinotic.stomp.port | default 58503 }}
+      port: 443
       targetPort: {{ .Values.kinotic.stomp.port | default 58503 }}
   selector:
     app: {{ include "kinotic-server.name" . }}
 ---
 # ── Internal Service (ClusterIP) ─────────────────────────
-# API, GraphQL, REST — accessible only within the cluster.
+# All other ports — accessible only within the cluster.
 apiVersion: v1
 kind: Service
 metadata:
@@ -39,6 +28,10 @@ metadata:
 spec:
   type: ClusterIP
   ports:
+    - name: "ui"
+      protocol: TCP
+      port: {{ .Values.kinotic.webServerPort | default 9090 }}
+      targetPort: {{ .Values.kinotic.webServerPort | default 9090 }}
     - name: "open-api"
       protocol: TCP
       port: {{ .Values.kinotic.openApiPort }}
@@ -47,6 +40,10 @@ spec:
       protocol: TCP
       port: {{ .Values.kinotic.graphqlPort }}
       targetPort: {{ .Values.kinotic.graphqlPort }}
+    - name: "stomp-internal"
+      protocol: TCP
+      port: {{ .Values.kinotic.stomp.port | default 58503 }}
+      targetPort: {{ .Values.kinotic.stomp.port | default 58503 }}
     - name: "rest"
       protocol: TCP
       port: {{ .Values.kinotic.restPort | default 58504 }}

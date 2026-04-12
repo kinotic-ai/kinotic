@@ -18,10 +18,10 @@ Estimated monthly costs for West US 2. Prices are approximate (pay-as-you-go).
 | System Node Pool (3x VMs) | Virtual Machines | **Paid** |
 | System OS Disks | Managed Disks | **Paid** |
 | Azure DNS Zone | Azure DNS (kinotic.ai) | **~$0.50/mo** |
-| DNS A Records (root + grafana) | Azure DNS | Included in zone |
+| DNS A Record (api.kinotic.ai) | Azure DNS | Included in zone |
+| DNS CNAME (portal.kinotic.ai) | Azure DNS | Included in zone |
 | DNS Queries | Azure DNS | **~$0.40/mo per 1M queries** |
-| Load Balancer (kinotic-server) | Standard LB + Public IP | **~$22/mo** |
-| Load Balancer (Grafana) | Standard LB + Public IP | **~$22/mo** |
+| Load Balancer (STOMP only) | Standard LB + Public IP | **~$22/mo** |
 | Elasticsearch PVC(s) | Managed Disk (Premium ZRS) | **Paid** |
 | Loki PVC | Managed Disk | **~$2/mo** |
 | Grafana PVC | Managed Disk | **~$1/mo** |
@@ -67,15 +67,16 @@ Includes observability stack (Loki + Alloy + Grafana) and Entra ID auth.
 | System OS Disks | Premium SSD, 128 GB | 3 | $19 | $57 |
 | ES Master PVC | Premium ZRS, 16 GB | 1 | $10 | $10 |
 | ES Data PVCs | Premium ZRS, 64 GB | 3 | $19 | $57 |
-| LB + Public IP (kinotic-server) | Standard | 1 | $22 | $22 |
-| LB + Public IP (Grafana) | Standard | 1 | $22 | $22 |
+| LB + Public IP (STOMP only) | Standard | 1 | $22 | $22 |
+| Static Web App (SPA) | Free tier | 1 | $0 | $0 |
 | Loki PVC | managed-csi-premium, 10 GB | 1 | $2 | $2 |
-| Loki Blob Storage | Azure Blob (hot tier) | — | ~$0.02/GB | $3 |
 | Grafana PVC | managed-csi-premium, 1 GB | 1 | $1 | $1 |
+| Key Vault | Standard | 1 | ~$0.03/10K ops | $1 |
+| Azure Communication Services | Email | 1 | $0.00025/email | $0 |
 | DNS Zone | kinotic.ai | 1 | $0.50 | $1 |
 | State Storage | Blob (LRS) | 1 | $1 | $1 |
 
-### Beta Total: ~$596/mo
+### Beta Total: ~$573/mo
 
 ### Beta Resource Utilization (48 GB across 3 nodes)
 
@@ -116,15 +117,17 @@ AKS Standard tier with uptime SLA.
 | ES Master PVCs | Premium ZRS, 32 GB | 3 | $10 | $30 |
 | ES Data PVCs | Premium ZRS, 256 GB | 3 | $74 | $222 |
 | AKS Standard Tier | Uptime SLA (99.95%) | 1 | $73 | $73 |
-| LB + Public IP (kinotic-server) | Standard | 1 | $22 | $22 |
-| LB + Public IP (Grafana) | Standard | 1 | $22 | $22 |
+| LB + Public IP (STOMP only) | Standard | 1 | $22 | $22 |
+| Static Web App (SPA) | Free tier | 1 | $0 | $0 |
+| Key Vault | Standard | 1 | ~$0.03/10K ops | $1 |
+| Azure Communication Services | Email | 1 | $0.00025/email | $0 |
 | Loki PVC | managed-csi-premium, 10 GB | 1 | $2 | $2 |
 | Loki Blob Storage | Azure Blob (hot tier) | — | ~$0.02/GB | $5 |
 | Grafana PVC | managed-csi-premium, 1 GB | 1 | $1 | $1 |
 | DNS Zone | kinotic.ai | 1 | $0.50 | $1 |
 | State Storage | Blob (LRS) | 1 | $1 | $1 |
 
-### Production Total: ~$2,065/mo
+### Production Total: ~$2,025/mo
 
 ---
 

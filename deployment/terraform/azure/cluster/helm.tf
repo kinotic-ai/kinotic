@@ -1,7 +1,4 @@
-# ── Providers — connect using AKS credentials via kubelogin ───────────────────
-# With local_account_disabled=true, cert-based auth doesn't work.
-# Use exec-based auth with kubelogin (Azure AD / Azure RBAC).
-# Requires: az aks get-credentials + kubelogin convert-kubeconfig -l azurecli
+# ── Providers — connect via kubelogin ─────────────────────────────────────────
 
 provider "helm" {
   kubernetes = {
@@ -28,11 +25,11 @@ provider "kubernetes" {
 data "azurerm_kubernetes_cluster" "main" {
   name                = module.aks.cluster_name
   resource_group_name = azurerm_resource_group.main.name
-
-  depends_on = [module.aks]
+  depends_on          = [module.aks]
 }
 
 # ── Namespaces ────────────────────────────────────────────────────────────────
+
 resource "kubernetes_namespace" "elastic_system" {
   metadata {
     name   = "elastic-system"
@@ -57,7 +54,8 @@ resource "kubernetes_namespace" "kinotic" {
   depends_on = [module.aks]
 }
 
-# ── StorageClass: Premium ZRS for Elasticsearch ───────────────────────────────
+# ── StorageClass: Premium ZRS ─────────────────────────────────────────────────
+
 resource "kubernetes_storage_class_v1" "es_premium_zrs" {
   metadata {
     name = "es-premium-zrs"
@@ -78,6 +76,7 @@ resource "kubernetes_storage_class_v1" "es_premium_zrs" {
 }
 
 # ── ECK Operator ──────────────────────────────────────────────────────────────
+
 resource "helm_release" "eck_operator" {
   name       = "elastic-operator"
   repository = "https://helm.elastic.co"
@@ -86,6 +85,10 @@ resource "helm_release" "eck_operator" {
   namespace  = kubernetes_namespace.elastic_system.metadata[0].name
 
   values = [file("${path.module}/helm/eck-operator/values.yaml")]
+
+  set = [
+    { name = "installCRDs", value = "true" },
+  ]
 
   wait          = true
   wait_for_jobs = true
@@ -98,7 +101,8 @@ resource "helm_release" "eck_operator" {
   ]
 }
 
-# ── Elasticsearch (via eck-stack chart) ───────────────────────────────────────
+# ── Elasticsearch ─────────────────────────────────────────────────────────────
+
 resource "helm_release" "eck_stack" {
   name       = "elastic-stack"
   repository = "https://helm.elastic.co"
@@ -107,8 +111,8 @@ resource "helm_release" "eck_stack" {
   namespace  = kubernetes_namespace.elastic.metadata[0].name
 
   values = [
-    file("${path.module}/../../helm/eck-stack/values.yaml"),
-    file("${path.module}/../../helm/eck-stack/${var.beta_mode ? "values-azure-beta" : "values-azure"}.yaml"),
+    file("${path.module}/../../../helm/eck-stack/values.yaml"),
+    file("${path.module}/../../../helm/eck-stack/${var.beta_mode ? "values-azure-beta" : "values-azure"}.yaml"),
   ]
 
   wait    = true
@@ -120,10 +124,7 @@ resource "helm_release" "eck_stack" {
   ]
 }
 
-# ── NetworkPolicy: restrict ES ingress ────────────────────────────────────────
-# Allow traffic from within the elastic namespace (ES inter-node),
-# from kinotic namespace (server, migration), and from elastic-system
-# (ECK operator). Blocks everything else.
+# ── NetworkPolicy on ES ───────────────────────────────────────────────────────
 
 resource "kubernetes_network_policy" "elasticsearch" {
   metadata {
@@ -140,14 +141,12 @@ resource "kubernetes_network_policy" "elasticsearch" {
 
     policy_types = ["Ingress"]
 
-    # ES inter-node traffic (same namespace)
     ingress {
       from {
         pod_selector {}
       }
     }
 
-    # kinotic namespace (server + migration)
     ingress {
       from {
         namespace_selector {
@@ -156,7 +155,6 @@ resource "kubernetes_network_policy" "elasticsearch" {
       }
     }
 
-    # ECK operator
     ingress {
       from {
         namespace_selector {

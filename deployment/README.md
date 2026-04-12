@@ -100,19 +100,17 @@ See [kind/README.md](kind/README.md) for full details.
 ### Azure
 
 ```bash
-cd deployment/terraform/azure
-terraform init && terraform apply
-
-# With Firecracker:    terraform apply -var="enable_firecracker=true"
-# With load generator: terraform apply -var="enable_load_generator=true"
+cd deployment/terraform/azure/global && terraform init && terraform apply  # once
+cd ../cluster && terraform init && terraform apply                         # infra
+cd ../frontend && terraform init && terraform apply && ./deploy.sh         # SPA
 ```
 
 Azure documentation:
-- [README.md](terraform/azure/README.md) — Deploy day guide
+- [README.md](terraform/azure/README.md) — Deploy guide (global → cluster → frontend)
 - [OPS.md](terraform/azure/OPS.md) — Day-2 operations (scaling, upgrades, certs)
 - [TROUBLESHOOTING.md](terraform/azure/TROUBLESHOOTING.md) — Common errors and fixes
 - [PRODUCTION.md](terraform/azure/PRODUCTION.md) — Production readiness checklist
-- [COST.md](terraform/azure/COST.md) — Cost projections (beta ~$596/mo, production ~$2,065/mo)
+- [COST.md](terraform/azure/COST.md) — Cost projections (~$573/mo beta, ~$2,025/mo production)
 
 ## Firecracker
 

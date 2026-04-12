@@ -174,8 +174,7 @@ az network nsg rule create --resource-group rg-kinotic-production \
 **Cause:** DNS A record was created on a previous apply but terraform lost the state reference.
 **Fix:** Import it:
 ```bash
-terraform import azurerm_dns_a_record.root /subscriptions/<sub-id>/resourceGroups/rg-kinotic-global/providers/Microsoft.Network/dnsZones/kinotic.ai/A/@
-terraform import azurerm_dns_a_record.grafana /subscriptions/<sub-id>/resourceGroups/rg-kinotic-global/providers/Microsoft.Network/dnsZones/kinotic.ai/A/grafana
+terraform import azurerm_dns_a_record.api /subscriptions/<sub-id>/resourceGroups/rg-kinotic-global/providers/Microsoft.Network/dnsZones/kinotic.ai/A/api
 ```
 
 ### Azure eventual consistency — 404 on freshly created resources
