@@ -46,13 +46,24 @@ useHead({ title: 'Privacy Policy' })
           <section>
             <h2 class="font-[InterBold] text-[22px] text-white">Analytics</h2>
             <p class="mt-3">
-              We use <strong class="text-white">Microsoft Clarity</strong>, a behavioral analytics service provided by Microsoft, to understand how visitors interact with our website so we can improve it. Clarity may collect information such as pages viewed, clicks, scrolling, mouse movement, approximate geographic region, browser and device type, referring URL, and session recordings. Clarity automatically masks sensitive content (such as text in input fields) before it is transmitted.
+              We use <strong class="text-white">Microsoft Clarity</strong>, a behavioral analytics service provided by Microsoft, to understand how visitors interact with our website so we can improve it. Clarity may collect information such as pages viewed, clicks, scrolling, mouse movement, approximate geographic region, browser and device type, referring URL, and session recordings. Clarity automatically masks sensitive content (such as text in input fields) before it is transmitted, and Microsoft states that Clarity is <strong class="text-white">GDPR and CCPA ready</strong>.
             </p>
             <p class="mt-3">
               We use this information only in aggregate to measure site performance and usage trends. We do not use analytics data to identify individual visitors, and we do not share this data with any third party beyond Microsoft's role as the analytics provider. Microsoft's handling of this data is governed by the
               <a href="https://privacy.microsoft.com/privacystatement" target="_blank" rel="noreferrer" class="text-white underline hover:text-[#FF2D7A]">Microsoft Privacy Statement</a>.
               You can learn more about Clarity at
               <a href="https://clarity.microsoft.com/" target="_blank" rel="noreferrer" class="text-white underline hover:text-[#FF2D7A]">clarity.microsoft.com</a>.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="font-[InterBold] text-[22px] text-white">Your Rights (GDPR & CCPA)</h2>
+            <p class="mt-3">
+              Depending on where you live, you may have rights under privacy laws such as the EU General Data Protection Regulation (GDPR) or the California Consumer Privacy Act (CCPA), including the right to access, correct, or delete personal information we hold about you, and the right to opt out of the sale of personal information. <strong class="text-white">We do not sell personal information.</strong>
+            </p>
+            <p class="mt-3">
+              To exercise any of these rights, please contact us through our
+              <a href="https://github.com/kinotic-ai/kinotic" class="text-white underline hover:text-[#FF2D7A]">GitHub repository</a>.
             </p>
           </section>
 
