@@ -2,7 +2,9 @@ import Clarity from '@microsoft/clarity'
 
 // IANA timezones for the EU, EEA, and UK (incl. crown dependencies).
 // Used as a best-effort proxy for jurisdiction when deciding whether to
-// show a cookie consent banner before loading Microsoft Clarity.
+// show a cookie consent banner before granting Microsoft Clarity full
+// (cookie-based) tracking. EEA + UK + Switzerland are the regions where
+// Clarity itself enforces consent signals.
 const EU_UK_TIMEZONES = new Set<string>([
   // United Kingdom & crown dependencies
   'Europe/London',
@@ -45,10 +47,11 @@ const EU_UK_TIMEZONES = new Set<string>([
   'Africa/Ceuta',
   'Atlantic/Canary',
   'Europe/Stockholm',
-  // Other EEA countries (Iceland, Liechtenstein, Norway) + Faroe
+  // Other EEA countries + Switzerland + Faroe
   'Atlantic/Reykjavik',
   'Europe/Vaduz',
   'Europe/Oslo',
+  'Europe/Zurich',
   'Atlantic/Faroe',
 ])
 
@@ -70,7 +73,15 @@ export function initClarity(projectId: string): void {
   Clarity.init(projectId)
 }
 
-export function setClarityConsent(granted: boolean): void {
+export type ClarityConsent = 'granted' | 'denied'
+
+export function setClarityConsentV2(
+  adStorage: ClarityConsent,
+  analyticsStorage: ClarityConsent,
+): void {
   if (typeof window === 'undefined') return
-  Clarity.consent(granted)
+  Clarity.consentV2({
+    ad_Storage: adStorage,
+    analytics_Storage: analyticsStorage,
+  })
 }

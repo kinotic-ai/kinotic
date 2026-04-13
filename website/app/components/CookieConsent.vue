@@ -13,8 +13,10 @@ defineEmits<{
   >
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <p class="font-[InterRegular] text-[14px] leading-[150%] text-[#AFAFB4]">
-        We use Microsoft Clarity to understand how visitors use our site so we
-        can improve it. This includes anonymized session recordings.
+        We use Microsoft Clarity to understand how visitors use our site.
+        Until you choose, we only collect anonymous, cookieless data.
+        Accept to allow cookies and anonymized session recordings so we can
+        improve the site further.
         <a href="/privacy" class="text-white underline hover:text-[#FF2D7A]">
           Learn more
         </a>.

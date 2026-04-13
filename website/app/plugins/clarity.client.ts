@@ -1,18 +1,25 @@
 import { createApp, h } from 'vue'
 import CookieConsent from '~/components/CookieConsent.vue'
-import { initClarity, isEuOrUkVisitor, setClarityConsent } from '~/utils/clarity'
+import {
+  initClarity,
+  isEuOrUkVisitor,
+  setClarityConsentV2,
+} from '~/utils/clarity'
 
 const STORAGE_KEY = 'kinotic-clarity-consent'
 
-function readStored(): string | null {
+type StoredConsent = 'accepted' | 'declined'
+
+function readStored(): StoredConsent | null {
   try {
-    return localStorage.getItem(STORAGE_KEY)
+    const v = localStorage.getItem(STORAGE_KEY)
+    return v === 'accepted' || v === 'declined' ? v : null
   } catch {
     return null
   }
 }
 
-function persist(value: 'accepted' | 'declined'): void {
+function persist(value: StoredConsent): void {
   try {
     localStorage.setItem(STORAGE_KEY, value)
   } catch {
@@ -43,28 +50,38 @@ export default defineNuxtPlugin(() => {
   const projectId = (config.public.clarityProjectId as string | undefined) || ''
   if (!projectId) return
 
+  // Always initialize Clarity. With Consent Mode enabled in the Clarity
+  // project settings, Clarity defaults to denied/cookieless and upgrades
+  // only when we call consentV2 with granted values.
+  initClarity(projectId)
+
   const stored = readStored()
+  const inEuOrUk = isEuOrUkVisitor()
+
   if (stored === 'accepted') {
-    initClarity(projectId)
-    setClarityConsent(true)
+    setClarityConsentV2('granted', 'granted')
     return
   }
   if (stored === 'declined') {
+    setClarityConsentV2('denied', 'denied')
     return
   }
 
-  // No prior choice. Visitors outside the EU/UK get analytics loaded
-  // without a banner; EU/UK visitors are asked first.
-  if (!isEuOrUkVisitor()) {
-    initClarity(projectId)
+  // No prior choice. Outside the EU/UK/CH we grant consent by default;
+  // inside we stay in cookieless mode and ask the visitor.
+  if (!inEuOrUk) {
+    setClarityConsentV2('granted', 'granted')
     return
   }
 
+  setClarityConsentV2('denied', 'denied')
   mountBanner((accepted) => {
-    persist(accepted ? 'accepted' : 'declined')
     if (accepted) {
-      initClarity(projectId)
-      setClarityConsent(true)
+      persist('accepted')
+      setClarityConsentV2('granted', 'granted')
+    } else {
+      persist('declined')
+      setClarityConsentV2('denied', 'denied')
     }
   })
 })
