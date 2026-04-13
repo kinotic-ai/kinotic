@@ -1,10 +1,6 @@
 import { createApp, h } from 'vue'
 import CookieConsent from '~/components/CookieConsent.vue'
-import {
-  initClarity,
-  isEuOrUkVisitor,
-  setClarityConsentV2,
-} from '~/utils/clarity'
+import { initClarity, setClarityConsentV2 } from '~/utils/clarity'
 
 const STORAGE_KEY = 'kinotic-clarity-consent'
 
@@ -51,12 +47,11 @@ export default defineNuxtPlugin(() => {
   if (!projectId) return
 
   // Always initialize Clarity. With Consent Mode enabled in the Clarity
-  // project settings, Clarity defaults to denied/cookieless and upgrades
-  // only when we call consentV2 with granted values.
+  // project settings, Clarity starts in denied/cookieless mode and only
+  // upgrades when we call consentV2 with granted values.
   initClarity(projectId)
 
   const stored = readStored()
-  const inEuOrUk = isEuOrUkVisitor()
 
   if (stored === 'accepted') {
     setClarityConsentV2('granted', 'granted')
@@ -67,13 +62,7 @@ export default defineNuxtPlugin(() => {
     return
   }
 
-  // No prior choice. Outside the EU/UK/CH we grant consent by default;
-  // inside we stay in cookieless mode and ask the visitor.
-  if (!inEuOrUk) {
-    setClarityConsentV2('granted', 'granted')
-    return
-  }
-
+  // No prior choice: stay cookieless and ask the visitor.
   setClarityConsentV2('denied', 'denied')
   mountBanner((accepted) => {
     if (accepted) {

@@ -55,7 +55,7 @@ useHead({ title: 'Privacy Policy' })
               <a href="https://clarity.microsoft.com/" target="_blank" rel="noreferrer" class="text-white underline hover:text-[#FF2D7A]">clarity.microsoft.com</a>.
             </p>
             <p class="mt-3">
-              For visitors located in the European Economic Area, United Kingdom, or Switzerland, Clarity runs in <strong class="text-white">cookieless mode by default</strong>: no first- or third-party cookies are set, and each pageview is treated as a new session. We only enable cookies and continuous session recordings if you explicitly accept the consent banner.
+              By default, Clarity runs in <strong class="text-white">cookieless mode</strong> on our site: no first- or third-party cookies are set, and each pageview is treated as a new session. We only enable cookies and continuous session recordings if you explicitly accept the consent banner.
             </p>
           </section>
 
