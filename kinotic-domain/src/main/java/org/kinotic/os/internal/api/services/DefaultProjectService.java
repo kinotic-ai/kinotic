@@ -6,6 +6,7 @@ import com.github.slugify.Slugify;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.security.ParticipantContext;
 import org.kinotic.os.api.model.Project;
 import org.kinotic.os.api.services.ProjectService;
 import org.kinotic.os.api.utils.DomainUtil;
@@ -20,11 +21,13 @@ public class DefaultProjectService extends AbstractCrudService<Project> implemen
     final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
 
     public DefaultProjectService(CrudServiceTemplate crudServiceTemplate,
-                                 ElasticsearchAsyncClient esAsyncClient) {
+                                 ElasticsearchAsyncClient esAsyncClient,
+                                 ParticipantContext participantContext) {
         super("kinotic_project",
-              Project.class, 
-              esAsyncClient, 
-              crudServiceTemplate);
+              Project.class,
+              esAsyncClient,
+              crudServiceTemplate,
+              participantContext);
     }
 
     @Override

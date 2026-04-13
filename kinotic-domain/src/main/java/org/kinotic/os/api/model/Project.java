@@ -47,4 +47,8 @@ public class Project implements OrganizationScoped<String> {
      */
     private Date updated;
 
+    @Override
+    public void setOrganizationId(String organizationId) {
+        this.organizationId = organizationId;
+    }
 }

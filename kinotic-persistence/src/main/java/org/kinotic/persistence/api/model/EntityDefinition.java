@@ -114,6 +114,11 @@ public class EntityDefinition implements OrganizationScoped<String> {
     }
 
     @Override
+    public void setOrganizationId(String organizationId) {
+        this.organizationId = organizationId;
+    }
+
+    @Override
     public String toString() {
         return new ToStringBuilder(this)
                 .append("id", id)

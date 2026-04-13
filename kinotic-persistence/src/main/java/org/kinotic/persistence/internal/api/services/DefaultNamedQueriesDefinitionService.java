@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.security.ParticipantContext;
 import org.kinotic.os.internal.api.services.AbstractCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
@@ -25,11 +26,13 @@ public class DefaultNamedQueriesDefinitionService extends AbstractCrudService<Na
 
     public DefaultNamedQueriesDefinitionService(CrudServiceTemplate crudServiceTemplate,
                                                 ElasticsearchAsyncClient esAsyncClient,
-                                                ApplicationEventPublisher eventPublisher) {
+                                                ApplicationEventPublisher eventPublisher,
+                                                ParticipantContext participantContext) {
         super("kinotic_named_query_service_definition",
               NamedQueriesDefinition.class,
               esAsyncClient,
-              crudServiceTemplate);
+              crudServiceTemplate,
+              participantContext);
 
         this.eventPublisher = eventPublisher;
     }

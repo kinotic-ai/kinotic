@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.security.ParticipantContext;
 import org.kinotic.os.internal.api.services.AbstractCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.EntityDefinition;
@@ -18,11 +19,13 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultEntityDefinitionDAO extends AbstractCrudService<EntityDefinition> implements EntityDefinitionDAO {
 
     public DefaultEntityDefinitionDAO(ElasticsearchAsyncClient esAsyncClient,
-                                      CrudServiceTemplate crudServiceTemplate) {
+                                      CrudServiceTemplate crudServiceTemplate,
+                                      ParticipantContext participantContext) {
         super("kinotic_entity_definition",
               EntityDefinition.class,
               esAsyncClient,
-              crudServiceTemplate);
+              crudServiceTemplate,
+              participantContext);
     }
 
     @Override

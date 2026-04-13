@@ -68,4 +68,9 @@ public class NamedQueriesDefinition implements OrganizationScoped<String> {
                 .append("entityDefinitionName", entityDefinitionName)
                 .toString();
     }
+
+    @Override
+    public void setOrganizationId(String organizationId) {
+        this.organizationId = organizationId;
+    }
 }
