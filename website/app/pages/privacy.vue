@@ -46,11 +46,13 @@ useHead({ title: 'Privacy Policy' })
           <section>
             <h2 class="font-[InterBold] text-[22px] text-white">Analytics</h2>
             <p class="mt-3">
-              We use <strong class="text-white">Azure Application Insights</strong>, a Microsoft Azure analytics service, to understand how visitors interact with our website so we can improve it. Application Insights may collect information such as pages viewed, approximate geographic region, browser and device type, referring URL, and anonymized session identifiers. This information is used only in aggregate to measure site performance and usage trends.
+              We use <strong class="text-white">Microsoft Clarity</strong>, a behavioral analytics service provided by Microsoft, to understand how visitors interact with our website so we can improve it. Clarity may collect information such as pages viewed, clicks, scrolling, mouse movement, approximate geographic region, browser and device type, referring URL, and session recordings. Clarity automatically masks sensitive content (such as text in input fields) before it is transmitted.
             </p>
             <p class="mt-3">
-              We do not use analytics data to identify individual visitors, and we do not share this data with any third party beyond Microsoft's role as the analytics provider. Microsoft's handling of this data is governed by the
+              We use this information only in aggregate to measure site performance and usage trends. We do not use analytics data to identify individual visitors, and we do not share this data with any third party beyond Microsoft's role as the analytics provider. Microsoft's handling of this data is governed by the
               <a href="https://privacy.microsoft.com/privacystatement" target="_blank" rel="noreferrer" class="text-white underline hover:text-[#FF2D7A]">Microsoft Privacy Statement</a>.
+              You can learn more about Clarity at
+              <a href="https://clarity.microsoft.com/" target="_blank" rel="noreferrer" class="text-white underline hover:text-[#FF2D7A]">clarity.microsoft.com</a>.
             </p>
           </section>
 
