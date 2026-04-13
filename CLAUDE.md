@@ -48,6 +48,7 @@ Configuration follows the same split: `api/config/` contains `@ConfigurationProp
 ## Publishing Services
 
 Java services that need to be called remotely must have `@Publish` on the interface:
+This should only be done for services that are needed to be used remotely. i.e. from the frontend.
 
 ```java
 @Publish

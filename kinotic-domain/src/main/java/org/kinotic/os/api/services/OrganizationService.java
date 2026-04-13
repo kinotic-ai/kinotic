@@ -1,6 +1,5 @@
 package org.kinotic.os.api.services;
 
-import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.os.api.model.Organization;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
@@ -8,7 +7,6 @@ import org.kinotic.os.api.model.iam.OidcConfiguration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-@Publish
 public interface OrganizationService extends IdentifiableCrudService<Organization, String> {
 
     /**

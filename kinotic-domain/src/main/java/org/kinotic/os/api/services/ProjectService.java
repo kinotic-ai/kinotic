@@ -10,7 +10,7 @@ import org.kinotic.os.api.model.Project;
 import java.util.concurrent.CompletableFuture;
 
 @Publish
-@Proxy
+
 public interface ProjectService extends IdentifiableCrudService<Project, String> {
 
     /**
