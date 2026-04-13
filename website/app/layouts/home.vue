@@ -5,6 +5,5 @@
       <slot />
     </main>
     <Footer />
-    <CookieConsent />
   </div>
 </template>
