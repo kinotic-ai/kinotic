@@ -1,5 +1,5 @@
 <script setup>
-definePageMeta({ layout: 'home' })
+definePageMeta({ layout: 'home', header: false, footer: false })
 useHead({ title: 'Terms of Service' })
 </script>
 
