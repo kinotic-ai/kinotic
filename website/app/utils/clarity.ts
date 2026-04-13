@@ -1,3 +1,5 @@
+import Clarity from '@microsoft/clarity'
+
 // IANA timezones for the EU, EEA, and UK (incl. crown dependencies).
 // Used as a best-effort proxy for jurisdiction when deciding whether to
 // show a cookie consent banner before loading Microsoft Clarity.
@@ -60,21 +62,15 @@ export function isEuOrUkVisitor(): boolean {
   }
 }
 
-let clarityLoaded = false
+let clarityInitialized = false
 
-export function loadClarity(projectId: string): void {
-  if (clarityLoaded || !projectId || typeof window === 'undefined') return
-  clarityLoaded = true
+export function initClarity(projectId: string): void {
+  if (clarityInitialized || !projectId || typeof window === 'undefined') return
+  clarityInitialized = true
+  Clarity.init(projectId)
+}
 
-  // Standard Microsoft Clarity tag
-  ;(function (c: any, l: Document, a: string, r: string, i: string) {
-    c[a] = c[a] || function (...args: unknown[]) {
-      (c[a].q = c[a].q || []).push(args)
-    }
-    const t = l.createElement(r) as HTMLScriptElement
-    t.async = true
-    t.src = 'https://www.clarity.ms/tag/' + i
-    const y = l.getElementsByTagName(r)[0]
-    y?.parentNode?.insertBefore(t, y)
-  })(window, document, 'clarity', 'script', projectId)
+export function setClarityConsent(granted: boolean): void {
+  if (typeof window === 'undefined') return
+  Clarity.consent(granted)
 }

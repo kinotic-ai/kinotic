@@ -3,7 +3,7 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
     public: {
-      clarityProjectId: '',
+      clarityProjectId: 'waw4oqkd0y',
     },
   },
   app: {

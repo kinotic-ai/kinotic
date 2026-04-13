@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { isEuOrUkVisitor, loadClarity } from '~/utils/clarity'
+import { initClarity, isEuOrUkVisitor, setClarityConsent } from '~/utils/clarity'
 
 const STORAGE_KEY = 'kinotic-clarity-consent'
 
@@ -27,7 +27,9 @@ function readStored(): string | null {
 function accept() {
   persist('accepted')
   visible.value = false
-  if (projectId) loadClarity(projectId)
+  if (!projectId) return
+  initClarity(projectId)
+  setClarityConsent(true)
 }
 
 function decline() {
@@ -41,7 +43,8 @@ onMounted(() => {
 
   const stored = readStored()
   if (stored === 'accepted') {
-    loadClarity(projectId)
+    initClarity(projectId)
+    setClarityConsent(true)
     return
   }
   if (stored === 'declined') {
@@ -53,7 +56,7 @@ onMounted(() => {
   if (isEuOrUkVisitor()) {
     visible.value = true
   } else {
-    loadClarity(projectId)
+    initClarity(projectId)
   }
 })
 </script>
