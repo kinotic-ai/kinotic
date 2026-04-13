@@ -1,6 +1,11 @@
 export default defineNuxtConfig({
   extends: ['docus'],
   css: ['~/assets/css/main.css'],
+  runtimeConfig: {
+    public: {
+      clarityProjectId: '',
+    },
+  },
   app: {
     head: {
       link: [
