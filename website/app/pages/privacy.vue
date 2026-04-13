@@ -18,7 +18,7 @@ useHead({ title: 'Privacy Policy' })
           <section>
             <h2 class="font-[InterBold] text-[22px] text-white">Our Commitment</h2>
             <p class="mt-3">
-              At Kinotic, we respect your privacy. <strong class="text-white">We do not share any user data.</strong> This policy describes the limited information we handle when you visit our website or use our open source software.
+              At Kinotic, we respect your privacy. <strong class="text-white">We do not sell or share your data with third parties for marketing.</strong> This policy describes the limited information we handle when you visit our website or use our open source software, including the analytics we use to improve the site.
             </p>
           </section>
 
@@ -44,9 +44,20 @@ useHead({ title: 'Privacy Policy' })
           </section>
 
           <section>
+            <h2 class="font-[InterBold] text-[22px] text-white">Analytics</h2>
+            <p class="mt-3">
+              We use <strong class="text-white">Azure Application Insights</strong>, a Microsoft Azure analytics service, to understand how visitors interact with our website so we can improve it. Application Insights may collect information such as pages viewed, approximate geographic region, browser and device type, referring URL, and anonymized session identifiers. This information is used only in aggregate to measure site performance and usage trends.
+            </p>
+            <p class="mt-3">
+              We do not use analytics data to identify individual visitors, and we do not share this data with any third party beyond Microsoft's role as the analytics provider. Microsoft's handling of this data is governed by the
+              <a href="https://privacy.microsoft.com/privacystatement" target="_blank" rel="noreferrer" class="text-white underline hover:text-[#FF2D7A]">Microsoft Privacy Statement</a>.
+            </p>
+          </section>
+
+          <section>
             <h2 class="font-[InterBold] text-[22px] text-white">Cookies</h2>
             <p class="mt-3">
-              Our website does not use tracking or advertising cookies. Any cookies used are strictly for essential site functionality.
+              Our website does not use advertising cookies. We may use cookies or similar browser storage for essential site functionality and for the analytics described above.
             </p>
           </section>
 
