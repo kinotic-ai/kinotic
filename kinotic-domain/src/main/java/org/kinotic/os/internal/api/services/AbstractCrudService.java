@@ -44,7 +44,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<Long> count() {
         if (organizationScoped) {
             String orgId = requireOrganizationId();
-            return crudServiceTemplate.count(indexName, b -> b.query(buildOrgFilterQuery(orgId)));
+            return crudServiceTemplate.count(indexName, b -> b.routing(orgId).query(buildOrgFilterQuery(orgId)));
         }
         return crudServiceTemplate.count(indexName, null);
     }
@@ -53,7 +53,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<Void> deleteById(String id) {
         if (organizationScoped) {
             String orgId = requireOrganizationId();
-            return crudServiceTemplate.findById(indexName, id, type, null)
+            return crudServiceTemplate.findById(indexName, id, type, b -> b.routing(orgId))
                                       .thenCompose(entity -> {
                                           if (entity == null) {
                                               // Truly missing document: mirror ES DELETE semantics and complete normally.
@@ -65,7 +65,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
                                                               "Cannot delete " + type.getSimpleName()
                                                               + " '" + id + "' owned by another organization"));
                                           }
-                                          return crudServiceTemplate.deleteById(indexName, id, null)
+                                          return crudServiceTemplate.deleteById(indexName, id, b -> b.routing(orgId))
                                                                     .thenApply(response -> null);
                                       });
         }
@@ -77,7 +77,8 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
         if (organizationScoped) {
             String orgId = requireOrganizationId();
-            return crudServiceTemplate.search(indexName, pageable, type, b -> b.query(buildOrgFilterQuery(orgId)));
+            return crudServiceTemplate.search(indexName, pageable, type,
+                                              b -> b.routing(orgId).query(buildOrgFilterQuery(orgId)));
         }
         return crudServiceTemplate.search(indexName, pageable, type, null);
     }
@@ -86,7 +87,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<T> findById(String id) {
         if (organizationScoped) {
             String orgId = requireOrganizationId();
-            return crudServiceTemplate.findById(indexName, id, type, null)
+            return crudServiceTemplate.findById(indexName, id, type, b -> b.routing(orgId))
                                       .thenApply(entity -> {
                                           if (entity == null) {
                                               return null;
@@ -103,7 +104,13 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     @Override
     public CompletableFuture<T> save(T entity) {
         if (organizationScoped) {
-            enforceOrgOnSave(entity);
+            String orgId = enforceOrgOnSave(entity);
+            return esAsyncClient.index(i -> i
+                    .index(indexName)
+                    .id(entity.getId())
+                    .routing(orgId)
+                    .document(entity))
+                    .thenCompose(indexResponse -> findById(indexResponse.id()));
         }
         return esAsyncClient.index(i -> i
                 .index(indexName)
@@ -117,7 +124,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         if (organizationScoped) {
             String orgId = requireOrganizationId();
             return crudServiceTemplate.search(indexName, pageable, type,
-                                              b -> b.query(buildOrgFilterQueryWithSearch(orgId, searchText)));
+                                              b -> b.routing(orgId).query(buildOrgFilterQueryWithSearch(orgId, searchText)));
         }
         return crudServiceTemplate.search(indexName, pageable, type, builder -> builder.q(searchText));
     }
@@ -132,7 +139,14 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     @Override
     public CompletableFuture<T> saveSync(T entity) {
         if (organizationScoped) {
-            enforceOrgOnSave(entity);
+            String orgId = enforceOrgOnSave(entity);
+            return esAsyncClient.index(i -> i
+                    .index(indexName)
+                    .id(entity.getId())
+                    .routing(orgId)
+                    .document(entity)
+                    .refresh(Refresh.WaitFor))
+                    .thenCompose(indexResponse -> findById(indexResponse.id()));
         }
         return esAsyncClient.index(i -> i
                 .index(indexName)
@@ -170,9 +184,11 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     /**
      * Autopopulates or validates the organization id on the entity before a save. When the field is unset it is
      * populated with the participant's organization id; when set it must equal the participant's organization id.
+     *
+     * @return the organization id of the participant (also used as the Elasticsearch routing key for the write)
      */
     @SuppressWarnings("unchecked")
-    private void enforceOrgOnSave(T entity) {
+    private String enforceOrgOnSave(T entity) {
         String orgId = requireOrganizationId();
         OrganizationScoped<String> scoped = (OrganizationScoped<String>) entity;
         String entityOrgId = scoped.getOrganizationId();
@@ -184,6 +200,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
                     + " with organizationId '" + entityOrgId
                     + "' while authenticated as organization '" + orgId + "'");
         }
+        return orgId;
     }
 
     private Query buildOrgFilterQuery(String orgId) {
