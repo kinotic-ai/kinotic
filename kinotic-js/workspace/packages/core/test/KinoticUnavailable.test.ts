@@ -20,7 +20,7 @@ describe('Kinotic Unavailable Tests', () => {
                                            host:host,
                                            port:port,
                                            maxConnectionAttempts: 3,
-                                           connectHeaders:{login: 'admin@kinotic.local', passcode: 'kinotic'}
+                                           connectHeaders:{login: 'kinotic@kinotic.local', passcode: 'kinotic'}
                                        }))
             .rejects.toThrowError(
                 expect.stringMatching(
@@ -53,7 +53,7 @@ describe('Kinotic Unavailable Tests', () => {
            connectionInfo.port = 58590
            connectionInfo.maxConnectionAttempts = 3
            connectionInfo.disableStickySession = false
-           connectionInfo.connectHeaders = async () => {return {login: 'admin@kinotic.local', passcode: 'kinotic'}}
+           connectionInfo.connectHeaders = async () => {return {login: 'kinotic@kinotic.local', passcode: 'kinotic'}}
            console.log(`Kinotic Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
 
            const continuum = new KinoticSingleton()
