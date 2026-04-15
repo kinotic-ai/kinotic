@@ -1,6 +1,5 @@
 package org.kinotic.os.internal.api.services.iam;
 
-import co.elastic.clients.elasticsearch._types.Refresh;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,10 +28,10 @@ public class IamCredentialStore {
     }
 
     public CompletableFuture<IamCredential> save(IamCredential credential) {
-        return crudServiceTemplate.save(INDEX_NAME,
-                                        credential.getId(),
-                                        credential,
-                                        b -> b.refresh(Refresh.WaitFor))
+        return crudServiceTemplate.saveSync(INDEX_NAME,
+                                            credential.getId(),
+                                            credential,
+                                            null)
                                   .thenApply(response -> credential);
     }
 

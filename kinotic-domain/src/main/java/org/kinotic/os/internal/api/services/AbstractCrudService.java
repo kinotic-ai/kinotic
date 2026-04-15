@@ -1,7 +1,6 @@
 package org.kinotic.os.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.Refresh;
 
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -51,11 +50,8 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @Override
     public CompletableFuture<T> save(T entity) {
-        return esAsyncClient.index(i -> i
-                .index(indexName)
-                .id(entity.getId())
-                .document(entity))
-                .thenCompose(indexResponse -> findById(indexResponse.id()));
+        return crudServiceTemplate.save(indexName, entity.getId(), entity, null)
+                                  .thenCompose(indexResponse -> findById(indexResponse.id()));
     }
 
     @Override
@@ -72,12 +68,8 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @Override
     public CompletableFuture<T> saveSync(T entity) {
-        return esAsyncClient.index(i -> i
-                .index(indexName)
-                .id(entity.getId())
-                .document(entity)
-                .refresh(Refresh.WaitFor))
-                .thenCompose(indexResponse -> findById(indexResponse.id()));
+        return crudServiceTemplate.saveSync(indexName, entity.getId(), entity, null)
+                                  .thenCompose(indexResponse -> findById(indexResponse.id()));
     }
 
 }
