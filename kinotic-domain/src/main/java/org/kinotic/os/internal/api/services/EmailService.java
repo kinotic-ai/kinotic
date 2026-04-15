@@ -56,7 +56,7 @@ public class EmailService {
     public CompletableFuture<Void> sendVerificationEmail(String email,
                                                          String displayName,
                                                          String verificationToken) {
-        String verificationUrl = properties.getEmail().getAppBaseUrl() + VERIFICATION_PATH + verificationToken;
+        String verificationUrl = properties.getAppBaseUrl() + VERIFICATION_PATH + verificationToken;
 
         if (!properties.getEmail().isEnabled()) {
             log.warn("Email sending is disabled; verification URL for {} <{}>: {}",

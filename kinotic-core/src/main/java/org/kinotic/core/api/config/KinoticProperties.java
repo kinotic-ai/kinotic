@@ -26,6 +26,12 @@ public class KinoticProperties {
     public static long DEFAULT_SESSION_TIMEOUT = 1000 * 60 * 30;
 
     /**
+     * Public-facing base URL of the application (scheme + host + optional port, no trailing slash).
+     * Used to build absolute links in outbound communications such as verification emails.
+     */
+    private String appBaseUrl = "http://localhost:9090";
+
+    /**
      * If true, additional information will be provided to clients,
      * including server information and information about errors occurring when invoking services
      * This is off by default since this could reveal server implementation details

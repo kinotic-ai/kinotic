@@ -35,11 +35,6 @@ public class EmailProperties {
     private String senderAddress;
 
     /**
-     * Public base URL of the application, used to build absolute verification links.
-     */
-    private String appBaseUrl = "http://localhost:9090";
-
-    /**
      * Maximum time to wait for the ACS send operation to complete.
      */
     private Duration sendTimeout = Duration.ofSeconds(30);
