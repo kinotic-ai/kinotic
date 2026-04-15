@@ -311,9 +311,7 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                                                                  .thenCompose(v -> crudServiceTemplate.deleteIndexTemplate(templateName));
                     } else {
                         // Delete the regular index
-                        deleteStorageFuture = esAsyncClient.indices()
-                                                           .delete(builder -> builder.index(entityDefinition.getItemIndex()))
-                                                           .thenApply(response -> null);
+                        deleteStorageFuture = crudServiceTemplate.deleteIndex(entityDefinition.getItemIndex());
                     }
 
                     return deleteStorageFuture.thenCompose(v -> {

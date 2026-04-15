@@ -237,6 +237,18 @@ public class CrudServiceTemplate {
     }
 
     /**
+     * Deletes an index.
+     *
+     * @param indexName name of the index to delete
+     * @return a {@link CompletableFuture} that will complete when the index has been deleted
+     */
+    public CompletableFuture<Void> deleteIndex(String indexName) {
+        return bindToContext(esAsyncClient.indices()
+                                          .delete(builder -> builder.index(indexName))
+                                          .thenApply(response -> null));
+    }
+
+    /**
      * Deletes a data stream
      */
     public CompletableFuture<Void> deleteDataStream(String dataStreamName) {
