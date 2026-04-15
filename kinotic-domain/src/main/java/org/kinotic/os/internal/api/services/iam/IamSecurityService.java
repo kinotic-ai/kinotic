@@ -66,8 +66,13 @@ public class IamSecurityService implements SecurityService {
      */
     @Override
     public CompletableFuture<Participant> authenticate(Map<String, String> authenticationInfo) {
-        String authScopeType = authenticationInfo.get("authScopeType");
-        String authScopeId = authenticationInfo.get("authScopeId");
+        // HTTP callers (AuthenticationHandler) lowercase all header names; STOMP preserves case.
+        // Wrap the incoming map in a case-insensitive view so both transports work with the same
+        // camelCase header names throughout this class.
+        Map<String, String> authInfo = caseInsensitive(authenticationInfo);
+
+        String authScopeType = authInfo.get("authScopeType");
+        String authScopeId = authInfo.get("authScopeId");
 
         if (authScopeType == null) {
             return CompletableFuture.failedFuture(new AuthenticationException("authScopeType header is required"));
@@ -76,22 +81,21 @@ public class IamSecurityService implements SecurityService {
             return CompletableFuture.failedFuture(new AuthenticationException("authScopeId header is required"));
         }
 
-        String authHeader = getAuthorizationHeader(authenticationInfo);
+        String authHeader = authInfo.get("Authorization");
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authenticateOidc(authScopeType, authScopeId, authHeader);
         } else {
-            return authenticateEmailPassword(authScopeType, authScopeId, authenticationInfo);
+            return authenticateEmailPassword(authScopeType, authScopeId, authInfo);
         }
     }
 
-    private String getAuthorizationHeader(Map<String, String> authenticationInfo) {
-        if (authenticationInfo.containsKey("authorization")) {
-            return authenticationInfo.get("authorization");
-        } else if (authenticationInfo.containsKey("Authorization")) {
-            return authenticationInfo.get("Authorization");
+    private static Map<String, String> caseInsensitive(Map<String, String> source) {
+        Map<String, String> ci = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        if (source != null) {
+            ci.putAll(source);
         }
-        return null;
+        return ci;
     }
 
     /**
