@@ -22,12 +22,14 @@ interface LocalTestContext {
 
 const applicationId = 'openapi.admin'
 const projectName = 'TestProject'
-const BASE_AUTH = 'Basic a2lub3RpYzpraW5vdGlj'
 const DEFAULT_TENANT = 'kinotic'
 
 const axiosInstance = axios.create({
                                        headers: {
-                                           'Authorization': BASE_AUTH,
+                                           'login': 'kinotic@kinotic.local',
+                                           'passcode': 'kinotic',
+                                           'authScopeType': 'ORGANIZATION',
+                                           'authScopeId': 'kinotic-test',
                                            'Content-Type': 'application/json'
                                        }
                                    })
