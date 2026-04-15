@@ -103,7 +103,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     @Override
     public CompletableFuture<T> save(T entity) {
         return crudServiceTemplate.save(indexName, entity.getId(), entity, null)
-                                  .thenCompose(indexResponse -> findById(indexResponse.id()));
+                                  .thenApply(indexResponse -> entity);
     }
 
     @Override
@@ -126,7 +126,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     @Override
     public CompletableFuture<T> saveSync(T entity) {
         return crudServiceTemplate.saveSync(indexName, entity.getId(), entity, null)
-                                  .thenCompose(indexResponse -> findById(indexResponse.id()));
+                                  .thenApply(indexResponse -> entity);
     }
 
     /**
