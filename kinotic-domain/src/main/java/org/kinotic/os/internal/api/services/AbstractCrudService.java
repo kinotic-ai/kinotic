@@ -2,6 +2,7 @@ package org.kinotic.os.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.crud.Identifiable;
