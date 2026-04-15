@@ -1,5 +1,6 @@
 package org.kinotic.core.api.security;
 
+import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
@@ -51,7 +52,7 @@ public class AuthenticationHandler implements Handler<RoutingContext> {
                               // Bind the Participant to the current Vert.x context so downstream
                               // handlers (and anything they call) can read it via
                               // ParticipantContext.currentParticipant().
-                              io.vertx.core.Context vertxContext = Vertx.currentContext();
+                              Context vertxContext = Vertx.currentContext();
                               if (vertxContext != null) {
                                   participantContext.setParticipant(vertxContext, event.result());
                               }
