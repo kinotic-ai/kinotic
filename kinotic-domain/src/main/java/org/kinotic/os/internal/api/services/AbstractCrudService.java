@@ -102,6 +102,11 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @Override
     public CompletableFuture<T> save(T entity) {
+        if (organizationScoped) {
+            String orgId = enforceOrgOnSave(entity);
+            return crudServiceTemplate.save(indexName, entity.getId(), entity, b -> b.routing(orgId))
+                                      .thenApply(indexResponse -> entity);
+        }
         return crudServiceTemplate.save(indexName, entity.getId(), entity, null)
                                   .thenApply(indexResponse -> entity);
     }
@@ -125,6 +130,11 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @Override
     public CompletableFuture<T> saveSync(T entity) {
+        if (organizationScoped) {
+            String orgId = enforceOrgOnSave(entity);
+            return crudServiceTemplate.saveSync(indexName, entity.getId(), entity, b -> b.routing(orgId))
+                                      .thenApply(indexResponse -> entity);
+        }
         return crudServiceTemplate.saveSync(indexName, entity.getId(), entity, null)
                                   .thenApply(indexResponse -> entity);
     }
