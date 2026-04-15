@@ -155,7 +155,10 @@ public class IamSecurityService implements SecurityService {
                 "authType", user.getAuthType().name()
         ));
 
-        return new DefaultParticipant(user.getAuthScopeId(), user.getId(),
+        // tenantId is the client-tenant the caller is acting within — it is NOT the same as the
+        // auth scope id (which says which org/application the user authenticated under). Leave it
+        // null here; per-request mechanisms are responsible for populating it when applicable.
+        return new DefaultParticipant(null, user.getId(),
                 user.getAuthScopeType(), user.getAuthScopeId(), metadata, List.of());
     }
 
@@ -371,7 +374,8 @@ public class IamSecurityService implements SecurityService {
                 "aud", claims.getAudience().stream().collect(Collectors.joining(", "))
         ));
 
-        return new DefaultParticipant(user.getAuthScopeId(), user.getId(),
+        // See createParticipantFromUser: tenantId is not the auth scope id.
+        return new DefaultParticipant(null, user.getId(),
                 user.getAuthScopeType(), user.getAuthScopeId(), metadata, roles);
     }
 
