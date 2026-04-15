@@ -3,28 +3,22 @@ package org.kinotic.os.internal.api.services;
 import com.azure.communication.email.EmailClient;
 import com.azure.communication.email.EmailClientBuilder;
 import com.azure.communication.email.models.EmailAddress;
-import com.azure.communication.email.models.EmailAttachment;
 import com.azure.communication.email.models.EmailMessage;
 import com.azure.communication.email.models.EmailSendResult;
 import com.azure.communication.email.models.EmailSendStatus;
-import com.azure.core.util.BinaryData;
 import com.azure.core.util.polling.SyncPoller;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.os.api.config.KinoticDomainProperties;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -42,15 +36,12 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class EmailService {
 
-    private static final String LOGO_RESOURCE = "templates/email/assets/kinotic-wordmark.png";
-    private static final String LOGO_CONTENT_ID = "kinotic-wordmark";
     private static final String VERIFICATION_SUBJECT = "Verify your Kinotic email";
     private static final String VERIFICATION_PATH = "/signup/verify?token=";
 
     private final KinoticDomainProperties properties;
     private final ObjectProvider<SpringTemplateEngine> htmlTemplateEngineProvider;
 
-    private volatile byte[] logoBytes;
     private volatile EmailClient emailClient;
     private volatile SpringTemplateEngine textTemplateEngine;
 
@@ -83,19 +74,12 @@ public class EmailService {
         String htmlBody = htmlTemplateEngine.process("email/verification-email", ctx);
         String textBody = getOrBuildTextTemplateEngine().process("verification-email", ctx);
 
-        EmailAttachment logoAttachment = new EmailAttachment(
-                "kinotic-wordmark.png",
-                "image/png",
-                BinaryData.fromBytes(loadLogoBytes()))
-                .setContentId(LOGO_CONTENT_ID);
-
         EmailMessage message = new EmailMessage()
                 .setSenderAddress(properties.getEmail().getSenderAddress())
                 .setToRecipients(List.of(new EmailAddress(email).setDisplayName(displayName)))
                 .setSubject(VERIFICATION_SUBJECT)
                 .setBodyHtml(htmlBody)
-                .setBodyPlainText(textBody)
-                .setAttachments(List.of(logoAttachment));
+                .setBodyPlainText(textBody);
 
         return CompletableFuture.supplyAsync(() -> {
             SyncPoller<EmailSendResult, EmailSendResult> poller = client.beginSend(message);
@@ -162,24 +146,6 @@ public class EmailService {
             }
         }
         return engine;
-    }
-
-    private byte[] loadLogoBytes() {
-        byte[] bytes = logoBytes;
-        if (bytes == null) {
-            synchronized (this) {
-                bytes = logoBytes;
-                if (bytes == null) {
-                    try (var in = new ClassPathResource(LOGO_RESOURCE).getInputStream()) {
-                        bytes = StreamUtils.copyToByteArray(in);
-                    } catch (IOException e) {
-                        throw new UncheckedIOException("Unable to load email logo asset: " + LOGO_RESOURCE, e);
-                    }
-                    logoBytes = bytes;
-                }
-            }
-        }
-        return bytes;
     }
 
 }
