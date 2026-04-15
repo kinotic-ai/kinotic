@@ -11,6 +11,7 @@ import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.core.api.config.SslProperties;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.security.AuthenticationHandler;
+import org.kinotic.core.api.security.ParticipantContext;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.internal.utils.VertxWebUtil;
 
@@ -26,6 +27,7 @@ public class GqlVerticle extends VerticleBase {
     private final PersistenceProperties properties;
     private final SslProperties sslProperties;
     private final SecurityService securityService;
+    private final ParticipantContext participantContext;
     private HttpServer server;
 
 
@@ -39,7 +41,7 @@ public class GqlVerticle extends VerticleBase {
         Router router = VertxWebUtil.createRouterWithCors(vertx, properties);
 
         if(securityService !=null){
-            router.route().handler(new AuthenticationHandler(securityService, vertx));
+            router.route().handler(new AuthenticationHandler(securityService, participantContext, vertx));
         }
 
         router.post(properties.getGraphqlPath()+":"+APPLICATION_PATH_PARAMETER)

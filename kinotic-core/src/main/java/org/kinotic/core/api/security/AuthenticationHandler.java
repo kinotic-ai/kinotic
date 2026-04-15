@@ -19,10 +19,14 @@ import java.util.Map;
 public class AuthenticationHandler implements Handler<RoutingContext> {
 
     private final SecurityService securityService;
+    private final ParticipantContext participantContext;
     private final Vertx vertx;
 
-    public AuthenticationHandler(SecurityService securityService, Vertx vertx) {
+    public AuthenticationHandler(SecurityService securityService,
+                                 ParticipantContext participantContext,
+                                 Vertx vertx) {
         this.securityService = securityService;
+        this.participantContext = participantContext;
         this.vertx = vertx;
     }
 
@@ -44,6 +48,13 @@ public class AuthenticationHandler implements Handler<RoutingContext> {
                       .onComplete(event -> {
                           if(event.succeeded()){
                               ctx.put(EventConstants.SENDER_HEADER, event.result());
+                              // Bind the Participant to the current Vert.x context so downstream
+                              // handlers (and anything they call) can read it via
+                              // ParticipantContext.currentParticipant().
+                              io.vertx.core.Context vertxContext = Vertx.currentContext();
+                              if (vertxContext != null) {
+                                  participantContext.setParticipant(vertxContext, event.result());
+                              }
                               ctx.request().resume();
                               ctx.next();
                           }else{
