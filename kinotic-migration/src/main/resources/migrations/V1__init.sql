@@ -1,6 +1,7 @@
 -- Create the application table if it does not exist
 CREATE TABLE IF NOT EXISTS kinotic_application (
     id KEYWORD,
+    organizationId KEYWORD,
     description TEXT,
     oidcConfigurationIds JSON,
     updated DATE
@@ -9,6 +10,7 @@ CREATE TABLE IF NOT EXISTS kinotic_application (
 -- Create the named_query_service_definition table if it does not exist
 CREATE TABLE IF NOT EXISTS kinotic_named_query_service_definition (
     id KEYWORD,
+    organizationId KEYWORD,
     applicationId KEYWORD,
     projectId KEYWORD,
     entityDefinitionName KEYWORD,
@@ -18,6 +20,7 @@ CREATE TABLE IF NOT EXISTS kinotic_named_query_service_definition (
 -- Create the project table if it does not exist
 CREATE TABLE IF NOT EXISTS kinotic_project (
     id KEYWORD,
+    organizationId KEYWORD,
     applicationId KEYWORD,
     name KEYWORD,
     description TEXT,
@@ -29,6 +32,7 @@ CREATE TABLE IF NOT EXISTS kinotic_project (
 CREATE TABLE IF NOT EXISTS kinotic_entity_definition (
     id KEYWORD,
     name KEYWORD,
+    organizationId KEYWORD,
     applicationId KEYWORD,
     projectId KEYWORD,
     description TEXT,
