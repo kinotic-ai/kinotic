@@ -21,9 +21,8 @@ public class SecretStorageConfiguration {
             return new InMemoryBackend();
         }
         return switch (settings.getBackend()) {
-            case "chronicle-map" -> createChronicleMapBackend(settings);
-            case "azure" -> createAzureBackend(settings);
-            default -> throw new IllegalArgumentException("Unknown secret storage backend: " + settings.getBackend());
+            case HFT -> createChronicleMapBackend(settings);
+            case AZURE -> createAzureBackend(settings);
         };
     }
 
