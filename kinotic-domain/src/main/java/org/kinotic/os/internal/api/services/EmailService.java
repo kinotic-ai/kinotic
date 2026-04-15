@@ -8,7 +8,6 @@ import com.azure.communication.email.models.EmailSendResult;
 import com.azure.communication.email.models.EmailSendStatus;
 import com.azure.core.util.BinaryData;
 import com.azure.core.util.polling.SyncPoller;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.os.api.config.KinoticDomainProperties;
@@ -20,6 +19,8 @@ import org.springframework.util.StreamUtils;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -45,19 +46,12 @@ public class EmailService {
 
     private final KinoticDomainProperties properties;
     private final ObjectProvider<EmailClient> emailClientProvider;
-    private final SpringTemplateEngine htmlTemplateEngine;
+    private final ObjectProvider<SpringTemplateEngine> htmlTemplateEngineProvider;
 
     @Qualifier("emailTextTemplateEngine")
-    private final SpringTemplateEngine textTemplateEngine;
+    private final ObjectProvider<SpringTemplateEngine> textTemplateEngineProvider;
 
-    private byte[] logoBytes;
-
-    @PostConstruct
-    void loadLogo() throws Exception {
-        try (var in = new ClassPathResource(LOGO_RESOURCE).getInputStream()) {
-            logoBytes = StreamUtils.copyToByteArray(in);
-        }
-    }
+    private volatile byte[] logoBytes;
 
     /**
      * Sends a verification email to the given address.
@@ -72,12 +66,15 @@ public class EmailService {
                                                          String verificationToken) {
         String verificationUrl = properties.getEmail().getAppBaseUrl() + VERIFICATION_PATH + verificationToken;
 
-        EmailClient emailClient = emailClientProvider.getIfAvailable();
-        if (!properties.getEmail().isEnabled() || emailClient == null) {
+        if (!properties.getEmail().isEnabled()) {
             log.warn("Email sending is disabled; verification URL for {} <{}>: {}",
                     displayName, email, verificationUrl);
             return CompletableFuture.completedFuture(null);
         }
+
+        EmailClient emailClient = emailClientProvider.getObject();
+        SpringTemplateEngine htmlTemplateEngine = htmlTemplateEngineProvider.getObject();
+        SpringTemplateEngine textTemplateEngine = textTemplateEngineProvider.getObject();
 
         Context ctx = new Context();
         ctx.setVariable("displayName", displayName);
@@ -89,7 +86,7 @@ public class EmailService {
         EmailAttachment logoAttachment = new EmailAttachment(
                 "kinotic-wordmark.png",
                 "image/png",
-                BinaryData.fromBytes(logoBytes))
+                BinaryData.fromBytes(loadLogoBytes()))
                 .setContentId(LOGO_CONTENT_ID);
 
         EmailMessage message = new EmailMessage()
@@ -112,6 +109,24 @@ public class EmailService {
             throw new IllegalStateException("Azure Communication Services rejected the send: status="
                     + result.getStatus() + " messageId=" + result.getId());
         });
+    }
+
+    private byte[] loadLogoBytes() {
+        byte[] bytes = logoBytes;
+        if (bytes == null) {
+            synchronized (this) {
+                bytes = logoBytes;
+                if (bytes == null) {
+                    try (var in = new ClassPathResource(LOGO_RESOURCE).getInputStream()) {
+                        bytes = StreamUtils.copyToByteArray(in);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException("Unable to load email logo asset: " + LOGO_RESOURCE, e);
+                    }
+                    logoBytes = bytes;
+                }
+            }
+        }
+        return bytes;
     }
 
 }

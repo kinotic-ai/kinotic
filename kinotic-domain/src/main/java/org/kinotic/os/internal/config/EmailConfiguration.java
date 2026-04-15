@@ -23,18 +23,17 @@ import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
  * strings or secrets are read from the Spring environment.
  */
 @Configuration
+@ConditionalOnProperty(prefix = "kinotic.email", name = "enabled",
+        havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 public class EmailConfiguration {
 
     private final KinoticDomainProperties properties;
 
     /**
-     * Builds the ACS {@link EmailClient}. Only created when
-     * {@code kinotic.email.enabled=true} (the default).
+     * Builds the ACS {@link EmailClient}.
      */
     @Bean
-    @ConditionalOnProperty(prefix = "kinotic.email", name = "enabled",
-            havingValue = "true", matchIfMissing = true)
     public EmailClient emailClient() {
         DefaultAzureCredentialBuilder credBuilder = new DefaultAzureCredentialBuilder();
         if (StringUtils.hasText(properties.getEmail().getManagedIdentityClientId())) {
