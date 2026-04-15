@@ -449,6 +449,28 @@ public class CrudServiceTemplate {
                 });
     }
 
+    /**
+     * Indexes a document. Also allows for customization of the {@link IndexRequest}.
+     *
+     * @param indexName       name of the index
+     * @param id              of the document to index
+     * @param document        to index
+     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
+     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
+     */
+    public <T> CompletableFuture<IndexResponse> save(String indexName,
+                                                     String id,
+                                                     T document,
+                                                     Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
+            builder.index(indexName).id(id).document(document);
+            if (builderConsumer != null) {
+                builderConsumer.accept(builder);
+            }
+            return builder;
+        });
+    }
+
     public CompletableFuture<Void> updateIndexMapping(String indexName,
                                                       Map<String, Property> mappings) {
         return esAsyncClient.indices().exists(builder -> builder.index(indexName))
