@@ -1,7 +1,5 @@
 package org.kinotic.os.internal.api.services.iam;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.Refresh;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +16,6 @@ public class IamCredentialStore {
 
     private static final String INDEX_NAME = "kinotic_iam_credential";
 
-    private final ElasticsearchAsyncClient esAsyncClient;
     private final CrudServiceTemplate crudServiceTemplate;
 
     @PostConstruct
@@ -27,27 +24,20 @@ public class IamCredentialStore {
     }
 
     public CompletableFuture<IamCredential> findById(String userId) {
-        return esAsyncClient.get(g -> g.index(INDEX_NAME).id(userId), IamCredential.class)
-                            .thenApply(response -> {
-                                if (response.found()) {
-                                    return response.source();
-                                }
-                                return null;
-                            });
+        return crudServiceTemplate.findById(INDEX_NAME, userId, IamCredential.class, null);
     }
 
     public CompletableFuture<IamCredential> save(IamCredential credential) {
-        return esAsyncClient.index(i -> i
-                .index(INDEX_NAME)
-                .id(credential.getId())
-                .document(credential)
-                .refresh(Refresh.WaitFor))
-                .thenApply(response -> credential);
+        return crudServiceTemplate.saveSync(INDEX_NAME,
+                                            credential.getId(),
+                                            credential,
+                                            null)
+                                  .thenApply(response -> credential);
     }
 
     public CompletableFuture<Void> deleteById(String userId) {
-        return esAsyncClient.delete(d -> d.index(INDEX_NAME).id(userId))
-                            .thenApply(response -> null);
+        return crudServiceTemplate.deleteById(INDEX_NAME, userId, null)
+                                  .thenApply(response -> null);
     }
 
 }

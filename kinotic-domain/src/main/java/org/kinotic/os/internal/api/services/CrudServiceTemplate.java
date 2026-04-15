@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.ErrorResponse;
 import co.elastic.clients.elasticsearch._types.FieldSort;
 import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.mapping.DynamicMapping;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
@@ -447,6 +448,50 @@ public class CrudServiceTemplate {
                                                  .value());
                     }
                 });
+    }
+
+    /**
+     * Indexes a document. Also allows for customization of the {@link IndexRequest}.
+     *
+     * @param indexName       name of the index
+     * @param id              of the document to index
+     * @param document        to index
+     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
+     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
+     */
+    public <T> CompletableFuture<IndexResponse> save(String indexName,
+                                                     String id,
+                                                     T document,
+                                                     Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
+            builder.index(indexName).id(id).document(document);
+            if (builderConsumer != null) {
+                builderConsumer.accept(builder);
+            }
+            return builder;
+        });
+    }
+
+    /**
+     * Indexes a document using {@link Refresh#WaitFor}, guaranteeing read-your-write
+     * semantics for subsequent queries. Also allows for customization of the {@link IndexRequest}.
+     *
+     * @param indexName       name of the index
+     * @param id              of the document to index
+     * @param document        to index
+     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
+     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
+     */
+    public <T> CompletableFuture<IndexResponse> saveSync(String indexName,
+                                                         String id,
+                                                         T document,
+                                                         Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return save(indexName, id, document, builder -> {
+            if (builderConsumer != null) {
+                builderConsumer.accept(builder);
+            }
+            builder.refresh(Refresh.WaitFor);
+        });
     }
 
     public CompletableFuture<Void> updateIndexMapping(String indexName,
