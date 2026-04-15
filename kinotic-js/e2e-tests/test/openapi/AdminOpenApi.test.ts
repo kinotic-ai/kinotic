@@ -22,7 +22,7 @@ interface LocalTestContext {
 
 const applicationId = 'openapi.admin'
 const projectName = 'TestProject'
-const DEFAULT_TENANT = 'kinotic'
+const DEFAULT_TENANT = 'kinotic-test'
 
 const axiosInstance = axios.create({
                                        headers: {
