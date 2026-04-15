@@ -13,6 +13,11 @@ dependencies {
 
     implementation 'org.springframework.security:spring-security-crypto'
 
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+
+    implementation 'com.azure:azure-communication-email:1.1.2'
+    implementation 'com.azure:azure-identity:1.18.2'
+
     // JWT/OIDC - needed by IamSecurityService for token validation
     implementation 'io.jsonwebtoken:jjwt-api'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl'
