@@ -7,13 +7,13 @@ import org.apache.commons.lang3.Validate;
 import org.apache.commons.text.WordUtils;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 import org.kinotic.persistence.api.model.idl.PageC3Type;
 import org.kinotic.persistence.api.model.idl.decorators.QueryDecorator;
 import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.api.services.NamedQueriesDefinitionService;
+import org.kinotic.persistence.internal.api.services.EntityDefinitionDAO;
 import org.kinotic.persistence.internal.api.services.sql.SqlQueryType;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.PagedQueryDataFetcher;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.QueryDataFetcher;
@@ -37,19 +37,15 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
     private static final Logger log = LoggerFactory.getLogger(NamedQueryGqlOperationDefinitionCacheLoader.class);
     private static final Pageable CURSOR_PAGEABLE = Pageable.create(null, 25, null);
     private static final Pageable OFFSET_PAGEABLE = Pageable.create(0, 25, null);
-    private static final String ENTITY_DEFINITION_INDEX = "kinotic_entity_definition";
 
     private final EntitiesRepository entitiesRepository;
     private final NamedQueriesDefinitionService namedQueriesDefinitionService;
     private final ObjectMapper objectMapper;
-    private final CrudServiceTemplate crudServiceTemplate;
+    private final EntityDefinitionDAO entityDefinitionDAO;
 
     @Override
     public CompletableFuture<? extends List<GqlOperationDefinition>> asyncLoad(String key, Executor executor) {
-        // Bypass AbstractCrudService (and its org-scope enforcement) for this internal lookup.
-        // The GQL operation cache serves all auth scopes — APPLICATION-scoped participants
-        // need to resolve definitions owned by their parent ORGANIZATION to build GQL operations.
-        return crudServiceTemplate.findById(ENTITY_DEFINITION_INDEX, key, EntityDefinition.class, null)
+        return entityDefinitionDAO.findById(key)
                                   .thenApply(entityDefinition -> {
                                       Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
                                       return entityDefinition;
