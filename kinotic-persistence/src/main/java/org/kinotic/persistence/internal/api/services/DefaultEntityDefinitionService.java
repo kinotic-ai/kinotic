@@ -1,6 +1,5 @@
 package org.kinotic.persistence.internal.api.services;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch.indices.DataStreamVisibility;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
@@ -29,7 +28,6 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
 
     private final ApplicationEventPublisher eventPublisher;
     private final CrudServiceTemplate crudServiceTemplate;
-    private final ElasticsearchAsyncClient esAsyncClient;
     private final EntityDefinitionConversionService entityDefinitionConversionService;
     private final EntityDefinitionDAO entityDefinitionDAO;
     private final PersistenceProperties persistenceProperties;

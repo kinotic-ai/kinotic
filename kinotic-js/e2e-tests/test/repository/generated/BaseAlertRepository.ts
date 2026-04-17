@@ -11,7 +11,7 @@ export class BaseAlertRepository extends EntityRepository<Alert> {
   private readonly shouldValidate: boolean
 
   constructor(shouldValidate: boolean = true, entitiesRepository?: IEntitiesRepository) {
-    super('openapi.admin', 'Alert', entitiesRepository)
+    super('openapi.versioned', 'Alert', entitiesRepository)
     this.shouldValidate = shouldValidate
   }
 

@@ -74,7 +74,7 @@ public class MigrationParser {
 
         private Statement parseStatement(KinoticSQLParser.StatementContext stmtCtx) {
             String statementText = stmtCtx.getText();
-            log.debug("Parsing statement: {}", statementText);
+            log.trace("Parsing statement: {}", statementText);
             
             List<StatementParser> supportingParsers = statementParsers.stream()
                     .filter(p -> p.supports(stmtCtx))
@@ -90,7 +90,7 @@ public class MigrationParser {
                         .collect(Collectors.joining(", ")));
             }
             
-            return supportingParsers.get(0).parse(stmtCtx);
+            return supportingParsers.getFirst().parse(stmtCtx);
         }
     }
 } 

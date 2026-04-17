@@ -29,7 +29,7 @@ import java.util.concurrent.Executor;
  * Created by Navíd Mitchell 🤪 on 5/10/23.
  */
 @Component
-public class EntityServiceCacheLoader implements AsyncCacheLoader<String, EntityService> {
+public class EntityServiceCacheLoader implements AsyncCacheLoader<String, EntityRepository> {
 
     private final AuthorizationServiceFactory authServiceFactory;
     private final CrudServiceTemplate crudServiceTemplate;
@@ -66,7 +66,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
 
 
     @Override
-    public CompletableFuture<? extends EntityService> asyncLoad(String key, Executor executor) throws Exception {
+    public CompletableFuture<? extends EntityRepository> asyncLoad(String key, Executor executor) throws Exception {
         return entityDefinitionDAO.findById(key)
                                   .thenApply(entityDefinition -> {
                                Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
@@ -76,7 +76,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
     }
 
     @SuppressWarnings("unchecked")
-    public CompletableFuture<EntityService> createEntityService(EntityDefinition entityDefinition) {
+    public CompletableFuture<EntityRepository> createEntityService(EntityDefinition entityDefinition) {
 
         if(entityDefinition == null){
             return CompletableFuture.failedFuture(new IllegalArgumentException("EntityDefinition must not be null"));
@@ -100,7 +100,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
         }
 
         return authServiceFactory.createEntityDefinitionAuthorizationService(entityDefinition)
-                                 .thenApply(authService -> new DefaultEntityService(
+                                 .thenApply(authService -> new DefaultEntityRepository(
                                          authService,
                                          crudServiceTemplate,
                                          new DelegatingUpsertPreProcessor(persistenceProperties,
