@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -46,10 +47,10 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
 
         return esAsyncClient.mget(MgetRequest.of(r -> r.docs(ops)), OidcConfiguration.class)
                             .thenApply(response -> response.docs().stream()
-                                    .filter(doc -> doc.result().found() && doc.result().source() != null)
-                                    .map(doc -> doc.result().source())
-                                    .filter(OidcConfiguration::isEnabled)
-                                    .toList());
+                                                           .filter(doc -> doc.result().found() && doc.result().source() != null)
+                                                           .map(doc -> doc.result().source()).filter(Objects::nonNull)
+                                                           .filter(OidcConfiguration::isEnabled)
+                                                           .toList());
     }
 
 }
