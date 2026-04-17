@@ -1,6 +1,6 @@
-import {Direction, Kinotic, Order, Page, Pageable} from '@kinotic-ai/core'
+import {Direction, Kinotic, KinoticSingleton, Order, Page, Pageable} from '@kinotic-ai/core'
 import {EntityDefinition} from '@kinotic-ai/os-api'
-import {EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
+import {EntitiesRepository, EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {Person} from '../domain/Person.js'
@@ -12,13 +12,17 @@ import {
     findAndVerifyPeopleWithCursorPaging,
     findAndVerifyPeopleWithOffsetPaging,
     generateRandomString,
+    initKinoticAppClient,
     initKinoticClient,
     logFailure,
     shutdownKinoticClient
 } from '../TestHelpers.js'
 
+const APP_TENANT = 'kinotic'
+
 interface LocalTestContext {
     entityDefinition: EntityDefinition
+    appKinotic: KinoticSingleton
     entityService: IEntityRepository<Person>
 }
 
@@ -35,13 +39,25 @@ describe('End To End Tests', () => {
     }, 60000)
 
     beforeEach<LocalTestContext>(async (context) => {
+        // Platform metadata (Application, Project, EntityDefinition) is created as the
+        // ORGANIZATION user via the default Kinotic singleton.
         context.entityDefinition = await createPersonEntityDefinitionIfNotExist(generateRandomString(10), generateRandomString(5))
         expect(context.entityDefinition).toBeDefined()
-        context.entityService = new EntityRepository(context.entityDefinition.applicationId, context.entityDefinition.name)
+
+        // Entity data lives under an APPLICATION-scoped user inside the application just
+        // created. A second Kinotic instance authenticates as that user; the entity repo
+        // routes through it so participant.tenantId is non-null for SHARED entity ops.
+        context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT)
+        context.entityService = new EntityRepository(
+            context.entityDefinition.applicationId,
+            context.entityDefinition.name,
+            new EntitiesRepository(context.appKinotic)
+        )
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
+        await context.appKinotic.disconnect()
         await expect(deleteEntityDefinition(context.entityDefinition.id as string)).resolves.toBeUndefined()
         await expect(Kinotic.entityDefinitions.syncIndex()).resolves.toBeNull()
         await Kinotic.projects.deleteById(context.entityDefinition.projectId)

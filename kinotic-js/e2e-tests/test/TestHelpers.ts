@@ -1,7 +1,7 @@
 import {faker} from '@faker-js/faker/locale/en'
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import {Kinotic, Direction, Order, Pageable, IterablePage, KinoticProjectConfig} from '@kinotic-ai/core'
+import {Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, KinoticProjectConfig} from '@kinotic-ai/core'
 import {
     ObjectC3Type,
     FunctionDefinition
@@ -13,11 +13,14 @@ import {
     EntityDefinition,
     NamedQueriesDefinition,
     QueryDecorator,
-    Project
+    Project,
+    IamUser,
+    AuthType
 } from '@kinotic-ai/os-api'
 import {
     IEntityRepository,
-    IAdminEntityRepository
+    IAdminEntityRepository,
+    PersistencePlugin
 } from '@kinotic-ai/persistence'
 import {Alert} from './domain/Alert.js'
 import {Person} from './domain/Person.js'
@@ -65,6 +68,59 @@ export async function shutdownKinoticClient(): Promise<void> {
         console.error(e)
         throw e
     }
+}
+
+/**
+ * Ensures an APPLICATION-scoped IamUser exists for the given application and tenant. Must be
+ * called while authenticated as an ORGANIZATION user (e.g. after {@link initKinoticClient}).
+ * The user id is deterministic for a given (applicationId, tenantId) pair so repeated calls
+ * are idempotent.
+ *
+ * @return the email of the provisioned user
+ */
+export async function createAppUserIfNotExist(applicationId: string, tenantId: string): Promise<string> {
+    const email = `app-${applicationId}-${tenantId}@test.local`
+    const existing = await Kinotic.iamUsers.findByEmailAndScope(email, 'APPLICATION', applicationId)
+    if (existing == null) {
+        const user = new IamUser()
+        user.email = email
+        user.displayName = `App Test User (${applicationId} / ${tenantId})`
+        user.authType = AuthType.LOCAL
+        user.authScopeType = 'APPLICATION'
+        user.authScopeId = applicationId
+        user.tenantId = tenantId
+        await Kinotic.iamUsers.createUser(user, 'kinotic')
+    }
+    return email
+}
+
+/**
+ * Creates a fresh {@link KinoticSingleton} connected as the APPLICATION-scoped user returned by
+ * {@link createAppUserIfNotExist}. The caller is responsible for disconnecting it when done.
+ * The instance has {@code OsApiPlugin} and {@code PersistencePlugin} installed so it can back
+ * {@code EntityRepository} / {@code AdminEntityRepository} used to act on SHARED entity data.
+ */
+export async function initKinoticAppClient(applicationId: string, tenantId: string): Promise<KinoticSingleton> {
+    const email = await createAppUserIfNotExist(applicationId, tenantId)
+    // @ts-ignore
+    const host = inject('KINOTIC_HOST') as string
+    // @ts-ignore
+    const port = inject('KINOTIC_PORT') as number
+
+    const appKinotic = new KinoticSingleton()
+    appKinotic.use(OsApiPlugin).use(PersistencePlugin)
+
+    await appKinotic.connect({
+        host: host,
+        port: port,
+        connectHeaders: {
+            login: email,
+            passcode: 'kinotic',
+            authScopeType: 'APPLICATION',
+            authScopeId: applicationId
+        }
+    })
+    return appKinotic
 }
 
 export async function createPersonSchema(applicationId: string, projectId: string, withTenant: boolean = false): Promise<SchemaCreationResult> {
