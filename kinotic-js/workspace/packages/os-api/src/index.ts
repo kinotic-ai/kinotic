@@ -36,6 +36,8 @@ export * from '@/api/model/workload/VmProviderType'
 export * from '@/api/model/workload/VmNode'
 export * from '@/api/model/workload/VmNodeStatus'
 
+export * from '@/api/model/iam/AuthType'
+export * from '@/api/model/iam/IamUser'
 export * from '@/api/model/iam/SignUpRequest'
 export * from '@/api/model/iam/SignUpCompleteRequest'
 
@@ -50,6 +52,7 @@ export * from '@/api/services/IMigrationService'
 export * from '@/api/services/IDataInsightsService'
 export * from '@/api/services/IVmNodeService'
 export * from '@/api/services/IWorkloadService'
+export * from '@/api/services/iam/IIamUserService'
 
 // Plugin
 export * from '@/api/OsApiPlugin'

@@ -38,6 +38,15 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     public CompletableFuture<IamUser> save(IamUser entity) {
         Validate.notNull(entity.getEmail(), "IamUser email cannot be null");
         Validate.notNull(entity.getAuthScopeType(), "IamUser authScopeType cannot be null");
+        // tenantId is meaningful only for APPLICATION-scoped users; SYSTEM/ORGANIZATION identities
+        // are not tenants and must not carry one.
+        if ("APPLICATION".equals(entity.getAuthScopeType())) {
+            Validate.notBlank(entity.getTenantId(),
+                              "IamUser tenantId is required for APPLICATION-scoped users");
+        } else if (entity.getTenantId() != null) {
+            throw new IllegalArgumentException(
+                    "IamUser tenantId must be null for " + entity.getAuthScopeType() + "-scoped users");
+        }
         if (entity.getId() == null) {
             entity.setId(UUID.randomUUID().toString());
         }

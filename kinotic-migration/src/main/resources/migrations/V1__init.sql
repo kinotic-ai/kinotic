@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS kinotic_iam_user (
     oidcConfigId KEYWORD,
     authScopeType KEYWORD,
     authScopeId KEYWORD,
+    tenantId KEYWORD,
     enabled BOOLEAN,
     created DATE,
     updated DATE

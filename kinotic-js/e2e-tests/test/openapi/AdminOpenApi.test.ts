@@ -1,5 +1,5 @@
 import {Kinotic} from '@kinotic-ai/core'
-import {EntityDefinition} from '@kinotic-ai/os-api'
+import {EntityDefinition, IamUser, AuthType} from '@kinotic-ai/os-api'
 import axios from 'axios'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
 import {PersonWithTenant} from '../domain/PersonWithTenant.js'
@@ -23,7 +23,11 @@ interface LocalTestContext {
 const applicationId = 'openapi.admin'
 const projectName = 'TestProject'
 const DEFAULT_TENANT = 'kinotic'
+const APP_USER_EMAIL = 'app-test@kinotic.local'
+const APP_USER_PASSWORD = 'kinotic'
 
+// Org-scoped axios instance — used for /admin/api/... routes that explicitly select tenants.
+// The org user has no tenantId of its own; tenant routing comes from the admin tenantSelection.
 const axiosInstance = axios.create({
                                        headers: {
                                            'login': 'kinotic@kinotic.local',
@@ -33,6 +37,19 @@ const axiosInstance = axios.create({
                                            'Content-Type': 'application/json'
                                        }
                                    })
+
+// Application-scoped axios instance — used for /api/... routes against SHARED entities.
+// Authenticates as a user inside the application whose tenant matches DEFAULT_TENANT,
+// so the JSON upsert preprocessor accepts entity bodies tagged with that tenant.
+const appAxiosInstance = axios.create({
+                                          headers: {
+                                              'login': APP_USER_EMAIL,
+                                              'passcode': APP_USER_PASSWORD,
+                                              'authScopeType': 'APPLICATION',
+                                              'authScopeId': applicationId,
+                                              'Content-Type': 'application/json'
+                                          }
+                                      })
 
 describe('End To End Tests', () => {
     let context: LocalTestContext = { personWithTenantStructure: null! as EntityDefinition }
@@ -47,6 +64,20 @@ describe('End To End Tests', () => {
         const { namedQueriesDefinition } = await createSchema(applicationId, context.personWithTenantStructure.projectId, 'PersonWithTenant')
         const namedQueriesService = Kinotic.namedQueriesDefinitions
         await namedQueriesService.save(namedQueriesDefinition)
+
+        // Provision an APPLICATION-scoped user that the SHARED-entity CRUD tests will authenticate
+        // as. The user lives inside the application created above and is bound to DEFAULT_TENANT.
+        const existing = await Kinotic.iamUsers.findByEmailAndScope(APP_USER_EMAIL, 'APPLICATION', applicationId)
+        if (existing == null) {
+            const appUser = new IamUser()
+            appUser.email = APP_USER_EMAIL
+            appUser.displayName = 'Application Test User'
+            appUser.authType = AuthType.LOCAL
+            appUser.authScopeType = 'APPLICATION'
+            appUser.authScopeId = applicationId
+            appUser.tenantId = DEFAULT_TENANT
+            await Kinotic.iamUsers.createUser(appUser, APP_USER_PASSWORD)
+        }
 
         // @ts-ignore
         const host = inject('KINOTIC_HOST') as string
@@ -74,7 +105,7 @@ describe('End To End Tests', () => {
 
             it('Can create a person', async () => {
                 const testPerson = generatePerson(DEFAULT_TENANT)
-                const response = await axiosInstance.post<PersonWithTenant>(
+                const response = await appAxiosInstance.post<PersonWithTenant>(
                     `${baseUrl}/api/openapi.admin/personwithtenant`,
                     testPerson
                 )
@@ -88,13 +119,13 @@ describe('End To End Tests', () => {
             it('Can get person by ID', async () => {
                 // Create a person first
                 const testPerson = generatePerson(DEFAULT_TENANT)
-                const createResponse = await axiosInstance.post<PersonWithTenant>(
+                const createResponse = await appAxiosInstance.post<PersonWithTenant>(
                     `${baseUrl}/api/openapi.admin/personwithtenant`,
                     testPerson
                 )
                 const createdId = createResponse.data.id!
 
-                const response = await axiosInstance.get<PersonWithTenant>(
+                const response = await appAxiosInstance.get<PersonWithTenant>(
                     `${baseUrl}/api/openapi.admin/personwithtenant/${createdId}`
                 )
 
@@ -173,24 +204,24 @@ describe('End To End Tests', () => {
             it('Can delete person', async () => {
                 // Create a person to delete
                 const testPerson = generatePerson(DEFAULT_TENANT)
-                const createResponse = await axiosInstance.post<PersonWithTenant>(
+                const createResponse = await appAxiosInstance.post<PersonWithTenant>(
                     `${baseUrl}/api/openapi.admin/personwithtenant`,
                     testPerson
                 )
                 const createdId = createResponse.data.id!
 
-                await syncIndex(axiosInstance, baseUrl)
+                await syncIndex(appAxiosInstance, baseUrl)
 
                 // Delete the person
-                const deleteResponse = await axiosInstance.delete(
+                const deleteResponse = await appAxiosInstance.delete(
                     `${baseUrl}/api/openapi.admin/personwithtenant/${createdId}`
                 )
                 expect(deleteResponse.status).toBe(200) // Confirm delete request succeeds
 
-                await syncIndex(axiosInstance, baseUrl)
+                await syncIndex(appAxiosInstance, baseUrl)
 
                 // Verify deletion by attempting to look it up (expecting 404)
-                await expect(axiosInstance.get<PersonWithTenant>(
+                await expect(appAxiosInstance.get<PersonWithTenant>(
                     `${baseUrl}/api/openapi.admin/personwithtenant/${createdId}`
                 )).rejects.toHaveProperty('response.status', 404)
             }, 600000)

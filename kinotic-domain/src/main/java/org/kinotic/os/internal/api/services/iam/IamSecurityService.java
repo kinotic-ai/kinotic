@@ -155,10 +155,10 @@ public class IamSecurityService implements SecurityService {
                 "authType", user.getAuthType().name()
         ));
 
-        // tenantId is the client-tenant the caller is acting within — it is NOT the same as the
-        // auth scope id (which says which org/application the user authenticated under). Leave it
-        // null here; per-request mechanisms are responsible for populating it when applicable.
-        return new DefaultParticipant(null, user.getId(),
+        // tenantId is the client-tenant the caller is acting within — it is meaningful only for
+        // APPLICATION-scoped users (where it partitions SHARED entity data). SYSTEM and ORGANIZATION
+        // identities are not tenants, so user.getTenantId() must be null for them.
+        return new DefaultParticipant(user.getTenantId(), user.getId(),
                 user.getAuthScopeType(), user.getAuthScopeId(), metadata, List.of());
     }
 
@@ -375,7 +375,7 @@ public class IamSecurityService implements SecurityService {
         ));
 
         // See createParticipantFromUser: tenantId is not the auth scope id.
-        return new DefaultParticipant(null, user.getId(),
+        return new DefaultParticipant(user.getTenantId(), user.getId(),
                 user.getAuthScopeType(), user.getAuthScopeId(), metadata, roles);
     }
 
