@@ -78,7 +78,7 @@ export interface IAdminEntityRepository<T> {
      * @return Promise emitting the entity with the given id or Promise emitting null if none found
      * @throws Error in case the given {@literal id} is {@literal null}
      */
-    findById(id: TenantSpecificId): Promise<T>;
+    findById(id: TenantSpecificId): Promise<T | null>;
 
     /**
      * Retrieves a list of entities by their id.
@@ -133,12 +133,12 @@ export class AdminEntityRepository<T> implements IAdminEntityRepository<T> {
 
     private readonly adminEntitiesRepository: IAdminEntitiesRepository
 
-    public constructor(structureApplicationId: string,
-                       structureName: string,
+    public constructor(entityApplicationId: string,
+                       entityName: string,
                        adminEntitiesRepository?: IAdminEntitiesRepository) {
-        this.entityApplicationId = structureApplicationId
-        this.entityName = structureName
-        this.entityId = (structureApplicationId + '.' + structureName).toLowerCase()
+        this.entityApplicationId = entityApplicationId
+        this.entityName = entityName
+        this.entityId = (entityApplicationId + '.' + entityName).toLowerCase()
         this.adminEntitiesRepository = adminEntitiesRepository ?? new AdminEntitiesRepository(Kinotic)
     }
 

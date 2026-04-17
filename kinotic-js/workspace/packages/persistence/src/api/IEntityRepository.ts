@@ -87,7 +87,7 @@ export interface IEntityRepository<T> {
      * @return Promise emitting the entity with the given id or Promise emitting null if none found
      * @throws Error in case the given {@literal id} is {@literal null}
      */
-    findById(id: string): Promise<T>;
+    findById(id: string): Promise<T | null>;
 
     /**
      * Retrieves a list of entities by their id.
@@ -165,12 +165,12 @@ export class EntityRepository<T> implements IEntityRepository<T> {
 
     private readonly entitiesRepository: IEntitiesRepository
 
-    public constructor(structureApplicationId: string,
-                       structureName: string,
+    public constructor(entityApplicationId: string,
+                       entityName: string,
                        entitiesRepository?: IEntitiesRepository) {
-        this.entityApplicationId = structureApplicationId
-        this.entityName = structureName
-        this.entityId = (structureApplicationId + '.' + structureName).toLowerCase()
+        this.entityApplicationId = entityApplicationId
+        this.entityName = entityName
+        this.entityId = (entityApplicationId + '.' + entityName).toLowerCase()
         this.entitiesRepository = entitiesRepository ?? new EntitiesRepository(Kinotic)
     }
 
@@ -204,7 +204,7 @@ export class EntityRepository<T> implements IEntityRepository<T> {
         return this.entitiesRepository.findAll(this.entityId, pageable)
     }
 
-    public findById(id: string): Promise<T> {
+    public findById(id: string): Promise<T | null> {
         return this.entitiesRepository.findById(this.entityId, id)
     }
 
