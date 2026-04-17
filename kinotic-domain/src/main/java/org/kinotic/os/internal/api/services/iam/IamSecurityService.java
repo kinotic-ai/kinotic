@@ -12,10 +12,13 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.internal.api.security.JwksService;
+import org.kinotic.os.api.model.iam.AuthScopeType;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
-import org.kinotic.os.api.services.iam.OidcConfigurationService;
+import org.kinotic.os.api.services.ApplicationService;
+import org.kinotic.os.api.services.KinoticSystemService;
+import org.kinotic.os.api.services.OrganizationService;
 import org.kinotic.os.api.utils.DomainUtil;
 import org.kinotic.os.internal.api.model.iam.IamCredential;
 import org.springframework.stereotype.Component;
@@ -52,7 +55,9 @@ public class IamSecurityService implements SecurityService {
 
     private final DefaultIamUserService userService;
     private final IamCredentialService credentialService;
-    private final OidcConfigurationService oidcConfigurationService;
+    private final KinoticSystemService kinoticSystemService;
+    private final OrganizationService organizationService;
+    private final ApplicationService applicationService;
     private final JwksService jwksService;
 
     /**
@@ -164,6 +169,26 @@ public class IamSecurityService implements SecurityService {
     }
 
     /**
+     * Returns the enabled OIDC configurations for the given auth scope by dispatching to the
+     * service that owns each scope entity (System, Organization, or Application).
+     */
+    private CompletableFuture<List<OidcConfiguration>> getConfigsForScope(String authScopeType, String authScopeId) {
+        AuthScopeType scope;
+        try {
+            scope = AuthScopeType.valueOf(authScopeType);
+        } catch (IllegalArgumentException e) {
+            return CompletableFuture.failedFuture(
+                    new IllegalArgumentException("Unsupported authScopeType for OIDC lookup: " + authScopeType));
+        }
+
+        return switch (scope) {
+            case SYSTEM -> kinoticSystemService.getOidcConfigurations();
+            case ORGANIZATION -> organizationService.getOidcConfigurations(authScopeId);
+            case APPLICATION -> applicationService.getOidcConfigurations(authScopeId);
+        };
+    }
+
+    /**
      * Initiates OIDC authentication by loading the OIDC configurations enabled for the target
      * scope, fetching the JWKS key for the token, and delegating to {@link #validateOidcToken}.
      */
@@ -172,7 +197,7 @@ public class IamSecurityService implements SecurityService {
                                                             String authHeader) {
         String token = authHeader.substring(7); // Strip "Bearer "
 
-        return oidcConfigurationService.getConfigsForScope(authScopeType, authScopeId)
+        return getConfigsForScope(authScopeType, authScopeId)
                                .thenCompose(configs -> {
                                    if (configs == null || configs.isEmpty()) {
                                        return CompletableFuture.failedFuture(
