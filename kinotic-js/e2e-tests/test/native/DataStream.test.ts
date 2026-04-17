@@ -1,7 +1,7 @@
-import {Kinotic, Pageable} from '@kinotic-ai/core'
+import {Kinotic, KinoticSingleton, Pageable} from '@kinotic-ai/core'
 import {PropertyDefinition, StringC3Type} from '@kinotic-ai/idl'
 import {EntityDefinition} from '@kinotic-ai/os-api'
-import {EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
+import {EntitiesRepository, EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
@@ -12,6 +12,7 @@ import {
     createTestAlerts,
     deleteEntityDefinition,
     generateRandomString,
+    initKinoticAppClient,
     initKinoticClient,
     logFailure,
     shutdownKinoticClient
@@ -19,8 +20,11 @@ import {
 
 Object.assign(global, { WebSocket })
 
+const APP_TENANT = 'kinotic'
+
 interface LocalTestContext {
     entityDefinition: EntityDefinition
+    appKinotic: KinoticSingleton
     entityService: IEntityRepository<Alert>
 }
 
@@ -38,11 +42,17 @@ describe('End To End Tests', () => {
     beforeEach<LocalTestContext>(async (context) => {
         context.entityDefinition = await createAlertEntityDefinitionIfNotExist(generateRandomString(10), generateRandomString(5))
         expect(context.entityDefinition).toBeDefined()
-        context.entityService = new EntityRepository(context.entityDefinition.applicationId, context.entityDefinition.name)
+        context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT)
+        context.entityService = new EntityRepository(
+            context.entityDefinition.applicationId,
+            context.entityDefinition.name,
+            new EntitiesRepository(context.appKinotic)
+        )
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
+        await context.appKinotic.disconnect()
         await expect(deleteEntityDefinition(context.entityDefinition.id as string)).resolves.toBeUndefined()
         await expect(Kinotic.entityDefinitions.syncIndex()).resolves.toBeNull()
         await Kinotic.projects.deleteById(context.entityDefinition.projectId)
