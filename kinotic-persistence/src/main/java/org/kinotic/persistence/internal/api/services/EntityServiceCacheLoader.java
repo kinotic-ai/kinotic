@@ -31,13 +31,14 @@ import java.util.concurrent.Executor;
 @Component
 public class EntityServiceCacheLoader implements AsyncCacheLoader<String, EntityService> {
 
+    private static final String ENTITY_DEFINITION_INDEX = "kinotic_entity_definition";
+
     private final AuthorizationServiceFactory authServiceFactory;
     private final CrudServiceTemplate crudServiceTemplate;
     private final ElasticsearchAsyncClient esAsyncClient;
     private final NamedQueriesService namedQueriesService;
     private final JsonMapper jsonMapper;
     private final ReadPreProcessor readPreProcessor;
-    private final EntityDefinitionDAO entityDefinitionDAO;
     private final PersistenceProperties persistenceProperties;
     private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
 
@@ -48,7 +49,6 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
                                     NamedQueriesService namedQueriesService,
                                     JsonMapper jsonMapper,
                                     ReadPreProcessor readPreProcessor,
-                                    EntityDefinitionDAO entityDefinitionDAO,
                                     PersistenceProperties persistenceProperties,
                                     List<UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors) {
         this.authServiceFactory = authServiceFactory;
@@ -57,7 +57,6 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
         this.namedQueriesService = namedQueriesService;
         this.jsonMapper = jsonMapper;
         this.readPreProcessor = readPreProcessor;
-        this.entityDefinitionDAO = entityDefinitionDAO;
         this.persistenceProperties = persistenceProperties;
 
         this.upsertFieldPreProcessors = PersistenceUtil.listToMap(upsertFieldPreProcessors,
@@ -67,7 +66,10 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
 
     @Override
     public CompletableFuture<? extends EntityService> asyncLoad(String key, Executor executor) throws Exception {
-        return entityDefinitionDAO.findById(key)
+        // Bypass AbstractCrudService (and its org-scope enforcement) for this internal lookup.
+        // The entity definition cache serves all auth scopes — APPLICATION-scoped participants
+        // need to resolve definitions owned by their parent ORGANIZATION to process data ops.
+        return crudServiceTemplate.findById(ENTITY_DEFINITION_INDEX, key, EntityDefinition.class, null)
                                   .thenApply(entityDefinition -> {
                                Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
                                return entityDefinition;
