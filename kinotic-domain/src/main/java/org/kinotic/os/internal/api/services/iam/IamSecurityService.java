@@ -15,6 +15,7 @@ import org.kinotic.core.internal.api.security.JwksService;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
+import org.kinotic.os.api.utils.DomainUtil;
 import org.kinotic.os.internal.api.model.iam.IamCredential;
 import org.springframework.stereotype.Component;
 
@@ -52,7 +53,6 @@ public class IamSecurityService implements SecurityService {
     private final IamCredentialService credentialService;
     private final OidcConfigLookup oidcConfigLookup;
     private final JwksService jwksService;
-    private final PasswordService passwordService;
 
     /**
      * Entry point for all authentication. Parses the {@code authScopeType} header to determine
@@ -141,7 +141,7 @@ public class IamSecurityService implements SecurityService {
         if (credential == null) {
             return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
         }
-        if (!passwordService.verify(password, credential.getPasswordHash())) {
+        if (!DomainUtil.verifyPassword(password, credential.getPasswordHash())) {
             return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
         }
         return CompletableFuture.completedFuture(createParticipantFromUser(user));

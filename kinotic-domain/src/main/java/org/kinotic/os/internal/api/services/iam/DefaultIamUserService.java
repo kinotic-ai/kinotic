@@ -11,6 +11,7 @@ import org.kinotic.core.api.security.ParticipantContext;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.services.iam.IamUserService;
+import org.kinotic.os.api.utils.DomainUtil;
 import org.kinotic.os.internal.api.services.AbstractCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.kinotic.os.internal.api.model.iam.IamCredential;
@@ -24,16 +25,13 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultIamUserService extends AbstractCrudService<IamUser> implements IamUserService {
 
     private final IamCredentialService credentialStore;
-    private final PasswordService passwordService;
 
     public DefaultIamUserService(CrudServiceTemplate crudServiceTemplate,
                                  ElasticsearchAsyncClient esAsyncClient,
                                  IamCredentialService credentialStore,
-                                 PasswordService passwordService,
                                  ParticipantContext participantContext) {
         super("kinotic_iam_user", IamUser.class, esAsyncClient, crudServiceTemplate, participantContext);
         this.credentialStore = credentialStore;
-        this.passwordService = passwordService;
     }
 
     @Override
@@ -103,7 +101,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                     if (password != null) {
                         IamCredential credential = new IamCredential()
                                 .setId(savedUser.getId())
-                                .setPasswordHash(passwordService.hash(password));
+                                .setPasswordHash(DomainUtil.hashPassword(password));
                         return credentialStore.save(credential).thenApply(c -> savedUser);
                     }
                     return CompletableFuture.completedFuture(savedUser);
@@ -122,11 +120,11 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("No credential found for user " + userId));
                     }
-                    if (!passwordService.verify(currentPassword, credential.getPasswordHash())) {
+                    if (!DomainUtil.verifyPassword(currentPassword, credential.getPasswordHash())) {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("Current password is incorrect"));
                     }
-                    credential.setPasswordHash(passwordService.hash(newPassword));
+                    credential.setPasswordHash(DomainUtil.hashPassword(newPassword));
                     return credentialStore.save(credential).thenApply(c -> (Void) null);
                 });
     }
@@ -138,7 +136,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
 
         IamCredential credential = new IamCredential()
                 .setId(userId)
-                .setPasswordHash(passwordService.hash(newPassword));
+                .setPasswordHash(DomainUtil.hashPassword(newPassword));
         return credentialStore.save(credential).thenApply(c -> null);
     }
 

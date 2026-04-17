@@ -13,6 +13,7 @@ import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.SignUpRequest;
 import org.kinotic.os.api.services.OrganizationService;
 import org.kinotic.os.api.services.iam.SignUpService;
+import org.kinotic.os.api.utils.DomainUtil;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.kinotic.os.internal.api.services.EmailService;
 import org.kinotic.os.internal.api.model.iam.IamCredential;
@@ -35,7 +36,6 @@ public class DefaultSignUpService implements SignUpService {
     private final DefaultIamUserService userService;
     private final IamCredentialService credentialStore;
     private final OrganizationService organizationService;
-    private final PasswordService passwordService;
     private final EmailService emailService;
 
     @PostConstruct
@@ -135,7 +135,7 @@ public class DefaultSignUpService implements SignUpService {
                                 // Create the credential with the user-supplied password
                                 IamCredential credential = new IamCredential()
                                         .setId(savedUser.getId())
-                                        .setPasswordHash(passwordService.hash(password));
+                                        .setPasswordHash(DomainUtil.hashPassword(password));
                                 return credentialStore.save(credential)
                                         .thenApply(c -> savedOrg.getId());
                             });

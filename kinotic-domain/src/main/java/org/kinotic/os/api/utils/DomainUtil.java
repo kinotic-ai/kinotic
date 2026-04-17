@@ -1,5 +1,7 @@
 package org.kinotic.os.api.utils;
 
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
 import java.util.regex.Pattern;
 
 /**
@@ -9,6 +11,7 @@ public class DomainUtil {
 
     private static final Pattern ApplicationPattern = Pattern.compile("^[A-Za-z][A-Za-z0-9._-]*$");
     private static final Pattern ProjectIdPattern = Pattern.compile("^[a-z][a-z0-9._-]*$");
+    private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 
     /**
      * Function will validate the structure application name
@@ -36,5 +39,25 @@ public class DomainUtil {
         }
     }
 
+    /**
+     * Hashes the given raw password using BCrypt.
+     *
+     * @param rawPassword to hash
+     * @return the BCrypt hash of the given password
+     */
+    public static String hashPassword(String rawPassword) {
+        return PASSWORD_ENCODER.encode(rawPassword);
+    }
+
+    /**
+     * Verifies that the given raw password matches the given BCrypt hash.
+     *
+     * @param rawPassword to verify
+     * @param hash        the BCrypt hash to verify against
+     * @return true if the password matches the hash
+     */
+    public static boolean verifyPassword(String rawPassword, String hash) {
+        return PASSWORD_ENCODER.matches(rawPassword, hash);
+    }
 
 }
