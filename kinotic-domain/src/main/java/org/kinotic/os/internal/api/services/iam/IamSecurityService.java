@@ -15,6 +15,7 @@ import org.kinotic.core.internal.api.security.JwksService;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
+import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.os.api.utils.DomainUtil;
 import org.kinotic.os.internal.api.model.iam.IamCredential;
 import org.springframework.stereotype.Component;
@@ -51,7 +52,7 @@ public class IamSecurityService implements SecurityService {
 
     private final DefaultIamUserService userService;
     private final IamCredentialService credentialService;
-    private final OidcConfigLookup oidcConfigLookup;
+    private final OidcConfigurationService oidcConfigurationService;
     private final JwksService jwksService;
 
     /**
@@ -171,7 +172,7 @@ public class IamSecurityService implements SecurityService {
                                                             String authHeader) {
         String token = authHeader.substring(7); // Strip "Bearer "
 
-        return oidcConfigLookup.getConfigsForScope(authScopeType, authScopeId)
+        return oidcConfigurationService.getConfigsForScope(authScopeType, authScopeId)
                                .thenCompose(configs -> {
                                    if (configs == null || configs.isEmpty()) {
                                        return CompletableFuture.failedFuture(
