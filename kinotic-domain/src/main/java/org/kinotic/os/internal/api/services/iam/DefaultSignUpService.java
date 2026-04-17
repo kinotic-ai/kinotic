@@ -33,7 +33,7 @@ public class DefaultSignUpService implements SignUpService {
     private final ElasticsearchAsyncClient esAsyncClient;
     private final CrudServiceTemplate crudServiceTemplate;
     private final DefaultIamUserService userService;
-    private final IamCredentialStore credentialStore;
+    private final IamCredentialService credentialStore;
     private final OrganizationService organizationService;
     private final PasswordService passwordService;
     private final EmailService emailService;

@@ -23,12 +23,12 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultIamUserService extends AbstractCrudService<IamUser> implements IamUserService {
 
-    private final IamCredentialStore credentialStore;
+    private final IamCredentialService credentialStore;
     private final PasswordService passwordService;
 
     public DefaultIamUserService(CrudServiceTemplate crudServiceTemplate,
                                  ElasticsearchAsyncClient esAsyncClient,
-                                 IamCredentialStore credentialStore,
+                                 IamCredentialService credentialStore,
                                  PasswordService passwordService,
                                  ParticipantContext participantContext) {
         super("kinotic_iam_user", IamUser.class, esAsyncClient, crudServiceTemplate, participantContext);

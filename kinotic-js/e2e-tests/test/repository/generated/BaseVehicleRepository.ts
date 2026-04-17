@@ -11,7 +11,7 @@ export class BaseVehicleRepository extends EntityRepository<Vehicle> {
   private readonly shouldValidate: boolean
 
   constructor(shouldValidate: boolean = true, entitiesRepository?: IEntitiesRepository) {
-    super('CgUfNiYOEp', 'Vehicle', entitiesRepository)
+    super('openapi.admin', 'Vehicle', entitiesRepository)
     this.shouldValidate = shouldValidate
   }
 

@@ -49,7 +49,7 @@ import java.util.stream.Collectors;
 public class IamSecurityService implements SecurityService {
 
     private final DefaultIamUserService userService;
-    private final IamCredentialStore credentialStore;
+    private final IamCredentialService credentialService;
     private final OidcConfigLookup oidcConfigLookup;
     private final JwksService jwksService;
     private final PasswordService passwordService;
@@ -130,8 +130,8 @@ public class IamSecurityService implements SecurityService {
                               if (user.getAuthType() != AuthType.LOCAL) {
                                   return CompletableFuture.failedFuture(new AuthenticationException("User is not a local account"));
                               }
-                              return credentialStore.findById(user.getId())
-                                                    .thenCompose(credential -> verifyPasswordAndCreateParticipant(user, credential, password));
+                              return credentialService.findById(user.getId())
+                                                      .thenCompose(credential -> verifyPasswordAndCreateParticipant(user, credential, password));
                           });
     }
 
