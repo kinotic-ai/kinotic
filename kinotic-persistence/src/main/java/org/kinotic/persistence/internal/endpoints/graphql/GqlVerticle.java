@@ -11,7 +11,7 @@ import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.core.api.config.SslProperties;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.security.AuthenticationHandler;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.internal.utils.VertxWebUtil;
 
@@ -27,7 +27,7 @@ public class GqlVerticle extends VerticleBase {
     private final PersistenceProperties properties;
     private final SslProperties sslProperties;
     private final SecurityService securityService;
-    private final ParticipantContext participantContext;
+    private final SecurityContext participantContext;
     private HttpServer server;
 
 

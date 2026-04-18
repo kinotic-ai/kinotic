@@ -595,7 +595,7 @@ public class CrudServiceTemplate {
      * that is current at the moment this method is invoked. Any downstream {@code thenCompose} /
      * {@code thenApply} / {@code whenComplete} attached by the caller will then run on that
      * context, which means {@code Vertx.currentContext()} — and by extension
-     * {@link org.kinotic.core.api.security.ParticipantContext#currentParticipant()} —
+     * {@link org.kinotic.core.api.security.SecurityContext#currentParticipant()} —
      * will be observable across the Elasticsearch async boundary.
      * <p>
      * When invoked outside of any Vert.x context, the original future is returned unchanged so

@@ -2,7 +2,7 @@ package org.kinotic.os.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.Application;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.kinotic.os.api.services.ApplicationService;
@@ -26,7 +26,7 @@ public class DefaultApplicationService extends AbstractCrudService<Application> 
                                      ProjectService projectService,
                                      OidcConfigurationService oidcConfigurationService,
                                      CrudServiceTemplate crudServiceTemplate,
-                                     ParticipantContext participantContext) {
+                                     SecurityContext participantContext) {
         super("kinotic_application",
               Application.class,
               esAsyncClient,

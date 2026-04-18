@@ -5,7 +5,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.workload.VmNode;
 import org.kinotic.os.api.model.workload.VmNodeStatus;
 import org.kinotic.os.api.services.VmNodeService;
@@ -19,7 +19,7 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
 
     public DefaultVmNodeService(ElasticsearchAsyncClient esAsyncClient,
                                 CrudServiceTemplate crudServiceTemplate,
-                                ParticipantContext participantContext) {
+                                SecurityContext participantContext) {
         super("kinotic_vm_node",
               VmNode.class,
               esAsyncClient,

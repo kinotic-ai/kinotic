@@ -11,7 +11,7 @@ import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.event.EventBusService;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
 import org.kinotic.core.api.service.ServiceIdentifier;
@@ -69,7 +69,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     @Autowired
     private JsonMapper jsonMapper;
     @Autowired
-    private ParticipantContext participantContext;
+    private SecurityContext participantContext;
 
     @Override
     public Future<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {

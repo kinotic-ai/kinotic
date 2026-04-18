@@ -3,7 +3,7 @@ package org.kinotic.persistence.internal.endpoints;
 import io.vertx.ext.healthchecks.HealthChecks;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.core.api.config.OidcSecurityServiceProperties;
@@ -24,7 +24,7 @@ public class PersistenceVerticleFactory {
 
     // Common Deps
     private final KinoticProperties kinoticProperties;
-    private final ParticipantContext participantContext;
+    private final SecurityContext participantContext;
     private final PersistenceProperties properties;
     private final SecurityService securityService;
 

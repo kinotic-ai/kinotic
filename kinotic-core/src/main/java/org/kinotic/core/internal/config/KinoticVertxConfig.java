@@ -33,9 +33,20 @@ public class KinoticVertxConfig {
      */
     private static final ContextLocal<Participant> PARTICIPANT_LOCAL = ContextLocal.registerLocal(Participant.class);
 
+    /**
+     * {@link ContextLocal} for the elevated-access flag used by {@link org.kinotic.core.api.security.SecurityContext}.
+     * When {@code true}, scope enforcement (e.g. org checks) is bypassed for internal operations.
+     */
+    private static final ContextLocal<Boolean> ELEVATED_ACCESS_LOCAL = ContextLocal.registerLocal(Boolean.class);
+
     @Bean
     public ContextLocal<Participant> participantContextLocal() {
         return PARTICIPANT_LOCAL;
+    }
+
+    @Bean
+    public ContextLocal<Boolean> elevatedAccessLocal() {
+        return ELEVATED_ACCESS_LOCAL;
     }
 
     @Bean

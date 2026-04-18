@@ -7,7 +7,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.services.iam.IamUserService;
@@ -29,7 +29,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     public DefaultIamUserService(CrudServiceTemplate crudServiceTemplate,
                                  ElasticsearchAsyncClient esAsyncClient,
                                  IamCredentialService credentialStore,
-                                 ParticipantContext participantContext) {
+                                 SecurityContext participantContext) {
         super("kinotic_iam_user", IamUser.class, esAsyncClient, crudServiceTemplate, participantContext);
         this.credentialStore = credentialStore;
     }

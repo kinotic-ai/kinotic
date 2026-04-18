@@ -10,7 +10,7 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.internal.api.service.invoker.ServiceInvocationSupervisor;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.apache.commons.lang3.Validate;
 import org.springframework.core.GenericTypeResolver;
@@ -42,14 +42,14 @@ public abstract class AbstractJacksonSupport {
 
     @Getter
     private final JsonMapper jsonMapper;
-    private final ParticipantContext participantContext;
+    private final SecurityContext participantContext;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final KinoticProperties kinoticProperties;
 
     public AbstractJacksonSupport(JsonMapper jsonMapper,
                                   ReactiveAdapterRegistry reactiveAdapterRegistry,
                                   KinoticProperties kinoticProperties,
-                                  ParticipantContext participantContext) {
+                                  SecurityContext participantContext) {
         this.jsonMapper = jsonMapper;
         this.participantContext = participantContext;
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;

@@ -3,6 +3,7 @@ package org.kinotic.persistence.internal.api.services;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.config.PersistenceProperties;
@@ -38,6 +39,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
     private final JsonMapper jsonMapper;
     private final ReadPreProcessor readPreProcessor;
     private final EntityDefinitionDAO entityDefinitionDAO;
+    private final SecurityContext securityContext;
     private final PersistenceProperties persistenceProperties;
     private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
 
@@ -49,6 +51,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
                                     JsonMapper jsonMapper,
                                     ReadPreProcessor readPreProcessor,
                                     EntityDefinitionDAO entityDefinitionDAO,
+                                    SecurityContext securityContext,
                                     PersistenceProperties persistenceProperties,
                                     List<UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors) {
         this.authServiceFactory = authServiceFactory;
@@ -58,6 +61,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
         this.jsonMapper = jsonMapper;
         this.readPreProcessor = readPreProcessor;
         this.entityDefinitionDAO = entityDefinitionDAO;
+        this.securityContext = securityContext;
         this.persistenceProperties = persistenceProperties;
 
         this.upsertFieldPreProcessors = PersistenceUtil.listToMap(upsertFieldPreProcessors,
@@ -67,7 +71,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
 
     @Override
     public CompletableFuture<? extends EntityRepository> asyncLoad(String key, Executor executor) throws Exception {
-        return entityDefinitionDAO.findById(key)
+        return securityContext.withElevatedAccess(() -> entityDefinitionDAO.findById(key))
                                   .thenApply(entityDefinition -> {
                                Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
                                return entityDefinition;

@@ -4,7 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch.core.MgetRequest;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.os.internal.api.services.AbstractCrudService;
@@ -22,7 +22,7 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
 
     public DefaultOidcConfigurationService(CrudServiceTemplate crudServiceTemplate,
                                            ElasticsearchAsyncClient esAsyncClient,
-                                           ParticipantContext participantContext) {
+                                           SecurityContext participantContext) {
         super("kinotic_oidc_configuration", OidcConfiguration.class, esAsyncClient, crudServiceTemplate, participantContext);
     }
 

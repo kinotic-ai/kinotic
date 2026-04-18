@@ -11,7 +11,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.OrganizationScoped;
 import org.kinotic.os.api.model.iam.AuthScopeType;
 
@@ -29,7 +29,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     protected final Class<T> type;
     protected final ElasticsearchAsyncClient esAsyncClient;
     protected final CrudServiceTemplate crudServiceTemplate;
-    protected final ParticipantContext participantContext;
+    protected final SecurityContext securityContext;
 
     private boolean organizationScoped;
 
@@ -39,9 +39,13 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         crudServiceTemplate.verifyIndexExists(indexName);
     }
 
+    private boolean shouldEnforceOrgScope() {
+        return organizationScoped && !securityContext.isElevatedAccess();
+    }
+
     @Override
     public CompletableFuture<Long> count() {
-        if (organizationScoped) {
+        if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
             return crudServiceTemplate.count(indexName, b -> b.routing(orgId).query(buildOrgFilterQuery(orgId)));
         }
@@ -50,7 +54,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @Override
     public CompletableFuture<Void> deleteById(String id) {
-        if (organizationScoped) {
+        if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
             return crudServiceTemplate.findById(indexName, id, type, b -> b.routing(orgId))
                                       .thenCompose(entity -> {
@@ -74,7 +78,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @Override
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
-        if (organizationScoped) {
+        if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
             return crudServiceTemplate.search(indexName, pageable, type,
                                               b -> b.routing(orgId).query(buildOrgFilterQuery(orgId)));
@@ -84,7 +88,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @Override
     public CompletableFuture<T> findById(String id) {
-        if (organizationScoped) {
+        if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
             return crudServiceTemplate.findById(indexName, id, type, b -> b.routing(orgId))
                                       .thenApply(entity -> {
@@ -102,7 +106,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @Override
     public CompletableFuture<T> save(T entity) {
-        if (organizationScoped) {
+        if (shouldEnforceOrgScope()) {
             String orgId = enforceOrgOnSave(entity);
             return crudServiceTemplate.save(indexName, entity.getId(), entity, b -> b.routing(orgId))
                                       .thenApply(indexResponse -> entity);
@@ -113,7 +117,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @Override
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
-        if (organizationScoped) {
+        if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
             return crudServiceTemplate.search(indexName, pageable, type,
                                               b -> b.routing(orgId).query(buildOrgFilterQueryWithSearch(orgId, searchText)));
@@ -130,7 +134,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @Override
     public CompletableFuture<T> saveSync(T entity) {
-        if (organizationScoped) {
+        if (shouldEnforceOrgScope()) {
             String orgId = enforceOrgOnSave(entity);
             return crudServiceTemplate.saveSync(indexName, entity.getId(), entity, b -> b.routing(orgId))
                                       .thenApply(indexResponse -> entity);
@@ -149,7 +153,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
      * @throws AuthorizationException if the participant's auth scope type is not {@link AuthScopeType#ORGANIZATION}
      */
     private String requireOrganizationId() {
-        Participant participant = participantContext.currentParticipant();
+        Participant participant = securityContext.currentParticipant();
         if (participant == null) {
             throw new IllegalStateException(
                     "No Participant is bound to the current Vert.x context for "

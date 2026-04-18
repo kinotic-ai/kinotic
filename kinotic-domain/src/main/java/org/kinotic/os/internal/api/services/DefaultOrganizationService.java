@@ -3,7 +3,7 @@ package org.kinotic.os.internal.api.services;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.Organization;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.kinotic.os.api.services.OrganizationService;
@@ -25,7 +25,7 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
     public DefaultOrganizationService(CrudServiceTemplate crudServiceTemplate,
                                       ElasticsearchAsyncClient esAsyncClient,
                                       OidcConfigurationService oidcConfigurationService,
-                                      ParticipantContext participantContext) {
+                                      SecurityContext participantContext) {
         super("kinotic_organization", Organization.class, esAsyncClient, crudServiceTemplate, participantContext);
         this.oidcConfigurationService = oidcConfigurationService;
     }

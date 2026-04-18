@@ -11,7 +11,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.exceptions.RpcMissingMethodException;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.ServiceFunction;
 import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
@@ -57,7 +57,7 @@ public class ServiceInvocationSupervisor {
     private final ExceptionConverter exceptionConverter;
     private final JsonMapper jsonMapper;
     private final Map<String, HandlerMethod> methodMap;
-    private final ParticipantContext participantContext;
+    private final SecurityContext participantContext;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final ReturnValueConverter returnValueConverter;
     private final ServiceDescriptor serviceDescriptor;
@@ -79,7 +79,7 @@ public class ServiceInvocationSupervisor {
                                        Vertx vertx,
                                        OpenTelemetry openTelemetry,
                                        JsonMapper jsonMapper,
-                                       ParticipantContext participantContext) {
+                                       SecurityContext participantContext) {
 
         Validate.notNull(serviceDescriptor, "ServiceDescriptor must not be null");
         Validate.notNull(instanceProvider, "ServiceFunctionInstanceProvider must not be null");

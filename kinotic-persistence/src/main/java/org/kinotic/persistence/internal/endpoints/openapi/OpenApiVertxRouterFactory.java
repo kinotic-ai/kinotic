@@ -13,7 +13,7 @@ import io.vertx.ext.web.handler.BodyHandler;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.Nullable;
 import org.kinotic.os.api.model.RawJson;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.AuthenticationHandler;
@@ -53,7 +53,7 @@ public class OpenApiVertxRouterFactory {
     private final EntitiesRepository entitiesRepository;
     private final ObjectMapper objectMapper;
     private final OpenApiService openApiService;
-    private final ParticipantContext participantContext;
+    private final SecurityContext participantContext;
     private final PersistenceProperties properties;
     private final SecurityService securityService;
     private final JavaType stringListType;
@@ -63,7 +63,7 @@ public class OpenApiVertxRouterFactory {
     public OpenApiVertxRouterFactory(EntitiesRepository entitiesRepository,
                                      ObjectMapper objectMapper,
                                      OpenApiService openApiService,
-                                     ParticipantContext participantContext,
+                                     SecurityContext participantContext,
                                      PersistenceProperties properties,
                                      SecurityService securityService,
                                      Vertx vertx) {
