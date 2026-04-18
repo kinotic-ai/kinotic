@@ -53,9 +53,10 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
                                       return entityDefinition;
                                   })
                                   .thenComposeAsync(entityDefinition -> {
-                                      NamedQueriesDefinition namedQueriesDefinition = namedQueriesDefinitionService
-                                              .findByApplicationAndEntityDefinition(entityDefinition.getApplicationId(),
-                                                                                    entityDefinition.getName())
+                                      NamedQueriesDefinition namedQueriesDefinition = securityContext
+                                              .withElevatedAccess(() -> namedQueriesDefinitionService
+                                                      .findByApplicationAndEntityDefinition(entityDefinition.getApplicationId(),
+                                                                                            entityDefinition.getName()))
                                               .join();
                                       List<GqlOperationDefinition> ret;
                                       if(namedQueriesDefinition != null) {
