@@ -147,19 +147,19 @@ class CrudTable extends Vue {
       headerCell: {
         class: [
           'bg-transparent px-[14px] pb-[0.9rem] pt-4 text-sm font-semibold',
-          this.isDark ? 'border-[#34343a] text-[#f4f4f5]' : 'border-[#ececf1] text-[#101010]'
+          this.isDark ? 'border-surface-700 text-surface-100' : 'border-surface-200 text-surface-950'
         ]
       },
       bodyRow: {
         class: [
           'bg-transparent',
-          this.isDark ? 'border-[#2c2c31] text-[#e4e4e7]' : 'border-[#f1f2f5] text-[#101010]'
+          this.isDark ? 'border-surface-800 text-surface-200' : 'border-surface-100 text-surface-950'
         ]
       },
       bodyCell: {
         class: [
           'bg-transparent px-[14px] py-4 text-sm align-middle',
-          this.isDark ? 'border-[#34343a] text-[#e4e4e7]' : 'border-[#ececf1] text-[#101010]'
+          this.isDark ? 'border-surface-700 text-surface-200' : 'border-surface-200 text-surface-950'
         ]
       },
       pcPaginator: {
@@ -326,8 +326,8 @@ export default toNative(CrudTable);
           :class="[
             '!shadow-none',
             isDark
-              ? 'border-[#434349] bg-[#101010] text-white placeholder:text-[#7f7f86]'
-              : 'border-[#d8dce6] bg-white text-[#101010] placeholder:text-[#9ca3af]'
+              ? 'border-surface-700 bg-surface-950 text-surface-0 placeholder:text-surface-500'
+              : 'border-surface-300 bg-surface-0 text-surface-950 placeholder:text-surface-400'
           ]"
           placeholder="Search"
           size="small"
@@ -379,19 +379,19 @@ export default toNative(CrudTable);
               'relative flex h-[170px] cursor-pointer flex-col justify-between border transition-shadow',
               isDark
                 ? [
-                    transparentDarkCards ? 'border-[#3a3a40] bg-transparent text-white shadow-none' : 'border-[#3a3a40] bg-[#1b1b1f] text-white shadow-none',
+                    transparentDarkCards ? 'border-surface-700 bg-transparent text-surface-0 shadow-none' : 'border-surface-700 bg-surface-900 text-surface-0 shadow-none',
                     'hover:shadow-[0_8px_28px_rgba(0,0,0,0.35)]'
                   ]
-                : 'border-[#e6e7eb] bg-white text-[#101010] hover:shadow-md'
+                : 'border-surface-200 bg-surface-0 text-surface-950 hover:shadow-md'
             ]"
             @click="handleCardClick(item, index)"
           >
             <template #title>
-              <h3 :class="isDark ? 'text-white font-semibold' : ''">{{ item?.id }}</h3>
+              <h3 :class="isDark ? 'text-surface-0 font-semibold' : ''">{{ item?.id }}</h3>
             </template>
 
             <template #content>
-              <p :class="['max-h-[46px] overflow-hidden text-sm [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]', isDark ? 'text-[#a1a1aa]' : 'text-surface-500']">
+              <p :class="['max-h-[46px] overflow-hidden text-sm [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]', isDark ? 'text-surface-400' : 'text-surface-500']">
                 {{ item?.description }}
               </p>
             </template>
@@ -435,7 +435,7 @@ export default toNative(CrudTable);
         </div>
         <div
           v-else
-          :class="['flex flex-col items-center justify-center py-20 h-[calc(100vh-300px)]', isDark ? 'text-[#8d8d96]' : 'text-gray-500']"
+          :class="['flex flex-col items-center justify-center py-20 h-[calc(100vh-300px)]', isDark ? 'text-surface-400' : 'text-surface-500']"
         >
           <p class="text-sm">{{ emptyStateText }}</p>
         </div>
@@ -454,7 +454,7 @@ export default toNative(CrudTable);
         v-if="isBurgerView"
         :class="[
           'crud-table__table-shell rounded-[14px] border px-4 pt-2 pb-0 transition-colors',
-          isDark ? 'border-[#3a3a40] bg-transparent text-white shadow-[0_0_0_1px_rgba(58,58,64,0.15)]' : 'border-[#e6e7eb] bg-transparent text-[#101010]'
+          isDark ? 'border-surface-700 bg-transparent text-surface-0 shadow-[0_0_0_1px_rgba(58,58,64,0.15)]' : 'border-surface-200 bg-transparent text-surface-950'
         ]"
       >
         <DataTable
@@ -509,14 +509,14 @@ export default toNative(CrudTable);
           </Column>
           <template #loading>
             <div
-              :class="['flex h-full w-full items-center justify-center py-20', isDark ? 'bg-transparent text-[#9f9fa8]' : 'bg-transparent text-[#8b8b95]']"
+              :class="['flex h-full w-full items-center justify-center py-20', isDark ? 'bg-transparent text-surface-400' : 'bg-transparent text-surface-500']"
             >
               <i class="pi pi-spin pi-spinner text-2xl text-primary" />
             </div>
           </template>
           <template #empty>
             <div
-              :class="['flex h-[calc(100vh-450px)] w-full items-center justify-center py-8', isDark ? 'text-[#9f9fa8]' : 'text-[#8b8b95]']"
+              :class="['flex h-[calc(100vh-450px)] w-full items-center justify-center py-8', isDark ? 'text-surface-400' : 'text-surface-500']"
             >
               {{ emptyStateText }}
             </div>
@@ -537,25 +537,25 @@ export default toNative(CrudTable);
 
 .crud-table--light .crud-table__view-switcher.p-selectbutton {
   border-radius: 0.625rem;
-  border: 1px solid #ececf1;
-  background: #f8f8fa;
+  border: 1px solid var(--p-surface-200);
+  background: var(--p-surface-50);
 }
 
 .crud-table--light .crud-table__view-switcher .p-togglebutton {
   border: none;
   background: transparent;
-  color: #8b8b95;
+  color: var(--p-surface-500);
 }
 
 .crud-table--light .crud-table__view-switcher .p-togglebutton.p-togglebutton-checked {
-  background: #ffffff;
-  color: #101010;
+  background: var(--p-surface-0);
+  color: var(--p-surface-950);
 }
 
 .crud-table--light .crud-table__add-button.p-button {
   border: none;
   background: var(--p-primary-500);
-  color: #ffffff;
+  color: var(--p-surface-0);
   box-shadow: none;
 }
 
@@ -565,19 +565,19 @@ export default toNative(CrudTable);
 
 html.dark .p-selectbutton {
   border-radius: 0.625rem;
-  border: 1px solid #3a3a40;
-  background: #1b1b1f;
+  border: 1px solid var(--p-surface-700);
+  background: var(--p-surface-900);
 }
 
 html.dark .p-selectbutton .p-togglebutton {
   border: none;
   background: transparent;
-  color: #8d8d96;
+  color: var(--p-surface-400);
 }
 
 html.dark .p-selectbutton .p-togglebutton.p-togglebutton-checked {
-  background: #2a2a30;
-  color: #ffffff;
+  background: var(--p-surface-800);
+  color: var(--p-surface-0);
 }
 
 html.dark .crud-table .p-button {
@@ -586,7 +586,7 @@ html.dark .crud-table .p-button {
 
 html.dark .crud-table .p-button.p-button-sm:not(.p-button-text):not(.p-selectbutton-button) {
   background: var(--p-primary-500);
-  color: #ffffff;
+  color: var(--p-surface-0);
 }
 
 html.dark .crud-table .p-button.p-button-sm:not(.p-button-text):not(.p-selectbutton-button):hover {
@@ -598,7 +598,7 @@ html.dark .p-paginator .p-paginator-next,
 html.dark .p-paginator .p-paginator-prev,
 html.dark .p-paginator .p-paginator-first,
 html.dark .p-paginator .p-paginator-last {
-  color: #d4d4d8 !important;
+  color: var(--p-surface-300) !important;
 }
 
 .dynamic-hover:hover {
@@ -608,6 +608,6 @@ html.dark .p-paginator .p-paginator-last {
 }
 
 html.dark .dynamic-hover:hover {
-  background-color: #232328 !important;
+  background-color: var(--p-surface-800) !important;
 }
 </style>

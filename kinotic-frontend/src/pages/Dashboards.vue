@@ -200,9 +200,9 @@ watch(() => router.currentRoute.value.query.refresh, () => {
 </script>
 
 <template>
-  <div :class="['h-full p-6 transition-colors', isDark ? 'text-white' : 'text-[#101010]']">
-    <div :class="['mb-6 flex items-center justify-between border-b pb-6', isDark ? 'border-[#2f2f35]' : 'border-surface-200']">
-      <h1 :class="['text-2xl font-semibold', isDark ? 'text-white' : 'text-surface-950']">{{ title }}</h1>
+  <div :class="['h-full p-6 transition-colors', isDark ? 'text-surface-0' : 'text-surface-950']">
+    <div :class="['mb-6 flex items-center justify-between border-b pb-6', isDark ? 'border-surface-800' : 'border-surface-200']">
+      <h1 :class="['text-2xl font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">{{ title }}</h1>
     </div>
     
     <div class="h-[calc(100vh-140px)]">
@@ -262,11 +262,11 @@ watch(() => router.currentRoute.value.query.refresh, () => {
       </template>
       
       <div class="py-4">
-        <p :class="['mb-4', isDark ? 'text-[#d4d4d8]' : 'text-gray-700']">
+        <p :class="['mb-4', isDark ? 'text-surface-300' : 'text-surface-700']">
           Are you sure you want to delete the dashboard 
           <strong>"{{ selectedDashboard?.name }}"</strong>?
         </p>
-        <p :class="['text-sm', isDark ? 'text-[#8d8d96]' : 'text-gray-500']">
+        <p :class="['text-sm', isDark ? 'text-surface-400' : 'text-surface-500']">
           This action cannot be undone. All widgets and configurations will be permanently removed.
         </p>
       </div>

@@ -179,7 +179,7 @@ export default class ProjectList extends Vue {
 
     <div v-if="selectedProjectId" class="mt-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-semibold" :class="isDark ? 'text-white' : 'text-[#101010]'">
+        <h2 class="text-xl font-semibold" :class="isDark ? 'text-surface-0' : 'text-surface-950'">
           Structures for Project: {{ selectedProjectId }}
         </h2>
         <Button label="Back to Projects" icon="pi pi-arrow-left" @click="clearSelectedProject" />

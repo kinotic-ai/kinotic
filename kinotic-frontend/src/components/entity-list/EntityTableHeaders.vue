@@ -117,10 +117,10 @@ const RecursiveHeaderCell = defineComponent({
             }, [
               isExpanded
                 ? h('svg', { width: '7', height: '4', viewBox: '0 0 7 4', fill: 'none', xmlns: 'http://www.w3.org/2000/svg' }, [
-                    h('path', { d: 'M1 0.5L3.5 3L6 0.5', stroke: '#3f3f46', 'stroke-width': '1', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })
+                    h('path', { d: 'M1 0.5L3.5 3L6 0.5', stroke: 'var(--p-surface-700)', 'stroke-width': '1', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })
                   ])
                 : h('svg', { width: '4', height: '7', viewBox: '0 0 4 7', fill: 'none', xmlns: 'http://www.w3.org/2000/svg' }, [
-                    h('path', { d: 'M0.5 1L3 3.5L0.5 6', stroke: '#3f3f46', 'stroke-width': '1', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })
+                    h('path', { d: 'M0.5 1L3 3.5L0.5 6', stroke: 'var(--p-surface-700)', 'stroke-width': '1', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })
                   ])
             ])
           )
