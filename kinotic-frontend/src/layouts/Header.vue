@@ -1,16 +1,16 @@
 <template>
-  <div ref="headerRef" class="sticky top-0 left-0 z-50 flex h-16 items-center justify-between border-b border-[#262626] bg-[#101010] px-6">
+  <div ref="headerRef" class="sticky top-0 left-0 z-50 flex h-16 items-center justify-between border-b border-surface-800 bg-surface-950 px-6">
     <div class="relative flex items-center gap-3 text-white">
       <RouterLink to="/applications" class="flex items-center gap-2">
         <img src="@/assets/header-logo.svg" class="h-6 w-[27px]" alt="Kinotic" />
       </RouterLink>
 
       <template v-if="isApplicationDetailsPage || isProjectStructuresPage || isApplicationSettingsPage || isDashboardsPage || isDataInsightsPage || isSavedWidgetsPage">
-        <span class="text-lg text-[#5f5f65]">/</span>
+        <span class="text-lg text-surface-600">/</span>
 
         <div ref="appDropdownRef" class="relative inline-block mr-8">
           <button @click="toggleAppDropdown"
-            class="flex w-full items-center justify-between gap-2 text-sm font-medium text-[#d4d4d8] transition-opacity hover:opacity-80">
+            class="flex w-full items-center justify-between gap-2 text-sm font-medium text-surface-300 transition-opacity hover:opacity-80">
             {{ currentAppName }}
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
@@ -19,7 +19,7 @@
           <div v-if="appDropdownOpen"
             :class="[
               'absolute top-full left-0 z-50 mt-2 max-h-80 w-64 overflow-y-auto rounded-xl border p-2 shadow-lg',
-              isDark ? 'border-[#2f2f35] bg-[#171717]' : 'border-[#e5e7eb] bg-white'
+              isDark ? 'border-surface-800 bg-surface-900' : 'border-surface-200 bg-surface-0'
             ]">
             <div class="w-full mb-2">
               <IconField class="w-full">
@@ -32,7 +32,7 @@
                 'flex cursor-pointer items-center justify-between rounded-lg px-4 py-2 text-sm',
                 currentApp?.id === app.id 
                   ? 'bg-primary-50 text-primary-600 font-medium' 
-                  : isDark ? 'text-surface-0 hover:bg-[#222225]' : 'text-surface-950 hover:bg-gray-100'
+                  : isDark ? 'text-surface-0 hover:bg-surface-800' : 'text-surface-950 hover:bg-surface-100'
               ]">
               <span>{{ app.id }}</span>
               <i v-if="currentApp?.id === app.id" class="pi pi-check text-primary-500"></i>
@@ -41,10 +41,10 @@
         </div>
 
                  <template v-if="currentApp && !isApplicationSettingsPage && !isDashboardsPage && !isDataInsightsPage && !isSavedWidgetsPage">
-           <span class="text-lg text-[#5f5f65]">/</span>
+           <span class="text-lg text-surface-600">/</span>
            <div ref="projectDropdownRef" class="relative inline-block">
             <button @click="toggleProjectDropdown"
-              class="flex w-full items-center justify-between gap-2 text-sm font-medium text-[#d4d4d8] transition-opacity hover:opacity-80">
+              class="flex w-full items-center justify-between gap-2 text-sm font-medium text-surface-300 transition-opacity hover:opacity-80">
               {{ currentProjectName }}
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
@@ -54,7 +54,7 @@
             <div v-if="projectDropdownOpen"
               :class="[
                 'absolute top-full left-0 z-50 mt-2 max-h-80 w-64 overflow-y-auto rounded-xl border p-2 shadow-lg',
-                isDark ? 'border-[#2f2f35] bg-[#171717]' : 'border-[#e5e7eb] bg-white'
+                isDark ? 'border-surface-800 bg-surface-900' : 'border-surface-200 bg-surface-0'
               ]">
               <div class="w-full mb-2">
                 <IconField class="w-full">
@@ -67,7 +67,7 @@
                   'flex cursor-pointer items-center justify-between rounded-lg px-4 py-2 text-sm',
                   currentProject?.id === proj.id 
                     ? 'bg-primary-50 text-primary-600 font-medium' 
-                    : isDark ? 'text-surface-0 hover:bg-[#222225]' : 'text-surface-950 hover:bg-gray-100'
+                    : isDark ? 'text-surface-0 hover:bg-surface-800' : 'text-surface-950 hover:bg-surface-100'
                 ]">
                 <span>{{ proj.name }}</span>
                 <i v-if="currentProject?.id === proj.id" class="pi pi-check text-primary-500"></i>
@@ -81,7 +81,7 @@
          <div class="flex items-center gap-3">
        <button
          type="button"
-         class="flex h-9 w-9 items-center justify-center rounded-full border border-[#2d2d31] bg-transparent text-[#a1a1aa] transition-colors hover:border-[#4a4a50] hover:text-white"
+         class="flex h-9 w-9 items-center justify-center rounded-full border border-surface-800 bg-transparent text-surface-400 transition-colors hover:border-surface-700 hover:text-surface-0"
          :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
          @click="toggleTheme"
        >
@@ -96,13 +96,13 @@
        <div v-if="avatarDropdownOpen" 
          :class="[
            'absolute top-full right-0 z-50 mt-2 w-48 rounded-xl border shadow-lg',
-           isDark ? 'border-[#2f2f35] bg-[#171717]' : 'border-[#e5e7eb] bg-white'
+           isDark ? 'border-surface-800 bg-surface-900' : 'border-surface-200 bg-surface-0'
          ]">
          <div class="py-1">
            <button @click="handleLogout" 
              :class="[
                'flex w-full items-center px-4 py-2 text-left text-sm',
-               isDark ? 'text-surface-0 hover:bg-[#222225]' : 'text-gray-700 hover:bg-gray-100'
+               isDark ? 'text-surface-0 hover:bg-surface-800' : 'text-surface-700 hover:bg-surface-100'
              ]">
              <i class="pi pi-sign-out mr-2"></i>
              Logout

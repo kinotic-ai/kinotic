@@ -91,13 +91,13 @@ export default class NewStructure extends Vue {
 
 <template>
   <div v-show="visible" class="fixed inset-0 z-50 flex items-center justify-center bg-opacity-50">
-    <div :class="['relative w-full h-screen shadow-lg overflow-hidden', isDark ? 'bg-[#171717] text-white' : 'bg-white text-[#101010]']">
+    <div :class="['relative w-full h-screen shadow-lg overflow-hidden', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
       <div class="flex h-full">
         <!-- Main Graph Area -->
         <div class="flex flex-col h-full" :style="{ width: `calc(100% - 320px)` }">
           <!-- Header -->
           <div class="p-2 bg-transparent fixed top-0 left-0 z-3" :style="{ width: `calc(100% - 320px)` }">
-            <div :class="['flex items-center justify-between p-2 rounded-xl', isDark ? 'border border-[#2f2f35] bg-[#171717]' : 'bg-white']">
+            <div :class="['flex items-center justify-between p-2 rounded-xl', isDark ? 'border border-surface-800 bg-surface-900' : 'bg-surface-0']">
               <div class="flex items-center">
                 <Button
                     severity="secondary"
@@ -122,7 +122,7 @@ export default class NewStructure extends Vue {
                       v-else
                       v-model="name"
                       size="small"
-                      :class="isDark ? '!font-semibold w-[160px] px-2 py-1 rounded border !border-[#434349] !bg-[#262626] !text-white' : '!font-semibold w-[160px] px-2 py-1 rounded border border-gray-300'"
+                      :class="isDark ? '!font-semibold w-[160px] px-2 py-1 rounded border !border-surface-700 !bg-surface-800 !text-surface-0' : '!font-semibold w-[160px] px-2 py-1 rounded border border-gray-300'"
                   />
                 </div>
               </div>
@@ -135,7 +135,7 @@ export default class NewStructure extends Vue {
           </div>
 
           <!-- VueFlow Canvas -->
-          <div :class="['flex-1', isDark ? 'bg-[#171717]' : 'bg-surface-50']">
+          <div :class="['flex-1', isDark ? 'bg-surface-900' : 'bg-surface-50']">
             <VueFlow
                 :nodeTypes="nodeTypes"
                 :nodes="flowNodes"

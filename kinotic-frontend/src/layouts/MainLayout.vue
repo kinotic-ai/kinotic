@@ -1,5 +1,5 @@
 <template>
-    <div :class="['h-screen w-full transition-colors', isDark ? 'bg-[#171717]' : 'bg-surface-0']">
+    <div :class="['h-screen w-full transition-colors', isDark ? 'bg-surface-900' : 'bg-surface-0']">
         <!-- <div id="app-sidebar" class="h-full hidden lg:block lg:sticky absolute left-0 top-0 z-50">
             <div :class="[
                 isCollapsed ? 'w-[72px] px-3' : 'w-[258px] px-8',
@@ -34,7 +34,7 @@
         <div class="py-10">
         <!-- :style="[isCollapsed ? {'width' :'calc(100% - 72px)'}: {'width' :'calc(100% - 250px)'}]" -->
             <!-- <MainLayoutBreadcrumb separator-icon="pi pi-chevron-right" /> -->
-            <div :class="['flex-1 px-[33px] overflow-y-auto transition-colors', isDark ? 'bg-[#171717] text-white' : 'bg-transparent text-[#101010]']">
+            <div :class="['flex-1 px-[33px] overflow-y-auto transition-colors', isDark ? 'bg-surface-900 text-surface-0' : 'bg-transparent text-surface-950']">
                 <router-view />
             </div>
         </div>

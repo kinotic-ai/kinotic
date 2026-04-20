@@ -1,16 +1,16 @@
 <template>
-  <div :class="['h-full flex flex-col', isDark ? 'bg-[#171717] text-white' : 'bg-transparent text-[#101010]']">
+  <div :class="['h-full flex flex-col', isDark ? 'bg-surface-900 text-surface-0' : 'bg-transparent text-surface-950']">
     <!-- Header -->
-    <div :class="['flex justify-between items-center p-4 border-b', isDark ? 'border-[#2f2f35] bg-[#171717]' : 'bg-white border-surface-200']">
+    <div :class="['flex justify-between items-center p-4 border-b', isDark ? 'border-surface-800 bg-surface-900' : 'bg-surface-0 border-surface-200']">
       <div class="flex items-center gap-4">
         <Button @click="goBack" icon="pi pi-arrow-left" class="p-button-text p-button-sm" />
         <div>
-          <h1 :class="['text-xl font-semibold', isDark ? 'text-white' : 'text-surface-900']">{{ dashboardTitle }}</h1>
-          <p :class="['text-sm', isDark ? 'text-[#9f9fa8]' : 'text-surface-500']">{{ dashboard?.description || 'Dashboard' }}</p>
+          <h1 :class="['text-xl font-semibold', isDark ? 'text-surface-0' : 'text-surface-900']">{{ dashboardTitle }}</h1>
+          <p :class="['text-sm', isDark ? 'text-surface-400' : 'text-surface-500']">{{ dashboard?.description || 'Dashboard' }}</p>
         </div>
       </div>
             <Button @click="editDashboard" label="Edit" icon="pi pi-pencil" 
-              :class="isDark ? 'bg-[#171717] border border-[#3a3a40] text-white hover:bg-[#202024] hover:border-[#4a4a52] rounded-md px-3 py-2 font-medium' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 rounded-md px-3 py-2 font-medium'" />
+              :class="isDark ? 'bg-surface-900 border border-surface-700 text-surface-0 hover:bg-surface-800 hover:border-surface-600 rounded-md px-3 py-2 font-medium' : 'bg-surface-0 border border-surface-200 text-surface-700 hover:bg-surface-50 hover:border-surface-300 rounded-md px-3 py-2 font-medium'" />
     </div>
 
     <!-- Dashboard Content -->
@@ -19,12 +19,12 @@
         <i class="pi pi-spin pi-spinner text-3xl"></i>
       </div>
       <div v-else-if="!hasWidgets" class="flex items-center justify-center flex-1">
-          <div :class="['text-center', isDark ? 'text-[#9f9fa8]' : 'text-surface-500']">
+          <div :class="['text-center', isDark ? 'text-surface-400' : 'text-surface-500']">
           <i class="pi pi-chart-bar text-6xl mb-4"></i>
           <h3 class="text-lg font-semibold mb-2">No widgets yet</h3>
           <p class="text-surface-400">This dashboard doesn't have any widgets configured.</p>
             <Button @click="editDashboard" label="Add Widgets" 
-              :class="isDark ? 'bg-[#171717] border border-[#3a3a40] text-white hover:bg-[#202024] hover:border-[#4a4a52] rounded-md px-3 py-2 font-medium mt-4' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 rounded-md px-3 py-2 font-medium mt-4'" />
+              :class="isDark ? 'bg-surface-900 border border-surface-700 text-surface-0 hover:bg-surface-800 hover:border-surface-600 rounded-md px-3 py-2 font-medium mt-4' : 'bg-surface-0 border border-surface-200 text-surface-700 hover:bg-surface-50 hover:border-surface-300 rounded-md px-3 py-2 font-medium mt-4'" />
         </div>
       </div>
       <div v-else class="dashboard-view-container">
@@ -32,23 +32,23 @@
           <div
             v-for="widgetData in dashboardWidgets"
             :key="widgetData.instanceId"
-            :class="['dashboard-widget rounded-lg border shadow-sm', isDark ? 'border-[#2f2f35] bg-[#171717]' : 'bg-white border-surface-200']"
+            :class="['dashboard-widget rounded-lg border shadow-sm', isDark ? 'border-surface-800 bg-surface-900' : 'bg-surface-0 border-surface-200']"
             :style="getWidgetStyle(widgetData)"
           >
-            <div :class="['widget-header p-4 border-b', isDark ? 'border-[#2f2f35]' : 'border-surface-100']">
-              <h3 :class="['font-semibold', isDark ? 'text-white' : 'text-surface-900']">{{ getWidgetTitle(widgetData.widget) }}</h3>
-              <p :class="['mt-1 text-sm', isDark ? 'text-[#9f9fa8]' : 'text-surface-500']">{{ getWidgetSubtitle(widgetData.widget) }}</p>
+            <div :class="['widget-header p-4 border-b', isDark ? 'border-surface-800' : 'border-surface-100']">
+              <h3 :class="['font-semibold', isDark ? 'text-surface-0' : 'text-surface-900']">{{ getWidgetTitle(widgetData.widget) }}</h3>
+              <p :class="['mt-1 text-sm', isDark ? 'text-surface-400' : 'text-surface-500']">{{ getWidgetSubtitle(widgetData.widget) }}</p>
             </div>
             <div class="widget-content p-4">
               <div class="widget-chart-area" :data-widget-id="widgetData.widget.id">
-                <div :class="['widget-loading-overlay absolute inset-0 flex items-center justify-center z-10', isDark ? 'bg-[#171717]/90' : 'bg-white bg-opacity-90']">
+                <div :class="['widget-loading-overlay absolute inset-0 flex items-center justify-center z-10', isDark ? 'bg-surface-900/90' : 'bg-surface-0 bg-opacity-90']">
                   <div class="text-center">
                     <i class="pi pi-spin pi-spinner text-blue-500 text-lg mb-1"></i>
-                    <div :class="['text-xs', isDark ? 'text-[#9f9fa8]' : 'text-gray-600']">Loading...</div>
+                    <div :class="['text-xs', isDark ? 'text-surface-400' : 'text-surface-600']">Loading...</div>
                   </div>
                 </div>
                 <div class="widget-preview-content" :data-widget-id="widgetData.widget.id">
-                  <div class="chart-placeholder" style="display: none; color: #999; font-size: 12px; text-align: center;">
+                  <div class="chart-placeholder" style="display: none; color: var(--p-surface-400); font-size: 12px; text-align: center;">
                     Loading chart...
                   </div>
                 </div>
@@ -363,7 +363,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8f9fa;
+  background: var(--p-surface-50);
   border-radius: 4px;
 }
 

@@ -40,8 +40,8 @@ const isDark = darkMode
 const inputClass = computed(() => [
   'w-full !shadow-none',
   isDark.value
-    ? 'border-[#434349] bg-[#262626] text-white placeholder:text-[#8d8d96] focus:border-[#52525b]'
-    : 'border-[#d8dce6] bg-white text-[#101010] placeholder:text-[#9ca3af]'
+    ? 'border-surface-700 bg-surface-800 text-surface-0 placeholder:text-surface-400 focus:border-surface-600'
+    : 'border-surface-300 bg-surface-0 text-surface-950 placeholder:text-surface-400'
 ])
 
 const isSubmitDisabled = computed(() => loading.value || form.name.trim() === '')
@@ -116,10 +116,10 @@ function handleClose(): void {
     leave-from-class="translate-x-0"
     leave-to-class="translate-x-full"
   >
-    <div v-if="props.visible" :class="['fixed inset-y-0 right-0 z-50 h-screen w-[400px] overflow-y-auto shadow-xl', isDark ? 'bg-[#171717] text-white' : 'bg-white text-[#101010]']">
-      <div :class="['mb-4 flex items-center justify-between border-b p-4', isDark ? 'border-b-[#2f2f35]' : 'border-b-[#E6E7EB]']">
+    <div v-if="props.visible" :class="['fixed inset-y-0 right-0 z-50 h-screen w-[400px] overflow-y-auto shadow-xl', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
+      <div :class="['mb-4 flex items-center justify-between border-b p-4', isDark ? 'border-b-surface-800' : 'border-b-surface-200']">
         <div class="flex items-center gap-3">
-          <div :class="['flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-[8px]', isDark ? 'bg-[#262626]' : 'bg-[#f4f5f9]']">
+          <div :class="['flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-[8px]', isDark ? 'bg-surface-800' : 'bg-surface-100']">
             <img src="@/assets/plus.svg" alt="Create application" class="h-6 w-6" />
           </div>
           <h2 class="text-lg font-semibold">New Application</h2>
@@ -131,27 +131,27 @@ function handleClose(): void {
       <form @submit.prevent="handleSubmit" class="flex flex-col h-[calc(100vh-100px)] justify-between gap-4 p-4">
         <div>
           <div class="mb-5">
-            <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Name</label>
+            <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Name</label>
             <InputText v-model="form.name" type="text" :class="inputClass" required />
           </div>
           <div class="mb-5">
-            <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Description</label>
+            <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Description</label>
             <Textarea v-model="form.description" :class="inputClass" rows="3" />
           </div>
           <div>
-            <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">API configuration</label>
-            <div :class="['w-full divide-y rounded-2xl border', isDark ? 'border-[#2f2f35] divide-[#2f2f35] bg-[#171717]' : 'border-[#E6E7EB] divide-[#E6E7EB]']">
+            <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">API configuration</label>
+            <div :class="['w-full divide-y rounded-2xl border', isDark ? 'border-surface-800 divide-surface-800 bg-surface-900' : 'border-surface-200 divide-surface-200']">
               <div class="flex items-center justify-between p-4">
                 <div class="flex items-center gap-2">
                   <img src="@/assets/graphql.svg" />
-                  <span :class="['text-sm font-normal', isDark ? 'text-[#f4f4f5]' : 'text-[#3F424D]']">GraphQL</span>
+                  <span :class="['text-sm font-normal', isDark ? 'text-surface-100' : 'text-surface-700']">GraphQL</span>
                 </div>
                 <ToggleButton v-model="form.graphql" onLabel="On" offLabel="Off" />
               </div>
               <div class="flex items-center justify-between p-4">
                 <div class="flex items-center gap-2">
                   <img src="@/assets/scalar.svg" />
-                  <span :class="['text-sm font-normal', isDark ? 'text-[#f4f4f5]' : 'text-[#3F424D]']">OpenAPI</span>
+                  <span :class="['text-sm font-normal', isDark ? 'text-surface-100' : 'text-surface-700']">OpenAPI</span>
                 </div>
                 <ToggleButton v-model="form.openapi" onLabel="On" offLabel="Off" />
               </div>

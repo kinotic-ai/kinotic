@@ -55,8 +55,8 @@ export default class NewProjectSidebar extends Vue {
         return [
             'w-full !shadow-none',
             this.isDark
-                ? 'border-[#434349] bg-[#262626] text-white placeholder:text-[#8d8d96] focus:border-[#52525b]'
-                : 'border-[#d8dce6] bg-white text-[#101010] placeholder:text-[#9ca3af]'
+                ? 'border-surface-700 bg-surface-800 text-surface-0 placeholder:text-surface-400 focus:border-surface-600'
+                : 'border-surface-300 bg-surface-0 text-surface-950 placeholder:text-surface-400'
         ];
     }
 
@@ -131,19 +131,19 @@ export default class NewProjectSidebar extends Vue {
             class="fixed inset-0 z-50 flex justify-end"
             @click.self="handleClose"
         >
-            <div :class="['h-full w-[400px] overflow-y-auto shadow-xl', isDark ? 'bg-[#171717] text-white' : 'bg-white text-[#101010]']">
-                <div :class="['flex items-center justify-between border-b p-4', isDark ? 'border-[#2f2f35]' : 'border-[#E6E7EB]']">
+            <div :class="['h-full w-[400px] overflow-y-auto shadow-xl', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
+                <div :class="['flex items-center justify-between border-b p-4', isDark ? 'border-surface-800' : 'border-surface-200']">
                     <div class="flex items-center gap-3">
-                        <div :class="['flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-[8px]', isDark ? 'bg-[#262626]' : 'bg-[#f4f5f9]']">
+                        <div :class="['flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-[8px]', isDark ? 'bg-surface-800' : 'bg-surface-100']">
                             <img src="@/assets/plus.svg" alt="Create project" class="h-6 w-6" />
                         </div>
-                        <h2 :class="['text-lg font-semibold', isDark ? 'text-white' : 'text-[#101010]']">New Project</h2>
+                        <h2 :class="['text-lg font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">New Project</h2>
                     </div>
                     <Button
                         @click="handleClose"
                         text
                         rounded
-                        :class="['p-2 transition', isDark ? 'hover:bg-[#262626]' : 'hover:bg-gray-100']"
+                        :class="['p-2 transition', isDark ? 'hover:bg-surface-800' : 'hover:bg-surface-100']"
                     >
                         <img src="@/assets/close-icon.svg" class="w-4 h-4" />
                     </Button>
@@ -151,7 +151,7 @@ export default class NewProjectSidebar extends Vue {
                 <form @submit.prevent="handleSubmit" class="flex flex-col justify-between h-[calc(100vh-100px)] p-4">
                     <div class="flex flex-col gap-5">
                         <div>
-                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Name</label>
+                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Name</label>
                             <InputText
                                 v-model="form.name"
                                 placeholder="Project name"
@@ -161,7 +161,7 @@ export default class NewProjectSidebar extends Vue {
                         </div>
 
                         <div>
-                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Description</label>
+                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Description</label>
                             <Textarea
                                 v-model="form.description"
                                 rows="3"
@@ -171,14 +171,14 @@ export default class NewProjectSidebar extends Vue {
                         </div>
 
                         <div>
-                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Source of truth</label>
-                            <div :class="['flex w-full gap-2 rounded-xl p-1', isDark ? 'bg-[#262626]' : 'bg-[#F4F5F9]']">
+                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Source of truth</label>
+                            <div :class="['flex w-full gap-2 rounded-xl p-1', isDark ? 'bg-surface-800' : 'bg-surface-100']">
                                 <Button
                                     type="button"
                                     @click="form.source = 'GUI'"
                                     class="w-1/2 text-sm font-bold py-[10px] rounded-lg transition"
                                     severity="secondary"
-                                    :class="form.source === 'GUI' ? (isDark ? '!bg-[#101010] !text-white' : '!bg-white !text-[#101010]') : (isDark ? '!bg-transparent !text-[#9f9fa8]' : '!bg-transparent !text-[#5F6165]')"
+                                    :class="form.source === 'GUI' ? (isDark ? '!bg-surface-950 !text-surface-0' : '!bg-surface-0 !text-surface-950') : (isDark ? '!bg-transparent !text-surface-400' : '!bg-transparent !text-surface-600')"
                                 >
                                     GUI
                                 </Button>
@@ -187,7 +187,7 @@ export default class NewProjectSidebar extends Vue {
                                     @click="form.source = 'Code'"
                                     class="w-1/2 text-sm font-bold py-[10px] rounded-lg transition"
                                     severity="secondary"
-                                    :class="form.source === 'Code' ? (isDark ? '!bg-[#101010] !text-white' : '!bg-white !text-[#101010]') : (isDark ? '!bg-transparent !text-[#9f9fa8]' : '!bg-transparent !text-[#5F6165]')"
+                                    :class="form.source === 'Code' ? (isDark ? '!bg-surface-950 !text-surface-0' : '!bg-surface-0 !text-surface-950') : (isDark ? '!bg-transparent !text-surface-400' : '!bg-transparent !text-surface-600')"
                                 >
                                     Code
                                 </Button>
@@ -195,14 +195,14 @@ export default class NewProjectSidebar extends Vue {
                         </div>
 
                         <div v-if="form.source === 'Code'">
-                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-white' : 'text-[#101010]']">Language</label>
+                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Language</label>
                             <Select
                                 v-model="form.language"
                                 :options="languageOptions"
                                 optionLabel="label"
                                 optionValue="value"
                                 placeholder="Select language"
-                                :class="['w-full rounded-lg p-2 text-sm', isDark ? 'border border-[#434349] bg-[#262626] text-white' : 'border border-[#D2D3D9] text-[#101010]']"
+                                :class="['w-full rounded-lg p-2 text-sm', isDark ? 'border border-surface-700 bg-surface-800 text-surface-0' : 'border border-surface-300 text-surface-950']"
                             />
                         </div>
                     </div>

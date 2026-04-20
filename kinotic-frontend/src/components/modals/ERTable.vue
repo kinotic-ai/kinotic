@@ -2,7 +2,7 @@
   <div class="rounded shadow bg-white text-xs min-w-[200px] border border-gray-300">
     <div>
       <div :class="data.color" class="h-3 w-full"></div>
-      <div class="font-bold px-2 py-1 bg-[#f1f2f4] border-b border-gray-300">
+      <div class="font-bold px-2 py-1 bg-surface-100 border-b border-surface-300">
         {{ data.label }}
       </div>
     </div>

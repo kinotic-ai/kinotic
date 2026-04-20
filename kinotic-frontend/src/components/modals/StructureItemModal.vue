@@ -431,7 +431,7 @@ export default class StructureItemModal extends Vue {
           :node-types="nodeTypes"
           :minZoom="0.01"
         >
-          <Background pattern-color="#ccc" :gap="20" />
+          <Background :pattern-color="isDark ? 'var(--p-surface-700)' : 'var(--p-surface-300)'" :gap="20" />
           <MiniMap />
           <Controls position="top-left" />
         </VueFlow>

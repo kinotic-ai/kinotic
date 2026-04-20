@@ -52,7 +52,7 @@ const isDark = computed(() => darkMode.value)
 
 <template>
   <div v-if="structureStore.structure">
-    <div :class="['border-b p-6', isDark ? 'border-[#2f2f35]' : 'border-surface-200']">
+    <div :class="['border-b p-6', isDark ? 'border-surface-800' : 'border-surface-200']">
       <h3 class="text-sm font-semibold">Structure settings</h3>
     </div>
     <div class="flex-1 overflow-y-auto p-6 space-y-6">
@@ -74,7 +74,7 @@ const isDark = computed(() => darkMode.value)
       </div>
 
       <div class="space-y-3">
-        <p :class="['text-xs font-medium', isDark ? 'text-[#9f9fa8]' : 'text-gray-500']">Multi tenancy</p>
+        <p :class="['text-xs font-medium', isDark ? 'text-surface-400' : 'text-surface-500']">Multi tenancy</p>
         <div
             v-for="access in accessModes"
             :key="access.key"
@@ -92,7 +92,7 @@ const isDark = computed(() => darkMode.value)
       </div>
 
       <div>
-        <p :class="['text-xs font-medium mb-1', isDark ? 'text-[#9f9fa8]' : 'text-gray-500']">Description</p>
+        <p :class="['text-xs font-medium mb-1', isDark ? 'text-surface-400' : 'text-surface-500']">Description</p>
         <Textarea
             v-model="description"
             autoResize
