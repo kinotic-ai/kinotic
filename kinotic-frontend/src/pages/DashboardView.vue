@@ -66,9 +66,9 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 // import { GridStack } from 'gridstack'
 import 'gridstack/dist/gridstack.min.css'
-import { DashboardEntityService } from '@/services/DashboardEntityService'
+import { DashboardEntityRepository } from '@/services/DashboardEntityRepository'
 import { Dashboard } from '@/domain/Dashboard'
-import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEntityService'
+import { DataInsightsWidgetEntityRepository } from '@/services/DataInsightsWidgetEntityRepository'
 import { DataInsightsWidget } from '@/domain/DataInsightsWidget'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
@@ -85,8 +85,8 @@ const props = defineProps<{
   dashboardId: string 
 }>()
 
-const dashboardService = new DashboardEntityService()
-const widgetService = new DataInsightsWidgetEntityService()
+const dashboardService = new DashboardEntityRepository()
+const widgetService = new DataInsightsWidgetEntityRepository()
 
 const dashboard = ref<Dashboard | null>(null)
 const dashboardTitle = ref('')

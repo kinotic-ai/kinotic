@@ -68,7 +68,7 @@ The following shows how to write an entity persistence test that relies on the f
 ```java
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.internal.sample.DummyParticipant;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
@@ -84,14 +84,14 @@ public class MyEntityTest extends KinoticTestBase {
     private TestHelper testHelper;
 
     @Autowired
-    private EntitiesService entitiesService;
+    private EntitiesService entitiesRepository;
 
     @Test
     public void testCountByTenant() {
         var ctx = new DefaultEntityContext(new DummyParticipant("acme", "alice"));
         StructureAndPersonHolder holder = testHelper.createAndVerify(5, true, ctx, "_myTest");
-        entitiesService.syncIndex(holder.getEntityDefinition().getId(), ctx).join();
-        long count = entitiesService.count(holder.getEntityDefinition().getId(), ctx).join();
+        entitiesRepository.syncIndex(holder.getEntityDefinition().getId(), ctx).join();
+        long count = entitiesRepository.count(holder.getEntityDefinition().getId(), ctx).join();
         Assertions.assertEquals(5L, count);
     }
 }

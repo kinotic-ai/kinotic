@@ -11,7 +11,7 @@ import { ProgressType } from '@kinotic-ai/os-api'
 import type { InsightRequest, DataInsightsComponent, InsightProgress } from '@kinotic-ai/os-api'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { INSIGHTS_STATE, type InsightData } from '@/states/IInsightsState'
-import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEntityService'
+import { DataInsightsWidgetEntityRepository } from '@/services/DataInsightsWidgetEntityRepository'
 import { DataInsightsWidget } from '@/domain/DataInsightsWidget'
 import { createDebug } from '@/util/debug'
 import { isDark as darkMode } from '@/composables/useTheme'
@@ -97,7 +97,7 @@ export default class DataInsights extends Vue {
     endDate: null
   }
   showDateRangePicker: boolean = false
-  widgetService: DataInsightsWidgetEntityService = new DataInsightsWidgetEntityService()
+  widgetService: DataInsightsWidgetEntityRepository = new DataInsightsWidgetEntityRepository()
 
   get isDark() {
     return darkMode.value

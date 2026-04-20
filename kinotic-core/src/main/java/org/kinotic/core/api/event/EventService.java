@@ -1,9 +1,9 @@
 
 
+
 package org.kinotic.core.api.event;
 
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+import io.vertx.core.Future;
 
 /**
  * Simple facade that sits in front of the {@link EventBusService} and the {@link EventStreamService}
@@ -16,16 +16,14 @@ import reactor.core.publisher.Mono;
  */
 public interface EventService {
 
-    Mono<Void> send(Event<byte[]> event);
+    Future<Void> send(Event<byte[]> event);
 
     /**
-     * Returns a {@link Mono} that when subscribed to will produce a "Hot" flux {@link Flux} that will emit {@link Event} with a byte[] from the given destination.
-     * Because this returns a "Hot" flux some messages can be lost before you can subscribe to the {@link Flux} provided by the {@link Mono}
-     * NOTE: the {@link Mono} will not complete until the listener is published cluster wide.
+     * Creates a new {@link EventConsumer} that will receive {@link Event} with a byte[] from the given destination.
      *
      * @param cri to subscribe to
-     * @return the newly created {@link Flux} for the given cri
+     * @return the newly created {@link EventConsumer} for the given cri
      */
-    Flux<Event<byte[]>> listen(String cri);
+    EventConsumer listen(String cri);
 
 }

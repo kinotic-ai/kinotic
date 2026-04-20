@@ -73,18 +73,4 @@ public class DefaultEntityDefinitionDAO extends AbstractCrudService<EntityDefini
                 ));
     }
 
-    @Override
-    public CompletableFuture<Page<EntityDefinition>> search(String searchText, Pageable pageable) {
-        return crudServiceTemplate.search(indexName,
-                                          pageable,
-                                          EntityDefinition.class,
-                                          builder -> builder.q(searchText));
-    }
-
-    @Override
-    public CompletableFuture<Void> syncIndex() {
-        return esAsyncClient.indices()
-                            .refresh(b -> b.index(indexName))
-                            .thenApply(unused -> null);
-    }
 }

@@ -11,7 +11,7 @@ import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 import org.kinotic.persistence.api.model.idl.PageC3Type;
 import org.kinotic.persistence.api.model.idl.decorators.QueryDecorator;
-import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.api.services.NamedQueriesDefinitionService;
 import org.kinotic.persistence.internal.api.services.EntityDefinitionDAO;
 import org.kinotic.persistence.internal.api.services.sql.SqlQueryType;
@@ -38,7 +38,7 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
     private static final Pageable CURSOR_PAGEABLE = Pageable.create(null, 25, null);
     private static final Pageable OFFSET_PAGEABLE = Pageable.create(0, 25, null);
 
-    private final EntitiesService entitiesService;
+    private final EntitiesRepository entitiesRepository;
     private final NamedQueriesDefinitionService namedQueriesDefinitionService;
     private final ObjectMapper objectMapper;
     private final EntityDefinitionDAO entityDefinitionDAO;
@@ -108,7 +108,7 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
             builder.operationName(queryName + WordUtils.capitalize(entityDefinition.getName()))
                    .operationType(getGqlOperationType(queryType))
                    .fieldDefinitionFunction(new QueryGqlFieldDefinitionFunction(queryDefinition, false))
-                   .dataFetcherDefinitionFunction(struct -> new QueryDataFetcher(entitiesService, queryName, struct.getId()));
+                   .dataFetcherDefinitionFunction(struct -> new QueryDataFetcher(entitiesRepository, queryName, struct.getId()));
             ret.add(builder.build());
         }
         return ret;
@@ -122,7 +122,7 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
         builder.operationName(queryName + suffix + WordUtils.capitalize(entityDefinition.getName()))
                .operationType(OperationDefinition.Operation.QUERY)
                .fieldDefinitionFunction(new QueryGqlFieldDefinitionFunction(queryDefinition, true))
-               .dataFetcherDefinitionFunction(struct -> new PagedQueryDataFetcher(entitiesService,
+               .dataFetcherDefinitionFunction(struct -> new PagedQueryDataFetcher(entitiesRepository,
                                                                                   objectMapper,
                                                                                   queryDefinition,
                                                                                   CURSOR_PAGEABLE,
@@ -137,7 +137,7 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
         builder.operationName(queryName + WordUtils.capitalize(entityDefinition.getName()))
                .operationType(OperationDefinition.Operation.QUERY)
                .fieldDefinitionFunction(new QueryGqlFieldDefinitionFunction(queryDefinition, false))
-               .dataFetcherDefinitionFunction(struct -> new PagedQueryDataFetcher(entitiesService,
+               .dataFetcherDefinitionFunction(struct -> new PagedQueryDataFetcher(entitiesRepository,
                                                                                   objectMapper,
                                                                                   queryDefinition,
                                                                                   OFFSET_PAGEABLE,

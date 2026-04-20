@@ -12,6 +12,7 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.idl.api.schema.ObjectC3Type;
+import org.kinotic.os.api.model.OrganizationScoped;
 import org.kinotic.persistence.api.model.idl.decorators.EntityType;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 
@@ -23,11 +24,13 @@ import java.util.List;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class EntityDefinition implements Identifiable<String> {
+public class EntityDefinition implements OrganizationScoped<String> {
 
     private String id = null; // do not ever set, system managed
 
     private String name = null;
+
+    private String organizationId = null;
 
     /**
      * The id of the application that this {@link EntityDefinition} belongs to.

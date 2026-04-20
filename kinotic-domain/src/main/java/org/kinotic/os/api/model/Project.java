@@ -11,13 +11,15 @@ import lombok.experimental.Accessors;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class Project implements Identifiable<String> {
+public class Project implements OrganizationScoped<String> {
 
     /**
      * The id of the project.
      * All project ids are unique throughout the entire system.
      */
     private String id;
+
+    private String organizationId;
 
     /**
      * The id of the application that this project belongs to.

@@ -99,7 +99,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { InputText, Button, Dialog, IconField, InputIcon } from 'primevue'
 import { useToast } from 'primevue/usetoast'
-import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEntityService'
+import { DataInsightsWidgetEntityRepository } from '@/services/DataInsightsWidgetEntityRepository'
 import type { DataInsightsWidget } from '@/domain/DataInsightsWidget'
 import SavedWidgetItem from '@/components/SavedWidgetItem.vue'
 import { createDebug } from '@/util/debug'
@@ -114,7 +114,7 @@ const props = defineProps<{
 const toast = useToast()
 
 // Saved widgets state
-const widgetService = new DataInsightsWidgetEntityService()
+const widgetService = new DataInsightsWidgetEntityRepository()
 const savedWidgets = ref<DataInsightsWidget[]>([])
 const loadingWidgets = ref(false)
 const showDeleteDialog = ref(false)

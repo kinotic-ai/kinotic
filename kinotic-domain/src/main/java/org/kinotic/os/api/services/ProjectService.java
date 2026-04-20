@@ -10,7 +10,7 @@ import org.kinotic.os.api.model.Project;
 import java.util.concurrent.CompletableFuture;
 
 @Publish
-@Proxy
+
 public interface ProjectService extends IdentifiableCrudService<Project, String> {
 
     /**
@@ -34,11 +34,5 @@ public interface ProjectService extends IdentifiableCrudService<Project, String>
      * @return a future that will complete with a page of projects
      */
     CompletableFuture<Page<Project>> findAllForApplication(String applicationId, Pageable pageable);
-
-    /**
-     * This operation makes all the recent writes immediately available for search.
-     * @return a future that will complete when the index has been synced
-     */
-    CompletableFuture<Void> syncIndex();
 
 }

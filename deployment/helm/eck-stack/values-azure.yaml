@@ -1,0 +1,175 @@
+# Azure AKS production overrides for eck-stack.
+# Dedicated master + data node topology with zone-aware scheduling.
+#
+# Usage (via Terraform):
+#   values = [
+#     file("../../helm/eck-stack/values.yaml"),
+#     file("../../helm/eck-stack/values-azure.yaml"),
+#   ]
+
+eck-elasticsearch:
+  # HTTP TLS disabled — ES is cluster-internal only (behind the VNet).
+  # External TLS is handled by Vert.x on the kinotic-server pods.
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: true
+    # Internal Azure Load Balancer - no public IP, reachable within VNet only
+    service:
+      spec:
+        type: LoadBalancer
+      metadata:
+        annotations:
+          service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+
+  nodeSets:
+    # -- Master nodes -- cluster coordination only.
+    # 3 masters = quorum of 2. Never scale to 2 or 4 (even numbers cause ties).
+    - name: master
+      count: 3
+      config:
+        node.roles: ["master"]
+        xpack.ml.enabled: false
+        # Required on AKS - Azure does not support mmap by default
+        node.store.allow_mmap: false
+
+      podTemplate:
+        spec:
+          nodeSelector:
+            nodepool-type: elasticsearch
+          tolerations:
+            - key: workload
+              operator: Equal
+              value: elasticsearch
+              effect: NoSchedule
+          # Hard anti-affinity: one master per Kubernetes node
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      elasticsearch.k8s.elastic.co/cluster-name: kinotic-es
+                      elasticsearch.k8s.elastic.co/statefulset-name: kinotic-es-es-master
+                  topologyKey: kubernetes.io/hostname
+          # Spread master pods across availability zones
+          topologySpreadConstraints:
+            - maxSkew: 1
+              topologyKey: topology.kubernetes.io/zone
+              whenUnsatisfiable: DoNotSchedule
+              labelSelector:
+                matchLabels:
+                  elasticsearch.k8s.elastic.co/statefulset-name: kinotic-es-es-master
+          initContainers:
+            - name: sysctl
+              securityContext:
+                privileged: true
+                runAsUser: 0
+              command: ["sh", "-c", "sysctl -w vm.max_map_count=262144"]
+          containers:
+            - name: elasticsearch
+              resources:
+                requests:
+                  memory: "2Gi"
+                  cpu: "500m"
+                limits:
+                  memory: "2Gi"
+                  cpu: "1000m"
+              env:
+                - name: ES_JAVA_OPTS
+                  value: "-Xms1g -Xmx1g"
+
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            storageClassName: es-premium-zrs
+            resources:
+              requests:
+                storage: 32Gi
+
+    # -- Data + ingest nodes -- store and serve all index data.
+    # Scale these out as data grows. Split to dedicated ingest nodes
+    # if ingest load becomes significant.
+    - name: data
+      count: 3
+      config:
+        node.roles: ["data", "ingest", "transform", "remote_cluster_client"]
+        node.store.allow_mmap: false
+        # Zone-aware shard allocation is handled implicitly:
+        # - topologySpreadConstraints spread pods across AZs
+        # - Hard anti-affinity ensures one pod per node
+        # - With 3 data pods across 3 AZs, each AZ has exactly one data node
+        # If scaling beyond 1 data pod per AZ, add explicit zone awareness
+        # using an init container to inject the node's zone label.
+
+      podTemplate:
+        spec:
+          nodeSelector:
+            nodepool-type: elasticsearch
+          tolerations:
+            - key: workload
+              operator: Equal
+              value: elasticsearch
+              effect: NoSchedule
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      elasticsearch.k8s.elastic.co/cluster-name: kinotic-es
+                      elasticsearch.k8s.elastic.co/statefulset-name: kinotic-es-es-data
+                  topologyKey: kubernetes.io/hostname
+          topologySpreadConstraints:
+            - maxSkew: 1
+              topologyKey: topology.kubernetes.io/zone
+              whenUnsatisfiable: DoNotSchedule
+              labelSelector:
+                matchLabels:
+                  elasticsearch.k8s.elastic.co/statefulset-name: kinotic-es-es-data
+          initContainers:
+            - name: sysctl
+              securityContext:
+                privileged: true
+                runAsUser: 0
+              command: ["sh", "-c", "sysctl -w vm.max_map_count=262144"]
+          containers:
+            - name: elasticsearch
+              resources:
+                requests:
+                  memory: "8Gi"
+                  cpu: "2000m"
+                limits:
+                  memory: "8Gi"
+                  cpu: "4000m"
+              env:
+                - name: ES_JAVA_OPTS
+                  value: "-Xms4g -Xmx4g"
+
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            storageClassName: es-premium-zrs
+            resources:
+              requests:
+                storage: 256Gi
+
+  # Never evict more than 1 ES pod at a time - protects quorum
+  podDisruptionBudget:
+    spec:
+      minAvailable: 2
+      selector:
+        matchLabels:
+          elasticsearch.k8s.elastic.co/cluster-name: kinotic-es
+
+  # Self-referential monitoring - for a dedicated monitoring cluster,
+  # change the name/namespace to point at the monitoring ES instance.
+  monitoring:
+    metrics:
+      elasticsearchRefs:
+        - name: kinotic-es
+    logs:
+      elasticsearchRefs:
+        - name: kinotic-es

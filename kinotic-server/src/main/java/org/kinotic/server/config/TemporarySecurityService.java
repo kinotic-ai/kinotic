@@ -6,8 +6,6 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import javax.security.sasl.AuthenticationException;
 import java.nio.charset.StandardCharsets;
@@ -17,8 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
-@Component
-@ConditionalOnProperty(prefix = "oidc-security-service", name = "enabled", havingValue = "false", matchIfMissing = true)
+@Deprecated
 public class TemporarySecurityService implements SecurityService {
 
 
@@ -53,7 +50,7 @@ public class TemporarySecurityService implements SecurityService {
         // we might need to know if a request for auth is coming from an application or the management UI. 
         if(authenticationInfo.containsKey("login") && Objects.equals(authenticationInfo.get("login"), participant.getId())
             && authenticationInfo.containsKey("passcode") && Objects.equals(authenticationInfo.get("passcode"), PASSWORD)){
-            log.debug("Successfully authenticated user with continuum credentials");
+            log.debug("Successfully authenticated user with kinotic credentials");
 
             return CompletableFuture.completedFuture(createParticipant(authenticationInfo.get("tenantId")));
 

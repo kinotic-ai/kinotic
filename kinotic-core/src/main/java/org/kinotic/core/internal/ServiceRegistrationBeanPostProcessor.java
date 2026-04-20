@@ -1,5 +1,6 @@
 
 
+
 package org.kinotic.core.internal;
 
 import org.apache.commons.lang3.StringUtils;
@@ -8,7 +9,8 @@ import org.kinotic.core.api.RpcServiceProxy;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.internal.utils.KinoticUtil;
-import org.kinotic.core.internal.utils.MetaUtil;import org.slf4j.Logger;
+import org.kinotic.core.internal.utils.MetaUtil;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.FatalBeanException;
@@ -43,9 +45,16 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
 
             log.info("Registering Service {}", serviceIdentifier);
 
-            serviceRegistry.register(serviceIdentifier, clazz, bean)
-                           .subscribe(v -> log.trace("Successfully Registered service {}", serviceIdentifier),
-                                      throwable -> log.error("Error Registering service {}", serviceIdentifier, throwable));
+            try {
+                serviceRegistry.register(serviceIdentifier, clazz, bean)
+                               .toCompletionStage()
+                               .toCompletableFuture()
+                               .join();
+
+                log.trace("Successfully Registered service {}", serviceIdentifier);
+            } catch (Exception e) {
+                log.error("Error Registering service {}", serviceIdentifier, e);
+            }
         });
         return bean;
     }
@@ -56,15 +65,17 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
 
             log.info("Un-Registering Service {}", serviceIdentifier);
 
-            serviceRegistry.unregister(serviceIdentifier)
-                           .subscribe(v -> log.trace("Successfully Un-Registered service {}", serviceIdentifier),
-                                      throwable -> log.error("Error Un-Registering service {}", serviceIdentifier, throwable));
-        });
-    }
+            try {
+                serviceRegistry.unregister(serviceIdentifier)
+                               .toCompletionStage()
+                               .toCompletableFuture()
+                               .join();
 
-    @Override
-    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-        return bean;
+                log.trace("Successfully Un-Registered service {}", serviceIdentifier);
+            } catch (Exception e) {
+                log.error("Error Un-Registering service {}", serviceIdentifier, e);
+            }
+        });
     }
 
     private void processBean(Object instance, BiConsumer<ServiceIdentifier, Class<?>> consumer){

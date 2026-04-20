@@ -8,7 +8,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.EntityDefinition;
-import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.internal.sample.Car;
 import org.kinotic.persistence.internal.sample.DummyParticipant;
@@ -32,7 +32,7 @@ import java.util.concurrent.CompletableFuture;
 public class BulkUpdateTests extends KinoticTestBase {
 
     @Autowired
-    private EntitiesService entitiesService;
+    private EntitiesRepository entitiesRepository;
     @Autowired
     private TestHelper testHelper;
     @Autowired
@@ -77,23 +77,23 @@ public class BulkUpdateTests extends KinoticTestBase {
         Assertions.assertNotNull(holder2);
 
         // Sync Index since bulk updates are not queryable until they are indexed
-        entitiesService.syncIndex(holder1.getEntityDefinition().getId(), context1).join();
-        entitiesService.syncIndex(holder2.getEntityDefinition().getId(), context2).join();
+        entitiesRepository.syncIndex(holder1.getEntityDefinition().getId(), context1).join();
+        entitiesRepository.syncIndex(holder2.getEntityDefinition().getId(), context2).join();
 
         // TODO: verify all data items as well, not just sizes
-        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder1.getEntityDefinition().getId(),
-                                                                    Pageable.ofSize(numberOfPeopleToCreate * 2),// make sure page size is larger than number of entities
-                                                                    RawJson.class,
-                                                                    context1)))
+        StepVerifier.create(Mono.fromFuture(entitiesRepository.findAll(holder1.getEntityDefinition().getId(),
+                                                                       Pageable.ofSize(numberOfPeopleToCreate * 2),// make sure page size is larger than number of entities
+                                                                       RawJson.class,
+                                                                       context1)))
                     .expectNextMatches(rawJsons -> rawJsons.getTotalElements() == numberOfPeopleToCreate
                             && rawJsons.getContent().size() == numberOfPeopleToCreate)
                     .as("Verifying Tenant 1 has "+numberOfPeopleToCreate+" entities")
                     .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(entitiesService.findAll(holder2.getEntityDefinition().getId(),
-                                                                    Pageable.ofSize(numberOfPeopleToCreate * 2), // make sure page size is larger than number of entities
-                                                                    RawJson.class,
-                                                                    context2)))
+        StepVerifier.create(Mono.fromFuture(entitiesRepository.findAll(holder2.getEntityDefinition().getId(),
+                                                                       Pageable.ofSize(numberOfPeopleToCreate * 2), // make sure page size is larger than number of entities
+                                                                       RawJson.class,
+                                                                       context2)))
                     .expectNextMatches(rawJsons -> rawJsons.getTotalElements() == numberOfPeopleToCreate
                             && rawJsons.getContent().size() == numberOfPeopleToCreate)
                     .as("Verifying Tenant 2 has "+numberOfPeopleToCreate+" entities")
@@ -130,9 +130,9 @@ public class BulkUpdateTests extends KinoticTestBase {
         testHelper.bulkSaveCarsAsRawJson(cars, entityDefinition, entityContext).join();
 
         // Sync Index since bulk updates are not queryable until they are indexed
-        entitiesService.syncIndex(entityDefinition.getId(), entityContext).join();
+        entitiesRepository.syncIndex(entityDefinition.getId(), entityContext).join();
 
-        Page<RawJson> page = entitiesService.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
+        Page<RawJson> page = entitiesRepository.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
 
         Assertions.assertEquals(50, page.getTotalElements(), "Wrong number of entities");
     }
@@ -167,9 +167,9 @@ public class BulkUpdateTests extends KinoticTestBase {
         testHelper.bulkUpdateCarsAsRawJson(cars, entityDefinition, entityContext).join();
 
         // Sync Index since bulk updates are not queryable until they are indexed
-        entitiesService.syncIndex(entityDefinition.getId(), entityContext).join();
+        entitiesRepository.syncIndex(entityDefinition.getId(), entityContext).join();
 
-        Page<RawJson> page = entitiesService.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
+        Page<RawJson> page = entitiesRepository.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
 
         Assertions.assertEquals(50, page.getTotalElements(), "Wrong number of entities");
     }

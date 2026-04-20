@@ -18,6 +18,8 @@ public class DefaultParticipant implements Participant {
 
     private String tenantId;
     private String id;
+    private String authScopeType;
+    private String authScopeId;
     private Map<String, String> metadata;
     private List<String> roles;
 
@@ -53,6 +55,20 @@ public class DefaultParticipant implements Participant {
         this.roles = roles;
     }
 
+    public DefaultParticipant(String tenantId,
+                              String id,
+                              String authScopeType,
+                              String authScopeId,
+                              Map<String, String> metadata,
+                              List<String> roles) {
+        this.tenantId = tenantId;
+        this.id = id;
+        this.authScopeType = authScopeType;
+        this.authScopeId = authScopeId;
+        this.metadata = metadata;
+        this.roles = roles;
+    }
+
     @Override
     public String getId() {
         return id;
@@ -69,6 +85,24 @@ public class DefaultParticipant implements Participant {
 
     public void setTenantId(String tenantId) {
         this.tenantId = tenantId;
+    }
+
+    @Override
+    public String getAuthScopeType() {
+        return authScopeType;
+    }
+
+    public void setAuthScopeType(String authScopeType) {
+        this.authScopeType = authScopeType;
+    }
+
+    @Override
+    public String getAuthScopeId() {
+        return authScopeId;
+    }
+
+    public void setAuthScopeId(String authScopeId) {
+        this.authScopeId = authScopeId;
     }
 
     @Override

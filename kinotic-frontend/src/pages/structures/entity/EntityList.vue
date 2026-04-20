@@ -55,7 +55,7 @@ import InputText from 'primevue/inputtext'
 import { Pageable, type Page, Order, Direction, type Identifiable } from '@kinotic-ai/core'
 import { Kinotic } from '@kinotic-ai/core'
 import { EntityDefinition, type IEntityDefinitionService } from '@kinotic-ai/os-api'
-import { type IEntitiesService } from '@kinotic-ai/persistence'
+import { type IEntitiesRepository } from '@kinotic-ai/persistence'
 
 import DatetimeUtil from '@/util/DatetimeUtil'
 import { StructureUtil } from '@/util/StructureUtil'
@@ -86,7 +86,7 @@ export default class EntityList extends Vue {
   structureProperties: any = {}
   structure!: EntityDefinition
 
-  entitiesService: IEntitiesService = Kinotic.entities
+  entitiesService: IEntitiesRepository = Kinotic.entities
   structureService: IEntityDefinitionService = Kinotic.entityDefinitions
 
   options = {

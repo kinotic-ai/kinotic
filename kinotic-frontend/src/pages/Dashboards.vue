@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
-import { DashboardEntityService } from '@/services/DashboardEntityService'
+import { DashboardEntityRepository } from '@/services/DashboardEntityRepository'
 import { Dashboard } from '@/domain/Dashboard'
 import CrudTable from '@/components/CrudTable.vue'
 import Button from 'primevue/button'
@@ -23,7 +23,7 @@ const currentApplicationId = computed(() => {
 
 const title = computed(() => `Dashboards${currentApplicationId.value ? ` – ${currentApplicationId.value}` : ''}`)
 
-const dashboardService = new DashboardEntityService()
+const dashboardService = new DashboardEntityRepository()
 const crudTableRef = ref<any>(null)
 const tableKey = ref(0)
 const actionMenus = ref<any[]>([])

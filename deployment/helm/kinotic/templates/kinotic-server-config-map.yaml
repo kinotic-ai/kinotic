@@ -10,18 +10,19 @@ data:
   BPL_JAVA_NMT_ENABLED: "{{ .Values.properties.enableNmt }}"
   BPL_JMX_ENABLED: "{{ .Values.properties.enableJmx }}"
 
-  # ── Elasticsearch connection (environment-specific) ───────
-  # Credentials are injected via secretKeyRef in the deployment, not here.
-  {{ range $index,$value:= .Values.properties.structures.elastic.connections }}
+  # ── Elasticsearch connection ──────────────────────────────
+  {{ range $index,$value:= .Values.kinotic.elastic.connections }}
   KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_{{ $index }}_SCHEME: "{{ $value.scheme }}"
   KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_{{ $index }}_HOST: "{{ $value.host }}"
   KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
   {{ end }}
 
-  # ── AI (environment-specific) ─────────────────────────────
-  SPRING_AI_OPENAI_BASE_URL: "{{ .Values.properties.structures.ai.baseUrl }}"
-  SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "{{ .Values.properties.structures.ai.model }}"
-  SPRING_AI_OPENAI_API_KEY: "{{ .Values.properties.structures.ai.apiKey }}"
+  {{- if .Values.tls.enabled }}
+  # ── SSL/TLS ──────────────────────────────────────────────
+  KINOTIC_SSL_ENABLED: "true"
+  KINOTIC_SSL_CERTPATH: "/certs/tls.crt"
+  KINOTIC_SSL_KEYPATH: "/certs/tls.key"
+  {{- end }}
 
   {{- if .Values.evictionTracking.enabled }}
   # ── Eviction tracking ─────────────────────────────────────
@@ -29,7 +30,7 @@ data:
   {{- end }}
 
   {{- if .Values.oidc.enabled }}
-  # ── OIDC providers (environment-specific) ──────────────────
+  # ── OIDC providers ────────────────────────────────────────
   OIDC_SECURITY_SERVICE_DEBUG: "{{ .Values.oidc.debug }}"
   OIDC_SECURITY_SERVICE_FRONTEND_CONFIGURATION_PATH: "{{ .Values.oidc.frontendConfigurationPath }}"
   {{- range $index,$value:= .Values.oidc.oidcProviders }}
@@ -40,6 +41,9 @@ data:
   OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_AUDIENCE: "{{ $value.audience }}"
   OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_CLIENT_ID: "{{ $value.clientId }}"
   OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_AUTHORITY: "{{ $value.authority }}"
+  {{- if $value.backchannelAuthority }}
+  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_BACKCHANNEL_AUTHORITY: "{{ $value.backchannelAuthority }}"
+  {{- end }}
   OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_REDIRECT_URI: "{{ $value.redirectUri }}"
   OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_POST_LOGOUT_REDIRECT_URI: "{{ $value.postLogoutRedirectUri }}"
   OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_SILENT_REDIRECT_URI: "{{ $value.silentRedirectUri }}"
@@ -50,4 +54,11 @@ data:
   OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_ROLES_{{ $roleIndex }}: "{{ $roleValue }}"
   {{- end }}
   {{- end }}
+  {{- end }}
+
+  # ── Extra environment variables ───────────────────────────
+  # Override any Spring property via env var naming convention:
+  #   kinotic.persistence.webServerPort → KINOTIC_PERSISTENCE_WEBSERVERPORT
+  {{- range $key, $value := .Values.extraEnv }}
+  {{ $key }}: {{ $value | quote }}
   {{- end }}

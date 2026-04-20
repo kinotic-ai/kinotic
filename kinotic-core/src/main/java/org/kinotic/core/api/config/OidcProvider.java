@@ -35,13 +35,24 @@ public class OidcProvider {
     private String clientId;
 
     /**
-     * The authority of the OIDC provider. This should be fully qualified.
+     * The authority of the OIDC provider (browser-facing URL). This should be fully qualified.
      * i.e.
-     * https://your-authority.com/auth/realms/your-realm 
-     *  or 
+     * https://your-authority.com/auth/realms/your-realm
+     *  or
      * https://something.okta.com/oauth2/default
      */
     private String authority;
+
+    /**
+     * Optional cluster-internal URL for JWKS and well-known endpoint fetches.
+     * When set, the server uses this instead of the JWT {@code iss} claim to
+     * reach the OIDC provider from inside the cluster.
+     * <p>
+     * Example: "https://keycloak:8443/auth/realms/test"
+     * <p>
+     * If not set, the {@code iss} claim from the JWT token is used directly.
+     */
+    private String backchannelAuthority;
 
     /**
      * The redirect URI of the OIDC provider.

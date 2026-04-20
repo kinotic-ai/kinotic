@@ -334,4 +334,8 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
         return entityDefinitionDAO.syncIndex();
     }
 
+    @Override
+    public CompletableFuture<EntityDefinition> saveSync(EntityDefinition entity) {
+        return entityDefinitionDAO.saveSync(entity);
+    }
 }

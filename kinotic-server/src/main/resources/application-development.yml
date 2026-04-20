@@ -4,6 +4,9 @@ kinotic:
   maxNumberOfCoresToUse: 4
   ignite:
     discoveryType: SHAREDFS
+  secretStorage:
+    backend: hft
+    masterKey: a2lub3RpYy1kZXZlbG9wbWVudC1tYXN0ZXIta2V5LSE=
   persistence:
     corsAllowedOriginPattern: "https:\\/\\/studio.apollographql.com|http:\\/\\/localhost:\\d+|http:\\/\\/121.0.0.1:\\d+"
     corsAllowedHeaders:

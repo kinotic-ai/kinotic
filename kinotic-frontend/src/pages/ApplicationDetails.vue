@@ -2,8 +2,6 @@
 import { Component, Vue, Watch } from 'vue-facing-decorator'
 import ProjectList from '@/components/ProjectList.vue'
 import StructuresList from '@/components/StructuresList.vue'
-import GraphQLModal from '@/components/modals/GraphQLModal.vue'
-import OpenAPIModal from '@/components/modals/OpenAPIModal.vue'
 import StructureItemModal from '@/components/modals/StructureItemModal.vue'
 import Tabs from 'primevue/tabs'
 import TabList from 'primevue/tablist'
@@ -17,8 +15,6 @@ import { isDark as darkMode } from '@/composables/useTheme'
   components: {
     ProjectList,
     StructuresList,
-    GraphQLModal,
-    OpenAPIModal,
     StructureItemModal,
     Tabs,
     TabList,
@@ -29,8 +25,6 @@ import { isDark as darkMode } from '@/composables/useTheme'
 })
 export default class ApplicationDetails extends Vue {
   activeTab: string | number  = 0
-  showGraphQLModal: boolean = false
-  showOpenAPIModal: boolean = false
   isInitialized: boolean = false
 
   get applicationId(): string {
@@ -43,10 +37,6 @@ export default class ApplicationDetails extends Vue {
 
   get structuresCount(): number {
     return APPLICATION_STATE.structuresCount ?? 0
-  }
-
-  get currentApplication() {
-    return APPLICATION_STATE.currentApplication
   }
 
   get isDark() {
@@ -97,21 +87,6 @@ export default class ApplicationDetails extends Vue {
     this.$router.replace({ query }).catch(() => {})
   }
 
-  openGraphQL(): void {
-    this.showGraphQLModal = true
-  }
-
-  closeGraphQL(): void {
-    this.showGraphQLModal = false
-  }
-
-  openOpenAPI(): void {
-    this.showOpenAPIModal = true
-  }
-
-  closeOpenAPI(): void {
-    this.showOpenAPIModal = false
-  }
 }
 </script>
 
@@ -181,8 +156,6 @@ export default class ApplicationDetails extends Vue {
       </TabPanels>
     </Tabs>
 
-    <GraphQLModal :visible="showGraphQLModal" @close="closeGraphQL" />
-    <OpenAPIModal :visible="showOpenAPIModal" @close="closeOpenAPI" />
   </div>
 </template>
 <style>

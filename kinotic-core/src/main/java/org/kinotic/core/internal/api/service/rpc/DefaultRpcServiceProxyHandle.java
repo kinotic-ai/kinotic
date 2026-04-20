@@ -1,5 +1,6 @@
 
 
+
 package org.kinotic.core.internal.api.service.rpc;
 
 import io.vertx.core.eventbus.EventBus;
@@ -19,8 +20,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
 import org.springframework.util.ReflectionUtils;
-import reactor.core.Disposable;
-import reactor.core.publisher.Flux;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -50,7 +49,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     private final EventBusService eventBusService;
 
     private final Map<Method, Integer> methodsWithScopeAnnotation = new HashMap<>();
-    private final Disposable replyEventListenerDisposable;
+    private final EventConsumer replyEventConsumer;
     private final T serviceProxy;
     private final AtomicBoolean released = new AtomicBoolean(false);
 
@@ -103,9 +102,8 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         /*
           Response handler logic to correlate response from remote service invocation's
          */
-        Flux<Event<byte[]>> eventFlux = eventBusService.listen(this.handlerCRI.raw());
-        replyEventListenerDisposable =
-                eventFlux.subscribe(event -> {
+        replyEventConsumer = eventBusService.listen(this.handlerCRI.raw());
+        replyEventConsumer.handler(event -> {
 
                     String correlationId = event.metadata().get(EventConstants.CORRELATION_ID_HEADER);
                     if(correlationId != null){
@@ -127,11 +125,9 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                     }else{
                         log.error("Received Message with no " + EventConstants.CORRELATION_ID_HEADER +" header");
                     }
-                },
-                // received error
-                throwable -> log.error("Reply Event listener error", throwable),
-                // listener complete
-                () -> log.error("Should not happen! Reply Event listener stopped for some reason!!"));
+                })
+                .exceptionHandler(throwable -> log.error("Reply Event listener error", throwable))
+                .endHandler(v -> log.error("Should not happen! Reply Event listener stopped for some reason!!"));
     }
 
     @Override
@@ -142,7 +138,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     @Override
     public void release() {
         if(released.compareAndSet(false,true)){
-            replyEventListenerDisposable.dispose();
+            replyEventConsumer.unregister();
 
             responseMap.forEach((s, returnValueHandler) -> returnValueHandler.cancel(serviceClass.getSimpleName() + " released. No further responses will be processed"));
             responseMap.clear();
@@ -204,23 +200,25 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                     public void send() {
                         // Send data to remote end to trigger service invocation
                         eventBusService.sendWithAck(rpcOutboundEvent)
-                                       .subscribe(v -> {},
-                                                  throwable -> {
-                                           // send failed, signal handler so failure can be relayed to the return value
-                                           try{
+                                       .onComplete(ar -> {
+                                           if(ar.failed()) {
+                                               // send failed, signal handler so failure can be relayed to the return value
+                                               try{
 
-                                               responseMap.remove(correlationId);
+                                                   responseMap.remove(correlationId);
 
-                                               // TODO: refactor into util, this is also done in the EndpointConnectionHandler
-                                               if (throwable instanceof ReplyException replyException) {
-                                                   if (replyException.failureType() == ReplyFailure.NO_HANDLERS) {
-                                                       throwable = new RpcMissingServiceException(throwable);
+                                                   Throwable throwable = ar.cause();
+                                                   // TODO: refactor into util, this is also done in the EndpointConnectionHandler
+                                                   if (throwable instanceof ReplyException replyException) {
+                                                       if (replyException.failureType() == ReplyFailure.NO_HANDLERS) {
+                                                           throwable = new RpcMissingServiceException(throwable);
+                                                       }
                                                    }
+                                                   handler.processError(throwable);
+                                               }catch (Exception e){
+                                                   log.error("URGENT: Unhandled exception in RpcReturnValueHandler.processError, Proxy Will be Released!!", e);
+                                                   release();
                                                }
-                                               handler.processError(throwable);
-                                           }catch (Exception e){
-                                               log.error("URGENT: Unhandled exception in RpcReturnValueHandler.processError, Proxy Will be Released!!", e);
-                                               release();
                                            }
                                        });
                     }
@@ -237,8 +235,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                             eventBusService.sendWithAck(Event.create(requestCri,
                                                                      metadata,
                                                                      null))
-                                           .doFinally(signalType -> responseMap.remove(correlationId))
-                                           .subscribe();
+                                           .onComplete(ar -> responseMap.remove(correlationId));
                         } else {
                             throw new IllegalStateException("Cancel is not supported if RpcReturnValueHandler.isMultiValue returns false");
                         }

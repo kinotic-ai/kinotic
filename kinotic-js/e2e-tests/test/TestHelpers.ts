@@ -1,5 +1,5 @@
 import {faker} from '@faker-js/faker/locale/en'
-import {CodeGenerationService} from '@kinotic-ai/kinotic-cli/dist/internal/CodeGenerationService.js'
+import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
 import {Kinotic, Direction, Order, Pageable, IterablePage, KinoticProjectConfig} from '@kinotic-ai/core'
 import {
@@ -16,8 +16,8 @@ import {
     Project
 } from '@kinotic-ai/os-api'
 import {
-    IEntityService,
-    IAdminEntityService
+    IEntityRepository,
+    IAdminEntityRepository
 } from '@kinotic-ai/persistence'
 import {Alert} from './domain/Alert.js'
 import {Person} from './domain/Person.js'
@@ -46,9 +46,9 @@ export async function initKinoticClient(): Promise<void> {
         console.log('Connecting to Kinotic at ' + host)
 
         await Kinotic.connect({
-                                    host:host,
-                                    port:port,
-                                    connectHeaders:{login: 'kinotic', passcode: 'kinotic'}
+                                    host:host as string,
+                                    port:port as number,
+                                    connectHeaders:{login: 'admin@kinotic.local', passcode: 'kinotic'}
                                 })
 
         console.log('Connected to Kinotic')
@@ -77,14 +77,17 @@ export async function createVehicleSchema(applicationId: string, projectId: stri
 
 export async function createSchema(applicationId: string, projectId: string, entityName: string): Promise<SchemaCreationResult> {
     if(!schemas.has(entityName)){
-        const codeGenerationService = new CodeGenerationService(applicationId,
+        const codeGenerationService = new EntityCodeGenerationService(applicationId,
                                                                 '.js',
                                                                 new ConsoleLogger())
 
         const config = new KinoticProjectConfig()
         config.application = applicationId
-        config.entitiesPaths = [path.resolve(__dirname, './domain')]
-        config.generatedPath = path.resolve(__dirname, './services')
+        config.entitiesPaths = [{
+            path: path.resolve(__dirname, './domain'),
+            repositoryPath: path.resolve(__dirname, './repository'),
+            mirrorFolderStructure: false
+        }]
         config.validate = false
         config.fileExtensionForImports = ''
         
@@ -107,7 +110,7 @@ export async function createSchema(applicationId: string, projectId: string, ent
                                                                                            namedQueries)
                                      }
                                      schemas.set(entityInfo.entity.name, result)
-                                 })
+                                 },true)
     }
     const result = schemas.get(entityName)
     if(!result){
@@ -292,7 +295,7 @@ export function createTestPeople(numberToCreate: number): Person[] {
     return ret
 }
 
-export async function createTestPeopleAndVerify(entityService: IEntityService<Person>,
+export async function createTestPeopleAndVerify(entityService: IEntityRepository<Person>,
                                                 numberToCreate: number): Promise<void> {
     // Create people
     const people: Person[] = createTestPeople(numberToCreate)
@@ -311,8 +314,8 @@ export function createTestPeopleWithTenant(numberToCreate: number, tenantId: str
     return ret
 }
 
-export async function createTestPeopleWithTenantAndVerify(adminEntityService: IAdminEntityService<PersonWithTenant>,
-                                                          entityService: IEntityService<PersonWithTenant>,
+export async function createTestPeopleWithTenantAndVerify(adminEntityService: IAdminEntityRepository<PersonWithTenant>,
+                                                          entityService: IEntityRepository<PersonWithTenant>,
                                                           tenantId: string,
                                                           numberToCreate: number): Promise<void> {
     // Create people
@@ -324,7 +327,7 @@ export async function createTestPeopleWithTenantAndVerify(adminEntityService: IA
     await expect(adminEntityService.count([tenantId])).resolves.toBe(numberToCreate)
 }
 
-export async function findAndVerifyPeopleWithCursorPaging(entityService: IEntityService<Person>,
+export async function findAndVerifyPeopleWithCursorPaging(entityService: IEntityRepository<Person>,
                                                           numberToExpect: number){
     let elementsFound = 0
     const pageable = Pageable.createWithCursor(null,
@@ -342,7 +345,7 @@ export async function findAndVerifyPeopleWithCursorPaging(entityService: IEntity
     expect(elementsFound, `Should have found ${numberToExpect} Entities`).toBe(numberToExpect)
 }
 
-export async function findAndVerifyPeopleWithOffsetPaging(entityService: IEntityService<Person>,
+export async function findAndVerifyPeopleWithOffsetPaging(entityService: IEntityRepository<Person>,
                                                           numberToExpect: number){
     let elementsFound = 0
     const pageable = Pageable.create(0,

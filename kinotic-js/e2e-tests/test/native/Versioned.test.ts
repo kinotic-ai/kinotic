@@ -1,6 +1,6 @@
 import {Kinotic, Page, Pageable} from '@kinotic-ai/core'
 import {EntityDefinition} from '@kinotic-ai/os-api'
-import {EntityService, IEntityService} from '@kinotic-ai/persistence'
+import {EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {Vehicle} from '../domain/Vehicle.js'
@@ -17,7 +17,7 @@ import {
 
 interface LocalTestContext {
     entityDefinition: EntityDefinition
-    entityService: IEntityService<Vehicle>
+    entityService: IEntityRepository<Vehicle>
 }
 
 describe('End To End Tests', () => {
@@ -35,7 +35,7 @@ describe('End To End Tests', () => {
     beforeEach<LocalTestContext>(async (context) => {
         context.entityDefinition = await createVehicleEntityDefinitionIfNotExist(generateRandomString(10), generateRandomString(5))
         expect(context.entityDefinition).toBeDefined()
-        context.entityService = new EntityService(context.entityDefinition.applicationId, context.entityDefinition.name)
+        context.entityService = new EntityRepository(context.entityDefinition.applicationId, context.entityDefinition.name)
         expect(context.entityService).toBeDefined()
     })  
 

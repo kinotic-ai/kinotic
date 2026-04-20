@@ -1,21 +1,21 @@
 <script setup>
 const features = [
   {
-    title: "Schema Evolution",
+    title: "Instant data layer",
     details:
-      "Structures supports schema evolution, allowing developers to modify data schemas over time without requiring significant changes to their application code.",
-    icon: "account_tree.svg",
-  },
-  {
-    title: "Data Management",
-    details:
-      "Structures provides developers with a comprehensive set of tools for managing data, including the ability to create, read, update, and delete data.",
+      "Describe your data models and Kinotic gives you a complete API with search, pagination, and real-time updates -- no endpoints to build.",
     icon: "database.svg",
   },
   {
-    title: "User-Friendly GUI",
+    title: "Security built in",
     details:
-      "Structures provides a user-friendly graphical user interface built with Continuum, as well as OpenAPI and GraphQL interfaces for interacting with data.",
+      "Fine-grained access control is part of the platform, not something you bolt on. Define who can do what in plain language and the platform enforces it everywhere.",
+    icon: "account_tree.svg",
+  },
+  {
+    title: "Ship day one",
+    details:
+      "CI/CD, observability, and deployment are included from the start. The app you prototype today is the same app you run in production.",
     icon: "touch_app.svg",
   },
 ]
@@ -26,7 +26,7 @@ const features = [
     <div class="mx-auto w-full max-w-[1440px]">
       <div class="mx-auto max-w-[1220px] text-center">
         <h2 class="font-[InterBold] text-[34px] leading-[120%] tracking-[-0.02em] text-white xl:text-[49px]">
-          Lorem ipsum dolor sit amet consectetur
+          Build Apps, Not Infrastructure
         </h2>
       </div>
 

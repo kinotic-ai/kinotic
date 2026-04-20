@@ -1,33 +1,102 @@
+{{- if eq (.Values.service.type | default "ClusterIP") "LoadBalancer" }}
+# ── External Service (LoadBalancer) ──────────────────────
+# STOMP/WebSocket only — SPA is served by Static Web Apps.
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "kinotic-server.fullname" . }}
 spec:
-  type: {{ .Values.service.type | default "LoadBalancer" }}
+  type: LoadBalancer
   sessionAffinity: ClientIP
   sessionAffinityConfig:
     clientIP:
-      timeoutSeconds: 10800  # 3 hours
+      timeoutSeconds: 10800
+  ports:
+    - name: "stomp"
+      protocol: TCP
+      port: 443
+      targetPort: {{ .Values.kinotic.stomp.port | default 58503 }}
+  selector:
+    app: {{ include "kinotic-server.name" . }}
+---
+# ── Internal Service (ClusterIP) ─────────────────────────
+# All other ports — accessible only within the cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kinotic-server.fullname" . }}-internal
+spec:
+  type: ClusterIP
   ports:
     - name: "ui"
       protocol: TCP
-      port:  {{ .Values.properties.structures.webServerPort| default 9090 }} # UI PORT
-      targetPort: {{ .Values.properties.structures.webServerPort| default 9090 }}
-    - name: "graph-ql"
-      protocol: TCP
-      port: {{ .Values.properties.structures.graphqlPort }} # GraphQL Port
-      targetPort: {{ .Values.properties.structures.graphqlPort }}
+      port: {{ .Values.kinotic.webServerPort | default 9090 }}
+      targetPort: {{ .Values.kinotic.webServerPort | default 9090 }}
     - name: "open-api"
       protocol: TCP
-      port: {{ .Values.properties.structures.openApiPort }} # OpenAPI Port
-      targetPort: {{ .Values.properties.structures.openApiPort }}
-    - name: "stomp"
+      port: {{ .Values.kinotic.openApiPort }}
+      targetPort: {{ .Values.kinotic.openApiPort }}
+    - name: "graph-ql"
       protocol: TCP
-      port: {{ .Values.continuum_gateway.stomp.port| default 58503 }} # Continuum Stomp Port
-      targetPort: {{ .Values.continuum_gateway.stomp.port| default 58503 }}
+      port: {{ .Values.kinotic.graphqlPort }}
+      targetPort: {{ .Values.kinotic.graphqlPort }}
+    - name: "stomp-internal"
+      protocol: TCP
+      port: {{ .Values.kinotic.stomp.port | default 58503 }}
+      targetPort: {{ .Values.kinotic.stomp.port | default 58503 }}
     - name: "rest"
       protocol: TCP
-      port: 58504 # Continuum REST Port
-      targetPort: 58504
+      port: {{ .Values.kinotic.restPort | default 58504 }}
+      targetPort: {{ .Values.kinotic.restPort | default 58504 }}
   selector:
     app: {{ include "kinotic-server.name" . }}
+
+{{- else }}
+# ── Single Service (ClusterIP or NodePort) ────────────────
+# All ports on one service — used for KinD and dev.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kinotic-server.fullname" . }}
+spec:
+  type: {{ .Values.service.type | default "ClusterIP" }}
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  ports:
+    - name: "ui"
+      protocol: TCP
+      port: {{ .Values.kinotic.webServerPort | default 9090 }}
+      targetPort: {{ .Values.kinotic.webServerPort | default 9090 }}
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.ui }}
+      nodePort: {{ .Values.service.nodePorts.ui }}
+      {{- end }}
+    - name: "open-api"
+      protocol: TCP
+      port: {{ .Values.kinotic.openApiPort }}
+      targetPort: {{ .Values.kinotic.openApiPort }}
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.openApi }}
+      nodePort: {{ .Values.service.nodePorts.openApi }}
+      {{- end }}
+    - name: "graph-ql"
+      protocol: TCP
+      port: {{ .Values.kinotic.graphqlPort }}
+      targetPort: {{ .Values.kinotic.graphqlPort }}
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.graphql }}
+      nodePort: {{ .Values.service.nodePorts.graphql }}
+      {{- end }}
+    - name: "stomp"
+      protocol: TCP
+      port: {{ .Values.kinotic.stomp.port | default 58503 }}
+      targetPort: {{ .Values.kinotic.stomp.port | default 58503 }}
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.stomp }}
+      nodePort: {{ .Values.service.nodePorts.stomp }}
+      {{- end }}
+    - name: "rest"
+      protocol: TCP
+      port: {{ .Values.kinotic.restPort | default 58504 }}
+      targetPort: {{ .Values.kinotic.restPort | default 58504 }}
+  selector:
+    app: {{ include "kinotic-server.name" . }}
+{{- end }}

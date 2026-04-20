@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.ErrorResponse;
 import co.elastic.clients.elasticsearch._types.FieldSort;
 import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.mapping.DynamicMapping;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
@@ -86,6 +87,33 @@ public class CrudServiceTemplate {
     public CompletableFuture<Void> createDataStream(String dataStreamName) {
         return esAsyncClient.indices().createDataStream(builder -> builder.name(dataStreamName))
                             .thenApply(response -> null);
+    }
+
+    /**
+     * Verifies that the given Elasticsearch index exists, throwing {@link IllegalStateException}
+     * if it does not. This is intended to be called from {@code @PostConstruct} methods on
+     * services that depend on a pre-existing index. A missing index typically indicates that
+     * the expected migration has not been applied.
+     *
+     * @param indexName name of the index to check
+     * @throws IllegalStateException if the index does not exist or if the existence check fails
+     */
+    public void verifyIndexExists(String indexName) {
+        try {
+            boolean exists = esAsyncClient.indices()
+                                          .exists(b -> b.index(indexName))
+                                          .get()
+                                          .value();
+            if (!exists) {
+                throw new IllegalStateException(
+                        "Elasticsearch index '" + indexName + "' does not exist. "
+                        + "Did you forget to add a migration in kinotic-migration/src/main/resources/migrations/?");
+            }
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to verify existence of index '" + indexName + "'", e);
+        }
     }
 
     /**
@@ -420,6 +448,50 @@ public class CrudServiceTemplate {
                                                  .value());
                     }
                 });
+    }
+
+    /**
+     * Indexes a document. Also allows for customization of the {@link IndexRequest}.
+     *
+     * @param indexName       name of the index
+     * @param id              of the document to index
+     * @param document        to index
+     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
+     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
+     */
+    public <T> CompletableFuture<IndexResponse> save(String indexName,
+                                                     String id,
+                                                     T document,
+                                                     Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
+            builder.index(indexName).id(id).document(document);
+            if (builderConsumer != null) {
+                builderConsumer.accept(builder);
+            }
+            return builder;
+        });
+    }
+
+    /**
+     * Indexes a document using {@link Refresh#WaitFor}, guaranteeing read-your-write
+     * semantics for subsequent queries. Also allows for customization of the {@link IndexRequest}.
+     *
+     * @param indexName       name of the index
+     * @param id              of the document to index
+     * @param document        to index
+     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
+     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
+     */
+    public <T> CompletableFuture<IndexResponse> saveSync(String indexName,
+                                                         String id,
+                                                         T document,
+                                                         Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return save(indexName, id, document, builder -> {
+            if (builderConsumer != null) {
+                builderConsumer.accept(builder);
+            }
+            builder.refresh(Refresh.WaitFor);
+        });
     }
 
     public CompletableFuture<Void> updateIndexMapping(String indexName,

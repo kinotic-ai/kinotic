@@ -18,7 +18,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.AuthenticationHandler;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.*;
-import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.internal.api.services.sql.MapParameterHolder;
 import org.kinotic.persistence.internal.utils.VertxWebUtil;
 import org.springframework.stereotype.Component;
@@ -49,7 +49,7 @@ public class OpenApiVertxRouterFactory {
 
     private final String adminApiBasePath;
     private final String apiBasePath;
-    private final EntitiesService entitiesService;
+    private final EntitiesRepository entitiesRepository;
     private final ObjectMapper objectMapper;
     private final OpenApiService openApiService;
     private final PersistenceProperties properties;
@@ -58,13 +58,13 @@ public class OpenApiVertxRouterFactory {
     private final JavaType tenantSpecificListType;
     private final Vertx vertx;
 
-    public OpenApiVertxRouterFactory(EntitiesService entitiesService,
+    public OpenApiVertxRouterFactory(EntitiesRepository entitiesRepository,
                                      ObjectMapper objectMapper,
                                      OpenApiService openApiService,
                                      PersistenceProperties properties,
                                      SecurityService securityService,
                                      Vertx vertx) {
-        this.entitiesService = entitiesService;
+        this.entitiesRepository = entitiesRepository;
         this.objectMapper = objectMapper;
         this.openApiService = openApiService;
         this.properties = properties;
@@ -154,9 +154,9 @@ public class OpenApiVertxRouterFactory {
                   String entityDefinitionId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                   handleNoReturnValue(ctx, () ->
-                          entitiesService.bulkSave(entityDefinitionId,
-                                                   new RawJson(ctx.body().buffer().getBytes()),
-                                                   new RoutingContextToEntityContextAdapter(ctx))
+                          entitiesRepository.bulkSave(entityDefinitionId,
+                                                      new RawJson(ctx.body().buffer().getBytes()),
+                                                      new RoutingContextToEntityContextAdapter(ctx))
                   );
 
               });
@@ -171,9 +171,9 @@ public class OpenApiVertxRouterFactory {
                   String entityDefinitionId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                   handleNoReturnValue(ctx, () ->
-                          entitiesService.bulkUpdate(entityDefinitionId,
-                                                     new RawJson(ctx.body().buffer().getBytes()),
-                                                     new RoutingContextToEntityContextAdapter(ctx))
+                          entitiesRepository.bulkUpdate(entityDefinitionId,
+                                                        new RawJson(ctx.body().buffer().getBytes()),
+                                                        new RoutingContextToEntityContextAdapter(ctx))
                   );
 
               });
@@ -188,9 +188,9 @@ public class OpenApiVertxRouterFactory {
                   String entityDefinitionId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                   handleWithReturnValue(ctx, () ->
-                          entitiesService.update(entityDefinitionId,
-                                                 new RawJson(ctx.body().buffer().getBytes()),
-                                                 new RoutingContextToEntityContextAdapter(ctx))
+                          entitiesRepository.update(entityDefinitionId,
+                                                    new RawJson(ctx.body().buffer().getBytes()),
+                                                    new RoutingContextToEntityContextAdapter(ctx))
                   );
 
               });
@@ -205,9 +205,9 @@ public class OpenApiVertxRouterFactory {
                   String entityDefinitionId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                   handleWithReturnValue(ctx, () ->
-                          entitiesService.save(entityDefinitionId,
-                                               new RawJson(ctx.body().buffer().getBytes()),
-                                               new RoutingContextToEntityContextAdapter(ctx))
+                          entitiesRepository.save(entityDefinitionId,
+                                                  new RawJson(ctx.body().buffer().getBytes()),
+                                                  new RoutingContextToEntityContextAdapter(ctx))
                   );
 
               });
@@ -219,8 +219,8 @@ public class OpenApiVertxRouterFactory {
                   String entityDefinitionId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                   handleNoReturnValue(ctx, () ->
-                          entitiesService.syncIndex(entityDefinitionId,
-                                                    new RoutingContextToEntityContextAdapter(ctx))
+                          entitiesRepository.syncIndex(entityDefinitionId,
+                                                       new RoutingContextToEntityContextAdapter(ctx))
                   );
 
               });
@@ -241,9 +241,9 @@ public class OpenApiVertxRouterFactory {
                       String entityDefinitionId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                       handleNoReturnValue(ctx, () ->
-                              entitiesService.deleteById(entityDefinitionId,
-                                                         TenantSpecificId.create(id, tenantID),
-                                                         new RoutingContextToEntityContextAdapter(ctx))
+                              entitiesRepository.deleteById(entityDefinitionId,
+                                                            TenantSpecificId.create(id, tenantID),
+                                                            new RoutingContextToEntityContextAdapter(ctx))
                       );
 
                   });
@@ -258,9 +258,9 @@ public class OpenApiVertxRouterFactory {
                       String entityDefinitionId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                       handleNoReturnValue(ctx, () ->
-                              entitiesService.deleteById(entityDefinitionId,
-                                                         id,
-                                                         new RoutingContextToEntityContextAdapter(ctx))
+                              entitiesRepository.deleteById(entityDefinitionId,
+                                                            id,
+                                                            new RoutingContextToEntityContextAdapter(ctx))
                       );
                   });
         }
@@ -278,9 +278,9 @@ public class OpenApiVertxRouterFactory {
                   query = extractQueryAndTenantSelectionIfNeeded(ctx.body(), ec, admin);
 
                   handleNoReturnValue(ctx, () ->
-                          entitiesService.deleteByQuery(entityDefinitionId,
-                                                        query,
-                                                        ec)
+                          entitiesRepository.deleteByQuery(entityDefinitionId,
+                                                           query,
+                                                           ec)
                   );
               });
     }
@@ -298,11 +298,11 @@ public class OpenApiVertxRouterFactory {
                   try {
 
                       handleWithReturnValue(ctx, () ->
-                              entitiesService.namedQuery(entityDefinitionId,
-                                                         queryName,
-                                                         extractParameters(ctx),
-                                                         RawJson.class,
-                                                         new RoutingContextToEntityContextAdapter(ctx))
+                              entitiesRepository.namedQuery(entityDefinitionId,
+                                                            queryName,
+                                                            extractParameters(ctx),
+                                                            RawJson.class,
+                                                            new RoutingContextToEntityContextAdapter(ctx))
                       );
 
                   } catch (JacksonException e) {
@@ -323,12 +323,12 @@ public class OpenApiVertxRouterFactory {
                   try {
 
                       handleWithReturnValue(ctx, () ->
-                              entitiesService.namedQueryPage(entityDefinitionId,
-                                                             queryName,
-                                                             extractParameters(ctx),
-                                                             pageable,
-                                                             RawJson.class,
-                                                             new RoutingContextToEntityContextAdapter(ctx))
+                              entitiesRepository.namedQueryPage(entityDefinitionId,
+                                                                queryName,
+                                                                extractParameters(ctx),
+                                                                pageable,
+                                                                RawJson.class,
+                                                                new RoutingContextToEntityContextAdapter(ctx))
                       );
 
                   } catch (JacksonException e) {
@@ -362,10 +362,10 @@ public class OpenApiVertxRouterFactory {
                 }
 
                 handleWithReturnValue(ctx, () ->
-                        entitiesService.findAll(entityDefinitionId,
-                                                pageable,
-                                                FastestType.class,
-                                                ec)
+                        entitiesRepository.findAll(entityDefinitionId,
+                                                   pageable,
+                                                   FastestType.class,
+                                                   ec)
                 );
 
             } catch (JacksonException e) {
@@ -387,10 +387,10 @@ public class OpenApiVertxRouterFactory {
                       String entityDefinitionId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                       handleWithReturnValue(ctx, () ->
-                                                    entitiesService.findById(entityDefinitionId,
-                                                                             TenantSpecificId.create(id, tenantID),
-                                                                             FastestType.class,
-                                                                             new RoutingContextToEntityContextAdapter(ctx))
+                                                    entitiesRepository.findById(entityDefinitionId,
+                                                                                TenantSpecificId.create(id, tenantID),
+                                                                                FastestType.class,
+                                                                                new RoutingContextToEntityContextAdapter(ctx))
                               , true);
                   });
         }else {
@@ -405,10 +405,10 @@ public class OpenApiVertxRouterFactory {
                       String entityDefinitionId = VertxWebUtil.validateAndReturnEntityDefinitionId(ctx);
 
                       handleWithReturnValue(ctx, () ->
-                                                    entitiesService.findById(entityDefinitionId,
-                                                                             id,
-                                                                             FastestType.class,
-                                                                             new RoutingContextToEntityContextAdapter(ctx))
+                                                    entitiesRepository.findById(entityDefinitionId,
+                                                                                id,
+                                                                                FastestType.class,
+                                                                                new RoutingContextToEntityContextAdapter(ctx))
                               , true);
 
                   });
@@ -435,8 +435,8 @@ public class OpenApiVertxRouterFactory {
                 }
 
                 handleWithCount(ctx, () ->
-                        entitiesService.count(entityDefinitionId,
-                                              ec)
+                        entitiesRepository.count(entityDefinitionId,
+                                                 ec)
                 );
 
             } catch (JacksonException e) {
@@ -458,9 +458,9 @@ public class OpenApiVertxRouterFactory {
                   query = extractQueryAndTenantSelectionIfNeeded(ctx.body(), ec, admin);
 
                   handleWithCount(ctx, () ->
-                          entitiesService.countByQuery(entityDefinitionId,
-                                                       query,
-                                                       ec)
+                          entitiesRepository.countByQuery(entityDefinitionId,
+                                                          query,
+                                                          ec)
                   );
 
               });
@@ -478,19 +478,19 @@ public class OpenApiVertxRouterFactory {
                           List<TenantSpecificId> ids = this.objectMapper.readValue(ctx.body().buffer().getBytes(), tenantSpecificListType);
 
                           handleWithReturnValue(ctx, () ->
-                                  entitiesService.findByIdsWithTenant(entityDefinitionId,
-                                                                      ids,
-                                                                      FastestType.class,
-                                                                      new RoutingContextToEntityContextAdapter(ctx))
+                                  entitiesRepository.findByIdsWithTenant(entityDefinitionId,
+                                                                         ids,
+                                                                         FastestType.class,
+                                                                         new RoutingContextToEntityContextAdapter(ctx))
                           );
 
                       }else {
                           List<String> ids = this.objectMapper.readValue(ctx.body().buffer().getBytes(), stringListType);
 
-                          handleWithReturnValue(ctx, () -> entitiesService.findByIds(entityDefinitionId,
-                                                                                     ids,
-                                                                                     FastestType.class,
-                                                                                     new RoutingContextToEntityContextAdapter(ctx))
+                          handleWithReturnValue(ctx, () -> entitiesRepository.findByIds(entityDefinitionId,
+                                                                                        ids,
+                                                                                        FastestType.class,
+                                                                                        new RoutingContextToEntityContextAdapter(ctx))
                           );
                       }
                   } catch (JacksonException e) {
@@ -513,11 +513,11 @@ public class OpenApiVertxRouterFactory {
                   query = extractQueryAndTenantSelectionIfNeeded(ctx.body(), ec, admin);
 
                   handleWithReturnValue(ctx, () ->
-                          entitiesService.search(entityDefinitionId,
-                                                 query,
-                                                 pageable,
-                                                 FastestType.class,
-                                                 ec)
+                          entitiesRepository.search(entityDefinitionId,
+                                                    query,
+                                                    pageable,
+                                                    FastestType.class,
+                                                    ec)
                   );
               });
     }

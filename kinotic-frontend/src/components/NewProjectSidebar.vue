@@ -7,7 +7,6 @@ import { APPLICATION_STATE } from '@/states/IApplicationState';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
 import Button from 'primevue/button';
-import Select from 'primevue/select';
 import { createDebug } from '@/util/debug';
 import { isDark as darkMode } from '@/composables/useTheme'
 
@@ -16,16 +15,13 @@ const debug = createDebug('new-project-sidebar');
 interface ProjectForm {
     name: string;
     description: string;
-    source: 'GUI' | 'Code';
-    language: ProjectType | null;
 }
 
 @Component({
     components: {
         InputText,
         Textarea,
-        Button,
-        Select
+        Button
     }
 })
 export default class NewProjectSidebar extends Vue {
@@ -33,22 +29,13 @@ export default class NewProjectSidebar extends Vue {
 
     form: ProjectForm = {
         name: '',
-        description: '',
-        source: 'GUI',
-        language: null
+        description: ''
     };
 
     loading = false;
 
     get isDark() {
         return darkMode.value;
-    }
-
-    get languageOptions() {
-        return [
-            { label: 'TypeScript', value: ProjectType.TYPESCRIPT },
-            { label: 'GraphQL', value: ProjectType.GRAPHQL }
-        ];
     }
 
     get inputClass() {
@@ -67,15 +54,7 @@ export default class NewProjectSidebar extends Vue {
             if (!app) throw new Error('No current application selected');
 
             const project = new Project(null, app.id, this.form.name, this.form.description);
-
-            if (this.form.source === 'GUI') {
-                project.sourceOfTruth = ProjectType.GRAPHICAL;
-            } else if (this.form.source === 'Code') {
-                if (this.form.language === null) {
-                    throw new Error('Please select a language for Code projects.');
-                }
-                project.sourceOfTruth = this.form.language;
-            }
+            project.sourceOfTruth = ProjectType.TYPESCRIPT;
 
             const createdProject = await Kinotic.projects.create(project);
 
@@ -109,9 +88,7 @@ export default class NewProjectSidebar extends Vue {
     private resetForm(): void {
         this.form = {
             name: '',
-            description: '',
-            source: 'GUI',
-            language: null
+            description: ''
         };
     }
 }

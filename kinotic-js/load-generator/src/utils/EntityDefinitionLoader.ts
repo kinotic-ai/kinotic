@@ -14,7 +14,7 @@ export class EntityDefinitionLoader {
     constructor(
         private readonly namespace: string,
         private readonly entitiesPath: string,
-        private readonly generatedPath: string
+        private readonly repositoryPath: string
     ) {
         this.logger = new ConsoleLogger()
     }
@@ -28,7 +28,7 @@ export class EntityDefinitionLoader {
                 this.generator = new EntityDefinitionGenerator(
                     this.namespace,
                     this.entitiesPath,
-                    this.generatedPath
+                    this.repositoryPath
                 )
             }
             return this.generator.generateDefinitions()

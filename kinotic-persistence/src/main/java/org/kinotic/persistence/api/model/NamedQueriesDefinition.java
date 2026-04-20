@@ -9,6 +9,7 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.os.api.model.OrganizationScoped;
 
 import java.util.List;
 
@@ -20,9 +21,11 @@ import java.util.List;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class NamedQueriesDefinition implements Identifiable<String> {
+public class NamedQueriesDefinition implements OrganizationScoped<String> {
 
     private String id = null;
+
+    private String organizationId = null;
 
     /**
      * The id of the application that this EntityDefinition belongs to.

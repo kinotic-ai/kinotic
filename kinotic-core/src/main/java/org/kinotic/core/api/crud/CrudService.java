@@ -18,6 +18,16 @@ public interface CrudService<T, ID> {
     CompletableFuture<T> save(T entity);
 
     /**
+     * Saves a given entity and waits for the changes to be visible in search results before returning.
+     * Use this when you need read-your-write consistency.
+     *
+     * @param entity must not be {@literal null}
+     * @return {@link CompletableFuture} emitting the saved entity after it is searchable
+     * @throws IllegalArgumentException in case the given {@literal entity} is {@literal null}
+     */
+    CompletableFuture<T> saveSync(T entity);
+
+    /**
      * Retrieves an entity by its id.
      *
      * @param id must not be {@literal null}
@@ -58,4 +68,12 @@ public interface CrudService<T, ID> {
      * @return a page of entities
      */
     CompletableFuture<Page<T>> search(String searchText, Pageable pageable);
+
+    /**
+     * Forces a refresh of the underlying index, making all recent writes immediately available for search.
+     * This should only be used in test or batch-load scenarios.
+     *
+     * @return {@link CompletableFuture} signaling when the index has been refreshed
+     */
+    CompletableFuture<Void> syncIndex();
 }

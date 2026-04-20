@@ -1,9 +1,8 @@
 package org.kinotic.os.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.Refresh;
 
-
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
@@ -22,6 +21,11 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     protected final Class<T> type;
     protected final ElasticsearchAsyncClient esAsyncClient;
     protected final CrudServiceTemplate crudServiceTemplate;
+
+    @PostConstruct
+    public void verifyIndexExists() {
+        crudServiceTemplate.verifyIndexExists(indexName);
+    }
 
     @Override
     public CompletableFuture<Long> count() {
@@ -46,12 +50,26 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @Override
     public CompletableFuture<T> save(T entity) {
-        return esAsyncClient.index(i -> i
-                .index(indexName)
-                .id(entity.getId())
-                .document(entity)
-                .refresh(Refresh.True))
-                .thenCompose(indexResponse -> findById(indexResponse.id()));
+        return crudServiceTemplate.save(indexName, entity.getId(), entity, null)
+                                  .thenCompose(indexResponse -> findById(indexResponse.id()));
+    }
+
+    @Override
+    public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
+        return crudServiceTemplate.search(indexName, pageable, type, builder -> builder.q(searchText));
+    }
+
+    @Override
+    public CompletableFuture<Void> syncIndex() {
+        return esAsyncClient.indices()
+                            .refresh(b -> b.index(indexName))
+                            .thenApply(unused -> null);
+    }
+
+    @Override
+    public CompletableFuture<T> saveSync(T entity) {
+        return crudServiceTemplate.saveSync(indexName, entity.getId(), entity, null)
+                                  .thenCompose(indexResponse -> findById(indexResponse.id()));
     }
 
 }

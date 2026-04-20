@@ -81,6 +81,16 @@ public class KinoticProperties {
      */
     private long maxOffHeapMemory = DataStorageConfiguration.DFLT_DATA_REGION_MAX_SIZE;
 
+    /**
+     * SSL/TLS configuration for all Vert.x HTTP servers.
+     */
+    private SslProperties ssl = new SslProperties();
+
+    /**
+     * Secret storage configuration. If null, an in-memory backend is used.
+     */
+    private SecretStorageSettings secretStorage;
+
     private long sessionTimeout = DEFAULT_SESSION_TIMEOUT;
 
     public void setMaxNumberOfCoresToUse(int maxNumberOfCoresToUse) {

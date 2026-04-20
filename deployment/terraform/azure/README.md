@@ -1,263 +1,163 @@
-# Azure VM with Nested Virtualization - Terraform Configuration
+# Azure Deployment
 
-This Terraform configuration deploys an Azure VM with nested virtualization enabled, configured to run Ubuntu guest VMs using KVM.
+Three separate terraform roots — **global** (persistent), **cluster** (disposable), **frontend** (independent).
 
-## Prerequisites
+## Directory Structure
 
-- [Terraform](https://www.terraform.io/downloads) >= 1.5.0
-- Azure CLI installed (recommended) or Azure credentials configured
-- Appropriate Azure subscription and permissions
+```
+deployment/terraform/azure/
+├── global/                    # DNS, Entra ID — apply once, never destroy
+│   ├── main.tf
+│   └── terraform.tfvars
+├── cluster/                   # AKS, K8s resources — destroy and rebuild freely
+│   ├── main.tf
+│   ├── helm.tf
+│   ├── tls.tf
+│   ├── dns.tf
+│   ├── kinotic.tf
+│   ├── observability.tf
+│   ├── nodepools.tf
+│   ├── firecracker.tf
+│   ├── load-generator.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   ├── terraform.tfvars
+│   ├── config/
+│   └── helm/
+├── frontend/                  # Static Web App for SPA — deploy independently
+│   ├── main.tf
+│   ├── deploy.sh
+│   └── terraform.tfvars
+├── modules/                   # Shared modules (identity, networking, aks, firecracker)
+├── bootstrap-state.sh         # One-time state storage setup
+├── OPS.md                     # Day-2 operations
+├── TROUBLESHOOTING.md         # Common errors and fixes
+├── PRODUCTION.md              # Production readiness checklist
+└── COST.md                    # Cost projections
+```
 
-## Azure Authentication
+## First-Time Setup
 
-The Azure Terraform provider supports multiple authentication methods. Choose the one that best fits your use case:
+### 1. Prerequisites
 
-### Option 1: Azure CLI Authentication (Recommended for Local Development)
+```bash
+brew install azure-cli terraform kubectl helm jq
+brew install Azure/kubelogin/kubelogin
+az login
+```
 
-This is the simplest method for local development:
+### 2. Bootstrap state storage
 
-1. **Install Azure CLI** (if not already installed):
-   ```bash
-   # On Ubuntu/Debian
-   curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-   
-   # On macOS
-   brew install azure-cli
-   
-   # On Windows
-   # Download from https://aka.ms/installazurecliwindows
-   ```
+```bash
+cd deployment/terraform/azure
+./bootstrap-state.sh
+```
 
-2. **Login to Azure**:
-   ```bash
-   az login
-   ```
-   
-   This will open a browser window for you to authenticate. After successful login, you'll see your subscription information.
+### 3. Deploy global resources (once)
 
-3. **Set your subscription** (if you have multiple subscriptions):
-   ```bash
-   # List available subscriptions
-   az account list --output table
-   
-   # Set the active subscription
-   az account set --subscription "Your-Subscription-Name-or-ID"
-   ```
+```bash
+cd global
+terraform init
+terraform apply
+```
 
-4. **Verify authentication**:
-   ```bash
-   az account show
-   ```
+This creates the DNS zone and Entra ID app registrations. Copy the nameservers
+to your domain registrar:
 
-The Terraform Azure provider will automatically use your Azure CLI credentials when you run `terraform plan` or `terraform apply`.
+```bash
+terraform output dns_nameservers
+dig NS kinotic.ai  # verify propagation
+```
 
-### Option 2: Service Principal with Client ID and Secret
+### 4. Deploy cluster
 
-This is recommended for CI/CD pipelines and automation:
+```bash
+cd ../cluster
 
-1. **Create a Service Principal**:
-   ```bash
-   az ad sp create-for-rbac --role="Contributor" --scopes="/subscriptions/YOUR_SUBSCRIPTION_ID"
-   ```
+# Get your principal object ID
+az ad signed-in-user show --query id -o tsv
+```
 
-   This command outputs JSON with:
-   - `appId` (Client ID)
-   - `password` (Client Secret)
-   - `tenant` (Tenant ID)
-
-2. **Set Environment Variables**:
-   ```bash
-   export ARM_CLIENT_ID="your-app-id"
-   export ARM_CLIENT_SECRET="your-client-secret"
-   export ARM_SUBSCRIPTION_ID="your-subscription-id"
-   export ARM_TENANT_ID="your-tenant-id"
-   ```
-
-   Or create a `.env` file and source it:
-   ```bash
-   # .env file
-   export ARM_CLIENT_ID="your-app-id"
-   export ARM_CLIENT_SECRET="your-client-secret"
-   export ARM_SUBSCRIPTION_ID="your-subscription-id"
-   export ARM_TENANT_ID="your-tenant-id"
-   
-   # Source it
-   source .env
-   ```
-
-### Option 3: Service Principal with Client Certificate
-
-For certificate-based authentication:
-
-1. **Create a Service Principal with certificate**:
-   ```bash
-   az ad sp create-for-rbac --name "terraform-sp" --create-cert
-   ```
-
-2. **Set Environment Variables**:
-   ```bash
-   export ARM_CLIENT_ID="your-app-id"
-   export ARM_CLIENT_CERTIFICATE_PATH="/path/to/certificate.pfx"
-   export ARM_CLIENT_CERTIFICATE_PASSWORD="certificate-password"
-   export ARM_SUBSCRIPTION_ID="your-subscription-id"
-   export ARM_TENANT_ID="your-tenant-id"
-   ```
-
-### Option 4: Configure in Terraform Provider Block
-
-You can also configure credentials directly in the provider block (not recommended for production):
+Create `local.auto.tfvars` (gitignored):
 
 ```hcl
-provider "azurerm" {
-  features {}
-  
-  subscription_id = "your-subscription-id"
-  tenant_id       = "your-tenant-id"
-  client_id       = "your-client-id"
-  client_secret   = "your-client-secret"
-}
+terraform_principal_object_id = "<paste-id>"
+lets_encrypt_email            = "<your-email>"
 ```
 
-**Note**: Hardcoding credentials in Terraform files is a security risk. Use environment variables or Azure CLI instead.
-
-### Required Permissions
-
-Your Azure account or Service Principal needs the following permissions:
-- **Contributor** role (recommended) - Allows creating, updating, and deleting resources
-- Or at minimum:
-  - Virtual Machine Contributor
-  - Network Contributor
-  - Storage Account Contributor
-
-### Verify Authentication
-
-Test your authentication setup:
-
 ```bash
-# Using Azure CLI
-az account show
-
-# Using Terraform (should not error)
-cd terraform/azure
 terraform init
-terraform plan
+terraform apply
 ```
 
-## Usage
-
-1. **Navigate to the Azure directory**:
-   ```bash
-   cd terraform/azure
-   ```
-
-2. **Initialize Terraform**:
-   ```bash
-   terraform init
-   ```
-
-3. **Review and customize variables** (optional):
-   ```bash
-   # Edit variables.tf or use terraform.tfvars
-   cat > terraform.tfvars <<EOF
-   location            = "eastus"
-   resource_group_name = "my-kinotic-rg"
-   vm_name             = "my-vm"
-   vm_size             = "Standard_D4s_v3"
-   admin_username      = "azureuser"
-   EOF
-   ```
-
-4. **Plan the deployment**:
-   ```bash
-   terraform plan
-   ```
-
-5. **Apply the configuration**:
-   ```bash
-   terraform apply
-   ```
-
-6. **Get connection information**:
-   ```bash
-   terraform output ssh_command
-   terraform output vm_public_ip
-   ```
-
-## Verify Nested Virtualization
-
-After the VM is deployed, connect via SSH and verify nested virtualization:
+### 5. Get kubectl access
 
 ```bash
-# Connect to the VM
-ssh -i azure-vm-key-*.pem azureuser@<public-ip>
-
-# Check for virtualization extensions
-grep -c vmx /proc/cpuinfo
-# Should return a number > 0
-
-# For AMD processors
-grep -c svm /proc/cpuinfo
-
-# Check KVM status
-kvm-ok
-# Should indicate "KVM acceleration can be used"
-
-# Check libvirt
-sudo systemctl status libvirtd
-virsh list --all
+az aks get-credentials --resource-group rg-kinotic-production --name aks-kinotic-production
+kubelogin convert-kubeconfig -l azurecli
+kubectl get nodes
 ```
 
-## Creating Ubuntu Guest VMs
-
-Once nested virtualization is verified, you can create Ubuntu guest VMs using:
+## Teardown and Rebuild
 
 ```bash
-# Using virt-install
-sudo virt-install \
-  --name ubuntu-guest \
-  --ram 2048 \
-  --disk path=/var/lib/libvirt/images/ubuntu-guest.qcow2,size=20 \
-  --vcpus 2 \
-  --os-type linux \
-  --os-variant ubuntu22.04 \
-  --network network=default \
-  --graphics none \
-  --console pty,target_type=serial \
-  --location 'http://archive.ubuntu.com/ubuntu/dists/jammy/main/installer-amd64/' \
-  --extra-args 'console=ttyS0,115200n8 serial'
-```
-
-Or use `virt-manager` GUI (via X11 forwarding) for a graphical interface.
-
-## Troubleshooting Authentication Issues
-
-### Issue: "Azure CLI not found"
-**Solution**: Install Azure CLI or use environment variables for Service Principal authentication.
-
-### Issue: "No subscription found"
-**Solution**: 
-```bash
-az login
-az account list --output table
-az account set --subscription "Your-Subscription-ID"
-```
-
-### Issue: "Insufficient permissions"
-**Solution**: Ensure your account has Contributor role or equivalent permissions:
-```bash
-az role assignment list --assignee $(az account show --query user.name -o tsv) --scope /subscriptions/YOUR_SUBSCRIPTION_ID
-```
-
-### Issue: "Invalid client secret"
-**Solution**: Regenerate the Service Principal secret:
-```bash
-az ad sp credential reset --name "your-service-principal-name"
-```
-
-## Cleanup
-
-To destroy all resources:
-
-```bash
+# Destroy cluster (takes ~10 min)
+cd cluster
 terraform destroy
+
+# Rebuild
+terraform apply
 ```
+
+Global resources (DNS zone, Entra ID apps) are untouched. The cluster reads
+from global state via `terraform_remote_state`. No imports, no state surgery.
+
+## Deploy Frontend (SPA)
+
+```bash
+cd frontend
+terraform init
+terraform apply     # creates Static Web App + DNS CNAME (first time only)
+./deploy.sh         # build + deploy SPA (run after every frontend change)
+```
+
+## Deploy Options
+
+```bash
+cd cluster
+
+# Beta (default)
+terraform apply
+
+# With load generator
+terraform apply -var="enable_load_generator=true"
+
+# With Firecracker VMs
+terraform apply -var="enable_firecracker=true"
+
+# Scale to production
+terraform apply -var="beta_mode=false"
+```
+
+## What's Where
+
+| Resource | Terraform | Lifecycle |
+|---|---|---|
+| DNS zone (kinotic.ai) | `global/` | Permanent |
+| Entra ID App Registrations | `global/` | Permanent |
+| AKS cluster + node pools | `cluster/` | Disposable |
+| VNet, subnet, identities | `cluster/` | Disposable |
+| cert-manager + TLS cert | `cluster/` | Disposable (re-issued on rebuild) |
+| Elasticsearch + ECK | `cluster/` | Disposable (data lost on destroy) |
+| kinotic-server | `cluster/` | Disposable |
+| Observability (Loki, Alloy, Grafana) | `cluster/` | Disposable |
+| Firecracker VMs | `cluster/` | Disposable |
+| Static Web App (SPA) | `frontend/` | Independent |
+| portal.kinotic.ai CNAME | `frontend/` | Independent |
+
+## Additional Docs
+
+- [OPS.md](OPS.md) — Day-2 operations (scaling, upgrades, certs)
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — Common errors and fixes
+- [PRODUCTION.md](PRODUCTION.md) — Production readiness checklist
+- [COST.md](COST.md) — Cost projections (~$573/mo beta, ~$2,025/mo production)
