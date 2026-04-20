@@ -13,6 +13,7 @@ import UnionNode from "@/components/nodes/UnionNode.vue";
 
 import "@vue-flow/core/dist/style.css";
 import "@vue-flow/core/dist/theme-default.css";
+import { isDark as darkMode } from '@/composables/useTheme';
 
 @Component({
   components: {
@@ -37,6 +38,10 @@ export default class StructureItemModal extends Vue {
   onHide() {
     this.visible = false;
     this.closeModal();
+  }
+
+  get isDark(): boolean {
+    return darkMode.value;
   }
 
   get nodeTypes() {
