@@ -4,7 +4,7 @@
 
 Kinotic is a next-generation cloud operating system that abstracts away infrastructure complexity so developers and AI agents can focus on what matters: building great applications.
 
-## Vibe Coding at Scale
+## Humane Representation of Thought
 
 The rise of AI-assisted development has unlocked a new paradigm -- rapid iteration driven by natural-language intent and intelligent code generation. Kinotic is purpose-built for this paradigm. Whether a human developer or an AI agent is writing the code, Kinotic provides the guardrails, services, and runtime that turn quick prototypes into production-grade systems.
 
