@@ -9,6 +9,8 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Internal DAO for {@link EntityDefinition} persistence. Extends {@link ProjectScopedCrudService}
+ * Created by Navíd Mitchell 🤪on 6/25/23.
+ * <p>
  * so standard application- and project-scoped queries are inherited. Exists as a separate interface
  * from {@link org.kinotic.persistence.api.services.EntityDefinitionService} to break circular
  * Spring bean references between the definition service and the entity service cache.
