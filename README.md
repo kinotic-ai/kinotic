@@ -1,6 +1,6 @@
 # 🌀 Kinotic
 
-### **Vibe Coding at Scale**
+### **Humane Representation of Thought**
 
 Kinotic is a next-generation Operating System for the Cloud. Just as traditional OSs (like Linux or Windows) abstracted away the complexity of hardware, **Kinotic OS abstracts away the complexity of modern cloud-based applications.** We believe that by removing the friction of infrastructure, networking, and deployment, we enable AI to rapidly prototype and build enterprise-grade applications that can operate at internet scale.
 
