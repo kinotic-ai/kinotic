@@ -21,14 +21,8 @@ import java.util.function.Supplier;
 @Component
 public class SecurityContext {
 
-    private final ContextLocal<Participant> participantLocal;
-    private final ContextLocal<Boolean> elevatedAccessLocal;
-
-    public SecurityContext(ContextLocal<Participant> participantLocal,
-                           ContextLocal<Boolean> elevatedAccessLocal) {
-        this.participantLocal = participantLocal;
-        this.elevatedAccessLocal = elevatedAccessLocal;
-    }
+    private static final ContextLocal<Participant> PARTICIPANT_LOCAL = ContextLocal.registerLocal(Participant.class);
+    private static final ContextLocal<Boolean> ELEVATED_ACCESS_LOCAL = ContextLocal.registerLocal(Boolean.class);
 
     /**
      * Returns the {@link Participant} for the current Vert.x context, or null if none is set.
@@ -36,7 +30,7 @@ public class SecurityContext {
     public Participant currentParticipant() {
         Context context = Vertx.currentContext();
         if (context != null) {
-            return context.getLocal(participantLocal);
+            return context.getLocal(PARTICIPANT_LOCAL);
         }
         return null;
     }
@@ -45,7 +39,7 @@ public class SecurityContext {
      * Sets the {@link Participant} on the given Vert.x context.
      */
     public void setParticipant(Context context, Participant participant) {
-        context.putLocal(participantLocal, participant);
+        context.putLocal(PARTICIPANT_LOCAL, participant);
     }
 
     /**
@@ -57,7 +51,7 @@ public class SecurityContext {
     public boolean isElevatedAccess() {
         Context context = Vertx.currentContext();
         if (context != null) {
-            Boolean elevated = context.getLocal(elevatedAccessLocal);
+            Boolean elevated = context.getLocal(ELEVATED_ACCESS_LOCAL);
             return elevated != null && elevated;
         }
         return false;
@@ -74,11 +68,11 @@ public class SecurityContext {
     public <T> CompletableFuture<T> withElevatedAccess(Supplier<CompletableFuture<T>> supplier) {
         Context ctx = Vertx.currentContext();
         if (ctx != null) {
-            ctx.putLocal(elevatedAccessLocal, true);
+            ctx.putLocal(ELEVATED_ACCESS_LOCAL, true);
         }
         return supplier.get().whenComplete((result, err) -> {
             if (ctx != null) {
-                ctx.putLocal(elevatedAccessLocal, false);
+                ctx.putLocal(ELEVATED_ACCESS_LOCAL, false);
             }
         });
     }
