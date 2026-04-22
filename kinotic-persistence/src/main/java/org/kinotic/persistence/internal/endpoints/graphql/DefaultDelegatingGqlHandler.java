@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
+import org.kinotic.persistence.internal.endpoints.graphql.GqlSchemaHandlerCacheLoader.GqlCacheKey;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -21,11 +22,11 @@ import java.time.Duration;
 @Component
 public class DefaultDelegatingGqlHandler implements DelegatingGqlHandler {
 
-    private final AsyncLoadingCache<String, GraphQLHandler> graphQLHandlerCache;
+    private final AsyncLoadingCache<GqlCacheKey, GraphQLHandler> graphQLHandlerCache;
 
     public DefaultDelegatingGqlHandler(GqlSchemaHandlerCacheLoader gqlSchemaHandlerCacheLoader,
                                        DefaultCaffeineCacheFactory cacheFactory) {
-        graphQLHandlerCache = cacheFactory.<String, GraphQLHandler>newBuilder()
+        graphQLHandlerCache = cacheFactory.<GqlCacheKey, GraphQLHandler>newBuilder()
                 .name("graphQLHandlerCache")
                 .expireAfterAccess(Duration.ofHours(20))
                 .maximumSize(2000)
@@ -42,9 +43,9 @@ public class DefaultDelegatingGqlHandler implements DelegatingGqlHandler {
     @EventListener
     public void handleCacheEviction(CacheEvictionEvent cacheEvictionEvent) {
         try {
-
-            if (cacheEvictionEvent.getApplicationId() != null) {
-                graphQLHandlerCache.asMap().remove(cacheEvictionEvent.getApplicationId());
+            if (cacheEvictionEvent.getApplicationId() != null && cacheEvictionEvent.getOrganizationId() != null) {
+                graphQLHandlerCache.asMap().remove(
+                        new GqlCacheKey(cacheEvictionEvent.getOrganizationId(), cacheEvictionEvent.getApplicationId()));
             }
         } catch (Exception e) {
             log.error("Failed to handle cache eviction (source: {})",
@@ -54,9 +55,10 @@ public class DefaultDelegatingGqlHandler implements DelegatingGqlHandler {
 
     @Override
     public void handle(RoutingContext rc) {
+        String organization = rc.pathParam(GqlVerticle.ORGANIZATION_PATH_PARAMETER);
         String application = rc.pathParam(GqlVerticle.APPLICATION_PATH_PARAMETER);
 
-        Future.fromCompletionStage(graphQLHandlerCache.get(application),
+        Future.fromCompletionStage(graphQLHandlerCache.get(new GqlCacheKey(organization, application)),
                 rc.vertx().getOrCreateContext())
                 .map(graphQLHandler -> {
                     graphQLHandler.handle(rc);

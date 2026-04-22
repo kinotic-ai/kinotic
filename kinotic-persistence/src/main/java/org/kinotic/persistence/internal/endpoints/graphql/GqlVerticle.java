@@ -21,6 +21,7 @@ import org.kinotic.persistence.internal.utils.VertxWebUtil;
 @RequiredArgsConstructor
 public class GqlVerticle extends VerticleBase {
 
+    public static final String ORGANIZATION_PATH_PARAMETER = "organization";
     public static final String APPLICATION_PATH_PARAMETER = "structureApplication";
 
     private final DelegatingGqlHandler gqlHandler;
@@ -44,7 +45,7 @@ public class GqlVerticle extends VerticleBase {
             router.route().handler(new AuthenticationHandler(securityService, securityContext, vertx));
         }
 
-        router.post(properties.getGraphqlPath()+":"+APPLICATION_PATH_PARAMETER)
+        router.post(properties.getGraphqlPath() + ":" + ORGANIZATION_PATH_PARAMETER + "/:" + APPLICATION_PATH_PARAMETER)
               .consumes("application/json")
               .consumes("application/graphql")
               .produces("application/json")

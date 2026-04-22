@@ -53,7 +53,9 @@ import static graphql.schema.GraphQLObjectType.newObject;
  */
 @Component
 @RequiredArgsConstructor
-public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, GraphQLHandler> {
+public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<GqlSchemaHandlerCacheLoader.GqlCacheKey, GraphQLHandler> {
+
+    public record GqlCacheKey(String organizationId, String applicationId) {}
 
     private static final Logger log = LoggerFactory.getLogger(GqlSchemaHandlerCacheLoader.class);
     private static final EntitiesTypeResolver ENTITIES_TYPE_RESOLVER = new EntitiesTypeResolver();
@@ -87,17 +89,17 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
     private final GqlOperationDefinitionService gqlOperationDefinitionService;
 
     @Override
-    public CompletableFuture<GraphQLHandler> asyncLoad(String key, Executor executor) {
+    public CompletableFuture<GraphQLHandler> asyncLoad(GqlCacheKey key, Executor executor) {
         long now = System.nanoTime();
-        return createGraphQlSchema(key, executor)
+        return createGraphQlSchema(key.organizationId(), key.applicationId(), executor)
                 .thenCompose(schema -> {
 
                     GraphQL.Builder builder = GraphQL.newGraphQL(schema)
                                                      .preparsedDocumentProvider(new CachingPreparsedDocumentProvider(cacheFactory));
                     GraphQL graphQL = builder.build();
 
-                    log.debug("Finished creating GraphQL Schema for application: {} in {}ms",
-                              key,
+                    log.debug("Finished creating GraphQL Schema for org: {} application: {} in {}ms",
+                              key.organizationId(), key.applicationId(),
                               TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - now));
 
                     return CompletableFuture.completedFuture(GraphQLHandler.create(graphQL));
@@ -105,7 +107,9 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
     }
 
     @WithSpan
-    private CompletableFuture<GraphQLSchema> createGraphQlSchema(@SpanAttribute("applicationId")
+    private CompletableFuture<GraphQLSchema> createGraphQlSchema(@SpanAttribute("organizationId")
+                                                                 String organizationId,
+                                                                 @SpanAttribute("applicationId")
                                                                  String applicationId,
                                                                  Executor executor) {
         return entityDefinitionDAO
@@ -214,7 +218,7 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
                         GraphQLSchema graphQLSchema = graphQLSchemaBuilder.build();
                         graphQLSchema = Federation.transform(graphQLSchema)
                                                   .setFederation2(true)
-                                                  .fetchEntities(new EntitiesDataFetcher(entitiesRepository, applicationId))
+                                                  .fetchEntities(new EntitiesDataFetcher(entitiesRepository, organizationId, applicationId))
                                                   .resolveEntityType(ENTITIES_TYPE_RESOLVER)
                                                   .build();
 

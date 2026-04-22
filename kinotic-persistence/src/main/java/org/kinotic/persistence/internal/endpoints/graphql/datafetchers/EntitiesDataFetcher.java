@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 public class EntitiesDataFetcher implements DataFetcher<CompletableFuture<List<Map>>> {
 
     private final EntitiesRepository entitiesRepository;
+    private final String organizationId;
     private final String application;
 
     @SuppressWarnings("unchecked")
@@ -42,7 +43,7 @@ public class EntitiesDataFetcher implements DataFetcher<CompletableFuture<List<M
             for (Map<String, Object> representation : representations) {
                 String typename = (String) representation.get("__typename");
                 String id = (String) representation.get("id");
-                String entityDefinitionId = PersistenceUtil.createEntityDefinitionId(application, typename);
+                String entityDefinitionId = PersistenceUtil.createEntityDefinitionId(organizationId, application, typename);
                 futures.add(entitiesRepository.findById(entityDefinitionId,
                                                         id,
                                                         Map.class,

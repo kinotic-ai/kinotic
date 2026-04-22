@@ -120,7 +120,7 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                                 .failedFuture(new IllegalStateException("EntityDefinition must be Un-Published before Deleting"));
                     }
 
-                    this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getApplicationId(), entityDefinition.getId()));
+                    this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId(), entityDefinition.getId()));
 
                     return entityDefinitionDAO.deleteById(entityDefinitionId);
                 });
@@ -191,7 +191,7 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                         entityDefinition.setUpdated(entityDefinition.getPublishedTimestamp());
                         return entityDefinitionDAO.save(entityDefinition)
                                                   .thenApply(entityDefinition1 -> {
-                                               this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getApplicationId(),
+                                               this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(),
                                                                                                                                  entityDefinition1.getId()));
                                                return null;
                                            });
@@ -272,7 +272,7 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                         return updateFuture.thenCompose(v -> entityDefinitionDAO
                                 .save(entityDefinition)
                                 .thenApply(entityDefinition1 -> {
-                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getApplicationId(), entityDefinition1.getId()));
+                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
                                     return entityDefinition1;
                                 }));
                     } else {
@@ -320,7 +320,7 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                         entityDefinition.setUpdated(new Date());
                         return entityDefinitionDAO.save(entityDefinition)
                                                   .thenApply(entityDefinition1 -> {
-                                               this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getApplicationId(), entityDefinition1.getId()));
+                                               this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
                                                return null;
                                            });
                     });

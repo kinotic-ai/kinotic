@@ -64,7 +64,7 @@ public class DefaultNamedQueriesDefinitionService extends AbstractCrudService<Na
         //       The Query type information will speed up other areas the need this as well
         return super.save(definition)
                     .thenApply(namedQueriesDefinition -> {
-                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedNamedQuery(definition.getApplicationId(), definition.getEntityDefinitionName(), definition.getId()));
+                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedNamedQuery(definition.getOrganizationId(), definition.getApplicationId(), definition.getEntityDefinitionName(), definition.getId()));
                         return namedQueriesDefinition;
                     });
     }
@@ -82,7 +82,8 @@ public class DefaultNamedQueriesDefinitionService extends AbstractCrudService<Na
                             .thenApply(v -> {
                                 this.eventPublisher.publishEvent(
                                         CacheEvictionEvent.localDeletedNamedQuery(
-                                                namedQuery.getApplicationId(), 
+                                                namedQuery.getOrganizationId(),
+                                                namedQuery.getApplicationId(),
                                                 namedQuery.getEntityDefinitionName(),
                                                 namedQuery.getId()));
                                 return null;
