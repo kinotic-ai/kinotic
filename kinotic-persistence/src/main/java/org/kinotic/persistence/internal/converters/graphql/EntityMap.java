@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.endpoints.graphql.datafetchers;
+package org.kinotic.persistence.internal.converters.graphql;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

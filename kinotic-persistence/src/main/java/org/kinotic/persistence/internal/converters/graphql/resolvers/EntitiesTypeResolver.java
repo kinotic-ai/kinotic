@@ -1,8 +1,9 @@
-package org.kinotic.persistence.internal.endpoints.graphql.datafetchers;
+package org.kinotic.persistence.internal.converters.graphql.resolvers;
 
 import graphql.TypeResolutionEnvironment;
 import graphql.schema.GraphQLObjectType;
 import graphql.schema.TypeResolver;
+import org.kinotic.persistence.internal.converters.graphql.EntityMap;
 
 /**
  * Created by Navíd Mitchell 🤪 on 6/18/24.

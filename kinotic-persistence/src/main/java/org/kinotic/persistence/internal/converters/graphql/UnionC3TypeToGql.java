@@ -10,8 +10,8 @@ import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.UnionC3Type;
 import org.kinotic.persistence.api.model.idl.decorators.DiscriminatorDecorator;
-import org.kinotic.persistence.internal.endpoints.graphql.DiscriminatorTypeResolver;
-import org.kinotic.persistence.internal.endpoints.graphql.NoOpTypeResolver;
+import org.kinotic.persistence.internal.converters.graphql.resolvers.DiscriminatorTypeResolver;
+import org.kinotic.persistence.internal.converters.graphql.resolvers.NoOpTypeResolver;
 
 import static graphql.schema.GraphQLTypeReference.typeRef;
 

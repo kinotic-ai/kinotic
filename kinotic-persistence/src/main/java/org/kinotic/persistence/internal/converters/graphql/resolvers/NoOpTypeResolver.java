@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.endpoints.graphql;
+package org.kinotic.persistence.internal.converters.graphql.resolvers;
 
 import graphql.TypeResolutionEnvironment;
 import graphql.schema.GraphQLObjectType;
