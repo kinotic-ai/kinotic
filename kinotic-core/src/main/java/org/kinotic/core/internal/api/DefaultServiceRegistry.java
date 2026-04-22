@@ -69,7 +69,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     @Autowired
     private JsonMapper jsonMapper;
     @Autowired
-    private SecurityContext participantContext;
+    private SecurityContext securityContext;
 
     @Override
     public Future<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
@@ -98,7 +98,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                 vertx,
                                                 openTelemetry,
                                                 jsonMapper,
-                                                participantContext);
+                                                securityContext);
 
                                         serviceInvocationSupervisor
                                                 .start()

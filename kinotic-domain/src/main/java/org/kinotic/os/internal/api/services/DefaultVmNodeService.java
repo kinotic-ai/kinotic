@@ -19,12 +19,12 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
 
     public DefaultVmNodeService(ElasticsearchAsyncClient esAsyncClient,
                                 CrudServiceTemplate crudServiceTemplate,
-                                SecurityContext participantContext) {
+                                SecurityContext securityContext) {
         super("kinotic_vm_node",
               VmNode.class,
               esAsyncClient,
               crudServiceTemplate,
-              participantContext);
+              securityContext);
     }
 
     @Override

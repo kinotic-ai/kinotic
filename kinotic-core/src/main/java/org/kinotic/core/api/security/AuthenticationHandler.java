@@ -20,14 +20,14 @@ import java.util.Map;
 public class AuthenticationHandler implements Handler<RoutingContext> {
 
     private final SecurityService securityService;
-    private final SecurityContext participantContext;
+    private final SecurityContext securityContext;
     private final Vertx vertx;
 
     public AuthenticationHandler(SecurityService securityService,
-                                 SecurityContext participantContext,
+                                 SecurityContext securityContext,
                                  Vertx vertx) {
         this.securityService = securityService;
-        this.participantContext = participantContext;
+        this.securityContext = securityContext;
         this.vertx = vertx;
     }
 
@@ -54,7 +54,7 @@ public class AuthenticationHandler implements Handler<RoutingContext> {
                               // SecurityContext.currentParticipant().
                               Context vertxContext = Vertx.currentContext();
                               if (vertxContext != null) {
-                                  participantContext.setParticipant(vertxContext, event.result());
+                                  securityContext.setParticipant(vertxContext, event.result());
                               }
                               ctx.request().resume();
                               ctx.next();

@@ -27,12 +27,12 @@ public class DefaultNamedQueriesDefinitionService extends AbstractCrudService<Na
     public DefaultNamedQueriesDefinitionService(CrudServiceTemplate crudServiceTemplate,
                                                 ElasticsearchAsyncClient esAsyncClient,
                                                 ApplicationEventPublisher eventPublisher,
-                                                SecurityContext participantContext) {
+                                                SecurityContext securityContext) {
         super("kinotic_named_query_service_definition",
               NamedQueriesDefinition.class,
               esAsyncClient,
               crudServiceTemplate,
-              participantContext);
+              securityContext);
 
         this.eventPublisher = eventPublisher;
     }

@@ -42,16 +42,16 @@ public abstract class AbstractJacksonSupport {
 
     @Getter
     private final JsonMapper jsonMapper;
-    private final SecurityContext participantContext;
+    private final SecurityContext securityContext;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final KinoticProperties kinoticProperties;
 
     public AbstractJacksonSupport(JsonMapper jsonMapper,
                                   ReactiveAdapterRegistry reactiveAdapterRegistry,
                                   KinoticProperties kinoticProperties,
-                                  SecurityContext participantContext) {
+                                  SecurityContext securityContext) {
         this.jsonMapper = jsonMapper;
-        this.participantContext = participantContext;
+        this.securityContext = securityContext;
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
         this.kinoticProperties = kinoticProperties;
 
@@ -118,7 +118,7 @@ public abstract class AbstractJacksonSupport {
             // If the parameter is a Participant we get this from the Vert.x context
             if (Participant.class.isAssignableFrom(methodParameter.getParameterType())) {
 
-                Participant participant = participantContext.currentParticipant();
+                Participant participant = securityContext.currentParticipant();
                 if (participant != null) {
                     ret.add(participant);
                 } else {

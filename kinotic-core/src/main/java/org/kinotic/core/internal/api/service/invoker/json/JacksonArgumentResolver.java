@@ -22,8 +22,8 @@ public class JacksonArgumentResolver extends AbstractJacksonSupport implements A
     public JacksonArgumentResolver(JsonMapper jsonMapper,
                                    ReactiveAdapterRegistry reactiveAdapterRegistry,
                                    KinoticProperties kinoticProperties,
-                                   SecurityContext participantContext) {
-        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties, participantContext);
+                                   SecurityContext securityContext) {
+        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties, securityContext);
     }
 
     @Override

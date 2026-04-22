@@ -22,7 +22,7 @@ public class DefaultTestService implements ITestService{
     private static final UUID TEST_UUID = UUID.randomUUID();
 
     @Autowired
-    private SecurityContext participantContext;
+    private SecurityContext securityContext;
     @Autowired
     private Vertx vertx;
 
@@ -191,7 +191,7 @@ public class DefaultTestService implements ITestService{
     }
 
     private Participant requireParticipant() {
-        Participant participant = participantContext.currentParticipant();
+        Participant participant = securityContext.currentParticipant();
         if (participant == null) {
             throw new IllegalStateException("No Participant in Vert.x context");
         }

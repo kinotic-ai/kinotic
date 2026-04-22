@@ -27,7 +27,7 @@ public class GqlVerticle extends VerticleBase {
     private final PersistenceProperties properties;
     private final SslProperties sslProperties;
     private final SecurityService securityService;
-    private final SecurityContext participantContext;
+    private final SecurityContext securityContext;
     private HttpServer server;
 
 
@@ -41,7 +41,7 @@ public class GqlVerticle extends VerticleBase {
         Router router = VertxWebUtil.createRouterWithCors(vertx, properties);
 
         if(securityService !=null){
-            router.route().handler(new AuthenticationHandler(securityService, participantContext, vertx));
+            router.route().handler(new AuthenticationHandler(securityService, securityContext, vertx));
         }
 
         router.post(properties.getGraphqlPath()+":"+APPLICATION_PATH_PARAMETER)

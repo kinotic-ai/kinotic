@@ -24,7 +24,7 @@ public class PersistenceVerticleFactory {
 
     // Common Deps
     private final KinoticProperties kinoticProperties;
-    private final SecurityContext participantContext;
+    private final SecurityContext securityContext;
     private final PersistenceProperties properties;
     private final SecurityService securityService;
 
@@ -41,7 +41,7 @@ public class PersistenceVerticleFactory {
 
     
     public GqlVerticle createGqlVerticle(){
-        return new GqlVerticle(delegatingGqlHandler, properties, kinoticProperties.getSsl(), securityService, participantContext);
+        return new GqlVerticle(delegatingGqlHandler, properties, kinoticProperties.getSsl(), securityService, securityContext);
     }
 
     public OpenApiVerticle createOpenApiVerticle(){

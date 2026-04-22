@@ -26,8 +26,8 @@ public class JacksonReturnValueConverter extends AbstractJacksonSupport implemen
     public JacksonReturnValueConverter(JsonMapper jsonMapper,
                                        ReactiveAdapterRegistry reactiveAdapterRegistry,
                                        KinoticProperties kinoticProperties,
-                                       SecurityContext participantContext) {
-        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties, participantContext);
+                                       SecurityContext securityContext) {
+        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties, securityContext);
     }
 
     @Override

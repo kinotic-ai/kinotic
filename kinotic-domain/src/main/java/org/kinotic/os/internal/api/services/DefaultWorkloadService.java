@@ -19,12 +19,12 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
 
     public DefaultWorkloadService(ElasticsearchAsyncClient esAsyncClient,
                                   CrudServiceTemplate crudServiceTemplate,
-                                  SecurityContext participantContext) {
+                                  SecurityContext securityContext) {
         super("kinotic_workload",
               Workload.class,
               esAsyncClient,
               crudServiceTemplate,
-              participantContext);
+              securityContext);
     }
 
     @Override

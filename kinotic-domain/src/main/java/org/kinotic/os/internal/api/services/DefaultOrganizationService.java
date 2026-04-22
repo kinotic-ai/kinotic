@@ -25,8 +25,8 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
     public DefaultOrganizationService(CrudServiceTemplate crudServiceTemplate,
                                       ElasticsearchAsyncClient esAsyncClient,
                                       OidcConfigurationService oidcConfigurationService,
-                                      SecurityContext participantContext) {
-        super("kinotic_organization", Organization.class, esAsyncClient, crudServiceTemplate, participantContext);
+                                      SecurityContext securityContext) {
+        super("kinotic_organization", Organization.class, esAsyncClient, crudServiceTemplate, securityContext);
         this.oidcConfigurationService = oidcConfigurationService;
     }
 

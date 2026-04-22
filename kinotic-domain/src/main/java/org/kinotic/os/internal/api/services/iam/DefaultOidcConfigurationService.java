@@ -22,8 +22,8 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
 
     public DefaultOidcConfigurationService(CrudServiceTemplate crudServiceTemplate,
                                            ElasticsearchAsyncClient esAsyncClient,
-                                           SecurityContext participantContext) {
-        super("kinotic_oidc_configuration", OidcConfiguration.class, esAsyncClient, crudServiceTemplate, participantContext);
+                                           SecurityContext securityContext) {
+        super("kinotic_oidc_configuration", OidcConfiguration.class, esAsyncClient, crudServiceTemplate, securityContext);
     }
 
     @Override

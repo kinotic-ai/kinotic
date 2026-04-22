@@ -25,8 +25,8 @@ public class JacksonRpcArgumentConverter extends AbstractJacksonSupport implemen
     public JacksonRpcArgumentConverter(JsonMapper jsonMapper,
                                        ReactiveAdapterRegistry reactiveAdapterRegistry,
                                        KinoticProperties kinoticProperties,
-                                       SecurityContext participantContext) {
-        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties, participantContext);
+                                       SecurityContext securityContext) {
+        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties, securityContext);
     }
 
     @Override

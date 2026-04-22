@@ -26,12 +26,12 @@ public class DefaultApplicationService extends AbstractCrudService<Application> 
                                      ProjectService projectService,
                                      OidcConfigurationService oidcConfigurationService,
                                      CrudServiceTemplate crudServiceTemplate,
-                                     SecurityContext participantContext) {
+                                     SecurityContext securityContext) {
         super("kinotic_application",
               Application.class,
               esAsyncClient,
               crudServiceTemplate,
-              participantContext);
+              securityContext);
         this.projectService = projectService;
         this.oidcConfigurationService = oidcConfigurationService;
     }

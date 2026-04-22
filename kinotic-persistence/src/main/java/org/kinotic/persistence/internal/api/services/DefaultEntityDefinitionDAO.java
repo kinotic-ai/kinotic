@@ -20,12 +20,12 @@ public class DefaultEntityDefinitionDAO extends AbstractCrudService<EntityDefini
 
     public DefaultEntityDefinitionDAO(ElasticsearchAsyncClient esAsyncClient,
                                       CrudServiceTemplate crudServiceTemplate,
-                                      SecurityContext participantContext) {
+                                      SecurityContext securityContext) {
         super("kinotic_entity_definition",
               EntityDefinition.class,
               esAsyncClient,
               crudServiceTemplate,
-              participantContext);
+              securityContext);
     }
 
     @Override

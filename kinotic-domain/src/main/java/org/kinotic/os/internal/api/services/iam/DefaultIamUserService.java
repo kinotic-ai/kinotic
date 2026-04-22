@@ -29,8 +29,8 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     public DefaultIamUserService(CrudServiceTemplate crudServiceTemplate,
                                  ElasticsearchAsyncClient esAsyncClient,
                                  IamCredentialService credentialStore,
-                                 SecurityContext participantContext) {
-        super("kinotic_iam_user", IamUser.class, esAsyncClient, crudServiceTemplate, participantContext);
+                                 SecurityContext securityContext) {
+        super("kinotic_iam_user", IamUser.class, esAsyncClient, crudServiceTemplate, securityContext);
         this.credentialStore = credentialStore;
     }
 
