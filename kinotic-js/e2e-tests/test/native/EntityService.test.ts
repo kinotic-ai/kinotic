@@ -49,6 +49,7 @@ describe('End To End Tests', () => {
         // routes through it so participant.tenantId is non-null for SHARED entity ops.
         context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT)
         context.entityService = new EntityRepository(
+            context.entityDefinition.organizationId,
             context.entityDefinition.applicationId,
             context.entityDefinition.name,
             new EntitiesRepository(context.appKinotic)
