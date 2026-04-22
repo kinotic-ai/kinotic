@@ -226,6 +226,7 @@ export class EntityCodeGenerationService {
                                                                        {
                                                                            entityName,
                                                                            entityNamespace,
+                                                                           organizationId: projectConfig.organization,
                                                                            defaultExport,
                                                                            entityImportPath,
                                                                            validationLogic,
