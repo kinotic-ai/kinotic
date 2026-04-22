@@ -1,17 +1,14 @@
 package org.kinotic.os.api.model;
 
 import java.util.Date;
-import org.kinotic.core.api.crud.Identifiable;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.experimental.Accessors;
 
 @Getter
 @Setter
-@Accessors(chain = true)
 @NoArgsConstructor
-public class Project implements OrganizationScoped<String> {
+public class Project implements ApplicationScoped<String> {
 
     /**
      * The id of the project.
@@ -47,8 +44,4 @@ public class Project implements OrganizationScoped<String> {
      */
     private Date updated;
 
-    @Override
-    public void setOrganizationId(String organizationId) {
-        this.organizationId = organizationId;
-    }
 }

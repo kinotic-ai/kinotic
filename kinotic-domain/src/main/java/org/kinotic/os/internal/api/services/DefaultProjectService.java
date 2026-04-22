@@ -1,11 +1,8 @@
 package org.kinotic.os.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.Project;
 import org.kinotic.os.api.services.ProjectService;
@@ -16,7 +13,7 @@ import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 
 @Component
-public class DefaultProjectService extends AbstractCrudService<Project> implements ProjectService {
+public class DefaultProjectService extends AbstractApplicationCrudService<Project> implements ProjectService {
 
     final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
 
@@ -31,23 +28,6 @@ public class DefaultProjectService extends AbstractCrudService<Project> implemen
     }
 
     @Override
-    public CompletableFuture<Long> countForApplication(String applicationId) {
-        String orgId = getOrganizationIdIfEnforced();
-        return crudServiceTemplate.count(indexName, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
-            builder.query(q -> q.bool(b -> {
-                b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery());
-                if (orgId != null) {
-                    b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
-                }
-                return b;
-            }));
-        });
-    }
-
-    @Override
     public CompletableFuture<Project> createProjectIfNotExist(Project project) {
         Validate.notNull(project, "Project cannot be null");
         Validate.notNull(project.getName(), "Project name cannot be null");
@@ -57,7 +37,6 @@ public class DefaultProjectService extends AbstractCrudService<Project> implemen
             String projectId = (project.getApplicationId()+"_"+slg.slugify(project.getName())).toLowerCase();
             project.setId(projectId);
         }
-        // Sanity check
         DomainUtil.validateProjectId(project.getId());
 
         return findById(project.getId())
@@ -72,31 +51,7 @@ public class DefaultProjectService extends AbstractCrudService<Project> implemen
 
     @Override
     public CompletableFuture<Void> deleteById(String id) {
-        // FIXME figure out how to check if project can be deleted
-//        return structureService.countForProject(id).thenAccept(count -> {
-//            if(count > 0){
-//                throw new IllegalStateException("Cannot delete project with structures in it.");
-//            }
-//        }).thenCompose(v -> super.deleteById(id));
         return super.deleteById(id);
-    }
-
-
-    @Override
-    public CompletableFuture<Page<Project>> findAllForApplication(String applicationId, Pageable pageable) {
-        String orgId = getOrganizationIdIfEnforced();
-        return crudServiceTemplate.search(indexName, pageable, type, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
-            builder.query(q -> q.bool(b -> {
-                b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery());
-                if (orgId != null) {
-                    b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
-                }
-                return b;
-            }));
-        });
     }
 
     @Override

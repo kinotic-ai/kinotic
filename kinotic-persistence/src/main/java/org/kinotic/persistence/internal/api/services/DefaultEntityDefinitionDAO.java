@@ -5,7 +5,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.os.internal.api.services.AbstractCrudService;
+import org.kinotic.os.internal.api.services.AbstractProjectCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.springframework.stereotype.Component;
@@ -16,7 +16,7 @@ import java.util.concurrent.CompletableFuture;
  * Created by Navíd Mitchell 🤪on 6/25/23.
  */
 @Component
-public class DefaultEntityDefinitionDAO extends AbstractCrudService<EntityDefinition> implements EntityDefinitionDAO {
+public class DefaultEntityDefinitionDAO extends AbstractProjectCrudService<EntityDefinition> implements EntityDefinitionDAO {
 
     public DefaultEntityDefinitionDAO(ElasticsearchAsyncClient esAsyncClient,
                                       CrudServiceTemplate crudServiceTemplate,
@@ -29,40 +29,6 @@ public class DefaultEntityDefinitionDAO extends AbstractCrudService<EntityDefini
     }
 
     @Override
-    public CompletableFuture<Long> countForApplication(String applicationId) {
-        String orgId = getOrganizationIdIfEnforced();
-        return crudServiceTemplate.count(indexName, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
-            builder.query(q -> q.bool(b -> {
-                b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery());
-                if (orgId != null) {
-                    b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
-                }
-                return b;
-            }));
-        });
-    }
-
-    @Override
-    public CompletableFuture<Long> countForProject(String projectId) {
-        String orgId = getOrganizationIdIfEnforced();
-        return crudServiceTemplate.count(indexName, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
-            builder.query(q -> q.bool(b -> {
-                b.filter(TermQuery.of(tq -> tq.field("projectId").value(projectId))._toQuery());
-                if (orgId != null) {
-                    b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
-                }
-                return b;
-            }));
-        });
-    }
-
-    @Override
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId, Pageable pageable) {
         String orgId = getOrganizationIdIfEnforced();
         return crudServiceTemplate.search(indexName, pageable, type, builder -> {
@@ -72,40 +38,6 @@ public class DefaultEntityDefinitionDAO extends AbstractCrudService<EntityDefini
             builder.query(q -> q.bool(b -> {
                 b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery(),
                          TermQuery.of(tq -> tq.field("published").value(true))._toQuery());
-                if (orgId != null) {
-                    b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
-                }
-                return b;
-            }));
-        });
-    }
-
-    @Override
-    public CompletableFuture<Page<EntityDefinition>> findAllForApplication(String applicationId, Pageable pageable) {
-        String orgId = getOrganizationIdIfEnforced();
-        return crudServiceTemplate.search(indexName, pageable, type, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
-            builder.query(q -> q.bool(b -> {
-                b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery());
-                if (orgId != null) {
-                    b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
-                }
-                return b;
-            }));
-        });
-    }
-
-    @Override
-    public CompletableFuture<Page<EntityDefinition>> findAllForProject(String projectId, Pageable pageable) {
-        String orgId = getOrganizationIdIfEnforced();
-        return crudServiceTemplate.search(indexName, pageable, type, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
-            builder.query(q -> q.bool(b -> {
-                b.filter(TermQuery.of(tq -> tq.field("projectId").value(projectId))._toQuery());
                 if (orgId != null) {
                     b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
                 }

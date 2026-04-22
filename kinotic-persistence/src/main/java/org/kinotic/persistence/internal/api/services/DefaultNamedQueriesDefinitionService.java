@@ -5,7 +5,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.os.internal.api.services.AbstractCrudService;
+import org.kinotic.os.internal.api.services.AbstractProjectCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 import org.kinotic.persistence.api.services.NamedQueriesDefinitionService;
@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @Slf4j
 @Component
-public class DefaultNamedQueriesDefinitionService extends AbstractCrudService<NamedQueriesDefinition> implements NamedQueriesDefinitionService {
+public class DefaultNamedQueriesDefinitionService extends AbstractProjectCrudService<NamedQueriesDefinition> implements NamedQueriesDefinitionService {
 
     private final ApplicationEventPublisher eventPublisher;
 
