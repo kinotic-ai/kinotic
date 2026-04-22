@@ -2,8 +2,8 @@ package org.kinotic.test.tests.core.security.graphos;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.internal.api.services.security.graphos.*;
-import org.kinotic.persistence.api.model.SecurityContext;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizationRequest;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizer;
 
@@ -89,7 +89,7 @@ public class PolicyEvaluatorTests {
         // Update MockPolicyAuthorizer to authorize policy7 for this test
         PolicyAuthorizer updatedAuthorizer = new PolicyAuthorizer() {
             @Override
-            public CompletableFuture<Void> authorize(List<PolicyAuthorizationRequest> requests, SecurityContext securityContext) {
+            public CompletableFuture<Void> authorize(List<PolicyAuthorizationRequest> requests, EntityContext entityContext) {
                 for (PolicyAuthorizationRequest request : requests) {
                     if ("policy1".equals(request.policy()) ||
                             "policy3".equals(request.policy()) ||
@@ -163,7 +163,7 @@ public class PolicyEvaluatorTests {
     // Mock Implementation for PolicyAuthorizer
     private static class MockPolicyAuthorizer implements PolicyAuthorizer {
         @Override
-        public CompletableFuture<Void> authorize(List<PolicyAuthorizationRequest> requests, SecurityContext securityContext) {
+        public CompletableFuture<Void> authorize(List<PolicyAuthorizationRequest> requests, EntityContext entityContext) {
             for (PolicyAuthorizationRequest request : requests) {
                 // Authorize specific policies for testing
                 if ("policy1".equals(request.policy()) ||

@@ -2,8 +2,8 @@ package org.kinotic.persistence.api.services.security.graphos;
 
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.NamedQueryOperation;
-import org.kinotic.persistence.api.model.SecurityContext;
 import org.kinotic.persistence.api.model.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.internal.api.services.security.graphos.DefaultPolicyAuthorizationRequest;
@@ -43,14 +43,14 @@ public class NamedQueryPolicyAuthorizationService implements AuthorizationServic
 
 
     @Override
-    public CompletableFuture<Void> authorize(NamedQueryOperation operationIdentifier, SecurityContext securityContext) {
+    public CompletableFuture<Void> authorize(NamedQueryOperation operationIdentifier, EntityContext entityContext) {
 
         Map<String, PolicyAuthorizationRequest> policyRequests = allPolicies.stream()
                                                                             .collect(Collectors.toMap(policy -> policy, DefaultPolicyAuthorizationRequest::new));
 
         List<PolicyAuthorizationRequest> requests = new ArrayList<>(policyRequests.values());
 
-        return policyAuthorizer.authorize(requests, securityContext)
+        return policyAuthorizer.authorize(requests, entityContext)
                                .thenCompose(ignored -> {
 
                                    boolean queryAllowed = this.policyExpression.evaluate(policyRequests);

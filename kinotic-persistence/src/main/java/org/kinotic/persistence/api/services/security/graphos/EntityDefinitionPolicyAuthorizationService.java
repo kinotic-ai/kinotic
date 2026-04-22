@@ -8,9 +8,7 @@ import java.util.concurrent.CompletableFuture;
 
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.idl.api.schema.ObjectC3Type;
-import org.kinotic.persistence.api.model.EntityOperation;
-import org.kinotic.persistence.api.model.SecurityContext;
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.model.*;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsConfig;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsDecorator;
@@ -20,7 +18,6 @@ import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEval
 import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEvaluatorWithOperation;
 import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEvaluatorWithoutOperation;
 import org.kinotic.persistence.internal.api.services.security.graphos.SharedPolicyManager;
-import org.kinotic.persistence.api.model.DecoratedProperty;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 
 public class EntityDefinitionPolicyAuthorizationService implements AuthorizationService<EntityOperation> {
@@ -67,7 +64,7 @@ public class EntityDefinitionPolicyAuthorizationService implements Authorization
     }
 
     @Override
-    public CompletableFuture<Void> authorize(EntityOperation operation, SecurityContext securityContext) {
+    public CompletableFuture<Void> authorize(EntityOperation operation, EntityContext entityContext) {
         try {
             PolicyEvaluator evaluator = operationEvaluators.get(operation);
             // if no operation policy use the
@@ -75,7 +72,7 @@ public class EntityDefinitionPolicyAuthorizationService implements Authorization
                 evaluator = sharedEvaluator;
             }
 
-            return evaluator.evaluatePolicies(securityContext).thenCompose(result -> {
+            return evaluator.evaluatePolicies(entityContext).thenCompose(result -> {
 
                 // Check if the operation is allowed i.e. findAll, save
                 if(!result.operationAllowed()){
