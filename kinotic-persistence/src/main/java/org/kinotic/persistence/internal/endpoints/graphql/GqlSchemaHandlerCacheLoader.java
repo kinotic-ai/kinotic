@@ -53,9 +53,7 @@ import static graphql.schema.GraphQLObjectType.newObject;
  */
 @Component
 @RequiredArgsConstructor
-public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<GqlSchemaHandlerCacheLoader.GqlCacheKey, GraphQLHandler> {
-
-    public record GqlCacheKey(String organizationId, String applicationId) {}
+public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<GqlCacheKey, GraphQLHandler> {
 
     private static final Logger log = LoggerFactory.getLogger(GqlSchemaHandlerCacheLoader.class);
     private static final EntitiesTypeResolver ENTITIES_TYPE_RESOLVER = new EntitiesTypeResolver();

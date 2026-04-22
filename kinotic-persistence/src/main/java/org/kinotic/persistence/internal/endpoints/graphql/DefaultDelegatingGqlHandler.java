@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
-import org.kinotic.persistence.internal.endpoints.graphql.GqlSchemaHandlerCacheLoader.GqlCacheKey;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
