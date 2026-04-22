@@ -144,6 +144,22 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     }
 
     /**
+     * Returns the organization id to use for filtering and routing if org-scope enforcement
+     * is active (entity is {@link OrganizationScoped} and elevated access is not set), or
+     * {@code null} if enforcement should be skipped.
+     * <p>
+     * Subclasses with custom query methods that call {@code crudServiceTemplate} directly
+     * should call this at the top of the method and conditionally add the org filter + routing
+     * when the return value is non-null.
+     */
+    protected String getOrganizationIdIfEnforced() {
+        if (shouldEnforceOrgScope()) {
+            return requireOrganizationId();
+        }
+        return null;
+    }
+
+    /**
      * Ensures the current participant is authenticated under the ORGANIZATION auth scope and returns the
      * organization id to use for filtering. This mirrors the tenant-scoping pattern in
      * {@code ReadPreProcessor#createQueryWithTenantLogic}.

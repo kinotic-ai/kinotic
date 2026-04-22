@@ -32,12 +32,19 @@ public class DefaultProjectService extends AbstractCrudService<Project> implemen
 
     @Override
     public CompletableFuture<Long> countForApplication(String applicationId) {
-        return crudServiceTemplate.count(indexName, builder -> builder
-        .query(q -> q
-                .bool(b -> b
-                        .filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery()
-                        )
-                )));
+        String orgId = getOrganizationIdIfEnforced();
+        return crudServiceTemplate.count(indexName, builder -> {
+            if (orgId != null) {
+                builder.routing(orgId);
+            }
+            builder.query(q -> q.bool(b -> {
+                b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery());
+                if (orgId != null) {
+                    b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
+                }
+                return b;
+            }));
+        });
     }
 
     @Override
@@ -77,11 +84,19 @@ public class DefaultProjectService extends AbstractCrudService<Project> implemen
 
     @Override
     public CompletableFuture<Page<Project>> findAllForApplication(String applicationId, Pageable pageable) {
-        return crudServiceTemplate.search(indexName, pageable, type, builder -> builder
-        .query(q -> q
-                .bool(b -> b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery())
-                )
-        ));
+        String orgId = getOrganizationIdIfEnforced();
+        return crudServiceTemplate.search(indexName, pageable, type, builder -> {
+            if (orgId != null) {
+                builder.routing(orgId);
+            }
+            builder.query(q -> q.bool(b -> {
+                b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery());
+                if (orgId != null) {
+                    b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
+                }
+                return b;
+            }));
+        });
     }
 
     @Override
