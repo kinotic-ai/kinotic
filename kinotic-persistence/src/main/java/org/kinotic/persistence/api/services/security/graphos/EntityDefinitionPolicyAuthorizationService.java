@@ -29,7 +29,9 @@ public class EntityDefinitionPolicyAuthorizationService implements Authorization
     public EntityDefinitionPolicyAuthorizationService(EntityDefinition entityDefinition,
                                                       PolicyAuthorizer policyAuthorizer) {
 
-        this.entityDefinitionId = PersistenceUtil.entityDefinitionNameToId(entityDefinition.getApplicationId(), entityDefinition.getName());
+        this.entityDefinitionId = PersistenceUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
+                                                                           entityDefinition.getApplicationId(),
+                                                                           entityDefinition.getName());
         ObjectC3Type schema = entityDefinition.getSchema();
 
         // Get any Policies to apply to the Entity and its fields

@@ -42,7 +42,7 @@ public class EntitiesDataFetcher implements DataFetcher<CompletableFuture<List<M
             for (Map<String, Object> representation : representations) {
                 String typename = (String) representation.get("__typename");
                 String id = (String) representation.get("id");
-                String entityDefinitionId = PersistenceUtil.entityDefinitionNameToId(application, typename);
+                String entityDefinitionId = PersistenceUtil.createEntityDefinitionId(application, typename);
                 futures.add(entitiesRepository.findById(entityDefinitionId,
                                                         id,
                                                         Map.class,

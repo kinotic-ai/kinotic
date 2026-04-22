@@ -16,12 +16,13 @@ public class PersistenceUtil {
 
     /**
      * Function will convert a {@link EntityDefinition} applicationId and name to a valid
+     * @param organizationId to converty
      * @param applicationId to convert
      * @param entityDefinitionName to convert
      * @return a valid {@link EntityDefinition} id
      */
-    public static String entityDefinitionNameToId(String applicationId, String entityDefinitionName){
-        return (applicationId + "." + entityDefinitionName).toLowerCase();
+    public static String createEntityDefinitionId(String organizationId, String applicationId, String entityDefinitionName){
+        return (organizationId + "." + applicationId + "." + entityDefinitionName).toLowerCase();
     }
 
     /**

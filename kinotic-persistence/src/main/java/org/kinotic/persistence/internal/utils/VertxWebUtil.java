@@ -33,7 +33,7 @@ public class VertxWebUtil {
         Validate.notNull(application, "application must not be null");
         Validate.notNull(structureName, "structureName must not be null");
 
-        return PersistenceUtil.entityDefinitionNameToId(application, structureName);
+        return PersistenceUtil.createEntityDefinitionId(application, structureName);
     }
 
     public static String validateAndReturnPathParam(String pathParamName, RoutingContext ctx){

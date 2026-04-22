@@ -78,8 +78,8 @@ public class TestDataService {
      * @return a {@link CompletableFuture} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
      */
     public CompletableFuture<Pair<EntityDefinition, Boolean>> createCarEntityDefinitionIfNotExists(String structureNameSuffix){
-        String structureId = PersistenceUtil.entityDefinitionNameToId("org.kinotic.sample",
-                                                               "Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
+        String structureId = PersistenceUtil.createEntityDefinitionId("org.kinotic.sample",
+                                                                      "Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
         return entityDefinitionService.findById(structureId)
                                       .thenCompose(structure -> {
                                    if(structure != null){
@@ -162,8 +162,8 @@ public class TestDataService {
      * @return a {@link CompletableFuture} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
      */
     public CompletableFuture<Pair<EntityDefinition, Boolean>> createPersonEntityDefinitionIfNotExists(String structureNameSuffix){
-        String structureId = PersistenceUtil.entityDefinitionNameToId("org.kinotic.sample",
-                                                              "Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
+        String structureId = PersistenceUtil.createEntityDefinitionId("org.kinotic.sample",
+                                                                      "Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
         return entityDefinitionService.findById(structureId)
                                       .thenCompose(structure -> {
                                    if(structure != null){

@@ -62,7 +62,9 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
             entityDefinition.setApplicationId(entityDefinition.getApplicationId().trim());
             entityDefinition.setProjectId(entityDefinition.getProjectId().trim());
             entityDefinition.setName(entityDefinition.getName().trim());
-            logicalIndexName = PersistenceUtil.entityDefinitionNameToId(entityDefinition.getApplicationId(), entityDefinition.getName());
+            logicalIndexName = PersistenceUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
+                                                                        entityDefinition.getApplicationId(),
+                                                                        entityDefinition.getName());
 
             if(logicalIndexName.length() > 255){
                 throw new IllegalArgumentException("EntityDefinition Id is too long, 'applicationId.name' must be less than 256 characters");
