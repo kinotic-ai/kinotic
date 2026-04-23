@@ -74,4 +74,3 @@ export class KinoticProjectConfig {
     public validate?: boolean
 
 }
-

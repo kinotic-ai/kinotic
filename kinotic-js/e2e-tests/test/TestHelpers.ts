@@ -1,7 +1,7 @@
 import {faker} from '@faker-js/faker/locale/en'
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import {Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, KinoticProjectConfig} from '@kinotic-ai/core'
+import {Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage} from '@kinotic-ai/core'
 import {
     ObjectC3Type,
     FunctionDefinition
@@ -11,6 +11,7 @@ import {expect} from 'vitest'
 import {
     OsApiPlugin,
     EntityDefinition,
+    KinoticProjectConfig,
     NamedQueriesDefinition,
     QueryDecorator,
     Project,
