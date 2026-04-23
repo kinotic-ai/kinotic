@@ -166,7 +166,7 @@ export class Synchronize extends Command {
 
                 entityDefinition = await entityDefinitionService.save(entityDefinition)
             } else {
-                entityDefinition = new EntityDefinition(application, projectId, name, entitySchema)
+                entityDefinition = new EntityDefinition(organizationId, application, projectId, name, entitySchema)
                 this.logVerbose(`Creating Entity: ${application}.${name}`, verbose)
 
                 entityDefinition = await entityDefinitionService.create(entityDefinition)
