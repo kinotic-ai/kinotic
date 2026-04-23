@@ -161,11 +161,6 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         return null;
     }
 
-    /**
-     * Extracts a routing key from the given entity id for point lookups and deletes
-     * when org-scope enforcement is not active. Returns {@code null} by default;
-     * subclasses whose ids embed the organization prefix should override this.
-     */
     protected String getRoutingKeyFromId(String id) {
         return null;
     }
