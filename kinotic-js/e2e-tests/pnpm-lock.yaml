@@ -28,8 +28,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1(@types/node@25.0.6)(magicast@0.5.1)(typescript@5.9.3)
       '@kinotic-ai/os-api':
-        specifier: ^1.0.16
-        version: 1.0.16(@kinotic-ai/core@1.2.1(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^1.1.0
+        version: 1.1.0(@kinotic-ai/core@1.2.1(typescript@5.9.3))(typescript@5.9.3)
       '@kinotic-ai/persistence':
         specifier: ^1.2.0
         version: 1.2.0(@kinotic-ai/core@1.2.1(typescript@5.9.3))(typescript@5.9.3)
@@ -625,19 +625,10 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  '@kinotic-ai/os-api@1.0.16':
-    resolution: {integrity: sha512-Dc2GSF3geiFsq6MreKOMfTIsbKxC3CrBUx3kSv6PGrvlgvxyRHQ4LJnTtPiiyAXEvXnKaO2Q/rnEX4ZGJQp/XA==}
+  '@kinotic-ai/os-api@1.1.0':
+    resolution: {integrity: sha512-NcsebfaRrB6y3AlQ6lWpGxR/Dl4vBiIaWiwjj7D/p8QSoWCWuAcrmtrQ68ChAKPoeVd5eB5tPPtzVxrLzCAVlw==}
     peerDependencies:
       '@kinotic-ai/core': '>=1.2.0'
-      typescript: '*'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-
-  '@kinotic-ai/persistence@1.1.1':
-    resolution: {integrity: sha512-PfGLfFx1OyLXZfu5ZxDnGxI5mtaP8ffOr0BpPvmWD2AeEaZ3pt0uCh2yflic2VEpkknK4nDP+Vhku+f/IFi1lw==}
-    peerDependencies:
-      '@kinotic-ai/core': '>=1.0.0'
       typescript: '*'
     peerDependenciesMeta:
       typescript:
@@ -3351,7 +3342,7 @@ snapshots:
       '@inquirer/prompts': 8.3.2(@types/node@25.0.6)
       '@kinotic-ai/core': 1.2.1(typescript@5.9.3)
       '@kinotic-ai/idl': 1.0.9(typescript@5.9.3)
-      '@kinotic-ai/os-api': 1.0.16(@kinotic-ai/core@1.2.1(typescript@5.9.3))(typescript@5.9.3)
+      '@kinotic-ai/os-api': 1.1.0(@kinotic-ai/core@1.2.1(typescript@5.9.3))(typescript@5.9.3)
       '@kinotic-ai/persistence': 1.2.0(@kinotic-ai/core@1.2.1(typescript@5.9.3))(typescript@5.9.3)
       '@oclif/core': 4.9.0
       '@oclif/plugin-autocomplete': 3.2.41
@@ -3387,20 +3378,11 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@kinotic-ai/os-api@1.0.16(@kinotic-ai/core@1.2.1(typescript@5.9.3))(typescript@5.9.3)':
+  '@kinotic-ai/os-api@1.1.0(@kinotic-ai/core@1.2.1(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
       '@kinotic-ai/core': 1.2.1(typescript@5.9.3)
       '@kinotic-ai/idl': 1.0.9(typescript@5.9.3)
-      '@kinotic-ai/persistence': 1.1.1(@kinotic-ai/core@1.2.1(typescript@5.9.3))(typescript@5.9.3)
-      rxjs: 7.8.2
-    optionalDependencies:
-      typescript: 5.9.3
-
-  '@kinotic-ai/persistence@1.1.1(@kinotic-ai/core@1.2.1(typescript@5.9.3))(typescript@5.9.3)':
-    dependencies:
-      '@kinotic-ai/core': 1.2.1(typescript@5.9.3)
-      '@kinotic-ai/idl': 1.0.9(typescript@5.9.3)
-      reflect-metadata: 0.2.2
+      '@kinotic-ai/persistence': 1.2.0(@kinotic-ai/core@1.2.1(typescript@5.9.3))(typescript@5.9.3)
       rxjs: 7.8.2
     optionalDependencies:
       typescript: 5.9.3
