@@ -13,7 +13,7 @@ import { {{ entityName }} } from '{{ entityImportPath }}'
 export class Base{{ entityName }}AdminRepository extends AdminEntityRepository<{{ entityName }}> {
 
   constructor(adminEntitiesService?: IAdminEntitiesRepository) {
-    super('{{ entityNamespace }}', '{{ entityName }}', adminEntitiesService)
+    super('{{ organizationId }}', '{{ entityNamespace }}', '{{ entityName }}', adminEntitiesService)
   }
 
 }

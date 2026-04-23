@@ -42,12 +42,14 @@ describe('End To End Tests', () => {
         expect(context.entityDefinition).toBeDefined()
         context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT)
         context.adminEntityService = new AdminEntityRepository(
+            context.entityDefinition.organizationId,
             context.entityDefinition.applicationId,
             context.entityDefinition.name,
             new AdminEntitiesRepository(context.appKinotic)
         )
         expect(context.adminEntityService).toBeDefined()
         context.entityService = new EntityRepository(
+            context.entityDefinition.organizationId,
             context.entityDefinition.applicationId,
             context.entityDefinition.name,
             new EntitiesRepository(context.appKinotic)

@@ -93,11 +93,11 @@ export class Synchronize extends Command {
                                                  //      This will evict the named query execution plan cache
                                                  //      We want to make sure the GraphQL schema is updated after both these are updated and the EntityDefinition below
                                                  if(!flags.dryRun && namedQueries.length > 0){
-                                                     await this.synchronizeNamedQueries((project as Project).id as string, entityInfo.entity, namedQueries)
+                                                     await this.synchronizeNamedQueries(kinoticProjectConfig.organization, (project as Project).id as string, entityInfo.entity, namedQueries)
                                                  }
 
                                                  if(!flags.dryRun) {
-                                                     await this.synchronizeEntity((project as Project).id as string, entityInfo.entity, flags.publish, flags.verbose)
+                                                     await this.synchronizeEntity(kinoticProjectConfig.organization, (project as Project).id as string, entityInfo.entity, flags.publish, flags.verbose)
                                                  }
                                              },
                                              flags.force)
@@ -142,14 +142,15 @@ export class Synchronize extends Command {
         }
     }
 
-    private async synchronizeEntity(projectId: string,
+    private async synchronizeEntity(organizationId: string,
+                                    projectId: string,
                                     entitySchema:  ObjectC3Type,
                                     publish: boolean,
                                     verbose: boolean): Promise<void> {
         const entityDefinitionService: IEntityDefinitionService = Kinotic.entityDefinitions
         const application = entitySchema.namespace
         const name = entitySchema.name
-        const entityDefinitionId = (application + '.' + name).toLowerCase()
+        const entityDefinitionId = (organizationId + '.' + application + '.' + name).toLowerCase()
 
         this.log(`Synchronizing Entity: ${application}.${name}`)
 
@@ -182,13 +183,14 @@ export class Synchronize extends Command {
         }
     }
 
-    private async synchronizeNamedQueries(projectId: string,
+    private async synchronizeNamedQueries(organizationId: string,
+                                          projectId: string,
                                           entitySchema:    ObjectC3Type,
                                           namedQueries: FunctionDefinition[]): Promise<void> {
         const namedQueriesService: INamedQueriesDefinitionService = Kinotic.namedQueriesDefinitions
         const application = entitySchema.namespace
         const entityDefinitionName = entitySchema.name
-        const id = (application + '.' + entityDefinitionName).toLowerCase()
+        const id = (organizationId + '.' + application + '.' + entityDefinitionName).toLowerCase()
 
         this.log(`Synchronizing Named Queries for Entity: ${application}.${entityDefinitionName}`)
 

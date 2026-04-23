@@ -11,6 +11,11 @@ import { AdminEntitiesRepository, type IAdminEntitiesRepository, type TenantSele
 export interface IAdminEntityRepository<T> {
 
     /**
+     * The organization id of the Entity this repository is for
+     */
+    entityOrganizationId: string
+
+    /**
      * The application id of the Entity this repository is for
      */
     entityApplicationId: string
@@ -22,7 +27,7 @@ export interface IAdminEntityRepository<T> {
 
     /**
      * The id of the Entity this repository is for
-     * Which is the applicationId + '.' + name
+     * Which is the organizationId + '.' + applicationId + '.' + name
      */
     entityId: string
 
@@ -127,18 +132,21 @@ export interface IAdminEntityRepository<T> {
  */
 export class AdminEntityRepository<T> implements IAdminEntityRepository<T> {
 
+    public entityOrganizationId: string
     public entityApplicationId: string
     public entityName: string
     public entityId: string
 
     private readonly adminEntitiesRepository: IAdminEntitiesRepository
 
-    public constructor(entityApplicationId: string,
+    public constructor(entityOrganizationId: string,
+                       entityApplicationId: string,
                        entityName: string,
                        adminEntitiesRepository?: IAdminEntitiesRepository) {
+        this.entityOrganizationId = entityOrganizationId
         this.entityApplicationId = entityApplicationId
         this.entityName = entityName
-        this.entityId = (entityApplicationId + '.' + entityName).toLowerCase()
+        this.entityId = (entityOrganizationId + '.' + entityApplicationId + '.' + entityName).toLowerCase()
         this.adminEntitiesRepository = adminEntitiesRepository ?? new AdminEntitiesRepository(Kinotic)
     }
 

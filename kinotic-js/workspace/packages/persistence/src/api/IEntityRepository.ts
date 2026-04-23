@@ -10,6 +10,11 @@ import { EntitiesRepository, type IEntitiesRepository } from '@/api/IEntitiesRep
 export interface IEntityRepository<T> {
 
     /**
+     * The organizationId of the Entity this repository is for
+     */
+    entityOrganizationId: string
+
+    /**
      * The applicationId of the Entity this repository is for
      */
     entityApplicationId: string
@@ -21,7 +26,7 @@ export interface IEntityRepository<T> {
 
     /**
      * The id of the Entity this repository is for
-     * Which is the applicationId + '.' + name
+     * Which is the organizationId + '.' + applicationId + '.' + name
      */
     entityId: string
 
@@ -159,18 +164,21 @@ export interface IEntityRepository<T> {
  */
 export class EntityRepository<T> implements IEntityRepository<T> {
 
+    public entityOrganizationId: string
     public entityApplicationId: string
     public entityName: string
     public entityId: string
 
     private readonly entitiesRepository: IEntitiesRepository
 
-    public constructor(entityApplicationId: string,
+    public constructor(entityOrganizationId: string,
+                       entityApplicationId: string,
                        entityName: string,
                        entitiesRepository?: IEntitiesRepository) {
+        this.entityOrganizationId = entityOrganizationId
         this.entityApplicationId = entityApplicationId
         this.entityName = entityName
-        this.entityId = (entityApplicationId + '.' + entityName).toLowerCase()
+        this.entityId = (entityOrganizationId + '.' + entityApplicationId + '.' + entityName).toLowerCase()
         this.entitiesRepository = entitiesRepository ?? new EntitiesRepository(Kinotic)
     }
 

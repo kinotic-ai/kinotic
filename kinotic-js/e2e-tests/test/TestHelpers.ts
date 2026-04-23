@@ -32,6 +32,8 @@ import {Vehicle, Wheel} from './domain/Vehicle.js'
 
 Kinotic.use(OsApiPlugin)
 
+const TEST_ORG_ID = 'kinotic-test'
+
 type SchemaCreationResult ={
     entityDefinitionSchema: ObjectC3Type
     namedQueriesDefinition: NamedQueriesDefinition
@@ -155,7 +157,7 @@ export async function createSchema(applicationId: string, projectId: string, ent
                                      for(let serviceInfo of serviceInfos){
                                             namedQueries.push(...serviceInfo.namedQueries)
                                      }
-                                     const id = (applicationId + '.' + entityName).toLowerCase()
+                                     const id = (TEST_ORG_ID + '.' + applicationId + '.' + entityName).toLowerCase()
                                      const result: SchemaCreationResult = {
                                         entityDefinitionSchema: entityInfo.entity,
                                         namedQueriesDefinition: new NamedQueriesDefinition(id,
@@ -177,9 +179,9 @@ export async function createSchema(applicationId: string, projectId: string, ent
     }
 
     ret.entityDefinitionSchema.name = entityName
-    ret.namedQueriesDefinition.id = (applicationId + '.' + entityName).toLowerCase()
+    ret.namedQueriesDefinition.id = (TEST_ORG_ID + '.' + applicationId + '.' + entityName).toLowerCase()
     ret.namedQueriesDefinition.entityDefinitionName = entityName
-    replaceAllQueryPlaceholdersWithId(applicationId + '.' + entityName, ret.namedQueriesDefinition.namedQueries)
+    replaceAllQueryPlaceholdersWithId(TEST_ORG_ID + '.' + applicationId + '.' + entityName, ret.namedQueriesDefinition.namedQueries)
     return ret
 }
 
@@ -205,7 +207,7 @@ function replaceAllQueryPlaceholdersWithId(structureId: string, functionDefiniti
 // Add these new functions to your existing TestHelpers.ts file
 
 export async function createAlertEntityDefinitionIfNotExist(applicationId: string, projectName: string): Promise<EntityDefinition> {
-    const entityDefinitionId = applicationId + '.alert'
+    const entityDefinitionId = TEST_ORG_ID + '.' + applicationId + '.alert'
     let entityDefinition = await Kinotic.entityDefinitions.findById(entityDefinitionId)
     if (entityDefinition == null) {
         entityDefinition = await createAlertEntityDefinition(applicationId, projectName)
@@ -267,7 +269,7 @@ export function createTestAlerts(numberToCreate: number): Alert[] {
 }
 
 export async function createPersonEntityDefinitionIfNotExist(applicationId: string, projectName: string, withTenant: boolean = false): Promise<EntityDefinition>{
-    const structureId = applicationId + '.person' + ( withTenant ? 'withtenant' : '')
+    const structureId = TEST_ORG_ID + '.' + applicationId + '.person' + ( withTenant ? 'withtenant' : '')
     let entityDefinition = await Kinotic.entityDefinitions.findById(structureId)
     if(entityDefinition == null){
         entityDefinition = await createPersonEntityDefinition(applicationId, projectName, withTenant)
@@ -301,7 +303,7 @@ export async function createPersonEntityDefinition(applicationId: string, projec
 }
 
 export async function createVehicleEntityDefinitionIfNotExist(applicationId: string, projectName: string): Promise<EntityDefinition>{
-    const entityDefinitionId = applicationId + '.vehicle'
+    const entityDefinitionId = TEST_ORG_ID + '.' + applicationId + '.vehicle'
     let entityDefinition = await Kinotic.entityDefinitions.findById(entityDefinitionId)
     if(entityDefinition == null){
         entityDefinition = await createVehicleEntityDefinition(applicationId, projectName)

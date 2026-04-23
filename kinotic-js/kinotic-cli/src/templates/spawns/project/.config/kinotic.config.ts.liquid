@@ -1,7 +1,8 @@
 import type { KinoticProjectConfig } from '@kinotic-ai/core'
 
 const config: KinoticProjectConfig = {
-  application: "load-testing",
+  organization: "{{ organization }}",
+  application: "{{ application }}",
   entitiesPaths: [
     {
       path: "packages/domain/model",

@@ -39,6 +39,11 @@ export class KinoticProjectConfig {
     public description?: string
 
     /**
+     * The Kinotic Organization that this project belongs to.
+     */
+    public organization!: string
+
+    /**
      * The Kinotic Application that this project belongs to.
      */
     public application!: string
