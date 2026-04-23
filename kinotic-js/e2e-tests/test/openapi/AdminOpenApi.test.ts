@@ -20,6 +20,7 @@ interface LocalTestContext {
     personWithTenantStructure: EntityDefinition
 }
 
+const TEST_ORG_ID = 'kinotic-test'
 const applicationId = 'openapi.admin'
 const projectName = 'TestProject'
 const DEFAULT_TENANT = 'kinotic'
@@ -58,10 +59,10 @@ describe('End To End Tests', () => {
     beforeAll(async () => {
         await initKinoticClient()
 
-        context.personWithTenantStructure = await createPersonEntityDefinitionIfNotExist(applicationId, projectName, true)
+        context.personWithTenantStructure = await createPersonEntityDefinitionIfNotExist(TEST_ORG_ID, applicationId, projectName, true)
         expect(context.personWithTenantStructure).toBeDefined()
 
-        const { namedQueriesDefinition } = await createSchema(applicationId, context.personWithTenantStructure.projectId, 'PersonWithTenant')
+        const { namedQueriesDefinition } = await createSchema(TEST_ORG_ID, applicationId, context.personWithTenantStructure.projectId, 'PersonWithTenant')
         const namedQueriesService = Kinotic.namedQueriesDefinitions
         await namedQueriesService.save(namedQueriesDefinition)
 

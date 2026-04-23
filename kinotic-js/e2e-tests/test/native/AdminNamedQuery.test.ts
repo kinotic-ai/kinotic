@@ -78,7 +78,7 @@ describe('End To End Tests', () => {
             await createTestPeopleWithTenantAndVerify(adminEntityService, entityService, 'tenant02', 100)
 
             // This wil get any NamedQueries defined in the EntityServices
-            const {namedQueriesDefinition} = await createSchema(applicationIdUsed, projectIdUsed, 'PersonWithTenant')
+            const {namedQueriesDefinition} = await createSchema(TEST_ORG_ID, applicationIdUsed, projectIdUsed, 'PersonWithTenant')
 
             const namedQueriesService = Kinotic.namedQueriesDefinitions
             await namedQueriesService.saveSync(namedQueriesDefinition)

@@ -125,21 +125,22 @@ export async function initKinoticAppClient(applicationId: string, tenantId: stri
     return appKinotic
 }
 
-export async function createPersonSchema(applicationId: string, projectId: string, withTenant: boolean = false): Promise<SchemaCreationResult> {
-    return createSchema(applicationId, projectId, 'Person'+(withTenant ? 'WithTenant' : ''))
+export async function createPersonSchema(organizationId: string, applicationId: string, projectId: string, withTenant: boolean = false): Promise<SchemaCreationResult> {
+    return createSchema(organizationId, applicationId, projectId, 'Person'+(withTenant ? 'WithTenant' : ''))
 }
 
-export async function createVehicleSchema(applicationId: string, projectId: string): Promise<SchemaCreationResult> {
-    return createSchema(applicationId, projectId, 'Vehicle')
+export async function createVehicleSchema(organizationId: string, applicationId: string, projectId: string): Promise<SchemaCreationResult> {
+    return createSchema(organizationId, applicationId, projectId, 'Vehicle')
 }
 
-export async function createSchema(applicationId: string, projectId: string, entityName: string): Promise<SchemaCreationResult> {
+export async function createSchema(organizationId: string, applicationId: string, projectId: string, entityName: string): Promise<SchemaCreationResult> {
     if(!schemas.has(entityName)){
         const codeGenerationService = new EntityCodeGenerationService(applicationId,
                                                                 '.js',
                                                                 new ConsoleLogger())
 
         const config = new KinoticProjectConfig()
+        config.organization = organizationId
         config.application = applicationId
         config.entitiesPaths = [{
             path: path.resolve(__dirname, './domain'),
@@ -158,7 +159,7 @@ export async function createSchema(applicationId: string, projectId: string, ent
                                      for(let serviceInfo of serviceInfos){
                                             namedQueries.push(...serviceInfo.namedQueries)
                                      }
-                                     const id = (TEST_ORG_ID + '.' + applicationId + '.' + entityName).toLowerCase()
+                                     const id = (organizationId + '.' + applicationId + '.' + entityName).toLowerCase()
                                      const result: SchemaCreationResult = {
                                         entityDefinitionSchema: entityInfo.entity,
                                         namedQueriesDefinition: new NamedQueriesDefinition(id,
@@ -180,9 +181,9 @@ export async function createSchema(applicationId: string, projectId: string, ent
     }
 
     ret.entityDefinitionSchema.name = entityName
-    ret.namedQueriesDefinition.id = (TEST_ORG_ID + '.' + applicationId + '.' + entityName).toLowerCase()
+    ret.namedQueriesDefinition.id = (organizationId + '.' + applicationId + '.' + entityName).toLowerCase()
     ret.namedQueriesDefinition.entityDefinitionName = entityName
-    replaceAllQueryPlaceholdersWithId(TEST_ORG_ID + '.' + applicationId + '.' + entityName, ret.namedQueriesDefinition.namedQueries)
+    replaceAllQueryPlaceholdersWithId(organizationId + '.' + applicationId + '.' + entityName, ret.namedQueriesDefinition.namedQueries)
     return ret
 }
 
@@ -223,7 +224,7 @@ export async function createAlertEntityDefinition(organizationId: string, applic
     let project: Project = new Project(null, applicationId, projectName, 'Project')
     project = await Kinotic.projects.createProjectIfNotExist(project)
 
-    const {entityDefinitionSchema} = await createAlertSchema(applicationId, project.id as string)
+    const {entityDefinitionSchema} = await createAlertSchema(organizationId, applicationId, project.id as string)
     const alertEntityDefinition = new EntityDefinition(
         organizationId,
         applicationId,
@@ -244,8 +245,8 @@ export async function createAlertEntityDefinition(organizationId: string, applic
     return savedEntityDefinition
 }
 
-export async function createAlertSchema(applicationId: string, projectId: string): Promise<SchemaCreationResult> {
-    return createSchema(applicationId, projectId, 'Alert')
+export async function createAlertSchema(organizationId: string, applicationId: string, projectId: string): Promise<SchemaCreationResult> {
+    return createSchema(organizationId, applicationId, projectId, 'Alert')
 }
 
 // Add this helper function to create test Alert instances
@@ -286,7 +287,7 @@ export async function createPersonEntityDefinition(organizationId: string, appli
     let project: Project = new Project(null, applicationId, projectName, 'Project')
     project = await Kinotic.projects.createProjectIfNotExist(project)
 
-    const {entityDefinitionSchema} = await createPersonSchema(applicationId, project.id as string, withTenant)
+    const {entityDefinitionSchema} = await createPersonSchema(organizationId, applicationId, project.id as string, withTenant)
     const personEntityDefinition = new EntityDefinition(organizationId,
                                                         applicationId,
                                                         project.id as string,
@@ -321,7 +322,7 @@ export async function createVehicleEntityDefinition(organizationId: string, appl
     let project: Project = new Project(null, applicationId, projectName, 'Project')
     project = await Kinotic.projects.createProjectIfNotExist(project)
     console.log('Created project', project.id);
-    const {entityDefinitionSchema} = await createVehicleSchema(applicationId, project.id as string)
+    const {entityDefinitionSchema} = await createVehicleSchema(organizationId, applicationId, project.id as string)
     console.log('Created entity definition', entityDefinitionSchema);
     const vehicleEntityDefinition = new EntityDefinition(organizationId,
                                                          applicationId,

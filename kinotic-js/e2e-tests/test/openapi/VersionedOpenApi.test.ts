@@ -11,6 +11,7 @@ interface LocalTestContext {
     vehicleStructure: EntityDefinition
 }
 
+const TEST_ORG_ID = 'kinotic-test'
 const applicationId = 'openapi.versioned'
 const projectName = 'TestProject'
 
@@ -22,7 +23,7 @@ describe('Versioned OpenApi Tests', () => {
         await allure.parentSuite('End To End Tests')
         await initKinoticClient()
 
-        context.vehicleStructure = await createVehicleEntityDefinitionIfNotExist(applicationId, projectName)
+        context.vehicleStructure = await createVehicleEntityDefinitionIfNotExist(TEST_ORG_ID, applicationId, projectName)
         expect(context.vehicleStructure).toBeDefined()
 
     }, 300000)
