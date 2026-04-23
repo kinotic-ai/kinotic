@@ -231,6 +231,7 @@ export async function createAlertEntityDefinition(applicationId: string, project
         entityDefinitionSchema,
         'System alerts and notifications stream'
     )
+    alertEntityDefinition.organizationId = TEST_ORG_ID
 
     const savedEntityDefinition = await Kinotic.entityDefinitions.create(alertEntityDefinition)
 
@@ -291,6 +292,7 @@ export async function createPersonEntityDefinition(applicationId: string, projec
                                                         'Person' + (withTenant ? 'WithTenant' : ''),
                                                         entityDefinitionSchema,
                                                         'Tracks people that are going to mars')
+    personEntityDefinition.organizationId = TEST_ORG_ID
 
     const savedEntityDefinition = await Kinotic.entityDefinitions.create(personEntityDefinition)
 
@@ -326,6 +328,7 @@ export async function createVehicleEntityDefinition(applicationId: string, proje
                                                          'Vehicle',
                                                          entityDefinitionSchema,
                                                          'Some form of transportation')
+    vehicleEntityDefinition.organizationId = TEST_ORG_ID
     console.log('Created vehicle EntityDefinition', vehicleEntityDefinition);
     const savedEntityDefinition = await Kinotic.entityDefinitions.create(vehicleEntityDefinition)
     console.log('Saved EntityDefinition', savedEntityDefinition);
