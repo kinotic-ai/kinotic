@@ -1,4 +1,4 @@
-import type { KinoticProjectConfig } from '@kinotic-ai/core'
+import type { KinoticProjectConfig } from '@kinotic-ai/os-api'
 import { loadConfig } from 'c12'
 import path from 'path'
 import fsPromises from 'fs/promises'
