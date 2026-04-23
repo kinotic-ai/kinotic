@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/os-api",
-  "version": "1.0.15",
+  "version": "1.0.16",
   "type": "module",
   "files": [
     "dist"
