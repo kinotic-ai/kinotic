@@ -1,6 +1,7 @@
 package org.kinotic.persistence.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -31,19 +32,22 @@ public class DefaultEntityDefinitionDAO extends AbstractProjectCrudService<Entit
     @Override
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId, Pageable pageable) {
         String orgId = getOrganizationIdIfEnforced();
-        return crudServiceTemplate.search(indexName, pageable, type, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
-            builder.query(q -> q.bool(b -> {
-                b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery(),
-                         TermQuery.of(tq -> tq.field("published").value(true))._toQuery());
-                if (orgId != null) {
-                    b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
-                }
-                return b;
-            }));
+        Query query = buildPublishedApplicationQuery(applicationId, orgId);
+        return crudServiceTemplate.search(indexName, pageable, type, b -> {
+            if (orgId != null) b.routing(orgId);
+            b.query(query);
         });
+    }
+
+    private Query buildPublishedApplicationQuery(String applicationId, String orgId) {
+        return Query.of(q -> q.bool(b -> {
+            b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery(),
+                     TermQuery.of(tq -> tq.field("published").value(true))._toQuery());
+            if (orgId != null) {
+                b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
+            }
+            return b;
+        }));
     }
 
 }

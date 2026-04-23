@@ -1,6 +1,7 @@
 package org.kinotic.persistence.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Pageable;
@@ -41,21 +42,24 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectCrudSer
     @Override
     public CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId, String entityDefinitionName) {
         String orgId = getOrganizationIdIfEnforced();
-        return crudServiceTemplate.search(indexName, Pageable.ofSize(1), type, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
-            builder.query(q -> q.bool(b -> {
-                b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery(),
-                         TermQuery.of(tq -> tq.field("entityDefinitionName").value(entityDefinitionName))._toQuery());
-                if (orgId != null) {
-                    b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
-                }
-                return b;
-            }));
+        Query query = buildApplicationEntityQuery(applicationId, entityDefinitionName, orgId);
+        return crudServiceTemplate.search(indexName, Pageable.ofSize(1), type, b -> {
+            if (orgId != null) b.routing(orgId);
+            b.query(query);
         }).thenApply(page -> page.getContent() != null && !page.getContent().isEmpty()
                 ? page.getContent().getFirst()
                 : null);
+    }
+
+    private Query buildApplicationEntityQuery(String applicationId, String entityDefinitionName, String orgId) {
+        return Query.of(q -> q.bool(b -> {
+            b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery(),
+                     TermQuery.of(tq -> tq.field("entityDefinitionName").value(entityDefinitionName))._toQuery());
+            if (orgId != null) {
+                b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
+            }
+            return b;
+        }));
     }
 
     @Override

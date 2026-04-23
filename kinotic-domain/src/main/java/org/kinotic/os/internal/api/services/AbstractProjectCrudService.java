@@ -1,6 +1,7 @@
 package org.kinotic.os.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -36,35 +37,31 @@ public abstract class AbstractProjectCrudService<T extends ProjectScoped<String>
     @Override
     public CompletableFuture<Long> countForProject(String projectId) {
         String orgId = getOrganizationIdIfEnforced();
-        return crudServiceTemplate.count(indexName, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
-            builder.query(q -> q.bool(b -> {
-                b.filter(TermQuery.of(tq -> tq.field("projectId").value(projectId))._toQuery());
-                if (orgId != null) {
-                    b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
-                }
-                return b;
-            }));
+        Query query = buildProjectQuery(projectId, orgId);
+        return crudServiceTemplate.count(indexName, b -> {
+            if (orgId != null) b.routing(orgId);
+            b.query(query);
         });
     }
 
     @Override
     public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable) {
         String orgId = getOrganizationIdIfEnforced();
-        return crudServiceTemplate.search(indexName, pageable, type, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
-            builder.query(q -> q.bool(b -> {
-                b.filter(TermQuery.of(tq -> tq.field("projectId").value(projectId))._toQuery());
-                if (orgId != null) {
-                    b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
-                }
-                return b;
-            }));
+        Query query = buildProjectQuery(projectId, orgId);
+        return crudServiceTemplate.search(indexName, pageable, type, b -> {
+            if (orgId != null) b.routing(orgId);
+            b.query(query);
         });
+    }
+
+    private Query buildProjectQuery(String projectId, String orgId) {
+        return Query.of(q -> q.bool(b -> {
+            b.filter(TermQuery.of(tq -> tq.field("projectId").value(projectId))._toQuery());
+            if (orgId != null) {
+                b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
+            }
+            return b;
+        }));
     }
 
 }

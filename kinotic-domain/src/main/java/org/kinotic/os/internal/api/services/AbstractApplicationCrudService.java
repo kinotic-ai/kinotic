@@ -1,6 +1,7 @@
 package org.kinotic.os.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.kinotic.core.api.crud.ApplicationScopedCrudService;
 import org.kinotic.core.api.crud.Page;
@@ -25,35 +26,31 @@ public abstract class AbstractApplicationCrudService<T extends ApplicationScoped
     @Override
     public CompletableFuture<Long> countForApplication(String applicationId) {
         String orgId = getOrganizationIdIfEnforced();
-        return crudServiceTemplate.count(indexName, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
-            builder.query(q -> q.bool(b -> {
-                b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery());
-                if (orgId != null) {
-                    b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
-                }
-                return b;
-            }));
+        Query query = buildApplicationQuery(applicationId, orgId);
+        return crudServiceTemplate.count(indexName, b -> {
+            if (orgId != null) b.routing(orgId);
+            b.query(query);
         });
     }
 
     @Override
     public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable) {
         String orgId = getOrganizationIdIfEnforced();
-        return crudServiceTemplate.search(indexName, pageable, type, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
-            builder.query(q -> q.bool(b -> {
-                b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery());
-                if (orgId != null) {
-                    b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
-                }
-                return b;
-            }));
+        Query query = buildApplicationQuery(applicationId, orgId);
+        return crudServiceTemplate.search(indexName, pageable, type, b -> {
+            if (orgId != null) b.routing(orgId);
+            b.query(query);
         });
+    }
+
+    private Query buildApplicationQuery(String applicationId, String orgId) {
+        return Query.of(q -> q.bool(b -> {
+            b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery());
+            if (orgId != null) {
+                b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
+            }
+            return b;
+        }));
     }
 
 }
