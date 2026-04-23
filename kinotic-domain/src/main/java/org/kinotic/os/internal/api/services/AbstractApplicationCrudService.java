@@ -26,6 +26,9 @@ public abstract class AbstractApplicationCrudService<T extends ApplicationScoped
     public CompletableFuture<Long> countForApplication(String applicationId) {
         String orgId = getOrganizationIdIfEnforced();
         return crudServiceTemplate.count(indexName, builder -> {
+            if (orgId != null) {
+                builder.routing(orgId);
+            }
             builder.query(q -> q.bool(b -> {
                 b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery());
                 if (orgId != null) {
@@ -40,6 +43,9 @@ public abstract class AbstractApplicationCrudService<T extends ApplicationScoped
     public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable) {
         String orgId = getOrganizationIdIfEnforced();
         return crudServiceTemplate.search(indexName, pageable, type, builder -> {
+            if (orgId != null) {
+                builder.routing(orgId);
+            }
             builder.query(q -> q.bool(b -> {
                 b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery());
                 if (orgId != null) {

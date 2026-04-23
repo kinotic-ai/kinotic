@@ -47,7 +47,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<Long> count() {
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
-            return crudServiceTemplate.count(indexName, b -> b.query(buildOrgFilterQuery(orgId)));
+            return crudServiceTemplate.count(indexName, b -> b.routing(orgId).query(buildOrgFilterQuery(orgId)));
         }
         return crudServiceTemplate.count(indexName, null);
     }
@@ -56,7 +56,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<Void> deleteById(String id) {
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
-            return crudServiceTemplate.findById(indexName, id, type, null)
+            return crudServiceTemplate.findById(indexName, id, type, b -> b.routing(orgId))
                                       .thenCompose(entity -> {
                                           if (entity == null) {
                                               return CompletableFuture.completedFuture(null);
@@ -67,11 +67,12 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
                                                               "Cannot delete " + type.getSimpleName()
                                                               + " '" + id + "' owned by another organization"));
                                           }
-                                          return crudServiceTemplate.deleteById(indexName, id, null)
+                                          return crudServiceTemplate.deleteById(indexName, id, b -> b.routing(orgId))
                                                                     .thenApply(response -> null);
                                       });
         }
-        return crudServiceTemplate.deleteById(indexName, id, null)
+        String routing = getRoutingKeyFromId(id);
+        return crudServiceTemplate.deleteById(indexName, id, routing != null ? b -> b.routing(routing) : null)
                                   .thenApply(response -> null);
     }
 
@@ -80,7 +81,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
             return crudServiceTemplate.search(indexName, pageable, type,
-                                              b -> b.query(buildOrgFilterQuery(orgId)));
+                                              b -> b.routing(orgId).query(buildOrgFilterQuery(orgId)));
         }
         return crudServiceTemplate.search(indexName, pageable, type, null);
     }
@@ -89,7 +90,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<T> findById(String id) {
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
-            return crudServiceTemplate.findById(indexName, id, type, null)
+            return crudServiceTemplate.findById(indexName, id, type, b -> b.routing(orgId))
                                       .thenApply(entity -> {
                                           if (entity == null) {
                                               return null;
@@ -100,7 +101,9 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
                                           return entity;
                                       });
         }
-        return crudServiceTemplate.findById(indexName, id, type, null);
+        String routing = getRoutingKeyFromId(id);
+        return crudServiceTemplate.findById(indexName, id, type,
+                                            routing != null ? b -> b.routing(routing) : null);
     }
 
     @Override
@@ -108,7 +111,9 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         if (shouldEnforceOrgScope()) {
             enforceOrgOnSave(entity);
         }
-        return crudServiceTemplate.save(indexName, entity.getId(), entity, null)
+        String routing = getEntityRoutingKey(entity);
+        return crudServiceTemplate.save(indexName, entity.getId(), entity,
+                                        routing != null ? b -> b.routing(routing) : null)
                                   .thenApply(indexResponse -> entity);
     }
 
@@ -117,7 +122,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
             return crudServiceTemplate.search(indexName, pageable, type,
-                                              b -> b.query(buildOrgFilterQueryWithSearch(orgId, searchText)));
+                                              b -> b.routing(orgId).query(buildOrgFilterQueryWithSearch(orgId, searchText)));
         }
         return crudServiceTemplate.search(indexName, pageable, type, builder -> builder.q(searchText));
     }
@@ -134,7 +139,9 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         if (shouldEnforceOrgScope()) {
             enforceOrgOnSave(entity);
         }
-        return crudServiceTemplate.saveSync(indexName, entity.getId(), entity, null)
+        String routing = getEntityRoutingKey(entity);
+        return crudServiceTemplate.saveSync(indexName, entity.getId(), entity,
+                                            routing != null ? b -> b.routing(routing) : null)
                                   .thenApply(indexResponse -> entity);
     }
 
@@ -151,6 +158,15 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         if (shouldEnforceOrgScope()) {
             return requireOrganizationId();
         }
+        return null;
+    }
+
+    /**
+     * Extracts a routing key from the given entity id for point lookups and deletes
+     * when org-scope enforcement is not active. Returns {@code null} by default;
+     * subclasses whose ids embed the organization prefix should override this.
+     */
+    protected String getRoutingKeyFromId(String id) {
         return null;
     }
 
@@ -177,6 +193,22 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
                     + " but was '" + participant.getAuthScopeType() + "'");
         }
         return participant.getAuthScopeId();
+    }
+
+    /**
+     * Returns the organization id from the entity for use as a routing key on writes.
+     * This is always available after {@link #enforceOrgOnSave} has run or when the entity
+     * was created with the organization id already set.
+     */
+    @SuppressWarnings("unchecked")
+    private String getEntityRoutingKey(T entity) {
+        if (organizationScoped) {
+            String orgId = ((OrganizationScoped<?>) entity).getOrganizationId();
+            if (orgId != null && !orgId.isBlank()) {
+                return orgId;
+            }
+        }
+        return null;
     }
 
     /**
