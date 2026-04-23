@@ -42,9 +42,6 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectCrudSer
     public CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId, String entityDefinitionName) {
         String orgId = getOrganizationIdIfEnforced();
         return crudServiceTemplate.search(indexName, Pageable.ofSize(1), type, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
             builder.query(q -> q.bool(b -> {
                 b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery(),
                          TermQuery.of(tq -> tq.field("entityDefinitionName").value(entityDefinitionName))._toQuery());

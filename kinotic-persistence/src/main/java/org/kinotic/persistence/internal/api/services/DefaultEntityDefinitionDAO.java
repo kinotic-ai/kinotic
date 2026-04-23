@@ -32,9 +32,6 @@ public class DefaultEntityDefinitionDAO extends AbstractProjectCrudService<Entit
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId, Pageable pageable) {
         String orgId = getOrganizationIdIfEnforced();
         return crudServiceTemplate.search(indexName, pageable, type, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
             builder.query(q -> q.bool(b -> {
                 b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery(),
                          TermQuery.of(tq -> tq.field("published").value(true))._toQuery());

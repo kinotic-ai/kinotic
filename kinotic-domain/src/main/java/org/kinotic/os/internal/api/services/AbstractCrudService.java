@@ -47,7 +47,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<Long> count() {
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
-            return crudServiceTemplate.count(indexName, b -> b.routing(orgId).query(buildOrgFilterQuery(orgId)));
+            return crudServiceTemplate.count(indexName, b -> b.query(buildOrgFilterQuery(orgId)));
         }
         return crudServiceTemplate.count(indexName, null);
     }
@@ -56,10 +56,9 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<Void> deleteById(String id) {
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
-            return crudServiceTemplate.findById(indexName, id, type, b -> b.routing(orgId))
+            return crudServiceTemplate.findById(indexName, id, type, null)
                                       .thenCompose(entity -> {
                                           if (entity == null) {
-                                              // Truly missing document: mirror ES DELETE semantics and complete normally.
                                               return CompletableFuture.completedFuture(null);
                                           }
                                           if (!orgId.equals(((OrganizationScoped<?>) entity).getOrganizationId())) {
@@ -68,7 +67,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
                                                               "Cannot delete " + type.getSimpleName()
                                                               + " '" + id + "' owned by another organization"));
                                           }
-                                          return crudServiceTemplate.deleteById(indexName, id, b -> b.routing(orgId))
+                                          return crudServiceTemplate.deleteById(indexName, id, null)
                                                                     .thenApply(response -> null);
                                       });
         }
@@ -81,7 +80,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
             return crudServiceTemplate.search(indexName, pageable, type,
-                                              b -> b.routing(orgId).query(buildOrgFilterQuery(orgId)));
+                                              b -> b.query(buildOrgFilterQuery(orgId)));
         }
         return crudServiceTemplate.search(indexName, pageable, type, null);
     }
@@ -90,7 +89,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<T> findById(String id) {
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
-            return crudServiceTemplate.findById(indexName, id, type, b -> b.routing(orgId))
+            return crudServiceTemplate.findById(indexName, id, type, null)
                                       .thenApply(entity -> {
                                           if (entity == null) {
                                               return null;
@@ -107,9 +106,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     @Override
     public CompletableFuture<T> save(T entity) {
         if (shouldEnforceOrgScope()) {
-            String orgId = enforceOrgOnSave(entity);
-            return crudServiceTemplate.save(indexName, entity.getId(), entity, b -> b.routing(orgId))
-                                      .thenApply(indexResponse -> entity);
+            enforceOrgOnSave(entity);
         }
         return crudServiceTemplate.save(indexName, entity.getId(), entity, null)
                                   .thenApply(indexResponse -> entity);
@@ -120,7 +117,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
             return crudServiceTemplate.search(indexName, pageable, type,
-                                              b -> b.routing(orgId).query(buildOrgFilterQueryWithSearch(orgId, searchText)));
+                                              b -> b.query(buildOrgFilterQueryWithSearch(orgId, searchText)));
         }
         return crudServiceTemplate.search(indexName, pageable, type, builder -> builder.q(searchText));
     }
@@ -135,9 +132,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     @Override
     public CompletableFuture<T> saveSync(T entity) {
         if (shouldEnforceOrgScope()) {
-            String orgId = enforceOrgOnSave(entity);
-            return crudServiceTemplate.saveSync(indexName, entity.getId(), entity, b -> b.routing(orgId))
-                                      .thenApply(indexResponse -> entity);
+            enforceOrgOnSave(entity);
         }
         return crudServiceTemplate.saveSync(indexName, entity.getId(), entity, null)
                                   .thenApply(indexResponse -> entity);
@@ -187,11 +182,9 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     /**
      * Autopopulates or validates the organization id on the entity before a save. When the field is unset it is
      * populated with the participant's organization id; when set it must equal the participant's organization id.
-     *
-     * @return the organization id of the participant (also used as the Elasticsearch routing key for the write)
      */
     @SuppressWarnings("unchecked")
-    private String enforceOrgOnSave(T entity) {
+    private void enforceOrgOnSave(T entity) {
         String orgId = requireOrganizationId();
         OrganizationScoped<String> scoped = (OrganizationScoped<String>) entity;
         String entityOrgId = scoped.getOrganizationId();
@@ -203,7 +196,6 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
                     + " with organizationId '" + entityOrgId
                     + "' while authenticated as organization '" + orgId + "'");
         }
-        return orgId;
     }
 
     private Query buildOrgFilterQuery(String orgId) {

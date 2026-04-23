@@ -26,9 +26,6 @@ public abstract class AbstractProjectCrudService<T extends ProjectScoped<String>
     public CompletableFuture<Long> countForProject(String projectId) {
         String orgId = getOrganizationIdIfEnforced();
         return crudServiceTemplate.count(indexName, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
             builder.query(q -> q.bool(b -> {
                 b.filter(TermQuery.of(tq -> tq.field("projectId").value(projectId))._toQuery());
                 if (orgId != null) {
@@ -43,9 +40,6 @@ public abstract class AbstractProjectCrudService<T extends ProjectScoped<String>
     public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable) {
         String orgId = getOrganizationIdIfEnforced();
         return crudServiceTemplate.search(indexName, pageable, type, builder -> {
-            if (orgId != null) {
-                builder.routing(orgId);
-            }
             builder.query(q -> q.bool(b -> {
                 b.filter(TermQuery.of(tq -> tq.field("projectId").value(projectId))._toQuery());
                 if (orgId != null) {
