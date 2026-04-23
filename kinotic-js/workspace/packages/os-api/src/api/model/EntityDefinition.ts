@@ -30,11 +30,13 @@ export class EntityDefinition implements Identifiable<string> {
     public published!: boolean // do not ever set, system managed
     public publishedTimestamp!: number // do not ever set, system managed
 
-    constructor(applicationId: string,
+    constructor(organizationId: string,
+                applicationId: string,
                 projectId: string,
                 name: string,
                 schema: ObjectC3Type,
                 description?: string | null) {
+        this.organizationId = organizationId
         this.applicationId = applicationId
         this.projectId = projectId
         this.name = name

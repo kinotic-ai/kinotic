@@ -207,16 +207,16 @@ function replaceAllQueryPlaceholdersWithId(structureId: string, functionDefiniti
 
 // Add these new functions to your existing TestHelpers.ts file
 
-export async function createAlertEntityDefinitionIfNotExist(applicationId: string, projectName: string): Promise<EntityDefinition> {
-    const entityDefinitionId = TEST_ORG_ID + '.' + applicationId + '.alert'
+export async function createAlertEntityDefinitionIfNotExist(organizationId: string, applicationId: string, projectName: string): Promise<EntityDefinition> {
+    const entityDefinitionId = organizationId + '.' + applicationId + '.alert'
     let entityDefinition = await Kinotic.entityDefinitions.findById(entityDefinitionId)
     if (entityDefinition == null) {
-        entityDefinition = await createAlertEntityDefinition(applicationId, projectName)
+        entityDefinition = await createAlertEntityDefinition(organizationId, applicationId, projectName)
     }
     return entityDefinition
 }
 
-export async function createAlertEntityDefinition(applicationId: string, projectName: string): Promise<EntityDefinition> {
+export async function createAlertEntityDefinition(organizationId: string, applicationId: string, projectName: string): Promise<EntityDefinition> {
 
     await Kinotic.applications.createApplicationIfNotExist(applicationId, 'Application')
 
@@ -225,13 +225,13 @@ export async function createAlertEntityDefinition(applicationId: string, project
 
     const {entityDefinitionSchema} = await createAlertSchema(applicationId, project.id as string)
     const alertEntityDefinition = new EntityDefinition(
+        organizationId,
         applicationId,
         project.id as string,
         'Alert',
         entityDefinitionSchema,
         'System alerts and notifications stream'
     )
-    alertEntityDefinition.organizationId = TEST_ORG_ID
 
     const savedEntityDefinition = await Kinotic.entityDefinitions.create(alertEntityDefinition)
 
@@ -270,16 +270,16 @@ export function createTestAlerts(numberToCreate: number): Alert[] {
     return ret
 }
 
-export async function createPersonEntityDefinitionIfNotExist(applicationId: string, projectName: string, withTenant: boolean = false): Promise<EntityDefinition>{
-    const structureId = TEST_ORG_ID + '.' + applicationId + '.person' + ( withTenant ? 'withtenant' : '')
+export async function createPersonEntityDefinitionIfNotExist(organizationId: string, applicationId: string, projectName: string, withTenant: boolean = false): Promise<EntityDefinition>{
+    const structureId = organizationId + '.' + applicationId + '.person' + ( withTenant ? 'withtenant' : '')
     let entityDefinition = await Kinotic.entityDefinitions.findById(structureId)
     if(entityDefinition == null){
-        entityDefinition = await createPersonEntityDefinition(applicationId, projectName, withTenant)
+        entityDefinition = await createPersonEntityDefinition(organizationId, applicationId, projectName, withTenant)
     }
     return entityDefinition
 }
 
-export async function createPersonEntityDefinition(applicationId: string, projectName: string, withTenant: boolean = false): Promise<EntityDefinition>{
+export async function createPersonEntityDefinition(organizationId: string, applicationId: string, projectName: string, withTenant: boolean = false): Promise<EntityDefinition>{
 
     await Kinotic.applications.createApplicationIfNotExist(applicationId, 'Application')
 
@@ -287,12 +287,12 @@ export async function createPersonEntityDefinition(applicationId: string, projec
     project = await Kinotic.projects.createProjectIfNotExist(project)
 
     const {entityDefinitionSchema} = await createPersonSchema(applicationId, project.id as string, withTenant)
-    const personEntityDefinition = new EntityDefinition(applicationId,
+    const personEntityDefinition = new EntityDefinition(organizationId,
+                                                        applicationId,
                                                         project.id as string,
                                                         'Person' + (withTenant ? 'WithTenant' : ''),
                                                         entityDefinitionSchema,
                                                         'Tracks people that are going to mars')
-    personEntityDefinition.organizationId = TEST_ORG_ID
 
     const savedEntityDefinition = await Kinotic.entityDefinitions.create(personEntityDefinition)
 
@@ -305,16 +305,16 @@ export async function createPersonEntityDefinition(applicationId: string, projec
     return savedEntityDefinition
 }
 
-export async function createVehicleEntityDefinitionIfNotExist(applicationId: string, projectName: string): Promise<EntityDefinition>{
-    const entityDefinitionId = TEST_ORG_ID + '.' + applicationId + '.vehicle'
+export async function createVehicleEntityDefinitionIfNotExist(organizationId: string, applicationId: string, projectName: string): Promise<EntityDefinition>{
+    const entityDefinitionId = organizationId + '.' + applicationId + '.vehicle'
     let entityDefinition = await Kinotic.entityDefinitions.findById(entityDefinitionId)
     if(entityDefinition == null){
-        entityDefinition = await createVehicleEntityDefinition(applicationId, projectName)
+        entityDefinition = await createVehicleEntityDefinition(organizationId, applicationId, projectName)
     }
     return entityDefinition
 }
 
-export async function createVehicleEntityDefinition(applicationId: string, projectName: string): Promise<EntityDefinition>{
+export async function createVehicleEntityDefinition(organizationId: string, applicationId: string, projectName: string): Promise<EntityDefinition>{
 
     await Kinotic.applications.createApplicationIfNotExist(applicationId, 'Application')
     console.log('Created application', applicationId);
@@ -323,12 +323,12 @@ export async function createVehicleEntityDefinition(applicationId: string, proje
     console.log('Created project', project.id);
     const {entityDefinitionSchema} = await createVehicleSchema(applicationId, project.id as string)
     console.log('Created entity definition', entityDefinitionSchema);
-    const vehicleEntityDefinition = new EntityDefinition(applicationId,
+    const vehicleEntityDefinition = new EntityDefinition(organizationId,
+                                                         applicationId,
                                                          project.id as string,
                                                          'Vehicle',
                                                          entityDefinitionSchema,
                                                          'Some form of transportation')
-    vehicleEntityDefinition.organizationId = TEST_ORG_ID
     console.log('Created vehicle EntityDefinition', vehicleEntityDefinition);
     const savedEntityDefinition = await Kinotic.entityDefinitions.create(vehicleEntityDefinition)
     console.log('Saved EntityDefinition', savedEntityDefinition);

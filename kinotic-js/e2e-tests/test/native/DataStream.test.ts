@@ -20,6 +20,7 @@ import {
 
 Object.assign(global, { WebSocket })
 
+const TEST_ORG_ID = 'kinotic-test'
 const APP_TENANT = 'kinotic'
 
 interface LocalTestContext {
@@ -40,7 +41,7 @@ describe('End To End Tests', () => {
     }, 60000)
 
     beforeEach<LocalTestContext>(async (context) => {
-        context.entityDefinition = await createAlertEntityDefinitionIfNotExist(generateRandomString(10), generateRandomString(5))
+        context.entityDefinition = await createAlertEntityDefinitionIfNotExist(TEST_ORG_ID, generateRandomString(10), generateRandomString(5))
         expect(context.entityDefinition).toBeDefined()
         context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT)
         context.entityService = new EntityRepository(

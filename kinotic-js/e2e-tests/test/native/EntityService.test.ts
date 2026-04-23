@@ -18,6 +18,7 @@ import {
     shutdownKinoticClient
 } from '../TestHelpers.js'
 
+const TEST_ORG_ID = 'kinotic-test'
 const APP_TENANT = 'kinotic'
 
 interface LocalTestContext {
@@ -41,7 +42,7 @@ describe('End To End Tests', () => {
     beforeEach<LocalTestContext>(async (context) => {
         // Platform metadata (Application, Project, EntityDefinition) is created as the
         // ORGANIZATION user via the default Kinotic singleton.
-        context.entityDefinition = await createPersonEntityDefinitionIfNotExist(generateRandomString(10), generateRandomString(5))
+        context.entityDefinition = await createPersonEntityDefinitionIfNotExist(TEST_ORG_ID, generateRandomString(10), generateRandomString(5))
         expect(context.entityDefinition).toBeDefined()
 
         // Entity data lives under an APPLICATION-scoped user inside the application just

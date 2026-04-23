@@ -15,6 +15,7 @@ import {
     shutdownKinoticClient,
 } from '../TestHelpers.js'
 
+const TEST_ORG_ID = 'kinotic-test'
 const APP_TENANT = 'kinotic'
 
 interface LocalTestContext {
@@ -40,7 +41,7 @@ describe('End To End Tests', () => {
     beforeEach<LocalTestContext>(async (context) => {
         context.applicationIdUsed = generateRandomString(10)
         context.projectIdUsed = generateRandomString(5)
-        context.entityDefinition = await createPersonEntityDefinitionIfNotExist(context.applicationIdUsed, context.projectIdUsed)
+        context.entityDefinition = await createPersonEntityDefinitionIfNotExist(TEST_ORG_ID, context.applicationIdUsed, context.projectIdUsed)
         expect(context.entityDefinition).toBeDefined()
         context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT)
         context.entityService = new EntityRepository(
