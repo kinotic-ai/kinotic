@@ -78,23 +78,23 @@ describe('End To End Tests', () => {
             expect(savedPerson.id).toBeDefined()
 
             // Find the person
-            const foundPerson: Person = await logFailure(entityService.findById(savedPerson.id as string), 'Failed to find person')
+            const foundPerson = await logFailure(entityService.findById(savedPerson.id as string), 'Failed to find person')
             expect(foundPerson).toBeDefined()
-            expect(foundPerson.id).toBe(savedPerson.id)
+            expect(foundPerson!.id).toBe(savedPerson.id)
 
             // Update the person
-            foundPerson.firstName = 'Walter'
-            foundPerson.lastName = 'White'
-            const updatedPerson: Person = await logFailure(entityService.update(foundPerson), 'Failed to update person')
+            foundPerson!.firstName = 'Walter'
+            foundPerson!.lastName = 'White'
+            const updatedPerson: Person = await logFailure(entityService.update(foundPerson!), 'Failed to update person')
             expect(updatedPerson).toBeDefined()
-            expect(updatedPerson.id).toBe(foundPerson.id)
+            expect(updatedPerson.id).toBe(foundPerson!.id)
 
             // Find the updated person
-            const foundUpdatedPerson: Person = await logFailure(entityService.findById(updatedPerson.id as string), 'Failed to find updated person')
+            const foundUpdatedPerson = await logFailure(entityService.findById(updatedPerson.id as string), 'Failed to find updated person')
             expect(foundUpdatedPerson).toBeDefined()
-            expect(foundUpdatedPerson.id).toBe(updatedPerson.id)
-            expect(foundUpdatedPerson.firstName).toBe('Walter')
-            expect(foundUpdatedPerson.lastName).toBe('White')
+            expect(foundUpdatedPerson!.id).toBe(updatedPerson.id)
+            expect(foundUpdatedPerson!.firstName).toBe('Walter')
+            expect(foundUpdatedPerson!.lastName).toBe('White')
 
             // Count the people
             await expect(entityService.count()).resolves.toBe(1)

@@ -33,8 +33,6 @@ import {Vehicle, Wheel} from './domain/Vehicle.js'
 
 Kinotic.use(OsApiPlugin)
 
-const TEST_ORG_ID = 'kinotic-test'
-
 type SchemaCreationResult ={
     entityDefinitionSchema: ObjectC3Type
     namedQueriesDefinition: NamedQueriesDefinition

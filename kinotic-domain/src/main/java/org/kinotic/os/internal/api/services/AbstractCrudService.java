@@ -195,7 +195,6 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
      * This is always available after {@link #enforceOrgOnSave} has run or when the entity
      * was created with the organization id already set.
      */
-    @SuppressWarnings("unchecked")
     private String getEntityRoutingKey(T entity) {
         if (organizationScoped) {
             String orgId = ((OrganizationScoped<?>) entity).getOrganizationId();
