@@ -58,6 +58,11 @@ oidc:
       postLogoutRedirectUri: "https://localhost"
       silentRedirectUri: "https://localhost/silent-renew.html"
 
+# Platform secrets — KinD path: terraform creates a k8s Secret named below with the
+# JWT signing keys and secret-storage master keys. Pod mounts it directly (no CSI).
+platformSecrets:
+  secretName: kinotic-platform-secrets
+
 # Eviction tracking
 evictionTracking:
   enabled: true

@@ -44,6 +44,17 @@ resource "azurerm_federated_identity_credential" "kinotic_server" {
   subject               = "system:serviceaccount:kinotic:kinotic-server"
 }
 
+# ── Platform Key Vault access ─────────────────────────────────────────────────
+# Read-only access to the global platform Key Vault (JWT signing keys, secret-storage
+# master keys). The global vault lives in rg-kinotic-global and is provisioned by the
+# global/ terraform stack; we reach its id via terraform_remote_state.
+
+resource "azurerm_role_assignment" "kinotic_server_platform_kv" {
+  scope                = local.global.platform_key_vault_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.kinotic_server.principal_id
+}
+
 # ── Outputs ───────────────────────────────────────────────────────────────────
 
 output "key_vault_url" {

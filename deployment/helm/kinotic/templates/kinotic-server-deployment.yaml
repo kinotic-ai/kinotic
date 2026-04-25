@@ -93,6 +93,10 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.kinotic.elastic.secretName }}
                   key: {{ .Values.kinotic.elastic.secretKey }}
+            - name: KINOTIC_PLATFORMSECRETS_JWTSIGNINGKEYSPATH
+              value: "{{ .Values.platformSecrets.mountPath }}/{{ .Values.platformSecrets.objects.jwtSigningKeys }}"
+            - name: KINOTIC_PLATFORMSECRETS_SECRETSTORAGEMASTERKEYSPATH
+              value: "{{ .Values.platformSecrets.mountPath }}/{{ .Values.platformSecrets.objects.secretStorageMasterKeys }}"
           volumeMounts:
             - name: tmp-work
               mountPath: /workspace/ignite/work
@@ -105,6 +109,9 @@ spec:
             - name: eviction-data
               mountPath: {{ .Values.evictionTracking.mountPath | default "/eviction-data" }}
             {{- end }}
+            - name: platform-secrets
+              mountPath: {{ .Values.platformSecrets.mountPath }}
+              readOnly: true
       restartPolicy: Always
       nodeSelector: {{ toYaml .Values.nodeSelector | nindent 8 }}
       volumes:
@@ -122,3 +129,20 @@ spec:
             path: {{ .Values.evictionTracking.hostPath | default "/tmp/kinotic-eviction-data" }}
             type: DirectoryOrCreate
         {{- end }}
+        - name: platform-secrets
+          {{- if .Values.platformSecrets.keyVault.name }}
+          # Azure: CSI driver syncs Key Vault → K8s Secret (via SecretProviderClass.secretObjects).
+          # The Secret is projected onto the pod via the volume below. Mounting the CSI
+          # driver directly would also work, but using the synced Secret keeps the pod
+          # spec identical to the KinD path (same volume type, same mount path).
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ include "kinotic-server.fullname" . }}-platform-secrets
+          {{- else }}
+          # KinD / other: a K8s Secret (created by external terraform or tooling) holds the
+          # same keys. Mounted directly — files refresh when the Secret is updated.
+          secret:
+            secretName: {{ include "kinotic-server.platformSecretsSecretName" . }}
+          {{- end }}
