@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Verify your Kinotic email</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        @media (max-width: 600px) {
+            .container { width: 100% !important; }
+            .px-gutter { padding-left: 20px !important; padding-right: 20px !important; }
+            .h1-responsive { font-size: 26px !important; }
+            .cta-link {
+                display: block !important;
+                height: 48px !important;
+                line-height: 48px !important;
+                font-size: 15px !important;
+            }
+        }
+    </style>
+</head>
+<body style="margin:0; padding:0; background-color:#171717;">
+
+<!-- Preheader (hidden) -->
+<div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">
+    Confirm your email to activate your Kinotic account.
+</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       bgcolor="#171717" style="background-color:#171717;">
+    <tr>
+        <td align="center">
+            <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0"
+                   style="max-width:600px; width:100%;">
+
+                <!-- Header / logo -->
+                <tr>
+                    <td class="px-gutter" style="padding:40px 32px 24px;">
+                        <img src="https://kinotic.ai/images/kinotic-wordmark.png" alt="Kinotic" width="158" height="28"
+                             style="display:block; border:0; outline:none; text-decoration:none;">
+                    </td>
+                </tr>
+
+                <!-- Accent bar -->
+                <tr>
+                    <td style="background-color:#28FEB4; line-height:2px; font-size:0;">&nbsp;</td>
+                </tr>
+
+                <!-- Body -->
+                <tr>
+                    <td class="px-gutter" style="padding:40px 32px 32px;">
+                        <h1 class="h1-responsive"
+                            style="margin:0 0 16px; font-family:'Inter','Helvetica Neue',Arial,sans-serif; font-size:28px; line-height:120%; letter-spacing:-0.02em; font-weight:700; color:#FFFFFF;">
+                            Verify your email
+                        </h1>
+
+                        <p style="margin:0 0 32px; font-family:'Inter','Helvetica Neue',Arial,sans-serif; font-size:17px; line-height:140%; color:#AFAFB4;">
+                            Hi <span th:text="${displayName}">there</span>, welcome to Kinotic.
+                            Confirm your email address to activate your account.
+                        </p>
+
+                        <!-- CTA (bulletproof) -->
+                        <!--[if mso]>
+                        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml"
+                                     xmlns:w="urn:schemas-microsoft-com:office:word"
+                                     th:attr="href=${verificationUrl}"
+                                     href="#"
+                                     style="height:44px; v-text-anchor:middle; width:220px;"
+                                     arcsize="100%" stroke="f" fillcolor="#FF2D7A">
+                            <w:anchorlock/>
+                            <center style="color:#FFFFFF; font-family:'Inter',Arial,sans-serif; font-size:14px; font-weight:500;">
+                                Verify email
+                            </center>
+                        </v:roundrect>
+                        <![endif]-->
+                        <!--[if !mso]><!-- -->
+                        <table role="presentation" border="0" cellspacing="0" cellpadding="0"
+                               style="border-collapse:separate;">
+                            <tr>
+                                <td align="center"
+                                    bgcolor="#FF2D7A"
+                                    style="border-radius:9999px; background-color:#FF2D7A; background-image:linear-gradient(135deg,#FF2D7A 0%,#FF2A55 100%); box-shadow:0 20px 50px rgba(255,45,122,0.28);">
+                                    <a class="cta-link"
+                                       th:href="${verificationUrl}"
+                                       href="#"
+                                       style="display:inline-block; padding:0 24px; height:44px; line-height:44px; font-family:'Inter','Helvetica Neue',Arial,sans-serif; font-size:14px; font-weight:500; color:#FFFFFF; text-decoration:none; border-radius:9999px;">
+                                        Verify email
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                        <!--<![endif]-->
+
+                        <!-- Fallback URL -->
+                        <p style="margin:32px 0 8px; font-family:'Inter','Helvetica Neue',Arial,sans-serif; font-size:13px; line-height:150%; color:#AFAFB4;">
+                            Button not working? Paste this URL into your browser:
+                        </p>
+                        <p style="margin:0; font-family:'Inter',Arial,sans-serif; font-size:13px; line-height:150%; word-break:break-all;">
+                            <a th:href="${verificationUrl}"
+                               th:text="${verificationUrl}"
+                               href="#"
+                               style="color:#28FEB4; text-decoration:underline;">https://…</a>
+                        </p>
+                    </td>
+                </tr>
+
+                <!-- Divider -->
+                <tr>
+                    <td class="px-gutter" style="padding:0 32px;">
+                        <div style="border-top:1px solid #2A2A2A; line-height:1px; font-size:0;">&nbsp;</div>
+                    </td>
+                </tr>
+
+                <!-- Fine print -->
+                <tr>
+                    <td class="px-gutter" style="padding:16px 32px 0;">
+                        <p style="margin:0; font-family:'Inter',Arial,sans-serif; font-size:12px; line-height:150%; color:#6b7280;">
+                            This link expires in 24 hours. If you didn't sign up for Kinotic, you can safely ignore this email.
+                        </p>
+                    </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                    <td class="px-gutter" style="padding:32px 32px 40px;">
+                        <p style="margin:0; font-family:'Inter',Arial,sans-serif; font-size:12px; color:#6b7280;">
+                            — The Kinotic Team
+                        </p>
+                    </td>
+                </tr>
+
+            </table>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>
