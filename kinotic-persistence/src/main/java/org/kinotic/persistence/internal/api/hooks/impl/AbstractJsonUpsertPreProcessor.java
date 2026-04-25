@@ -156,7 +156,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         }else if(objectDepth == 1 && decorator instanceof TenantIdDecorator){
 
                             if(currentTenantId != null){ // should never happen, because the EntityDefinition is validated when published
-                                throw new IllegalArgumentException("Found multiple id fields in entity");
+                                throw new IllegalArgumentException("Found multiple tenant id fields in entity");
                             }
                             // field exists but is null so we can throw early
                             if(value == null){

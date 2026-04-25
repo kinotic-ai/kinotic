@@ -25,7 +25,6 @@ import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service
-@ConditionalOnProperty(prefix = "oidc-security-service", name = "enabled", havingValue = "true")
 public class DefaultJwksService implements JwksService {
 
     private final WebClient webClient;

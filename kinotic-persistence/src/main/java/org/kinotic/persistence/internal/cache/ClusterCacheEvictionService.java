@@ -152,6 +152,7 @@ public class ClusterCacheEvictionService {
                 ClusterCacheEvictionTask task = new ClusterCacheEvictionTask(
                         event.getEvictionSourceType(),
                         event.getEvictionOperation(),
+                        event.getOrganizationId(),
                         event.getApplicationId(),
                         event.getEntityDefinitionId(),
                         event.getNamedQueryId(),

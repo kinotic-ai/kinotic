@@ -1,6 +1,5 @@
 package org.kinotic.persistence.internal.api.services;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch.indices.DataStreamVisibility;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
@@ -29,7 +28,6 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
 
     private final ApplicationEventPublisher eventPublisher;
     private final CrudServiceTemplate crudServiceTemplate;
-    private final ElasticsearchAsyncClient esAsyncClient;
     private final EntityDefinitionConversionService entityDefinitionConversionService;
     private final EntityDefinitionDAO entityDefinitionDAO;
     private final PersistenceProperties persistenceProperties;
@@ -64,7 +62,9 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
             entityDefinition.setApplicationId(entityDefinition.getApplicationId().trim());
             entityDefinition.setProjectId(entityDefinition.getProjectId().trim());
             entityDefinition.setName(entityDefinition.getName().trim());
-            logicalIndexName = PersistenceUtil.entityDefinitionNameToId(entityDefinition.getApplicationId(), entityDefinition.getName());
+            logicalIndexName = PersistenceUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
+                                                                        entityDefinition.getApplicationId(),
+                                                                        entityDefinition.getName());
 
             if(logicalIndexName.length() > 255){
                 throw new IllegalArgumentException("EntityDefinition Id is too long, 'applicationId.name' must be less than 256 characters");
@@ -120,7 +120,7 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                                 .failedFuture(new IllegalStateException("EntityDefinition must be Un-Published before Deleting"));
                     }
 
-                    this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getApplicationId(), entityDefinition.getId()));
+                    this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId(), entityDefinition.getId()));
 
                     return entityDefinitionDAO.deleteById(entityDefinitionId);
                 });
@@ -191,7 +191,7 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                         entityDefinition.setUpdated(entityDefinition.getPublishedTimestamp());
                         return entityDefinitionDAO.save(entityDefinition)
                                                   .thenApply(entityDefinition1 -> {
-                                               this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getApplicationId(),
+                                               this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(),
                                                                                                                                  entityDefinition1.getId()));
                                                return null;
                                            });
@@ -272,7 +272,7 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                         return updateFuture.thenCompose(v -> entityDefinitionDAO
                                 .save(entityDefinition)
                                 .thenApply(entityDefinition1 -> {
-                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getApplicationId(), entityDefinition1.getId()));
+                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
                                     return entityDefinition1;
                                 }));
                     } else {
@@ -311,9 +311,7 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                                                                  .thenCompose(v -> crudServiceTemplate.deleteIndexTemplate(templateName));
                     } else {
                         // Delete the regular index
-                        deleteStorageFuture = esAsyncClient.indices()
-                                                           .delete(builder -> builder.index(entityDefinition.getItemIndex()))
-                                                           .thenApply(response -> null);
+                        deleteStorageFuture = crudServiceTemplate.deleteIndex(entityDefinition.getItemIndex());
                     }
 
                     return deleteStorageFuture.thenCompose(v -> {
@@ -322,7 +320,7 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                         entityDefinition.setUpdated(new Date());
                         return entityDefinitionDAO.save(entityDefinition)
                                                   .thenApply(entityDefinition1 -> {
-                                               this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getApplicationId(), entityDefinition1.getId()));
+                                               this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
                                                return null;
                                            });
                     });

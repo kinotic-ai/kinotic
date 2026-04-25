@@ -13,6 +13,7 @@ import io.vertx.ext.web.handler.BodyHandler;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.Nullable;
 import org.kinotic.os.api.model.RawJson;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.AuthenticationHandler;
@@ -52,6 +53,7 @@ public class OpenApiVertxRouterFactory {
     private final EntitiesRepository entitiesRepository;
     private final ObjectMapper objectMapper;
     private final OpenApiService openApiService;
+    private final SecurityContext securityContext;
     private final PersistenceProperties properties;
     private final SecurityService securityService;
     private final JavaType stringListType;
@@ -61,12 +63,14 @@ public class OpenApiVertxRouterFactory {
     public OpenApiVertxRouterFactory(EntitiesRepository entitiesRepository,
                                      ObjectMapper objectMapper,
                                      OpenApiService openApiService,
+                                     SecurityContext securityContext,
                                      PersistenceProperties properties,
                                      SecurityService securityService,
                                      Vertx vertx) {
         this.entitiesRepository = entitiesRepository;
         this.objectMapper = objectMapper;
         this.openApiService = openApiService;
+        this.securityContext = securityContext;
         this.properties = properties;
         this.securityService = securityService;
         this.vertx = vertx;
@@ -124,7 +128,7 @@ public class OpenApiVertxRouterFactory {
               });
 
         if (securityService != null) {
-            router.route().handler(new AuthenticationHandler(securityService, vertx));
+            router.route().handler(new AuthenticationHandler(securityService, securityContext, vertx));
         }
 
         addDeleteRoutes(router, bodyHandler, true);

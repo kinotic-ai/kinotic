@@ -7,6 +7,7 @@ import org.apache.commons.lang3.Validate;
 import org.apache.commons.text.WordUtils;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 import org.kinotic.persistence.api.model.idl.PageC3Type;
@@ -42,18 +43,20 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
     private final NamedQueriesDefinitionService namedQueriesDefinitionService;
     private final ObjectMapper objectMapper;
     private final EntityDefinitionDAO entityDefinitionDAO;
+    private final SecurityContext securityContext;
 
     @Override
     public CompletableFuture<? extends List<GqlOperationDefinition>> asyncLoad(String key, Executor executor) {
-        return entityDefinitionDAO.findById(key)
+        return securityContext.withElevatedAccess(() -> entityDefinitionDAO.findById(key))
                                   .thenApply(entityDefinition -> {
                                       Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
                                       return entityDefinition;
                                   })
                                   .thenComposeAsync(entityDefinition -> {
-                                      NamedQueriesDefinition namedQueriesDefinition = namedQueriesDefinitionService
-                                              .findByApplicationAndEntityDefinition(entityDefinition.getApplicationId(),
-                                                                                    entityDefinition.getName())
+                                      NamedQueriesDefinition namedQueriesDefinition = securityContext
+                                              .withElevatedAccess(() -> namedQueriesDefinitionService
+                                                      .findByApplicationAndEntityDefinition(entityDefinition.getApplicationId(),
+                                                                                            entityDefinition.getName()))
                                               .join();
                                       List<GqlOperationDefinition> ret;
                                       if(namedQueriesDefinition != null) {

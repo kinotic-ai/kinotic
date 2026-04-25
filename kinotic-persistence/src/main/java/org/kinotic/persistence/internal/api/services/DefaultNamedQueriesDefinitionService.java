@@ -1,10 +1,12 @@
 package org.kinotic.persistence.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.os.internal.api.services.AbstractCrudService;
+import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.os.internal.api.services.AbstractProjectCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 import org.kinotic.persistence.api.services.NamedQueriesDefinitionService;
@@ -19,17 +21,19 @@ import java.util.concurrent.CompletableFuture;
  */
 @Slf4j
 @Component
-public class DefaultNamedQueriesDefinitionService extends AbstractCrudService<NamedQueriesDefinition> implements NamedQueriesDefinitionService {
+public class DefaultNamedQueriesDefinitionService extends AbstractProjectCrudService<NamedQueriesDefinition> implements NamedQueriesDefinitionService {
 
     private final ApplicationEventPublisher eventPublisher;
 
     public DefaultNamedQueriesDefinitionService(CrudServiceTemplate crudServiceTemplate,
                                                 ElasticsearchAsyncClient esAsyncClient,
-                                                ApplicationEventPublisher eventPublisher) {
+                                                ApplicationEventPublisher eventPublisher,
+                                                SecurityContext securityContext) {
         super("kinotic_named_query_service_definition",
               NamedQueriesDefinition.class,
               esAsyncClient,
-              crudServiceTemplate);
+              crudServiceTemplate,
+              securityContext);
 
         this.eventPublisher = eventPublisher;
     }
@@ -37,16 +41,25 @@ public class DefaultNamedQueriesDefinitionService extends AbstractCrudService<Na
 
     @Override
     public CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId, String entityDefinitionName) {
-        // FIXME: this should be filtered by tenant
-        return crudServiceTemplate.search(indexName, Pageable.ofSize(1), type, builder -> builder
-                .query(q -> q
-                        .bool(b -> b
-                                .filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery(),
-                                        TermQuery.of(tq -> tq.field("entityDefinitionName").value(entityDefinitionName))._toQuery())
-                        )
-                )).thenApply(page -> page.getContent() != null && !page.getContent().isEmpty()
+        String orgId = getOrganizationIdIfEnforced();
+        Query query = buildApplicationEntityQuery(applicationId, entityDefinitionName, orgId);
+        return crudServiceTemplate.search(indexName, Pageable.ofSize(1), type, b -> {
+            if (orgId != null) b.routing(orgId);
+            b.query(query);
+        }).thenApply(page -> page.getContent() != null && !page.getContent().isEmpty()
                 ? page.getContent().getFirst()
                 : null);
+    }
+
+    private Query buildApplicationEntityQuery(String applicationId, String entityDefinitionName, String orgId) {
+        return Query.of(q -> q.bool(b -> {
+            b.filter(TermQuery.of(tq -> tq.field("applicationId").value(applicationId))._toQuery(),
+                     TermQuery.of(tq -> tq.field("entityDefinitionName").value(entityDefinitionName))._toQuery());
+            if (orgId != null) {
+                b.filter(TermQuery.of(tq -> tq.field("organizationId").value(orgId))._toQuery());
+            }
+            return b;
+        }));
     }
 
     @Override
@@ -55,7 +68,7 @@ public class DefaultNamedQueriesDefinitionService extends AbstractCrudService<Na
         //       The Query type information will speed up other areas the need this as well
         return super.save(definition)
                     .thenApply(namedQueriesDefinition -> {
-                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedNamedQuery(definition.getApplicationId(), definition.getEntityDefinitionName(), definition.getId()));
+                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedNamedQuery(definition.getOrganizationId(), definition.getApplicationId(), definition.getEntityDefinitionName(), definition.getId()));
                         return namedQueriesDefinition;
                     });
     }
@@ -73,7 +86,8 @@ public class DefaultNamedQueriesDefinitionService extends AbstractCrudService<Na
                             .thenApply(v -> {
                                 this.eventPublisher.publishEvent(
                                         CacheEvictionEvent.localDeletedNamedQuery(
-                                                namedQuery.getApplicationId(), 
+                                                namedQuery.getOrganizationId(),
+                                                namedQuery.getApplicationId(),
                                                 namedQuery.getEntityDefinitionName(),
                                                 namedQuery.getId()));
                                 return null;

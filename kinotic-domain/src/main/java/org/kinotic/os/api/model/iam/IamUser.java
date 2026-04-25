@@ -59,6 +59,14 @@ public class IamUser implements Identifiable<String> {
      */
     private String authScopeId;
 
+    /**
+     * The client tenant this user belongs to within their application's data model.
+     * Only meaningful when {@link #authScopeType} is {@code "APPLICATION"} — application
+     * tenants partition the data of {@code MultiTenancyType.SHARED} entities owned by the app.
+     * Must be null for SYSTEM and ORGANIZATION scopes; those identities are not tenants.
+     */
+    private String tenantId;
+
     private boolean enabled;
 
     private Date created;

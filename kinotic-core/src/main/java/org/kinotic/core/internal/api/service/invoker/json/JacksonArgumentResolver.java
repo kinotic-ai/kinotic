@@ -4,7 +4,7 @@ package org.kinotic.core.internal.api.service.invoker.json;
 
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.internal.api.service.invoker.ArgumentResolver;
 import org.kinotic.core.internal.api.service.invoker.HandlerMethod;
 import org.kinotic.core.internal.api.service.json.AbstractJacksonSupport;
@@ -22,8 +22,8 @@ public class JacksonArgumentResolver extends AbstractJacksonSupport implements A
     public JacksonArgumentResolver(JsonMapper jsonMapper,
                                    ReactiveAdapterRegistry reactiveAdapterRegistry,
                                    KinoticProperties kinoticProperties,
-                                   ParticipantContext participantContext) {
-        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties, participantContext);
+                                   SecurityContext securityContext) {
+        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties, securityContext);
     }
 
     @Override

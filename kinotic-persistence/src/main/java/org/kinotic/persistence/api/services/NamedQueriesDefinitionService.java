@@ -1,7 +1,7 @@
 package org.kinotic.persistence.api.services;
 
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.crud.IdentifiableCrudService;
+import org.kinotic.core.api.crud.ProjectScopedCrudService;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 
@@ -11,7 +11,7 @@ import java.util.concurrent.CompletableFuture;
  * Created by Navíd Mitchell 🤪on 4/23/24.
  */
 @Publish
-public interface NamedQueriesDefinitionService extends IdentifiableCrudService<NamedQueriesDefinition, String> {
+public interface NamedQueriesDefinitionService extends ProjectScopedCrudService<NamedQueriesDefinition, String> {
 
     /**
      * Finds all {@link NamedQueriesDefinition} for a given application and {@link EntityDefinition}.

@@ -70,7 +70,6 @@ node_modules/
 
 /ignite/
 */ignite/
-/gateway-data/**
 
 *.zip
 
@@ -95,3 +94,6 @@ kinotic-js/continuum-cli/
 terraform.tfstate
 
 .claude/worktrees/
+
+kinotic-js/e2e-tests/test/repository/generated/
+

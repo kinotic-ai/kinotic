@@ -46,9 +46,6 @@ public class DefaultLogManager implements LogManager {
 
     public LoggersDescriptor loggers() {
         Collection<LoggerConfiguration> configurations = this.loggingSystem.getLoggerConfigurations();
-        if (configurations == null) {
-            return new LoggersDescriptor();
-        }
         return new LoggersDescriptor(getLevels(), getLoggers(configurations), getGroups());
     }
 

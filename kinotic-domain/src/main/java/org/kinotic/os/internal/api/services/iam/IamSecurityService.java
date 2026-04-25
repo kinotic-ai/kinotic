@@ -12,9 +12,14 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.internal.api.security.JwksService;
+import org.kinotic.os.api.model.iam.AuthScopeType;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
+import org.kinotic.os.api.services.ApplicationService;
+import org.kinotic.os.api.services.KinoticSystemService;
+import org.kinotic.os.api.services.OrganizationService;
+import org.kinotic.os.api.utils.DomainUtil;
 import org.kinotic.os.internal.api.model.iam.IamCredential;
 import org.springframework.stereotype.Component;
 
@@ -49,10 +54,11 @@ import java.util.stream.Collectors;
 public class IamSecurityService implements SecurityService {
 
     private final DefaultIamUserService userService;
-    private final IamCredentialStore credentialStore;
-    private final OidcConfigLookup oidcConfigLookup;
+    private final IamCredentialService credentialService;
+    private final KinoticSystemService kinoticSystemService;
+    private final OrganizationService organizationService;
+    private final ApplicationService applicationService;
     private final JwksService jwksService;
-    private final PasswordService passwordService;
 
     /**
      * Entry point for all authentication. Parses the {@code authScopeType} header to determine
@@ -66,8 +72,13 @@ public class IamSecurityService implements SecurityService {
      */
     @Override
     public CompletableFuture<Participant> authenticate(Map<String, String> authenticationInfo) {
-        String authScopeType = authenticationInfo.get("authScopeType");
-        String authScopeId = authenticationInfo.get("authScopeId");
+        // HTTP callers (AuthenticationHandler) lowercase all header names; STOMP preserves case.
+        // Wrap the incoming map in a case-insensitive view so both transports work with the same
+        // camelCase header names throughout this class.
+        Map<String, String> authInfo = caseInsensitive(authenticationInfo);
+
+        String authScopeType = authInfo.get("authScopeType");
+        String authScopeId = authInfo.get("authScopeId");
 
         if (authScopeType == null) {
             return CompletableFuture.failedFuture(new AuthenticationException("authScopeType header is required"));
@@ -76,22 +87,21 @@ public class IamSecurityService implements SecurityService {
             return CompletableFuture.failedFuture(new AuthenticationException("authScopeId header is required"));
         }
 
-        String authHeader = getAuthorizationHeader(authenticationInfo);
+        String authHeader = authInfo.get("Authorization");
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authenticateOidc(authScopeType, authScopeId, authHeader);
         } else {
-            return authenticateEmailPassword(authScopeType, authScopeId, authenticationInfo);
+            return authenticateEmailPassword(authScopeType, authScopeId, authInfo);
         }
     }
 
-    private String getAuthorizationHeader(Map<String, String> authenticationInfo) {
-        if (authenticationInfo.containsKey("authorization")) {
-            return authenticationInfo.get("authorization");
-        } else if (authenticationInfo.containsKey("Authorization")) {
-            return authenticationInfo.get("Authorization");
+    private static Map<String, String> caseInsensitive(Map<String, String> source) {
+        Map<String, String> ci = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        if (source != null) {
+            ci.putAll(source);
         }
-        return null;
+        return ci;
     }
 
     /**
@@ -126,8 +136,8 @@ public class IamSecurityService implements SecurityService {
                               if (user.getAuthType() != AuthType.LOCAL) {
                                   return CompletableFuture.failedFuture(new AuthenticationException("User is not a local account"));
                               }
-                              return credentialStore.findById(user.getId())
-                                                    .thenCompose(credential -> verifyPasswordAndCreateParticipant(user, credential, password));
+                              return credentialService.findById(user.getId())
+                                                      .thenCompose(credential -> verifyPasswordAndCreateParticipant(user, credential, password));
                           });
     }
 
@@ -137,7 +147,7 @@ public class IamSecurityService implements SecurityService {
         if (credential == null) {
             return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
         }
-        if (!passwordService.verify(password, credential.getPasswordHash())) {
+        if (!DomainUtil.verifyPassword(password, credential.getPasswordHash())) {
             return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
         }
         return CompletableFuture.completedFuture(createParticipantFromUser(user));
@@ -151,8 +161,31 @@ public class IamSecurityService implements SecurityService {
                 "authType", user.getAuthType().name()
         ));
 
-        return new DefaultParticipant(user.getAuthScopeId(), user.getId(),
+        // tenantId is the client-tenant the caller is acting within — it is meaningful only for
+        // APPLICATION-scoped users (where it partitions SHARED entity data). SYSTEM and ORGANIZATION
+        // identities are not tenants, so user.getTenantId() must be null for them.
+        return new DefaultParticipant(user.getTenantId(), user.getId(),
                 user.getAuthScopeType(), user.getAuthScopeId(), metadata, List.of());
+    }
+
+    /**
+     * Returns the enabled OIDC configurations for the given auth scope by dispatching to the
+     * service that owns each scope entity (System, Organization, or Application).
+     */
+    private CompletableFuture<List<OidcConfiguration>> getConfigsForScope(String authScopeType, String authScopeId) {
+        AuthScopeType scope;
+        try {
+            scope = AuthScopeType.valueOf(authScopeType);
+        } catch (IllegalArgumentException e) {
+            return CompletableFuture.failedFuture(
+                    new IllegalArgumentException("Unsupported authScopeType for OIDC lookup: " + authScopeType));
+        }
+
+        return switch (scope) {
+            case SYSTEM -> kinoticSystemService.getOidcConfigurations();
+            case ORGANIZATION -> organizationService.getOidcConfigurations(authScopeId);
+            case APPLICATION -> applicationService.getOidcConfigurations(authScopeId);
+        };
     }
 
     /**
@@ -164,7 +197,7 @@ public class IamSecurityService implements SecurityService {
                                                             String authHeader) {
         String token = authHeader.substring(7); // Strip "Bearer "
 
-        return oidcConfigLookup.getConfigsForScope(authScopeType, authScopeId)
+        return getConfigsForScope(authScopeType, authScopeId)
                                .thenCompose(configs -> {
                                    if (configs == null || configs.isEmpty()) {
                                        return CompletableFuture.failedFuture(
@@ -367,7 +400,8 @@ public class IamSecurityService implements SecurityService {
                 "aud", claims.getAudience().stream().collect(Collectors.joining(", "))
         ));
 
-        return new DefaultParticipant(user.getAuthScopeId(), user.getId(),
+        // See createParticipantFromUser: tenantId is not the auth scope id.
+        return new DefaultParticipant(user.getTenantId(), user.getId(),
                 user.getAuthScopeType(), user.getAuthScopeId(), metadata, roles);
     }
 

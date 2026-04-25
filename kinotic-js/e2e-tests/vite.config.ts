@@ -12,6 +12,7 @@ export default defineConfig(
             },
         },
         test: {
+            globals: true,
             globalSetup: './test/setup.ts',
             setupFiles: ["allure-vitest/setup"],
             reporters: [

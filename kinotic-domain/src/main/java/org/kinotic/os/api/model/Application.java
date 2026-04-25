@@ -27,4 +27,9 @@ public class Application implements OrganizationScoped<String> {
         this.id = id;
         this.description = description;
     }
+
+    @Override
+    public void setOrganizationId(String organizationId) {
+        this.organizationId = organizationId;
+    }
 }

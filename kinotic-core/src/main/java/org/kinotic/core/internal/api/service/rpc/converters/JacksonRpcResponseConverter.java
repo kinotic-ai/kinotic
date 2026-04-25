@@ -4,7 +4,7 @@ package org.kinotic.core.internal.api.service.rpc.converters;
 
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.internal.api.service.json.AbstractJacksonSupport;
 import org.kinotic.core.internal.api.service.rpc.RpcResponseConverter;
 import org.springframework.core.MethodParameter;
@@ -23,8 +23,8 @@ public class JacksonRpcResponseConverter extends AbstractJacksonSupport implemen
     public JacksonRpcResponseConverter(JsonMapper jsonMapper,
                                        ReactiveAdapterRegistry reactiveAdapterRegistry,
                                        KinoticProperties kinoticProperties,
-                                       ParticipantContext participantContext) {
-        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties, participantContext);
+                                       SecurityContext securityContext) {
+        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties, securityContext);
     }
 
     @Override

@@ -4,7 +4,9 @@ import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.ParameterHolder;
@@ -37,15 +39,17 @@ public class DefaultNamedQueriesService implements NamedQueriesService {
 
     public DefaultNamedQueriesService(DefaultCaffeineCacheFactory cacheFactory,
                                       NamedQueriesDefinitionService namedQueriesDefinitionService,
-                                      QueryExecutorFactory queryExecutorFactory) {
+                                      QueryExecutorFactory queryExecutorFactory,
+                                      SecurityContext securityContext) {
 
         cache = cacheFactory.<CacheKey, QueryExecutor>newBuilder()
                             .name("namedQueriesCache")
                             .expireAfterAccess(Duration.ofHours(20))
                             .maximumSize(10_000)
-                            .buildAsync((key, executor) -> namedQueriesDefinitionService
+                            .buildAsync((key, executor) -> securityContext.withElevatedAccess(() ->
+                                    namedQueriesDefinitionService
                                     .findByApplicationAndEntityDefinition(key.entityDefinition().getApplicationId(),
-                                                                          key.entityDefinition().getName())
+                                                                          key.entityDefinition().getName()))
                                     .thenApplyAsync(namedQueriesDefinition -> {
 
                                         Validate.notNull(namedQueriesDefinition, "No Named Query found for EntityDefinition: "

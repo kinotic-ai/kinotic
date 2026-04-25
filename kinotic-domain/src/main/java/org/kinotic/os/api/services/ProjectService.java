@@ -1,38 +1,26 @@
 package org.kinotic.os.api.services;
 
-import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.crud.IdentifiableCrudService;
-import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.crud.ApplicationScopedCrudService;
 import org.kinotic.os.api.model.Project;
 
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * CRUD service for {@link Project} entities, with application-scoped queries
+ * inherited from {@link ApplicationScopedCrudService}.
+ */
 @Publish
-
-public interface ProjectService extends IdentifiableCrudService<Project, String> {
-
-    /**
-     * Counts all projects for the given application.
-     * @param applicationId the application to find projects for
-     * @return a future that will complete with the number of projects
-     */
-    CompletableFuture<Long> countForApplication(String applicationId);
+public interface ProjectService extends ApplicationScopedCrudService<Project, String> {
 
     /**
-     * Creates a new project if it does not already exist.
-     * @param project the project to create
-     * @return {@link CompletableFuture} emitting the created project or the existing project if it already exists
+     * Creates a new project if it does not already exist. If a project with the same id
+     * is already present, returns the existing project without modification.
+     *
+     * @param project the project to create; the id is auto-derived from the application id
+     *                and slugified name if not set
+     * @return a {@link CompletableFuture} emitting the created or existing project
      */
     CompletableFuture<Project> createProjectIfNotExist(Project project);
-
-    /**
-     * Finds all projects for the given application.
-     * @param applicationId the application to find projects for
-     * @param pageable the page to return
-     * @return a future that will complete with a page of projects
-     */
-    CompletableFuture<Page<Project>> findAllForApplication(String applicationId, Pageable pageable);
 
 }

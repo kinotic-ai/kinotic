@@ -10,7 +10,7 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.internal.api.service.invoker.ServiceInvocationSupervisor;
-import org.kinotic.core.api.security.ParticipantContext;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.apache.commons.lang3.Validate;
 import org.springframework.core.GenericTypeResolver;
@@ -42,16 +42,16 @@ public abstract class AbstractJacksonSupport {
 
     @Getter
     private final JsonMapper jsonMapper;
-    private final ParticipantContext participantContext;
+    private final SecurityContext securityContext;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final KinoticProperties kinoticProperties;
 
     public AbstractJacksonSupport(JsonMapper jsonMapper,
                                   ReactiveAdapterRegistry reactiveAdapterRegistry,
                                   KinoticProperties kinoticProperties,
-                                  ParticipantContext participantContext) {
+                                  SecurityContext securityContext) {
         this.jsonMapper = jsonMapper;
-        this.participantContext = participantContext;
+        this.securityContext = securityContext;
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
         this.kinoticProperties = kinoticProperties;
 
@@ -118,7 +118,7 @@ public abstract class AbstractJacksonSupport {
             // If the parameter is a Participant we get this from the Vert.x context
             if (Participant.class.isAssignableFrom(methodParameter.getParameterType())) {
 
-                Participant participant = participantContext.currentParticipant();
+                Participant participant = securityContext.currentParticipant();
                 if (participant != null) {
                     ret.add(participant);
                 } else {
