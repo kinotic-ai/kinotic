@@ -401,6 +401,24 @@ INSERT INTO products (name, sku, price)
     VALUES ('Widget', 'WDG-001', 9.99) WITH REFRESH ;
 ```
 
+### The `id` column
+
+When the column list includes `id`, its value is used as the Elasticsearch `_id` of the inserted document. If the column list omits `id`, Elasticsearch auto-generates a random `_id`.
+
+This matters because every find-by-id lookup resolves the document by its `_id`. A row inserted without an `id` column cannot be retrieved by its logical identifier later — it will only be discoverable via search.
+
+As a rule: if the target table has a logical `id` field, always include the `id` column in the INSERT so `_id` stays in sync with the document's `id` value.
+
+```sql
+-- Recommended: id column promoted to _id
+INSERT INTO users (id, email, active)
+    VALUES ('user-001', 'jane@example.com', true)
+    WITH REFRESH ;
+
+-- Avoid when the table has a logical id field: the row will get a random _id
+INSERT INTO users (email, active) VALUES ('jane@example.com', true) ;
+```
+
 ---
 
 ## UPDATE
