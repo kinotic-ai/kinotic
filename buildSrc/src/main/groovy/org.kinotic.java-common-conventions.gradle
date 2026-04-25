@@ -65,6 +65,8 @@ dependencyManagement {
         dependency "commons-io:commons-io:${commonsIoVersion}"
 
         dependency "io.vertx:vertx-auth-common:${vertxVersion}"
+        dependency "io.vertx:vertx-auth-jwt:${vertxVersion}"
+        dependency "io.vertx:vertx-auth-oauth2:${vertxVersion}"
         dependency "io.vertx:vertx-core:${vertxVersion}"
         dependency "io.vertx:vertx-grpc-server:${vertxVersion}"
         dependency "io.vertx:vertx-grpcio-server:${vertxVersion}"

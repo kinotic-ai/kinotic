@@ -91,6 +91,14 @@ public class KinoticProperties {
      */
     private SecretStorageSettings secretStorage;
 
+    /**
+     * Paths to platform-level secret files (JWT signing keys, secret-storage master keys).
+     * Files are mounted into the pod by the Azure Key Vault CSI driver in production or
+     * by a Kubernetes Secret volume locally, and watched for changes so rotation flows
+     * through without a restart.
+     */
+    private PlatformSecretsProperties platformSecrets = new PlatformSecretsProperties();
+
     private long sessionTimeout = DEFAULT_SESSION_TIMEOUT;
 
     public void setMaxNumberOfCoresToUse(int maxNumberOfCoresToUse) {

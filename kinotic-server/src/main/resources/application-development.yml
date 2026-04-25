@@ -6,7 +6,13 @@ kinotic:
     discoveryType: SHAREDFS
   secretStorage:
     backend: hft
-    masterKey: a2lub3RpYy1kZXZlbG9wbWVudC1tYXN0ZXIta2V5LSE=
+  platformSecrets:
+    # Auto-seeded on first boot by DevPlatformSecretsGenerator (dev profile only). Each
+    # developer machine ends up with its own random keys; none of this is committed.
+    # Production uses Azure Key Vault via the Secrets Store CSI driver — same file layout,
+    # different origin.
+    jwtSigningKeysPath: ${user.home}/.kinotic/dev-platform-secrets/jwt-signing-keys
+    secretStorageMasterKeysPath: ${user.home}/.kinotic/dev-platform-secrets/secret-storage-master-keys
   persistence:
     corsAllowedOriginPattern: "https:\\/\\/studio.apollographql.com|http:\\/\\/localhost:\\d+|http:\\/\\/121.0.0.1:\\d+"
     corsAllowedHeaders:

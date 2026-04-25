@@ -28,4 +28,9 @@ public class KinoticApiGatewayProperties extends KinoticProperties {
      */
     private ApiGatewayProperties rpcGateway = new ApiGatewayProperties(this);
 
+    /**
+     * OIDC login flow configuration.
+     */
+    private OidcLoginProperties login = new OidcLoginProperties();
+
 }

@@ -6,11 +6,22 @@ import org.kinotic.core.internal.secret.SecretNameDeriver;
 import org.kinotic.core.internal.secret.SecretStorageBackend;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
+/**
+ * Rotation-aware secret storage service.
+ * <p>
+ * Writes use the currently active master key via {@link SecretNameDeriver#deriveActive}.
+ * Reads query all candidate derivations ({@link SecretNameDeriver#deriveAll}) so entries
+ * written under a prior master key remain readable during a rotation window. Deletes remove
+ * every candidate name to avoid orphans after rotation.
+ */
 @Component
 @RequiredArgsConstructor
 public class DefaultSecretStorageService implements SecretStorageService {
@@ -20,54 +31,72 @@ public class DefaultSecretStorageService implements SecretStorageService {
 
     @Override
     public CompletableFuture<Void> setSecret(String secretScope, String key, String value) {
-        String derivedName = secretNameDeriver.derive(secretScope, key);
-        return secretStorageBackend.setSecret(derivedName, value);
+        return secretStorageBackend.setSecret(secretNameDeriver.deriveActive(secretScope, key), value);
     }
 
     @Override
     public CompletableFuture<String> getSecret(String secretScope, String key) {
-        String derivedName = secretNameDeriver.derive(secretScope, key);
-        return secretStorageBackend.getSecret(derivedName);
+        return tryReadCandidates(secretNameDeriver.deriveAll(secretScope, key), 0);
     }
 
     @Override
     public CompletableFuture<Void> deleteSecret(String secretScope, String key) {
-        String derivedName = secretNameDeriver.derive(secretScope, key);
-        return secretStorageBackend.deleteSecret(derivedName);
+        return secretStorageBackend.deleteSecrets(secretNameDeriver.deriveAll(secretScope, key));
     }
 
     @Override
     public CompletableFuture<Void> setSecrets(String secretScope, Map<String, String> secrets) {
-        Map<String, String> derived = secrets.entrySet()
-                                             .stream()
-                                             .collect(Collectors.toMap(
-                                                     e -> secretNameDeriver.derive(secretScope, e.getKey()),
-                                                     Map.Entry::getValue));
+        Map<String, String> derived = new HashMap<>(secrets.size());
+        for (Map.Entry<String, String> e : secrets.entrySet()) {
+            derived.put(secretNameDeriver.deriveActive(secretScope, e.getKey()), e.getValue());
+        }
         return secretStorageBackend.setSecrets(derived);
     }
 
     @Override
     public CompletableFuture<Map<String, String>> getSecrets(String secretScope, List<String> keys) {
-        // Build mapping from derived name back to original key
-        Map<String, String> derivedToOriginal = keys.stream()
-                                                    .collect(Collectors.toMap(
-                                                            k -> secretNameDeriver.derive(secretScope, k),
-                                                            k -> k));
-
-        return secretStorageBackend.getSecrets(List.copyOf(derivedToOriginal.keySet()))
-                                   .thenApply(derivedResults ->
-                                           derivedResults.entrySet()
-                                                         .stream()
-                                                         .collect(Collectors.toMap(
-                                                                 e -> derivedToOriginal.get(e.getKey()),
-                                                                 Map.Entry::getValue)));
+        Map<String, List<String>> logicalToCandidates = new HashMap<>(keys.size());
+        Set<String> allCandidates = new HashSet<>();
+        for (String k : keys) {
+            List<String> cands = secretNameDeriver.deriveAll(secretScope, k);
+            logicalToCandidates.put(k, cands);
+            allCandidates.addAll(cands);
+        }
+        return secretStorageBackend.getSecrets(List.copyOf(allCandidates))
+                                   .thenApply(backendResults -> {
+            Map<String, String> out = new HashMap<>(keys.size());
+            for (Map.Entry<String, List<String>> e : logicalToCandidates.entrySet()) {
+                for (String candidate : e.getValue()) {
+                    String value = backendResults.get(candidate);
+                    if (value != null) {
+                        out.put(e.getKey(), value);
+                        break;
+                    }
+                }
+            }
+            return out;
+        });
     }
 
     @Override
     public CompletableFuture<Void> deleteSecrets(String secretScope, List<String> keys) {
-        List<String> derivedNames = keys.stream()
-                                        .map(k -> secretNameDeriver.derive(secretScope, k))
-                                        .toList();
+        List<String> derivedNames = new ArrayList<>();
+        for (String k : keys) {
+            derivedNames.addAll(secretNameDeriver.deriveAll(secretScope, k));
+        }
         return secretStorageBackend.deleteSecrets(derivedNames);
+    }
+
+    private CompletableFuture<String> tryReadCandidates(List<String> candidates, int idx) {
+        if (idx >= candidates.size()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return secretStorageBackend.getSecret(candidates.get(idx))
+                                   .handle((value, ex) -> {
+            if (ex == null && value != null) {
+                return CompletableFuture.completedFuture(value);
+            }
+            return tryReadCandidates(candidates, idx + 1);
+        }).thenCompose(f -> f);
     }
 }

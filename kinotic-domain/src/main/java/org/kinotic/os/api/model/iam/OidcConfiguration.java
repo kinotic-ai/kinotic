@@ -52,6 +52,14 @@ public class OidcConfiguration implements Identifiable<String> {
     private String clientId;
 
     /**
+     * Reference to the OAuth 2.0 client secret stored in {@code SecretStorageService}.
+     * The value is looked up at use time via {@code secretStorageService.getSecret(secretScope, clientSecretRef)};
+     * the secret itself never lives on this entity or in Elasticsearch. Null for public-client providers
+     * (e.g. Apple, some pure SPA flows) that do not require a client secret.
+     */
+    private String clientSecretRef;
+
+    /**
      * The browser-facing issuer URL. Must match the {@code iss} claim in JWTs from this provider.
      */
     private String authority;
@@ -108,6 +116,26 @@ public class OidcConfiguration implements Identifiable<String> {
      * it is referenced by a scope's {@code oidcConfigurationIds} list.
      */
     private boolean enabled;
+
+    /**
+     * When {@code true}, this is a Kinotic-managed platform social provider (Google,
+     * Microsoft, etc. configured at the platform level by Kinotic operators). It is
+     * shown as a login/signup button to every user, regardless of org. When {@code false},
+     * this is an org-scoped SSO config — never shown as a button; reached only via the
+     * email-based lookup that resolves a user's default org and redirects to its SSO.
+     * <p>
+     * At most one enabled platform-wide config per {@link #provider} kind across the whole
+     * deployment; otherwise the login page would render duplicate buttons.
+     */
+    private boolean platformWide;
+
+    /**
+     * How new identities from this provider are handled on first successful OIDC callback.
+     * Defaults to {@link UserProvisioningMode#AUTO} — matches the "Continue with Google just
+     * works" UX. Set to {@link UserProvisioningMode#REGISTRATION_REQUIRED} when admins want
+     * users to accept ToS or pick options before their account is created.
+     */
+    private UserProvisioningMode provisioningMode = UserProvisioningMode.AUTO;
 
     /**
      * Timestamp when this configuration was first created.

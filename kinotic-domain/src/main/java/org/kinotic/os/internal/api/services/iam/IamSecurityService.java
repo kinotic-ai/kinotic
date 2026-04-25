@@ -1,9 +1,6 @@
 package org.kinotic.os.internal.api.services.iam;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Jwk;
+import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthenticationException;
@@ -11,42 +8,36 @@ import org.kinotic.core.api.security.DefaultParticipant;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityService;
-import org.kinotic.core.internal.api.security.JwksService;
-import org.kinotic.os.api.model.iam.AuthScopeType;
+import org.kinotic.core.internal.security.KinoticJwtIssuer;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
-import org.kinotic.os.api.model.iam.OidcConfiguration;
-import org.kinotic.os.api.services.ApplicationService;
-import org.kinotic.os.api.services.KinoticSystemService;
-import org.kinotic.os.api.services.OrganizationService;
 import org.kinotic.os.api.utils.DomainUtil;
 import org.kinotic.os.internal.api.model.iam.IamCredential;
 import org.springframework.stereotype.Component;
 
-import java.security.Key;
-import java.security.PublicKey;
-import java.time.Instant;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 /**
  * Sole {@link SecurityService} implementation for Kinotic OS. Handles both email/password
- * and OIDC authentication across all three scope layers (System, Organization, Application).
+ * and Kinotic-issued JWT authentication across all three scope layers (System, Organization,
+ * Application).
  * <p>
- * <b>Authentication is two-phase:</b>
+ * <b>Two paths:</b>
  * <ol>
- *   <li><b>Identity verification</b> — prove the caller is who they claim to be
- *       (password check or JWT signature validation)</li>
- *   <li><b>Scope authorization</b> — confirm a pre-created {@link IamUser} exists in the
- *       target scope. A valid Google token alone does not grant access — the user must have
- *       been explicitly created in the specific scope (application, organization, or system)
- *       by an administrator.</li>
+ *   <li><b>Email/password</b> — direct STOMP CONNECT with {@code login}/{@code passcode}
+ *       headers. Looks up the {@link IamUser} by email + scope, verifies the bcrypt password.</li>
+ *   <li><b>Kinotic JWT</b> — {@code Authorization: Bearer <jwt>} header. The JWT was minted
+ *       by {@link KinoticJwtIssuer} after a successful OIDC callback (via the gateway's
+ *       {@code /api/login/callback} or {@code /api/signup/complete-org}). We validate the
+ *       JWT signature + audience, then look up the {@link IamUser} by id from the JWT
+ *       {@code sub} claim. Cross-checks that the JWT's scope matches the headers.</li>
  * </ol>
- * This two-phase design means the same OIDC provider (e.g., one Google registration) can be
- * shared across many applications without users in one application automatically gaining
- * access to another. The JWT proves identity; the scoped user lookup proves authorization
- * to access that particular scope.
+ * IdP JWTs are never accepted directly here — the OIDC roundtrip terminates at the gateway,
+ * which mints a Kinotic JWT for the STOMP handoff.
  */
 @Slf4j
 @Component
@@ -55,26 +46,22 @@ public class IamSecurityService implements SecurityService {
 
     private final DefaultIamUserService userService;
     private final IamCredentialService credentialService;
-    private final KinoticSystemService kinoticSystemService;
-    private final OrganizationService organizationService;
-    private final ApplicationService applicationService;
-    private final JwksService jwksService;
+    private final KinoticJwtIssuer jwtIssuer;
 
     /**
-     * Entry point for all authentication. Parses the {@code authScopeType} header to determine
-     * the target scope, then dispatches to either OIDC or email/password authentication based
-     * on the presence of a Bearer token in the Authorization header.
+     * Entry point for all authentication. Parses the {@code authScopeType}/{@code authScopeId}
+     * headers to determine the target scope, then dispatches to either Kinotic JWT or
+     * email/password authentication based on the presence of a Bearer token.
      *
-     * @param authenticationInfo headers from the STOMP CONNECT frame. Required: {@code authScopeType}.
+     * @param authenticationInfo headers from the STOMP CONNECT frame. Required:
+     *                          {@code authScopeType}, {@code authScopeId} (e.g., "kinotic" for SYSTEM).
      *                          For email/password: {@code login}, {@code passcode}.
-     *                          For OIDC: {@code Authorization: Bearer <jwt>}.
-     *                          Required: {@code authScopeId} (e.g., "kinotic" for SYSTEM).
+     *                          For JWT: {@code Authorization: Bearer <jwt>}.
      */
     @Override
     public CompletableFuture<Participant> authenticate(Map<String, String> authenticationInfo) {
         // HTTP callers (AuthenticationHandler) lowercase all header names; STOMP preserves case.
-        // Wrap the incoming map in a case-insensitive view so both transports work with the same
-        // camelCase header names throughout this class.
+        // Wrap in a case-insensitive view so both transports work with the same camelCase names.
         Map<String, String> authInfo = caseInsensitive(authenticationInfo);
 
         String authScopeType = authInfo.get("authScopeType");
@@ -90,7 +77,7 @@ public class IamSecurityService implements SecurityService {
         String authHeader = authInfo.get("Authorization");
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authenticateOidc(authScopeType, authScopeId, authHeader);
+            return authenticateKinoticJwt(authScopeType, authScopeId, authHeader.substring(7));
         } else {
             return authenticateEmailPassword(authScopeType, authScopeId, authInfo);
         }
@@ -106,14 +93,6 @@ public class IamSecurityService implements SecurityService {
 
     /**
      * Authenticates a user via email and password within the target scope.
-     * <p>
-     * Flow:
-     * <ol>
-     *   <li>Look up IamUser by email + scope — fails if no pre-created user exists</li>
-     *   <li>Verify the user is enabled and is a LOCAL auth type</li>
-     *   <li>Retrieve the IamCredential and verify the bcrypt password hash</li>
-     *   <li>Return a Participant with the user's identity and scope as tenant context</li>
-     * </ol>
      */
     private CompletableFuture<Participant> authenticateEmailPassword(String authScopeType,
                                                                      String authScopeId,
@@ -153,6 +132,55 @@ public class IamSecurityService implements SecurityService {
         return CompletableFuture.completedFuture(createParticipantFromUser(user));
     }
 
+    /**
+     * Validates a Kinotic-issued JWT and resolves it to a Participant. The JWT must:
+     * carry {@code aud=kinotic} (enforced by {@link KinoticJwtIssuer#authenticate}); have
+     * a {@code sub} claim referencing an existing, enabled {@link IamUser}; and carry
+     * {@code scopeType}/{@code scopeId} claims that match the auth headers (defense in depth
+     * against a JWT for org A being replayed against org B).
+     */
+    private CompletableFuture<Participant> authenticateKinoticJwt(String authScopeType,
+                                                                  String authScopeId,
+                                                                  String token) {
+        CompletableFuture<Participant> result = new CompletableFuture<>();
+        jwtIssuer.authenticate(token)
+                 .onSuccess(user -> {
+                     JsonObject p = user.principal();
+                     String sub = p.getString("sub");
+                     String jwtScopeType = p.getString("scopeType");
+                     String jwtScopeId = p.getString("scopeId");
+
+                     if (sub == null) {
+                         result.completeExceptionally(new AuthenticationException("JWT missing sub claim"));
+                         return;
+                     }
+                     if (jwtScopeType == null || jwtScopeId == null) {
+                         result.completeExceptionally(new AuthenticationException("JWT missing scope claims"));
+                         return;
+                     }
+                     if (!authScopeType.equals(jwtScopeType) || !authScopeId.equals(jwtScopeId)) {
+                         result.completeExceptionally(new AuthenticationException(
+                                 "JWT scope " + jwtScopeType + "/" + jwtScopeId
+                                         + " does not match auth headers " + authScopeType + "/" + authScopeId));
+                         return;
+                     }
+                     userService.findById(sub).whenComplete((iamUser, err) -> {
+                         if (err != null) {
+                             result.completeExceptionally(new AuthenticationException("User lookup failed", err));
+                         } else if (iamUser == null) {
+                             result.completeExceptionally(new AuthenticationException("No user for sub " + sub));
+                         } else if (!iamUser.isEnabled()) {
+                             result.completeExceptionally(new AuthenticationException("User account is disabled"));
+                         } else {
+                             result.complete(createParticipantFromUser(iamUser));
+                         }
+                     });
+                 })
+                 .onFailure(err -> result.completeExceptionally(
+                         new AuthenticationException("JWT validation failed: " + err.getMessage(), err)));
+        return result;
+    }
+
     private Participant createParticipantFromUser(IamUser user) {
         Map<String, String> metadata = new HashMap<>(Map.of(
                 ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
@@ -161,248 +189,10 @@ public class IamSecurityService implements SecurityService {
                 "authType", user.getAuthType().name()
         ));
 
-        // tenantId is the client-tenant the caller is acting within — it is meaningful only for
+        // tenantId is the client-tenant the caller is acting within — meaningful only for
         // APPLICATION-scoped users (where it partitions SHARED entity data). SYSTEM and ORGANIZATION
         // identities are not tenants, so user.getTenantId() must be null for them.
         return new DefaultParticipant(user.getTenantId(), user.getId(),
                 user.getAuthScopeType(), user.getAuthScopeId(), metadata, List.of());
     }
-
-    /**
-     * Returns the enabled OIDC configurations for the given auth scope by dispatching to the
-     * service that owns each scope entity (System, Organization, or Application).
-     */
-    private CompletableFuture<List<OidcConfiguration>> getConfigsForScope(String authScopeType, String authScopeId) {
-        AuthScopeType scope;
-        try {
-            scope = AuthScopeType.valueOf(authScopeType);
-        } catch (IllegalArgumentException e) {
-            return CompletableFuture.failedFuture(
-                    new IllegalArgumentException("Unsupported authScopeType for OIDC lookup: " + authScopeType));
-        }
-
-        return switch (scope) {
-            case SYSTEM -> kinoticSystemService.getOidcConfigurations();
-            case ORGANIZATION -> organizationService.getOidcConfigurations(authScopeId);
-            case APPLICATION -> applicationService.getOidcConfigurations(authScopeId);
-        };
-    }
-
-    /**
-     * Initiates OIDC authentication by loading the OIDC configurations enabled for the target
-     * scope, fetching the JWKS key for the token, and delegating to {@link #validateOidcToken}.
-     */
-    private CompletableFuture<Participant> authenticateOidc(String authScopeType,
-                                                            String authScopeId,
-                                                            String authHeader) {
-        String token = authHeader.substring(7); // Strip "Bearer "
-
-        return getConfigsForScope(authScopeType, authScopeId)
-                               .thenCompose(configs -> {
-                                   if (configs == null || configs.isEmpty()) {
-                                       return CompletableFuture.failedFuture(
-                                               new AuthenticationException("No OIDC configurations found for scope " + authScopeType + "/" + authScopeId));
-                                   }
-                                   return jwksService.getKeyFromToken(token)
-                                                     .thenCompose(jwk -> validateOidcToken(token, jwk, configs, authScopeType, authScopeId));
-                               });
-    }
-
-    /**
-     * Validates an OIDC JWT token and resolves it to a Participant within the target scope.
-     * <p>
-     * This method performs identity verification AND scope authorization as separate steps:
-     * <ol>
-     *   <li><b>Verify JWT signature</b> using the JWKS public key</li>
-     *   <li><b>Extract email</b> from standard claims (email, preferred_username, sub, upn, unique_name)</li>
-     *   <li><b>Match OIDC config</b> — find which of the scope's enabled configurations matches
-     *       the token's issuer and the user's email domain</li>
-     *   <li><b>Validate audience</b> — ensure the token's {@code aud} claim matches the config's expected audience</li>
-     *   <li><b>Validate expiration</b></li>
-     *   <li><b>Look up IamUser by email + scope</b> — this is the scope authorization gate.
-     *       A valid JWT from a trusted provider is not enough; a user record must have been
-     *       pre-created in this specific scope by an administrator. This prevents a user who
-     *       is signed up for Application A from using the same Google token to access Application B.</li>
-     *   <li><b>Link OIDC identity on first login</b> — if the user's oidcSubject is not yet set,
-     *       populate it from the JWT's {@code sub} claim so subsequent logins can be correlated</li>
-     * </ol>
-     */
-    private CompletableFuture<Participant> validateOidcToken(String token,
-                                                             Jwk<? extends Key> jwk,
-                                                             List<OidcConfiguration> configs,
-                                                             String authScopeType,
-                                                             String authScopeId) {
-        try {
-            Key key = jwk.toKey();
-            if (!(key instanceof PublicKey publicKey)) {
-                return CompletableFuture.failedFuture(new AuthenticationException("Jwk does not contain a PublicKey instance"));
-            }
-
-            Claims claims = Jwts.parser()
-                                .verifyWith(publicKey)
-                                .build()
-                                .parseSignedClaims(token)
-                                .getPayload();
-
-            // Extract email from standard claims
-            String email = extractEmail(claims);
-            if (email == null) {
-                return CompletableFuture.failedFuture(new AuthenticationException("No email found in JWT claims"));
-            }
-
-            // Match issuer + email domain against available OIDC configs
-            String issuer = claims.getIssuer();
-            String emailDomain = email.contains("@") ? email.split("@")[1] : null;
-            OidcConfiguration matchedConfig = matchOidcConfig(configs, issuer, emailDomain);
-            if (matchedConfig == null) {
-                return CompletableFuture.failedFuture(new AuthenticationException("No matching OIDC configuration for issuer: " + issuer));
-            }
-
-            // Validate audience
-            Set<String> audiences = claims.getAudience();
-            if (matchedConfig.getAudience() != null && !matchedConfig.getAudience().isEmpty()) {
-                if (audiences == null || audiences.stream().noneMatch(a -> matchedConfig.getAudience().equals(a))) {
-                    return CompletableFuture.failedFuture(new AuthenticationException("Invalid audience: " + audiences));
-                }
-            }
-
-            // Validate expiration
-            if (claims.getExpiration() != null && claims.getExpiration().before(Date.from(Instant.now()))) {
-                return CompletableFuture.failedFuture(new AuthenticationException("Token has expired"));
-            }
-
-            // Extract roles if configured
-            List<String> roles = extractRoles(matchedConfig, claims);
-
-            // Look up existing user by oidcSubject + scope
-            String subject = claims.getSubject();
-            return lookupOrProvisionOidcUser(subject, email, matchedConfig, authScopeType, authScopeId, claims)
-                    .thenApply(user -> createOidcParticipant(user, roles, claims));
-
-        } catch (JwtException e) {
-            log.error("JWT parsing/validation failed", e);
-            return CompletableFuture.failedFuture(new AuthenticationException("JWT parsing/validation failed", e));
-        } catch (Exception e) {
-            log.error("Unexpected error during JWT validation", e);
-            return CompletableFuture.failedFuture(new AuthenticationException("Unexpected error during JWT validation", e));
-        }
-    }
-
-    private String extractEmail(Claims claims) {
-        String[] emailClaims = {"email", "preferred_username", "sub", "upn", "unique_name"};
-        for (String claimName : emailClaims) {
-            String value = claims.get(claimName, String.class);
-            if (value != null && value.contains("@")) {
-                return value;
-            }
-        }
-        return null;
-    }
-
-    private OidcConfiguration matchOidcConfig(List<OidcConfiguration> configs, String issuer, String emailDomain) {
-        if (issuer == null) {
-            return null;
-        }
-        return configs.stream()
-                      .filter(config -> issuer.equals(config.getAuthority()))
-                      .filter(config -> emailDomain == null
-                              || config.getDomains() == null
-                              || config.getDomains().isEmpty()
-                              || config.getDomains().contains(emailDomain))
-                      .findFirst()
-                      .orElse(null);
-    }
-
-    private List<String> extractRoles(OidcConfiguration config, Claims claims) {
-        if (config.getRolesClaimPath() == null || config.getRolesClaimPath().isEmpty()) {
-            return List.of();
-        }
-        Object rolesClaim = extractValueFromPath(claims, config.getRolesClaimPath());
-        if (rolesClaim instanceof List) {
-            @SuppressWarnings("unchecked")
-            List<String> roles = (List<String>) rolesClaim;
-            return roles;
-        }
-        return List.of();
-    }
-
-    private Object extractValueFromPath(Claims claims, String path) {
-        if (path == null || path.isEmpty()) {
-            return null;
-        }
-        String[] pathParts = path.split("\\.");
-        Object currentValue = claims;
-        for (String part : pathParts) {
-            if (currentValue == null) {
-                return null;
-            }
-            if (currentValue instanceof Claims c) {
-                currentValue = c.get(part);
-            } else if (currentValue instanceof Map) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> map = (Map<String, Object>) currentValue;
-                currentValue = map.get(part);
-            } else {
-                return null;
-            }
-        }
-        return currentValue;
-    }
-
-    /**
-     * Looks up a pre-created IamUser by email within the target scope. This is the enforcement
-     * point for scope isolation: even though the JWT has already been cryptographically verified,
-     * access is denied unless an administrator has explicitly created a user record for this
-     * email in this specific scope.
-     * <p>
-     * On first successful OIDC login, the user's {@code oidcSubject} and {@code oidcConfigId}
-     * are populated from the JWT so the identity link is recorded for future reference.
-     */
-    private CompletableFuture<IamUser> lookupOrProvisionOidcUser(String oidcSubject,
-                                                                 String email,
-                                                                 OidcConfiguration config,
-                                                                 String authScopeType,
-                                                                 String authScopeId,
-                                                                 Claims claims) {
-        return userService.findByEmailAndScope(email, authScopeType, authScopeId)
-                          .thenCompose(user -> {
-                              if (user == null) {
-                                  return CompletableFuture.<IamUser>failedFuture(
-                                          new AuthenticationException("No user found for email " + email
-                                                                              + " in scope " + authScopeType + "/" + authScopeId
-                                                                              + ". User must be pre-created by an administrator."));
-                              }
-                              if (!user.isEnabled()) {
-                                  return CompletableFuture.<IamUser>failedFuture(
-                                          new AuthenticationException("User account is disabled"));
-                              }
-                              // If oidcSubject is not yet set, populate it on first OIDC login
-                              if (user.getOidcSubject() == null) {
-                                  user.setOidcSubject(oidcSubject);
-                                  user.setOidcConfigId(config.getId());
-                                  user.setAuthType(AuthType.OIDC);
-                                  return userService.save(user);
-                              }
-                              return CompletableFuture.completedFuture(user);
-                          });
-    }
-
-    private Participant createOidcParticipant(IamUser user, List<String> roles, Claims claims) {
-        String name = claims.get("name", String.class);
-        String preferredUsername = claims.get("preferred_username", String.class);
-
-        Map<String, String> metadata = new HashMap<>(Map.of(
-                ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
-                "email", user.getEmail(),
-                "displayName", name != null ? name : (preferredUsername != null ? preferredUsername : user.getEmail()),
-                "authType", AuthType.OIDC.name(),
-                "iss", claims.getIssuer(),
-                "aud", claims.getAudience().stream().collect(Collectors.joining(", "))
-        ));
-
-        // See createParticipantFromUser: tenantId is not the auth scope id.
-        return new DefaultParticipant(user.getTenantId(), user.getId(),
-                user.getAuthScopeType(), user.getAuthScopeId(), metadata, roles);
-    }
-
 }

@@ -78,6 +78,9 @@ export async function connectAndUpgradeSession(server: string, logger: Logger, a
         if (serverURL.hostname === 'localhost' || serverURL.hostname === '127.0.0.1') {
             connectionInfo.host = serverURL.hostname
             connectionInfo.port = 58503
+            if(serverURL.protocol === 'https:'){
+                connectionInfo.useSSL = true
+            }
         } else {
             connectionInfo.host = serverURL.hostname
             if(serverURL.protocol === 'https:'){
