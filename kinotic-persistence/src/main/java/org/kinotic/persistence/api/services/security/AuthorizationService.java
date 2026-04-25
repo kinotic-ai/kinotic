@@ -1,6 +1,6 @@
 package org.kinotic.persistence.api.services.security;
 
-import org.kinotic.persistence.api.model.SecurityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -12,6 +12,6 @@ import java.util.concurrent.CompletableFuture;
 public interface AuthorizationService<T> {
 
     CompletableFuture<Void> authorize(T operationIdentifier,
-                                      SecurityContext securityContext);
+                                      EntityContext entityContext);
 
 }

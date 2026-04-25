@@ -1,6 +1,6 @@
-import {Direction, Kinotic, Order, Page, Pageable} from '@kinotic-ai/core'
+import {Direction, Kinotic, KinoticSingleton, Order, Page, Pageable} from '@kinotic-ai/core'
 import {EntityDefinition} from '@kinotic-ai/os-api'
-import {EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
+import {EntitiesRepository, EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {Person} from '../domain/Person.js'
@@ -12,13 +12,18 @@ import {
     findAndVerifyPeopleWithCursorPaging,
     findAndVerifyPeopleWithOffsetPaging,
     generateRandomString,
+    initKinoticAppClient,
     initKinoticClient,
     logFailure,
     shutdownKinoticClient
 } from '../TestHelpers.js'
 
+const TEST_ORG_ID = 'kinotic-test'
+const APP_TENANT = 'kinotic'
+
 interface LocalTestContext {
     entityDefinition: EntityDefinition
+    appKinotic: KinoticSingleton
     entityService: IEntityRepository<Person>
 }
 
@@ -35,13 +40,26 @@ describe('End To End Tests', () => {
     }, 60000)
 
     beforeEach<LocalTestContext>(async (context) => {
-        context.entityDefinition = await createPersonEntityDefinitionIfNotExist(generateRandomString(10), generateRandomString(5))
+        // Platform metadata (Application, Project, EntityDefinition) is created as the
+        // ORGANIZATION user via the default Kinotic singleton.
+        context.entityDefinition = await createPersonEntityDefinitionIfNotExist(TEST_ORG_ID, generateRandomString(10), generateRandomString(5))
         expect(context.entityDefinition).toBeDefined()
-        context.entityService = new EntityRepository(context.entityDefinition.applicationId, context.entityDefinition.name)
+
+        // Entity data lives under an APPLICATION-scoped user inside the application just
+        // created. A second Kinotic instance authenticates as that user; the entity repo
+        // routes through it so participant.tenantId is non-null for SHARED entity ops.
+        context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT)
+        context.entityService = new EntityRepository(
+            context.entityDefinition.organizationId,
+            context.entityDefinition.applicationId,
+            context.entityDefinition.name,
+            new EntitiesRepository(context.appKinotic)
+        )
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
+        await context.appKinotic.disconnect()
         await expect(deleteEntityDefinition(context.entityDefinition.id as string)).resolves.toBeUndefined()
         await expect(Kinotic.entityDefinitions.syncIndex()).resolves.toBeNull()
         await Kinotic.projects.deleteById(context.entityDefinition.projectId)
@@ -60,23 +78,23 @@ describe('End To End Tests', () => {
             expect(savedPerson.id).toBeDefined()
 
             // Find the person
-            const foundPerson: Person = await logFailure(entityService.findById(savedPerson.id as string), 'Failed to find person')
+            const foundPerson = await logFailure(entityService.findById(savedPerson.id as string), 'Failed to find person')
             expect(foundPerson).toBeDefined()
-            expect(foundPerson.id).toBe(savedPerson.id)
+            expect(foundPerson!.id).toBe(savedPerson.id)
 
             // Update the person
-            foundPerson.firstName = 'Walter'
-            foundPerson.lastName = 'White'
-            const updatedPerson: Person = await logFailure(entityService.update(foundPerson), 'Failed to update person')
+            foundPerson!.firstName = 'Walter'
+            foundPerson!.lastName = 'White'
+            const updatedPerson: Person = await logFailure(entityService.update(foundPerson!), 'Failed to update person')
             expect(updatedPerson).toBeDefined()
-            expect(updatedPerson.id).toBe(foundPerson.id)
+            expect(updatedPerson.id).toBe(foundPerson!.id)
 
             // Find the updated person
-            const foundUpdatedPerson: Person = await logFailure(entityService.findById(updatedPerson.id as string), 'Failed to find updated person')
+            const foundUpdatedPerson = await logFailure(entityService.findById(updatedPerson.id as string), 'Failed to find updated person')
             expect(foundUpdatedPerson).toBeDefined()
-            expect(foundUpdatedPerson.id).toBe(updatedPerson.id)
-            expect(foundUpdatedPerson.firstName).toBe('Walter')
-            expect(foundUpdatedPerson.lastName).toBe('White')
+            expect(foundUpdatedPerson!.id).toBe(updatedPerson.id)
+            expect(foundUpdatedPerson!.firstName).toBe('Walter')
+            expect(foundUpdatedPerson!.lastName).toBe('White')
 
             // Count the people
             await expect(entityService.count()).resolves.toBe(1)

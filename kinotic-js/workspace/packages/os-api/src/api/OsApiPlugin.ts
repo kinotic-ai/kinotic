@@ -9,6 +9,7 @@ import { MigrationService, type IMigrationService } from '@/api/services/IMigrat
 import { DataInsightsService, type IDataInsightsService } from '@/api/services/IDataInsightsService'
 import { VmNodeServiceProxy, type IVmNodeService } from '@/api/services/IVmNodeService'
 import { WorkloadServiceProxy, type IWorkloadService } from '@/api/services/IWorkloadService'
+import { IamUserService, type IIamUserService } from '@/api/services/iam/IIamUserService'
 
 export interface IOsApiExtension {
     applications: IApplicationService
@@ -20,6 +21,7 @@ export interface IOsApiExtension {
     dataInsights: IDataInsightsService
     vmNodes: IVmNodeService
     workloads: IWorkloadService
+    iamUsers: IIamUserService
 }
 
 export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
@@ -34,6 +36,7 @@ export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
             dataInsights: new DataInsightsService(kinotic),
             vmNodes: new VmNodeServiceProxy(kinotic),
             workloads: new WorkloadServiceProxy(kinotic),
+            iamUsers: new IamUserService(kinotic),
         }
     }
 }

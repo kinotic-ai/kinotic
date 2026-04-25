@@ -41,9 +41,9 @@ public class PersistenceInitializer {
         log.info("{} Cores will be used for Persistence Endpoints", numToDeploy);
         DeploymentOptions options = new DeploymentOptions().setInstances(numToDeploy);
 
-        vertx.deployVerticle(verticleFactory::createOpenApiVerticle, options);
-
-        vertx.deployVerticle(verticleFactory::createGqlVerticle, options);
+//        vertx.deployVerticle(verticleFactory::createOpenApiVerticle, options);
+//
+//        vertx.deployVerticle(verticleFactory::createGqlVerticle, options);
 
         if(properties.isEnableStaticFileServer()){// only 1 web server verticle
             vertx.deployVerticle(verticleFactory::createWebServerNextVerticle, new DeploymentOptions());

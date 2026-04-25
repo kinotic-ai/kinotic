@@ -6,6 +6,7 @@ import type { FunctionDefinition } from '@kinotic-ai/idl'
  */
 export class NamedQueriesDefinition implements Identifiable<string> {
     public id: string
+    public organizationId?: string | null
     public applicationId: string
     public projectId: string
     public entityDefinitionName: string

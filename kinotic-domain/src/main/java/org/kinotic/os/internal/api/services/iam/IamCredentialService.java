@@ -12,7 +12,7 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class IamCredentialStore {
+public class IamCredentialService {
 
     private static final String INDEX_NAME = "kinotic_iam_credential";
 

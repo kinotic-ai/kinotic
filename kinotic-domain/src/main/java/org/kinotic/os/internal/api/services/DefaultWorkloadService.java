@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.workload.Workload;
 import org.kinotic.os.api.services.WorkloadService;
 import org.springframework.stereotype.Component;
@@ -17,11 +18,13 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultWorkloadService extends AbstractCrudService<Workload> implements WorkloadService {
 
     public DefaultWorkloadService(ElasticsearchAsyncClient esAsyncClient,
-                                  CrudServiceTemplate crudServiceTemplate) {
+                                  CrudServiceTemplate crudServiceTemplate,
+                                  SecurityContext securityContext) {
         super("kinotic_workload",
               Workload.class,
               esAsyncClient,
-              crudServiceTemplate);
+              crudServiceTemplate,
+              securityContext);
     }
 
     @Override

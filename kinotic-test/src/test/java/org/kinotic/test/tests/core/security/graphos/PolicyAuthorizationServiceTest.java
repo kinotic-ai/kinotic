@@ -3,16 +3,13 @@ package org.kinotic.test.tests.core.security.graphos;
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.persistence.api.model.EntityDefinition;
-import org.kinotic.persistence.api.model.SecurityContext;
+import org.kinotic.persistence.api.model.*;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsConfig;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsDecorator;
 import org.kinotic.persistence.api.model.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizationRequest;
 import org.kinotic.persistence.api.services.security.graphos.EntityDefinitionPolicyAuthorizationService;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizer;
-import org.kinotic.persistence.api.model.EntityOperation;
-import org.kinotic.persistence.api.model.DecoratedProperty;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -206,7 +203,7 @@ public class PolicyAuthorizationServiceTest {
 
     private static class MockPolicyAuthorizer implements PolicyAuthorizer {
         @Override
-        public CompletableFuture<Void> authorize(List<PolicyAuthorizationRequest> requests, SecurityContext securityContext) {
+        public CompletableFuture<Void> authorize(List<PolicyAuthorizationRequest> requests, EntityContext entityContext) {
             for (PolicyAuthorizationRequest request : requests) {
                 switch (request.policy()) {
                     case "policy1", "policy4", "policy5", "policy6" -> request.authorize(); // Authorized policies

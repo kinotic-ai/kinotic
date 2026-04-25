@@ -2,73 +2,74 @@
 package org.kinotic.persistence.api.services;
 
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.crud.ProjectScopedCrudService;
 import org.kinotic.persistence.api.model.EntityDefinition;
 
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Public service for managing {@link EntityDefinition} lifecycle: creation, publication,
+ * un-publication, and deletion. Extends {@link ProjectScopedCrudService} so application-
+ * and project-scoped queries are inherited with automatic organization enforcement.
+ */
 @Publish
-public interface EntityDefinitionService extends IdentifiableCrudService<EntityDefinition, String> {
+public interface EntityDefinitionService extends ProjectScopedCrudService<EntityDefinition, String> {
 
     /**
-     * Counts all {@link EntityDefinition}s for the given application.
-     * @param applicationId the application to find {@link EntityDefinition}s for
-     * @return a future that will complete with a page of {@link EntityDefinition}s
+     * Creates a new {@link EntityDefinition}. Validates the definition, derives the logical
+     * index name, and persists it. The definition is not usable for data operations until
+     * {@link #publish(String)} is called.
+     *
+     * @param entityDefinition the definition to create
+     * @return a {@link CompletableFuture} emitting the saved definition with system-managed
+     *         fields populated (id, created, itemIndex, etc.)
      */
-    CompletableFuture<Long> countForApplication(String applicationId);
-
-    /**
-     * Counts all {@link EntityDefinition}s for the given project.
-     * @param projectId the project to find {@link EntityDefinition}s for
-     * @return a future that will complete with a page of {@link EntityDefinition}s
-     */
-    CompletableFuture<Long> countForProject(String projectId);
+    CompletableFuture<EntityDefinition> create(EntityDefinition entityDefinition);
 
     /**
      * Finds all published {@link EntityDefinition}s for the given application.
-     * @param applicationId the application to find {@link EntityDefinition}s for
-     * @param pageable the page to return
-     * @return a future that will complete with a page of {@link EntityDefinition}s
+     *
+     * @param applicationId the application to find definitions for
+     * @param pageable      the paging parameters
+     * @return a {@link CompletableFuture} emitting a page of published definitions
      */
     CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId, Pageable pageable);
 
     /**
-     * Finds all {@link EntityDefinition}s for the given application.
-     * @param applicationId the application to find {@link EntityDefinition}s for
-     * @param pageable the page to return
-     * @return a future that will complete with a page of {@link EntityDefinition}s
-     */
-    CompletableFuture<Page<EntityDefinition>> findAllForApplication(String applicationId, Pageable pageable);
-
-    /**
-     * Finds all {@link EntityDefinition}s for the given project.
-     * @param projectId the project to find {@link EntityDefinition}s for
-     * @param pageable the page to return
-     * @return a future that will complete with a page of {@link EntityDefinition}s
-     */
-    CompletableFuture<Page<EntityDefinition>> findAllForProject(String projectId, Pageable pageable);
-
-    /**
-     * Publishes thed {@link EntityDefinition} with the given id.
-     * This will make the {@link EntityDefinition} available for use to read and write items for.
-     * @param entityDefinitionId the id of the {@link EntityDefinition} to publish
-     * @return a future that will complete when the {@link EntityDefinition} has been published
+     * Publishes the {@link EntityDefinition} with the given id, making it available for
+     * data read and write operations.
+     *
+     * @param entityDefinitionId the id of the definition to publish
+     * @return a {@link CompletableFuture} that completes when the definition has been published
      */
     CompletableFuture<Void> publish(String entityDefinitionId);
 
     /**
-     * This operation makes all the recent writes immediately available for search.
-     * @return a future that will complete when the index has been synced
+     * Forces an immediate Elasticsearch index refresh so recent writes to the entity
+     * definition index are searchable. Reserved for test and batch-load scenarios.
+     *
+     * @return a {@link CompletableFuture} that completes when the refresh is done
      */
     CompletableFuture<Void> syncIndex();
 
     /**
-     * Un-publish the {@link EntityDefinition} with the given id.
-     * @param entityDefinitionId the id of the {@link EntityDefinition} to un-publish
-     * @return a future that will complete when the {@link EntityDefinition} has been unpublished
+     * Un-publishes the {@link EntityDefinition} with the given id, removing the
+     * underlying data index and making the definition unavailable for data operations.
+     *
+     * @param entityDefinitionId the id of the definition to un-publish
+     * @return a {@link CompletableFuture} that completes when the definition has been un-published
      */
     CompletableFuture<Void> unPublish(String entityDefinitionId);
+
+    /**
+     * Saves the given {@link EntityDefinition} with {@code refresh=wait_for} semantics,
+     * guaranteeing the write is searchable before the future completes.
+     *
+     * @param entity the definition to save
+     * @return a {@link CompletableFuture} emitting the saved definition
+     */
+    CompletableFuture<EntityDefinition> saveSync(EntityDefinition entity);
 
 }

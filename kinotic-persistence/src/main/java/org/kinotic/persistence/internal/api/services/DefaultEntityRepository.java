@@ -42,9 +42,9 @@ import java.util.function.Function;
  * Created by Navíd Mitchell 🤪on 5/2/23.
  */
 @RequiredArgsConstructor
-public class DefaultEntityService implements EntityService {
+public class DefaultEntityRepository implements EntityRepository {
 
-    private static final Logger log = LoggerFactory.getLogger(DefaultEntityService.class);
+    private static final Logger log = LoggerFactory.getLogger(DefaultEntityRepository.class);
 
     private final AuthorizationService<EntityOperation> authService;
     private final CrudServiceTemplate crudServiceTemplate;
@@ -63,7 +63,7 @@ public class DefaultEntityService implements EntityService {
                              EntityOperation.BULK_SAVE,
                              context,
                              entityHolder -> BulkOperation.of(b -> {
-                                 // When optimistic locking is enabled and no version is present we use create
+                                 // When optimistic locking is enabled and no version is present, we use create
                                  // We do this since there is no way to set an initial primary_term / seq_no combination
                                  // Or if using streams since this is the only supported operation
                                  ElasticVersion elasticVersion = entityHolder.getElasticVersionIfPresent();

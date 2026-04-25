@@ -7,9 +7,11 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.services.iam.IamUserService;
+import org.kinotic.os.api.utils.DomainUtil;
 import org.kinotic.os.internal.api.services.AbstractCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.kinotic.os.internal.api.model.iam.IamCredential;
@@ -22,22 +24,29 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultIamUserService extends AbstractCrudService<IamUser> implements IamUserService {
 
-    private final IamCredentialStore credentialStore;
-    private final PasswordService passwordService;
+    private final IamCredentialService credentialStore;
 
     public DefaultIamUserService(CrudServiceTemplate crudServiceTemplate,
                                  ElasticsearchAsyncClient esAsyncClient,
-                                 IamCredentialStore credentialStore,
-                                 PasswordService passwordService) {
-        super("kinotic_iam_user", IamUser.class, esAsyncClient, crudServiceTemplate);
+                                 IamCredentialService credentialStore,
+                                 SecurityContext securityContext) {
+        super("kinotic_iam_user", IamUser.class, esAsyncClient, crudServiceTemplate, securityContext);
         this.credentialStore = credentialStore;
-        this.passwordService = passwordService;
     }
 
     @Override
     public CompletableFuture<IamUser> save(IamUser entity) {
         Validate.notNull(entity.getEmail(), "IamUser email cannot be null");
         Validate.notNull(entity.getAuthScopeType(), "IamUser authScopeType cannot be null");
+        // tenantId is meaningful only for APPLICATION-scoped users; SYSTEM/ORGANIZATION identities
+        // are not tenants and must not carry one.
+        if ("APPLICATION".equals(entity.getAuthScopeType())) {
+            Validate.notBlank(entity.getTenantId(),
+                              "IamUser tenantId is required for APPLICATION-scoped users");
+        } else if (entity.getTenantId() != null) {
+            throw new IllegalArgumentException(
+                    "IamUser tenantId must be null for " + entity.getAuthScopeType() + "-scoped users");
+        }
         if (entity.getId() == null) {
             entity.setId(UUID.randomUUID().toString());
         }
@@ -101,7 +110,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                     if (password != null) {
                         IamCredential credential = new IamCredential()
                                 .setId(savedUser.getId())
-                                .setPasswordHash(passwordService.hash(password));
+                                .setPasswordHash(DomainUtil.hashPassword(password));
                         return credentialStore.save(credential).thenApply(c -> savedUser);
                     }
                     return CompletableFuture.completedFuture(savedUser);
@@ -120,11 +129,11 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("No credential found for user " + userId));
                     }
-                    if (!passwordService.verify(currentPassword, credential.getPasswordHash())) {
+                    if (!DomainUtil.verifyPassword(currentPassword, credential.getPasswordHash())) {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("Current password is incorrect"));
                     }
-                    credential.setPasswordHash(passwordService.hash(newPassword));
+                    credential.setPasswordHash(DomainUtil.hashPassword(newPassword));
                     return credentialStore.save(credential).thenApply(c -> (Void) null);
                 });
     }
@@ -136,7 +145,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
 
         IamCredential credential = new IamCredential()
                 .setId(userId)
-                .setPasswordHash(passwordService.hash(newPassword));
+                .setPasswordHash(DomainUtil.hashPassword(newPassword));
         return credentialStore.save(credential).thenApply(c -> null);
     }
 

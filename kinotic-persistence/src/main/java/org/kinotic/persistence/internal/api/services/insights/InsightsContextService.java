@@ -139,8 +139,8 @@ public class InsightsContextService {
                - CRITICAL: Each component MUST have a unique tag name and name in the JSON
                - Use descriptive, unique names like 'customer-age-chart', 'order-status-pie', 'revenue-trend-line'
                - Avoid generic names like 'chart', 'visualization', 'component'
-               - CRITICAL: findAll() REQUIRES pagination parameters - ALWAYS use: await entityService.findAll({ pageNumber: 0, pageSize: 1000 })
-               - Search with Lucene syntax: await entityService.search('fieldName:value OR category:active', { pageNumber: 0, pageSize: 1000 })
+               - CRITICAL: findAll() REQUIRES pagination parameters - ALWAYS use: await entityRepository.findAll({ pageNumber: 0, pageSize: 1000 })
+               - Search with Lucene syntax: await entityRepository.search('fieldName:value OR category:active', { pageNumber: 0, pageSize: 1000 })
                - CRITICAL: Always check for undefined/null response.content: if (!response.content || !Array.isArray(response.content)) { this.showNoDataMessage(); return; }
                - CRITICAL: Always check for empty arrays: if (data.length === 0) { this.showNoDataMessage(); return; }
                - CRITICAL: Use defensive programming - validate data before processing
@@ -252,7 +252,7 @@ public class InsightsContextService {
             
               async loadData() {
                 try {
-                  const entityService = Kinotic.createEntityService(this.applicationId, this.entityDefinitionName);
+                  const entityRepository = Kinotic.createEntityService(this.applicationId, this.entityDefinitionName);
                   const dateFilter = this.buildDateFilter();
                   
                   console.log('Date filter:', dateFilter);
@@ -260,9 +260,9 @@ public class InsightsContextService {
                   
                   let response;
                   if (dateFilter) {
-                    response = await entityService.search(dateFilter, { pageNumber: 0, pageSize: 1000 });
+                    response = await entityRepository.search(dateFilter, { pageNumber: 0, pageSize: 1000 });
                   } else {
-                    response = await entityService.findAll({ pageNumber: 0, pageSize: 1000 });
+                    response = await entityRepository.findAll({ pageNumber: 0, pageSize: 1000 });
                   }
                   
                   // Handle case where response.content might be undefined (no data)
@@ -333,8 +333,8 @@ public class InsightsContextService {
               
               async loadData() {
                 try {
-                  const entityService = Kinotic.createEntityService(this.applicationId, this.entityDefinitionName);
-                  const response = await entityService.findAll({ pageNumber: 0, pageSize: 1000 });
+                  const entityRepository = Kinotic.createEntityService(this.applicationId, this.entityDefinitionName);
+                  const response = await entityRepository.findAll({ pageNumber: 0, pageSize: 1000 });
                   
                   // Handle case where response.content might be undefined (no data)
                   if (!response.content || !Array.isArray(response.content)) {

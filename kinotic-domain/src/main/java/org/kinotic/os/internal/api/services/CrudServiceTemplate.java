@@ -19,6 +19,8 @@ import co.elastic.clients.json.JsonpDeserializer;
 import co.elastic.clients.json.JsonpMapperBase;
 import co.elastic.clients.transport.JsonEndpoint;
 import co.elastic.clients.transport.endpoints.EndpointWithResponseMapperAttr;
+import io.vertx.core.Context;
+import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.*;
 import org.kinotic.os.api.model.RawJson;
@@ -71,22 +73,22 @@ public class CrudServiceTemplate {
      */
     public CompletableFuture<Long> count(String indexName,
                                          Consumer<CountRequest.Builder> builderConsumer) {
-        return esAsyncClient.count(builder -> {
-                                builder.index(indexName);
-                                if (builderConsumer != null) {
-                                    builderConsumer.accept(builder);
-                                }
-                                return builder;
-                            })
-                            .thenApply(CountResponse::count);
+        return bindToContext(esAsyncClient.count(builder -> {
+                                                builder.index(indexName);
+                                                if (builderConsumer != null) {
+                                                    builderConsumer.accept(builder);
+                                                }
+                                                return builder;
+                                            })
+                                            .thenApply(CountResponse::count));
     }
 
     /**
      * Creates a data stream
      */
     public CompletableFuture<Void> createDataStream(String dataStreamName) {
-        return esAsyncClient.indices().createDataStream(builder -> builder.name(dataStreamName))
-                            .thenApply(response -> null);
+        return bindToContext(esAsyncClient.indices().createDataStream(builder -> builder.name(dataStreamName))
+                                          .thenApply(response -> null));
     }
 
     /**
@@ -127,7 +129,7 @@ public class CrudServiceTemplate {
     public CompletableFuture<Void> createIndex(String indexName,
                                                boolean failIfExists,
                                                Map<String, Property> mappings) {
-        return esAsyncClient.indices().exists(builder -> builder.index(indexName))
+        return bindToContext(esAsyncClient.indices().exists(builder -> builder.index(indexName))
                             .thenCompose(exists -> {
                                 if (!exists.value()) {
                                     return esAsyncClient.indices()
@@ -154,7 +156,7 @@ public class CrudServiceTemplate {
                                         return CompletableFuture.completedFuture(null);
                                     }
                                 }
-                            });
+                            }));
     }
 
     /**
@@ -171,7 +173,7 @@ public class CrudServiceTemplate {
                                                        Map<String, Property> mappings) {
         Validate.notNull(templateName, "templateName cannot be null");
         Validate.notNull(indexPattern, "indexPattern cannot be null");
-        return esAsyncClient.indices().putIndexTemplate(builder -> {
+        return bindToContext(esAsyncClient.indices().putIndexTemplate(builder -> {
             builder.name(templateName)
                    .indexPatterns(List.of(indexPattern))
                    .priority(DEFAULT_PRIORITY)
@@ -193,7 +195,7 @@ public class CrudServiceTemplate {
                 builder.dataStream(dataStreamVisibility);
             }
             return builder;
-        }).thenApply(response -> null);
+        }).thenApply(response -> null));
     }
 
     /**
@@ -207,13 +209,13 @@ public class CrudServiceTemplate {
     public CompletableFuture<DeleteResponse> deleteById(String indexName,
                                                         String id,
                                                         Consumer<DeleteRequest.Builder> builderConsumer) {
-        return esAsyncClient.delete(builder -> {
+        return bindToContext(esAsyncClient.delete(builder -> {
             builder.index(indexName).id(id);
             if (builderConsumer != null) {
                 builderConsumer.accept(builder);
             }
             return builder;
-        });
+        }));
     }
 
     /**
@@ -225,31 +227,43 @@ public class CrudServiceTemplate {
      */
     public CompletableFuture<DeleteByQueryResponse> deleteByQuery(String indexName,
                                                                   Consumer<DeleteByQueryRequest.Builder> builderConsumer) {
-        return esAsyncClient.deleteByQuery(builder -> {
+        return bindToContext(esAsyncClient.deleteByQuery(builder -> {
             builder.index(indexName);
             if (builderConsumer != null) {
                 builderConsumer.accept(builder);
             }
             return builder;
-        });
+        }));
+    }
+
+    /**
+     * Deletes an index.
+     *
+     * @param indexName name of the index to delete
+     * @return a {@link CompletableFuture} that will complete when the index has been deleted
+     */
+    public CompletableFuture<Void> deleteIndex(String indexName) {
+        return bindToContext(esAsyncClient.indices()
+                                          .delete(builder -> builder.index(indexName))
+                                          .thenApply(response -> null));
     }
 
     /**
      * Deletes a data stream
      */
     public CompletableFuture<Void> deleteDataStream(String dataStreamName) {
-        return esAsyncClient.indices()
-                            .deleteDataStream(builder -> builder.name(dataStreamName))
-                            .thenApply(response -> null);
+        return bindToContext(esAsyncClient.indices()
+                                          .deleteDataStream(builder -> builder.name(dataStreamName))
+                                          .thenApply(response -> null));
     }
 
     /**
      * Deletes an index template
      */
     public CompletableFuture<Void> deleteIndexTemplate(String templateName) {
-        return esAsyncClient.indices()
-                            .deleteIndexTemplate(builder -> builder.name(templateName))
-                            .thenApply(response -> null);
+        return bindToContext(esAsyncClient.indices()
+                                          .deleteIndexTemplate(builder -> builder.name(templateName))
+                                          .thenApply(response -> null));
     }
 
     /**
@@ -300,19 +314,19 @@ public class CrudServiceTemplate {
         }
 
         //noinspection resource
-        return esAsyncClient._transport()
-                            .performRequestAsync(builder.build(),
-                                                 endpoint,
-                                                 esAsyncClient._transportOptions())
-                            .thenApply(tGetResponse -> {
-                                if(resultMapper != null) {
-                                    return resultMapper.apply(tGetResponse);
-                                }else{
-                                    @SuppressWarnings("unchecked")
-                                    R result = (R)tGetResponse.source();
-                                    return result;
-                                }
-                            });
+        return bindToContext(esAsyncClient._transport()
+                                          .performRequestAsync(builder.build(),
+                                                               endpoint,
+                                                               esAsyncClient._transportOptions())
+                                          .thenApply(tGetResponse -> {
+                                              if(resultMapper != null) {
+                                                  return resultMapper.apply(tGetResponse);
+                                              }else{
+                                                  @SuppressWarnings("unchecked")
+                                                  R result = (R)tGetResponse.source();
+                                                  return result;
+                                              }
+                                          }));
     }
 
     /**
@@ -342,32 +356,32 @@ public class CrudServiceTemplate {
             builderConsumer.accept(builder);
         }
 
-        return esAsyncClient._transport()
-                            .performRequestAsync(builder.build(),
-                                                 endpoint,
-                                                 esAsyncClient._transportOptions())
-                            .thenApply(response -> {
+        return bindToContext(esAsyncClient._transport()
+                                          .performRequestAsync(builder.build(),
+                                                               endpoint,
+                                                               esAsyncClient._transportOptions())
+                                          .thenApply(response -> {
 
-                                List<MultiGetResponseItem<T>> recordsResponse = response.docs();
-                                ArrayList<R> content = new ArrayList<>();
+                                              List<MultiGetResponseItem<T>> recordsResponse = response.docs();
+                                              ArrayList<R> content = new ArrayList<>();
 
-                                if(resultMapper != null) {
-                                    for (MultiGetResponseItem<T> hit : recordsResponse) {
-                                        if (hit.isResult() && hit.result().found()) {
-                                            content.add(resultMapper.apply(hit.result()));
-                                        }
-                                    }
-                                }else{
-                                    for (MultiGetResponseItem<T> hit : recordsResponse) {
-                                        if(hit.isResult() && hit.result().found()){
-                                            @SuppressWarnings("unchecked")
-                                            R result = (R)hit.result().source();
-                                            content.add(result);
-                                        }
-                                    }
-                                }
-                                return content;
-                            });
+                                              if(resultMapper != null) {
+                                                  for (MultiGetResponseItem<T> hit : recordsResponse) {
+                                                      if (hit.isResult() && hit.result().found()) {
+                                                          content.add(resultMapper.apply(hit.result()));
+                                                      }
+                                                  }
+                                              }else{
+                                                  for (MultiGetResponseItem<T> hit : recordsResponse) {
+                                                      if(hit.isResult() && hit.result().found()){
+                                                          @SuppressWarnings("unchecked")
+                                                          R result = (R)hit.result().source();
+                                                          content.add(result);
+                                                      }
+                                                  }
+                                              }
+                                              return content;
+                                          }));
     }
 
     /**
@@ -408,7 +422,7 @@ public class CrudServiceTemplate {
                                                    Consumer<SearchRequest.Builder> builderConsumer,
                                                    Function<Hit<T>, R> hitMapper) {
 
-        return searchFullResponse(indexName, pageable, type, builderConsumer)
+        return bindToContext(searchFullResponse(indexName, pageable, type, builderConsumer)
                 .thenApply(response -> {
 
                     HitsMetadata<T> hitsMetadata = response.hits();
@@ -447,7 +461,7 @@ public class CrudServiceTemplate {
                                                                  "System Error total hits not available")
                                                  .value());
                     }
-                });
+                }));
     }
 
     /**
@@ -463,13 +477,13 @@ public class CrudServiceTemplate {
                                                      String id,
                                                      T document,
                                                      Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
+        return bindToContext(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
             builder.index(indexName).id(id).document(document);
             if (builderConsumer != null) {
                 builderConsumer.accept(builder);
             }
             return builder;
-        });
+        }));
     }
 
     /**
@@ -496,7 +510,7 @@ public class CrudServiceTemplate {
 
     public CompletableFuture<Void> updateIndexMapping(String indexName,
                                                       Map<String, Property> mappings) {
-        return esAsyncClient.indices().exists(builder -> builder.index(indexName))
+        return bindToContext(esAsyncClient.indices().exists(builder -> builder.index(indexName))
                             .thenCompose(exists -> {
                                 if (exists.value()) {
                                     return esAsyncClient.indices()
@@ -513,7 +527,7 @@ public class CrudServiceTemplate {
                                     return CompletableFuture.failedFuture(
                                             new IllegalArgumentException("Index " + indexName + " does not exist"));
                                 }
-                            });
+                            }));
     }
 
     /**
@@ -525,7 +539,7 @@ public class CrudServiceTemplate {
         Validate.notNull(mappings, "mappings cannot be null");
         Validate.notEmpty(mappings, "mappings cannot be empty");
 
-        return esAsyncClient.indices()
+        return bindToContext(esAsyncClient.indices()
                             .existsIndexTemplate(builder -> builder.name(templateName))
                             .thenCompose(exists -> {
                                 if (!exists.value()) {
@@ -573,7 +587,34 @@ public class CrudServiceTemplate {
                                                                             })
                                                                             .thenApply(pr -> null);
                                                     });
-                            });
+                            }));
+    }
+
+    /**
+     * Binds the continuations of the given {@link CompletableFuture} back to the Vert.x context
+     * that is current at the moment this method is invoked. Any downstream {@code thenCompose} /
+     * {@code thenApply} / {@code whenComplete} attached by the caller will then run on that
+     * context, which means {@code Vertx.currentContext()} — and by extension
+     * {@link org.kinotic.core.api.security.SecurityContext#currentParticipant()} —
+     * will be observable across the Elasticsearch async boundary.
+     * <p>
+     * When invoked outside of any Vert.x context, the original future is returned unchanged so
+     * non-Vert.x callers still work.
+     */
+    private <T> CompletableFuture<T> bindToContext(CompletableFuture<T> original) {
+        Context ctx = Vertx.currentContext();
+        if (ctx == null) {
+            return original;
+        }
+        CompletableFuture<T> bound = new CompletableFuture<>();
+        original.whenComplete((result, err) -> ctx.runOnContext(v -> {
+            if (err != null) {
+                bound.completeExceptionally(err);
+            } else {
+                bound.complete(result);
+            }
+        }));
+        return bound;
     }
 
     private <T> JsonpDeserializer<T> getDeserializer(Class<T> type) {

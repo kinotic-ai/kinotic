@@ -15,7 +15,7 @@ export class Base{{ entityName }}Repository extends EntityRepository<{{ entityNa
   private readonly shouldValidate: boolean
 
   constructor(shouldValidate: boolean = true, entitiesRepository?: IEntitiesRepository) {
-    super('{{ entityNamespace }}', '{{ entityName }}', entitiesRepository)
+    super('{{ organizationId }}', '{{ entityNamespace }}', '{{ entityName }}', entitiesRepository)
     this.shouldValidate = shouldValidate
   }
 

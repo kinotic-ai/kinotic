@@ -53,7 +53,7 @@ export function createConnectionInfo(disableStickySession: boolean = false,
     // @ts-ignore
     connectionInfo.port = inject('KINOTIC_PORT')
     connectionInfo.maxConnectionAttempts = 3
-    connectionInfo.connectHeaders = connectHeaders || { login: 'admin@kinotic.local', passcode: 'kinotic' }
+    connectionInfo.connectHeaders = connectHeaders || { login: 'kinotic@kinotic.local', passcode: 'kinotic', authScopeType: 'ORGANIZATION', authScopeId: 'kinotic-test' }
     connectionInfo.disableStickySession = disableStickySession
     return connectionInfo
 }

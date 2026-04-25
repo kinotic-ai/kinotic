@@ -18,8 +18,10 @@ describe('Kinotic Client Tests', () => {
                                                       port: port,
                                                       maxConnectionAttempts: 3,
                                                       connectHeaders: {
-                                                          login: 'admin@kinotic.local',
-                                                          passcode: 'kinotic'
+                                                          login: 'kinotic@kinotic.local',
+                                                          passcode: 'kinotic',
+                                                          authScopeType: 'ORGANIZATION',
+                                                          authScopeId: 'kinotic-test'
                                                       }
                                                   }),
                                 'Failed to connect to Kinotic Gateway')

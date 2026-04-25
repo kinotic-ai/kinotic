@@ -29,12 +29,12 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultEntitiesRepository implements EntitiesRepository {
 
-    private final AsyncLoadingCache<String, EntityService> entityServiceCache;
+    private final AsyncLoadingCache<String, EntityRepository> entityServiceCache;
 
     public DefaultEntitiesRepository(EntityServiceCacheLoader entityServiceCacheLoader,
                                      DefaultCaffeineCacheFactory cacheFactory) {
         this.entityServiceCache
-                = cacheFactory.<String, EntityService>newBuilder()
+                = cacheFactory.<String, EntityRepository>newBuilder()
                           .name("entityServiceCache")
                           .expireAfterAccess(Duration.ofHours(20))
                           .maximumSize(2000)
@@ -66,7 +66,7 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
                                                 T entities,
                                                 EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.bulkSave(entities, context));
+                .thenCompose(entityRepository -> entityRepository.bulkSave(entities, context));
     }
 
     @WithSpan
@@ -75,7 +75,7 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
                                                   T entities,
                                                   EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.bulkUpdate(entities, context));
+                .thenCompose(entityRepository -> entityRepository.bulkUpdate(entities, context));
     }
 
     @WithSpan
@@ -83,7 +83,7 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
     public CompletableFuture<Long> count(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
                                          EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.count(context));
+                .thenCompose(entityRepository -> entityRepository.count(context));
     }
 
     @WithSpan
@@ -92,7 +92,7 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
                                                 String query,
                                                 EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.countByQuery(query, context));
+                .thenCompose(entityRepository -> entityRepository.countByQuery(query, context));
     }
 
     @WithSpan
@@ -101,13 +101,13 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
                                               String id,
                                               EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.deleteById(id, context));
+                .thenCompose(entityRepository -> entityRepository.deleteById(id, context));
     }
 
     @Override
     public CompletableFuture<Void> deleteById(String entityDefinitionId, TenantSpecificId id, EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.deleteById(id, context));
+                .thenCompose(entityRepository -> entityRepository.deleteById(id, context));
     }
 
     @WithSpan
@@ -116,7 +116,7 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
                                                  String query,
                                                  EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.deleteByQuery(query, context));
+                .thenCompose(entityRepository -> entityRepository.deleteByQuery(query, context));
     }
 
     @WithSpan
@@ -126,7 +126,7 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
                                                   Class<T> type,
                                                   EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.findAll(pageable, type, context));
+                .thenCompose(entityRepository -> entityRepository.findAll(pageable, type, context));
     }
 
     @WithSpan
@@ -136,13 +136,13 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
                                              Class<T> type,
                                              EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.findById(id, type, context));
+                .thenCompose(entityRepository -> entityRepository.findById(id, type, context));
     }
 
     @Override
     public <T> CompletableFuture<T> findById(String entityDefinitionId, TenantSpecificId id, Class<T> type, EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.findById(id, type, context));
+                .thenCompose(entityRepository -> entityRepository.findById(id, type, context));
     }
 
     @WithSpan
@@ -152,7 +152,7 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
                                                     Class<T> type,
                                                     EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.findByIds(ids, type, context));
+                .thenCompose(entityRepository -> entityRepository.findByIds(ids, type, context));
     }
 
     @Override
@@ -161,7 +161,7 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
                                                               Class<T> type,
                                                               EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.findByIdsWithTenant(ids, type, context));
+                .thenCompose(entityRepository -> entityRepository.findByIdsWithTenant(ids, type, context));
     }
 
     @WithSpan
@@ -172,7 +172,7 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
                                                      Class<T> type,
                                                      EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.namedQuery(queryName, parameterHolder, type, context));
+                .thenCompose(entityRepository -> entityRepository.namedQuery(queryName, parameterHolder, type, context));
     }
 
     @WithSpan
@@ -184,18 +184,18 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
                                                          Class<T> type,
                                                          EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.namedQueryPage(queryName,
-                                                                           parameterHolder,
-                                                                           pageable,
-                                                                           type,
-                                                                           context));
+                .thenCompose(entityRepository -> entityRepository.namedQueryPage(queryName,
+                                                                                 parameterHolder,
+                                                                                 pageable,
+                                                                                 type,
+                                                                                 context));
     }
 
     @Override
     public CompletableFuture<Void> syncIndex(String entityDefinitionId,
                                              EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.syncIndex(context));
+                .thenCompose(entityRepository -> entityRepository.syncIndex(context));
     }
 
     @WithSpan
@@ -204,7 +204,7 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
                                          T entity,
                                          EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.save(entity, context));
+                .thenCompose(entityRepository -> entityRepository.save(entity, context));
     }
 
     @WithSpan
@@ -215,7 +215,7 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
                                                  Class<T> type,
                                                  EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.search(searchText, pageable, type, context));
+                .thenCompose(entityRepository -> entityRepository.search(searchText, pageable, type, context));
     }
 
     @WithSpan
@@ -224,7 +224,7 @@ public class DefaultEntitiesRepository implements EntitiesRepository {
                                            T entity,
                                            EntityContext context) {
         return entityServiceCache.get(entityDefinitionId)
-                .thenCompose(entityService -> entityService.update(entity, context));
+                .thenCompose(entityRepository -> entityRepository.update(entity, context));
     }
 
 }

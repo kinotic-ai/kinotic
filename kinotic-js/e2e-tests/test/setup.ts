@@ -6,6 +6,7 @@ import path from 'node:path'
 // @ts-ignore
 import os from 'node:os'
 import {StartedDockerComposeEnvironment, DockerComposeEnvironment, Wait} from 'testcontainers'
+// @ts-ignore
 import {TestProject} from 'vitest/node.js'
 import {WebSocket} from 'ws'
 

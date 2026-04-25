@@ -8,11 +8,9 @@ import io.vertx.core.eventbus.EventBusOptions;
 import io.vertx.core.file.FileSystem;
 import io.vertx.core.shareddata.SharedData;
 import io.vertx.core.spi.cluster.ClusterManager;
-import io.vertx.core.spi.context.storage.ContextLocal;
 import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.core.api.security.Participant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -26,17 +24,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
  */
 @Configuration
 public class KinoticVertxConfig {
-
-    /**
-     * {@link ContextLocal} for storing the {@link Participant} on the Vert.x context.
-     * Must be registered before any {@link Vertx} instance is created.
-     */
-    private static final ContextLocal<Participant> PARTICIPANT_LOCAL = ContextLocal.registerLocal(Participant.class);
-
-    @Bean
-    public ContextLocal<Participant> participantContextLocal() {
-        return PARTICIPANT_LOCAL;
-    }
 
     @Bean
     @ConditionalOnProperty(

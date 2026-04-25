@@ -3,13 +3,11 @@ package org.kinotic.persistence.api.model;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.experimental.Accessors;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.os.api.model.OrganizationScoped;
+import org.kinotic.os.api.model.ProjectScoped;
 
 import java.util.List;
 
@@ -19,9 +17,8 @@ import java.util.List;
  */
 @Getter
 @Setter
-@Accessors(chain = true)
 @NoArgsConstructor
-public class NamedQueriesDefinition implements OrganizationScoped<String> {
+public class NamedQueriesDefinition implements ProjectScoped<String> {
 
     private String id = null;
 
@@ -68,4 +65,5 @@ public class NamedQueriesDefinition implements OrganizationScoped<String> {
                 .append("entityDefinitionName", entityDefinitionName)
                 .toString();
     }
+
 }

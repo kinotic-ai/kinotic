@@ -10,9 +10,8 @@ import lombok.experimental.Accessors;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.idl.api.schema.ObjectC3Type;
-import org.kinotic.os.api.model.OrganizationScoped;
+import org.kinotic.os.api.model.ProjectScoped;
 import org.kinotic.persistence.api.model.idl.decorators.EntityType;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 
@@ -22,9 +21,8 @@ import java.util.List;
 
 @Getter
 @Setter
-@Accessors(chain = true)
 @NoArgsConstructor
-public class EntityDefinition implements OrganizationScoped<String> {
+public class EntityDefinition implements ProjectScoped<String> {
 
     private String id = null; // do not ever set, system managed
 
