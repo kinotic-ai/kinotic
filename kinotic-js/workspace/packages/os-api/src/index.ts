@@ -19,6 +19,7 @@ export * from '@/api/model/idl/QueryOptionsC3Type'
 export * from '@/api/model/idl/TenantSelectionC3Type'
 
 export * from '@/api/model/Application'
+export * from '@/api/model/Organization'
 export * from '@/api/model/Project'
 export * from '@/api/model/ProjectType'
 export * from '@/api/model/EntityDefinition'
@@ -45,6 +46,7 @@ export * from '@/api/model/KinoticProjectConfig'
 
 // Services
 export * from '@/api/services/IApplicationService'
+export * from '@/api/services/IOrganizationService'
 export * from '@/api/services/ILogManager'
 export * from '@/api/services/IProjectService'
 export * from '@/api/services/LogManager'

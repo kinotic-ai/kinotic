@@ -77,6 +77,7 @@ service:
   type: ClusterIP
   nodePorts:
     ui: null
+    uiDirect: null
     openApi: null
     graphql: null
     stomp: null
@@ -89,6 +90,22 @@ service:
 workloadIdentity:
   enabled: false
   clientId: ""
+
+# Platform secrets — JWT signing keys and secret-storage master keys mounted as files at
+# platformSecrets.mountPath. The app watches these files for in-place rotation. Always
+# required in clustered environments: Azure projects them via the Secrets Store CSI driver
+# from the global Key Vault (keyVault.* must be set); KinD mounts a k8s Secret generated
+# by local terraform. Chart rendering fails fast if keyVault.name / tenantId are missing.
+platformSecrets:
+  mountPath: /etc/kinotic/platform-secrets
+  # Source — exactly one of `keyVault` (Azure CSI) or `secretName` (KinD k8s Secret) is used.
+  keyVault:
+    name: ""        # from global/ terraform output: platform_key_vault_name
+    tenantId: ""    # from global/ terraform output: tenant_id
+  secretName: ""    # KinD: name of a k8s Secret in the release namespace holding the same keys
+  objects:
+    jwtSigningKeys: kinotic-jwt-signing-keys
+    secretStorageMasterKeys: kinotic-secret-storage-master-keys
 
 # Extra environment variables — override any Spring property via env var convention.
 # Example: KINOTIC_PERSISTENCE_WEBSERVERPORT: "443"

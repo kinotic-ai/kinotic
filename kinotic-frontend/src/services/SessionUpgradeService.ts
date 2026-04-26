@@ -20,7 +20,7 @@ export class SessionUpgradeService implements ISessionUpgradeService {
     protected serviceProxy: IServiceProxy
 
     constructor() {
-        this.serviceProxy = Kinotic.serviceProxy('continuum.cli.SessionUpgradeService')
+        this.serviceProxy = Kinotic.serviceProxy('kinotic.cli.SessionUpgradeService')
     }
 
     public async upgradeSession(upgradeId: string, sessionMetadata: SessionMetadata): Promise<void> {

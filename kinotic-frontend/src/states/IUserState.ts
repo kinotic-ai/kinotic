@@ -35,7 +35,9 @@ export class UserState implements IUserState {
         const connectionInfo: ConnectionInfo = createConnectionInfo()
         connectionInfo.connectHeaders = {
             login,
-            passcode
+            passcode,
+            authScopeType: 'ORGANIZATION', //FIXME: remove hard coded org
+            authScopeId: 'kinotic-test'
         }
 
         try {

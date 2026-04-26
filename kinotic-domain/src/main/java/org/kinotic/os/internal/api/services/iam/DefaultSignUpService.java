@@ -77,7 +77,7 @@ public class DefaultSignUpService implements SignUpService {
                .setCreated(new Date());
 
         return save(request)
-                .thenAccept(saved -> emailService.sendVerificationEmail(
+                .thenCompose(saved -> emailService.sendVerificationEmail(
                         request.getEmail(),
                         request.getDisplayName(),
                         verificationToken));

@@ -29,6 +29,10 @@ terraform {
       source  = "hashicorp/local"
       version = "~> 2.5"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -46,10 +50,16 @@ resource "kind_cluster" "kinotic" {
     node {
       role = "control-plane"
 
-      # Web UI / health check
+      # Web UI on 443 (TLS via Vert.x, same as Azure)
       extra_port_mappings {
         container_port = 30443
         host_port      = 443
+        protocol       = "TCP"
+      }
+      # Web UI on default port (9090) for non-TLS access
+      extra_port_mappings {
+        container_port = 30090
+        host_port      = 9090
         protocol       = "TCP"
       }
       # OpenAPI

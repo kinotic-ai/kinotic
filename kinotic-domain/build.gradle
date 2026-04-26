@@ -16,6 +16,10 @@ dependencies {
 
     implementation 'org.springframework.security:spring-security-crypto'
 
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+
+    implementation 'com.azure:azure-communication-email:1.1.2'
+    implementation 'com.azure:azure-identity:1.18.2'
     implementation 'org.apache.ignite:ignite-core'
 
     // jackson impl

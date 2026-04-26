@@ -35,10 +35,10 @@ resource "helm_release" "kinotic_server" {
     # Key Vault config
     { name = "extraEnv.KINOTIC_SECRET_STORAGE_BACKEND", value = "azure" },
     { name = "extraEnv.KINOTIC_SECRET_STORAGE_AZURE_VAULT_URL", value = azurerm_key_vault.main.vault_uri },
-    # Email (Azure Communication Services)
+    # Email (Azure Communication Services) — shared service from global terraform
     { name = "extraEnv.KINOTIC_EMAIL_BACKEND", value = "azure" },
-    { name = "extraEnv.KINOTIC_EMAIL_AZURE_ENDPOINT", value = "https://acs-${local.name_prefix}.unitedstates.communication.azure.com" },
-    { name = "extraEnv.KINOTIC_EMAIL_AZURE_SENDER_DOMAIN", value = local.global.dns_zone_name },
+    { name = "extraEnv.KINOTIC_EMAIL_AZURE_ENDPOINT", value = local.global.email_service_endpoint },
+    { name = "extraEnv.KINOTIC_EMAIL_AZURE_SENDER_DOMAIN", value = local.global.email_sender_domain },
   ]
 
   depends_on = [

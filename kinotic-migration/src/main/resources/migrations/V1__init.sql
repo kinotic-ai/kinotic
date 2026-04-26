@@ -104,7 +104,6 @@ CREATE TABLE IF NOT EXISTS kinotic_system (
 CREATE TABLE IF NOT EXISTS kinotic_organization (
     id KEYWORD,
     name KEYWORD,
-    slug KEYWORD,
     description TEXT,
     oidcConfigurationIds JSON,
     createdBy KEYWORD,
