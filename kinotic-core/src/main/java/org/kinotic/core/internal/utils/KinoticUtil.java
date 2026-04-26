@@ -13,7 +13,7 @@ public class KinoticUtil {
 
     public static String safeEncodeURI(String uri){
         String encoded = URLEncoder.encode(uri, StandardCharsets.UTF_8);
-        return encoded.replaceAll("_", "-");
+        return encoded.replace("_", "-");
     }
 
     public static int getRandomNumberInRange(int max) {
