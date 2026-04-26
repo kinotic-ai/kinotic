@@ -1,6 +1,5 @@
 package org.kinotic.core.api.config;
 
-import io.vertx.core.http.HttpMethod;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -22,18 +21,6 @@ public class CorsProperties {
      * @see java.util.regex.Pattern
      */
     private String allowedOriginPattern = "http://localhost.*";
-
-    /**
-     * The HTTP methods allowed by CORS preflight responses.
-     * Vert.x's {@code CorsHandler} allows no methods by default, so this must be set
-     * for any cross-origin request other than a simple GET to succeed.
-     */
-    private Set<HttpMethod> allowedMethods = Set.of(HttpMethod.GET,
-                                                    HttpMethod.POST,
-                                                    HttpMethod.PUT,
-                                                    HttpMethod.PATCH,
-                                                    HttpMethod.DELETE,
-                                                    HttpMethod.OPTIONS);
 
     /**
      * The allowed headers for CORS
