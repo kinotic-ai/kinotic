@@ -1,6 +1,7 @@
 # YAML Reference http://www.yaml.org/refcard.html
 kinotic:
   debug: true
+  appBaseUrl: "http://localhost:5173"
   email:
     enabled: true
     endpoint: https://acs-kinotic.communication.azure.com
