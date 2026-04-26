@@ -5,28 +5,45 @@ export interface IIamUserService extends ICrudServiceProxy<IamUser> {
 
     /**
      * Finds the user with the given email within the given auth scope.
-     * @return Promise emitting the user or null if no user matches
+     * @param email the email address to look up
+     * @param authScopeType the scope type the user is registered against (e.g. {@code SYSTEM}, {@code ORGANIZATION}, {@code APPLICATION})
+     * @param authScopeId the id of the scope the user is registered against
+     * @return {@link Promise} emitting the matching user, or {@code null} if no user matches
      */
     findByEmailAndScope(email: string, authScopeType: string, authScopeId: string): Promise<IamUser | null>
 
     /**
      * Finds all users registered against the given auth scope.
+     * @param authScopeType the scope type to filter by (e.g. {@code SYSTEM}, {@code ORGANIZATION}, {@code APPLICATION})
+     * @param authScopeId the id of the scope to filter by
+     * @param pageable the paging and sort options
+     * @return {@link Promise} emitting a page of users registered against the scope
      */
     findByScope(authScopeType: string, authScopeId: string, pageable: Pageable): Promise<Page<IamUser>>
 
     /**
      * Creates a user and, if a password is provided, the matching credential.
-     * APPLICATION-scoped users must carry a {@code tenantId}; SYSTEM and ORGANIZATION users must not.
+     * {@code APPLICATION}-scoped users must carry a {@code tenantId}; {@code SYSTEM} and {@code ORGANIZATION} users must not.
+     * @param user the user to create
+     * @param password the password to set, or {@code null} to create the user without a credential
+     * @return {@link Promise} emitting the persisted user
      */
     createUser(user: IamUser, password: string | null): Promise<IamUser>
 
     /**
      * Verifies the current password and updates it. Used when the user knows their current password.
+     * @param userId the id of the user whose password should be changed
+     * @param currentPassword the user's current password
+     * @param newPassword the new password to set
+     * @return {@link Promise} that resolves when the password has been updated
      */
     changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void>
 
     /**
      * Replaces the user's password without verifying the current one. Administrative reset.
+     * @param userId the id of the user whose password should be reset
+     * @param newPassword the new password to set
+     * @return {@link Promise} that resolves when the password has been reset
      */
     resetPassword(userId: string, newPassword: string): Promise<void>
 
@@ -34,6 +51,9 @@ export interface IIamUserService extends ICrudServiceProxy<IamUser> {
      * Finds the first user with the given email across all scope ids of the given scope type.
      * Used by the sign-up flow to enforce one user per email at organization-creation time,
      * before the new organization's scope id exists.
+     * @param email the email address to look up
+     * @param authScopeType the scope type to search within (e.g. {@code ORGANIZATION})
+     * @return {@link Promise} emitting the first matching user, or {@code null} if no user matches
      */
     findFirstByEmailInScopeType(email: string, authScopeType: string): Promise<IamUser | null>
 
