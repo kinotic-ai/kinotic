@@ -14,6 +14,7 @@ public final class CorsUtil {
         }
         CorsHandler corsHandler = CorsHandler.create()
                                              .addOriginWithRegex(pattern)
+                                             .allowedMethods(properties.getAllowedMethods())
                                              .allowedHeaders(properties.getAllowedHeaders());
         if (properties.getAllowCredentials() != null) {
             corsHandler.allowCredentials(properties.getAllowCredentials());
