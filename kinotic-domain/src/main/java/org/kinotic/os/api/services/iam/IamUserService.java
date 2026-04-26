@@ -22,46 +22,46 @@ public interface IamUserService extends IdentifiableCrudService<IamUser, String>
      */
     CompletableFuture<IamUser> findByEmailAndScope(String email, String authScopeType, String authScopeId);
 
-    /**
-     * Finds all users registered against the given auth scope.
-     *
-     * @param authScopeType the scope type to filter by (e.g. {@code SYSTEM}, {@code ORGANIZATION},
-     *                      {@code APPLICATION})
-     * @param authScopeId the id of the scope to filter by
-     * @param pageable the paging and sort options
-     * @return {@link CompletableFuture} emitting a page of users registered against the scope
-     */
-    CompletableFuture<Page<IamUser>> findByScope(String authScopeType, String authScopeId, Pageable pageable);
-
-    /**
-     * Creates a user and, if a password is provided, the matching credential.
-     * {@code APPLICATION}-scoped users must carry a {@code tenantId}; {@code SYSTEM} and
-     * {@code ORGANIZATION} users must not.
-     *
-     * @param user the user to create
-     * @param password the password to set, or {@code null} to create the user without a credential
-     * @return {@link CompletableFuture} emitting the persisted user
-     */
-    CompletableFuture<IamUser> createUser(IamUser user, String password);
-
-    /**
-     * Verifies the current password and updates it. Used when the user knows their current password.
-     *
-     * @param userId the id of the user whose password should be changed
-     * @param currentPassword the user's current password
-     * @param newPassword the new password to set
-     * @return {@link CompletableFuture} that completes when the password has been updated
-     */
-    CompletableFuture<Void> changePassword(String userId, String currentPassword, String newPassword);
-
-    /**
-     * Replaces the user's password without verifying the current one. Administrative reset.
-     *
-     * @param userId the id of the user whose password should be reset
-     * @param newPassword the new password to set
-     * @return {@link CompletableFuture} that completes when the password has been reset
-     */
-    CompletableFuture<Void> resetPassword(String userId, String newPassword);
+//    /**
+//     * Finds all users registered against the given auth scope.
+//     *
+//     * @param authScopeType the scope type to filter by (e.g. {@code SYSTEM}, {@code ORGANIZATION},
+//     *                      {@code APPLICATION})
+//     * @param authScopeId the id of the scope to filter by
+//     * @param pageable the paging and sort options
+//     * @return {@link CompletableFuture} emitting a page of users registered against the scope
+//     */
+//    CompletableFuture<Page<IamUser>> findByScope(String authScopeType, String authScopeId, Pageable pageable);
+//
+//    /**
+//     * Creates a user and, if a password is provided, the matching credential.
+//     * {@code APPLICATION}-scoped users must carry a {@code tenantId}; {@code SYSTEM} and
+//     * {@code ORGANIZATION} users must not.
+//     *
+//     * @param user the user to create
+//     * @param password the password to set, or {@code null} to create the user without a credential
+//     * @return {@link CompletableFuture} emitting the persisted user
+//     */
+//    CompletableFuture<IamUser> createUser(IamUser user, String password);
+//
+//    /**
+//     * Verifies the current password and updates it. Used when the user knows their current password.
+//     *
+//     * @param userId the id of the user whose password should be changed
+//     * @param currentPassword the user's current password
+//     * @param newPassword the new password to set
+//     * @return {@link CompletableFuture} that completes when the password has been updated
+//     */
+//    CompletableFuture<Void> changePassword(String userId, String currentPassword, String newPassword);
+//
+//    /**
+//     * Replaces the user's password without verifying the current one. Administrative reset.
+//     *
+//     * @param userId the id of the user whose password should be reset
+//     * @param newPassword the new password to set
+//     * @return {@link CompletableFuture} that completes when the password has been reset
+//     */
+//    CompletableFuture<Void> resetPassword(String userId, String newPassword);
 
     /**
      * Finds the first user with the given email across all scope ids of the given scope type.

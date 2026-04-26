@@ -80,7 +80,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                 .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
-    @Override
+//    @Override
     public CompletableFuture<Page<IamUser>> findByScope(String authScopeType, String authScopeId, Pageable pageable) {
         Validate.notNull(authScopeId, "authScopeId cannot be null");
         return crudServiceTemplate.search(indexName, pageable, type, builder -> builder
@@ -91,7 +91,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                 }))));
     }
 
-    @Override
+//    @Override
     public CompletableFuture<IamUser> createUser(IamUser user, String password) {
         Validate.notNull(user.getEmail(), "IamUser email cannot be null");
         Validate.notNull(user.getAuthScopeType(), "IamUser authScopeType cannot be null");
@@ -130,7 +130,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                 });
     }
 
-    @Override
+//    @Override
     public CompletableFuture<Void> changePassword(String userId, String currentPassword, String newPassword) {
         Validate.notNull(userId, "userId cannot be null");
         Validate.notNull(currentPassword, "currentPassword cannot be null");
@@ -151,7 +151,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                 });
     }
 
-    @Override
+//    @Override
     public CompletableFuture<Void> resetPassword(String userId, String newPassword) {
         Validate.notNull(userId, "userId cannot be null");
         Validate.notNull(newPassword, "newPassword cannot be null");
