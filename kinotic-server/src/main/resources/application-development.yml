@@ -1,6 +1,7 @@
 # YAML Reference http://www.yaml.org/refcard.html
 kinotic:
   debug: true
+  appBaseUrl: "http://localhost:5173"
   email:
     enabled: true
     endpoint: https://acs-kinotic.communication.azure.com
@@ -11,11 +12,10 @@ kinotic:
   secretStorage:
     backend: hft
     masterKey: a2lub3RpYy1kZXZlbG9wbWVudC1tYXN0ZXIta2V5LSE=
+  cors:
+    allowedOriginPattern: "http:\\/\\/localhost:\\d+"
+    allowCredentials: true
   persistence:
-    corsAllowedOriginPattern: "https:\\/\\/studio.apollographql.com|http:\\/\\/localhost:\\d+|http:\\/\\/121.0.0.1:\\d+"
-    corsAllowedHeaders:
-      - "*"
-    corsAllowCredentials: true
     elastic-connections:
       - scheme: "http"
         host: "localhost"

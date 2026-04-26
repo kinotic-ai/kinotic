@@ -37,7 +37,7 @@ import java.util.concurrent.CompletableFuture;
 public class EmailService {
 
     private static final String VERIFICATION_SUBJECT = "Verify your Kinotic email";
-    private static final String VERIFICATION_PATH = "/signup/verify?token=";
+    private static final String VERIFICATION_PATH = "/#/signup/verify?token=";
 
     private final KinoticDomainProperties properties;
     private final ObjectProvider<SpringTemplateEngine> htmlTemplateEngineProvider;

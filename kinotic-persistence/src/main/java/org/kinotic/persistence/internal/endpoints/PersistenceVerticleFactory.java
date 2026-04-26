@@ -41,7 +41,7 @@ public class PersistenceVerticleFactory {
 
     
     public GqlVerticle createGqlVerticle(){
-        return new GqlVerticle(delegatingGqlHandler, properties, kinoticProperties.getSsl(), securityService, securityContext);
+        return new GqlVerticle(delegatingGqlHandler, properties, kinoticProperties.getSsl(), kinoticProperties.getCors(), securityService, securityContext);
     }
 
     public OpenApiVerticle createOpenApiVerticle(){
@@ -49,6 +49,6 @@ public class PersistenceVerticleFactory {
     }
 
     public WebServerVerticle createWebServerNextVerticle(){
-        return new WebServerVerticle(objectMapper, healthChecks, properties, kinoticProperties.getSsl(), oidcSecurityServiceProperties);
+        return new WebServerVerticle(objectMapper, healthChecks, properties, kinoticProperties.getSsl(), kinoticProperties.getCors(), oidcSecurityServiceProperties);
     }
 }

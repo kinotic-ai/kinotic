@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
+    "build:dev": "vue-tsc -b && vite build --mode development",
     "build:kind": "vue-tsc -b && vite build --mode kind",
     "preview": "vite preview",
     "deps:install": "./pnpmw install --reporter=append-only",
