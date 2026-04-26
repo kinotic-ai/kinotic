@@ -1,13 +1,17 @@
 package org.kinotic.gateway.internal.endpoints.rest;
 
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.ext.web.handler.CorsHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.os.api.model.iam.SignUpRequest;
 import org.kinotic.os.api.services.iam.SignUpService;
 import org.springframework.stereotype.Component;
+
+import java.util.Set;
 
 /**
  * REST handler for organization sign-up endpoints.
@@ -26,7 +30,12 @@ public class SignUpHandler {
      * Must be called before the router is passed to the STOMP server factory.
      */
     public void mountRoutes(Router router) {
-        // Enable body parsing for /api routes
+        // Sign-up is unauthenticated and may be called from a browser served on a different
+        // origin (the Vite dev server, or a separately-hosted static site), so allow any origin.
+        router.route("/api/*").handler(CorsHandler.create()
+                .addOrigin("*")
+                .allowedMethods(Set.of(HttpMethod.POST, HttpMethod.OPTIONS))
+                .allowedHeader("Content-Type"));
         router.route("/api/*").handler(BodyHandler.create().setBodyLimit(16384));
 
         router.post("/api/signup").handler(ctx -> {

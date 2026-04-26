@@ -84,6 +84,7 @@ import loginPageLeft from '@/assets/login-page-left.svg'
 import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
 import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
 import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
+import { apiUrl } from '@/util/helpers'
 
 @Component({
   components: {
@@ -138,7 +139,7 @@ export default class VerifyEmail extends Vue {
 
     this.loading = true
     try {
-      const response = await fetch('/api/signup/complete', {
+      const response = await fetch(apiUrl('/api/signup/complete'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.request),

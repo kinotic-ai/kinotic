@@ -12,3 +12,10 @@ export function createConnectionInfo(): ConnectionInfo {
         useSSL: envUseSSL,
     }
 }
+
+export function apiUrl(path: string): string {
+    const { host, port, useSSL } = createConnectionInfo()
+    const scheme = useSSL ? 'https' : 'http'
+    const suffix = path.startsWith('/') ? path : `/${path}`
+    return `${scheme}://${host}:${port}${suffix}`
+}
