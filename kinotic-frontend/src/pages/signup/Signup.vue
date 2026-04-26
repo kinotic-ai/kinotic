@@ -16,37 +16,35 @@
             <h2 class="signup-title">Create your organization</h2>
 
             <div class="login-form__step">
-              <InputText
-                v-model="request.orgName"
-                class="login-input"
-                placeholder="Organization name"
-                @keyup.enter="focusNext('orgDescription')"
-              />
+              <div class="login-field">
+                <InputText
+                  v-model="request.orgName"
+                  class="login-input"
+                  placeholder="Organization name"
+                  @keyup.enter="focusNext('displayName')"
+                />
+              </div>
 
-              <InputText
-                ref="orgDescription"
-                v-model="request.orgDescription"
-                class="login-input"
-                placeholder="Organization description (optional)"
-                @keyup.enter="focusNext('email')"
-              />
+              <div class="login-field">
+                <InputText
+                  ref="displayName"
+                  v-model="request.displayName"
+                  class="login-input"
+                  placeholder="Your name"
+                  @keyup.enter="focusNext('email')"
+                />
+              </div>
 
-              <InputText
-                ref="email"
-                v-model="request.email"
-                class="login-input"
-                placeholder="Your email"
-                type="email"
-                @keyup.enter="focusNext('displayName')"
-              />
-
-              <InputText
-                ref="displayName"
-                v-model="request.displayName"
-                class="login-input"
-                placeholder="Your name"
-                @keyup.enter="handleSubmit"
-              />
+              <div class="login-field">
+                <InputText
+                  ref="email"
+                  v-model="request.email"
+                  class="login-input"
+                  placeholder="Your email"
+                  type="email"
+                  @keyup.enter="handleSubmit"
+                />
+              </div>
 
               <Button
                 label="Sign Up"
@@ -118,7 +116,6 @@ export default class Signup extends Vue {
 
   request: SignUpRequest = {
     orgName: '',
-    orgDescription: '',
     email: '',
     displayName: '',
   }
@@ -138,7 +135,6 @@ export default class Signup extends Vue {
     this.request.orgName = this.request.orgName.trim()
     this.request.email = this.request.email.trim()
     this.request.displayName = this.request.displayName.trim()
-    this.request.orgDescription = (this.request.orgDescription ?? '').trim() || null
 
     if (!this.request.orgName) {
       this.displayAlert('Organization name is required')
