@@ -72,13 +72,13 @@
               </p>
             </div>
           </div>
-
-          <footer class="login-footer">
-            <a href="#" class="login-footer__link">Terms of use</a>
-            <span class="login-footer__divider">|</span>
-            <a href="#" class="login-footer__link">Privacy policy</a>
-          </footer>
         </div>
+
+        <footer class="login-footer">
+          <a href="#" class="login-footer__link">Terms of use</a>
+          <span class="login-footer__divider">|</span>
+          <a href="#" class="login-footer__link">Privacy policy</a>
+        </footer>
       </main>
     </div>
 
