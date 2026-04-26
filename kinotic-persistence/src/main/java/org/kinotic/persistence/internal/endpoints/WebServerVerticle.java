@@ -9,10 +9,11 @@ import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.web.Route;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.StaticHandler;
 import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.core.api.config.CorsHelper;
+import org.kinotic.core.api.config.CorsProperties;
 import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.core.api.config.SslProperties;
 import org.kinotic.persistence.api.config.PersistenceProperties;
@@ -34,6 +35,7 @@ public class WebServerVerticle extends VerticleBase {
     private final HealthChecks healthChecks;
     private final PersistenceProperties properties;
     private final SslProperties sslProperties;
+    private final CorsProperties corsProperties;
     private final OidcSecurityServiceProperties oidcSecurityServiceProperties;
     private HttpServer server;
 
@@ -46,19 +48,7 @@ public class WebServerVerticle extends VerticleBase {
 
         Router router = Router.router(vertx);
 
-        String allowedOriginPattern = properties.getCorsAllowedOriginPattern();
-        if ("*".equals(allowedOriginPattern)) {
-            allowedOriginPattern = ".*";
-        }
-
-        CorsHandler corsHandler = CorsHandler.create()
-                                             .addOriginWithRegex(allowedOriginPattern)
-                                             .allowedHeaders(properties.getCorsAllowedHeaders());
-        if(properties.getCorsAllowCredentials() != null){
-            corsHandler.allowCredentials(properties.getCorsAllowCredentials());
-        }
-
-        Route route = router.route().handler(corsHandler);
+        Route route = router.route().handler(CorsHelper.createCorsHandler(corsProperties));
 
         HealthCheckHandler healthCheckHandler = HealthCheckHandler.createWithHealthChecks(healthChecks);
         router.get(this.properties.getHealthCheckPath()).handler(healthCheckHandler);

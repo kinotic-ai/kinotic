@@ -18,5 +18,5 @@ kinotic:
     kubernetesServiceName: kinotic
     kubernetesIncludeNotReadyAddresses: true
 
-  persistence:
-    corsAllowedOriginPattern: "*"
+  cors:
+    allowedOriginPattern: "*"

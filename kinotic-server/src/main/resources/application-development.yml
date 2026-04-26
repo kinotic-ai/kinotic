@@ -11,11 +11,12 @@ kinotic:
   secretStorage:
     backend: hft
     masterKey: a2lub3RpYy1kZXZlbG9wbWVudC1tYXN0ZXIta2V5LSE=
-  persistence:
-    corsAllowedOriginPattern: "https:\\/\\/studio.apollographql.com|http:\\/\\/localhost:\\d+|http:\\/\\/121.0.0.1:\\d+"
-    corsAllowedHeaders:
+  cors:
+    allowedOriginPattern: "https:\\/\\/studio.apollographql.com|http:\\/\\/localhost:\\d+|http:\\/\\/121.0.0.1:\\d+"
+    allowedHeaders:
       - "*"
-    corsAllowCredentials: true
+    allowCredentials: true
+  persistence:
     elastic-connections:
       - scheme: "http"
         host: "localhost"

@@ -6,13 +6,13 @@ import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.CorsHandler;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.NonNull;
+import org.kinotic.core.api.config.CorsHelper;
+import org.kinotic.core.api.config.CorsProperties;
 import org.kinotic.core.api.crud.*;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -133,25 +133,10 @@ public class VertxWebUtil {
     }
 
     public static @NonNull Router createRouterWithCors(Vertx vertx,
-                                                       PersistenceProperties properties) {
+                                                       CorsProperties corsProperties) {
         Router router = Router.router(vertx);
-
         router.route().failureHandler(VertxWebUtil.createExceptionConvertingFailureHandler());
-
-        String allowedOriginPattern = properties.getCorsAllowedOriginPattern();
-        if ("*".equals(allowedOriginPattern)) {
-            allowedOriginPattern = ".*";
-        }
-
-        CorsHandler corsHandler = CorsHandler.create()
-                                             .addOriginWithRegex(allowedOriginPattern)
-                                             .allowedHeaders(properties.getCorsAllowedHeaders());
-
-        if(properties.getCorsAllowCredentials() != null){
-            corsHandler.allowCredentials(properties.getCorsAllowCredentials());
-        }
-
-        router.route().handler(corsHandler);
+        router.route().handler(CorsHelper.createCorsHandler(corsProperties));
         return router;
     }
 

@@ -7,6 +7,7 @@ import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.core.api.config.CorsProperties;
 import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.core.api.config.SslProperties;
 import org.kinotic.core.api.security.SecurityService;
@@ -28,6 +29,7 @@ public class GqlVerticle extends VerticleBase {
     private final DelegatingGqlHandler gqlHandler;
     private final PersistenceProperties properties;
     private final SslProperties sslProperties;
+    private final CorsProperties corsProperties;
     private final SecurityService securityService;
     private final SecurityContext securityContext;
     private HttpServer server;
@@ -40,7 +42,7 @@ public class GqlVerticle extends VerticleBase {
         SslHelper.applySsl(options, sslProperties);
         server = vertx.createHttpServer(options);
 
-        Router router = VertxWebUtil.createRouterWithCors(vertx, properties);
+        Router router = VertxWebUtil.createRouterWithCors(vertx, corsProperties);
 
         if(securityService !=null){
             router.route().handler(new AuthenticationHandler(securityService, securityContext, vertx));
