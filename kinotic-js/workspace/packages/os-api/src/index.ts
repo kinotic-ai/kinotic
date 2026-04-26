@@ -46,7 +46,6 @@ export * from '@/api/model/KinoticProjectConfig'
 
 // Services
 export * from '@/api/services/IApplicationService'
-export * from '@/api/services/IOrganizationService'
 export * from '@/api/services/ILogManager'
 export * from '@/api/services/IProjectService'
 export * from '@/api/services/LogManager'
