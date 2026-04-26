@@ -1,4 +1,5 @@
 @import 'primeicons/primeicons.css';
+@import './pages/auth-pages.css';
 
 @import "tailwindcss";
 @import "tailwindcss-primeui";
