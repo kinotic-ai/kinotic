@@ -23,25 +23,31 @@
                 <p class="verify-text">Please set your password to finish creating your account.</p>
               </div>
 
-              <Password
-                ref="passwordInput"
-                v-model="request.password"
-                class="login-input"
-                placeholder="Password"
-                :feedback="false"
-                toggleMask
-                @keyup.enter="focusConfirm"
-              />
+              <IconField class="login-field">
+                <Password
+                  ref="passwordInput"
+                  v-model="request.password"
+                  class="login-password"
+                  input-class="login-password-input"
+                  placeholder="Password"
+                  :feedback="false"
+                  toggleMask
+                  @keyup.enter="focusConfirm"
+                />
+              </IconField>
 
-              <Password
-                ref="confirmPasswordInput"
-                v-model="confirmPassword"
-                class="login-input"
-                placeholder="Confirm password"
-                :feedback="false"
-                toggleMask
-                @keyup.enter="handleSubmit"
-              />
+              <IconField class="login-field">
+                <Password
+                  ref="confirmPasswordInput"
+                  v-model="confirmPassword"
+                  class="login-password"
+                  input-class="login-password-input"
+                  placeholder="Confirm password"
+                  :feedback="false"
+                  toggleMask
+                  @keyup.enter="handleSubmit"
+                />
+              </IconField>
 
               <Button
                 label="Create account"
@@ -83,6 +89,7 @@
 import { Component, Vue } from 'vue-facing-decorator';
 import Password from 'primevue/password'
 import Button from 'primevue/button'
+import IconField from 'primevue/iconfield'
 import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
 import type { SignUpCompleteRequest } from '@kinotic-ai/os-api'
@@ -97,6 +104,7 @@ import { apiUrl } from '@/util/helpers'
   components: {
     Password,
     Button,
+    IconField,
     Toast,
   }
 })
