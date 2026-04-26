@@ -56,8 +56,7 @@ public class DefaultSignUpService implements SignUpService {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("A sign-up is already pending for this email. Check your inbox for the verification link."));
                     }
-                    // Check if a user with this email already exists in any ORGANIZATION scope
-                    return userService.findByEmailAndScope(request.getEmail(), "ORGANIZATION", null);
+                    return userService.findFirstByEmailInScopeType(request.getEmail(), "ORGANIZATION");
                 })
                 .thenCompose(existingUser -> {
                     if (existingUser != null) {
