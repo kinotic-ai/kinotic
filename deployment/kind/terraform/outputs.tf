@@ -12,15 +12,17 @@ output "kubeconfig" {
 output "endpoints" {
   description = "Kinotic service endpoints"
   value = var.use_mkcert ? {
-    ui      = "https://localhost/"
-    api     = "https://localhost:8080/api/"
-    graphql = "https://localhost:4000/graphql/"
-    stomp   = "wss://localhost:58503/v1"
+    ui        = "https://localhost/"
+    ui_direct = "https://localhost:9090/"
+    api       = "https://localhost:8080/api/"
+    graphql   = "https://localhost:4000/graphql/"
+    stomp     = "wss://localhost:58503/v1"
   } : {
-    ui      = "http://localhost:9090/"
-    api     = "http://localhost:8080/api/"
-    graphql = "http://localhost:4000/graphql/"
-    stomp   = "ws://localhost:58503/v1"
+    ui        = "http://localhost:9090/"
+    ui_direct = "http://localhost:9090/"
+    api       = "http://localhost:8080/api/"
+    graphql   = "http://localhost:4000/graphql/"
+    stomp     = "ws://localhost:58503/v1"
   }
 }
 

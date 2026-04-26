@@ -49,6 +49,14 @@ resource "azurerm_kubernetes_cluster" "main" {
   oidc_issuer_enabled       = true
   workload_identity_enabled = true
 
+  # Secrets Store CSI Driver with the Azure Key Vault provider plugin.
+  # Used to project platform secrets (JWT signing keys, masterKeys) from the global
+  # Key Vault into kinotic-server pods as files, with automatic rotation.
+  key_vault_secrets_provider {
+    secret_rotation_enabled  = true
+    secret_rotation_interval = "2m"
+  }
+
   # User-assigned identity for the control plane
   identity {
     type         = "UserAssigned"

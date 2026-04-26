@@ -67,10 +67,17 @@ spec:
   ports:
     - name: "ui"
       protocol: TCP
-      port: {{ .Values.kinotic.webServerPort | default 9090 }}
+      port: 443
       targetPort: {{ .Values.kinotic.webServerPort | default 9090 }}
       {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.ui }}
       nodePort: {{ .Values.service.nodePorts.ui }}
+      {{- end }}
+    - name: "ui-direct"
+      protocol: TCP
+      port: {{ .Values.kinotic.webServerPort | default 9090 }}
+      targetPort: {{ .Values.kinotic.webServerPort | default 9090 }}
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.uiDirect }}
+      nodePort: {{ .Values.service.nodePorts.uiDirect }}
       {{- end }}
     - name: "open-api"
       protocol: TCP
