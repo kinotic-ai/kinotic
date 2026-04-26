@@ -75,6 +75,11 @@ public class KinoticProperties {
      */
     private IgniteProperties ignite = new IgniteProperties();
 
+    /**
+     * CORS configuration applied to all Vert.x HTTP servers that expose browser-facing routes.
+     */
+    private CorsProperties cors = new CorsProperties();
+
     private int maxEventPayloadSize = 1024 * 1024 * 100; // 100MB
 
     /**

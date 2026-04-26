@@ -9,7 +9,6 @@ import org.apache.commons.lang3.Validate;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Set;
 
 @Getter
 @Setter
@@ -42,26 +41,6 @@ public class PersistenceProperties {
     private String elasticUsername = null;
 
     private String elasticPassword = null;
-
-    /**
-     * Allowed origin pattern for CORS on the persistence-owned HTTP endpoints
-     * (openapi 8080, graphql 4000). The api-gateway router (port 58503) has its
-     * own {@code kinotic.cors.*} settings and is configured independently.
-     *
-     * @see java.util.regex.Pattern
-     */
-    private String corsAllowedOriginPattern = "http://localhost.*";
-
-    /**
-     * Allowed headers for CORS on persistence-owned HTTP endpoints.
-     */
-    private Set<String> corsAllowedHeaders = Set.of("Accept", "Authorization", "Content-Type");
-
-    /**
-     * If set will set the CORS Access-Control-Allow-Credentials header to this value.
-     * If true then {@link #corsAllowedOriginPattern} must not contain a wildcard.
-     */
-    private Boolean corsAllowCredentials = null;
 
     /**
      * The max length of all HTTP headers in bytes. Default is 8KB.

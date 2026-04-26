@@ -40,12 +40,8 @@ public class KinoticApiGatewayProperties extends KinoticProperties {
     private WebServerProperties webServer = new WebServerProperties();
 
     /**
-     * CORS settings applied to the api-gateway router (port 58503).
-     */
-    private CorsProperties cors = new CorsProperties();
-
-    /**
      * Path the health-check endpoint is mounted at on the api-gateway router.
+     * (CORS is inherited from {@link KinoticProperties#getCors()} — applies platform-wide.)
      */
     private String healthCheckPath = "/health";
 

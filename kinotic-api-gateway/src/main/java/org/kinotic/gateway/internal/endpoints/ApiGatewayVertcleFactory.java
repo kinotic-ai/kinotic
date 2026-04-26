@@ -8,12 +8,11 @@ import io.vertx.ext.stomp.lite.StompServerOptions;
 import io.vertx.ext.stomp.lite.StompServerVerticle;
 import io.vertx.ext.stomp.lite.StompServerVerticleFactory;
 import io.vertx.ext.web.Router;
-import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.config.SslHelper;
+import org.kinotic.core.internal.utils.CorsUtil;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
-import org.kinotic.gateway.api.config.CorsProperties;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.rest.LoginHandler;
 import org.kinotic.gateway.internal.endpoints.rest.OidcSignupHandler;
@@ -63,7 +62,9 @@ public class ApiGatewayVertcleFactory {
 
         // CORS first — the SPA hits this port from a different origin in prod (Azure
         // Storage → kinotic-server) and from vite (5173) in dev when not proxied.
-        router.route().handler(buildCorsHandler(apiGatewayProperties.getCors()));
+        // Inherited kinotic.cors.* settings (KinoticProperties.getCors); shared with the
+        // persistence-side openapi/graphql routes via the same CorsUtil helper.
+        router.route().handler(CorsUtil.createCorsHandler(kinoticProperties.getCors()));
 
         // Health check on the api-gateway port so probes work even when the static
         // web-server (9090) is disabled in KinD/Azure.
@@ -88,16 +89,5 @@ public class ApiGatewayVertcleFactory {
 
     public WebServerVerticle createWebServerVerticle(){
         return new WebServerVerticle(apiGatewayProperties.getWebServer(), kinoticProperties.getSsl());
-    }
-
-    private static CorsHandler buildCorsHandler(CorsProperties cors) {
-        String pattern = "*".equals(cors.getAllowedOriginPattern()) ? ".*" : cors.getAllowedOriginPattern();
-        CorsHandler handler = CorsHandler.create()
-                                         .addOriginWithRegex(pattern)
-                                         .allowedHeaders(cors.getAllowedHeaders());
-        if (cors.getAllowCredentials() != null) {
-            handler.allowCredentials(cors.getAllowCredentials());
-        }
-        return handler;
     }
 }

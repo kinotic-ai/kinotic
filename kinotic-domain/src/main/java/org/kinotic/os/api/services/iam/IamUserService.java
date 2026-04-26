@@ -2,8 +2,6 @@ package org.kinotic.os.api.services.iam;
 
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
-import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.os.api.model.iam.IamUser;
 
 import java.util.concurrent.CompletableFuture;
@@ -11,14 +9,27 @@ import java.util.concurrent.CompletableFuture;
 @Publish
 public interface IamUserService extends IdentifiableCrudService<IamUser, String> {
 
+    /**
+     * Finds the user with the given email within the given auth scope.
+     *
+     * @param email the email address to look up
+     * @param authScopeType the scope type the user is registered against (e.g. {@code SYSTEM},
+     *                      {@code ORGANIZATION}, {@code APPLICATION})
+     * @param authScopeId the id of the scope the user is registered against
+     * @return {@link CompletableFuture} emitting the matching user, or {@code null} if no user matches
+     */
     CompletableFuture<IamUser> findByEmailAndScope(String email, String authScopeType, String authScopeId);
 
     /**
-     * Finds the first {@link IamUser} with the given email at the given scope layer, ignoring
-     * which specific {@code authScopeId} owns it. Used for cross-scope collision checks
-     * (e.g. "is this email already taken in any organization?") at signup time.
+     * Finds the first user with the given email across all scope ids of the given scope type.
+     * Used by the sign-up flow to enforce one user per email at organization-creation time,
+     * before the new organization's scope id exists.
+     *
+     * @param email the email address to look up
+     * @param authScopeType the scope type to search within (e.g. {@code ORGANIZATION})
+     * @return {@link CompletableFuture} emitting the first matching user, or {@code null} if no user matches
      */
-    CompletableFuture<IamUser> findByEmailAtScopeType(String email, String authScopeType);
+    CompletableFuture<IamUser> findFirstByEmailInScopeType(String email, String authScopeType);
 
     /**
      * Finds the {@link IamUser} for the given email that is marked as that identity's primary
@@ -26,8 +37,6 @@ public interface IamUserService extends IdentifiableCrudService<IamUser, String>
      * primary. Used by the email-first login lookup to decide between password vs SSO redirect.
      */
     CompletableFuture<IamUser> findByEmailPrimary(String email);
-
-    CompletableFuture<Page<IamUser>> findByScope(String authScopeType, String authScopeId, Pageable pageable);
 
     /**
      * Finds the {@link IamUser} (if any) with the given OIDC identity within a specific scope.
@@ -45,10 +54,5 @@ public interface IamUserService extends IdentifiableCrudService<IamUser, String>
      */
     CompletableFuture<java.util.List<IamUser>> findByOidcIdentity(String oidcSubject, String oidcConfigId);
 
-    CompletableFuture<IamUser> createUser(IamUser user, String password);
-
-    CompletableFuture<Void> changePassword(String userId, String currentPassword, String newPassword);
-
-    CompletableFuture<Void> resetPassword(String userId, String newPassword);
-
 }
+

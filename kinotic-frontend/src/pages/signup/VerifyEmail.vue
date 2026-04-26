@@ -15,30 +15,39 @@
           <div class="login-form">
             <!-- Password form -->
             <div v-if="!completed" class="login-form__step">
-              <h2 class="verify-title">Thank you for verifying your email</h2>
-              <p class="verify-text">Please set your password to finish creating your account.</p>
+              <div class="verify-header">
+                <span class="verify-icon-wrap verify-icon-wrap--primary">
+                  <span class="pi pi-shield verify-header__icon"></span>
+                </span>
+                <h2 class="verify-title">Thank you for verifying your email</h2>
+                <p class="verify-text">Please set your password to finish creating your account.</p>
+              </div>
 
-              <Password
-                ref="passwordInput"
-                v-model="request.password"
-                class="login-password"
-                input-class="login-password-input"
-                placeholder="Password"
-                :feedback="false"
-                toggleMask
-                @keyup.enter="focusConfirm"
-              />
+              <IconField class="login-field">
+                <Password
+                  ref="passwordInput"
+                  v-model="request.password"
+                  class="login-password"
+                  input-class="login-password-input"
+                  placeholder="Password"
+                  :feedback="false"
+                  toggleMask
+                  @keyup.enter="focusConfirm"
+                />
+              </IconField>
 
-              <Password
-                ref="confirmPasswordInput"
-                v-model="confirmPassword"
-                :class="['login-password', confirmStateClass]"
-                input-class="login-password-input"
-                placeholder="Confirm password"
-                :feedback="false"
-                toggleMask
-                @keyup.enter="handleSubmit"
-              />
+              <IconField class="login-field">
+                <Password
+                  ref="confirmPasswordInput"
+                  v-model="confirmPassword"
+                  :class="['login-password', confirmStateClass]"
+                  input-class="login-password-input"
+                  placeholder="Confirm password"
+                  :feedback="false"
+                  toggleMask
+                  @keyup.enter="handleSubmit"
+                />
+              </IconField>
 
               <Button
                 label="Create account"
@@ -51,7 +60,9 @@
 
             <!-- Success state -->
             <div v-else class="verify-state">
-              <span class="pi pi-check-circle verify-icon verify-icon--success"></span>
+              <span class="verify-icon-wrap verify-icon-wrap--success">
+                <span class="pi pi-check verify-header__icon"></span>
+              </span>
               <h2 class="verify-title">Account created!</h2>
               <p class="verify-text">Your organization is ready. You can now sign in.</p>
               <Button
@@ -79,6 +90,7 @@
 import { Component, Vue } from 'vue-facing-decorator';
 import Password from 'primevue/password'
 import Button from 'primevue/button'
+import IconField from 'primevue/iconfield'
 import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
 import type { SignUpCompleteRequest } from '@kinotic-ai/os-api'
@@ -94,6 +106,7 @@ import '@/pages/auth-pages.css'
   components: {
     Password,
     Button,
+    IconField,
     Toast,
   }
 })
@@ -206,35 +219,58 @@ export default class VerifyEmail extends Vue {
   border-color: var(--p-green-500);
 }
 
+.verify-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
 .verify-state {
   text-align: center;
-  padding: 2rem 0;
+  padding: 1rem 0 0.5rem;
 }
 
-.verify-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  text-align: center;
+.verify-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 999px;
+  margin-bottom: 1.5rem;
 }
 
-.verify-text {
-  margin: 0.5rem 0 1.5rem;
-  line-height: 1.5;
-  color: var(--p-text-muted-color);
-  text-align: center;
+.verify-icon-wrap--primary {
+  background: color-mix(in srgb, var(--p-primary-color) 14%, transparent);
 }
 
-.verify-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+.verify-icon-wrap--success {
+  background: color-mix(in srgb, var(--p-green-500) 14%, transparent);
 }
 
-.verify-icon--success {
+.verify-header__icon {
+  font-size: 2rem;
+}
+
+.verify-icon-wrap--primary .verify-header__icon {
+  color: var(--p-primary-color);
+}
+
+.verify-icon-wrap--success .verify-header__icon {
   color: var(--p-green-500);
 }
 
-.verify-icon--error {
-  color: var(--p-red-500);
+.verify-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.verify-text {
+  margin: 0.25rem 0 1.5rem;
+  line-height: 1.5;
+  color: var(--p-text-muted-color);
+  text-align: center;
 }
 </style>

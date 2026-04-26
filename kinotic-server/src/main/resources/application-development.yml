@@ -36,11 +36,10 @@ kinotic:
     #     provider: azure-ad
     #     clientId: <your-entra-app-client-id>
     #     authority: https://login.microsoftonline.com/<tenant-id>/v2.0
+  cors:
+    allowedOriginPattern: "http:\\/\\/localhost:\\d+"
+    allowCredentials: true
   persistence:
-    corsAllowedOriginPattern: "https:\\/\\/studio.apollographql.com|http:\\/\\/localhost:\\d+|http:\\/\\/121.0.0.1:\\d+"
-    corsAllowedHeaders:
-      - "*"
-    corsAllowCredentials: true
     elastic-connections:
       - scheme: "http"
         host: "localhost"

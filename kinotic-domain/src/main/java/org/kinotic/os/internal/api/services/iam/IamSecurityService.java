@@ -11,6 +11,7 @@ import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.internal.security.KinoticJwtIssuer;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
+import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.os.api.utils.DomainUtil;
 import org.kinotic.os.internal.api.model.iam.IamCredential;
 import org.springframework.stereotype.Component;
@@ -44,7 +45,7 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class IamSecurityService implements SecurityService {
 
-    private final DefaultIamUserService userService;
+    private final IamUserService userService;
     private final IamCredentialService credentialService;
     private final KinoticJwtIssuer jwtIssuer;
 

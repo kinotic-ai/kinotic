@@ -77,10 +77,15 @@
 
           <div v-else class="login-form">
             <div class="signup-success">
-              <span class="pi pi-envelope signup-success__icon"></span>
-              <h2 class="signup-title">Check your email</h2>
+              <span class="signup-success__icon-wrap">
+                <span class="pi pi-envelope signup-success__icon"></span>
+              </span>
+              <h2 class="signup-success__title">Check your email</h2>
               <p class="signup-success__text">
-                We've sent a verification link to <strong>{{ request.email }}</strong>.
+                We've sent a verification link to
+              </p>
+              <p class="signup-success__email">{{ request.email }}</p>
+              <p class="signup-success__text">
                 Click the link to activate your organization.
               </p>
               <p class="signup-success__text signup-success__text--muted">
@@ -229,21 +234,45 @@ export default class Signup extends Vue {
 
 .signup-success {
   text-align: center;
-  padding: 2rem 0;
+  padding: 1rem 0 0.5rem;
+}
+
+.signup-success__icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--p-primary-color) 14%, transparent);
+  margin-bottom: 1.5rem;
 }
 
 .signup-success__icon {
-  font-size: 3rem;
+  font-size: 2rem;
   color: var(--p-primary-color);
-  margin-bottom: 1rem;
+}
+
+.signup-success__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+  text-align: center;
 }
 
 .signup-success__text {
-  margin: 0.5rem 0;
+  margin: 0.25rem 0;
   line-height: 1.5;
 }
 
+.signup-success__email {
+  margin: 0.25rem 0 1rem;
+  font-weight: 600;
+  word-break: break-all;
+}
+
 .signup-success__text--muted {
+  margin-top: 1rem;
   color: var(--p-text-muted-color);
   font-size: 0.875rem;
 }

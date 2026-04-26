@@ -56,9 +56,13 @@ task copyDist(type: Copy){
 
 task pnpmBuild(type: PnpmTask) {
     boolean runningKindCluster = System.getenv("RUNNING_KIND_CLUSTER") == "true"
+    String frontendMode = project.findProperty('frontendMode') ?: ''
     if(runningKindCluster) {
         println "Running in kind cluster, using build:kind"
         args = ["build:kind"]
+    } else if(frontendMode == 'development') {
+        println "frontendMode=development, using build:dev (bakes .env.development values)"
+        args = ["build:dev"]
     } else {
         println "Running in non-kind cluster, using build"
         args = ["build"]
