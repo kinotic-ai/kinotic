@@ -8,11 +8,11 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.NonNull;
-import org.kinotic.core.api.config.CorsHelper;
 import org.kinotic.core.api.config.CorsProperties;
 import org.kinotic.core.api.crud.*;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
+import org.kinotic.core.internal.utils.CorsUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -136,7 +136,7 @@ public class VertxWebUtil {
                                                        CorsProperties corsProperties) {
         Router router = Router.router(vertx);
         router.route().failureHandler(VertxWebUtil.createExceptionConvertingFailureHandler());
-        router.route().handler(CorsHelper.createCorsHandler(corsProperties));
+        router.route().handler(CorsUtil.createCorsHandler(corsProperties));
         return router;
     }
 

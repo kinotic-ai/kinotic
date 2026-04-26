@@ -1,10 +1,11 @@
-package org.kinotic.core.api.config;
+package org.kinotic.core.internal.utils;
 
 import io.vertx.ext.web.handler.CorsHandler;
+import org.kinotic.core.api.config.CorsProperties;
 
-public final class CorsHelper {
+public final class CorsUtil {
 
-    private CorsHelper() {}
+    private CorsUtil() {}
 
     public static CorsHandler createCorsHandler(CorsProperties properties) {
         String pattern = properties.getAllowedOriginPattern();

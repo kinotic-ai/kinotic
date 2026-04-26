@@ -12,10 +12,10 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.StaticHandler;
 import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.core.api.config.CorsHelper;
 import org.kinotic.core.api.config.CorsProperties;
 import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.core.api.config.SslProperties;
+import org.kinotic.core.internal.utils.CorsUtil;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.core.api.config.OidcSecurityServiceProperties;
 import org.slf4j.Logger;
@@ -48,7 +48,7 @@ public class WebServerVerticle extends VerticleBase {
 
         Router router = Router.router(vertx);
 
-        Route route = router.route().handler(CorsHelper.createCorsHandler(corsProperties));
+        Route route = router.route().handler(CorsUtil.createCorsHandler(corsProperties));
 
         HealthCheckHandler healthCheckHandler = HealthCheckHandler.createWithHealthChecks(healthChecks);
         router.get(this.properties.getHealthCheckPath()).handler(healthCheckHandler);

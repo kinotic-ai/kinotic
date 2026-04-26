@@ -5,8 +5,8 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.config.CorsHelper;
 import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.core.internal.utils.CorsUtil;
 import org.kinotic.os.api.model.iam.SignUpRequest;
 import org.kinotic.os.api.services.iam.SignUpService;
 import org.springframework.stereotype.Component;
@@ -29,7 +29,7 @@ public class SignUpHandler {
      * Must be called before the router is passed to the STOMP server factory.
      */
     public void mountRoutes(Router router) {
-        router.route("/api/*").handler(CorsHelper.createCorsHandler(kinoticProperties.getCors()));
+        router.route("/api/*").handler(CorsUtil.createCorsHandler(kinoticProperties.getCors()));
         router.route("/api/*").handler(BodyHandler.create().setBodyLimit(16384));
 
         router.post("/api/signup").handler(ctx -> {
