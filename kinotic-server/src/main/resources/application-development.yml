@@ -13,8 +13,6 @@ kinotic:
     masterKey: a2lub3RpYy1kZXZlbG9wbWVudC1tYXN0ZXIta2V5LSE=
   cors:
     allowedOriginPattern: "http:\\/\\/localhost:\\d+"
-    allowedHeaders:
-      - "*"
     allowCredentials: true
   persistence:
     elastic-connections:
