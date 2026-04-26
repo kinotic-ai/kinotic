@@ -13,7 +13,7 @@ import java.util.List;
  * Represents an organization developing applications on the Kinotic OS platform.
  * Organizations provide the boundary for teams, applications, users, and shared OIDC configuration.
  * <p>
- * The {@code slug} is auto-generated from the {@code name} on save and provides a URL-safe identifier.
+ * The {@code id} is auto-generated from the {@code name} on save (slugified) and serves as the URL-safe identifier.
  */
 @Getter
 @Setter
@@ -24,11 +24,6 @@ public class Organization implements Identifiable<String> {
     private String id;
 
     private String name;
-
-    /**
-     * URL-safe slug derived from the name (auto-generated on save via Slugify).
-     */
-    private String slug;
 
     private String description;
 

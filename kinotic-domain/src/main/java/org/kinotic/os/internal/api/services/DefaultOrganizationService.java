@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -35,11 +34,10 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
         Validate.notNull(entity.getName(), "Organization name cannot be null");
 
         if (entity.getId() == null) {
-            entity.setId(UUID.randomUUID().toString());
+            entity.setId(slg.slugify(entity.getName()).toLowerCase());
             entity.setCreated(new Date());
         }
 
-        entity.setSlug(slg.slugify(entity.getName()).toLowerCase());
         entity.setUpdated(new Date());
         return super.save(entity);
     }
