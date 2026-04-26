@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
 import { PrimeVueResolver } from '@primevue/auto-import-resolver'
@@ -6,14 +6,8 @@ import path from "path"
 
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, process.cwd(), '')
-    const backendHost = env.VITE_KINOTIC_HOST || 'localhost'
-    const backendPort = env.VITE_KINOTIC_PORT ? parseInt(env.VITE_KINOTIC_PORT) : 58503
-    const backendUseSSL = env.VITE_KINOTIC_USE_SSL === 'true'
-    const backendTarget = `${backendUseSSL ? 'https' : 'http'}://${backendHost}:${backendPort}`
-
-    return {
+export default defineConfig(
+    {
         plugins: [
             vue(),
             Components({
@@ -34,13 +28,6 @@ export default defineConfig(({ mode }) => {
             open: false,
             headers: {
                 'Cache-Control': 'no-store'
-            },
-            proxy: {
-                '/api': {
-                    target: backendTarget,
-                    changeOrigin: true,
-                    secure: false,
-                }
             }
         },
         build: {
@@ -56,4 +43,4 @@ export default defineConfig(({ mode }) => {
             __VUE_PROD_DEVTOOLS__: false
         }
     }
-})
+)
