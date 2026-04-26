@@ -19,6 +19,7 @@ import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.kinotic.os.api.services.ApplicationService;
 import org.kinotic.os.api.services.KinoticSystemService;
 import org.kinotic.os.api.services.OrganizationService;
+import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.os.api.utils.DomainUtil;
 import org.kinotic.os.internal.api.model.iam.IamCredential;
 import org.springframework.stereotype.Component;
@@ -53,7 +54,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class IamSecurityService implements SecurityService {
 
-    private final DefaultIamUserService userService;
+    private final IamUserService userService;
     private final IamCredentialService credentialService;
     private final KinoticSystemService kinoticSystemService;
     private final OrganizationService organizationService;

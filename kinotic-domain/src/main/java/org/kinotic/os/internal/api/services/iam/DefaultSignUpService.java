@@ -12,6 +12,7 @@ import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.SignUpRequest;
 import org.kinotic.os.api.services.OrganizationService;
+import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.os.api.services.iam.SignUpService;
 import org.kinotic.os.api.utils.DomainUtil;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
@@ -33,7 +34,7 @@ public class DefaultSignUpService implements SignUpService {
 
     private final ElasticsearchAsyncClient esAsyncClient;
     private final CrudServiceTemplate crudServiceTemplate;
-    private final DefaultIamUserService userService;
+    private final IamUserService userService;
     private final IamCredentialService credentialStore;
     private final OrganizationService organizationService;
     private final EmailService emailService;

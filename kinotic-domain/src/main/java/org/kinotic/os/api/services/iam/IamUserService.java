@@ -21,4 +21,12 @@ public interface IamUserService extends IdentifiableCrudService<IamUser, String>
 
     CompletableFuture<Void> resetPassword(String userId, String newPassword);
 
+    /**
+     * Finds the first user with the given email across all scope ids of the given scope type.
+     * Used by the sign-up flow to enforce one user per email at organization-creation time,
+     * before the new organization's scope id exists.
+     */
+    CompletableFuture<IamUser> findFirstByEmailInScopeType(String email, String authScopeType);
+
 }
+

@@ -30,6 +30,13 @@ export interface IIamUserService extends ICrudServiceProxy<IamUser> {
      */
     resetPassword(userId: string, newPassword: string): Promise<void>
 
+    /**
+     * Finds the first user with the given email across all scope ids of the given scope type.
+     * Used by the sign-up flow to enforce one user per email at organization-creation time,
+     * before the new organization's scope id exists.
+     */
+    findFirstByEmailInScopeType(email: string, authScopeType: string): Promise<IamUser | null>
+
 }
 
 export class IamUserService extends CrudServiceProxy<IamUser> implements IIamUserService {
@@ -56,6 +63,10 @@ export class IamUserService extends CrudServiceProxy<IamUser> implements IIamUse
 
     public resetPassword(userId: string, newPassword: string): Promise<void> {
         return this.serviceProxy.invoke('resetPassword', [userId, newPassword])
+    }
+
+    public findFirstByEmailInScopeType(email: string, authScopeType: string): Promise<IamUser | null> {
+        return this.serviceProxy.invoke('findFirstByEmailInScopeType', [email, authScopeType])
     }
 
 }

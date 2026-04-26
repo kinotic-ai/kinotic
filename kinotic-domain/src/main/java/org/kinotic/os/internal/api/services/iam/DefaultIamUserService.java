@@ -67,12 +67,8 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                 .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
-    /**
-     * Sign-up uses this to enforce one user per email at organization-creation time,
-     * before the new organization's scope id exists. Not exposed on {@link IamUserService}
-     * because no remote caller needs cross-scope lookups.
-     */
-    CompletableFuture<IamUser> findFirstByEmailInScopeType(String email, String authScopeType) {
+    @Override
+    public CompletableFuture<IamUser> findFirstByEmailInScopeType(String email, String authScopeType) {
         Validate.notNull(email, "email cannot be null");
         Validate.notNull(authScopeType, "authScopeType cannot be null");
         return crudServiceTemplate.search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builder -> builder
