@@ -19,12 +19,5 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
      */
     CompletableFuture<List<OidcConfiguration>> findEnabledByIds(List<String> ids);
 
-    /**
-     * Returns every enabled OIDC configuration with {@code platformWide=true}. These are the
-     * Kinotic-managed social providers (Google, Microsoft, etc.) shown as login/signup
-     * buttons to all users.
-     */
-    CompletableFuture<List<OidcConfiguration>> findEnabledPlatformWide();
-
 }
 

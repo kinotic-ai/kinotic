@@ -9,6 +9,7 @@ import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.auth.oauth2.OAuth2Auth;
 import io.vertx.ext.auth.oauth2.OAuth2AuthorizationURL;
+import io.vertx.ext.auth.oauth2.OAuth2FlowType;
 import io.vertx.ext.auth.oauth2.Oauth2Credentials;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -20,11 +21,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.internal.security.KinoticJwtIssuer;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
+import org.kinotic.gateway.internal.auth.OAuth2AuthFactory;
 import org.kinotic.gateway.internal.auth.OAuth2AuthRegistry;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
+import org.kinotic.os.api.services.KinoticSystemService;
 import org.kinotic.os.api.services.OrganizationService;
 import org.kinotic.os.api.services.iam.IamUserService;
+import org.kinotic.os.api.services.iam.LocalAuthenticationService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.os.api.services.iam.PendingRegistrationService;
 import org.springframework.stereotype.Component;
@@ -39,33 +43,48 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Login routes — finds existing users only (signup lives elsewhere). Two entry points:
+ * Login routes for the kinotic-server. Every browser path converges on a short-TTL,
+ * Kinotic-signed JWT that the frontend uses as the {@code Bearer} on STOMP CONNECT —
+ * the SPA never sends raw credentials over the WebSocket.
+ *
+ * <h3>Three entry points</h3>
  * <ul>
- *   <li><b>Social button</b>: {@code POST /api/login/start/:provider} — picks the platform-wide
- *       {@link OidcConfiguration} for that provider key and redirects to the IdP.</li>
+ *   <li><b>Social button</b>: {@code POST /api/login/start/:provider} — picks the platform OIDC
+ *       {@link OidcConfiguration} for that provider key (resolved via
+ *       {@link KinoticSystemService#getOidcConfigurations()}) and redirects to the IdP.</li>
  *   <li><b>Email lookup → SSO redirect</b>: {@code POST /api/login/lookup {email}} — when the
- *       user's default-org membership is OIDC and that org's SSO config is live, returns
- *       {@code {type: "sso", redirect: "..."}} (and sets the session cookie). Otherwise returns
- *       {@code {type: "password"}} (deliberately ambiguous for unknown email, local user, or
- *       dead SSO config; STOMP CONNECT is the next step and surfaces "invalid credentials"
- *       on bad password).</li>
+ *       user's primary-org membership is OIDC and that org's SSO config is live, returns
+ *       {@code {type: "sso", redirect: "..."}} (and stages state/nonce/PKCE on the session
+ *       cookie). Otherwise returns {@code {type: "password"}} so the frontend can collect the
+ *       password and complete via {@code /api/login/token}. Deliberately ambiguous on
+ *       unknown email / local user / dead SSO config to avoid leaking which orgs use SSO.</li>
+ *   <li><b>Email + password → token</b>: {@code POST /api/login/token {email, password}} —
+ *       verifies bcrypt against {@link IamCredential}, resolves the user's primary
+ *       {@link IamUser}, mints the same Kinotic JWT the OIDC paths produce, and returns
+ *       {@code {token}}. Generic {@code 401} for any failure.</li>
  * </ul>
- * Both paths converge on {@code GET /api/login/callback/:configId}: validates state, exchanges
- * the code, and looks up an existing {@link IamUser} by {@code (oidcSubject, oidcConfigId)}. If
- * none exists the browser is redirected to {@code /login?error=no_account} so the frontend can
- * show a "Sign up?" CTA. On success the handler mints a short-TTL Kinotic JWT (used as a
- * single-use ticket on STOMP CONNECT) and redirects to the success URL with the JWT in the
- * URL fragment.
- * <p>
- * {@code GET /api/login/providers} returns the platform-wide provider keys for rendering the
- * social buttons (no orgId — these are global). {@code POST /api/register/complete} consumes
+ *
+ * <p>The two OIDC entry points converge on {@code GET /api/login/callback/:configId}: validates
+ * state, exchanges the code, and looks up an existing {@link IamUser} by
+ * {@code (oidcSubject, oidcConfigId)}. Missing user → 302 to {@code /login?error=no_account}.
+ * Success → mint Kinotic JWT and 302 to the success URL with {@code #token=<jwt>} in the
+ * fragment (fragments are not sent in browser requests, so the JWT never appears in access
+ * logs). The token-endpoint path returns the same JWT shape as a JSON response.
+ *
+ * <p>{@code GET /api/login/providers} returns the unique provider keys from
+ * {@code KinoticSystem.oidcConfigurationIds} for rendering the social buttons (no orgId —
+ * these are platform-level). {@code POST /api/register/complete} consumes
  * a {@link org.kinotic.os.api.model.iam.PendingRegistration} from the
  * {@link org.kinotic.os.api.model.iam.UserProvisioningMode#REGISTRATION_REQUIRED} signup path.
+ *
+ * <p>Direct STOMP CONNECT with {@code login}/{@code passcode}/{@code authScopeType}/{@code
+ * authScopeId} headers stays available for non-UI clients (CLI, automation) that already know
+ * the target scope. The browser SPA does not use that path.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class OidcLoginHandler {
+public class LoginHandler {
 
     /** JWT TTL for the STOMP-CONNECT ticket — just long enough for the browser to open the WebSocket. */
     private static final int JWT_TTL_SECONDS = 60;
@@ -83,6 +102,8 @@ public class OidcLoginHandler {
     private final IamUserService iamUserService;
     private final OrganizationService organizationService;
     private final OidcConfigurationService oidcConfigurationService;
+    private final KinoticSystemService kinoticSystemService;
+    private final LocalAuthenticationService localAuthenticationService;
     private final OAuth2AuthRegistry oauth2AuthRegistry;
     private final PendingRegistrationService pendingRegistrationService;
     private final KinoticJwtIssuer jwtIssuer;
@@ -102,15 +123,50 @@ public class OidcLoginHandler {
 
         router.get("/api/login/providers").handler(this::handleProviders);
         router.post("/api/login/lookup").handler(this::handleLookup);
+        router.post("/api/login/token").handler(this::handleToken);
         router.post("/api/login/start/:provider").handler(this::handleSocialStart);
         router.get("/api/login/callback/:configId").handler(this::handleCallback);
         router.post("/api/register/complete").handler(this::handleRegisterComplete);
     }
 
+    // ── /api/login/token ──────────────────────────────────────────────────────
+
+    private void handleToken(RoutingContext ctx) {
+        JsonObject body;
+        try {
+            body = ctx.body().asJsonObject();
+        } catch (Exception e) {
+            respondError(ctx, 400, "Invalid request body");
+            return;
+        }
+        String email = body == null ? null : body.getString("email");
+        String password = body == null ? null : body.getString("password");
+        if (email == null || email.isBlank() || password == null || password.isBlank()) {
+            respondError(ctx, 400, "email and password are required");
+            return;
+        }
+
+        Future.fromCompletionStage(localAuthenticationService.authenticateLocal(email, password))
+              .onSuccess(user -> {
+                  if (user == null) {
+                      // Generic 401 — covers unknown email, wrong password, OIDC user, disabled.
+                      respondError(ctx, 401, "Invalid credentials");
+                      return;
+                  }
+                  String jwt = mintTicket(user);
+                  ctx.response().putHeader("Content-Type", "application/json")
+                     .end(new JsonObject().put("token", jwt).encode());
+              })
+              .onFailure(err -> {
+                  log.warn("Token endpoint error: {}", err.getMessage());
+                  respondError(ctx, 401, "Invalid credentials");
+              });
+    }
+
     // ── /api/login/providers ──────────────────────────────────────────────────
 
     private void handleProviders(RoutingContext ctx) {
-        Future.fromCompletionStage(oidcConfigurationService.findEnabledPlatformWide())
+        Future.fromCompletionStage(kinoticSystemService.getOidcConfigurations())
               .onSuccess(configs -> {
                   JsonArray providers = new JsonArray();
                   java.util.Set<String> seen = new java.util.LinkedHashSet<>();
@@ -135,7 +191,7 @@ public class OidcLoginHandler {
             return;
         }
 
-        Future.fromCompletionStage(iamUserService.findByEmailDefault(email))
+        Future.fromCompletionStage(iamUserService.findByEmailPrimary(email))
               .compose(user -> resolveSsoOrPassword(ctx, user))
               .onFailure(err -> {
                   log.warn("Login lookup failed for {}: {}", email, err.getMessage());
@@ -203,7 +259,7 @@ public class OidcLoginHandler {
     private void handleSocialStart(RoutingContext ctx) {
         String provider = ctx.pathParam("provider");
 
-        Future.fromCompletionStage(oidcConfigurationService.findEnabledPlatformWide())
+        Future.fromCompletionStage(kinoticSystemService.getOidcConfigurations())
               .compose(configs -> {
                   OidcConfiguration match = null;
                   for (OidcConfiguration c : configs) {
@@ -306,6 +362,7 @@ public class OidcLoginHandler {
 
     private Future<User> exchangeCode(OAuth2Auth oauth2, OidcConfiguration config, String code, String pkce) {
         return oauth2.authenticate(new Oauth2Credentials()
+                .setFlow(OAuth2FlowType.AUTH_CODE)
                 .setCode(code)
                 .setRedirectUri(callbackUrl(config.getId()))
                 .setCodeVerifier(pkce));
@@ -318,15 +375,22 @@ public class OidcLoginHandler {
      * — that's the signup path's job.
      */
     private void resolveLogin(RoutingContext ctx, OidcConfiguration config, User idpUser, String orgId) {
-        Map<String, Object> claims = flattenPrincipal(idpUser.principal());
+        Map<String, Object> claims = flattenClaims(idpUser);
+
+        if (!OAuth2AuthFactory.isIssuerValid(claims, config.getAuthority())) {
+            log.warn("OIDC issuer validation failed for config {}: iss={}, tid={}",
+                     config.getId(), claims.get("iss"), claims.get("tid"));
+            redirectToError(ctx, "invalid_token");
+            return;
+        }
+
         String sub = stringClaim(claims, "sub");
-        Boolean emailVerified = booleanClaim(claims, "email_verified");
 
         if (sub == null) {
             redirectToError(ctx, "invalid_token");
             return;
         }
-        if (!Boolean.TRUE.equals(emailVerified)) {
+        if (!OAuth2AuthFactory.isEmailVerified(claims, config.getProvider())) {
             redirectToError(ctx, "email_not_verified");
             return;
         }
@@ -335,7 +399,7 @@ public class OidcLoginHandler {
                 ? Future.fromCompletionStage(iamUserService.findByOidcIdentityAndScope(
                         sub, config.getId(), "ORGANIZATION", orgId))
                 : Future.fromCompletionStage(iamUserService.findByOidcIdentity(sub, config.getId()))
-                        .map(this::pickDefault);
+                        .map(this::pickPrimary);
 
         lookup.onSuccess(user -> {
             if (user == null) {
@@ -354,10 +418,10 @@ public class OidcLoginHandler {
         });
     }
 
-    private IamUser pickDefault(List<IamUser> candidates) {
+    private IamUser pickPrimary(List<IamUser> candidates) {
         if (candidates == null || candidates.isEmpty()) return null;
         for (IamUser u : candidates) {
-            if (u.isDefault()) return u;
+            if (u.isPrimary()) return u;
         }
         // Fall back to first if no default flag is set yet (shouldn't happen post-signup).
         return candidates.getFirst();
@@ -391,10 +455,10 @@ public class OidcLoginHandler {
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private String callbackUrl(String configId) {
-        String base = gatewayProperties.getLogin().getBaseUrl();
+        String base = gatewayProperties.getAppBaseUrl();
         if (base == null || base.isBlank()) {
             throw new IllegalStateException(
-                    "kinotic.login.baseUrl is not configured — required for OIDC redirect_uri construction");
+                    "kinotic.appBaseUrl is not configured — required for OIDC redirect_uri construction");
         }
         return base + "/api/login/callback/" + configId;
     }
@@ -427,9 +491,24 @@ public class OidcLoginHandler {
            .end(new JsonObject().put("error", message).encode());
     }
 
-    private static Map<String, Object> flattenPrincipal(JsonObject principal) {
+    /**
+     * Extracts OIDC claims from a Vert.x {@link User}. Vert.x v5 puts the decoded id_token
+     * claims under {@code user.attributes().getJsonObject("idToken")} — that's where {@code
+     * iss}, {@code tid}, {@code sub}, {@code email}, etc. live. The principal itself only
+     * carries the raw token-endpoint response (encoded JWT strings).
+     */
+    private static Map<String, Object> flattenClaims(User user) {
         Map<String, Object> map = new HashMap<>();
-        principal.forEach(e -> map.put(e.getKey(), e.getValue()));
+        JsonObject attrs = user.attributes();
+        if (attrs != null) {
+            JsonObject idToken = attrs.getJsonObject("idToken");
+            if (idToken != null) idToken.forEach(e -> map.put(e.getKey(), e.getValue()));
+            attrs.forEach(e -> {
+                if (!"idToken".equals(e.getKey()) && !map.containsKey(e.getKey())) {
+                    map.put(e.getKey(), e.getValue());
+                }
+            });
+        }
         return map;
     }
 

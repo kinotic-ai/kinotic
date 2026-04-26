@@ -8,7 +8,8 @@ import org.kinotic.core.api.config.KinoticProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * Contributes the {@link EmailProperties} to the {@code kinotic} prefix.
+ * Contributes domain-level configuration ({@link EmailProperties}, {@link PlatformOidcProperties})
+ * to the {@code kinotic} prefix.
  */
 @Getter
 @Setter
@@ -21,5 +22,10 @@ public class KinoticDomainProperties extends KinoticProperties {
      * Email / outbound-mail configuration.
      */
     private EmailProperties email = new EmailProperties();
+
+    /**
+     * Platform-wide OIDC providers (Google, Microsoft, etc.) bootstrapped at startup.
+     */
+    private PlatformOidcProperties oidc = new PlatformOidcProperties();
 
 }

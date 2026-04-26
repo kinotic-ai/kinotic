@@ -24,6 +24,10 @@ properties:
   enableJmx: true
   enableNmt: true
   javaToolOptions: "-Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m"
+  # JPMS opens/exports required by Apache Ignite (java.base reflection) and
+  # Calcite/Janino runtime code generation (jdk.compiler internals).
+  # Concatenated onto JAVA_TOOL_OPTIONS in the kinotic-server ConfigMap.
+  javaModuleAccess: "--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
   bplJvmHeadRoom: 10
 
 # Kinotic platform — mirrors the Spring property structure:
@@ -32,8 +36,23 @@ properties:
 #   kinotic.ignite.*       → cluster (set in application-kubernetes.yml)
 #   kinotic.ssl.*          → TLS (set via tls.enabled below)
 kinotic:
-  # kinotic.persistence.*
-  webServerPort: 9090
+  # Public base URL of the deployment (no trailing slash) — used for OIDC redirect_uri
+  # construction and outbound email links. Must be set per-environment.
+  appBaseUrl: "http://localhost:9090"
+  # kinotic.email.* — outbound mail via Azure Communication Services
+  email:
+    # When false, EmailService logs verification URLs instead of sending. Required for
+    # local/dev environments without a real ACS resource.
+    enabled: false
+    endpoint: ""
+    senderAddress: ""
+    managedIdentityClientId: ""
+  # kinotic.webServer.* — static-file server for the SPA. Disabled in deployments
+  # where the SPA is hosted outside the cluster (e.g. Azure Storage).
+  webServer:
+    port: 9090
+    enabled: true
+  # kinotic.healthCheckPath — health endpoint mounted on the api-gateway router (stomp port)
   healthCheckPath: "/health"
   openApiPort: 8080
   graphqlPort: 4000
@@ -56,10 +75,6 @@ kinotic:
   cluster:
     discoveryPort: 47500
     communicationPort: 47100
-
-# OIDC (oidc-security-service.*)
-oidc:
-  enabled: false
 
 # TLS (kinotic.ssl.*)
 tls:
@@ -107,6 +122,21 @@ platformSecrets:
     jwtSigningKeys: kinotic-jwt-signing-keys
     secretStorageMasterKeys: kinotic-secret-storage-master-keys
 
+# OIDC client secrets — one file per platform OidcConfiguration, keyed by configId.
+# Operator-set, separate lifecycle from auto-generated platform secrets above. Each entry
+# in kinotic.oidc.platformProviders[*].id corresponds to one file under mountPath.
+# In Azure: pulls from Key Vault via CSI (objects[] lists the configIds to mount). In KinD:
+# a k8s Secret created by `bin/set-oidc-client-secret.sh` (prompt-and-kubectl).
+oidcSecrets:
+  mountPath: /etc/kinotic/oidc-client-secrets
+  keyVault:
+    name: ""        # set to platformSecrets.keyVault.name to reuse the platform vault, or a separate one
+    tenantId: ""
+  secretName: ""    # KinD: e.g. "kinotic-oidc-secrets" — script populates it
+  # Azure only: Key Vault secret object names; each file lands at mountPath/<objectName>.
+  # The objectName must match the OidcConfiguration id used in helm values.
+  objects: []
+
 # Extra environment variables — override any Spring property via env var convention.
-# Example: KINOTIC_PERSISTENCE_WEBSERVERPORT: "443"
+# Example: KINOTIC_WEBSERVER_PORT: "443"
 extraEnv: {}

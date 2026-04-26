@@ -14,11 +14,18 @@ public interface IamUserService extends IdentifiableCrudService<IamUser, String>
     CompletableFuture<IamUser> findByEmailAndScope(String email, String authScopeType, String authScopeId);
 
     /**
-     * Finds the {@link IamUser} for the given email that is marked as that identity's default
-     * org membership. Returns null if no user with this email exists or none is flagged as
-     * default. Used by the email-first login lookup to decide between password vs SSO redirect.
+     * Finds the first {@link IamUser} with the given email at the given scope layer, ignoring
+     * which specific {@code authScopeId} owns it. Used for cross-scope collision checks
+     * (e.g. "is this email already taken in any organization?") at signup time.
      */
-    CompletableFuture<IamUser> findByEmailDefault(String email);
+    CompletableFuture<IamUser> findByEmailAtScopeType(String email, String authScopeType);
+
+    /**
+     * Finds the {@link IamUser} for the given email that is marked as that identity's primary
+     * org membership. Returns null if no user with this email exists or none is flagged as
+     * primary. Used by the email-first login lookup to decide between password vs SSO redirect.
+     */
+    CompletableFuture<IamUser> findByEmailPrimary(String email);
 
     CompletableFuture<Page<IamUser>> findByScope(String authScopeType, String authScopeId, Pageable pageable);
 

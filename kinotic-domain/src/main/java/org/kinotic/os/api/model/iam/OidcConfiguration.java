@@ -13,10 +13,9 @@ import java.util.List;
  * A standalone, reusable OIDC provider configuration. Has no embedded scope or ownership —
  * the association between OIDC configs and the scopes that use them is stored on the consuming
  * entity (KinoticSystem, Organization, Application) via {@code oidcConfigurationIds}.
- * <p>
- * Configs with {@code builtIn=true} are platform-provided (e.g., Google, Microsoft) and
- * immutable for organization/application administrators. They can be browsed and enabled
- * by adding the config ID to a scope entity's {@code oidcConfigurationIds} list.
+ * Platform configs are bootstrapped from {@code kinotic.oidc.platformProviders[]} via
+ * {@code PlatformOidcBootstrap} and referenced from {@link org.kinotic.os.api.model.KinoticSystem};
+ * per-org SSO configs are referenced from {@link org.kinotic.os.api.model.Organization}.
  */
 @Getter
 @Setter
@@ -38,12 +37,6 @@ public class OidcConfiguration implements Identifiable<String> {
      * Provider identifier (e.g., "google", "okta", "azure-ad").
      */
     private String provider;
-
-    /**
-     * When {@code true}, this is a platform-provided configuration that is immutable for
-     * organization and application administrators. They can enable it but not modify or delete it.
-     */
-    private boolean builtIn;
 
     /**
      * The OAuth 2.0 client identifier issued by the provider when Kinotic OS was registered as an application.
@@ -116,18 +109,6 @@ public class OidcConfiguration implements Identifiable<String> {
      * it is referenced by a scope's {@code oidcConfigurationIds} list.
      */
     private boolean enabled;
-
-    /**
-     * When {@code true}, this is a Kinotic-managed platform social provider (Google,
-     * Microsoft, etc. configured at the platform level by Kinotic operators). It is
-     * shown as a login/signup button to every user, regardless of org. When {@code false},
-     * this is an org-scoped SSO config — never shown as a button; reached only via the
-     * email-based lookup that resolves a user's default org and redirects to its SSO.
-     * <p>
-     * At most one enabled platform-wide config per {@link #provider} kind across the whole
-     * deployment; otherwise the login page would render duplicate buttons.
-     */
-    private boolean platformWide;
 
     /**
      * How new identities from this provider are handled on first successful OIDC callback.

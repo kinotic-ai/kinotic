@@ -91,25 +91,40 @@ resource "azurerm_dns_zone" "main" {
 # ── Kinotic Platform OIDC App Registration ────────────────────────────────────
 
 resource "azuread_application" "kinotic_platform" {
-  display_name     = "${var.project}-platform"
-  sign_in_audience = "AzureADMyOrg"
+  display_name = "${var.project}-platform"
+  # Allow any Microsoft account — work, school, or personal (outlook.com, live.com, hotmail.com).
+  # This is the "Continue with Microsoft" social-provider experience: anyone with a Microsoft
+  # identity can sign up. Pair with authority "/common/v2.0" so Entra routes the user to the
+  # right home tenant during sign-in. Personal accounts require v2 tokens (api block below).
+  sign_in_audience = "AzureADandPersonalMicrosoftAccount"
 
+  # Required when sign_in_audience accepts personal accounts. v2 also gives modern claim
+  # shapes (oid, sub, email under "email" claim, etc.) that the rest of the OIDC code expects.
+  api {
+    requested_access_token_version = 2
+  }
+
+  # Web-platform redirect URIs — used by the server-side OIDC flow. Login and signup
+  # are deliberately separate handlers (LoginHandler / OidcSignupHandler), so each needs
+  # its own callback path. Microsoft permits http://localhost:* for dev without HTTPS.
+  # The portal.* URI is for production; the others cover bare-local Java (9090), the Vite
+  # dev server (5173), and KinD with mkcert (https://localhost). The configId in the path
+  # is "entra-platform" to match kinotic.oidc.platformProviders[0].id.
   web {
     redirect_uris = [
-      "https://portal.${var.domain_name}/login",
-      "https://portal.${var.domain_name}/silent-renew.html",
+      "https://portal.${var.domain_name}/api/login/callback/entra-platform",
+      "https://portal.${var.domain_name}/api/signup/callback/entra-platform",
+      "http://localhost:9090/api/login/callback/entra-platform",
+      "http://localhost:9090/api/signup/callback/entra-platform",
+      "http://localhost:5173/api/login/callback/entra-platform",
+      "http://localhost:5173/api/signup/callback/entra-platform",
+      "https://localhost/api/login/callback/entra-platform",
+      "https://localhost/api/signup/callback/entra-platform",
     ]
     implicit_grant {
       access_token_issuance_enabled = false
       id_token_issuance_enabled     = true
     }
-  }
-
-  single_page_application {
-    redirect_uris = [
-      "https://portal.${var.domain_name}/login",
-      "https://portal.${var.domain_name}/silent-renew.html",
-    ]
   }
 
   required_resource_access {
@@ -144,6 +159,13 @@ resource "azuread_application" "kinotic_platform" {
 
 resource "azuread_service_principal" "kinotic_platform" {
   client_id = azuread_application.kinotic_platform.client_id
+}
+
+# OAuth2 client secret for the platform Entra app. Consumed by the kinotic-server
+# OIDC bootstrap as the "entra-platform" config's clientSecret.
+resource "azuread_application_password" "kinotic_platform" {
+  application_id = azuread_application.kinotic_platform.id
+  display_name   = "kinotic-platform-oidc"
 }
 
 # Create kinoticTenantId directory extension via Graph API
@@ -255,7 +277,21 @@ output "kinotic_oidc_client_id" {
 }
 
 output "kinotic_oidc_authority" {
-  value = "https://login.microsoftonline.com/${data.azurerm_client_config.current.tenant_id}/v2.0"
+  # /common/v2.0 — accepts any Microsoft identity (work, school, personal). Pairs with
+  # azuread_application.kinotic_platform.sign_in_audience = AzureADandPersonalMicrosoftAccount.
+  # If you ever need to lock back down to a single tenant, swap this to
+  # "https://login.microsoftonline.com/${data.azurerm_client_config.current.tenant_id}/v2.0"
+  # and set sign_in_audience back to "AzureADMyOrg".
+  value = "https://login.microsoftonline.com/common/v2.0"
+}
+
+# Sensitive — used to populate the platform OIDC client secret for local/KinD dev when
+# you don't want to round-trip through Key Vault. Pull with:
+#   terraform -chdir=deployment/terraform/azure/global output -raw kinotic_oidc_entra_platform_client_secret
+output "kinotic_oidc_entra_platform_client_secret" {
+  description = "Client secret for the kinotic-platform Entra app (OIDC configId: entra-platform)"
+  value       = azuread_application_password.kinotic_platform.value
+  sensitive   = true
 }
 
 output "kinotic_oidc_tenant_id_claim" {

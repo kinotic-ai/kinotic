@@ -1,25 +1,27 @@
 services:
   kinotic-server:
     environment:
-      - LOGGING_LEVEL_ORG_KINOTIC_PERSISTENCE_AUTH=TRACE
-      - LOGGING_LEVEL_ORG_KINOTIC_PERSISTENCE=TRACE
-      - LOGGING_LEVEL_IO_VERTX=TRACE
-      - KINOTIC_PERSISTENCE_OPEN_API_SECURITY_TYPE=BEARER
-      - OIDC_SECURITY_SERVICE_ENABLED=true 
-      - OIDC_SECURITY_SERVICE_DEBUG=true
-      - OIDC_SECURITY_SERVICE_FRONTEND_CONFIGURATION_PATH=/app-config.override.json
-      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_PROVIDER=keycloak
-      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_DISPLAY_NAME=Keycloak
-      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_ENABLED=true
-      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_ROLES_CLAIM_PATH=realm_access.roles
-      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_DOMAINS_0=example.com
-      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_ROLES_0=admin
-      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_AUDIENCE=kinotic-client
-      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_CLIENT_ID=kinotic-client
-      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_AUTHORITY=http://keycloak:8888/auth/realms/test
-      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_REDIRECT_URI=http://localhost:9090/login
-      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_POST_LOGOUT_REDIRECT_URI=http://localhost:9090
-      - OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_0_SILENT_REDIRECT_URI=http://localhost:9090/login/silent-renew
+      # Trace logging on the auth-flow handlers + OAuth2 plumbing — useful when iterating
+      # on the OIDC roundtrip locally. Trim back if it gets noisy.
+      - LOGGING_LEVEL_ORG_KINOTIC_GATEWAY_INTERNAL_ENDPOINTS_REST=TRACE
+      - LOGGING_LEVEL_ORG_KINOTIC_GATEWAY_INTERNAL_AUTH=TRACE
+      - LOGGING_LEVEL_IO_VERTX_EXT_AUTH_OAUTH2=DEBUG
+      # Wire Keycloak as a platform OIDC provider so it shows up as
+      # "Continue with Keycloak" on /login and /signup. The redirect URIs
+      # registered in keycloak-test-realm.json must match
+      # <appBaseUrl>/api/{login,signup}/callback/keycloak.
+      - KINOTIC_OIDC_SECRETSPATH=/var/run/kinotic-oidc-secrets
+      - KINOTIC_OIDC_PLATFORMPROVIDERS_0_ID=keycloak
+      - KINOTIC_OIDC_PLATFORMPROVIDERS_0_NAME=Keycloak
+      - KINOTIC_OIDC_PLATFORMPROVIDERS_0_PROVIDER=keycloak
+      - KINOTIC_OIDC_PLATFORMPROVIDERS_0_CLIENT_ID=kinotic-client
+      - KINOTIC_OIDC_PLATFORMPROVIDERS_0_AUTHORITY=http://keycloak:8888/auth/realms/test
+    volumes:
+      # Single-file mount: PlatformOidcBootstrap reads
+      # ${KINOTIC_OIDC_SECRETSPATH}/<configId>, so this lands the keycloak secret at
+      # /var/run/kinotic-oidc-secrets/keycloak. The host file is committed (dev-only
+      # secret matching keycloak-test-realm.json's "secret": ...).
+      - ./dev-keycloak-oidc-secret:/var/run/kinotic-oidc-secrets/keycloak:ro
 
   keycloak-db:
     container_name: keycloak-db
@@ -38,15 +40,18 @@ services:
   keycloak:
     container_name: keycloak
     image: quay.io/keycloak/keycloak:26.3.3
-    command: start-dev --import-realm 
-    environment: 
+    command: start-dev --import-realm
+    environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: keycloak
-      KC_HOSTNAME: localhost
+      # KC_HOSTNAME=keycloak so JWT iss claim is http://keycloak:8888/auth/realms/test —
+      # matches what kinotic-server discovers + what isIssuerValid expects. Browser-side
+      # resolution requires `127.0.0.1 keycloak` in /etc/hosts (see KEYCLOAK_HOSTS_SETUP.md).
+      KC_HOSTNAME: keycloak
       KC_HOSTNAME_STRICT: false
       KC_HTTP_ENABLED: true
       KC_HTTP_RELATIVE_PATH: /auth
@@ -68,6 +73,3 @@ services:
       - ./keycloak-test-realm.json:/opt/keycloak/data/import/test-realm.json:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
-
-
-

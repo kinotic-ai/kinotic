@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS kinotic_application (
     id KEYWORD,
     organizationId KEYWORD,
     description TEXT,
-    oidcConfigurationIds JSON,
+    oidcConfigurationIds KEYWORD,
     updated DATE
 );
 
@@ -77,14 +77,13 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     id KEYWORD,
     name KEYWORD,
     provider KEYWORD,
-    builtIn BOOLEAN,
     clientId KEYWORD NOT INDEXED,
     authority KEYWORD,
     backChannelAuthority KEYWORD NOT INDEXED,
     redirectUri KEYWORD NOT INDEXED,
     postLogoutRedirectUri KEYWORD NOT INDEXED,
     silentRedirectUri KEYWORD NOT INDEXED,
-    domains JSON,
+    domains KEYWORD,
     audience KEYWORD NOT INDEXED,
     rolesClaimPath KEYWORD NOT INDEXED,
     additionalScopes KEYWORD NOT INDEXED,
@@ -96,7 +95,7 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
 -- System: singleton representing the Kinotic OS deployment
 CREATE TABLE IF NOT EXISTS kinotic_system (
     id KEYWORD,
-    oidcConfigurationIds JSON,
+    oidcConfigurationIds KEYWORD,
     updated DATE
 );
 
@@ -105,7 +104,7 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     id KEYWORD,
     name KEYWORD,
     description TEXT,
-    oidcConfigurationIds JSON,
+    oidcConfigurationIds KEYWORD,
     createdBy KEYWORD,
     created DATE,
     updated DATE

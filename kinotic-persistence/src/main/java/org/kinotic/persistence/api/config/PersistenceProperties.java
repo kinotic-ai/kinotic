@@ -44,22 +44,22 @@ public class PersistenceProperties {
     private String elasticPassword = null;
 
     /**
-     * The allowed origin pattern for CORS
-     * Defaults to "http://localhost.*"
-     * If you want to allow all origins use "*"
-     * Internally uses Java Regex Patterns to match
+     * Allowed origin pattern for CORS on the persistence-owned HTTP endpoints
+     * (openapi 8080, graphql 4000). The api-gateway router (port 58503) has its
+     * own {@code kinotic.cors.*} settings and is configured independently.
+     *
      * @see java.util.regex.Pattern
      */
     private String corsAllowedOriginPattern = "http://localhost.*";
 
     /**
-     * The allowed headers for CORS
+     * Allowed headers for CORS on persistence-owned HTTP endpoints.
      */
     private Set<String> corsAllowedHeaders = Set.of("Accept", "Authorization", "Content-Type");
 
     /**
-     * If set will set the CORS Access-Control-Allow-Credentials header to this value
-     * If true then allowed origins must not contain a wildcard "*"
+     * If set will set the CORS Access-Control-Allow-Credentials header to this value.
+     * If true then {@link #corsAllowedOriginPattern} must not contain a wildcard.
      */
     private Boolean corsAllowCredentials = null;
 
@@ -84,21 +84,6 @@ public class PersistenceProperties {
     private int graphqlPort = 4000;
 
     private String graphqlPath = "/graphql/";
-
-    /**
-     * The port that the static files and the health check will be served from
-     */
-    private int webServerPort = 9090;
-
-    /**
-     * The path that the health check will be served from
-     */
-    private String healthCheckPath = "/health/";
-
-    /**
-     * If true, static files are served from resources/webroot
-     */
-    private boolean enableStaticFileServer = true;
 
     /**
      * MCP server configuration

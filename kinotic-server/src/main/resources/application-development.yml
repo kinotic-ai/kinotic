@@ -1,8 +1,14 @@
 # YAML Reference http://www.yaml.org/refcard.html
 kinotic:
   debug: true
+  # IDE dev runs the SPA on vite (5173); kinotic-server is just the backend on 58503.
+  # Verification email URLs and OIDC redirect URIs are built from this base, so they
+  # need to point at the SPA's origin — not at kinotic-server's static port (9090).
+  appBaseUrl: http://localhost:5173
   email:
-    enabled: true
+    # No real ACS in dev — EmailService logs verification URLs instead of sending.
+    # To test against real ACS, flip enabled=true (endpoint/sender are pre-filled).
+    enabled: false
     endpoint: https://acs-kinotic.communication.azure.com
     sender-address: "DoNotReply@kinotic.ai"
   maxNumberOfCoresToUse: 4
@@ -17,6 +23,19 @@ kinotic:
     # different origin.
     jwtSigningKeysPath: ${user.home}/.kinotic/dev-platform-secrets/jwt-signing-keys
     secretStorageMasterKeysPath: ${user.home}/.kinotic/dev-platform-secrets/secret-storage-master-keys
+  oidc:
+    # PlatformOidcBootstrap reads each provider's client secret from a file named after
+    # the provider id under this directory. Drop a file with the secret value to wire up
+    # an Entra/Google/etc. app:
+    #   echo -n 'YOUR_CLIENT_SECRET' > ~/.kinotic/dev-oidc-secrets/entra-platform
+    secretsPath: ${user.home}/.kinotic/dev-oidc-secrets
+    # Uncomment and fill in to bootstrap a platform OIDC provider. Restart picks it up.
+    # platformProviders:
+    #   - id: entra-platform
+    #     name: Microsoft
+    #     provider: azure-ad
+    #     clientId: <your-entra-app-client-id>
+    #     authority: https://login.microsoftonline.com/<tenant-id>/v2.0
   persistence:
     corsAllowedOriginPattern: "https:\\/\\/studio.apollographql.com|http:\\/\\/localhost:\\d+|http:\\/\\/121.0.0.1:\\d+"
     corsAllowedHeaders:

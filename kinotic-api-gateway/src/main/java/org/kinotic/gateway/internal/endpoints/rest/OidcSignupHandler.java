@@ -8,6 +8,7 @@ import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.auth.oauth2.OAuth2Auth;
 import io.vertx.ext.auth.oauth2.OAuth2AuthorizationURL;
+import io.vertx.ext.auth.oauth2.OAuth2FlowType;
 import io.vertx.ext.auth.oauth2.Oauth2Credentials;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -19,10 +20,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.internal.security.KinoticJwtIssuer;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
+import org.kinotic.gateway.internal.auth.OAuth2AuthFactory;
 import org.kinotic.gateway.internal.auth.OAuth2AuthRegistry;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.kinotic.os.api.model.iam.PendingRegistration;
+import org.kinotic.os.api.services.KinoticSystemService;
 import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.os.api.services.iam.PendingRegistrationService;
@@ -38,7 +41,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Signup-with-social routes — distinct from {@link OidcLoginHandler}'s login routes.
+ * Signup-with-social routes — distinct from {@link LoginHandler}'s login routes.
  * <ul>
  *   <li>{@code POST /api/signup/start/:provider} — initiates the IdP flow with signup
  *       intent. The user has no org yet; we redirect to the platform-wide social provider
@@ -73,6 +76,7 @@ public class OidcSignupHandler {
     private final KinoticApiGatewayProperties gatewayProperties;
     private final IamUserService iamUserService;
     private final OidcConfigurationService oidcConfigurationService;
+    private final KinoticSystemService kinoticSystemService;
     private final OAuth2AuthRegistry oauth2AuthRegistry;
     private final PendingRegistrationService pendingRegistrationService;
     private final KinoticJwtIssuer jwtIssuer;
@@ -97,7 +101,7 @@ public class OidcSignupHandler {
     private void handleStart(RoutingContext ctx) {
         String provider = ctx.pathParam("provider");
 
-        Future.fromCompletionStage(oidcConfigurationService.findEnabledPlatformWide())
+        Future.fromCompletionStage(kinoticSystemService.getOidcConfigurations())
               .compose(configs -> {
                   OidcConfiguration match = null;
                   for (OidcConfiguration c : configs) {
@@ -191,6 +195,7 @@ public class OidcSignupHandler {
 
     private Future<User> exchangeCode(OAuth2Auth oauth2, OidcConfiguration config, String code, String pkce) {
         return oauth2.authenticate(new Oauth2Credentials()
+                .setFlow(OAuth2FlowType.AUTH_CODE)
                 .setCode(code)
                 .setRedirectUri(callbackUrl(config.getId()))
                 .setCodeVerifier(pkce));
@@ -203,17 +208,24 @@ public class OidcSignupHandler {
      * redirect to the org-name completion page.
      */
     private void resolveSignup(RoutingContext ctx, OidcConfiguration config, User idpUser) {
-        Map<String, Object> claims = flattenPrincipal(idpUser.principal());
+        Map<String, Object> claims = flattenClaims(idpUser);
+
+        if (!OAuth2AuthFactory.isIssuerValid(claims, config.getAuthority())) {
+            log.warn("OIDC issuer validation failed for config {}: iss={}, tid={}",
+                     config.getId(), claims.get("iss"), claims.get("tid"));
+            redirectToError(ctx, "invalid_token");
+            return;
+        }
+
         String sub = stringClaim(claims, "sub");
         String email = stringClaim(claims, "email");
-        Boolean emailVerified = booleanClaim(claims, "email_verified");
         String displayName = firstPresent(claims, "name", "preferred_username", "email");
 
         if (sub == null || email == null) {
             redirectToError(ctx, "invalid_token");
             return;
         }
-        if (!Boolean.TRUE.equals(emailVerified)) {
+        if (!OAuth2AuthFactory.isEmailVerified(claims, config.getProvider())) {
             redirectToError(ctx, "email_not_verified");
             return;
         }
@@ -278,10 +290,10 @@ public class OidcSignupHandler {
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private String callbackUrl(String configId) {
-        String base = gatewayProperties.getLogin().getBaseUrl();
+        String base = gatewayProperties.getAppBaseUrl();
         if (base == null || base.isBlank()) {
             throw new IllegalStateException(
-                    "kinotic.login.baseUrl is not configured — required for OIDC redirect_uri construction");
+                    "kinotic.appBaseUrl is not configured — required for OIDC redirect_uri construction");
         }
         return base + "/api/signup/callback/" + configId;
     }
@@ -318,9 +330,22 @@ public class OidcSignupHandler {
            .end(new JsonObject().put("error", message).encode());
     }
 
-    private static Map<String, Object> flattenPrincipal(JsonObject principal) {
+    /**
+     * @see LoginHandler#flattenClaims(User) — same Vert.x quirk; canonical claims live on
+     * {@code attributes.idToken}, not on the principal.
+     */
+    private static Map<String, Object> flattenClaims(User user) {
         Map<String, Object> map = new HashMap<>();
-        principal.forEach(e -> map.put(e.getKey(), e.getValue()));
+        JsonObject attrs = user.attributes();
+        if (attrs != null) {
+            JsonObject idToken = attrs.getJsonObject("idToken");
+            if (idToken != null) idToken.forEach(e -> map.put(e.getKey(), e.getValue()));
+            attrs.forEach(e -> {
+                if (!"idToken".equals(e.getKey()) && !map.containsKey(e.getKey())) {
+                    map.put(e.getKey(), e.getValue());
+                }
+            });
+        }
         return map;
     }
 

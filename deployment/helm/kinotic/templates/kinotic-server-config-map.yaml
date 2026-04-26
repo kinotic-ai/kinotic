@@ -5,10 +5,21 @@ metadata:
 data:
   # ── JVM / Buildpack ───────────────────────────────────────
   SPRING_PROFILES_ACTIVE: "{{ .Values.properties.springActiveProfiles }}"
-  JAVA_TOOL_OPTIONS: "{{ .Values.properties.javaToolOptions }}"
+  JAVA_TOOL_OPTIONS: "{{ .Values.properties.javaToolOptions }} {{ .Values.properties.javaModuleAccess }}"
   BPL_JVM_HEAD_ROOM: "{{ .Values.properties.bplJvmHeadRoom }}"
   BPL_JAVA_NMT_ENABLED: "{{ .Values.properties.enableNmt }}"
   BPL_JMX_ENABLED: "{{ .Values.properties.enableJmx }}"
+
+  # ── Public URL + email ────────────────────────────────────
+  KINOTIC_APPBASEURL: "{{ .Values.kinotic.appBaseUrl }}"
+  KINOTIC_EMAIL_ENABLED: "{{ .Values.kinotic.email.enabled }}"
+  {{- if .Values.kinotic.email.enabled }}
+  KINOTIC_EMAIL_ENDPOINT: "{{ required "kinotic.email.endpoint is required when email is enabled" .Values.kinotic.email.endpoint }}"
+  KINOTIC_EMAIL_SENDERADDRESS: "{{ required "kinotic.email.senderAddress is required when email is enabled" .Values.kinotic.email.senderAddress }}"
+  {{- if .Values.kinotic.email.managedIdentityClientId }}
+  KINOTIC_EMAIL_MANAGEDIDENTITYCLIENTID: "{{ .Values.kinotic.email.managedIdentityClientId }}"
+  {{- end }}
+  {{- end }}
 
   # ── Elasticsearch connection ──────────────────────────────
   {{ range $index,$value:= .Values.kinotic.elastic.connections }}
@@ -29,36 +40,27 @@ data:
   KINOTIC_CACHE_EVICTION_CSV_PATH: "{{ .Values.evictionTracking.mountPath | default "/eviction-data" }}/evictions-${POD_NAME}.csv"
   {{- end }}
 
-  {{- if .Values.oidc.enabled }}
-  # ── OIDC providers ────────────────────────────────────────
-  OIDC_SECURITY_SERVICE_DEBUG: "{{ .Values.oidc.debug }}"
-  OIDC_SECURITY_SERVICE_FRONTEND_CONFIGURATION_PATH: "{{ .Values.oidc.frontendConfigurationPath }}"
-  {{- range $index,$value:= .Values.oidc.oidcProviders }}
-  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_PROVIDER: "{{ $value.provider }}"
-  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_DISPLAY_NAME: "{{ $value.displayName }}"
-  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_ENABLED: "{{ $value.enabled }}"
-  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_ROLES_CLAIM_PATH: "{{ $value.rolesClaimPath }}"
-  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_AUDIENCE: "{{ $value.audience }}"
-  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_CLIENT_ID: "{{ $value.clientId }}"
-  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_AUTHORITY: "{{ $value.authority }}"
-  {{- if $value.backchannelAuthority }}
-  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_BACKCHANNEL_AUTHORITY: "{{ $value.backchannelAuthority }}"
+  {{- with .Values.kinotic.oidc }}
+  {{- if .platformProviders }}
+  # ── Platform OIDC providers ───────────────────────────────
+  # Bootstrapped by PlatformOidcBootstrap. Each entry's id maps to a file under
+  # KINOTIC_OIDC_SECRETSPATH (set on the deployment when oidcSecrets is configured).
+  {{- range $index, $value := .platformProviders }}
+  KINOTIC_OIDC_PLATFORMPROVIDERS_{{ $index }}_ID: "{{ $value.id }}"
+  KINOTIC_OIDC_PLATFORMPROVIDERS_{{ $index }}_NAME: "{{ $value.name }}"
+  KINOTIC_OIDC_PLATFORMPROVIDERS_{{ $index }}_PROVIDER: "{{ $value.provider }}"
+  KINOTIC_OIDC_PLATFORMPROVIDERS_{{ $index }}_CLIENT_ID: "{{ $value.clientId }}"
+  KINOTIC_OIDC_PLATFORMPROVIDERS_{{ $index }}_AUTHORITY: "{{ $value.authority }}"
+  {{- if $value.audience }}
+  KINOTIC_OIDC_PLATFORMPROVIDERS_{{ $index }}_AUDIENCE: "{{ $value.audience }}"
   {{- end }}
-  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_REDIRECT_URI: "{{ $value.redirectUri }}"
-  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_POST_LOGOUT_REDIRECT_URI: "{{ $value.postLogoutRedirectUri }}"
-  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_SILENT_REDIRECT_URI: "{{ $value.silentRedirectUri }}"
-  {{- range $domainIndex,$domainValue:= $value.domains }}
-  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_DOMAINS_{{ $domainIndex }}: "{{ $domainValue }}"
-  {{- end }}
-  {{- range $roleIndex,$roleValue:= $value.roles }}
-  OIDC_SECURITY_SERVICE_OIDC_PROVIDERS_{{ $index }}_ROLES_{{ $roleIndex }}: "{{ $roleValue }}"
   {{- end }}
   {{- end }}
   {{- end }}
 
   # ── Extra environment variables ───────────────────────────
   # Override any Spring property via env var naming convention:
-  #   kinotic.persistence.webServerPort → KINOTIC_PERSISTENCE_WEBSERVERPORT
+  #   kinotic.webServer.port → KINOTIC_WEBSERVER_PORT
   {{- range $key, $value := .Values.extraEnv }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}

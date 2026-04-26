@@ -28,6 +28,20 @@ export default defineConfig(
             open: false,
             headers: {
                 'Cache-Control': 'no-store'
+            },
+            // Proxy backend API to kinotic-server so the dev server can drive auth flows.
+            // Override the target with VITE_KINOTIC_API_URL when running against KinD/remote.
+            // changeOrigin=false keeps the Host header as localhost:5173 so the session cookie
+            // Vert.x SessionHandler sets matches the browser-visible origin (otherwise the
+            // OIDC callback can't find the session it stored at /api/login/start time).
+            // For OIDC roundtrips, set kinotic.appBaseUrl=http://localhost:5173 on the backend
+            // so the redirect_uri matches the Entra-registered "5173" entry.
+            proxy: {
+                '/api': {
+                    target: process.env.VITE_KINOTIC_API_URL || 'http://localhost:58503',
+                    changeOrigin: false,
+                    secure: false
+                }
             }
         },
         build: {

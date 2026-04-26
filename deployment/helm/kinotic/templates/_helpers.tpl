@@ -44,3 +44,23 @@ when an externally-managed Secret must be mounted instead.
 {{- end -}}
 {{- end -}}
 
+{{/*
+Name of the k8s Secret holding OIDC client secrets (one data key per OidcConfiguration id).
+Same override semantics as platformSecretsSecretName.
+*/}}
+{{- define "kinotic-server.oidcSecretsSecretName" -}}
+{{- if .Values.oidcSecrets.secretName -}}
+{{- .Values.oidcSecrets.secretName -}}
+{{- else -}}
+{{- printf "%s-oidc-client-secrets" (include "kinotic-server.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Returns "true" when an OIDC-secrets source is configured (Azure Key Vault or KinD Secret),
+empty string otherwise. Used to gate the volume + env var rendering in the deployment.
+*/}}
+{{- define "kinotic-server.oidcSecretsEnabled" -}}
+{{- if or .Values.oidcSecrets.keyVault.name .Values.oidcSecrets.secretName -}}true{{- end -}}
+{{- end -}}
+

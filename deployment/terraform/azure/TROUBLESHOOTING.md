@@ -167,7 +167,7 @@ az network nsg rule create --resource-group rg-kinotic-production \
 ### Privileged port binding (port 443) in containers
 
 **Cause:** Some container runtimes block binding to ports below 1024 even inside containers. Vert.x fails silently — logs show "listening on 443" but the port isn't actually open.
-**Fix:** Use port 8443 internally, remap via the LoadBalancer service (`port: 443, targetPort: 8443`). Set `kinotic.webServerPort: 8443` and `service.externalPorts.ui: 443` in values.
+**Fix:** Use port 8443 internally, remap via the LoadBalancer service (`port: 443, targetPort: 8443`). Set `kinotic.webServer.port: 8443` and `service.externalPorts.ui: 443` in values.
 
 ### DNS A record `already exists`
 

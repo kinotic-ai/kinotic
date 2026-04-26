@@ -33,4 +33,20 @@ public class KinoticApiGatewayProperties extends KinoticProperties {
      */
     private OidcLoginProperties login = new OidcLoginProperties();
 
+    /**
+     * Static-file web server configuration. Disabled in KinD/Azure where the SPA
+     * is hosted outside the cluster.
+     */
+    private WebServerProperties webServer = new WebServerProperties();
+
+    /**
+     * CORS settings applied to the api-gateway router (port 58503).
+     */
+    private CorsProperties cors = new CorsProperties();
+
+    /**
+     * Path the health-check endpoint is mounted at on the api-gateway router.
+     */
+    private String healthCheckPath = "/health";
+
 }

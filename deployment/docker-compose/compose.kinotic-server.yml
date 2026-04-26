@@ -22,12 +22,12 @@ services:
       - "127.0.0.1:58503:58503" # Stomp Port
     environment:
       BPL_JVM_HEAD_ROOM: 10
-      JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
+      JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
       KINOTIC_MAX_OFF_HEAP_MEMORY: 419430400
       KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_0_SCHEME: http
       KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_0_HOST: kinotic-elasticsearch
       KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_0_PORT: 9200
-      KINOTIC_PERSISTENCE_WEB_SERVER_PORT: 9090
+      KINOTIC_WEBSERVER_PORT: 9090
       OTEL_SERVICE_NAME: kinotic-server
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
@@ -36,10 +36,12 @@ services:
       OTEL_METRICS_EXPORTER: otlp
       OTEL_LOGS_EXPORTER: otlp
       SPRING_PROFILES_ACTIVE: development
+      KINOTIC_APPBASEURL: "http://localhost:9090"
+      KINOTIC_EMAIL_ENABLED: "false"
       SPRING_AI_OPENAI_API-KEY: "noop"
       SPRING_AI_OPENAI_BASE_URL: "https://api.x.ai"
       SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "grok-4"
-      THC_PORT: 9090 # Health check port, used by health-check script included by paketo (must match KINOTIC_PERSISTENCE_WEB_SERVER_PORT),
+      THC_PORT: 58503 # Paketo health-check probe — health endpoint is mounted on the api-gateway router (stomp port)
     stdin_open: true # docker run -i
     tty: true        # docker run -t
     deploy:

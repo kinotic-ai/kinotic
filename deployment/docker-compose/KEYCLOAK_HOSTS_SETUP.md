@@ -14,14 +14,22 @@
 
 ## Why This Is Required
 
-The Keycloak configuration uses `keycloak` as the hostname in the authority URL:
-- **Internal URL**: `http://keycloak:8888/auth/realms/test` (for container-to-container communication)
-- **External URL**: `http://localhost:8888/auth/realms/test` (for browser access)
+Both kinotic-server (in a container) and your browser (on the host) need to reach
+Keycloak at the **same** hostname so the OIDC `iss` claim matches what kinotic-server
+discovered against, and the browser-facing redirect URL Keycloak generates resolves
+correctly:
 
-By adding `127.0.0.1 keycloak` to your hosts file, both URLs resolve to the same service, allowing:
-1. The application to use the internal hostname
-2. Your browser to access Keycloak via localhost
-3. Consistent configuration across all components
+- **kinotic-server → Keycloak** uses `http://keycloak:8888/auth/realms/test`
+  (compose service-network hostname).
+- **Your browser → Keycloak** during the IdP roundtrip needs to land on
+  `http://keycloak:8888/...` too — Keycloak issues the redirect URL using its
+  configured `KC_HOSTNAME=keycloak`.
+
+`127.0.0.1 keycloak` makes the host machine resolve `keycloak` → 127.0.0.1, so the
+browser can reach the published Keycloak port (mapped at `127.0.0.1:8888`) using the
+same hostname kinotic-server uses internally. The JWT's `iss` claim will then exactly
+match the configured authority — `OAuth2AuthFactory.isIssuerValid` does a strict
+match — and the auth flow completes cleanly.
 
 ## Verification
 
@@ -43,10 +51,10 @@ ping -c 1 keycloak
 
 If you get connection errors:
 1. **Verify hosts file**: `cat /etc/hosts | grep keycloak`
-2. **Check if Keycloak is running**: `curl -s http://localhost:8888/auth/health/ready`
-3. **Restart your browser/application** after changing hosts file
-4. **Flush DNS cache** if needed (varies by OS)
+2. **Check if Keycloak is running**: `curl -s http://keycloak:8888/auth/health/ready`
+3. **Restart your browser** after changing hosts file (some browsers cache DNS)
+4. **Flush DNS cache** if needed (`sudo dscacheutil -flushcache` on macOS)
 
-## Complete Documentation
-
-For full Keycloak setup instructions, see: [Keycloak Setup Guide](../kinotic-auth/oidc-docs/README_KEYCLOAK_SETUP.md)
+If you get `OIDC issuer validation failed` in the kinotic-server logs after a successful
+sign-in at Keycloak, double-check that `KC_HOSTNAME` in `compose.keycloak.yml` is
+`keycloak` (not `localhost`) — that controls the JWT's `iss` claim.

@@ -1,0 +1,13 @@
+kinotic:
+  oidc:
+    platformProviders:
+      - id: entra-platform
+        name: Microsoft
+        provider: azure-ad
+        clientId: "f24706cc-55ff-4d17-b72c-11ddfa87966a"
+        authority: "https://login.microsoftonline.com/common/v2.0"
+      - id: google-platform
+        name: Google
+        provider: google
+        clientId: "1018531658131-komame5nk0m59fkp4836b4hrci0r538r.apps.googleusercontent.com"
+        authority: "https://accounts.google.com"

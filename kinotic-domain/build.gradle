@@ -20,6 +20,7 @@ dependencies {
 
     implementation 'com.azure:azure-communication-email:1.1.2'
     implementation 'com.azure:azure-identity:1.18.2'
+
     implementation 'org.apache.ignite:ignite-core'
 
     // jackson impl

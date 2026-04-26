@@ -57,7 +57,7 @@ public class DefaultSignUpService implements SignUpService {
                                 new IllegalArgumentException("A sign-up is already pending for this email. Check your inbox for the verification link."));
                     }
                     // Check if a user with this email already exists in any ORGANIZATION scope
-                    return userService.findByEmailAndScope(request.getEmail(), "ORGANIZATION", null);
+                    return userService.findByEmailAtScopeType(request.getEmail(), "ORGANIZATION");
                 })
                 .thenCompose(existingUser -> {
                     if (existingUser != null) {
@@ -121,6 +121,7 @@ public class DefaultSignUpService implements SignUpService {
                             .setAuthScopeType("ORGANIZATION")
                             .setAuthScopeId(savedOrg.getId())
                             .setEnabled(true)
+                            .setPrimary(true)  // first IamUser for this identity — required for /api/login/lookup + /api/login/token
                             .setCreated(new Date())
                             .setUpdated(new Date());
 

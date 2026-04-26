@@ -19,7 +19,7 @@ Directives for AI working on this module (sourced from architectural constraints
 - Do not resolve compose files from arbitrary paths; `KinoticTestConfiguration` expects compose files at `../deployment/docker-compose/` relative to the Gradle working directory, and full-stack tests must be run from within the mono-repo layout.
 - Never bypass `@DirtiesContext(classMode = AFTER_CLASS)` on base classes; this annotation is required to prevent Spring bean state from leaking between test classes while still allowing containers to remain running across the full test suite.
 - Always account for the Keycloak dual-port layout (port 8888 for application/token traffic, port 9000 for management/health); do not conflate these ports when configuring wait strategies or constructing token URLs.
-- Do not use `DummySecurityService` in tests that require real OIDC validation; activate the `keycloak` Spring profile and set `oidc-security-service.enabled=true` to switch to `OidcSecurityService`, as `DummySecurityService` only accepts literal `guest/guest` credentials and will reject all others.
+- `DummySecurityService` is a holdover from the retired OIDC stack; it activates by default and accepts only literal `guest/guest` credentials. Tests requiring the real auth path (`IamSecurityService`) will need to either disable `DummySecurityService` via Spring config or be restructured against the new flow — pick a path during test rebuild rather than reviving the keycloak/oidc-security-service profile system, which has been removed.
 
 ## Package Structure
 
@@ -73,14 +73,14 @@ org.kinotic.test
 | `KinoticTestConfiguration` | `support.kinotic` | Static accessors: `getElasticsearchHost()`, `getElasticsearchPort()`, `areContainersReady()` |
 | `ElasticsearchTestConfiguration` | `support.elastic` | Static accessors: `ELASTICSEARCH_CONTAINER`, `areContainersReady()`, `getContainerStatus()` |
 | `KeyloakTestConfiguration` | `support.keycloak` | Static accessors: `KEYCLOAK_CONTAINER`, `getKeycloakUrl()`, `getKeycloakAuthUrl()` |
-| `DummySecurityService` | `config` | Auto-registered `SecurityService` stub; disabled by setting `oidc-security-service.enabled=true` |
+| `DummySecurityService` | `config` | Auto-registered `SecurityService` stub used by tests that don't need the real auth path |
 | `TestHelper` | `tests.core.support` | Spring `@Component` providing `createAndVerify(...)`, `bulkSaveCarsAsRawJson(...)`, `saveCarAsRawJson(...)`, and related factory methods |
 
 ## Module Dependencies
 
 | Module | Reason |
 |---|---|
-| `kinotic-core` | `SecurityService` API, `OidcSecurityService`, `JwksService`, `Participant`, `OidcSecurityServiceProperties`, `@EnableKinotic` |
+| `kinotic-core` | `SecurityService` API, `Participant`, `@EnableKinotic` |
 | `kinotic-domain` | `Application`, `ApplicationService`, domain model types |
 | `kinotic-idl` | IDL type system used by the persistence layer under test |
 | `kinotic-persistence` | `EntitiesService`, `EntityDefinition`, `EntityContext`, policy authorization (`PolicyEvaluator`, `PolicyAuthorizer`) |

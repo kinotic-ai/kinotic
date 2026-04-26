@@ -235,6 +235,14 @@ const pageRoutes: RouteRecordRaw[] = [
     } as RouteMeta,
   },
   {
+    path: '/register',
+    component: () => import('@/pages/signup/CompleteOrg.vue'),
+    meta: {
+      showInMainNav: false,
+      authenticationRequired: false
+    } as RouteMeta,
+  },
+  {
     path: '/sessionUpgrade/:id',
     meta: {
       authenticationRequired: true

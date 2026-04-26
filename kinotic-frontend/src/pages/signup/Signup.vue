@@ -15,6 +15,22 @@
           <div v-if="!submitted" class="login-form">
             <h2 class="signup-title">Create your organization</h2>
 
+            <!-- Social signup — IdP returns identity, then user picks an org name on /register -->
+            <div v-if="providers.length > 0" class="signup-providers">
+              <form
+                v-for="provider in providers"
+                :key="provider"
+                method="post"
+                :action="apiUrl('/api/signup/start/' + provider)"
+                class="signup-provider-form"
+              >
+                <button type="submit" class="login-provider__button">
+                  <span>Sign up with {{ providerLabel(provider) }}</span>
+                </button>
+              </form>
+              <div class="login-divider"><span>or with email</span></div>
+            </div>
+
             <div class="login-form__step">
               <div class="login-field">
                 <InputText
@@ -98,6 +114,8 @@ import loginPageLeft from '@/assets/login-page-left.svg'
 import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
 import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
 import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
+import { apiUrl } from '@/util/helpers'
+import '@/pages/auth-pages.css'
 
 @Component({
   components: {
@@ -121,6 +139,25 @@ export default class Signup extends Vue {
   }
   loading = false
   submitted = false
+  providers: string[] = []
+
+  async mounted() {
+    try {
+      const res = await fetch(apiUrl('/api/login/providers'), { credentials: 'same-origin' })
+      if (res.ok) {
+        const data = await res.json()
+        if (Array.isArray(data)) this.providers = data
+      }
+    } catch {
+      // No social providers configured — silent; the email/password form still works.
+    }
+  }
+
+  providerLabel(provider: string): string {
+    return provider.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
+  }
+
+  apiUrl(path: string): string { return apiUrl(path) }
 
   private focusNext(refName: string) {
     const el = this.$refs[refName] as any
@@ -151,7 +188,7 @@ export default class Signup extends Vue {
 
     this.loading = true
     try {
-      const response = await fetch('/api/signup', {
+      const response = await fetch(apiUrl('/api/signup'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.request),
@@ -184,13 +221,6 @@ export default class Signup extends Vue {
 </script>
 
 <style scoped>
-.signup-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  text-align: center;
-}
-
 .signup-footer-link {
   text-align: center;
   margin-top: 1rem;
@@ -216,5 +246,14 @@ export default class Signup extends Vue {
 .signup-success__text--muted {
   color: var(--p-text-muted-color);
   font-size: 0.875rem;
+}
+
+.signup-providers {
+  width: min(100%, 20rem);
+  margin-bottom: 1rem;
+}
+
+.signup-provider-form {
+  margin: 0 0 0.75rem;
 }
 </style>

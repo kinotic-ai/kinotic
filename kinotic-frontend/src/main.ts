@@ -10,8 +10,6 @@ import { CONTINUUM_UI } from '@/IContinuumUI'
 import 'primeicons/primeicons.css'
 import { createApp } from 'vue'
 import App from './App.vue'
-import { Log } from 'oidc-client-ts'
-Log.setLogger(console)
 
 import { Kinotic } from '@kinotic-ai/core'
 import { OsApiPlugin } from '@kinotic-ai/os-api'

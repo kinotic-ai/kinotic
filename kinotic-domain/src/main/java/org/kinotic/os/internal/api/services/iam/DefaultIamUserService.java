@@ -68,12 +68,25 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     }
 
     @Override
-    public CompletableFuture<IamUser> findByEmailDefault(String email) {
+    public CompletableFuture<IamUser> findByEmailAtScopeType(String email, String authScopeType) {
+        Validate.notBlank(email, "email cannot be blank");
+        Validate.notBlank(authScopeType, "authScopeType cannot be blank");
+        return crudServiceTemplate.search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builder -> builder
+                .query(q -> q.bool(BoolQuery.of(b -> {
+                    b.filter(TermQuery.of(t -> t.field("email").value(email))._toQuery());
+                    b.filter(TermQuery.of(t -> t.field("authScopeType").value(authScopeType))._toQuery());
+                    return b;
+                }))))
+                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+    }
+
+    @Override
+    public CompletableFuture<IamUser> findByEmailPrimary(String email) {
         Validate.notBlank(email, "email cannot be blank");
         return crudServiceTemplate.search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builder -> builder
                 .query(q -> q.bool(BoolQuery.of(b -> {
                     b.filter(TermQuery.of(t -> t.field("email").value(email))._toQuery());
-                    b.filter(TermQuery.of(t -> t.field("isDefault").value(true))._toQuery());
+                    b.filter(TermQuery.of(t -> t.field("primary").value(true))._toQuery());
                     return b;
                 }))))
                 .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());

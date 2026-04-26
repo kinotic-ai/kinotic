@@ -35,7 +35,7 @@ spec:
           readinessProbe:
             httpGet:
               path: "{{ .Values.kinotic.healthCheckPath }}"
-              port: {{ .Values.kinotic.webServerPort }}
+              port: {{ .Values.kinotic.stomp.port | default 58503 }}
               {{- if .Values.tls.enabled }}
               scheme: HTTPS
               {{- end }}
@@ -46,7 +46,7 @@ spec:
           startupProbe:
             httpGet:
               path: "{{ .Values.kinotic.healthCheckPath }}"
-              port: {{ .Values.kinotic.webServerPort }}
+              port: {{ .Values.kinotic.stomp.port | default 58503 }}
               {{- if .Values.tls.enabled }}
               scheme: HTTPS
               {{- end }}
@@ -57,7 +57,7 @@ spec:
           livenessProbe:
             httpGet:
               path: "{{ .Values.kinotic.healthCheckPath }}"
-              port: {{ .Values.kinotic.webServerPort }}
+              port: {{ .Values.kinotic.stomp.port | default 58503 }}
               {{- if .Values.tls.enabled }}
               scheme: HTTPS
               {{- end }}
@@ -66,7 +66,9 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 7
           ports:
-            - containerPort: {{ .Values.kinotic.webServerPort| default 9090 }} # UI PORT
+            {{- if .Values.kinotic.webServer.enabled }}
+            - containerPort: {{ .Values.kinotic.webServer.port | default 9090 }} # SPA static server
+            {{- end }}
             - containerPort: {{ .Values.kinotic.graphqlPort| default 4000 }} # GraphQL Port
             - containerPort: {{ .Values.kinotic.openApiPort| default 8080 }} # OpenAPI Port
             - containerPort: {{ .Values.kinotic.stomp.port| default 58503 }} # STOMP Port
@@ -97,6 +99,10 @@ spec:
               value: "{{ .Values.platformSecrets.mountPath }}/{{ .Values.platformSecrets.objects.jwtSigningKeys }}"
             - name: KINOTIC_PLATFORMSECRETS_SECRETSTORAGEMASTERKEYSPATH
               value: "{{ .Values.platformSecrets.mountPath }}/{{ .Values.platformSecrets.objects.secretStorageMasterKeys }}"
+            {{- if include "kinotic-server.oidcSecretsEnabled" . }}
+            - name: KINOTIC_OIDC_SECRETSPATH
+              value: "{{ .Values.oidcSecrets.mountPath }}"
+            {{- end }}
           volumeMounts:
             - name: tmp-work
               mountPath: /workspace/ignite/work
@@ -112,6 +118,11 @@ spec:
             - name: platform-secrets
               mountPath: {{ .Values.platformSecrets.mountPath }}
               readOnly: true
+            {{- if include "kinotic-server.oidcSecretsEnabled" . }}
+            - name: oidc-client-secrets
+              mountPath: {{ .Values.oidcSecrets.mountPath }}
+              readOnly: true
+            {{- end }}
       restartPolicy: Always
       nodeSelector: {{ toYaml .Values.nodeSelector | nindent 8 }}
       volumes:
@@ -146,3 +157,16 @@ spec:
           secret:
             secretName: {{ include "kinotic-server.platformSecretsSecretName" . }}
           {{- end }}
+        {{- if include "kinotic-server.oidcSecretsEnabled" . }}
+        - name: oidc-client-secrets
+          {{- if .Values.oidcSecrets.keyVault.name }}
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ include "kinotic-server.fullname" . }}-oidc-client-secrets
+          {{- else }}
+          secret:
+            secretName: {{ include "kinotic-server.oidcSecretsSecretName" . }}
+          {{- end }}
+        {{- end }}

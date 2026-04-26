@@ -34,6 +34,8 @@ resource "helm_release" "kinotic_server" {
       # TLS — enable when mkcert is available
       { name = "tls.enabled", value = var.use_mkcert ? "true" : "false" },
       { name = "tls.secretName", value = "kinotic-tls" },
+      # Public URL — switches scheme based on mkcert. KinD maps host 443 (TLS) and 9090 (plain).
+      { name = "kinotic.appBaseUrl", value = var.use_mkcert ? "https://localhost" : "http://localhost:9090" },
       # NodePort service with fixed ports matching KinD extraPortMappings
       { name = "service.type", value = "NodePort" },
       { name = "service.nodePorts.ui", value = "30443" },

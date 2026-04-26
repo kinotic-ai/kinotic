@@ -6,21 +6,15 @@ import lombok.experimental.Accessors;
 
 /**
  * Configuration for the OIDC login HTTP routes ({@code /api/login/*}).
+ * <p>
+ * The public base URL used to build OIDC {@code redirect_uri}s is shared with the rest of
+ * the platform via {@link org.kinotic.core.api.config.KinoticProperties#getAppBaseUrl()};
+ * it is not duplicated here.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 public class OidcLoginProperties {
-
-    /**
-     * Public base URL of the backend (no trailing slash). Used to construct the OIDC
-     * {@code redirect_uri} that the IdP will redirect back to. Must match whatever is
-     * registered with the IdP as the authorized redirect URI.
-     * <p>
-     * Example: {@code https://portal.kinotic.ai}. Callback URL becomes
-     * {@code https://portal.kinotic.ai/api/login/callback/<providerKey>}.
-     */
-    private String baseUrl;
 
     /**
      * Frontend path the user is redirected to after successful authentication. The Kinotic

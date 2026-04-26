@@ -21,7 +21,8 @@
               <Password
                 ref="passwordInput"
                 v-model="request.password"
-                class="login-input"
+                class="login-password"
+                input-class="login-password-input"
                 placeholder="Password"
                 :feedback="false"
                 toggleMask
@@ -31,7 +32,8 @@
               <Password
                 ref="confirmPasswordInput"
                 v-model="confirmPassword"
-                class="login-input"
+                :class="['login-password', confirmStateClass]"
+                input-class="login-password-input"
                 placeholder="Confirm password"
                 :feedback="false"
                 toggleMask
@@ -42,6 +44,7 @@
                 label="Create account"
                 class="login-submit"
                 :loading="loading"
+                :disabled="!canSubmit"
                 @click="handleSubmit"
               />
             </div>
@@ -84,6 +87,8 @@ import loginPageLeft from '@/assets/login-page-left.svg'
 import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
 import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
 import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
+import { apiUrl } from '@/util/helpers'
+import '@/pages/auth-pages.css'
 
 @Component({
   components: {
@@ -99,6 +104,21 @@ export default class VerifyEmail extends Vue {
   get loginBrandMark() { return darkMode.value ? loginPageLogo : loginPageLogoLight }
   get isDark() { return darkMode.value }
   toggleTheme() { toggleDark() }
+
+  // Stays empty (no border tint) until the user types into the confirm field.
+  // Once non-empty: green if it matches the password, red otherwise.
+  get confirmStateClass(): string {
+    if (!this.confirmPassword) return ''
+    return this.request.password === this.confirmPassword
+      ? 'login-password--match'
+      : 'login-password--mismatch'
+  }
+
+  get canSubmit(): boolean {
+    return !!this.request.password
+        && !!this.confirmPassword
+        && this.request.password === this.confirmPassword
+  }
 
   request: SignUpCompleteRequest = {
     token: '',
@@ -138,7 +158,7 @@ export default class VerifyEmail extends Vue {
 
     this.loading = true
     try {
-      const response = await fetch('/api/signup/complete', {
+      const response = await fetch(apiUrl('/api/signup/complete'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.request),
@@ -171,6 +191,21 @@ export default class VerifyEmail extends Vue {
 </script>
 
 <style scoped>
+/* Confirm-password border tint: red while passwords don't match, green once they do.
+ * Empty state stays neutral so the user isn't yelled at before they've typed anything. */
+.login-password--mismatch :deep(.login-password-input),
+.login-password--match :deep(.login-password-input) {
+  transition: border-color 0.18s ease;
+}
+
+.login-password--mismatch :deep(.login-password-input) {
+  border-color: var(--p-red-500);
+}
+
+.login-password--match :deep(.login-password-input) {
+  border-color: var(--p-green-500);
+}
+
 .verify-state {
   text-align: center;
   padding: 2rem 0;
