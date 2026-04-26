@@ -97,3 +97,7 @@ terraform.tfstate
 
 kinotic-js/e2e-tests/test/repository/generated/
 
+
+.env.local
+
+kinotic-server/src/main/resources/webroot/

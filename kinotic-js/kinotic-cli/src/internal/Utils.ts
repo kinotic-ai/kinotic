@@ -161,7 +161,7 @@ export async function connectAndUpgradeSession(server: string, logger: Logger, a
 }
 
 function receiveSessionId(scope: string): Promise<SessionMetadata> {
-    const subscribeCRI = EventConstants.SERVICE_DESTINATION_PREFIX + scope + '@continuum.cli.SessionUpgradeService'
+    const subscribeCRI = EventConstants.SERVICE_DESTINATION_PREFIX + scope + '@kinotic.cli.SessionUpgradeService'
 
     return new Promise<SessionMetadata>((resolve, reject) => {
         const subscription = Kinotic.eventBus.observe(subscribeCRI).subscribe((value: IEvent) => {

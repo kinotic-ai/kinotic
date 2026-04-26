@@ -1,6 +1,10 @@
 # YAML Reference http://www.yaml.org/refcard.html
 kinotic:
   debug: true
+  email:
+    enabled: true
+    endpoint: https://acs-kinotic.communication.azure.com
+    sender-address: "DoNotReply@kinotic.ai"
   maxNumberOfCoresToUse: 4
   ignite:
     discoveryType: SHAREDFS
