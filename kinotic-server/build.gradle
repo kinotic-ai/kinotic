@@ -26,6 +26,8 @@ dependencies {
 
 	implementation 'io.projectreactor:reactor-core'
 
+	implementation 'tools.jackson.core:jackson-databind'
+
 }
 
 tasks.named('processResources') {

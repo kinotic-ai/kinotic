@@ -45,10 +45,6 @@ public class PersistenceInitializer {
 //
 //        vertx.deployVerticle(verticleFactory::createGqlVerticle, options);
 
-        if(properties.isEnableStaticFileServer()){// only 1 web server verticle
-            vertx.deployVerticle(verticleFactory::createWebServerNextVerticle, new DeploymentOptions());
-        }
-
         healthChecks.register("elasticsearch", future -> {
             if(lastEsStatus){
                 future.complete(Status.OK());
@@ -84,13 +80,6 @@ public class PersistenceInitializer {
         log.info("GraphQL available at http://localhost:{}{}[KINOTIC APPLICATION]/",
                  properties.getGraphqlPort(),
                  properties.getGraphqlPath());
-        if(properties.isEnableStaticFileServer()) {
-            log.info("Web Server Next listening on port {}", properties.getWebServerPort());
-            log.info("Web Server Next available at http://localhost:{}/", properties.getWebServerPort());
-        }
-        log.info("Health checks available at http://localhost:{}{}",
-                 properties.getWebServerPort(),
-                 properties.getHealthCheckPath());
     }
 
 }

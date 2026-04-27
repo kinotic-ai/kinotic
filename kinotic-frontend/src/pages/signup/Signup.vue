@@ -15,6 +15,18 @@
           <div v-if="!submitted" class="login-form">
             <h2 class="signup-title">Create your organization</h2>
 
+            <!-- Social signup — IdP returns identity, then user picks an org name on /register -->
+            <div v-if="providers.length > 0" class="signup-providers">
+              <SocialAuthButton
+                v-for="provider in providers"
+                :key="provider"
+                :provider="provider"
+                :action="apiUrl('/api/signup/start/' + provider)"
+                intent="sign-up"
+              />
+              <div class="login-divider"><span>or with email</span></div>
+            </div>
+
             <div class="login-form__step">
               <div class="login-field">
                 <InputText
@@ -104,12 +116,15 @@ import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
 import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
 import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
 import { apiUrl } from '@/util/helpers'
+import SocialAuthButton from '@/components/SocialAuthButton.vue'
+import '@/pages/auth-pages.css'
 
 @Component({
   components: {
     InputText,
     Button,
     Toast,
+    SocialAuthButton,
   }
 })
 export default class Signup extends Vue {
@@ -127,6 +142,21 @@ export default class Signup extends Vue {
   }
   loading = false
   submitted = false
+  providers: string[] = []
+
+  async mounted() {
+    try {
+      const res = await fetch(apiUrl('/api/login/providers'), { credentials: 'same-origin' })
+      if (res.ok) {
+        const data = await res.json()
+        if (Array.isArray(data)) this.providers = data
+      }
+    } catch {
+      // No social providers configured — silent; the email/password form still works.
+    }
+  }
+
+  apiUrl(path: string): string { return apiUrl(path) }
 
   private focusNext(refName: string) {
     const el = this.$refs[refName] as any
@@ -190,13 +220,6 @@ export default class Signup extends Vue {
 </script>
 
 <style scoped>
-.signup-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  text-align: center;
-}
-
 .signup-footer-link {
   text-align: center;
   margin-top: 1rem;
@@ -246,5 +269,13 @@ export default class Signup extends Vue {
   margin-top: 1rem;
   color: var(--p-text-muted-color);
   font-size: 0.875rem;
+}
+
+.signup-providers {
+  width: min(100%, 20rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0.5rem 0 1.5rem;
 }
 </style>

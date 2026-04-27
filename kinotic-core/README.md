@@ -8,7 +8,7 @@ Kinotic-core solves the problem of building distributed, reactive microservices 
 
 The module is the single dependency every other Kinotic module builds on. It wires together three infrastructure layers: Apache Ignite (distributed cache and cluster membership), Vert.x (non-blocking event bus, including its Ignite cluster manager bridge), and Project Reactor (reactive return types for `Mono` and `Flux`). Application code interacts only with the higher-level interfaces in `org.kinotic.core.api`; the internal packages handle all lifecycle and transport concerns.
 
-Security is first-class. The `SecurityService` / `SessionManager` pair authenticates callers before any event is dispatched. The module ships an OIDC implementation (`OidcSecurityService`) that validates JWT bearer tokens against one or more configured identity providers, extracts roles from a configurable claim path, and materialises the result as an immutable `Participant` that travels with every inbound request.
+Security is first-class. The `SecurityService` / `SessionManager` pair authenticates callers before any event is dispatched. The active implementation lives in `kinotic-domain` (`IamSecurityService`) and validates either email/password credentials or Kinotic-minted JWTs (issued by the api-gateway after an OIDC roundtrip). The result materialises as an immutable `Participant` that travels with every inbound request.
 
 Auto-configuration is provided via Spring Boot's service-loader mechanism. Importing `KinoticCoreLibrary` (directly or through the `@EnableKinotic` annotation) activates component scanning, configuration properties, the Ignite node, and the clustered Vert.x instance. Clustering can be disabled entirely with a single property for local development or unit testing.
 
@@ -62,19 +62,7 @@ To activate the module explicitly (e.g., in a library that is not a Spring Boot 
 | `kinotic.ignite.kubernetesNamespace` | `String` | `default` | K8s namespace for `KUBERNETES` discovery |
 | `kinotic.ignite.kubernetesServiceName` | `String` | `kinotic` | K8s headless service name for `KUBERNETES` discovery |
 
-### `oidc-security-service.*` properties (`OidcSecurityServiceProperties`)
-
-| Property | Type | Default | Description |
-|---|---|---|---|
-| `oidc-security-service.enabled` | `boolean` | `false` | Activates `OidcSecurityService` |
-| `oidc-security-service.tenantIdFieldName` | `String` | `tenantId` | JWT claim used as tenant identifier |
-| `oidc-security-service.oidcProviders` | `List<OidcProvider>` | — | One entry per trusted identity provider |
-| `oidc-security-service.oidcProviders[n].authority` | `String` | — | Issuer URL (must match `iss` claim exactly) |
-| `oidc-security-service.oidcProviders[n].audience` | `String` | — | Expected `aud` claim value |
-| `oidc-security-service.oidcProviders[n].domains` | `List<String>` | — | Email domains accepted for this provider |
-| `oidc-security-service.oidcProviders[n].rolesClaimPath` | `String` | — | Dot-separated path to the roles list in the JWT (e.g. `realm_access.roles`) |
-| `oidc-security-service.oidcProviders[n].roles` | `List<String>` | — | If set, at least one token role must match |
-| `oidc-security-service.oidcProviders[n].metadata` | `Map<String,String>` | — | Static metadata merged into every `Participant` from this provider |
+Authentication is handled by `IamSecurityService` in `kinotic-domain`, which validates email/password credentials directly against the IAM data model and validates Kinotic-minted JWTs against the platform's signing keys. The OIDC roundtrip with external providers terminates in the api-gateway (`LoginHandler`/`OidcSignupHandler`), which mints a Kinotic JWT for the STOMP handoff. There is no in-process OIDC validation for raw IdP tokens at the STOMP CONNECT layer.
 
 ## Usage Example
 

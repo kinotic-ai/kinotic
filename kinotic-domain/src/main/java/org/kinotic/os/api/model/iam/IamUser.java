@@ -69,6 +69,14 @@ public class IamUser implements Identifiable<String> {
 
     private boolean enabled;
 
+    /**
+     * When a logical identity has access to multiple org-scoped {@link IamUser} rows (keyed
+     * by {@code (oidcSubject, oidcConfigId)}), exactly one is the primary — login lands
+     * there, and the org switcher shows the others. Set on first login and toggleable from
+     * the user's account settings.
+     */
+    private boolean primary;
+
     private Date created;
 
     private Date updated;

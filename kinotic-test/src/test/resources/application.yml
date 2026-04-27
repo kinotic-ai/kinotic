@@ -31,21 +31,3 @@ logging:
     io:
       vertx: DEBUG
 
-oidc-security-service:
-  enabled: false
-  debug: true
-  frontend-configuration-path: "/app-config.override.json"
-  oidc-providers:
-    - provider: "keycloak"
-      display-name: "Keycloak"
-      enabled: true
-      roles-claim-path: "realm_access.roles"
-      domains:
-        - "example.com"
-      audience: "test-keycloak-client"
-      client-id: "test-keycloak-client"
-      authority: "http://localhost:8888/auth/realms/test"
-      redirect-uri: "http://localhost:8989/login"
-      post-logout-redirect-uri: "http://localhost:8989"
-      silent-redirect-uri: "http://localhost:8989/login/silent-renew"
-

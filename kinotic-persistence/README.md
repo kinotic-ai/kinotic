@@ -53,10 +53,7 @@ All properties are nested under `kinotic.persistence.*` (contributed by `Kinotic
 | `kinotic.persistence.openApiSecurityType` | `NONE` | Security mode for OpenAPI (`NONE` or other `OpenApiSecurityType` values) |
 | `kinotic.persistence.graphqlPort` | `4000` | Port for the GraphQL server |
 | `kinotic.persistence.graphqlPath` | `/graphql/` | Base path for GraphQL endpoints |
-| `kinotic.persistence.webServerPort` | `9090` | Port for the static file server and health check endpoint |
-| `kinotic.persistence.healthCheckPath` | `/health/` | Path for the Vert.x health check handler |
-| `kinotic.persistence.enableStaticFileServer` | `true` | Serve static files from `resources/webroot` |
-| `kinotic.persistence.corsAllowedOriginPattern` | `http://localhost.*` | Regex pattern for allowed CORS origins |
+| `kinotic.persistence.corsAllowedOriginPattern` | `http://localhost.*` | Regex pattern for allowed CORS origins (openapi/graphql ports) |
 | `kinotic.persistence.corsAllowedHeaders` | `Accept, Authorization, Content-Type` | Allowed CORS headers |
 | `kinotic.persistence.corsAllowCredentials` | `null` | If set, controls `Access-Control-Allow-Credentials` |
 | `kinotic.persistence.maxHttpHeaderSize` | `8192` (8 KB) | Maximum size of all HTTP headers in bytes |

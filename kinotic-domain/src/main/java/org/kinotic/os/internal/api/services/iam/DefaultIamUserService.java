@@ -69,8 +69,8 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
 
     @Override
     public CompletableFuture<IamUser> findFirstByEmailInScopeType(String email, String authScopeType) {
-        Validate.notNull(email, "email cannot be null");
-        Validate.notNull(authScopeType, "authScopeType cannot be null");
+        Validate.notBlank(email, "email cannot be blank");
+        Validate.notBlank(authScopeType, "authScopeType cannot be blank");
         return crudServiceTemplate.search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builder -> builder
                 .query(q -> q.bool(BoolQuery.of(b -> {
                     b.filter(TermQuery.of(t -> t.field("email").value(email))._toQuery());
@@ -80,7 +80,19 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                 .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
-//    @Override
+    @Override
+    public CompletableFuture<IamUser> findByEmailPrimary(String email) {
+        Validate.notBlank(email, "email cannot be blank");
+        return crudServiceTemplate.search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builder -> builder
+                .query(q -> q.bool(BoolQuery.of(b -> {
+                    b.filter(TermQuery.of(t -> t.field("email").value(email))._toQuery());
+                    b.filter(TermQuery.of(t -> t.field("primary").value(true))._toQuery());
+                    return b;
+                }))))
+                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+    }
+
+//    @Override  // commented off the interface — kept for the eventual user-management UI
     public CompletableFuture<Page<IamUser>> findByScope(String authScopeType, String authScopeId, Pageable pageable) {
         Validate.notNull(authScopeId, "authScopeId cannot be null");
         return crudServiceTemplate.search(indexName, pageable, type, builder -> builder
@@ -91,7 +103,40 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                 }))));
     }
 
-//    @Override
+    @Override
+    public CompletableFuture<IamUser> findByOidcIdentityAndScope(String oidcSubject,
+                                                                 String oidcConfigId,
+                                                                 String authScopeType,
+                                                                 String authScopeId) {
+        Validate.notBlank(oidcSubject, "oidcSubject cannot be blank");
+        Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
+        Validate.notBlank(authScopeType, "authScopeType cannot be blank");
+        Validate.notNull(authScopeId, "authScopeId cannot be null");
+        return crudServiceTemplate.search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builder -> builder
+                .query(q -> q.bool(BoolQuery.of(b -> {
+                    b.filter(TermQuery.of(t -> t.field("oidcSubject").value(oidcSubject))._toQuery());
+                    b.filter(TermQuery.of(t -> t.field("oidcConfigId").value(oidcConfigId))._toQuery());
+                    b.filter(TermQuery.of(t -> t.field("authScopeType").value(authScopeType))._toQuery());
+                    b.filter(TermQuery.of(t -> t.field("authScopeId").value(authScopeId))._toQuery());
+                    return b;
+                }))))
+                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+    }
+
+    @Override
+    public CompletableFuture<java.util.List<IamUser>> findByOidcIdentity(String oidcSubject, String oidcConfigId) {
+        Validate.notBlank(oidcSubject, "oidcSubject cannot be blank");
+        Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
+        return crudServiceTemplate.search(indexName, Pageable.create(0, 100, Sort.unsorted()), type, builder -> builder
+                .query(q -> q.bool(BoolQuery.of(b -> {
+                    b.filter(TermQuery.of(t -> t.field("oidcSubject").value(oidcSubject))._toQuery());
+                    b.filter(TermQuery.of(t -> t.field("oidcConfigId").value(oidcConfigId))._toQuery());
+                    return b;
+                }))))
+                .thenApply(Page::getContent);
+    }
+
+//    @Override  // commented off the interface — kept for the eventual user-management UI
     public CompletableFuture<IamUser> createUser(IamUser user, String password) {
         Validate.notNull(user.getEmail(), "IamUser email cannot be null");
         Validate.notNull(user.getAuthScopeType(), "IamUser authScopeType cannot be null");

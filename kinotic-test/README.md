@@ -6,11 +6,11 @@ Integration test harness for the Kinotic platform, providing shared infrastructu
 
 Testing distributed systems that depend on Elasticsearch, OIDC authentication, and schema migration requires reproducible, isolated infrastructure that starts and stops reliably alongside the Spring application context. Without a shared harness, each module would duplicate container management logic and Spring Boot test configuration, making tests brittle and expensive to maintain.
 
-`kinotic-test` addresses this by providing three distinct infrastructure tiers — a full Docker Compose stack (Elasticsearch + schema migration), a lightweight Testcontainers Elasticsearch instance, and a Testcontainers Keycloak instance — each exposed through a dedicated abstract base class. Tests extend the appropriate base class and inherit the correct container lifecycle, Spring context configuration, and property injection automatically.
+`kinotic-test` addresses this by providing two distinct infrastructure tiers — a full Docker Compose stack (Elasticsearch + schema migration) and a lightweight Testcontainers Elasticsearch instance — each exposed through a dedicated abstract base class. Tests extend the appropriate base class and inherit the correct container lifecycle, Spring context configuration, and property injection automatically.
 
-The module is the sole consumer of every other Kinotic module (`kinotic-core`, `kinotic-domain`, `kinotic-idl`, `kinotic-persistence`, `kinotic-sql`), meaning it serves as the integration boundary where cross-module behaviour is verified end-to-end. Concerns covered include entity CRUD and multi-tenant search via `EntitiesService`, schema migration via `MigrationExecutor`, OIDC token validation and role-based access control via `OidcSecurityService`, and policy-based field authorization via the `PolicyEvaluator` family.
+The module is the sole consumer of every other Kinotic module (`kinotic-core`, `kinotic-domain`, `kinotic-idl`, `kinotic-persistence`, `kinotic-sql`), meaning it serves as the integration boundary where cross-module behaviour is verified end-to-end. Concerns covered include entity CRUD and multi-tenant search via `EntitiesService`, schema migration via `MigrationExecutor`, and policy-based field authorization via the `PolicyEvaluator` family. (Auth-flow integration tests against the new `LoginHandler`/`IamSecurityService` model are pending — the previous Keycloak-based tests covered the retired `OidcSecurityService` flow and were removed.)
 
-Container readiness is coordinated through a `ContainerHealthChecker` utility that polls HTTP health endpoints (`/_cluster/health` for Elasticsearch, `/health/ready` for Keycloak) with configurable retry budgets, and all infrastructure classes use a static-initializer + volatile-flag pattern with `synchronized` monitor objects so that parallel test classes share a single container set per JVM.
+Container readiness is coordinated through a `ContainerHealthChecker` utility that polls HTTP health endpoints (`/_cluster/health` for Elasticsearch) with configurable retry budgets, and all infrastructure classes use a static-initializer + volatile-flag pattern with `synchronized` monitor objects so that parallel test classes share a single container set per JVM.
 
 ## Key Concepts
 
@@ -24,11 +24,9 @@ Container readiness is coordinated through a `ContainerHealthChecker` utility th
 
 - **`ElasticsearchTestConfiguration`** — Static infrastructure class for the Testcontainers Elasticsearch node. Manages a single `ElasticsearchContainer` as a class-level static field shared across all tests that extend `ElasticTestBase` in the same JVM, coordinating readiness through a `volatile boolean` flag and a `synchronized` monitor.
 
-- **`KeyloakTestConfiguration`** — Static infrastructure class for the Testcontainers Keycloak node. Exposes `getKeycloakUrl()` and `getKeycloakAuthUrl()` for tests that need to acquire tokens programmatically from the `/realms/test/protocol/openid-connect/token` endpoint.
+- **`ContainerHealthChecker`** — Stateless utility that checks health endpoints over plain HTTP (Java 11 `HttpClient`) and implements a polling loop with configurable `maxAttempts` and `delayMs`. Supports Elasticsearch (`/_cluster/health`, green or yellow) and the Kinotic server (`/health`).
 
-- **`ContainerHealthChecker`** — Stateless utility that checks health endpoints over plain HTTP (Java 11 `HttpClient`) and implements a polling loop with configurable `maxAttempts` and `delayMs`. Supports Elasticsearch (`/_cluster/health`, green or yellow), Keycloak (`/health/ready`), and the Kinotic server (`/health`).
-
-- **`DummySecurityService`** — A `SecurityService` implementation that accepts `guest/guest` credentials (both STOMP-style `login`/`passcode` headers and HTTP Basic `authorization` headers) and returns an `ADMIN`-role participant. Active by default (`@ConditionalOnProperty` with `oidc-security-service.enabled=false`), bypassed when the `keycloak` profile is active and `oidc-security-service.enabled=true`.
+- **`DummySecurityService`** — A `SecurityService` implementation that accepts `guest/guest` credentials (both STOMP-style `login`/`passcode` headers and HTTP Basic `authorization` headers) and returns an `ADMIN`-role participant. A holdover from the retired OIDC stack — its `@ConditionalOnProperty` gate is no-op now that `oidc-security-service.enabled` no longer exists. Tests requiring the real auth path (`IamSecurityService`) need to be restructured.
 
 ## Configuration
 
@@ -37,9 +35,6 @@ Container readiness is coordinated through a `ContainerHealthChecker` utility th
 | Profile | Effect |
 |---|---|
 | `test` (default, set at JVM level and in `application.yml`) | Activates `DummySecurityService` |
-| `keycloak` | Activates `oidc-security-service.enabled=true`; used by all tests in `tests.auth` |
-| `keycloak-admin-provider` | Configures a single `keycloak-admin` OIDC provider for admin access control tests |
-| `keycloak-unauthorized-provider` | Configures an `unauthorized` provider for negative access control tests |
 
 ### Key properties
 
@@ -52,9 +47,6 @@ Container readiness is coordinated through a `ContainerHealthChecker` utility th
 | `kinotic.persistence.cors-allowed-origin-pattern` | `*` |
 | `kinotic.debug` | `true` |
 | `kinotic.maxNumberOfCoresToUse` | `4` |
-| `oidc-security-service.enabled` | `false` by default; `true` under `keycloak` profile |
-| `oidc-security-service.oidc-providers[*].authority` | `${keycloak.test.url:http://localhost:8888/realms/test}` — resolved to container URL at test startup |
-| `keycloak.test.url` | System property set by `KeycloakTestContextInitializer` |
 | `spring.main.allow-bean-definition-overriding` | `true` (required to replace auto-configured beans in tests) |
 
 ### Auto-configuration
@@ -100,24 +92,8 @@ public class MyEntityTest extends KinoticTestBase {
 For Keycloak-based OIDC tests, extend `KeycloakTestBase` and activate the `keycloak` Spring profile instead:
 
 ```java
-@SpringBootTest
-@ActiveProfiles("keycloak")
-public class MyOidcTest extends KeycloakTestBase {
-
-    @Autowired
-    private OidcSecurityService securityService;
-
-    @Test
-    public void testValidToken() throws Exception {
-        // Acquire a real token from the containerised Keycloak instance
-        String tokenUrl = KeyloakTestConfiguration.getKeycloakUrl()
-                + "/realms/test/protocol/openid-connect/token";
-        // ... fetch token via HTTP POST, then authenticate:
-        Participant p = securityService
-                .authenticate(Map.of("authorization", "Bearer " + token)).join();
-        assertTrue(p.getRoles().contains("user"));
-    }
-}
+// Auth-flow tests against the new LoginHandler / IamSecurityService model are pending.
+// The previous Keycloak-based examples here covered the retired OIDC stack.
 ```
 
 ## Notes
@@ -132,7 +108,7 @@ public class MyOidcTest extends KeycloakTestBase {
 
 - **Keycloak port layout.** Keycloak 26 (Quarkus distribution) separates application traffic (port 8888, configured via `KC_HTTP_PORT`) from management/health traffic (port 9000). Both ports must be exposed. The Testcontainers wait strategy targets port 9000 (`/health/ready`); application and token URLs use port 8888.
 
-- **`DummySecurityService` credential scope.** The dummy service accepts only the literal credentials `guest/guest` via either STOMP `login`/`passcode` or HTTP Basic `authorization`. Any other credential returns a failed `CompletableFuture`. It is guarded by `@ConditionalOnProperty` and is inactive whenever `oidc-security-service.enabled=true`.
+- **`DummySecurityService` credential scope.** The dummy service accepts only the literal credentials `guest/guest` via either STOMP `login`/`passcode` or HTTP Basic `authorization`. Any other credential returns a failed `CompletableFuture`. Its `@ConditionalOnProperty` gate is now no-op (the property it referenced was removed); the bean is always active and a future test-restructure pass will replace it with the real auth path.
 
 - **Compose file location.** `KinoticTestConfiguration` resolves compose files relative to `../deployment/docker-compose/` from the Gradle working directory (the `kinotic-test` module directory). This path must exist within the mono-repo layout; running the full-stack tests outside the repo root will fail.
 

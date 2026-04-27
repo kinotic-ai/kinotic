@@ -2,7 +2,6 @@
 kinotic:
   persistence:
     openApiSecurityType: BASIC
-    enableStaticFileServer: true
 
 logging:
   level:
@@ -10,4 +9,3 @@ logging:
       kinotic: INFO
 
 
-  

@@ -65,21 +65,6 @@ public class PersistenceProperties {
     private String graphqlPath = "/graphql/";
 
     /**
-     * The port that the static files and the health check will be served from
-     */
-    private int webServerPort = 9090;
-
-    /**
-     * The path that the health check will be served from
-     */
-    private String healthCheckPath = "/health/";
-
-    /**
-     * If true, static files are served from resources/webroot
-     */
-    private boolean enableStaticFileServer = true;
-
-    /**
      * MCP server configuration
      */
     private Integer mcpPort = 3001;

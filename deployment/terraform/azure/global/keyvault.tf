@@ -93,6 +93,21 @@ resource "azurerm_key_vault_secret" "secret_storage_master_keys" {
   depends_on = [terraform_data.wait_for_kv_rbac]
 }
 
+# ── OIDC client secrets ───────────────────────────────────────────────────────
+# Stored at name = configId so the helm chart's oidcSecrets.objects[] can mount each as
+# /etc/kinotic/oidc-client-secrets/<configId>. PlatformOidcBootstrap reads them on startup.
+
+resource "azurerm_key_vault_secret" "entra_platform_client_secret" {
+  name         = "entra-platform"
+  key_vault_id = azurerm_key_vault.platform.id
+  content_type = "OIDC client secret for kinotic-platform Entra app"
+  value        = azuread_application_password.kinotic_platform.value
+
+  tags = local.common_tags
+
+  depends_on = [terraform_data.wait_for_kv_rbac]
+}
+
 # ── Outputs ───────────────────────────────────────────────────────────────────
 # Consumed by cluster/ terraform via terraform_remote_state to grant read access to the
 # kinotic-server managed identity and to pass vault coordinates into the helm chart.

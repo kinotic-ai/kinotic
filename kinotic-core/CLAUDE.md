@@ -27,12 +27,12 @@ Directives for AI working on this module (sourced from architectural constraints
 |---|---|
 | `org.kinotic.core.api` | Top-level interfaces: `Kinotic`, `ServiceRegistry`, `ServiceDirectory`, `RpcServiceProxy`, `RpcServiceProxyHandle` |
 | `org.kinotic.core.api.annotations` | Annotations: `@EnableKinotic`, `@Publish`, `@Proxy`, `@Scope`, `@Version`, `@Alias`, `@KinoticPackage` |
-| `org.kinotic.core.api.config` | Spring `@ConfigurationProperties` beans: `KinoticProperties`, `IgniteProperties`, `OidcSecurityServiceProperties`, `OidcProvider` |
+| `org.kinotic.core.api.config` | Spring `@ConfigurationProperties` beans: `KinoticProperties`, `IgniteProperties` |
 | `org.kinotic.core.api.event` | Event model: `CRI`, `Event`, `Metadata`, `EventConstants`, `EventBusService`, `EventStreamService`, `EventService` |
 | `org.kinotic.core.api.exceptions` | Exception hierarchy: `KinoticException`, `AuthenticationException`, `AuthorizationException`, `RpcInvocationException`, `RpcMissingServiceException`, `RpcMissingMethodException` |
 | `org.kinotic.core.api.security` | Security contracts: `SecurityService`, `SessionManager`, `Session`, `Participant`, `AuthenticationHandler`, `ConnectedInfo` |
 | `org.kinotic.core.api.service` | Service metadata model: `ServiceIdentifier`, `ServiceDescriptor`, `ServiceFunction`, `ServiceFunctionInstanceProvider` |
-| `org.kinotic.core.internal.api` | Default implementations: `DefaultServiceRegistry`, `DefaultEventService`, `DefaultEventBusService`, `DefaultEventStreamService`, `DefaultSessionManager`, `OidcSecurityService` |
+| `org.kinotic.core.internal.api` | Default implementations: `DefaultServiceRegistry`, `DefaultEventService`, `DefaultEventBusService`, `DefaultEventStreamService`, `DefaultSessionManager` |
 | `org.kinotic.core.internal.api.service.invoker` | Server-side RPC dispatch: `ServiceInvocationSupervisor`, `HandlerMethod`, argument resolvers, return-value converters |
 | `org.kinotic.core.internal.api.service.rpc` | Client-side RPC: `DefaultRpcServiceProxyHandle`, argument converters, return-value handler factories for `Mono`, `Flux`, `CompletableFuture` |
 | `org.kinotic.core.internal.api.aignite` | Ignite integration helpers: subscription cache listeners, iterator loopers |
@@ -75,7 +75,6 @@ Directives for AI working on this module (sourced from architectural constraints
 | `AuthenticationHandler` | Class | Vert.x `Handler<RoutingContext>` that calls `SecurityService` and attaches the `Participant` to the routing context |
 | `ConnectedInfo` | Class | DTO returned to a newly connected client: participant, replyToId, sessionId |
 | `KinoticProperties` | Class | `@ConfigurationProperties(prefix="kinotic")` for all runtime settings |
-| `OidcSecurityServiceProperties` | Class | `@ConfigurationProperties(prefix="oidc-security-service")` — OIDC provider list and behaviour |
 | `@EnableKinotic` | Annotation | Place on a `@Configuration` class to enable Kinotic package scanning |
 | `@Publish` | Annotation | Marks a service interface as remotely accessible |
 | `@Proxy` | Annotation | Marks a client interface for automatic proxy creation |
@@ -92,7 +91,7 @@ Kinotic-core has no dependencies on other Kinotic modules; it is the foundation 
 | Apache Ignite (`ignite-core`, `ignite-spring`, `ignite-calcite`, `ignite-kubernetes`, `ignite-slf4j`) | Distributed cache (session store, subscription tracking), cluster membership and discovery |
 | Vert.x (`vertx-core`, `vertx-ignite`, `vertx-auth-common`, `vertx-web`, `vertx-web-client`) | Non-blocking event bus used for all RPC and event dispatch; `vertx-ignite` bridges the Vert.x cluster manager to Ignite |
 | Project Reactor (`reactor-core`) | Reactive programming model for `Mono` and `Flux` return types throughout the API |
-| JJWT (`jjwt-api`, `jjwt-impl`, `jjwt-jackson`) | JWT parsing and signature verification in `OidcSecurityService` |
+| JJWT (`jjwt-api`, `jjwt-impl`, `jjwt-jackson`) | JWT parsing and signature verification used by Kinotic-minted JWTs (issuer + auth-time validation) |
 | Jackson (`jackson-core`, `jackson-databind`) | JSON serialisation of RPC arguments and return values |
 | Spring Boot / Spring Framework (`spring-boot`, `spring-context`, `spring-aop`, `spring-web`) | Dependency injection, auto-configuration, `ReactiveAdapterRegistry`, `@ConfigurationProperties` |
 | OpenTelemetry | Distributed trace context propagation via `traceparent`/`tracestate` headers on events |

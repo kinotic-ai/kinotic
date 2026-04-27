@@ -7,6 +7,7 @@ import io.vertx.core.Vertx;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -23,6 +24,7 @@ public class ApiGatewayEndpointInitializer {
 
     private final ApiGatewayVertcleFactory apiGatewayVertcleFactory;
     private final KinoticProperties kinoticProperties;
+    private final KinoticApiGatewayProperties apiGatewayProperties;
     private final Vertx vertx;
 
     @PostConstruct
@@ -33,6 +35,11 @@ public class ApiGatewayEndpointInitializer {
 
         log.info("Deploying {} Stomp Server Endpoint(s)", numToDeploy);
         vertx.deployVerticle(apiGatewayVertcleFactory::createApiGatewayVerticle, options);
+
+        if (apiGatewayProperties.getWebServer().isEnabled()) {
+            log.info("Deploying static web server on port {}", apiGatewayProperties.getWebServer().getPort());
+            vertx.deployVerticle(apiGatewayVertcleFactory::createWebServerVerticle, new DeploymentOptions());
+        }
     }
 
 }

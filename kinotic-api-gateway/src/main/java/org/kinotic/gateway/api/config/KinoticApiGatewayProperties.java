@@ -28,4 +28,21 @@ public class KinoticApiGatewayProperties extends KinoticProperties {
      */
     private ApiGatewayProperties rpcGateway = new ApiGatewayProperties(this);
 
+    /**
+     * OIDC login flow configuration.
+     */
+    private OidcLoginProperties login = new OidcLoginProperties();
+
+    /**
+     * Static-file web server configuration. Disabled in KinD/Azure where the SPA
+     * is hosted outside the cluster.
+     */
+    private WebServerProperties webServer = new WebServerProperties();
+
+    /**
+     * Path the health-check endpoint is mounted at on the api-gateway router.
+     * (CORS is inherited from {@link KinoticProperties#getCors()} — applies platform-wide.)
+     */
+    private String healthCheckPath = "/health";
+
 }

@@ -79,69 +79,12 @@ public class OnboardingService {
 
 ## IAM Authentication
 
-Kinotic OS uses a three-layer IAM authentication system with separate user pools:
+Kinotic supports email/password and OIDC at the Organization and Application scopes. System-scope auth is a separate path. The IAM data model lives in this module — `IamUser`, `IamCredential`, `OidcConfiguration`, `PendingRegistration`, `SignUpRequest`, plus the corresponding services.
 
-- **System** — Platform operators managing the Kinotic OS deployment
-- **Organization** — Organizations developing applications on the platform
-- **Application** — End-users or machines consuming applications
+For the architecture (scope isolation, credential separation, why standalone `OidcConfiguration`) and the end-to-end flows (org signup, login lookup, social-IdP, per-org SSO), see the docsite:
 
-Users authenticate via **email/password** (local accounts) or **OIDC** (federated identity via Google, Microsoft, etc.).
-
-### Setting Up Built-In OIDC Configurations
-
-Built-in OIDC configurations represent Kinotic OS's single registration with identity providers (e.g., Google, Microsoft). They are created once by a system administrator and can be enabled by any organization or application.
-
-1. **Register Kinotic OS with the provider** — Register a single OAuth application with Google, Microsoft, etc. The consent screen shows "Kinotic OS" as the requesting application.
-
-2. **Create the OidcConfiguration entity** via `OidcConfigurationService`:
-
-```json
-{
-  "name": "Google",
-  "provider": "google",
-  "builtIn": true,
-  "clientId": "<your-google-client-id>",
-  "authority": "https://accounts.google.com",
-  "redirectUri": "https://your-kinotic-domain/auth/callback",
-  "domains": ["gmail.com", "your-company.com"],
-  "audience": "<your-google-client-id>",
-  "enabled": true
-}
-```
-
-Key fields: `builtIn: true` (immutable for org/app admins), `authority` (must match JWT `iss` claim), `domains` (email domains handled), `audience` (expected JWT `aud` claim).
-
-3. **Enable the config for a scope** — Add the configuration's ID to the `oidcConfigurationIds` list on the target entity (`KinoticSystem`, `Organization`, or `Application`) via its service's `save()` method.
-
-### Creating Users for OIDC Login
-
-OIDC users must be **pre-created** by an administrator before they can log in. This ensures a valid Google/Microsoft token does not automatically grant access to any application.
-
-Use `IamUserService.createUser()` with `password: null`:
-
-```json
-{
-  "email": "user@example.com",
-  "displayName": "Jane Doe",
-  "authType": "OIDC",
-  "authScopeType": "APPLICATION",
-  "authScopeId": "<application-id>"
-}
-```
-
-On first OIDC login, the system populates `oidcSubject` and `oidcConfigId` by matching the JWT email against the pre-created user. The login flow: browser gets JWT from provider, connects via STOMP with `Authorization: Bearer <jwt>`, `authScopeType`, and `authScopeId` headers. `IamSecurityService` validates the JWT and looks up the user by email + scope.
-
-For **local accounts**, pass a password to `createUser()`. The password is bcrypt-hashed and stored in a separate `IamCredential` entity.
-
-### What Remains for Sign-Up
-
-The current implementation requires administrators to pre-create all users. Planned future work:
-
-- **Self-registration flows** with per-scope registration policies (`OPEN`, `CLOSED`, `DOMAIN_RESTRICTED`)
-- **Invitation-based onboarding** via email invitations
-- **Admin approval workflows** for self-registration
-
-The current data model supports all of these without schema changes.
+- `website/content/2.platform/4.organization-management.md` — flows, data model, endpoint reference
+- `website/content/2.platform/5.system-security.md` — architecture, scope isolation, design decisions
 
 ---
 

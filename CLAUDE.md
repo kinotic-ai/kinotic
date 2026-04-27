@@ -87,3 +87,26 @@ Elasticsearch index migrations live in `kinotic-migration/src/main/resources/mig
 Files must follow `V<N>__<description>.sql` naming (e.g. `V2__add_widgets.sql`). Versions must be unique positive integers. Type mappings:
 
 And use the ANTLR4 grammar in `kinotic-migration/src/main/antlr4/KinoticMigration.g4`.
+
+## Documentation
+
+Public, user-facing documentation lives on the docsite at `website/content/` (Nuxt + Docus). Module READMEs and `docs/*.md` are for in-repo reference only — when documentation needs to be discoverable by platform operators, app developers, or org admins, it belongs on the docsite.
+
+When changing code in any of these areas, also check the corresponding docsite page(s) for accuracy and update them in the same change:
+
+| Code area | Docsite pages to check |
+|---|---|
+| Auth / IAM (`OidcLoginHandler`, `OidcSignupHandler`, `SignUpHandler`, `IamUser`, `OidcConfiguration`, `PendingRegistration`, `PlatformOidcBootstrap`, signup/login services) | `2.platform/4.organization-management.md`, `2.platform/5.system-security.md`, `1.apps/6.security/2.authentication.md` |
+| Public REST endpoints under `/api/*` | `2.platform/4.organization-management.md` (endpoint reference table) |
+| Configuration properties (`KinoticProperties` + subclasses, helm values, env vars) | `2.platform/3.configuration.md` |
+| Deployment topology, ports, services, ingress | `2.platform/2.deployment-guide.md` |
+| Migration grammar / SQL | `3.reference/2.migration-sql-grammar.md` and `1.apps/5.persistence/7.migrations.md` |
+| Public API: services, decorators, CRI, SDK | `1.apps/4.services/*`, `3.reference/1.decorators.md`, `3.reference/4.cri-format.md`, `3.reference/5.sdk-packages.md` |
+
+When dropping or renaming public concepts, grep the docsite for stale references before considering the change complete:
+
+```bash
+grep -rn "<old-name>" website/content/
+```
+
+In-repo docs (`docs/local-oidc-setup.md`, `docs/*.md`, module READMEs, javadoc) are operational/developer docs that complement the docsite, not replace it. They get the same scrutiny but the docsite is the canonical source for user-facing content.

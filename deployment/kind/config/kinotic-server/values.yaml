@@ -31,32 +31,19 @@ properties:
   bplJvmHeadRoom: 10
 
 kinotic:
+  # KinD exposes the cluster ingress on host port 443 (TLS via mkcert) or 9090 (plain).
+  # appBaseUrl gets re-set from terraform based on use_mkcert; default here covers TLS.
+  appBaseUrl: "https://localhost"
+  # SPA is hosted outside the cluster — no static server inside.
+  webServer:
+    enabled: false
+  email:
+    enabled: false
   elastic:
     connections:
       - host: "kinotic-es-es-http.elastic.svc"
         port: 9200
         scheme: "http"
-
-# OIDC (configured when enable_keycloak=true via terraform set)
-oidc:
-  debug: true
-  frontendConfigurationPath: "/app-config.override.json"
-  oidcProviders:
-    - provider: "keycloak"
-      displayName: "Keycloak"
-      enabled: true
-      rolesClaimPath: "realm_access.roles"
-      domains:
-        - "example.com"
-      roles:
-        - "admin"
-      audience: "kinotic-client"
-      clientId: "kinotic-client"
-      authority: "https://localhost:8888/auth/realms/test"
-      backchannelAuthority: "https://keycloak:8888/auth/realms/test"
-      redirectUri: "https://localhost/login"
-      postLogoutRedirectUri: "https://localhost"
-      silentRedirectUri: "https://localhost/silent-renew.html"
 
 # Platform secrets — KinD path: terraform creates a k8s Secret named below with the
 # JWT signing keys and secret-storage master keys. Pod mounts it directly (no CSI).

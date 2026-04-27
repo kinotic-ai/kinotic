@@ -19,7 +19,7 @@ export class Base{{ entityName }}Repository extends EntityRepository<{{ entityNa
     this.shouldValidate = shouldValidate
   }
 
-  protected async beforeSaveOrUpdate(entity: {{ entityName }}): Promise<{{ entityName }}> {
+  protected override async beforeSaveOrUpdate(entity: {{ entityName }}): Promise<{{ entityName }}> {
     if (this.shouldValidate) {
       return this.validate(entity)
     } else {
@@ -27,7 +27,7 @@ export class Base{{ entityName }}Repository extends EntityRepository<{{ entityNa
     }
   }
 
-  protected async beforeBulkSaveOrUpdate(entities: {{ entityName }}[]): Promise<{{ entityName }}[]> {
+  protected override async beforeBulkSaveOrUpdate(entities: {{ entityName }}[]): Promise<{{ entityName }}[]> {
     if (this.shouldValidate) {
       const validatedEntities: {{ entityName }}[] = []
       for (let entity of entities) {

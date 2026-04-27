@@ -13,10 +13,9 @@ import java.util.List;
  * A standalone, reusable OIDC provider configuration. Has no embedded scope or ownership —
  * the association between OIDC configs and the scopes that use them is stored on the consuming
  * entity (KinoticSystem, Organization, Application) via {@code oidcConfigurationIds}.
- * <p>
- * Configs with {@code builtIn=true} are platform-provided (e.g., Google, Microsoft) and
- * immutable for organization/application administrators. They can be browsed and enabled
- * by adding the config ID to a scope entity's {@code oidcConfigurationIds} list.
+ * Platform configs are bootstrapped from {@code kinotic.oidc.platformProviders[]} via
+ * {@code PlatformOidcBootstrap} and referenced from {@link org.kinotic.os.api.model.KinoticSystem};
+ * per-org SSO configs are referenced from {@link org.kinotic.os.api.model.Organization}.
  */
 @Getter
 @Setter
@@ -40,16 +39,18 @@ public class OidcConfiguration implements Identifiable<String> {
     private String provider;
 
     /**
-     * When {@code true}, this is a platform-provided configuration that is immutable for
-     * organization and application administrators. They can enable it but not modify or delete it.
-     */
-    private boolean builtIn;
-
-    /**
      * The OAuth 2.0 client identifier issued by the provider when Kinotic OS was registered as an application.
      * Sent during the authorization flow and used to validate the JWT's audience claim.
      */
     private String clientId;
+
+    /**
+     * Reference to the OAuth 2.0 client secret stored in {@code SecretStorageService}.
+     * The value is looked up at use time via {@code secretStorageService.getSecret(secretScope, clientSecretRef)};
+     * the secret itself never lives on this entity or in Elasticsearch. Null for public-client providers
+     * (e.g. Apple, some pure SPA flows) that do not require a client secret.
+     */
+    private String clientSecretRef;
 
     /**
      * The browser-facing issuer URL. Must match the {@code iss} claim in JWTs from this provider.
@@ -108,6 +109,14 @@ public class OidcConfiguration implements Identifiable<String> {
      * it is referenced by a scope's {@code oidcConfigurationIds} list.
      */
     private boolean enabled;
+
+    /**
+     * How new identities from this provider are handled on first successful OIDC callback.
+     * Defaults to {@link UserProvisioningMode#AUTO} — matches the "Continue with Google just
+     * works" UX. Set to {@link UserProvisioningMode#REGISTRATION_REQUIRED} when admins want
+     * users to accept ToS or pick options before their account is created.
+     */
+    private UserProvisioningMode provisioningMode = UserProvisioningMode.AUTO;
 
     /**
      * Timestamp when this configuration was first created.

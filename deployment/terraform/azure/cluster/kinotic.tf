@@ -29,16 +29,36 @@ resource "helm_release" "kinotic_server" {
     { name = "tls.secretName", value = var.tls_secret_name },
     { name = "image.tag", value = var.kinotic_version },
     { name = "migration.image.tag", value = var.kinotic_version },
+    # SPA is hosted on Azure Storage (Static Web Apps) — no static server inside the cluster.
+    { name = "kinotic.webServer.enabled", value = "false" },
+    # Where the SPA lives — used for verification email links and post-OIDC SPA redirects.
+    { name = "kinotic.appBaseUrl", value = "https://portal.${local.global.dns_zone_name}" },
+    # Where the backend lives — used as the OIDC redirect_uri so the IdP returns the
+    # browser to the AKS-hosted /api/{login,signup}/callback/* path, not the SPA's domain.
+    { name = "kinotic.apiBaseUrl", value = "https://api.${local.global.dns_zone_name}" },
     # Workload identity for Azure Key Vault access
     { name = "workloadIdentity.enabled", value = "true" },
     { name = "workloadIdentity.clientId", value = azurerm_user_assigned_identity.kinotic_server.client_id },
-    # Key Vault config
+    # Cluster Key Vault for tenant/app secrets
     { name = "extraEnv.KINOTIC_SECRET_STORAGE_BACKEND", value = "azure" },
     { name = "extraEnv.KINOTIC_SECRET_STORAGE_AZURE_VAULT_URL", value = azurerm_key_vault.main.vault_uri },
     # Email (Azure Communication Services) — shared service from global terraform
     { name = "extraEnv.KINOTIC_EMAIL_BACKEND", value = "azure" },
     { name = "extraEnv.KINOTIC_EMAIL_AZURE_ENDPOINT", value = local.global.email_service_endpoint },
     { name = "extraEnv.KINOTIC_EMAIL_AZURE_SENDER_DOMAIN", value = local.global.email_sender_domain },
+    # Platform secrets (JWT signing + secret-storage masterKey) from the global Key Vault
+    { name = "platformSecrets.keyVault.name", value = local.global.platform_key_vault_name },
+    { name = "platformSecrets.keyVault.tenantId", value = local.global.tenant_id },
+    # OIDC client secrets — same vault, separate object set keyed by configId
+    { name = "oidcSecrets.keyVault.name", value = local.global.platform_key_vault_name },
+    { name = "oidcSecrets.keyVault.tenantId", value = local.global.tenant_id },
+    { name = "oidcSecrets.objects[0]", value = "entra-platform" },
+    # Platform OIDC provider — wires the Entra app from global terraform
+    { name = "kinotic.oidc.platformProviders[0].id", value = "entra-platform" },
+    { name = "kinotic.oidc.platformProviders[0].name", value = "Microsoft" },
+    { name = "kinotic.oidc.platformProviders[0].provider", value = "azure-ad" },
+    { name = "kinotic.oidc.platformProviders[0].clientId", value = local.global.kinotic_oidc_client_id },
+    { name = "kinotic.oidc.platformProviders[0].authority", value = local.global.kinotic_oidc_authority },
   ]
 
   depends_on = [

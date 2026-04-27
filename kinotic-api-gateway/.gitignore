@@ -8,3 +8,6 @@ log
 
 ### MAC SPECIFIC ###
 *.DS_Store
+
+## no longer track our webroot, that will happen at build time
+src/main/resources/webroot
