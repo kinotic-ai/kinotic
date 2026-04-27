@@ -99,6 +99,7 @@ public class TestDataService {
     public CompletableFuture<EntityDefinition> createCarEntityDefinition(String structureNameSuffix) {
         EntityDefinition structure = new EntityDefinition();
         structure.setName("Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
+        structure.setOrganizationId("kinotic");
         structure.setApplicationId("org.kinotic.sample");
         structure.setProjectId("org.kinotic.sample_default");
         structure.setDescription("Defines a Car");
@@ -184,6 +185,7 @@ public class TestDataService {
     public CompletableFuture<EntityDefinition> createPersonEntityDefinition(String structureNameSuffix) {
         EntityDefinition structure = new EntityDefinition();
         structure.setName("Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
+        structure.setOrganizationId("kinotic");
         structure.setApplicationId("org.kinotic.sample");
         structure.setProjectId("org.kinotic.sample_default");
         structure.setDescription("Defines a Person");

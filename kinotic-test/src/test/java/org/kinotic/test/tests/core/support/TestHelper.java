@@ -1,5 +1,7 @@
 package org.kinotic.test.tests.core.support;
 
+import io.vertx.core.Vertx;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.services.EntitiesRepository;
@@ -20,6 +22,7 @@ import tools.jackson.databind.util.TokenBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 @Component
 public class TestHelper {
@@ -32,6 +35,30 @@ public class TestHelper {
 
     @Autowired
     private EntitiesRepository entitiesRepository;
+
+    @Autowired
+    private Vertx vertx;
+
+    @Autowired
+    private SecurityContext securityContext;
+
+    /**
+     * Runs the supplier on a Vert.x context with elevated access set so that
+     * org-scope enforcement on {@code OrganizationScoped} entities is skipped.
+     */
+    public <T> CompletableFuture<T> elevated(Supplier<CompletableFuture<T>> supplier) {
+        CompletableFuture<T> result = new CompletableFuture<>();
+        vertx.getOrCreateContext().runOnContext(v ->
+                securityContext.withElevatedAccess(supplier)
+                               .whenComplete((value, error) -> {
+                                   if (error != null) {
+                                       result.completeExceptionally(error);
+                                   } else {
+                                       result.complete(value);
+                                   }
+                               }));
+        return result;
+    }
 
 
     public StructureAndPersonHolder createAndVerify(){
@@ -72,7 +99,7 @@ public class TestHelper {
         } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
-        return entitiesRepository.bulkUpdate(entityDefinition.getId(), tokenBuffer, entityContext);
+        return elevated(() -> entitiesRepository.bulkUpdate(entityDefinition.getId(), tokenBuffer, entityContext));
     }
 
     public CompletableFuture<Void> bulkSaveCarsAsRawJson(List<Car> cars, EntityDefinition entityDefinition, EntityContext entityContext){
@@ -82,7 +109,7 @@ public class TestHelper {
         } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
-        return entitiesRepository.bulkSave(entityDefinition.getId(), tokenBuffer, entityContext);
+        return elevated(() -> entitiesRepository.bulkSave(entityDefinition.getId(), tokenBuffer, entityContext));
     }
 
     public CompletableFuture<Car> saveCarAsRawJson(Car car, EntityDefinition entityDefinition, EntityContext entityContext){
@@ -92,7 +119,7 @@ public class TestHelper {
         } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
-        return entitiesRepository.save(entityDefinition.getId(), tokenBuffer, entityContext)
+        return elevated(() -> entitiesRepository.save(entityDefinition.getId(), tokenBuffer, entityContext))
                                  .thenApply(saved -> {
                                   try (JsonParser parser = saved.asParser()) {
                                       return objectMapper.readValue(parser, Car.class);
@@ -111,7 +138,7 @@ public class TestHelper {
             return CompletableFuture.failedFuture(e);
         }
 
-        return entitiesRepository.update(entityDefinition.getId(), tokenBuffer, entityContext)
+        return elevated(() -> entitiesRepository.update(entityDefinition.getId(), tokenBuffer, entityContext))
                                  .thenApply(saved -> {
                                   try (JsonParser parser = saved.asParser()) {
                                       return objectMapper.readValue(parser, Car.class);
@@ -133,7 +160,7 @@ public class TestHelper {
                                                                            boolean randomPeople,
                                                                            EntityContext entityContext,
                                                                            String structureNameSuffix){
-        return Mono.fromFuture(() -> testDataService
+        return Mono.fromFuture(() -> elevated(() -> testDataService
                 .createPersonEntityDefinitionIfNotExists(structureNameSuffix)
                 .thenCompose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
                                              .thenCompose(people -> {
@@ -167,14 +194,14 @@ public class TestHelper {
                                                                              }
                                                                              return holder;
                                                                          });
-                                             })));
+                                             }))));
     }
 
     public Mono<StructureAndPersonHolder> createPersonStructureAndEntitiesBulk(int numberOfPeopleToCreate,
                                                                                boolean randomPeople,
                                                                                EntityContext entityContext,
                                                                                String structureNameSuffix){
-        return Mono.fromFuture(() -> testDataService
+        return Mono.fromFuture(() -> elevated(() -> testDataService
                 .createPersonEntityDefinitionIfNotExists(structureNameSuffix)
                 .thenCompose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
                                              .thenCompose(people -> {
@@ -193,7 +220,7 @@ public class TestHelper {
                                                                  .completedFuture(new StructureAndPersonHolder(
                                                                          entityDefinition,
                                                                          people)));
-                                             })));
+                                             }))));
     }
 
 
