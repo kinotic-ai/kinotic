@@ -36,9 +36,14 @@ properties:
 #   kinotic.ignite.*       → cluster (set in application-kubernetes.yml)
 #   kinotic.ssl.*          → TLS (set via tls.enabled below)
 kinotic:
-  # Public base URL of the deployment (no trailing slash) — used for OIDC redirect_uri
-  # construction and outbound email links. Must be set per-environment.
+  # Public base URL of the SPA (no trailing slash) — used for verification email links
+  # and post-OIDC SPA redirects. Must be set per-environment.
   appBaseUrl: "http://localhost:9090"
+  # Public base URL of the backend REST endpoints (no trailing slash) — used as the OIDC
+  # redirect_uri. Set this when the SPA and backend live on different origins (e.g. SPA on
+  # Azure Static Web Apps, backend on AKS). Leave empty to fall back to appBaseUrl, which
+  # is correct for any same-origin deploy.
+  apiBaseUrl: ""
   # kinotic.email.* — outbound mail via Azure Communication Services
   email:
     # When false, EmailService logs verification URLs instead of sending. Required for

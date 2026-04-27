@@ -53,6 +53,7 @@ declare module 'vue' {
     SideBar: typeof import('./src/components/SideBar.vue')['default']
     SidebarItem: typeof import('./src/components/SidebarItem.vue')['default']
     SideNav: typeof import('./src/components/SideNav.vue')['default']
+    SocialAuthButton: typeof import('./src/components/SocialAuthButton.vue')['default']
     StructureDataViewModal: typeof import('./src/components/modals/StructureDataViewModal.vue')['default']
     StructureItemModal: typeof import('./src/components/modals/StructureItemModal.vue')['default']
     StructureNode: typeof import('./src/components/structures/flow-components/StructureNode.vue')['default']

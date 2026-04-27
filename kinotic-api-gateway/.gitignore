@@ -11,4 +11,3 @@ log
 
 ## no longer track our webroot, that will happen at build time
 src/main/resources/webroot
-

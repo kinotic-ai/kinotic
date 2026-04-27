@@ -8,7 +8,8 @@ data "kubernetes_service" "kinotic_server" {
   depends_on = [helm_release.kinotic_server]
 }
 
-# api.<domain> → kinotic-server LB (STOMP/WebSocket only)
+# api.<domain> → kinotic-server LB (port 58503 hosts both STOMP/WebSocket and the
+# /api/* REST endpoints — login, signup, OIDC callbacks).
 resource "azurerm_dns_a_record" "api" {
   name                = "api"
   zone_name           = local.global.dns_zone_name

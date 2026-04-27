@@ -12,6 +12,9 @@ data:
 
   # ── Public URL + email ────────────────────────────────────
   KINOTIC_APPBASEURL: "{{ .Values.kinotic.appBaseUrl }}"
+  {{- if .Values.kinotic.apiBaseUrl }}
+  KINOTIC_APIBASEURL: "{{ .Values.kinotic.apiBaseUrl }}"
+  {{- end }}
   KINOTIC_EMAIL_ENABLED: "{{ .Values.kinotic.email.enabled }}"
   {{- if .Values.kinotic.email.enabled }}
   KINOTIC_EMAIL_ENDPOINT: "{{ required "kinotic.email.endpoint is required when email is enabled" .Values.kinotic.email.endpoint }}"

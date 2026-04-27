@@ -16,17 +16,13 @@
           <div class="login-form">
             <!-- Platform social buttons (Google, Microsoft, etc.) — fetched from /api/login/providers -->
             <div v-if="providers.length > 0" class="login-providers">
-              <form
+              <SocialAuthButton
                 v-for="provider in providers"
                 :key="provider"
-                method="post"
+                :provider="provider"
                 :action="apiUrl('/api/login/start/' + provider)"
-                class="login-provider-form"
-              >
-                <button type="submit" class="login-provider__button">
-                  <span class="login-provider__label">Continue with {{ providerLabel(provider) }}</span>
-                </button>
-              </form>
+                intent="sign-in"
+              />
               <div class="login-divider"><span>or</span></div>
             </div>
 
@@ -130,6 +126,7 @@ import loginPageLeft from '@/assets/login-page-left.svg'
 import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
 import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
 import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
+import SocialAuthButton from '@/components/SocialAuthButton.vue'
 import '@/pages/auth-pages.css'
 
 const debug = createDebug('login')
@@ -142,7 +139,7 @@ interface LookupResponse {
 }
 
 @Component({
-  components: { InputText, Password, Button, Toast, IconField }
+  components: { InputText, Password, Button, Toast, IconField, SocialAuthButton }
 })
 export default class Login extends Vue {
   email: string = ''
@@ -280,11 +277,6 @@ export default class Login extends Vue {
     this.password = ''
     this.step = 'email'
     this.$nextTick(() => this.focusEmailInput())
-  }
-
-  providerLabel(provider: string): string {
-    // Light pretty-printer; full branding lives elsewhere.
-    return provider.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
   }
 
   apiUrl(path: string): string { return apiUrl(path) }

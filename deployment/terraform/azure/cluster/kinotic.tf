@@ -31,8 +31,11 @@ resource "helm_release" "kinotic_server" {
     { name = "migration.image.tag", value = var.kinotic_version },
     # SPA is hosted on Azure Storage (Static Web Apps) — no static server inside the cluster.
     { name = "kinotic.webServer.enabled", value = "false" },
-    # Public URL for OIDC redirect_uri + email links
+    # Where the SPA lives — used for verification email links and post-OIDC SPA redirects.
     { name = "kinotic.appBaseUrl", value = "https://portal.${local.global.dns_zone_name}" },
+    # Where the backend lives — used as the OIDC redirect_uri so the IdP returns the
+    # browser to the AKS-hosted /api/{login,signup}/callback/* path, not the SPA's domain.
+    { name = "kinotic.apiBaseUrl", value = "https://api.${local.global.dns_zone_name}" },
     # Workload identity for Azure Key Vault access
     { name = "workloadIdentity.enabled", value = "true" },
     { name = "workloadIdentity.clientId", value = azurerm_user_assigned_identity.kinotic_server.client_id },

@@ -26,10 +26,31 @@ public class KinoticProperties {
     public static long DEFAULT_SESSION_TIMEOUT = 1000 * 60 * 30;
 
     /**
-     * Public-facing base URL of the application (scheme + host + optional port, no trailing slash).
-     * Used to build absolute links in outbound communications such as verification emails.
+     * Public-facing base URL of the SPA (scheme + host + optional port, no trailing slash).
+     * Used to build absolute links to user-visible SPA routes — e.g. the verification email link
+     * sent to new sign-ups, or post-login redirects after an OIDC roundtrip.
      */
     private String appBaseUrl = "http://localhost:9090";
+
+    /**
+     * Public-facing base URL the backend serves its REST endpoints under (scheme + host + optional
+     * port, no trailing slash). Used as the OIDC {@code redirect_uri} so the IdP returns the
+     * browser to {@code /api/login/callback/<id>} on the backend, not on the SPA.
+     * <p>
+     * Set this when the SPA and backend live on different origins (Azure Static Web Apps + AKS).
+     * When left null the platform falls back to {@link #appBaseUrl} — fine for dev and any deploy
+     * where the SPA is served from the same origin as the API.
+     */
+    private String apiBaseUrl = null;
+
+    /**
+     * Returns {@link #apiBaseUrl} when set, otherwise falls back to {@link #appBaseUrl}.
+     * Use this when constructing OIDC {@code redirect_uri} values so split-origin deploys
+     * (SPA + AKS on different domains) work without breaking same-origin defaults.
+     */
+    public String resolveApiBaseUrl() {
+        return (apiBaseUrl != null && !apiBaseUrl.isBlank()) ? apiBaseUrl : appBaseUrl;
+    }
 
     /**
      * If true, additional information will be provided to clients,

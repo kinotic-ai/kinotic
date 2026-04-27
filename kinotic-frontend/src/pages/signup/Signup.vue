@@ -17,17 +17,13 @@
 
             <!-- Social signup — IdP returns identity, then user picks an org name on /register -->
             <div v-if="providers.length > 0" class="signup-providers">
-              <form
+              <SocialAuthButton
                 v-for="provider in providers"
                 :key="provider"
-                method="post"
+                :provider="provider"
                 :action="apiUrl('/api/signup/start/' + provider)"
-                class="signup-provider-form"
-              >
-                <button type="submit" class="login-provider__button">
-                  <span>Sign up with {{ providerLabel(provider) }}</span>
-                </button>
-              </form>
+                intent="sign-up"
+              />
               <div class="login-divider"><span>or with email</span></div>
             </div>
 
@@ -120,6 +116,7 @@ import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
 import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
 import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
 import { apiUrl } from '@/util/helpers'
+import SocialAuthButton from '@/components/SocialAuthButton.vue'
 import '@/pages/auth-pages.css'
 
 @Component({
@@ -127,6 +124,7 @@ import '@/pages/auth-pages.css'
     InputText,
     Button,
     Toast,
+    SocialAuthButton,
   }
 })
 export default class Signup extends Vue {
@@ -156,10 +154,6 @@ export default class Signup extends Vue {
     } catch {
       // No social providers configured — silent; the email/password form still works.
     }
-  }
-
-  providerLabel(provider: string): string {
-    return provider.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
   }
 
   apiUrl(path: string): string { return apiUrl(path) }
@@ -279,10 +273,9 @@ export default class Signup extends Vue {
 
 .signup-providers {
   width: min(100%, 20rem);
-  margin-bottom: 1rem;
-}
-
-.signup-provider-form {
-  margin: 0 0 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0.5rem 0 1.5rem;
 }
 </style>

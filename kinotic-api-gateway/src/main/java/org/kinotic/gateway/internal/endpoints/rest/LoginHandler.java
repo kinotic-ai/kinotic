@@ -455,10 +455,11 @@ public class LoginHandler {
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private String callbackUrl(String configId) {
-        String base = gatewayProperties.getAppBaseUrl();
+        String base = gatewayProperties.resolveApiBaseUrl();
         if (base == null || base.isBlank()) {
             throw new IllegalStateException(
-                    "kinotic.appBaseUrl is not configured — required for OIDC redirect_uri construction");
+                    "kinotic.apiBaseUrl (or kinotic.appBaseUrl) is not configured — "
+                    + "required for OIDC redirect_uri construction");
         }
         return base + "/api/login/callback/" + configId;
     }

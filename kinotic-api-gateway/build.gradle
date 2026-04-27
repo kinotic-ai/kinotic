@@ -30,3 +30,10 @@ dependencies {
     testImplementation 'io.vertx:vertx-web-client'
     testImplementation 'org.awaitility:awaitility'
 }
+
+// kinotic-frontend builds the SPA into src/main/resources/webroot here, where the runtime
+// StaticHandler picks it up from the classpath. Without this dep the alphabetical order runs
+// api-gateway tasks before kinotic-frontend, so the jar would be packaged with an empty webroot.
+tasks.named('processResources').configure {
+    dependsOn ':kinotic-frontend:copyDist'
+}
