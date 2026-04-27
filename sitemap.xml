@@ -73,6 +73,9 @@
     <loc>/platform/configuration</loc>
   </url>
   <url>
+    <loc>/platform/organization-management</loc>
+  </url>
+  <url>
     <loc>/platform/system-security</loc>
   </url>
   <url>
