@@ -58,7 +58,7 @@ public class EmailService {
                                                          String verificationToken) {
         String verificationUrl = properties.getAppBaseUrl() + VERIFICATION_PATH + verificationToken;
 
-        if (!properties.getEmail().isEnabled()) {
+        if (!properties.getDomain().getEmail().isEnabled()) {
             log.warn("Email sending is disabled; verification URL for {} <{}>: {}",
                     displayName, email, verificationUrl);
             return CompletableFuture.completedFuture(null);
@@ -75,7 +75,7 @@ public class EmailService {
         String textBody = getOrBuildTextTemplateEngine().process("verification-email", ctx);
 
         EmailMessage message = new EmailMessage()
-                .setSenderAddress(properties.getEmail().getSenderAddress())
+                .setSenderAddress(properties.getDomain().getEmail().getSenderAddress())
                 .setToRecipients(List.of(new EmailAddress(email).setDisplayName(displayName)))
                 .setSubject(VERIFICATION_SUBJECT)
                 .setBodyHtml(htmlBody)
@@ -83,7 +83,7 @@ public class EmailService {
 
         return CompletableFuture.supplyAsync(() -> {
             SyncPoller<EmailSendResult, EmailSendResult> poller = client.beginSend(message);
-            poller.waitForCompletion(properties.getEmail().getSendTimeout());
+            poller.waitForCompletion(properties.getDomain().getEmail().getSendTimeout());
             EmailSendResult result = poller.getFinalResult();
 
             if (result.getStatus() == EmailSendStatus.SUCCEEDED) {
@@ -108,11 +108,11 @@ public class EmailService {
                 client = emailClient;
                 if (client == null) {
                     DefaultAzureCredentialBuilder credBuilder = new DefaultAzureCredentialBuilder();
-                    if (StringUtils.hasText(properties.getEmail().getManagedIdentityClientId())) {
-                        credBuilder.managedIdentityClientId(properties.getEmail().getManagedIdentityClientId());
+                    if (StringUtils.hasText(properties.getDomain().getEmail().getManagedIdentityClientId())) {
+                        credBuilder.managedIdentityClientId(properties.getDomain().getEmail().getManagedIdentityClientId());
                     }
                     client = new EmailClientBuilder()
-                            .endpoint(properties.getEmail().getEndpoint())
+                            .endpoint(properties.getDomain().getEmail().getEndpoint())
                             .credential(credBuilder.build())
                             .buildClient();
                     emailClient = client;

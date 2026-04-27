@@ -1,8 +1,9 @@
 package org.kinotic.os.api.model;
 
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.core.api.crud.Identifiable;
 
 import java.util.Date;
 import java.util.List;
@@ -28,8 +29,4 @@ public class Application implements OrganizationScoped<String> {
         this.description = description;
     }
 
-    @Override
-    public void setOrganizationId(String organizationId) {
-        this.organizationId = organizationId;
-    }
 }

@@ -11,6 +11,4 @@ public interface ApplicationScoped<T> extends OrganizationScoped<T> {
 
     String getApplicationId();
 
-    void setApplicationId(String applicationId);
-
 }

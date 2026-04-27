@@ -19,30 +19,14 @@ import org.springframework.stereotype.Component;
 public class KinoticApiGatewayProperties extends KinoticProperties {
 
     /**
-     * If true, RPC gateway functionality will not be loaded.
+     * If true, API gateway functionality will not be loaded.
      */
-    private boolean disableRpcGateway = false;
+    private boolean disableApiGateway = false;
 
     /**
-     * RPC gateway properties configuration
+     * API gateway properties configuration
      */
-    private ApiGatewayProperties rpcGateway = new ApiGatewayProperties(this);
+    private ApiGatewayProperties apiGateway = new ApiGatewayProperties(this);
 
-    /**
-     * OIDC login flow configuration.
-     */
-    private OidcLoginProperties login = new OidcLoginProperties();
-
-    /**
-     * Static-file web server configuration. Disabled in KinD/Azure where the SPA
-     * is hosted outside the cluster.
-     */
-    private WebServerProperties webServer = new WebServerProperties();
-
-    /**
-     * Path the health-check endpoint is mounted at on the api-gateway router.
-     * (CORS is inherited from {@link KinoticProperties#getCors()} — applies platform-wide.)
-     */
-    private String healthCheckPath = "/health";
 
 }

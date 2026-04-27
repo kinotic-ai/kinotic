@@ -10,7 +10,7 @@ import lombok.experimental.Accessors;
 @Getter
 @Setter
 @Accessors(chain = true)
-public class AzureSettings {
+public class AzureProperties {
     /**
      * The full URL of the Azure Key Vault instance (e.g. {@code https://my-vault.vault.azure.net/}).
      */

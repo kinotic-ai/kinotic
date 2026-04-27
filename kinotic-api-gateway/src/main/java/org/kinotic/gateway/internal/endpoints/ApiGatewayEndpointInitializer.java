@@ -36,8 +36,8 @@ public class ApiGatewayEndpointInitializer {
         log.info("Deploying {} Stomp Server Endpoint(s)", numToDeploy);
         vertx.deployVerticle(apiGatewayVertcleFactory::createApiGatewayVerticle, options);
 
-        if (apiGatewayProperties.getWebServer().isEnabled()) {
-            log.info("Deploying static web server on port {}", apiGatewayProperties.getWebServer().getPort());
+        if (apiGatewayProperties.getApiGateway().getWebServer().isEnabled()) {
+            log.info("Deploying static web server on port {}", apiGatewayProperties.getApiGateway().getWebServer().getPort());
             vertx.deployVerticle(apiGatewayVertcleFactory::createWebServerVerticle, new DeploymentOptions());
         }
     }

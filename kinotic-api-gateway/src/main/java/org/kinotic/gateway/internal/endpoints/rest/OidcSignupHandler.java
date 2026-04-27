@@ -309,9 +309,7 @@ public class OidcSignupHandler {
     }
 
     private void redirectToCompleteOrg(RoutingContext ctx, String token) {
-        // Reuses the registerPath property — frontend handles both the REGISTRATION_REQUIRED
-        // (login flow) completion and the social-signup org-name form on the same page.
-        String path = gatewayProperties.getLogin().getRegisterPath();
+        String path = OidcConstants.REGISTER_PATH;
         ctx.response().setStatusCode(302)
            .putHeader("Location", path + "?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8))
            .end();
@@ -320,7 +318,7 @@ public class OidcSignupHandler {
     private void redirectToError(RoutingContext ctx, String errorCode) {
         // Errors during signup go back to the login page so the frontend can show the right
         // message ("account exists, log in" etc.). Kept consistent with login-side error UX.
-        String path = gatewayProperties.getLogin().getLoginErrorPath();
+        String path = OidcConstants.LOGIN_ERROR_PATH;
         ctx.response().setStatusCode(302)
            .putHeader("Location", path + "?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8))
            .end();

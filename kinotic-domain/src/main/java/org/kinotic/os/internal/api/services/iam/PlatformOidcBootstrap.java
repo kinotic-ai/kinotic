@@ -49,7 +49,7 @@ public class PlatformOidcBootstrap {
 
     @PostConstruct
     public void start() {
-        PlatformOidcProperties oidc = properties.getOidc();
+        PlatformOidcProperties oidc = properties.getDomain().getOidc();
         if (oidc == null || oidc.getPlatformProviders() == null || oidc.getPlatformProviders().isEmpty()) {
             log.info("No platform OIDC providers configured; skipping bootstrap");
             return;

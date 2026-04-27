@@ -1,10 +1,10 @@
 package org.kinotic.os.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
@@ -209,14 +209,15 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
      * Autopopulates or validates the organization id on the entity before a save. When the field is unset it is
      * populated with the participant's organization id; when set it must equal the participant's organization id.
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("unchecked") // safe because we know the entity is OrganizationScoped
     private void enforceOrgOnSave(T entity) {
         String orgId = requireOrganizationId();
         OrganizationScoped<String> scoped = (OrganizationScoped<String>) entity;
         String entityOrgId = scoped.getOrganizationId();
-        if (entityOrgId == null || entityOrgId.isBlank()) {
-            scoped.setOrganizationId(orgId);
-        } else if (!orgId.equals(entityOrgId)) {
+
+        Validate.notBlank(entityOrgId, "Organization id must be set on " + type.getSimpleName());
+
+        if (!orgId.equals(entityOrgId)) {
             throw new AuthorizationException(
                     "Cannot save " + type.getSimpleName()
                     + " with organizationId '" + entityOrgId

@@ -3,7 +3,7 @@ package org.kinotic.core.internal.secret;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.security.keyvault.secrets.SecretAsyncClient;
 import com.azure.security.keyvault.secrets.SecretClientBuilder;
-import org.kinotic.core.api.config.AzureSettings;
+import org.kinotic.core.api.config.AzureProperties;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -18,7 +18,7 @@ public class AzureKeyVaultBackend implements SecretStorageBackend {
 
     private final SecretAsyncClient client;
 
-    public AzureKeyVaultBackend(AzureSettings settings) {
+    public AzureKeyVaultBackend(AzureProperties settings) {
         if (settings == null || settings.getVaultUrl() == null) {
             throw new IllegalArgumentException("Azure vault URL must be configured when using azure backend");
         }

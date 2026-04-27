@@ -14,7 +14,7 @@ import lombok.experimental.Accessors;
 @Getter
 @Setter
 @Accessors(chain = true)
-public class SecretStorageSettings {
+public class SecretStorageProperties {
     /**
      * Backend type. If null, in-memory storage is used.
      */
@@ -22,9 +22,9 @@ public class SecretStorageSettings {
     /**
      * Azure Key Vault settings. Required when {@code backend} is {@link SecretStorageBackendType#AZURE}.
      */
-    private AzureSettings azure;
+    private AzureProperties azure;
     /**
      * Chronicle Map settings. Required when {@code backend} is {@link SecretStorageBackendType#HFT}.
      */
-    private ChronicleMapSettings chronicleMap;
+    private ChronicleMapProperties chronicleMap;
 }

@@ -11,6 +11,4 @@ public interface ProjectScoped<T> extends ApplicationScoped<T> {
 
     String getProjectId();
 
-    void setProjectId(String projectId);
-
 }

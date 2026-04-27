@@ -121,7 +121,7 @@ public class KinoticProperties {
     /**
      * Secret storage configuration. If null, an in-memory backend is used.
      */
-    private SecretStorageSettings secretStorage;
+    private SecretStorageProperties secretStorage;
 
     /**
      * Paths to platform-level secret files (JWT signing keys, secret-storage master keys).

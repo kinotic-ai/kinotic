@@ -10,7 +10,7 @@ import lombok.experimental.Accessors;
 @Getter
 @Setter
 @Accessors(chain = true)
-public class ChronicleMapSettings {
+public class ChronicleMapProperties {
     /**
      * Path to the Chronicle Map file on disk where secrets are persisted.
      */

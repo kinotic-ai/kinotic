@@ -31,6 +31,7 @@ import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.os.api.services.iam.LocalAuthenticationService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.os.api.services.iam.PendingRegistrationService;
+import org.kinotic.os.internal.api.model.iam.IamCredential;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
@@ -474,14 +475,14 @@ public class LoginHandler {
     }
 
     private void redirectSuccess(RoutingContext ctx, String jwt) {
-        String path = gatewayProperties.getLogin().getLoginSuccessPath();
+        String path = OidcConstants.LOGIN_SUCCESS_PATH;
         ctx.response().setStatusCode(302)
            .putHeader("Location", path + "#token=" + URLEncoder.encode(jwt, StandardCharsets.UTF_8))
            .end();
     }
 
     private void redirectToError(RoutingContext ctx, String errorCode) {
-        String path = gatewayProperties.getLogin().getLoginErrorPath();
+        String path = OidcConstants.LOGIN_ERROR_PATH;
         ctx.response().setStatusCode(302)
            .putHeader("Location", path + "?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8))
            .end();

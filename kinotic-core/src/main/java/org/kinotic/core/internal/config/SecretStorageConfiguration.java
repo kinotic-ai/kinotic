@@ -2,7 +2,7 @@ package org.kinotic.core.internal.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.core.api.config.SecretStorageSettings;
+import org.kinotic.core.api.config.SecretStorageProperties;
 import org.kinotic.core.internal.secret.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,7 +15,7 @@ public class SecretStorageConfiguration {
 
     @Bean
     public SecretStorageBackend secretStorageBackend(KinoticProperties properties) throws IOException {
-        SecretStorageSettings settings = properties.getSecretStorage();
+        SecretStorageProperties settings = properties.getSecretStorage();
         if (settings == null || settings.getBackend() == null) {
             log.info("No secret storage backend configured, using in-memory storage");
             return new InMemoryBackend();
@@ -26,12 +26,12 @@ public class SecretStorageConfiguration {
         };
     }
 
-    private ChronicleMapBackend createChronicleMapBackend(SecretStorageSettings settings) throws IOException {
+    private ChronicleMapBackend createChronicleMapBackend(SecretStorageProperties secretStorageProperties) throws IOException {
         log.info("Using Chronicle Map secret storage");
-        return new ChronicleMapBackend(settings.getChronicleMap());
+        return new ChronicleMapBackend(secretStorageProperties.getChronicleMap());
     }
 
-    private AzureKeyVaultBackend createAzureBackend(SecretStorageSettings settings) {
+    private AzureKeyVaultBackend createAzureBackend(SecretStorageProperties settings) {
         log.info("Using Azure Key Vault secret storage");
         return new AzureKeyVaultBackend(settings.getAzure());
     }

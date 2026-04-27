@@ -11,6 +11,4 @@ public interface OrganizationScoped<T> extends Identifiable<T> {
 
     String getOrganizationId();
 
-    void setOrganizationId(String organizationId);
-
 }

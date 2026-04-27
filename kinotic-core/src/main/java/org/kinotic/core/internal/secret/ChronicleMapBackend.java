@@ -1,7 +1,7 @@
 package org.kinotic.core.internal.secret;
 
 import net.openhft.chronicle.map.ChronicleMap;
-import org.kinotic.core.api.config.ChronicleMapSettings;
+import org.kinotic.core.api.config.ChronicleMapProperties;
 import org.springframework.beans.factory.DisposableBean;
 
 import java.io.File;
@@ -19,7 +19,7 @@ public class ChronicleMapBackend implements SecretStorageBackend, DisposableBean
 
     private final ChronicleMap<String, String> map;
 
-    public ChronicleMapBackend(ChronicleMapSettings settings) throws IOException {
+    public ChronicleMapBackend(ChronicleMapProperties settings) throws IOException {
         String filePath = System.getProperty("java.io.tmpdir") + "/kinotic-secrets.dat";
         int maxEntries = 10000;
         if (settings != null) {

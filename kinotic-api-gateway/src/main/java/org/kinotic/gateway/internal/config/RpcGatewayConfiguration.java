@@ -14,7 +14,7 @@ public class RpcGatewayConfiguration {
 
     @Bean
     public ApiGatewayProperties rpcGatewayProperties(KinoticApiGatewayProperties kinoticProperties){
-        return kinoticProperties.getRpcGateway();
+        return kinoticProperties.getApiGateway();
     }
 
 }

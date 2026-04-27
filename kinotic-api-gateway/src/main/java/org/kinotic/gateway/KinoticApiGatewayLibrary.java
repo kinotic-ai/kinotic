@@ -11,6 +11,6 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @EnableConfigurationProperties
 @ComponentScan
-@ConditionalOnProperty(value = "kinotic.disableRpcGateway", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(value = "kinotic.disableApiGateway", havingValue = "false", matchIfMissing = true)
 public class KinoticApiGatewayLibrary {
 }

@@ -21,6 +21,7 @@ import java.util.List;
 
 @Getter
 @Setter
+@Accessors(chain = true)
 @NoArgsConstructor
 public class EntityDefinition implements ProjectScoped<String> {
 
@@ -32,13 +33,13 @@ public class EntityDefinition implements ProjectScoped<String> {
 
     /**
      * The id of the application that this {@link EntityDefinition} belongs to.
-     * All application ids are unique throughout the entire system.
+     * All application ids are unique throughout the entire organization.
      */
     private String applicationId = null;
 
     /**
      * The id of the project that this {@link EntityDefinition} belongs to.
-     * All project ids are unique throughout the entire system.
+     * All project ids are unique throughout the entire organization.
      */
     private String projectId = null;
 

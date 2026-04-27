@@ -1,3 +1,12 @@
+
+-- Seed the KinoticSystem singleton
+INSERT INTO kinotic_system (id) VALUES ('kinotic-system') WITH REFRESH;
+
+-- Seed the default system administrator (password: kinotic)
+INSERT INTO kinotic_iam_user (id, email, displayName, authType, authScopeType, authScopeId, enabled) VALUES ('00000000-0000-0000-0000-000000000001', 'admin@kinotic.local', 'System Admin', 'LOCAL', 'SYSTEM', 'kinotic', true) WITH REFRESH;
+INSERT INTO kinotic_iam_credential (id, passwordHash) VALUES ('00000000-0000-0000-0000-000000000001', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
+
+
 -- Seed the kinotic-test organization used by end-to-end and core package tests
 INSERT INTO kinotic_organization (id, name, description) VALUES ('kinotic-test', 'kinotic-test', 'Organization used by kinotic end-to-end and core package tests') WITH REFRESH;
 

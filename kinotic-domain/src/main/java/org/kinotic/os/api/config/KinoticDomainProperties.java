@@ -18,14 +18,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class KinoticDomainProperties extends KinoticProperties {
 
-    /**
-     * Email / outbound-mail configuration.
-     */
-    private EmailProperties email = new EmailProperties();
-
-    /**
-     * Platform-wide OIDC providers (Google, Microsoft, etc.) bootstrapped at startup.
-     */
-    private PlatformOidcProperties oidc = new PlatformOidcProperties();
+    private DomainProperties domain = new DomainProperties();
 
 }

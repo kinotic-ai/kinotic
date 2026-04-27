@@ -48,7 +48,7 @@ public class ApiGatewayVertcleFactory {
                                     Vertx vertx) {
         this.kinoticProperties = kinoticProperties;
         this.apiGatewayProperties = kinoticApiGatewayProperties;
-        this.gatewayProperties = kinoticApiGatewayProperties.getRpcGateway();
+        this.gatewayProperties = kinoticApiGatewayProperties.getApiGateway();
         this.stompServerHandlerFactory = stompServerHandlerFactory;
         this.signUpHandler = signUpHandler;
         this.loginHandler = loginHandler;
@@ -68,7 +68,7 @@ public class ApiGatewayVertcleFactory {
 
         // Health check on the api-gateway port so probes work even when the static
         // web-server (9090) is disabled in KinD/Azure.
-        router.get(apiGatewayProperties.getHealthCheckPath())
+        router.get("/health")
               .handler(HealthCheckHandler.createWithHealthChecks(healthChecks));
 
         // REST endpoints under /api
@@ -88,6 +88,6 @@ public class ApiGatewayVertcleFactory {
     }
 
     public WebServerVerticle createWebServerVerticle(){
-        return new WebServerVerticle(apiGatewayProperties.getWebServer(), kinoticProperties.getSsl());
+        return new WebServerVerticle(apiGatewayProperties.getApiGateway().getWebServer(), kinoticProperties.getSsl());
     }
 }

@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS kinotic_iam_user (
     authScopeId KEYWORD,
     tenantId KEYWORD,
     enabled BOOLEAN,
+    primary BOOLEAN,
     created DATE,
     updated DATE
 );
@@ -78,6 +79,7 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     name KEYWORD,
     provider KEYWORD,
     clientId KEYWORD NOT INDEXED,
+    clientSecretRef KEYWORD NOT INDEXED,
     authority KEYWORD,
     backChannelAuthority KEYWORD NOT INDEXED,
     redirectUri KEYWORD NOT INDEXED,
@@ -87,6 +89,7 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     audience KEYWORD NOT INDEXED,
     rolesClaimPath KEYWORD NOT INDEXED,
     additionalScopes KEYWORD NOT INDEXED,
+    provisioningMode KEYWORD,
     enabled BOOLEAN,
     created DATE,
     updated DATE
@@ -110,6 +113,21 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     updated DATE
 );
 
+-- Pending OIDC registrations awaiting completion form submission
+CREATE TABLE IF NOT EXISTS kinotic_pending_registration (
+    id KEYWORD,
+    verificationToken KEYWORD,
+    expiresAt DATE,
+    created DATE,
+    oidcSubject KEYWORD,
+    oidcConfigId KEYWORD,
+    email KEYWORD,
+    displayName KEYWORD,
+    authScopeType KEYWORD,
+    authScopeId KEYWORD,
+    additionalClaims JSON NOT INDEXED
+);
+
 -- Sign-up requests awaiting email verification
 CREATE TABLE IF NOT EXISTS kinotic_signup_request (
     id KEYWORD,
@@ -122,9 +140,35 @@ CREATE TABLE IF NOT EXISTS kinotic_signup_request (
     created DATE
 );
 
--- Seed the KinoticSystem singleton
-INSERT INTO kinotic_system (id) VALUES ('kinotic-system') WITH REFRESH;
+-- Create the vm_node table for tracking VmManager nodes
+CREATE TABLE IF NOT EXISTS kinotic_vm_node (
+    id KEYWORD,
+    name KEYWORD,
+    hostname KEYWORD,
+    status KEYWORD,
+    totalCpus INTEGER,
+    totalMemoryMb INTEGER,
+    totalDiskMb INTEGER,
+    allocatedCpus INTEGER,
+    allocatedMemoryMb INTEGER,
+    allocatedDiskMb INTEGER,
+    lastSeen DATE
+);
 
--- Seed the default system administrator (password: kinotic)
-INSERT INTO kinotic_iam_user (id, email, displayName, authType, authScopeType, authScopeId, enabled) VALUES ('00000000-0000-0000-0000-000000000001', 'admin@kinotic.local', 'System Admin', 'LOCAL', 'SYSTEM', 'kinotic', true) WITH REFRESH;
-INSERT INTO kinotic_iam_credential (id, passwordHash) VALUES ('00000000-0000-0000-0000-000000000001', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
+-- Create the workload table for tracking deployed workloads
+CREATE TABLE IF NOT EXISTS kinotic_workload (
+    id KEYWORD,
+    name KEYWORD,
+    description TEXT,
+    nodeId KEYWORD,
+    providerType KEYWORD,
+    image KEYWORD,
+    vcpus INTEGER,
+    memoryMb INTEGER,
+    diskSizeMb INTEGER,
+    status KEYWORD,
+    environment JSON NOT INDEXED,
+    portMappings JSON NOT INDEXED,
+    created DATE,
+    updated DATE
+);
