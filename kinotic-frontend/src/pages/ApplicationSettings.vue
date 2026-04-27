@@ -147,6 +147,7 @@
 import { ref, defineProps, onMounted, watch, computed } from 'vue'
 import { InputText, Textarea, Button, Tabs, TabList, Tab, TabPanels, TabPanel, Dialog, IconField, InputIcon } from 'primevue'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
+import { USER_STATE } from '@/states/IUserState'
 import { Kinotic } from '@kinotic-ai/core'
 import { useToast } from 'primevue/usetoast'
 import { DataInsightsWidgetEntityRepository } from '@/services/DataInsightsWidgetEntityRepository'
@@ -205,6 +206,7 @@ const saveSettings = async () => {
   try {
     const updatedApplication = {
       ...APPLICATION_STATE.currentApplication,
+      organizationId: USER_STATE.getOrganizationId(),
       description: appDescription.value
     }
 

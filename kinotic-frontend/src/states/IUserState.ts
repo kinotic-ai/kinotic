@@ -12,6 +12,14 @@ export interface IUserState {
     isAuthenticated(): boolean
 
     /**
+     * Returns the organization id of the currently authenticated participant.
+     * Throws if no participant is connected or the participant is not authenticated
+     * to an organization scope. Use this to populate `organizationId` on org-scoped
+     * entities before save — the backend rejects entities without it.
+     */
+    getOrganizationId(): string
+
+    /**
      * Authenticates a local (email/password) user via STOMP CONNECT. The credentials are
      * sent on the CONNECT frame; no token is minted, no token is stored — the gateway's
      * SessionManager owns the session for the WebSocket lifetime.
@@ -107,6 +115,14 @@ export class UserState implements IUserState {
 
     public isAuthenticated(): boolean {
         return this.authenticated && this.connectedInfo !== null
+    }
+
+    public getOrganizationId(): string {
+        const orgId = this.connectedInfo?.participant?.authScopeId
+        if (!orgId) {
+            throw new Error('No organization id available — user is not authenticated to an organization scope')
+        }
+        return orgId
     }
 }
 
