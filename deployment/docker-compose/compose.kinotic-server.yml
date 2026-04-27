@@ -47,6 +47,7 @@ services:
       SPRING_AI_OPENAI_BASE_URL: "https://api.x.ai"
       SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "grok-4"
       THC_PORT: 58503 # Paketo health-check probe — health endpoint is mounted on the api-gateway router (stomp port)
+      THC_PATH: /health # THC defaults to "/", which 404s; the api-gateway only mounts /health
     stdin_open: true # docker run -i
     tty: true        # docker run -t
     deploy:
