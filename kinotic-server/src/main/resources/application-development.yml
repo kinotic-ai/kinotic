@@ -15,6 +15,9 @@ kinotic:
   ignite:
     discoveryType: SHAREDFS
   secretStorage:
+    # Chronicle Map (HFT) needs the full JDK at runtime (jdk.compiler module for codegen),
+    # which the IDE has but the Paketo bootBuildImage's JRE base does not. Compose layers
+    # on the `compose` profile to flip this back to in-memory; see application-compose.yml.
     backend: hft
   platformSecrets:
     # Auto-seeded on first boot by DevPlatformSecretsGenerator (dev profile only). Each

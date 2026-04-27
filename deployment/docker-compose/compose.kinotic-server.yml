@@ -22,7 +22,12 @@ services:
       - "127.0.0.1:58503:58503" # Stomp Port
     environment:
       BPL_JVM_HEAD_ROOM: 10
-      JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
+      # The --add-exports=jdk.compiler/* flags would only matter for the HFT (Chronicle Map)
+      # secret-storage backend, which needs runtime codegen. The Paketo bootBuildImage produces
+      # a JRE-only image without jdk.compiler, so those flags would be no-ops. Compose runs with
+      # the in-memory backend (dev default) so codegen never happens. If you want to switch to
+      # HFT, run from the IDE on a full JDK instead — see application-development.yml.
+      JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED
       KINOTIC_MAX_OFF_HEAP_MEMORY: 419430400
       KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_0_SCHEME: http
       KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_0_HOST: kinotic-elasticsearch
@@ -35,7 +40,7 @@ services:
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: otlp
       OTEL_LOGS_EXPORTER: otlp
-      SPRING_PROFILES_ACTIVE: development
+      SPRING_PROFILES_ACTIVE: development,compose
       KINOTIC_APPBASEURL: "http://localhost:9090"
       KINOTIC_EMAIL_ENABLED: "false"
       SPRING_AI_OPENAI_API-KEY: "noop"

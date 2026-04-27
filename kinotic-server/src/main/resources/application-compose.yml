@@ -1,0 +1,11 @@
+# Profile activated alongside `development` when running inside docker-compose
+# (SPRING_PROFILES_ACTIVE=development,compose). Holds overrides that diverge from
+# IDE-based dev because the compose container runs the Paketo bootBuildImage,
+# which is JRE-only.
+kinotic:
+  secretStorage:
+    # Override the development default of `hft` (Chronicle Map). Chronicle's runtime
+    # bytecode generation pulls in com.sun.tools.javac.api.JavacTool from jdk.compiler,
+    # which is absent from the Paketo JRE — so compose falls back to InMemoryBackend.
+    # IDE devs still get hft via application-development.yml.
+    backend: ~
