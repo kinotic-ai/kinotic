@@ -32,7 +32,8 @@ properties:
 
 # Kinotic platform — mirrors the Spring property structure:
 #   kinotic.persistence.*  → ports, ES, health
-#   kinotic.rpcGateway.*   → STOMP
+#   kinotic.apiGateway.*   → STOMP, static web server
+#   kinotic.domain.*       → email, platform OIDC providers
 #   kinotic.ignite.*       → cluster (set in application-kubernetes.yml)
 #   kinotic.ssl.*          → TLS (set via tls.enabled below)
 kinotic:
@@ -44,21 +45,22 @@ kinotic:
   # Azure Static Web Apps, backend on AKS). Leave empty to fall back to appBaseUrl, which
   # is correct for any same-origin deploy.
   apiBaseUrl: ""
-  # kinotic.email.* — outbound mail via Azure Communication Services
-  email:
-    # When false, EmailService logs verification URLs instead of sending. Required for
-    # local/dev environments without a real ACS resource.
-    enabled: false
-    endpoint: ""
-    senderAddress: ""
-    managedIdentityClientId: ""
+  # kinotic.domain.* — domain-layer configuration (email, platform OIDC providers).
+  domain:
+    # kinotic.domain.email.* — outbound mail via Azure Communication Services
+    email:
+      # When false, EmailService logs verification URLs instead of sending. Required for
+      # local/dev environments without a real ACS resource.
+      enabled: false
+      endpoint: ""
+      senderAddress: ""
+      managedIdentityClientId: ""
   # kinotic.webServer.* — static-file server for the SPA. Disabled in deployments
   # where the SPA is hosted outside the cluster (e.g. Azure Storage).
+  # Bound to kinotic.apiGateway.webServer.* on the Spring side.
   webServer:
     port: 9090
     enabled: true
-  # kinotic.healthCheckPath — health endpoint mounted on the api-gateway router (stomp port)
-  healthCheckPath: "/health"
   openApiPort: 8080
   graphqlPort: 4000
   restPort: 58504
@@ -72,7 +74,7 @@ kinotic:
     username: "elastic"
     secretName: "kinotic-es-es-elastic-user"
     secretKey: "elastic"
-  # kinotic.rpcGateway.stomp.*
+  # kinotic.apiGateway.stomp.*
   stomp:
     port: 58503
     websocketPath: /v1
@@ -129,7 +131,7 @@ platformSecrets:
 
 # OIDC client secrets — one file per platform OidcConfiguration, keyed by configId.
 # Operator-set, separate lifecycle from auto-generated platform secrets above. Each entry
-# in kinotic.oidc.platformProviders[*].id corresponds to one file under mountPath.
+# in kinotic.domain.oidc.platformProviders[*].id corresponds to one file under mountPath.
 # In Azure: pulls from Key Vault via CSI (objects[] lists the configIds to mount). In KinD:
 # a k8s Secret created by `bin/set-oidc-client-secret.sh` (prompt-and-kubectl).
 oidcSecrets:
@@ -143,5 +145,5 @@ oidcSecrets:
   objects: []
 
 # Extra environment variables — override any Spring property via env var convention.
-# Example: KINOTIC_WEBSERVER_PORT: "443"
+# Example: KINOTIC_APIGATEWAY_WEBSERVER_PORT: "443"
 extraEnv: {}

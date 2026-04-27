@@ -15,12 +15,12 @@ data:
   {{- if .Values.kinotic.apiBaseUrl }}
   KINOTIC_APIBASEURL: "{{ .Values.kinotic.apiBaseUrl }}"
   {{- end }}
-  KINOTIC_EMAIL_ENABLED: "{{ .Values.kinotic.email.enabled }}"
-  {{- if .Values.kinotic.email.enabled }}
-  KINOTIC_EMAIL_ENDPOINT: "{{ required "kinotic.email.endpoint is required when email is enabled" .Values.kinotic.email.endpoint }}"
-  KINOTIC_EMAIL_SENDERADDRESS: "{{ required "kinotic.email.senderAddress is required when email is enabled" .Values.kinotic.email.senderAddress }}"
-  {{- if .Values.kinotic.email.managedIdentityClientId }}
-  KINOTIC_EMAIL_MANAGEDIDENTITYCLIENTID: "{{ .Values.kinotic.email.managedIdentityClientId }}"
+  KINOTIC_DOMAIN_EMAIL_ENABLED: "{{ .Values.kinotic.domain.email.enabled }}"
+  {{- if .Values.kinotic.domain.email.enabled }}
+  KINOTIC_DOMAIN_EMAIL_ENDPOINT: "{{ required "kinotic.domain.email.endpoint is required when email is enabled" .Values.kinotic.domain.email.endpoint }}"
+  KINOTIC_DOMAIN_EMAIL_SENDERADDRESS: "{{ required "kinotic.domain.email.senderAddress is required when email is enabled" .Values.kinotic.domain.email.senderAddress }}"
+  {{- if .Values.kinotic.domain.email.managedIdentityClientId }}
+  KINOTIC_DOMAIN_EMAIL_MANAGEDIDENTITYCLIENTID: "{{ .Values.kinotic.domain.email.managedIdentityClientId }}"
   {{- end }}
   {{- end }}
 
@@ -43,19 +43,19 @@ data:
   KINOTIC_CACHE_EVICTION_CSV_PATH: "{{ .Values.evictionTracking.mountPath | default "/eviction-data" }}/evictions-${POD_NAME}.csv"
   {{- end }}
 
-  {{- with .Values.kinotic.oidc }}
+  {{- with .Values.kinotic.domain.oidc }}
   {{- if .platformProviders }}
   # ── Platform OIDC providers ───────────────────────────────
   # Bootstrapped by PlatformOidcBootstrap. Each entry's id maps to a file under
-  # KINOTIC_OIDC_SECRETSPATH (set on the deployment when oidcSecrets is configured).
+  # KINOTIC_DOMAIN_OIDC_SECRETSPATH (set on the deployment when oidcSecrets is configured).
   {{- range $index, $value := .platformProviders }}
-  KINOTIC_OIDC_PLATFORMPROVIDERS_{{ $index }}_ID: "{{ $value.id }}"
-  KINOTIC_OIDC_PLATFORMPROVIDERS_{{ $index }}_NAME: "{{ $value.name }}"
-  KINOTIC_OIDC_PLATFORMPROVIDERS_{{ $index }}_PROVIDER: "{{ $value.provider }}"
-  KINOTIC_OIDC_PLATFORMPROVIDERS_{{ $index }}_CLIENT_ID: "{{ $value.clientId }}"
-  KINOTIC_OIDC_PLATFORMPROVIDERS_{{ $index }}_AUTHORITY: "{{ $value.authority }}"
+  KINOTIC_DOMAIN_OIDC_PLATFORMPROVIDERS_{{ $index }}_ID: "{{ $value.id }}"
+  KINOTIC_DOMAIN_OIDC_PLATFORMPROVIDERS_{{ $index }}_NAME: "{{ $value.name }}"
+  KINOTIC_DOMAIN_OIDC_PLATFORMPROVIDERS_{{ $index }}_PROVIDER: "{{ $value.provider }}"
+  KINOTIC_DOMAIN_OIDC_PLATFORMPROVIDERS_{{ $index }}_CLIENT_ID: "{{ $value.clientId }}"
+  KINOTIC_DOMAIN_OIDC_PLATFORMPROVIDERS_{{ $index }}_AUTHORITY: "{{ $value.authority }}"
   {{- if $value.audience }}
-  KINOTIC_OIDC_PLATFORMPROVIDERS_{{ $index }}_AUDIENCE: "{{ $value.audience }}"
+  KINOTIC_DOMAIN_OIDC_PLATFORMPROVIDERS_{{ $index }}_AUDIENCE: "{{ $value.audience }}"
   {{- end }}
   {{- end }}
   {{- end }}
@@ -63,7 +63,7 @@ data:
 
   # ── Extra environment variables ───────────────────────────
   # Override any Spring property via env var naming convention:
-  #   kinotic.webServer.port → KINOTIC_WEBSERVER_PORT
+  #   kinotic.apiGateway.webServer.port → KINOTIC_APIGATEWAY_WEBSERVER_PORT
   {{- range $key, $value := .Values.extraEnv }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
