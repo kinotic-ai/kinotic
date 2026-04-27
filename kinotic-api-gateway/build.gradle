@@ -34,6 +34,11 @@ dependencies {
 // kinotic-frontend builds the SPA into src/main/resources/webroot here, where the runtime
 // StaticHandler picks it up from the classpath. Without this dep the alphabetical order runs
 // api-gateway tasks before kinotic-frontend, so the jar would be packaged with an empty webroot.
-tasks.named('processResources').configure {
-    dependsOn ':kinotic-frontend:copyDist'
+//
+// Gradle 9 enforces explicit dependencies on every task that reads from the resources dir —
+// processResources for the main jar, sourcesJar for the published sources artifact. Hook both.
+['processResources', 'sourcesJar'].each { taskName ->
+    tasks.matching { it.name == taskName }.configureEach {
+        dependsOn ':kinotic-frontend:copyDist'
+    }
 }
