@@ -20,7 +20,7 @@ if [[ "$DEPLOY_ONLY" == "false" ]]; then
   echo "==> Building kinotic-frontend"
   cd "$FRONTEND_DIR"
   pnpm install
-  pnpm build --mode production
+  pnpm build --mode azure
   echo "==> Build complete: $(du -sh dist | cut -f1)"
 fi
 
