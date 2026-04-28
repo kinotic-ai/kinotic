@@ -7,6 +7,7 @@ import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@/util/debug'
 import type {Application} from "@kinotic-ai/os-api";
 import {Kinotic} from "@kinotic-ai/core";
+import { USER_STATE } from '@/states/IUserState'
 import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('application-sidebar');
@@ -64,6 +65,7 @@ async function handleSubmit(): Promise<void> {
   try {
     const applicationData: Application = {
       id: sanitizeId(form.name),
+      organizationId: USER_STATE.getOrganizationId(),
       description: form.description,
       updated: null
     }

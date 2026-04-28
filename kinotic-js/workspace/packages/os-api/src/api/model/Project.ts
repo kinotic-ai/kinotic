@@ -9,6 +9,13 @@ export class Project implements Identifiable<string> {
     public id: string | null = null
 
     /**
+     * The id of the organization that owns this project.
+     * Must be set by the caller before save — backend org enforcement rejects entities
+     * with a missing or mismatched organizationId.
+     */
+    public organizationId!: string
+
+    /**
      * The id of the application that this project belongs to.
      * All application ids are unique throughout the entire system.
      */

@@ -3,6 +3,7 @@ import { Component, Vue, Prop } from 'vue-facing-decorator';
 import { Kinotic } from '@kinotic-ai/core';
 import { Project, ProjectType } from '@kinotic-ai/os-api';
 import { APPLICATION_STATE } from '@/states/IApplicationState';
+import { USER_STATE } from '@/states/IUserState';
 
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
@@ -54,6 +55,7 @@ export default class NewProjectSidebar extends Vue {
             if (!app) throw new Error('No current application selected');
 
             const project = new Project(null, app.id, this.form.name, this.form.description);
+            project.organizationId = USER_STATE.getOrganizationId();
             project.sourceOfTruth = ProjectType.TYPESCRIPT;
 
             const createdProject = await Kinotic.projects.create(project);
