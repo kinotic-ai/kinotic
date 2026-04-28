@@ -7,24 +7,19 @@ import { createConnectionInfo } from '../util/helpers'
 
 export interface IUserState {
     connectedInfo: ConnectedInfo | null
+    authScopeType: string | null
+    authScopeId: string | null
 
     isAccessDenied(): boolean
     isAuthenticated(): boolean
 
     /**
-     * Returns the organization id of the currently authenticated participant.
-     * Throws if no participant is connected or the participant is not authenticated
-     * to an organization scope. Use this to populate `organizationId` on org-scoped
-     * entities before save — the backend rejects entities without it.
+     * Returns the organization id of the currently authenticated participant. For now this
+     * is just the JWT's scopeId — true when the participant logged in at the ORGANIZATION
+     * scope. SYSTEM- and APPLICATION-scoped logins still need a separate resolution path
+     * (TODO).
      */
     getOrganizationId(): string
-
-    /**
-     * Authenticates a local (email/password) user via STOMP CONNECT. The credentials are
-     * sent on the CONNECT frame; no token is minted, no token is stored — the gateway's
-     * SessionManager owns the session for the WebSocket lifetime.
-     */
-    authenticate(login: string, passcode: string): Promise<void>
 
     /**
      * Authenticates with a Kinotic-minted JWT (the short-lived ticket delivered as a URL
@@ -39,33 +34,10 @@ export interface IUserState {
 
 export class UserState implements IUserState {
     public connectedInfo: ConnectedInfo | null = null
+    public authScopeType: string | null = null
+    public authScopeId: string | null = null
     private authenticated: boolean = false
     private accessDenied: boolean = false
-
-    public async authenticate(login: string, passcode: string): Promise<void> {
-        try {
-            await Kinotic.disconnect()
-        } catch (error) {
-            debug('No existing connection to disconnect')
-        }
-
-        const connectionInfo: ConnectionInfo = createConnectionInfo()
-        connectionInfo.connectHeaders = {
-            login,
-            passcode,
-            authScopeType: 'ORGANIZATION', //FIXME: remove hard coded org
-            authScopeId: 'kinotic-test'
-        }
-
-        try {
-            this.connectedInfo = await Kinotic.connect(connectionInfo)
-            this.authenticated = true
-            this.accessDenied = false
-        } catch (reason: any) {
-            this.accessDenied = true
-            throw new Error(reason ? String(reason) : 'Credentials invalid')
-        }
-    }
 
     public async loginWithToken(token: string): Promise<void> {
         try {
@@ -88,6 +60,8 @@ export class UserState implements IUserState {
 
         try {
             this.connectedInfo = await Kinotic.connect(connectionInfo)
+            this.authScopeType = claims.scopeType
+            this.authScopeId = claims.scopeId
             this.authenticated = true
             this.accessDenied = false
         } catch (reason: any) {
@@ -105,6 +79,8 @@ export class UserState implements IUserState {
             }
         }
         this.connectedInfo = null
+        this.authScopeType = null
+        this.authScopeId = null
         this.authenticated = false
         this.accessDenied = false
     }
@@ -118,11 +94,10 @@ export class UserState implements IUserState {
     }
 
     public getOrganizationId(): string {
-        const orgId = this.connectedInfo?.participant?.authScopeId
-        if (!orgId) {
-            throw new Error('No organization id available — user is not authenticated to an organization scope')
+        if (!this.authScopeId) {
+            throw new Error('No organization id available — user is not authenticated')
         }
-        return orgId
+        return this.authScopeId
     }
 }
 
