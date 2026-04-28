@@ -37,12 +37,13 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 
 		EntityDefinition entityDefinition = new EntityDefinition();
 		entityDefinition.setName("PersonWat")
+						.setOrganizationId(TEST_ORG_ID)
 						.setApplicationId("org.kinotic.sample")
 						.setProjectId("org.kinotic.sample_default")
 						.setDescription("Defines a Person")
 						.setSchema(testDataService.createPersonSchema(MultiTenancyType.NONE, false));
 
-		CompletableFuture<EntityDefinition> future = entityDefinitionService.create(entityDefinition);
+		CompletableFuture<EntityDefinition> future = elevated(() -> entityDefinitionService.create(entityDefinition));
 
 		StepVerifier.create(Mono.fromFuture(future))
 					.expectNextMatches(savedStructure -> {
@@ -57,21 +58,15 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 					.expectComplete()
 					.verify();
 
-		CompletableFuture<Void> pubFuture = entityDefinitionService.publish(future.get().getId());
-
-		StepVerifier.create(Mono.fromFuture(pubFuture))
+		StepVerifier.create(Mono.fromFuture(elevated(() -> entityDefinitionService.publish(future.join().getId()))))
 					.expectComplete()
 					.verify();
 
-		CompletableFuture<Void> unPubFuture = entityDefinitionService.unPublish(future.get().getId());
-
-		StepVerifier.create(Mono.fromFuture(unPubFuture))
+		StepVerifier.create(Mono.fromFuture(elevated(() -> entityDefinitionService.unPublish(future.join().getId()))))
 					.expectComplete()
 					.verify();
 
-		CompletableFuture<Void> delFuture = entityDefinitionService.deleteById(future.get().getId());
-
-		StepVerifier.create(Mono.fromFuture(delFuture))
+		StepVerifier.create(Mono.fromFuture(elevated(() -> entityDefinitionService.deleteById(future.join().getId()))))
 					.expectComplete()
 					.verify();
 	}
@@ -80,12 +75,13 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 	public void tryOperationsOnPublishedStructure() throws Exception{
 		EntityDefinition entityDefinition = new EntityDefinition();
 		entityDefinition.setName("PersonBum")
+						.setOrganizationId(TEST_ORG_ID)
 						.setApplicationId("org.kinotic.sample")
 						.setProjectId("org.kinotic.sample_default")
 						.setDescription("Defines a Person")
 						.setSchema(testDataService.createPersonSchema(MultiTenancyType.NONE, false));
 
-		CompletableFuture<EntityDefinition> future = entityDefinitionService.create(entityDefinition);
+		CompletableFuture<EntityDefinition> future = elevated(() -> entityDefinitionService.create(entityDefinition));
 
 		StepVerifier.create(Mono.fromFuture(future))
 					.expectNextMatches(savedStructure -> {
@@ -100,15 +96,11 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 					.expectComplete()
 					.verify();
 
-		CompletableFuture<Void> pubFuture = entityDefinitionService.publish(future.get().getId());
-
-		StepVerifier.create(Mono.fromFuture(pubFuture))
+		StepVerifier.create(Mono.fromFuture(elevated(() -> entityDefinitionService.publish(future.join().getId()))))
 					.expectComplete()
 					.verify();
 
-		CompletableFuture<Void> delFuture = entityDefinitionService.deleteById(future.get().getId());
-
-		StepVerifier.create(Mono.fromFuture(delFuture))
+		StepVerifier.create(Mono.fromFuture(elevated(() -> entityDefinitionService.deleteById(future.join().getId()))))
 					.expectError(IllegalStateException.class)
 					.verify();
 
@@ -119,14 +111,13 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 	public void createStructureInvalidField(){
 		EntityDefinition entityDefinition = new EntityDefinition();
 		entityDefinition.setName("PersonStupid")
+						.setOrganizationId(TEST_ORG_ID)
 						.setApplicationId("org.kinotic.sample")
 						.setProjectId("org.kinotic.sample_default")
 						.setDescription("Defines a Person")
 						.setSchema(testDataService.createPersonSchema(MultiTenancyType.NONE, true));
 
-		CompletableFuture<EntityDefinition> future = entityDefinitionService.create(entityDefinition);
-
-		StepVerifier.create(Mono.fromFuture(future))
+		StepVerifier.create(Mono.fromFuture(elevated(() -> entityDefinitionService.create(entityDefinition))))
 					.expectError(IllegalArgumentException.class)
 					.verify();
 	}
@@ -135,12 +126,13 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 	public void createStructureWithSameNameError() throws Exception {
 		EntityDefinition entityDefinition = new EntityDefinition();
 		entityDefinition.setName("PersonHomer")
+						.setOrganizationId(TEST_ORG_ID)
 						.setApplicationId("org.kinotic.sample")
 						.setProjectId("org.kinotic.sample_default")
 						.setDescription("Defines a Person")
 						.setSchema(testDataService.createPersonSchema(MultiTenancyType.NONE, false));
 
-		CompletableFuture<EntityDefinition> future = entityDefinitionService.create(entityDefinition);
+		CompletableFuture<EntityDefinition> future = elevated(() -> entityDefinitionService.create(entityDefinition));
 
 		StepVerifier.create(Mono.fromFuture(future))
 					.expectNextMatches(savedStructure -> {
@@ -155,15 +147,11 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 					.expectComplete()
 					.verify();
 
-		CompletableFuture<EntityDefinition> future2 = entityDefinitionService.create(entityDefinition);
-
-		StepVerifier.create(Mono.fromFuture(future2))
+		StepVerifier.create(Mono.fromFuture(elevated(() -> entityDefinitionService.create(entityDefinition))))
 					.expectError(IllegalArgumentException.class)
 					.verify();
 
-		CompletableFuture<Void> delFuture = entityDefinitionService.deleteById(future.get().getId());
-
-		StepVerifier.create(Mono.fromFuture(delFuture))
+		StepVerifier.create(Mono.fromFuture(elevated(() -> entityDefinitionService.deleteById(future.join().getId()))))
 					.expectComplete()
 					.verify();
 	}
@@ -172,12 +160,13 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 	public void tryOperationOnNotPublishedStructure() throws Exception {
 		EntityDefinition entityDefinition = new EntityDefinition();
 		entityDefinition.setName("PersonStoned")
+						.setOrganizationId(TEST_ORG_ID)
 						.setApplicationId("org.kinotic.sample")
 						.setProjectId("org.kinotic.sample_default")
 						.setDescription("Defines a Person")
 						.setSchema(testDataService.createPersonSchema(MultiTenancyType.NONE, false));
 
-		CompletableFuture<EntityDefinition> future = entityDefinitionService.create(entityDefinition);
+		CompletableFuture<EntityDefinition> future = elevated(() -> entityDefinitionService.create(entityDefinition));
 
 		StepVerifier.create(Mono.fromFuture(future))
 					.expectNextMatches(savedStructure -> {
@@ -192,15 +181,11 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 					.expectComplete()
 					.verify();
 
-		CompletableFuture<Long> countFuture = entitiesRepository.count(future.get().getId(), new DefaultEntityContext(new DummyParticipant()));
-
-		StepVerifier.create(Mono.fromFuture(countFuture))
+		StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.count(future.join().getId(), new DefaultEntityContext(new DummyParticipant())))))
 					.expectError(IllegalArgumentException.class)
 					.verify();
 
-		CompletableFuture<Void> delFuture = entityDefinitionService.deleteById(future.get().getId());
-
-		StepVerifier.create(Mono.fromFuture(delFuture))
+		StepVerifier.create(Mono.fromFuture(elevated(() -> entityDefinitionService.deleteById(future.join().getId()))))
 					.expectComplete()
 					.verify();
 	}

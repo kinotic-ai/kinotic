@@ -58,9 +58,9 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertNotNull(holder);
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.deleteById(holder.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.deleteById(holder.getEntityDefinition().getId(),
                                                                           holder.getFirstPerson().getId(),
-                                                                          new DefaultEntityContext(new DummyParticipant()))))
+                                                                          new DefaultEntityContext(new DummyParticipant())))))
                     .verifyComplete();
     }
 
@@ -72,21 +72,21 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertNotNull(holder);
 
-        entitiesRepository.syncIndex(holder.getEntityDefinition().getId(), context).join();
+        elevated(() -> entitiesRepository.syncIndex(holder.getEntityDefinition().getId(), context)).join();
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.count(holder.getEntityDefinition().getId(), context)))
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.count(holder.getEntityDefinition().getId(), context))))
                 .expectNext(20L)
                 .as("Verifying Tenant 1 has 20 entities")
                 .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.deleteByQuery(holder.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.deleteByQuery(holder.getEntityDefinition().getId(),
                                                                              "lastName: A*",
-                                                                             context)))
+                                                                             context))))
                 .verifyComplete();
 
-        entitiesRepository.syncIndex(holder.getEntityDefinition().getId(), context).join();
+        elevated(() -> entitiesRepository.syncIndex(holder.getEntityDefinition().getId(), context)).join();
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.count(holder.getEntityDefinition().getId(), context)))
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.count(holder.getEntityDefinition().getId(), context))))
                 .expectNext(18L)
                 .as("Verifying Tenant 1 has 18 entities after delete by query")
                 .verifyComplete();
@@ -100,10 +100,10 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertNotNull(holder);
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.findById(holder.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.findById(holder.getEntityDefinition().getId(),
                                                                         holder.getFirstPerson().getId(),
                                                                         RawJson.class,
-                                                                        new DefaultEntityContext(new DummyParticipant()))))
+                                                                        new DefaultEntityContext(new DummyParticipant())))))
                     .expectNextMatches(found -> {
                         boolean ret;
                         try {
@@ -140,10 +140,10 @@ public class EntityCrudTests extends KinoticTestBase {
             }
         }
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.findByIds(holder.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.findByIds(holder.getEntityDefinition().getId(),
                                                                          ids,
                                                                          RawJson.class,
-                                                                         context)))
+                                                                         context))))
                 .expectNextMatches(responseList -> {
                     boolean ret = false;
                     try {
@@ -182,10 +182,10 @@ public class EntityCrudTests extends KinoticTestBase {
             }
         }
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.findByIds(holder.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.findByIds(holder.getEntityDefinition().getId(),
                                                                          ids,
                                                                          RawJson.class,
-                                                                         context)))
+                                                                         context))))
                 .expectNextMatches(List::isEmpty)
                 .as("Verifying Tenant ids query to be empty as none of ids matches")
                 .verifyComplete();
@@ -205,15 +205,15 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertNotNull(holder2);
 
-        entitiesRepository.syncIndex(holder1.getEntityDefinition().getId(), context1).join();
-        entitiesRepository.syncIndex(holder2.getEntityDefinition().getId(), context2).join();
+        elevated(() -> entitiesRepository.syncIndex(holder1.getEntityDefinition().getId(), context1)).join();
+        elevated(() -> entitiesRepository.syncIndex(holder2.getEntityDefinition().getId(), context2)).join();
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.count(holder1.getEntityDefinition().getId(), context1)))
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.count(holder1.getEntityDefinition().getId(), context1))))
                     .expectNext(10L)
                     .as("Verifying Tenant 1 has 10 entities")
                     .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.count(holder2.getEntityDefinition().getId(), context2)))
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.count(holder2.getEntityDefinition().getId(), context2))))
                     .expectNext(20L)
                     .as("Verifying Tenant 2 has 20 entities")
                     .verifyComplete();
@@ -233,20 +233,20 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertNotNull(holder2);
 
-        entitiesRepository.syncIndex(holder1.getEntityDefinition().getId(), context1).join();
-        entitiesRepository.syncIndex(holder2.getEntityDefinition().getId(), context2).join();
+        elevated(() -> entitiesRepository.syncIndex(holder1.getEntityDefinition().getId(), context1)).join();
+        elevated(() -> entitiesRepository.syncIndex(holder2.getEntityDefinition().getId(), context2)).join();
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.countByQuery(holder1.getEntityDefinition().getId(), "lastName: Z*", context1)))
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.countByQuery(holder1.getEntityDefinition().getId(), "lastName: Z*", context1))))
                 .expectNext(2L)
                 .as("Verifying Tenant 1 has 2 entities by search")
                 .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.countByQuery(holder2.getEntityDefinition().getId(), "lastName: A*", context2)))
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.countByQuery(holder2.getEntityDefinition().getId(), "lastName: A*", context2))))
                 .expectNext(2L)
                 .as("Verifying Tenant 2 has 2 entities by search")
                 .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.countByQuery(holder2.getEntityDefinition().getId(), "lastName: a*", context2)))
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.countByQuery(holder2.getEntityDefinition().getId(), "lastName: a*", context2))))
                 .expectNext(0L)
                 .as("Verifying Tenant 0 has 2 entities by search")
                 .verifyComplete();
@@ -268,23 +268,23 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertNotNull(holder2);
 
-        entitiesRepository.syncIndex(holder1.getEntityDefinition().getId(), context1).join();
-        entitiesRepository.syncIndex(holder2.getEntityDefinition().getId(), context2).join();
+        elevated(() -> entitiesRepository.syncIndex(holder1.getEntityDefinition().getId(), context1)).join();
+        elevated(() -> entitiesRepository.syncIndex(holder2.getEntityDefinition().getId(), context2)).join();
 
         // TODO: verify all data items as well, not just sizes
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.findAll(holder1.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.findAll(holder1.getEntityDefinition().getId(),
                                                                        Pageable.ofSize(20), // make sure page size is larger than number of entities
                                                                        RawJson.class,
-                                                                       context1)))
+                                                                       context1))))
                     .expectNextMatches(rawJsons -> rawJsons.getTotalElements() == 10
                             && rawJsons.getContent().size() == 10)
                     .as("Verifying Tenant 1 has 10 entities")
                     .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.findAll(holder2.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.findAll(holder2.getEntityDefinition().getId(),
                                                                        Pageable.ofSize(20), // make sure page size is larger than number of entities
                                                                        RawJson.class,
-                                                                       context2)))
+                                                                       context2))))
                     .expectNextMatches(rawJsons -> rawJsons.getTotalElements() == 20
                             && rawJsons.getContent().size() == 20)
                     .as("Verifying Tenant 2 has 20 entities")
@@ -306,8 +306,8 @@ public class EntityCrudTests extends KinoticTestBase {
         Assertions.assertNotNull(holder2);
 
         // Make sure all data is indexed
-        entitiesRepository.syncIndex(holder1.getEntityDefinition().getId(), context1).join();
-        entitiesRepository.syncIndex(holder2.getEntityDefinition().getId(), context2).join();
+        elevated(() -> entitiesRepository.syncIndex(holder1.getEntityDefinition().getId(), context1)).join();
+        elevated(() -> entitiesRepository.syncIndex(holder2.getEntityDefinition().getId(), context2)).join();
 
         Thread.sleep(10000); // TODO: why does this still fail without a sleep? Sync index should be ensuring data is indexed.
 
@@ -315,12 +315,12 @@ public class EntityCrudTests extends KinoticTestBase {
         Sort sort = Sort.by("firstName");
         AtomicReference<String> cursorRef = new AtomicReference<>();
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.findAll(holder1.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.findAll(holder1.getEntityDefinition().getId(),
                                                                        Pageable.create("",
                                                                                     20,
                                                                                     Sort.by("firstName")),
                                                                        RawJson.class,
-                                                                       context1)))
+                                                                       context1))))
                     .expectNextMatches(page -> {
                         String cursor = null;
                         if(page instanceof CursorPage){
@@ -336,10 +336,10 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertNotNull(cursorRef.get(), "Cursor is null");
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.findAll(holder1.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.findAll(holder1.getEntityDefinition().getId(),
                                                                        Pageable.create(cursorRef.get(), 20, sort),
                                                                        RawJson.class,
-                                                                       context1)))
+                                                                       context1))))
                     .expectNextMatches(page -> {
                         String cursor = null;
                         cursorRef.set(null);
@@ -356,10 +356,10 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertNotNull(cursorRef.get(), "Cursor is null");
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.findAll(holder1.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.findAll(holder1.getEntityDefinition().getId(),
                                                                        Pageable.create(cursorRef.get(), 20, sort),
                                                                        RawJson.class,
-                                                                       context1)))
+                                                                       context1))))
                     .expectNextMatches(page -> {
                         String cursor = null;
                         cursorRef.set(null);
@@ -378,10 +378,10 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertNull(cursorRef.get(), "Cursor is not null");
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.findAll(holder2.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.findAll(holder2.getEntityDefinition().getId(),
                                                                        Pageable.create("", 10, sort),
                                                                        RawJson.class,
-                                                                       context2)))
+                                                                       context2))))
                     .expectNextMatches(page -> {
                         String cursor = null;
                         if(page instanceof CursorPage){
@@ -397,10 +397,10 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertNotNull(cursorRef.get(), "Cursor is null");
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.findAll(holder2.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.findAll(holder2.getEntityDefinition().getId(),
                                                                        Pageable.create(cursorRef.get(), 10, sort),
                                                                        RawJson.class,
-                                                                       context2)))
+                                                                       context2))))
                     .expectNextMatches(page -> {
                         String cursor = null;
                         cursorRef.set(null);
@@ -417,10 +417,10 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertNotNull(cursorRef.get(), "Cursor is null");
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.findAll(holder2.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.findAll(holder2.getEntityDefinition().getId(),
                                                                        Pageable.create(cursorRef.get(), 10, sort),
                                                                        RawJson.class,
-                                                                       context2)))
+                                                                       context2))))
                     .expectNextMatches(page -> {
                         String cursor = null;
                         cursorRef.set(null);
@@ -438,10 +438,10 @@ public class EntityCrudTests extends KinoticTestBase {
         Assertions.assertNotNull(cursorRef.get(), "Cursor is null");
 
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.findAll(holder2.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.findAll(holder2.getEntityDefinition().getId(),
                                                                        Pageable.create(cursorRef.get(), 10, sort),
                                                                        RawJson.class,
-                                                                       context2)))
+                                                                       context2))))
                     .expectNextMatches(page -> {
                         String cursor = null;
                         cursorRef.set(null);
@@ -470,15 +470,15 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertNotNull(holder2);
 
-        entitiesRepository.syncIndex(holder1.getEntityDefinition().getId(), context1).join();
-        entitiesRepository.syncIndex(holder2.getEntityDefinition().getId(), context2).join();
+        elevated(() -> entitiesRepository.syncIndex(holder1.getEntityDefinition().getId(), context1)).join();
+        elevated(() -> entitiesRepository.syncIndex(holder2.getEntityDefinition().getId(), context2)).join();
 
         // TODO: verify all data items as well, not just sizes
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.search(holder1.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.search(holder1.getEntityDefinition().getId(),
                                                                       "lastName: Z*",
                                                                       Pageable.ofSize(20), // make sure page size is larger than number of entities
                                                                       RawJson.class,
-                                                                      context1)))
+                                                                      context1))))
                     .expectNextMatches(rawJsons -> {
                         boolean b = rawJsons.getTotalElements() == 2
                                 && rawJsons.getContent().size() == 2;
@@ -490,11 +490,11 @@ public class EntityCrudTests extends KinoticTestBase {
                     .as("Verifying search for Tenant 1 has 2 entities")
                     .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.search(holder2.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.search(holder2.getEntityDefinition().getId(),
                                                                       "lastName: Z*",
                                                                       Pageable.ofSize(20), // make sure page size is larger than number of entities
                                                                       RawJson.class,
-                                                                      context2)))
+                                                                      context2))))
                     .expectNextMatches(rawJsons -> {
                         boolean b = rawJsons.getTotalElements() == 2
                                 && rawJsons.getContent().size() == 2;
@@ -522,13 +522,13 @@ public class EntityCrudTests extends KinoticTestBase {
 
         contextMap.forEach((context, holder) -> {
 
-            entitiesRepository.syncIndex(holder.getEntityDefinition().getId(), context).join();
+            elevated(() -> entitiesRepository.syncIndex(holder.getEntityDefinition().getId(), context)).join();
 
-            StepVerifier.create(Mono.fromFuture(entitiesRepository.search(holder.getEntityDefinition().getId(),
+            StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.search(holder.getEntityDefinition().getId(),
                                                                           "lastName: *",
                                                                           Pageable.ofSize(20), // make sure page size is larger than number of entities
                                                                           RawJson.class,
-                                                                          context)))
+                                                                          context))))
                     .expectNextMatches(rawJsons -> {
                         long expectedCount = holder.getPersons().size();
                         long queriedCount = rawJsons.getTotalElements();
@@ -549,17 +549,17 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertNotNull(holder);
 
-        StepVerifier.create(Mono.fromFuture(entitiesRepository.findById(holder.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.findById(holder.getEntityDefinition().getId(),
                                                                         "missing",
                                                                         RawJson.class,
-                                                                        new DefaultEntityContext(new DummyParticipant()))))
+                                                                        new DefaultEntityContext(new DummyParticipant())))))
                     .verifyComplete();
     }
 
     @Test
     public void testPartialUpdate() throws Exception {
         EntityContext entityContext = new DefaultEntityContext(new DummyParticipant());
-        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = testDataService.createCarEntityDefinitionIfNotExists("_partialUpdate");
+        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = elevated(() -> testDataService.createCarEntityDefinitionIfNotExists("_partialUpdate"));
 
         StepVerifier.create(Mono.fromFuture(createStructure))
                     .expectNextMatches(pair -> {
@@ -583,9 +583,9 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertEquals(car.getId(), result.getId(), "Car id does not match");
 
-        entitiesRepository.syncIndex(entityDefinition.getId(), entityContext).join();
+        elevated(() -> entitiesRepository.syncIndex(entityDefinition.getId(), entityContext)).join();
 
-        Page<RawJson> page = entitiesRepository.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
+        Page<RawJson> page = elevated(() -> entitiesRepository.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext)).join();
 
         Assertions.assertEquals(1, page.getTotalElements(), "Wrong number of entities");
 
@@ -605,9 +605,9 @@ public class EntityCrudTests extends KinoticTestBase {
 
         Assertions.assertEquals(car.getId(), result2.getId(), "Car id does not match after partial update");
 
-        entitiesRepository.syncIndex(entityDefinition.getId(), entityContext).join();
+        elevated(() -> entitiesRepository.syncIndex(entityDefinition.getId(), entityContext)).join();
 
-        Page<RawJson> page2 = entitiesRepository.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext).join();
+        Page<RawJson> page2 = elevated(() -> entitiesRepository.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext)).join();
 
         Assertions.assertEquals(1, page2.getTotalElements(), "Wrong number of entities after partial update");
 

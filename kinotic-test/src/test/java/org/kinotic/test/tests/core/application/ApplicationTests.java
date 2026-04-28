@@ -11,8 +11,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.util.concurrent.CompletableFuture;
-
 @SpringBootTest
 public class ApplicationTests extends KinoticTestBase {
 
@@ -23,20 +21,19 @@ public class ApplicationTests extends KinoticTestBase {
 	public void createAndDeleteApplication() {
 		Application test = new Application();
 		test.setId("Test");
+		test.setOrganizationId(TEST_ORG_ID);
 		test.setDescription("Testing This Application");
 
-		CompletableFuture<Application> future = applicationService.save(test);
-
-		StepVerifier.create(Mono.fromFuture(future))
+		StepVerifier.create(Mono.fromFuture(elevated(() -> applicationService.save(test))))
 					.expectNextMatches(application -> application.getId().equals("Test") && application.getUpdated() != null)
 					.expectComplete()
 					.verify();
 
-		StepVerifier.create(Mono.fromFuture(applicationService.deleteById(test.getId())))
+		StepVerifier.create(Mono.fromFuture(elevated(() -> applicationService.deleteById(test.getId()))))
 					.expectComplete()
 					.verify();
 
-		StepVerifier.create(Mono.fromFuture(applicationService.findById(test.getId())))
+		StepVerifier.create(Mono.fromFuture(elevated(() -> applicationService.findById(test.getId()))))
 					.expectComplete()
 					.verify();
 	}
