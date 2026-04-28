@@ -15,7 +15,7 @@ const isDark = computed(() => darkMode.value)
 </script>
 
 <template>
-    <div :class="['h-screen w-screen transition-colors', isDark ? 'bg-[#171717]' : 'bg-white']">
+    <div :class="['h-screen w-screen transition-colors', isDark ? 'bg-surface-900' : 'bg-surface-0']">
         <div class="fixed top-0 left-0 right-0 z-50 h-[64px]">
             <Header />
         </div>
@@ -26,7 +26,7 @@ const isDark = computed(() => darkMode.value)
                 isSidebarCollapsed ? 'pl-[64px]' : 'pl-[256px]'
             ]"
         >
-            <div :class="['h-[calc(100vh-64px)] overflow-y-auto px-8 py-6 transition-colors', isDark ? 'bg-[#171717] text-white' : 'bg-white text-[#101010]']">
+            <div :class="['h-[calc(100vh-64px)] overflow-y-auto px-8 py-6 transition-colors', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
                 <router-view />
             </div>
         </div>

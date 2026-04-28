@@ -193,21 +193,21 @@ onMounted(() => {
 <template>
   <div
     :data-widget-id="widget.id || ''"
-    :class="['widget-card h-[220px] overflow-hidden rounded-lg border', isDark ? 'border-[#2f2f35] bg-[#171717]' : 'bg-white border-surface-200']"
+    :class="['widget-card h-[220px] overflow-hidden rounded-lg border', isDark ? 'border-surface-800 bg-surface-900' : 'bg-surface-0 border-surface-200']"
   >
-    <div :class="['widget-chart-area relative p-2', isDark ? 'bg-[#202024]' : 'bg-gray-50']">
+    <div :class="['widget-chart-area relative p-2', isDark ? 'bg-surface-900' : 'bg-surface-50']">
       <div 
         v-if="!previewLoaded"
-        :class="['widget-loading-overlay absolute inset-0 z-10 flex items-center justify-center', isDark ? 'bg-[#171717]/90' : 'bg-white bg-opacity-90']"
+        :class="['widget-loading-overlay absolute inset-0 z-10 flex items-center justify-center', isDark ? 'bg-surface-900/90' : 'bg-surface-0 bg-opacity-90']"
       >
         <div class="text-center">
           <i class="pi pi-spin pi-spinner text-blue-500 text-lg mb-1"></i>
-          <div :class="['text-xs', isDark ? 'text-[#9f9fa8]' : 'text-gray-600']">Loading...</div>
+          <div :class="['text-xs', isDark ? 'text-surface-400' : 'text-surface-600']">Loading...</div>
         </div>
       </div>
       
       <div class="widget-preview-content" :data-widget-id="widget.id">
-        <div class="chart-placeholder" style="display: none; color: #999; font-size: 12px; text-align: center;">
+        <div class="chart-placeholder" style="display: none; color: var(--p-surface-400); font-size: 12px; text-align: center;">
           Loading chart...
         </div>
       </div>
@@ -215,11 +215,11 @@ onMounted(() => {
     
     <div class="relative p-3">
       <div :class="['mb-1 pr-6 text-sm font-semibold', isDark ? 'text-white' : 'text-gray-900']">{{ getWidgetTitle() }}</div>
-      <div :class="['line-clamp-2 pr-6 text-xs', isDark ? 'text-[#9f9fa8]' : 'text-gray-500']">{{ getWidgetSubtitle() }}</div>
+      <div :class="['line-clamp-2 pr-6 text-xs', isDark ? 'text-surface-400' : 'text-surface-500']">{{ getWidgetSubtitle() }}</div>
       
       <button
         @click.stop="emit('delete', widget.id!)"
-        :class="['absolute right-2 top-2 p-1 transition-colors', isDark ? 'text-[#7f7f86] hover:text-red-500' : 'text-gray-400 hover:text-red-500']"
+        :class="['absolute right-2 top-2 p-1 transition-colors', isDark ? 'text-surface-500 hover:text-red-500' : 'text-surface-400 hover:text-red-500']"
         title="Delete Widget"
       >
         <i class="pi pi-trash text-xs"></i>
@@ -246,7 +246,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8f9fa;
+  background: var(--p-surface-50);
 }
 
 .widget-preview-content {

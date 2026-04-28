@@ -405,8 +405,8 @@ Components that support date filtering will automatically respond to the global 
           
           const saveButton = document.createElement('button')
           saveButton.className = this.isDark
-            ? 'save-widget-btn absolute top-2 right-2 bg-[#171717] hover:bg-primary-500 hover:text-white text-[#d4d4d8] border border-[#2f2f35] rounded-full p-2 shadow-md transition-all duration-200 z-10 flex items-center justify-center w-10 h-10'
-            : 'save-widget-btn absolute top-2 right-2 bg-white hover:bg-primary-500 hover:text-white text-surface-600 rounded-full p-2 shadow-md transition-all duration-200 z-10 flex items-center justify-center w-10 h-10'
+            ? 'save-widget-btn absolute top-2 right-2 bg-surface-900 hover:bg-primary-500 hover:text-surface-0 text-surface-300 border border-surface-800 rounded-full p-2 shadow-md transition-all duration-200 z-10 flex items-center justify-center w-10 h-10'
+            : 'save-widget-btn absolute top-2 right-2 bg-surface-0 hover:bg-primary-500 hover:text-surface-0 text-surface-600 rounded-full p-2 shadow-md transition-all duration-200 z-10 flex items-center justify-center w-10 h-10'
           saveButton.innerHTML = '<i class="pi pi-bookmark text-base"></i>'
           saveButton.onclick = () => this.handleSaveWidget(componentId!)
           
@@ -494,8 +494,8 @@ Components that support date filtering will automatically respond to the global 
       
       if (saveButton) {
         saveButton.className = this.isDark
-          ? 'save-widget-btn absolute top-2 right-2 bg-[#262626] text-[#8d8d96] rounded p-2 shadow-sm border border-[#2f2f35] z-10 flex items-center justify-center w-10 h-10 cursor-default'
-          : 'save-widget-btn absolute top-2 right-2 bg-gray-200 text-gray-600 rounded p-2 shadow-sm z-10 flex items-center justify-center w-10 h-10 cursor-default'
+          ? 'save-widget-btn absolute top-2 right-2 bg-surface-800 text-surface-400 rounded p-2 shadow-sm border border-surface-800 z-10 flex items-center justify-center w-10 h-10 cursor-default'
+          : 'save-widget-btn absolute top-2 right-2 bg-surface-200 text-surface-600 rounded p-2 shadow-sm z-10 flex items-center justify-center w-10 h-10 cursor-default'
         saveButton.innerHTML = '<i class="pi pi-bookmark-fill text-base"></i>'
         saveButton.disabled = true
       }
@@ -506,8 +506,8 @@ Components that support date filtering will automatically respond to the global 
       if (saveButton) {
         saveButton.disabled = false
         saveButton.className = this.isDark
-          ? 'save-widget-btn absolute top-2 right-2 bg-[#171717] hover:bg-primary-500 hover:text-white text-[#d4d4d8] border border-[#2f2f35] rounded-full p-2 shadow-md transition-all duration-200 z-10 flex items-center justify-center w-10 h-10'
-          : 'save-widget-btn absolute top-2 right-2 bg-white hover:bg-primary-500 hover:text-white text-surface-600 rounded-full p-2 shadow-md transition-all duration-200 z-10 flex items-center justify-center w-10 h-10'
+          ? 'save-widget-btn absolute top-2 right-2 bg-surface-900 hover:bg-primary-500 hover:text-surface-0 text-surface-300 border border-surface-800 rounded-full p-2 shadow-md transition-all duration-200 z-10 flex items-center justify-center w-10 h-10'
+          : 'save-widget-btn absolute top-2 right-2 bg-surface-0 hover:bg-primary-500 hover:text-surface-0 text-surface-600 rounded-full p-2 shadow-md transition-all duration-200 z-10 flex items-center justify-center w-10 h-10'
         saveButton.innerHTML = '<i class="pi pi-bookmark text-base"></i>'
       }
     }
@@ -529,15 +529,15 @@ Components that support date filtering will automatically respond to the global 
 </script>
 
 <template>
-  <div :class="['flex h-full transition-colors', isDark ? 'bg-[#171717] text-white' : 'bg-transparent text-[#101010]']">
+  <div :class="['flex h-full transition-colors', isDark ? 'bg-surface-900 text-surface-0' : 'bg-transparent text-surface-950']">
     <!-- Dashboard Panel (Left) -->
     <div class="w-2/3 flex flex-col">
       <!-- Header -->
-      <div :class="['rounded-t-lg border-b p-4', isDark ? 'border-[#2f2f35] bg-[#171717]' : 'border-surface-200 bg-surface-50']">
+      <div :class="['rounded-t-lg border-b p-4', isDark ? 'border-surface-800 bg-surface-900' : 'border-surface-200 bg-surface-50']">
         <div class="flex justify-between items-center">
           <div>
-            <h2 :class="['text-xl font-semibold', isDark ? 'text-white' : 'text-surface-900']">Visualization Dashboard</h2>
-            <p :class="['mt-1 text-sm', isDark ? 'text-[#9f9fa8]' : 'text-surface-600']">
+            <h2 :class="['text-xl font-semibold', isDark ? 'text-surface-0' : 'text-surface-900']">Visualization Dashboard</h2>
+            <p :class="['mt-1 text-sm', isDark ? 'text-surface-400' : 'text-surface-600']">
               {{ visualizations.length }} visualization{{ visualizations.length !== 1 ? 's' : '' }} created
             </p>
           </div>
@@ -552,9 +552,9 @@ Components that support date filtering will automatically respond to the global 
               :label="showDateRangePicker ? 'Hide Date Range' : 'Set Date Range'"
             />
             
-            <div v-if="showDateRangePicker" :class="['flex items-center gap-2 rounded border p-2', isDark ? 'border-[#3a3a40] bg-[#171717]' : 'bg-white']">
+            <div v-if="showDateRangePicker" :class="['flex items-center gap-2 rounded border p-2', isDark ? 'border-surface-700 bg-surface-900' : 'bg-surface-0']">
               <div class="flex items-center gap-2">
-                <label :class="['text-sm font-medium', isDark ? 'text-[#d4d4d8]' : 'text-surface-700']">From:</label>
+                <label :class="['text-sm font-medium', isDark ? 'text-surface-300' : 'text-surface-700']">From:</label>
                 <Calendar
                   v-model="dateRange.startDate"
                   @date-select="updateDateRange"
@@ -565,7 +565,7 @@ Components that support date filtering will automatically respond to the global 
               </div>
               
               <div class="flex items-center gap-2">
-                <label :class="['text-sm font-medium', isDark ? 'text-[#d4d4d8]' : 'text-surface-700']">To:</label>
+                <label :class="['text-sm font-medium', isDark ? 'text-surface-300' : 'text-surface-700']">To:</label>
                 <Calendar
                   v-model="dateRange.endDate"
                   @date-select="updateDateRange"
@@ -587,9 +587,9 @@ Components that support date filtering will automatically respond to the global 
         </div>
       </div>
 
-      <div :class="['flex-1 overflow-auto rounded-b-lg p-4', isDark ? 'bg-[#171717]' : 'bg-transparent']">
+      <div :class="['flex-1 overflow-auto rounded-b-lg p-4', isDark ? 'bg-surface-900' : 'bg-transparent']">
         <div v-if="visualizations.length === 0" class="flex items-center justify-center h-full">
-          <div :class="['text-center', isDark ? 'text-[#9f9fa8]' : 'text-surface-500']">
+          <div :class="['text-center', isDark ? 'text-surface-400' : 'text-surface-500']">
             <i class="pi pi-chart-line text-4xl mb-4"></i>
             <p class="text-lg font-medium">No visualizations yet</p>
             <p class="text-sm">Start a conversation to create your first visualization</p>
@@ -601,13 +601,13 @@ Components that support date filtering will automatically respond to the global 
       </div>
     </div>
 
-    <div :class="['flex w-1/3 flex-col border-l', isDark ? 'border-[#2f2f35]' : 'border-surface-200']">
-      <div :class="['flex-shrink-0 rounded-t-lg border-b p-4', isDark ? 'border-[#2f2f35] bg-[#171717]' : 'border-surface-200 bg-surface-50']">
-        <h1 :class="['text-xl font-semibold', isDark ? 'text-white' : 'text-surface-900']">Data Insights Chat</h1>
-        <p :class="['mt-1 text-sm', isDark ? 'text-[#9f9fa8]' : 'text-surface-600']">Ask questions about your data</p>
+    <div :class="['flex w-1/3 flex-col border-l', isDark ? 'border-surface-800' : 'border-surface-200']">
+      <div :class="['flex-shrink-0 rounded-t-lg border-b p-4', isDark ? 'border-surface-800 bg-surface-900' : 'border-surface-200 bg-surface-50']">
+        <h1 :class="['text-xl font-semibold', isDark ? 'text-surface-0' : 'text-surface-900']">Data Insights Chat</h1>
+        <p :class="['mt-1 text-sm', isDark ? 'text-surface-400' : 'text-surface-600']">Ask questions about your data</p>
       </div>
 
-      <div :class="['min-h-0 flex-1 overflow-y-auto rounded-b-lg p-4', isDark ? 'bg-[#171717]' : 'bg-transparent']">
+      <div :class="['min-h-0 flex-1 overflow-y-auto rounded-b-lg p-4', isDark ? 'bg-surface-900' : 'bg-transparent']">
         <div class="space-y-4">
           <div
             v-for="message in chatMessages"
@@ -617,16 +617,16 @@ Components that support date filtering will automatically respond to the global 
           >
             <Card
               class="max-w-xs"
-              :class="message.type === 'user' ? (isDark ? 'bg-[#2b1a20] border-[#5b2433]' : 'bg-primary-50 border-primary-200') : (isDark ? 'bg-[#202024] border-[#2f2f35]' : 'bg-surface-50 border-surface-200')"
+              :class="message.type === 'user' ? (isDark ? 'bg-primary-950 border-primary-800' : 'bg-primary-50 border-primary-200') : (isDark ? 'bg-surface-800 border-surface-800' : 'bg-surface-50 border-surface-200')"
             >
               <template #content>
                 <div class="text-sm">
                   <div class="whitespace-pre-wrap">{{ message.content }}</div>
                   
                   <div v-if="message.loading && message.tasks && message.tasks.length > 0" class="mt-3">
-                    <div :class="['mb-2 text-xs font-medium', isDark ? 'text-[#d4d4d8]' : 'text-surface-700']">Progress:</div>
+                    <div :class="['mb-2 text-xs font-medium', isDark ? 'text-surface-300' : 'text-surface-700']">Progress:</div>
                     <ul class="space-y-1">
-                      <li v-for="(task, index) in message.tasks" :key="task" :class="['flex items-center text-xs', isDark ? 'text-[#a1a1aa]' : 'text-surface-600']">
+                      <li v-for="(task, index) in message.tasks" :key="task" :class="['flex items-center text-xs', isDark ? 'text-surface-400' : 'text-surface-600']">
                         <i v-if="index === message.tasks.length - 1" class="pi pi-spin pi-spinner mr-2 text-primary-500"></i>
                         <i v-else class="pi pi-check mr-2 text-green-500"></i>
                         {{ task }}
@@ -643,7 +643,7 @@ Components that support date filtering will automatically respond to the global 
                     </button>
                     <div v-if="message.isExpanded" class="mt-2">
                       <ul class="space-y-1">
-                        <li v-for="task in message.tasks" :key="task" :class="['flex items-center text-xs', isDark ? 'text-[#a1a1aa]' : 'text-surface-600']">
+                        <li v-for="task in message.tasks" :key="task" :class="['flex items-center text-xs', isDark ? 'text-surface-400' : 'text-surface-600']">
                           <i class="pi pi-check mr-2 text-green-500"></i>
                           {{ task }}
                         </li>
@@ -651,7 +651,7 @@ Components that support date filtering will automatically respond to the global 
                     </div>
                   </div>
                   
-                  <div :class="['mt-2 text-xs', isDark ? 'text-[#7f7f86]' : 'text-surface-500']">
+                  <div :class="['mt-2 text-xs', isDark ? 'text-surface-500' : 'text-surface-500']">
                     {{ message.timestamp.toLocaleTimeString() }}
                   </div>
                 </div>
@@ -661,7 +661,7 @@ Components that support date filtering will automatically respond to the global 
         </div>
       </div>
 
-      <div :class="['flex-shrink-0 rounded-b-lg border-t p-4', isDark ? 'border-[#2f2f35] bg-[#171717]' : 'border-surface-200 bg-surface-50']">
+      <div :class="['flex-shrink-0 rounded-b-lg border-t p-4', isDark ? 'border-surface-800 bg-surface-900' : 'border-surface-200 bg-surface-50']">
         <div class="flex gap-2">
           <InputText
             v-model="userInput"

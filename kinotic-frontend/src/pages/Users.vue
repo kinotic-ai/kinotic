@@ -19,7 +19,7 @@
       </template>
 
       <template #additional-actions="{ item }">
-        <Button text :class="isDark ? '!text-[#d4d4d8] !bg-[#171717]' : '!text-[#334155] !bg-white'" title="OpenAPI">
+        <Button text :class="isDark ? '!text-surface-300 !bg-surface-900' : '!text-surface-700 !bg-surface-0'" title="OpenAPI">
           <RouterLink target="_blank" :to="'/scalar-ui.html?namespace=' + item.id">
             <svg width="20" height="20" viewBox="0 0 24 24">
               <path :d="icons.api" fill="currentColor" />
@@ -27,7 +27,7 @@
           </RouterLink>
         </Button>
 
-        <Button text :class="isDark ? '!text-[#d4d4d8] !bg-[#171717]' : '!text-[#334155] !bg-white'" title="GraphQL">
+        <Button text :class="isDark ? '!text-surface-300 !bg-surface-900' : '!text-surface-700 !bg-surface-0'" title="GraphQL">
           <RouterLink target="_blank" :to="'/gql-ui.html?namespace=' + item.id">
             <svg width="20" height="20" viewBox="0 0 24 24">
               <path :d="icons.graph" fill="currentColor" />

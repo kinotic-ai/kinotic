@@ -14,12 +14,12 @@ const props = defineProps<{
 const isDark = computed(() => darkMode.value)
 
 const textClass = computed(() => {
-  if (props.isActive) return isDark.value ? 'text-white' : 'text-[#101010]'
-  return isDark.value ? 'text-[#a3a3a3]' : 'text-[#71717a]'
+  if (props.isActive) return isDark.value ? 'text-surface-0' : 'text-surface-950'
+  return isDark.value ? 'text-surface-400' : 'text-surface-500'
 })
 
 const iconClass = computed(() => {
-  return props.isActive ? 'text-primary-500' : isDark.value ? 'text-[#7b7b83]' : 'text-[#8e8e96]'
+  return props.isActive ? 'text-primary-500' : isDark.value ? 'text-surface-500' : 'text-surface-400'
 })
 </script>
 
@@ -28,7 +28,7 @@ const iconClass = computed(() => {
     :class="[
       'flex w-full items-center rounded-md pl-1 pb-2 transition-colors duration-200 cursor-pointer',
       props.isActive ? '' : 'bg-transparent',
-      isDark ? 'hover:bg-[#2f2f34]' : 'hover:bg-surface-200',
+      isDark ? 'hover:bg-surface-800' : 'hover:bg-surface-200',
       props.collapsed ? 'justify-center' : 'px-2 '
     ]"
     @click="$emit('click')"

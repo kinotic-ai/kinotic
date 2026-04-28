@@ -91,11 +91,29 @@ export default class ApplicationDetails extends Vue {
 </script>
 
 <template>
-  <div :class="['p-10 transition-colors', isDark ? 'text-white' : 'text-[#101010]']">
+  <div :class="['p-10 transition-colors', isDark ? 'text-surface-0' : 'text-surface-950']">
     <div class="flex justify-between items-center mb-6 h-[58px]">
       <div>
         <h1 :class="['mb-3 text-2xl font-semibold', isDark ? 'text-white' : 'text-surface-950']">{{ applicationId }}</h1>
-        <span :class="[isDark ? 'text-[#a1a1aa]' : 'text-[#5f6165]']">{{ projectsCount }} projects, {{ structuresCount }} structures</span>
+        <span :class="[isDark ? 'text-surface-400' : 'text-surface-600']">{{ projectsCount }} projects, {{ structuresCount }} structures</span>
+      </div>
+      <div class="flex gap-3 h-full">
+        <div
+          v-if="currentApplication?.enableGraphQL"
+          @click="openGraphQL"
+          :class="['flex cursor-pointer items-center gap-2 rounded-xl border px-16', isDark ? 'border-surface-800 bg-surface-900' : 'border-surface-200']"
+        >
+          <img src="@/assets/graphql.svg" class="w-6 h-6" />
+          <span class="text-sm font-semibold">GraphQL</span>
+        </div>
+        <div 
+          v-if="currentApplication?.enableOpenAPI"
+          @click="openOpenAPI"
+          :class="['flex cursor-pointer items-center gap-2 rounded-xl border px-16', isDark ? 'border-surface-800 bg-surface-900' : 'border-surface-200']"
+        >
+          <img src="@/assets/scalar.svg" class="w-6 h-6" />
+          <span class="text-sm font-semibold">OpenAPI</span>
+        </div>
       </div>
     </div>
 
@@ -152,12 +170,12 @@ export default class ApplicationDetails extends Vue {
   color: currentColor;
 }
 html.dark .p-tablist {
-  border-bottom-color: #2f2f35 !important;
+  border-bottom-color: var(--p-surface-800) !important;
   background: transparent !important;
 }
 html.dark .p-tab {
   background: transparent !important;
-  color: #9f9fa8 !important;
+  color: var(--p-surface-400) !important;
   border: none !important;
 }
 html.light .p-tab,
@@ -165,11 +183,11 @@ html.light .p-tab,
   border: none !important;
 }
 html.dark .p-tab.p-tab-active {
-  color: #ffffff !important;
+  color: var(--p-surface-0) !important;
 }
 html.dark .p-tab.p-tab-active .application-details-tab__icon,
 :root:not(.dark) .p-tab.p-tab-active .application-details-tab__icon {
-  color: #EE3764 !important;
+  color: var(--p-primary-500) !important;
 }
 html.dark .p-tablist-active-bar {
   background: var(--p-primary-500) !important;

@@ -91,7 +91,7 @@ export default class Sidebar extends Vue {
     <div :class="[
       'flex h-full flex-col justify-between rounded-xl transition-[width,background-color,border-color] duration-300 ease-in-out w-full box-border border',
       collapsed ? 'px-1 py-2 items-center' : 'px-2 py-2',
-      isDark ? 'border-[#2b2b2f] bg-[#262626]' : 'border-[#ececf1] bg-[#f7f7f8]'
+      isDark ? 'border-surface-800 bg-surface-800' : 'border-surface-200 bg-surface-50'
     ]">
       <div class="flex flex-col w-full" :class="collapsed ? 'justify-center items-center' : 'pl-[10px]'">
         <SidebarItem
@@ -110,7 +110,7 @@ export default class Sidebar extends Vue {
         @click="toggleSidebar"
         :class="[
           'w-max cursor-pointer rounded-lg p-2 !pl-3 transition-colors',
-          isDark ? 'hover:bg-[#2f2f34]' : 'hover:bg-gray-200'
+          isDark ? 'hover:bg-surface-800' : 'hover:bg-surface-200'
         ]"
       >
         <img :style="{ width: '14px', height: '14px' }" :src="collapsed ? strExpand : strCollapse" alt="Toggle Sidebar" class="w-5 h-5 transition-transform duration-300" :class="[collapsed ? 'rotate-180' : '', isDark ? 'opacity-70 invert' : 'opacity-70']"/>
