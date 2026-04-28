@@ -14,6 +14,7 @@ import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.core.internal.utils.CorsUtil;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
+import org.kinotic.gateway.internal.endpoints.rest.GitHubGatewayRoutes;
 import org.kinotic.gateway.internal.endpoints.rest.LoginHandler;
 import org.kinotic.gateway.internal.endpoints.rest.OidcSignupHandler;
 import org.kinotic.gateway.internal.endpoints.rest.SignUpHandler;
@@ -35,6 +36,7 @@ public class ApiGatewayVertcleFactory {
     private final SignUpHandler signUpHandler;
     private final LoginHandler loginHandler;
     private final OidcSignupHandler oidcSignupHandler;
+    private final GitHubGatewayRoutes githubGatewayRoutes;
     private final HealthChecks healthChecks;
     private final Vertx vertx;
 
@@ -44,6 +46,7 @@ public class ApiGatewayVertcleFactory {
                                     SignUpHandler signUpHandler,
                                     LoginHandler loginHandler,
                                     OidcSignupHandler oidcSignupHandler,
+                                    GitHubGatewayRoutes githubGatewayRoutes,
                                     HealthChecks healthChecks,
                                     Vertx vertx) {
         this.kinoticProperties = kinoticProperties;
@@ -53,6 +56,7 @@ public class ApiGatewayVertcleFactory {
         this.signUpHandler = signUpHandler;
         this.loginHandler = loginHandler;
         this.oidcSignupHandler = oidcSignupHandler;
+        this.githubGatewayRoutes = githubGatewayRoutes;
         this.healthChecks = healthChecks;
         this.vertx = vertx;
     }
@@ -75,6 +79,7 @@ public class ApiGatewayVertcleFactory {
         signUpHandler.mountRoutes(router);
         loginHandler.mountRoutes(router);
         oidcSignupHandler.mountRoutes(router);
+        githubGatewayRoutes.mountRoutes(router);
 
         StompServerOptions stompServerOptions = gatewayProperties.getStomp();
         // we override the body length with the continuum properties

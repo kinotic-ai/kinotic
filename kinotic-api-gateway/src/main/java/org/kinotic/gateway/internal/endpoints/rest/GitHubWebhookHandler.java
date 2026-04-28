@@ -1,0 +1,140 @@
+package org.kinotic.gateway.internal.endpoints.rest;
+
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.handler.BodyHandler;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.secret.SecretStorageService;
+import org.kinotic.os.github.api.config.KinoticGithubProperties;
+import org.kinotic.os.github.api.model.GitHubWebhookEnvelope;
+import org.kinotic.os.github.api.services.GitHubWebhookDispatchService;
+import org.kinotic.os.github.internal.bootstrap.GitHubAppSecretsBootstrap;
+import org.kinotic.os.github.internal.security.GitHubWebhookVerifier;
+import org.springframework.stereotype.Component;
+
+/**
+ * {@code POST /api/github/webhook}: HMAC-verifies the delivery, parses the JSON, and
+ * hands a {@link GitHubWebhookEnvelope} to {@link GitHubWebhookDispatchService}.
+ * <p>
+ * The {@link BodyHandler} is route-scoped (not global) with a 25 MiB cap matching
+ * GitHub's documented webhook ceiling; oversized payloads are rejected with 413
+ * before HMAC ever runs. HMAC verification is computed against the raw bytes
+ * <strong>before</strong> any JSON decode — see {@link GitHubWebhookVerifier} —
+ * since whitespace differences would invalidate the signature.
+ * <p>
+ * Always returns 204 quickly so GitHub doesn't redeliver. Any internal failure is
+ * logged and dropped by the dispatch service.
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class GitHubWebhookHandler {
+
+    private static final String HEADER_EVENT = "X-GitHub-Event";
+    private static final String HEADER_DELIVERY = "X-GitHub-Delivery";
+    private static final String HEADER_SIGNATURE = "X-Hub-Signature-256";
+
+    private final Vertx vertx;
+    private final KinoticGithubProperties properties;
+    private final SecretStorageService secretStorageService;
+    private final GitHubWebhookDispatchService dispatchService;
+
+    public void mountRoute(Router router) {
+        String path = properties.getGithub().getWebhookPath();
+        router.post(path)
+              .handler(BodyHandler.create()
+                      .setBodyLimit(properties.getGithub().getWebhookBodyLimitBytes()))
+              .handler(this::handleWebhook);
+    }
+
+    private void handleWebhook(RoutingContext ctx) {
+        String eventType = ctx.request().getHeader(HEADER_EVENT);
+        String deliveryId = ctx.request().getHeader(HEADER_DELIVERY);
+        String signature = ctx.request().getHeader(HEADER_SIGNATURE);
+
+        if (eventType == null) {
+            ctx.response().setStatusCode(400).end();
+            return;
+        }
+        Buffer body = ctx.body().buffer();
+        if (body == null) {
+            ctx.response().setStatusCode(400).end();
+            return;
+        }
+
+        secretStorageService.getSecret(GitHubAppSecretsBootstrap.SECRET_SCOPE,
+                                       GitHubAppSecretsBootstrap.WEBHOOK_SECRET_KEY)
+                            .thenAccept(secret -> verifyAndDispatch(ctx, eventType, deliveryId,
+                                                                    signature, body, secret))
+                            .exceptionally(err -> {
+                                log.warn("Webhook secret lookup failed: {}", err.getMessage());
+                                ctx.response().setStatusCode(500).end();
+                                return null;
+                            });
+    }
+
+    private void verifyAndDispatch(RoutingContext ctx,
+                                   String eventType,
+                                   String deliveryId,
+                                   String signature,
+                                   Buffer body,
+                                   String secret) {
+        if (secret == null || secret.isBlank()) {
+            log.error("GitHub webhook secret not configured");
+            ctx.response().setStatusCode(503).end();
+            return;
+        }
+        // HMAC verification runs in executeBlocking so a 25 MiB payload doesn't pin
+        // the event loop. ordered=false lets concurrent webhooks run in parallel.
+        byte[] bodyBytes = body.getBytes();
+        Future<Boolean> verify = vertx.executeBlocking(
+                () -> GitHubWebhookVerifier.verify(bodyBytes, secret, signature),
+                false);
+        verify.onComplete(ar -> {
+            if (ar.failed() || !Boolean.TRUE.equals(ar.result())) {
+                log.warn("Rejecting webhook {} {} — signature mismatch",
+                         eventType, deliveryId);
+                ctx.response().setStatusCode(401).end();
+                return;
+            }
+            JsonObject payload;
+            try {
+                payload = body.toJsonObject();
+            } catch (Exception e) {
+                ctx.response().setStatusCode(400).end();
+                return;
+            }
+            GitHubWebhookEnvelope env = buildEnvelope(eventType, deliveryId, payload);
+            // Ack first; dispatch best-effort. GitHub's redelivery logic is based on the
+            // HTTP response, not the dispatch outcome.
+            ctx.response().setStatusCode(204).end();
+            dispatchService.dispatch(env).whenComplete((v, err) -> {
+                if (err != null) {
+                    log.warn("Webhook dispatch failed for {} {}: {}",
+                             eventType, deliveryId, err.getMessage());
+                }
+            });
+        });
+    }
+
+    private static GitHubWebhookEnvelope buildEnvelope(String eventType,
+                                                       String deliveryId,
+                                                       JsonObject payload) {
+        JsonObject install = payload.getJsonObject("installation");
+        String installationId = install != null && install.getLong("id") != null
+                ? String.valueOf(install.getLong("id")) : null;
+        JsonObject repo = payload.getJsonObject("repository");
+        String repoFullName = repo != null ? repo.getString("full_name") : null;
+        return new GitHubWebhookEnvelope()
+                .setEventType(eventType)
+                .setDeliveryId(deliveryId)
+                .setInstallationId(installationId)
+                .setRepoFullName(repoFullName)
+                .setPayload(payload);
+    }
+}

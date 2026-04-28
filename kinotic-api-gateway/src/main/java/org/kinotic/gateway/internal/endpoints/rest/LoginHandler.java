@@ -2,7 +2,6 @@ package org.kinotic.gateway.internal.endpoints.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.CookieSameSite;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.JWTOptions;
@@ -14,15 +13,13 @@ import io.vertx.ext.auth.oauth2.Oauth2Credentials;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
-import io.vertx.ext.web.handler.SessionHandler;
-import io.vertx.ext.web.sstore.ClusteredSessionStore;
-import io.vertx.ext.web.sstore.SessionStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.internal.security.KinoticJwtIssuer;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.auth.OAuth2AuthFactory;
 import org.kinotic.gateway.internal.auth.OAuth2AuthRegistry;
+import org.kinotic.gateway.internal.endpoints.rest.support.RedirectFlowSessionSupport;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.kinotic.os.api.services.KinoticSystemService;
@@ -36,9 +33,6 @@ import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -110,17 +104,8 @@ public class LoginHandler {
     private final KinoticJwtIssuer jwtIssuer;
 
     public void mountRoutes(Router router) {
-        // Clustered session (Ignite-backed via KinoticVertxConfig's IgniteClusterManager) — the
-        // ~10s IdP round-trip can land on any node, so state/PKCE/nonce must be shared.
         // BodyHandler is already installed at /api/* by SignUpHandler; not duplicated here.
-        SessionStore sessionStore = ClusteredSessionStore.create(vertx);
-        SessionHandler sessionHandler = SessionHandler.create(sessionStore)
-                .setCookieHttpOnlyFlag(true)
-                .setCookieSecureFlag(true)
-                .setCookieSameSite(CookieSameSite.LAX)  // LAX: IdP redirect back carries cookie
-                .setSessionTimeout(10 * 60 * 1000L);     // 10 min — covers the IdP roundtrip
-
-        router.route("/api/login/*").handler(sessionHandler);
+        router.route("/api/login/*").handler(RedirectFlowSessionSupport.newSessionHandler(vertx));
 
         router.get("/api/login/providers").handler(this::handleProviders);
         router.post("/api/login/lookup").handler(this::handleLookup);
@@ -287,10 +272,10 @@ public class LoginHandler {
      * platform-social logins (callback will pick the user's default-org membership).
      */
     private Future<String> prepareAuthorizeUrl(RoutingContext ctx, OidcConfiguration config, String orgId) {
-        String state = randomUrlSafe(32);
-        String nonce = randomUrlSafe(32);
-        String pkceVerifier = randomUrlSafe(64);
-        String pkceChallenge = s256Challenge(pkceVerifier);
+        String state = RedirectFlowSessionSupport.randomUrlSafe(32);
+        String nonce = RedirectFlowSessionSupport.randomUrlSafe(32);
+        String pkceVerifier = RedirectFlowSessionSupport.randomUrlSafe(64);
+        String pkceChallenge = RedirectFlowSessionSupport.s256Challenge(pkceVerifier);
 
         Session session = ctx.session();
         session.regenerateId();
@@ -526,19 +511,4 @@ public class LoginHandler {
         return null;
     }
 
-    private static String randomUrlSafe(int byteLen) {
-        byte[] buf = new byte[byteLen];
-        new SecureRandom().nextBytes(buf);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(buf);
-    }
-
-    private static String s256Challenge(String verifier) {
-        try {
-            byte[] hash = MessageDigest.getInstance("SHA-256")
-                                       .digest(verifier.getBytes(StandardCharsets.US_ASCII));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-        } catch (Exception e) {
-            throw new IllegalStateException("SHA-256 unavailable", e);
-        }
-    }
 }
