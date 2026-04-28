@@ -14,10 +14,9 @@ export interface IUserState {
     isAuthenticated(): boolean
 
     /**
-     * Returns the organization id of the currently authenticated participant. For now this
-     * is just the JWT's scopeId — true when the participant logged in at the ORGANIZATION
-     * scope. SYSTEM- and APPLICATION-scoped logins still need a separate resolution path
-     * (TODO).
+     * Returns the organization id of the currently authenticated participant. Only valid for
+     * ORGANIZATION-scoped logins, where the JWT's scopeId IS the org id; throws for SYSTEM-
+     * or APPLICATION-scoped participants (those need a separate resolution path — TODO).
      */
     getOrganizationId(): string
 
@@ -96,6 +95,9 @@ export class UserState implements IUserState {
     public getOrganizationId(): string {
         if (!this.authScopeId) {
             throw new Error('No organization id available — user is not authenticated')
+        }
+        if (this.authScopeType !== 'ORGANIZATION') {
+            throw new Error(`Cannot resolve organization id: participant is ${this.authScopeType}-scoped, expected ORGANIZATION`)
         }
         return this.authScopeId
     }
