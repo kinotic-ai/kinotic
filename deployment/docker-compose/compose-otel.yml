@@ -1,6 +1,9 @@
+# Pinned versions — :latest dragged in major-version bumps with breaking config schema
+# changes (Mimir frontend block removed, Tempo restructured, otelcol dropped the loki
+# exporter). Bump deliberately, not on every `docker compose pull`.
 services:
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.151.0
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
@@ -13,7 +16,7 @@ services:
       - mimir
 
   tempo:
-    image: grafana/tempo:latest
+    image: grafana/tempo:2.6.1
     command: ["-config.file=/etc/tempo/tempo.yml"]
     volumes:
       - ./tempo.yml:/etc/tempo/tempo.yml
@@ -22,13 +25,13 @@ services:
       - "3200:3200"  # Tempo HTTP
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.3.2
     ports:
-      - "3100:3100"  # Loki API (logs)
+      - "3100:3100"  # Loki API (logs) — also serves /otlp for OTLP ingestion
     command: -config.file=/etc/loki/local-config.yaml
 
   mimir:
-    image: grafana/mimir:latest
+    image: grafana/mimir:2.14.3
     command: ["-target=all", "-config.file=/etc/mimir/mimir.yml"]
     volumes:
       - ./mimir.yml:/etc/mimir/mimir.yml
