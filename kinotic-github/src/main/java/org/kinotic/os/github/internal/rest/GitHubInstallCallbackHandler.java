@@ -6,6 +6,7 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.os.github.api.model.GitHubAppInstallation;
+import org.kinotic.os.github.api.rest.GithubConstants;
 import org.kinotic.os.github.internal.api.services.GitHubInstallStateService;
 import org.kinotic.os.github.internal.api.services.GitHubInstallationCallbackService;
 import org.kinotic.os.github.internal.client.GitHubApiClient;
