@@ -39,10 +39,8 @@ export class UserState implements IUserState {
     private accessDenied: boolean = false
 
     public async loginWithToken(token: string): Promise<void> {
-        debug('loginWithToken: start')
         try {
             await Kinotic.disconnect()
-            debug('loginWithToken: prior connection disconnected')
         } catch (error) {
             debug('No existing connection to disconnect')
         }
@@ -65,17 +63,13 @@ export class UserState implements IUserState {
             this.authScopeId = claims.scopeId
             this.authenticated = true
             this.accessDenied = false
-            debug('loginWithToken: success authenticated=true connectedInfo=set')
         } catch (reason: any) {
             this.accessDenied = true
-            debug('loginWithToken: FAILED %O', reason)
             throw new Error(reason ? String(reason) : 'Token authentication failed')
         }
     }
 
     public async logout(): Promise<void> {
-        debug('logout: called - resetting auth state')
-        console.trace('[user-state] logout called')
         if (this.connectedInfo) {
             try {
                 await Kinotic.disconnect()
