@@ -8,7 +8,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * Pre-parsed webhook delivery the gateway hands to {@code GitHubWebhookDispatchService}
+ * Pre-parsed webhook delivery the gateway hands to {@code GitHubWebhookEventService}
  * after HMAC verification. {@code installationId} and {@code repoFullName} are pulled
  * out for fast lookup; the full payload is preserved so the dispatcher can surface
  * the relevant fields per event type.
@@ -18,7 +18,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class GitHubWebhookEnvelope {
+public class GitHubWebhookEvent {
     /** Value of {@code X-GitHub-Event}, e.g. {@code push}, {@code pull_request}. */
     private String eventType;
 

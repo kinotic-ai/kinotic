@@ -10,15 +10,15 @@ import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretStorageService;
-import org.kinotic.os.github.api.model.GitHubWebhookEnvelope;
-import org.kinotic.os.github.api.services.GitHubWebhookDispatchService;
+import org.kinotic.os.github.api.model.GitHubWebhookEvent;
+import org.kinotic.os.github.api.services.GitHubWebhookEventService;
 import org.kinotic.os.github.internal.bootstrap.GitHubAppSecretsBootstrap;
 import org.kinotic.os.github.internal.security.GitHubWebhookVerifier;
 import org.springframework.stereotype.Component;
 
 /**
  * {@code POST /api/github/webhook}: HMAC-verifies the delivery, parses the JSON, and
- * hands a {@link GitHubWebhookEnvelope} to {@link GitHubWebhookDispatchService}.
+ * hands a {@link GitHubWebhookEvent} to {@link GitHubWebhookEventService}.
  * <p>
  * The {@link BodyHandler} is route-scoped (not global) with a 25 MiB cap matching
  * GitHub's documented webhook ceiling; oversized payloads are rejected with 413
@@ -43,7 +43,7 @@ public class GitHubWebhookHandler {
 
     private final Vertx vertx;
     private final SecretStorageService secretStorageService;
-    private final GitHubWebhookDispatchService dispatchService;
+    private final GitHubWebhookEventService dispatchService;
 
     public void mountRoute(Router router) {
         router.post(GithubConstants.WEBHOOK_PATH)
@@ -108,7 +108,7 @@ public class GitHubWebhookHandler {
                 ctx.response().setStatusCode(400).end();
                 return;
             }
-            GitHubWebhookEnvelope env = buildEnvelope(eventType, deliveryId, payload);
+            GitHubWebhookEvent env = buildEnvelope(eventType, deliveryId, payload);
             // Ack first; dispatch best-effort. GitHub's redelivery logic is based on the
             // HTTP response, not the dispatch outcome.
             ctx.response().setStatusCode(204).end();
@@ -121,7 +121,7 @@ public class GitHubWebhookHandler {
         });
     }
 
-    private static GitHubWebhookEnvelope buildEnvelope(String eventType,
+    private static GitHubWebhookEvent buildEnvelope(String eventType,
                                                        String deliveryId,
                                                        JsonObject payload) {
         JsonObject install = payload.getJsonObject("installation");
@@ -129,7 +129,7 @@ public class GitHubWebhookHandler {
                 ? String.valueOf(install.getLong("id")) : null;
         JsonObject repo = payload.getJsonObject("repository");
         String repoFullName = repo != null ? repo.getString("full_name") : null;
-        return new GitHubWebhookEnvelope()
+        return new GitHubWebhookEvent()
                 .setEventType(eventType)
                 .setDeliveryId(deliveryId)
                 .setInstallationId(installationId)

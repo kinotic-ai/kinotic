@@ -1,6 +1,6 @@
 package org.kinotic.os.github.api.services;
 
-import org.kinotic.os.github.api.model.GitHubWebhookEnvelope;
+import org.kinotic.os.github.api.model.GitHubWebhookEvent;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -12,12 +12,12 @@ import java.util.concurrent.CompletableFuture;
  * <p>
  * Not {@code @Publish}ed — only the gateway's webhook handler invokes this, in-process.
  */
-public interface GitHubWebhookDispatchService {
+public interface GitHubWebhookEventService {
 
     /**
      * Routes one verified GitHub delivery. Idempotent: a duplicate {@code deliveryId}
      * is swallowed silently. Always completes (never failed) so the gateway can return
      * 204 quickly even if downstream resolution can't find a link.
      */
-    CompletableFuture<Void> dispatch(GitHubWebhookEnvelope envelope);
+    CompletableFuture<Void> dispatch(GitHubWebhookEvent envelope);
 }

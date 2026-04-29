@@ -9,10 +9,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventBusService;
+import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.os.github.api.model.GitHubAppInstallation;
-import org.kinotic.os.github.api.model.GitHubWebhookEnvelope;
+import org.kinotic.os.github.api.model.GitHubWebhookEvent;
 import org.kinotic.os.github.api.model.ProjectGitHubRepoLink;
-import org.kinotic.os.github.api.services.GitHubWebhookDispatchService;
+import org.kinotic.os.github.api.services.GitHubWebhookEventService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
@@ -37,9 +38,8 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DefaultGitHubWebhookDispatchService implements GitHubWebhookDispatchService {
+public class DefaultGitHubWebhookEventService implements GitHubWebhookEventService {
 
-    private static final String EVT_SCHEME = "evt";
     private static final String EVT_NAMESPACE = "github";
     private static final String INSTALLATION_INDEX = "kinotic_github_app_installation";
     private static final String LINK_INDEX = "kinotic_project_github_repo";
@@ -53,7 +53,7 @@ public class DefaultGitHubWebhookDispatchService implements GitHubWebhookDispatc
             .build();
 
     @Override
-    public CompletableFuture<Void> dispatch(GitHubWebhookEnvelope env) {
+    public CompletableFuture<Void> dispatch(GitHubWebhookEvent env) {
         // First-line dedup: GitHub redelivers on 5xx, and we want at-most-once dispatch.
         if (env.getDeliveryId() != null
                 && deliveryDedup.asMap().putIfAbsent(env.getDeliveryId(), Boolean.TRUE) != null) {
@@ -72,7 +72,7 @@ public class DefaultGitHubWebhookDispatchService implements GitHubWebhookDispatc
         }
     }
 
-    private CompletableFuture<Void> handleInstallation(GitHubWebhookEnvelope env) {
+    private CompletableFuture<Void> handleInstallation(GitHubWebhookEvent env) {
         String action = env.getPayload().getString("action");
         JsonObject install = env.getPayload().getJsonObject("installation");
         String installationId = install != null
@@ -108,7 +108,7 @@ public class DefaultGitHubWebhookDispatchService implements GitHubWebhookDispatc
         });
     }
 
-    private CompletableFuture<Void> handleInstallationRepos(GitHubWebhookEnvelope env) {
+    private CompletableFuture<Void> handleInstallationRepos(GitHubWebhookEvent env) {
         if (!"removed".equals(env.getPayload().getString("action"))) {
             return CompletableFuture.completedFuture(null);
         }
@@ -133,7 +133,7 @@ public class DefaultGitHubWebhookDispatchService implements GitHubWebhookDispatc
         return chain;
     }
 
-    private CompletableFuture<Void> handleRepoEvent(GitHubWebhookEnvelope env) {
+    private CompletableFuture<Void> handleRepoEvent(GitHubWebhookEvent env) {
         if (env.getRepoFullName() == null) {
             return CompletableFuture.completedFuture(null);
         }
@@ -144,7 +144,7 @@ public class DefaultGitHubWebhookDispatchService implements GitHubWebhookDispatc
                 return;
             }
             for (ProjectGitHubRepoLink link : links) {
-                String cri = EVT_SCHEME + "://" + EVT_NAMESPACE + "/" + env.getEventType()
+                String cri = EventConstants.EVENT_DESTINATION_SCHEME + "://" + EVT_NAMESPACE + "/" + env.getEventType()
                         + "/" + link.getOrganizationId() + "/" + link.getProjectId();
                 byte[] payload = env.getPayload().encode().getBytes(StandardCharsets.UTF_8);
                 eventBusService.send(Event.create(cri, payload));
