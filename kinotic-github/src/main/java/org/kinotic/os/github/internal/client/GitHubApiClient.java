@@ -12,11 +12,9 @@ import io.vertx.ext.web.client.WebClientOptions;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.os.github.api.config.KinoticGithubProperties;
 import org.kinotic.os.github.api.model.AvailableRepo;
 import org.springframework.stereotype.Component;
 
-import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,37 +31,26 @@ import java.util.Map;
 @Component
 public class GitHubApiClient {
 
+    private static final String API_HOST = "api.github.com";
+    private static final int API_PORT = 443;
     private static final String ACCEPT = "application/vnd.github+json";
     private static final String API_VERSION_HEADER = "X-GitHub-Api-Version";
     private static final String API_VERSION = "2022-11-28";
     private static final String USER_AGENT = "kinotic-platform";
 
     private final Vertx vertx;
-    private final KinoticGithubProperties properties;
     private final GitHubAppJwtFactory jwtFactory;
     private WebClient webClient;
-    private String host;
-    private int port;
-    private boolean ssl;
-    private String basePath;
 
-    public GitHubApiClient(Vertx vertx,
-                           KinoticGithubProperties properties,
-                           GitHubAppJwtFactory jwtFactory) {
+    public GitHubApiClient(Vertx vertx, GitHubAppJwtFactory jwtFactory) {
         this.vertx = vertx;
-        this.properties = properties;
         this.jwtFactory = jwtFactory;
     }
 
     @PostConstruct
     public void start() {
-        URI base = URI.create(properties.getGithub().getApiBaseUrl());
-        this.host = base.getHost();
-        this.ssl = "https".equalsIgnoreCase(base.getScheme());
-        this.port = base.getPort() == -1 ? (ssl ? 443 : 80) : base.getPort();
-        this.basePath = base.getPath() == null ? "" : base.getPath();
         this.webClient = WebClient.create(vertx, new WebClientOptions()
-                .setSsl(ssl)
+                .setSsl(true)
                 .setUserAgent(USER_AGENT));
     }
 
@@ -176,8 +163,8 @@ public class GitHubApiClient {
 
     private Future<HttpResponse<Buffer>> jwtAuthedGet(String path) {
         String jwt = jwtFactory.getAppJwt();
-        return webClient.get(port, host, basePath + path)
-                .ssl(ssl)
+        return webClient.get(API_PORT, API_HOST, path)
+                .ssl(true)
                 .putHeader(HttpHeaders.AUTHORIZATION.toString(), "Bearer " + jwt)
                 .putHeader(HttpHeaders.ACCEPT.toString(), ACCEPT)
                 .putHeader(API_VERSION_HEADER, API_VERSION)
@@ -186,8 +173,8 @@ public class GitHubApiClient {
 
     private Future<HttpResponse<Buffer>> jwtAuthedPost(String path, JsonObject body) {
         String jwt = jwtFactory.getAppJwt();
-        return webClient.post(port, host, basePath + path)
-                .ssl(ssl)
+        return webClient.post(API_PORT, API_HOST, path)
+                .ssl(true)
                 .putHeader(HttpHeaders.AUTHORIZATION.toString(), "Bearer " + jwt)
                 .putHeader(HttpHeaders.ACCEPT.toString(), ACCEPT)
                 .putHeader(API_VERSION_HEADER, API_VERSION)
@@ -195,8 +182,8 @@ public class GitHubApiClient {
     }
 
     private Future<HttpResponse<Buffer>> tokenAuthedGet(String path, String token) {
-        return webClient.get(port, host, basePath + path)
-                .ssl(ssl)
+        return webClient.get(API_PORT, API_HOST, path)
+                .ssl(true)
                 .putHeader(HttpHeaders.AUTHORIZATION.toString(), "Bearer " + token)
                 .putHeader(HttpHeaders.ACCEPT.toString(), ACCEPT)
                 .putHeader(API_VERSION_HEADER, API_VERSION)
@@ -204,8 +191,8 @@ public class GitHubApiClient {
     }
 
     private Future<HttpResponse<Buffer>> tokenAuthedPost(String path, String token, JsonObject body) {
-        return webClient.post(port, host, basePath + path)
-                .ssl(ssl)
+        return webClient.post(API_PORT, API_HOST, path)
+                .ssl(true)
                 .putHeader(HttpHeaders.AUTHORIZATION.toString(), "Bearer " + token)
                 .putHeader(HttpHeaders.ACCEPT.toString(), ACCEPT)
                 .putHeader(API_VERSION_HEADER, API_VERSION)

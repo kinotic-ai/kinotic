@@ -30,9 +30,6 @@ public class GithubProperties {
      */
     private String appSlug;
 
-    /** Base URL of the GitHub REST API. Override for GitHub Enterprise Server. */
-    private String apiBaseUrl = "https://api.github.com";
-
     /**
      * Refresh installation tokens this much earlier than their stated expiry. Avoids
      * handing a near-expired token to a worker doing a long clone.
