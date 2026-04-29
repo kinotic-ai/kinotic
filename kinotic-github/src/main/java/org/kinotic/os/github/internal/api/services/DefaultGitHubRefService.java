@@ -12,7 +12,7 @@ import org.kinotic.os.github.api.services.GitHubAppInstallationService;
 import org.kinotic.os.github.api.services.GitHubRefService;
 import org.kinotic.os.github.api.services.ProjectGitHubRepoService;
 import org.kinotic.os.github.internal.client.GitHubApiClient;
-import org.kinotic.os.github.internal.client.InstallationTokenCache;
+import org.kinotic.os.github.internal.client.GitHubInstallationTokenCache;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
@@ -31,7 +31,7 @@ public class DefaultGitHubRefService implements GitHubRefService {
     private final SecurityContext securityContext;
     private final ProjectGitHubRepoService repoService;
     private final GitHubAppInstallationService installationService;
-    private final InstallationTokenCache tokenCache;
+    private final GitHubInstallationTokenCache tokenCache;
     private final GitHubApiClient apiClient;
 
     @Override
@@ -71,7 +71,7 @@ public class DefaultGitHubRefService implements GitHubRefService {
                                                   String sha) {
         return tokenCache.get(install.getGithubInstallationId(),
                               link.getRepoId(),
-                              InstallationTokenCache.WRITE_CONTENTS)
+                              GitHubInstallationTokenCache.WRITE_CONTENTS)
                          .compose(entry -> apiClient.createRef(entry.token(), link.getRepoFullName(), refName, sha))
                          .toCompletionStage().toCompletableFuture();
     }

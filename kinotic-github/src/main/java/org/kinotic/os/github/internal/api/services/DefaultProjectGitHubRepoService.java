@@ -13,7 +13,7 @@ import org.kinotic.os.github.api.model.ProjectGitHubRepoLink;
 import org.kinotic.os.github.api.services.GitHubAppInstallationService;
 import org.kinotic.os.github.api.services.ProjectGitHubRepoService;
 import org.kinotic.os.github.internal.client.GitHubApiClient;
-import org.kinotic.os.github.internal.client.InstallationTokenCache;
+import org.kinotic.os.github.internal.client.GitHubInstallationTokenCache;
 import org.kinotic.os.internal.api.services.AbstractCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -39,14 +39,14 @@ public class DefaultProjectGitHubRepoService
 
     private final GitHubAppInstallationService installationService;
     private final GitHubApiClient apiClient;
-    private final InstallationTokenCache tokenCache;
+    private final GitHubInstallationTokenCache tokenCache;
 
     public DefaultProjectGitHubRepoService(CrudServiceTemplate crudServiceTemplate,
                                            ElasticsearchAsyncClient esAsyncClient,
                                            SecurityContext securityContext,
                                            GitHubAppInstallationService installationService,
                                            GitHubApiClient apiClient,
-                                           InstallationTokenCache tokenCache) {
+                                           GitHubInstallationTokenCache tokenCache) {
         super(INDEX, ProjectGitHubRepoLink.class, esAsyncClient, crudServiceTemplate, securityContext);
         this.installationService = installationService;
         this.apiClient = apiClient;
@@ -119,8 +119,8 @@ public class DefaultProjectGitHubRepoService
      */
     private CompletableFuture<String> mintListingToken(GitHubAppInstallation install) {
         return tokenCache.get(install.getGithubInstallationId(), null,
-                              InstallationTokenCache.READ_CONTENTS)
-                         .map(InstallationTokenCache.Entry::token)
+                              GitHubInstallationTokenCache.READ_CONTENTS)
+                         .map(GitHubInstallationTokenCache.Entry::token)
                          .toCompletionStage().toCompletableFuture();
     }
 
