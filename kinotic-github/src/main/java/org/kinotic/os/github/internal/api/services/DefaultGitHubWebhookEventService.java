@@ -1,8 +1,6 @@
 package org.kinotic.os.github.internal.api.services;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,19 +16,25 @@ import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Default impl: dedups by {@code X-GitHub-Delivery}, mutates installation state for
- * management events, looks up the project link for repo events, and republishes a
- * slim envelope on {@code evt://github/<eventType>/<orgId>/<projectId>}.
+ * Default impl: mutates installation state for management events, looks up the
+ * project link for repo events, and republishes a slim envelope on
+ * {@code evt://github/<eventType>/<orgId>/<projectId>}.
  * <p>
  * Talks to {@link CrudServiceTemplate} directly (rather than going through the
  * org-scoped CRUD services) because webhook processing is by definition cross-org —
  * the inbound delivery has no Kinotic participant attached.
+ * <p>
+ * <strong>Idempotency is the consumer's responsibility.</strong> GitHub may redeliver
+ * a webhook (5xx response, retry from the App's Advanced settings, etc.) and there is
+ * no platform-side dedup — a per-node {@code X-GitHub-Delivery} cache wouldn't cover
+ * cross-node redeliveries anyway, so we don't pretend to. Installation-state mutations
+ * here are already idempotent (delete-on-already-gone, suspend-on-already-suspended);
+ * downstream subscribers on the event bus must be too.
  * <p>
  * Always succeeds — webhook handler returns 204 quickly and any internal error is
  * logged and dropped so GitHub does not redeliver.
@@ -47,19 +51,8 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
     private final CrudServiceTemplate crudServiceTemplate;
     private final EventBusService eventBusService;
 
-    private final Cache<String, Boolean> deliveryDedup = Caffeine.newBuilder()
-            .expireAfterWrite(Duration.ofMinutes(10))
-            .maximumSize(10_000)
-            .build();
-
     @Override
     public CompletableFuture<Void> process(GitHubWebhookEvent event) {
-        // First-line dedup: GitHub redelivers on 5xx, and we want at-most-once processing.
-        if (event.getDeliveryId() != null
-                && deliveryDedup.asMap().putIfAbsent(event.getDeliveryId(), Boolean.TRUE) != null) {
-            log.debug("Dropping duplicate GitHub delivery {}", event.getDeliveryId());
-            return CompletableFuture.completedFuture(null);
-        }
         try {
             return switch (event.getEventType()) {
                 case "installation" -> handleInstallation(event);
