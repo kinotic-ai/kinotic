@@ -1,4 +1,4 @@
-package org.kinotic.gateway.internal.endpoints.rest;
+package org.kinotic.os.github.internal.rest;
 
 import io.vertx.ext.web.Router;
 import lombok.RequiredArgsConstructor;

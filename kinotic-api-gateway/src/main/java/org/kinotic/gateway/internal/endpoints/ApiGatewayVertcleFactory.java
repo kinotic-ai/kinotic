@@ -14,10 +14,10 @@ import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.core.internal.utils.CorsUtil;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
-import org.kinotic.gateway.internal.endpoints.rest.GitHubGatewayRoutes;
 import org.kinotic.gateway.internal.endpoints.rest.LoginHandler;
 import org.kinotic.gateway.internal.endpoints.rest.OidcSignupHandler;
 import org.kinotic.gateway.internal.endpoints.rest.SignUpHandler;
+import org.kinotic.os.github.internal.rest.GitHubGatewayRoutes;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

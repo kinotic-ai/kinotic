@@ -1,4 +1,4 @@
-package org.kinotic.gateway.internal.endpoints.rest;
+package org.kinotic.os.github.internal.rest;
 
 /**
  * Fixed paths used by the GitHub integration. All three are part of the platform's
