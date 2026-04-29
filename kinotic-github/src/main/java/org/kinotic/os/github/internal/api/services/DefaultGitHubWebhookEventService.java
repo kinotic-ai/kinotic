@@ -29,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
  * slim envelope on {@code evt://github/<eventType>/<orgId>/<projectId>}.
  * <p>
  * Talks to {@link CrudServiceTemplate} directly (rather than going through the
- * org-scoped CRUD services) because webhook dispatch is by definition cross-org —
+ * org-scoped CRUD services) because webhook processing is by definition cross-org —
  * the inbound delivery has no Kinotic participant attached.
  * <p>
  * Always succeeds — webhook handler returns 204 quickly and any internal error is
@@ -53,31 +53,31 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
             .build();
 
     @Override
-    public CompletableFuture<Void> dispatch(GitHubWebhookEvent env) {
-        // First-line dedup: GitHub redelivers on 5xx, and we want at-most-once dispatch.
-        if (env.getDeliveryId() != null
-                && deliveryDedup.asMap().putIfAbsent(env.getDeliveryId(), Boolean.TRUE) != null) {
-            log.debug("Dropping duplicate GitHub delivery {}", env.getDeliveryId());
+    public CompletableFuture<Void> process(GitHubWebhookEvent event) {
+        // First-line dedup: GitHub redelivers on 5xx, and we want at-most-once processing.
+        if (event.getDeliveryId() != null
+                && deliveryDedup.asMap().putIfAbsent(event.getDeliveryId(), Boolean.TRUE) != null) {
+            log.debug("Dropping duplicate GitHub delivery {}", event.getDeliveryId());
             return CompletableFuture.completedFuture(null);
         }
         try {
-            return switch (env.getEventType()) {
-                case "installation" -> handleInstallation(env);
-                case "installation_repositories" -> handleInstallationRepos(env);
-                default -> handleRepoEvent(env);
+            return switch (event.getEventType()) {
+                case "installation" -> handleInstallation(event);
+                case "installation_repositories" -> handleInstallationRepos(event);
+                default -> handleRepoEvent(event);
             };
         } catch (Exception e) {
-            log.warn("Webhook dispatch failed for delivery {}: {}", env.getDeliveryId(), e.getMessage());
+            log.warn("Webhook processing failed for delivery {}: {}", event.getDeliveryId(), e.getMessage());
             return CompletableFuture.completedFuture(null);
         }
     }
 
-    private CompletableFuture<Void> handleInstallation(GitHubWebhookEvent env) {
-        String action = env.getPayload().getString("action");
-        JsonObject install = env.getPayload().getJsonObject("installation");
+    private CompletableFuture<Void> handleInstallation(GitHubWebhookEvent event) {
+        String action = event.getPayload().getString("action");
+        JsonObject install = event.getPayload().getJsonObject("installation");
         String installationId = install != null
                 ? String.valueOf(install.getLong("id"))
-                : env.getInstallationId();
+                : event.getInstallationId();
         if (installationId == null) {
             return CompletableFuture.completedFuture(null);
         }
@@ -108,11 +108,11 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
         });
     }
 
-    private CompletableFuture<Void> handleInstallationRepos(GitHubWebhookEvent env) {
-        if (!"removed".equals(env.getPayload().getString("action"))) {
+    private CompletableFuture<Void> handleInstallationRepos(GitHubWebhookEvent event) {
+        if (!"removed".equals(event.getPayload().getString("action"))) {
             return CompletableFuture.completedFuture(null);
         }
-        var removed = env.getPayload().getJsonArray("repositories_removed");
+        var removed = event.getPayload().getJsonArray("repositories_removed");
         if (removed == null || removed.isEmpty()) {
             return CompletableFuture.completedFuture(null);
         }
@@ -133,20 +133,20 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
         return chain;
     }
 
-    private CompletableFuture<Void> handleRepoEvent(GitHubWebhookEvent env) {
-        if (env.getRepoFullName() == null) {
+    private CompletableFuture<Void> handleRepoEvent(GitHubWebhookEvent event) {
+        if (event.getRepoFullName() == null) {
             return CompletableFuture.completedFuture(null);
         }
-        return findLinksByRepoFullName(env.getRepoFullName()).thenAccept(links -> {
+        return findLinksByRepoFullName(event.getRepoFullName()).thenAccept(links -> {
             if (links.isEmpty()) {
                 log.debug("No project link for repo {} (event {}); dropping",
-                          env.getRepoFullName(), env.getEventType());
+                          event.getRepoFullName(), event.getEventType());
                 return;
             }
             for (ProjectGitHubRepoLink link : links) {
-                String cri = EventConstants.EVENT_DESTINATION_SCHEME + "://" + EVT_NAMESPACE + "/" + env.getEventType()
+                String cri = EventConstants.EVENT_DESTINATION_SCHEME + "://" + EVT_NAMESPACE + "/" + event.getEventType()
                         + "/" + link.getOrganizationId() + "/" + link.getProjectId();
-                byte[] payload = env.getPayload().encode().getBytes(StandardCharsets.UTF_8);
+                byte[] payload = event.getPayload().encode().getBytes(StandardCharsets.UTF_8);
                 eventBusService.send(Event.create(cri, payload));
             }
         });

@@ -43,7 +43,7 @@ public class GitHubWebhookHandler {
 
     private final Vertx vertx;
     private final SecretStorageService secretStorageService;
-    private final GitHubWebhookEventService dispatchService;
+    private final GitHubWebhookEventService webhookEventService;
 
     public void mountRoute(Router router) {
         router.post(GithubConstants.WEBHOOK_PATH)
@@ -108,22 +108,22 @@ public class GitHubWebhookHandler {
                 ctx.response().setStatusCode(400).end();
                 return;
             }
-            GitHubWebhookEvent env = buildEnvelope(eventType, deliveryId, payload);
-            // Ack first; dispatch best-effort. GitHub's redelivery logic is based on the
-            // HTTP response, not the dispatch outcome.
+            GitHubWebhookEvent event = buildEvent(eventType, deliveryId, payload);
+            // Ack first; processing is best-effort. GitHub's redelivery logic is based on
+            // the HTTP response, not the downstream outcome.
             ctx.response().setStatusCode(204).end();
-            dispatchService.dispatch(env).whenComplete((v, err) -> {
+            webhookEventService.process(event).whenComplete((v, err) -> {
                 if (err != null) {
-                    log.warn("Webhook dispatch failed for {} {}: {}",
+                    log.warn("Webhook processing failed for {} {}: {}",
                              eventType, deliveryId, err.getMessage());
                 }
             });
         });
     }
 
-    private static GitHubWebhookEvent buildEnvelope(String eventType,
-                                                       String deliveryId,
-                                                       JsonObject payload) {
+    private static GitHubWebhookEvent buildEvent(String eventType,
+                                                 String deliveryId,
+                                                 JsonObject payload) {
         JsonObject install = payload.getJsonObject("installation");
         String installationId = install != null && install.getLong("id") != null
                 ? String.valueOf(install.getLong("id")) : null;
