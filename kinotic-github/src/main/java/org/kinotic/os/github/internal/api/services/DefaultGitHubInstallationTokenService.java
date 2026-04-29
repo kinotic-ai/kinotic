@@ -12,7 +12,7 @@ import org.kinotic.os.github.api.model.ProjectGitHubRepoLink;
 import org.kinotic.os.github.api.services.GitHubAppInstallationService;
 import org.kinotic.os.github.api.services.GitHubInstallationTokenService;
 import org.kinotic.os.github.api.services.ProjectGitHubRepoService;
-import org.kinotic.os.github.internal.client.InstallationTokenCache;
+import org.kinotic.os.github.internal.client.GitHubInstallationTokenCache;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Default impl: enforces caller-org match against the {@code @Scope} parameter, looks
  * up the project's {@link ProjectGitHubRepoLink}, and asks the
- * {@link InstallationTokenCache} for a {@code contents:read}-scoped token. Audit-logs
+ * {@link GitHubInstallationTokenCache} for a {@code contents:read}-scoped token. Audit-logs
  * every issuance so operators can trace which workers obtained which clone tokens.
  */
 @Slf4j
@@ -31,7 +31,7 @@ public class DefaultGitHubInstallationTokenService implements GitHubInstallation
     private final SecurityContext securityContext;
     private final ProjectGitHubRepoService repoService;
     private final GitHubAppInstallationService installationService;
-    private final InstallationTokenCache tokenCache;
+    private final GitHubInstallationTokenCache tokenCache;
 
     @Override
     public CompletableFuture<IssuedInstallationToken> issueRepoToken(String organizationId, String projectId) {
@@ -60,7 +60,7 @@ public class DefaultGitHubInstallationTokenService implements GitHubInstallation
                                                                     ProjectGitHubRepoLink link) {
         return tokenCache.get(install.getGithubInstallationId(),
                               link.getRepoId(),
-                              InstallationTokenCache.READ_CONTENTS)
+                              GitHubInstallationTokenCache.READ_CONTENTS)
                          .map(entry -> {
                              log.info("Issued GitHub clone token for project {} (org {}, repo {}) to {}",
                                       link.getProjectId(), link.getOrganizationId(),

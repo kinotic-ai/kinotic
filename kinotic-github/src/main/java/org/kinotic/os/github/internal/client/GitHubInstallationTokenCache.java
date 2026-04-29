@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @Slf4j
 @Component
-public class InstallationTokenCache {
+public class GitHubInstallationTokenCache {
 
     /** Standard scopes used in the platform. Single source so the cache key dedups them. */
     public static final Map<String, String> READ_CONTENTS = Map.of("contents", "read");
@@ -41,7 +41,7 @@ public class InstallationTokenCache {
 
     private final AsyncLoadingCache<Key, Entry> cache;
 
-    public InstallationTokenCache(GitHubApiClient apiClient) {
+    public GitHubInstallationTokenCache(GitHubApiClient apiClient) {
         this.cache = Caffeine.newBuilder()
                 .expireAfterWrite(Duration.ofMinutes(50))
                 .maximumSize(10_000)
