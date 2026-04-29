@@ -23,9 +23,10 @@ import java.nio.charset.StandardCharsets;
  * the browser to the SPA's success path. Any error redirects the browser to the
  * SPA's success path with {@code ?error=<code>} so the SPA can show an inline message.
  * <p>
- * Persists with {@link CrudServiceTemplate} directly: at this point in the flow there
- * is no Kinotic Participant on the request, so the org-scoped CRUD service can't be
- * used — the orgId from the session is the security boundary.
+ * Persistence is delegated to {@link GitHubAppInstallationStore}: at this point in the
+ * flow there is no Kinotic Participant on the request, so the org-scoped CRUD service
+ * can't be used — the orgId from the session (validated against the CSRF state) is
+ * the security boundary.
  */
 @Slf4j
 @Component
