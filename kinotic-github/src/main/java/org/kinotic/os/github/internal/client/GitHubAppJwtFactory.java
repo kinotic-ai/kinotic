@@ -75,14 +75,10 @@ public class GitHubAppJwtFactory {
     }
 
     private CachedJwt mint(Instant now) {
-        String appId = properties.getGithub().getAppId();
-        if (appId == null || appId.isBlank()) {
-            throw new IllegalStateException("kinotic.github.appId is not configured");
-        }
         PrivateKey key = ensureKey();
         Instant expiresAt = now.plus(JWT_TTL_SECONDS, ChronoUnit.SECONDS);
         String token = Jwts.builder()
-                .issuer(appId)
+                .issuer(properties.getGithub().getAppId())
                 .issuedAt(Date.from(now.minusSeconds(IAT_BACKDATE_SECONDS)))
                 .expiration(Date.from(expiresAt))
                 .signWith(key, Jwts.SIG.RS256)

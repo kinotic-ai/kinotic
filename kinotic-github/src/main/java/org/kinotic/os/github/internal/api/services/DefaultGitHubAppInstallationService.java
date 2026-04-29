@@ -47,14 +47,10 @@ public class DefaultGitHubAppInstallationService
     @Override
     public CompletableFuture<String> startInstall() {
         String orgId = requireOrgId();
-        String slug = properties.getGithub().getAppSlug();
-        if (slug == null || slug.isBlank()) {
-            return CompletableFuture.failedFuture(
-                    new IllegalStateException("kinotic.github.appSlug is not configured"));
-        }
         String state = stateService.stage(orgId);
         return CompletableFuture.completedFuture(
-                "https://github.com/apps/" + slug + "/installations/new?state=" + state);
+                "https://github.com/apps/" + properties.getGithub().getAppSlug()
+                        + "/installations/new?state=" + state);
     }
 
     @Override
