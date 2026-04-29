@@ -11,10 +11,6 @@ export interface GitHubAppInstallation {
     updated?: string
 }
 
-export interface InstallStartResponse {
-    url: string
-}
-
 /**
  * Service proxy for the published org-scoped GitHubAppInstallationService. Drives
  * the entire link/unlink flow over the existing STOMP session — no REST calls or
@@ -32,7 +28,7 @@ export class GitHubAppInstallationService {
             'org.kinotic.os.github.api.services.GitHubAppInstallationService')
     }
 
-    public startInstall(): Promise<InstallStartResponse> {
+    public startInstall(): Promise<string> {
         return this.serviceProxy.invoke('startInstall', [])
     }
 

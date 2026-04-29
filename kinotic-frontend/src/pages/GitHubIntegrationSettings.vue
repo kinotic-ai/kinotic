@@ -56,7 +56,7 @@ async function link() {
   busy.value = true
   error.value = null
   try {
-    const { url } = await GITHUB_APP_INSTALLATION_SERVICE.startInstall()
+    const url = await GITHUB_APP_INSTALLATION_SERVICE.startInstall()
     window.location.href = url
   } catch (e) {
     error.value = (e as Error).message

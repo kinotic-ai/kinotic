@@ -10,15 +10,20 @@ import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Internal persistence shim used by the gateway's install-callback handler. The
- * callback runs without an authenticated Kinotic Participant (it's a top-level browser
- * redirect from GitHub), so the org-scoped CRUD service can't be used; instead we
- * persist directly via {@link CrudServiceTemplate} with the orgId carried over from
- * the install-start session.
+ * Backs the gateway's install-callback handler. The callback runs without an
+ * authenticated Kinotic Participant (it's a top-level browser redirect from GitHub),
+ * so the org-scoped CRUD service can't be used; instead we persist directly via
+ * {@link CrudServiceTemplate} with the orgId carried over from the install-state
+ * service.
+ * <p>
+ * Named distinctly from the published {@code GitHubAppInstallationService} interface
+ * because their security models differ — this one is an unauthenticated, callback-
+ * only persistence path; the published service requires an authenticated Participant
+ * and enforces org scope.
  */
 @Component
 @RequiredArgsConstructor
-public class GitHubAppInstallationStore {
+public class GitHubInstallationCallbackService {
 
     private static final String INDEX = "kinotic_github_app_installation";
 

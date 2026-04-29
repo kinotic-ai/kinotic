@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Component
-public class GitHubInstallStateStore {
+public class GitHubInstallStateService {
 
     private static final String CACHE_NAME = "kinotic_github_install_state";
     private static final long TTL_MINUTES = 10;

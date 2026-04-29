@@ -9,7 +9,6 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.iam.AuthScopeType;
 import org.kinotic.os.github.api.config.KinoticGithubProperties;
 import org.kinotic.os.github.api.model.GitHubAppInstallation;
-import org.kinotic.os.github.api.model.InstallStartResponse;
 import org.kinotic.os.github.api.services.GitHubAppInstallationService;
 import org.kinotic.os.internal.api.services.AbstractCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
@@ -33,29 +32,29 @@ public class DefaultGitHubAppInstallationService
     private static final String INDEX = "kinotic_github_app_installation";
 
     private final KinoticGithubProperties properties;
-    private final GitHubInstallStateStore stateStore;
+    private final GitHubInstallStateService stateService;
 
     public DefaultGitHubAppInstallationService(CrudServiceTemplate crudServiceTemplate,
                                                ElasticsearchAsyncClient esAsyncClient,
                                                SecurityContext securityContext,
                                                KinoticGithubProperties properties,
-                                               GitHubInstallStateStore stateStore) {
+                                               GitHubInstallStateService stateService) {
         super(INDEX, GitHubAppInstallation.class, esAsyncClient, crudServiceTemplate, securityContext);
         this.properties = properties;
-        this.stateStore = stateStore;
+        this.stateService = stateService;
     }
 
     @Override
-    public CompletableFuture<InstallStartResponse> startInstall() {
+    public CompletableFuture<String> startInstall() {
         String orgId = requireOrgId();
         String slug = properties.getGithub().getAppSlug();
         if (slug == null || slug.isBlank()) {
             return CompletableFuture.failedFuture(
                     new IllegalStateException("kinotic.github.appSlug is not configured"));
         }
-        String state = stateStore.stage(orgId);
-        String url = "https://github.com/apps/" + slug + "/installations/new?state=" + state;
-        return CompletableFuture.completedFuture(new InstallStartResponse(url));
+        String state = stateService.stage(orgId);
+        return CompletableFuture.completedFuture(
+                "https://github.com/apps/" + slug + "/installations/new?state=" + state);
     }
 
     @Override

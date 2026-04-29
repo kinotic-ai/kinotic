@@ -6,8 +6,8 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.os.github.api.model.GitHubAppInstallation;
-import org.kinotic.os.github.internal.api.services.GitHubAppInstallationStore;
-import org.kinotic.os.github.internal.api.services.GitHubInstallStateStore;
+import org.kinotic.os.github.internal.api.services.GitHubInstallStateService;
+import org.kinotic.os.github.internal.api.services.GitHubInstallationCallbackService;
 import org.kinotic.os.github.internal.client.GitHubApiClient;
 import org.springframework.stereotype.Component;
 
@@ -18,13 +18,14 @@ import java.nio.charset.StandardCharsets;
  * {@code GET /api/github/install/callback}: GitHub redirects the browser here after
  * the user finishes the install. The {@code state} query parameter was minted by the
  * RPC {@code GitHubAppInstallationService.startInstall()} call earlier in the same
- * STOMP session — atomically consuming it from {@link GitHubInstallStateStore}
+ * STOMP session — atomically consuming it from {@link GitHubInstallStateService}
  * yields the orgId the install was started for. There is no session cookie or JWT
  * involved on this REST roundtrip.
  * <p>
- * Persistence is delegated to {@link GitHubAppInstallationStore}: at this point in
- * the flow there is no Kinotic Participant on the request, so the org-scoped CRUD
- * service can't be used — the state-staged orgId is the security boundary.
+ * Persistence is delegated to {@link GitHubInstallationCallbackService}: at this
+ * point in the flow there is no Kinotic Participant on the request, so the
+ * org-scoped CRUD service can't be used — the state-staged orgId is the security
+ * boundary.
  * <p>
  * Errors redirect the browser to the SPA's success path with {@code ?error=<code>}
  * so the SPA can render an inline message.
@@ -35,8 +36,8 @@ import java.nio.charset.StandardCharsets;
 public class GitHubInstallCallbackHandler {
 
     private final GitHubApiClient apiClient;
-    private final GitHubAppInstallationStore installationStore;
-    private final GitHubInstallStateStore stateStore;
+    private final GitHubInstallationCallbackService installationCallbackService;
+    private final GitHubInstallStateService stateService;
 
     public void mountRoute(Router router) {
         router.get(GithubConstants.INSTALL_CALLBACK_PATH).handler(this::handleCallback);
@@ -46,7 +47,7 @@ public class GitHubInstallCallbackHandler {
         String installationId = ctx.request().getParam("installation_id");
         String state = ctx.request().getParam("state");
 
-        String orgId = stateStore.consume(state);
+        String orgId = stateService.consume(state);
         if (orgId == null) {
             log.warn("GitHub install callback rejected — unknown or expired state");
             redirect(ctx, "state_mismatch");
@@ -60,7 +61,7 @@ public class GitHubInstallCallbackHandler {
 
         apiClient.getInstallation(installationId)
                 .compose(json -> Future.fromCompletionStage(
-                        installationStore.upsertFromGithub(orgId, installationId, json)))
+                        installationCallbackService.upsertFromGithub(orgId, installationId, json)))
                 .onSuccess(install -> redirectSuccess(ctx, install))
                 .onFailure(err -> {
                     log.warn("GitHub install callback failed: {}", err.getMessage());

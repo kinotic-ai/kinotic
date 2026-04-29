@@ -3,7 +3,6 @@ package org.kinotic.os.github.api.services;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.os.github.api.model.GitHubAppInstallation;
-import org.kinotic.os.github.api.model.InstallStartResponse;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -22,12 +21,12 @@ public interface GitHubAppInstallationService extends IdentifiableCrudService<Gi
     /**
      * Stages a single-use {@code state} token bound to the caller's organization in
      * a cluster-wide store, then returns the GitHub install URL with that state
-     * embedded. The SPA performs {@code window.location = response.url}.
+     * embedded. The SPA performs {@code window.location = url}.
      * <p>
      * Caller must be authenticated under {@code ORGANIZATION} scope; the org is read
      * from the participant. The state expires after 10 minutes if unused.
      */
-    CompletableFuture<InstallStartResponse> startInstall();
+    CompletableFuture<String> startInstall();
 
     /**
      * Returns the (at-most-one) installation bound to the caller's organization, or
