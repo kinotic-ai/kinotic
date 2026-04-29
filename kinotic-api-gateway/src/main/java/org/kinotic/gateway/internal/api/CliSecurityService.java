@@ -1,4 +1,4 @@
-package org.kinotic.gateway.internal.api.security;
+package org.kinotic.gateway.internal.api;
 
 import org.kinotic.core.api.security.DefaultParticipant;
 import org.kinotic.core.api.security.ParticipantConstants;

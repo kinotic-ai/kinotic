@@ -18,7 +18,7 @@ import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.security.Session;
-import org.kinotic.gateway.internal.api.security.CliSecurityService;
+import org.kinotic.gateway.internal.api.CliSecurityService;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.gateway.internal.endpoints.stomp.StompSubscriptionHandler;
 import org.slf4j.Logger;
