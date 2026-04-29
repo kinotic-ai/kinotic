@@ -422,7 +422,7 @@ public class LoginHandler {
             respondError(ctx, 400, "token is required");
             return;
         }
-        String displayNameOverride = body == null ? null : body.getString("displayName");
+        String displayNameOverride = body.getString("displayName");
 
         Future.fromCompletionStage(pendingRegistrationService.complete(token, user -> {
             if (displayNameOverride != null && !displayNameOverride.isBlank()) {
