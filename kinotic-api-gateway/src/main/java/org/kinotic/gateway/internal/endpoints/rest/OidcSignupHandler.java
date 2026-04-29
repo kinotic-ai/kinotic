@@ -18,7 +18,6 @@ import org.kinotic.core.internal.security.KinoticJwtIssuer;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.auth.OAuth2AuthFactory;
 import org.kinotic.gateway.internal.auth.OAuth2AuthRegistry;
-import org.kinotic.gateway.internal.endpoints.rest.support.RedirectFlowSessionSupport;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.kinotic.os.api.model.iam.PendingRegistration;

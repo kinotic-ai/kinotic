@@ -2,6 +2,8 @@ package org.kinotic.gateway.internal.config;
 
 import io.vertx.core.Vertx;
 import io.vertx.ext.healthchecks.HealthChecks;
+import org.kinotic.gateway.api.config.ApiGatewayProperties;
+import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,5 +18,10 @@ public class ApiGatewayConfiguration {
     @Bean
     public HealthChecks healthChecks(Vertx vertx) {
         return HealthChecks.create(vertx);
+    }
+
+    @Bean
+    public ApiGatewayProperties rpcGatewayProperties(KinoticApiGatewayProperties kinoticProperties){
+        return kinoticProperties.getApiGateway();
     }
 }

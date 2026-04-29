@@ -1,4 +1,4 @@
-package org.kinotic.gateway.internal.endpoints.rest.support;
+package org.kinotic.gateway.internal.endpoints.rest;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.http.CookieSameSite;
