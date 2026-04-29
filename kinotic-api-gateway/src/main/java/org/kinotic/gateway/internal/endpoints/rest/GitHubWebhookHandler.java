@@ -10,7 +10,6 @@ import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretStorageService;
-import org.kinotic.os.github.api.config.KinoticGithubProperties;
 import org.kinotic.os.github.api.model.GitHubWebhookEnvelope;
 import org.kinotic.os.github.api.services.GitHubWebhookDispatchService;
 import org.kinotic.os.github.internal.bootstrap.GitHubAppSecretsBootstrap;
@@ -39,15 +38,16 @@ public class GitHubWebhookHandler {
     private static final String HEADER_DELIVERY = "X-GitHub-Delivery";
     private static final String HEADER_SIGNATURE = "X-Hub-Signature-256";
 
+    /** GitHub's documented webhook ceiling — anything larger is rejected with 413. */
+    private static final long WEBHOOK_BODY_LIMIT_BYTES = 25L * 1024 * 1024;
+
     private final Vertx vertx;
-    private final KinoticGithubProperties properties;
     private final SecretStorageService secretStorageService;
     private final GitHubWebhookDispatchService dispatchService;
 
     public void mountRoute(Router router) {
         router.post(GithubConstants.WEBHOOK_PATH)
-              .handler(BodyHandler.create()
-                      .setBodyLimit(properties.getGithub().getWebhookBodyLimitBytes()))
+              .handler(BodyHandler.create().setBodyLimit(WEBHOOK_BODY_LIMIT_BYTES))
               .handler(this::handleWebhook);
     }
 

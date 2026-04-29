@@ -6,7 +6,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.os.github.api.config.KinoticGithubProperties;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -20,8 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * {@code (installationId, repoId, permissionsKey)} so a clone-scoped token is not
  * accidentally reused for ref creation. {@code expireAfterWrite(50m)} matches the
  * GitHub-issued lifetime; on every read we additionally enforce that the remaining
- * lifetime exceeds {@code minReturnedTokenLifetime}, refreshing synchronously when
- * not. Concurrent requests for the same key coalesce via a per-key promise map.
+ * lifetime exceeds {@link #MIN_RETURNED_TOKEN_LIFETIME}, refreshing synchronously
+ * when not. Concurrent requests for the same key coalesce via a per-key promise map.
  */
 @Slf4j
 @Component
@@ -32,7 +31,12 @@ public class InstallationTokenCache {
     public static final Map<String, String> READ_CONTENTS = Map.of("contents", "read");
     public static final Map<String, String> WRITE_CONTENTS = Map.of("contents", "write");
 
-    private final KinoticGithubProperties properties;
+    /**
+     * Never return a token with less than this much life remaining; refresh first. 10
+     * minutes is comfortably above the slowest expected clone of a multi-GB repo.
+     */
+    private static final Duration MIN_RETURNED_TOKEN_LIFETIME = Duration.ofMinutes(10);
+
     private final GitHubApiClient apiClient;
 
     private final Cache<Key, Entry> cache = Caffeine.newBuilder()
@@ -42,10 +46,9 @@ public class InstallationTokenCache {
     private final ConcurrentHashMap<Key, Promise<Entry>> inflight = new ConcurrentHashMap<>();
 
     /**
-     * Returns a token whose remaining life exceeds
-     * {@link KinoticGithubProperties#getGithub() minReturnedTokenLifetime}, minting a
-     * new one if cache state can't satisfy that. Single-flight: concurrent callers for
-     * the same key share one mint.
+     * Returns a token whose remaining life exceeds {@link #MIN_RETURNED_TOKEN_LIFETIME},
+     * minting a new one if cache state can't satisfy that. Single-flight: concurrent
+     * callers for the same key share one mint.
      */
     public Future<Entry> get(String installationId, String repoId, Map<String, String> permissions) {
         Key key = new Key(installationId, repoId, permissionKey(permissions));
@@ -73,9 +76,8 @@ public class InstallationTokenCache {
         return promise.future();
     }
 
-    private boolean hasEnoughLife(Entry entry) {
-        Duration min = properties.getGithub().getMinReturnedTokenLifetime();
-        return entry.expiresAt().isAfter(Instant.now().plus(min));
+    private static boolean hasEnoughLife(Entry entry) {
+        return entry.expiresAt().isAfter(Instant.now().plus(MIN_RETURNED_TOKEN_LIFETIME));
     }
 
     /**
