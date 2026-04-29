@@ -7,7 +7,7 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.iam.AuthScopeType;
 import org.kinotic.os.github.api.model.GitHubAppInstallation;
-import org.kinotic.os.github.api.model.IssuedInstallationToken;
+import org.kinotic.os.github.api.model.GitHubInstallationToken;
 import org.kinotic.os.github.api.model.ProjectGitHubRepoLink;
 import org.kinotic.os.github.api.services.GitHubAppInstallationService;
 import org.kinotic.os.github.api.services.GitHubInstallationTokenService;
@@ -34,7 +34,7 @@ public class DefaultGitHubInstallationTokenService implements GitHubInstallation
     private final GitHubInstallationTokenCache tokenCache;
 
     @Override
-    public CompletableFuture<IssuedInstallationToken> issueRepoToken(String organizationId, String projectId) {
+    public CompletableFuture<GitHubInstallationToken> issueRepoToken(String organizationId, String projectId) {
         Participant participant = requireMatchingOrg(organizationId);
         return repoService.findByProject(projectId).thenCompose(link -> {
             if (link == null) {
@@ -55,7 +55,7 @@ public class DefaultGitHubInstallationTokenService implements GitHubInstallation
         });
     }
 
-    private CompletableFuture<IssuedInstallationToken> mintAndAudit(Participant participant,
+    private CompletableFuture<GitHubInstallationToken> mintAndAudit(Participant participant,
                                                                     GitHubAppInstallation install,
                                                                     ProjectGitHubRepoLink link) {
         return tokenCache.get(install.getGithubInstallationId(),
@@ -65,7 +65,7 @@ public class DefaultGitHubInstallationTokenService implements GitHubInstallation
                              log.info("Issued GitHub clone token for project {} (org {}, repo {}) to {}",
                                       link.getProjectId(), link.getOrganizationId(),
                                       link.getRepoFullName(), participant.getId());
-                             return new IssuedInstallationToken()
+                             return new GitHubInstallationToken()
                                      .setToken(entry.token())
                                      .setExpiresAt(entry.expiresAt())
                                      .setCloneUrl("https://github.com/" + link.getRepoFullName() + ".git")

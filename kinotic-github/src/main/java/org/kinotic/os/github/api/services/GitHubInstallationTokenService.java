@@ -2,7 +2,7 @@ package org.kinotic.os.github.api.services;
 
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Scope;
-import org.kinotic.os.github.api.model.IssuedInstallationToken;
+import org.kinotic.os.github.api.model.GitHubInstallationToken;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -27,6 +27,6 @@ public interface GitHubInstallationTokenService {
      * @return token + expiry + clone URL, or a failed future with
      *         {@code IllegalStateException} when the project has no GitHub link
      */
-    CompletableFuture<IssuedInstallationToken> issueRepoToken(@Scope String organizationId,
+    CompletableFuture<GitHubInstallationToken> issueRepoToken(@Scope String organizationId,
                                                               String projectId);
 }

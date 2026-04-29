@@ -16,7 +16,7 @@ import java.time.Instant;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class IssuedInstallationToken {
+public class GitHubInstallationToken {
     /** Bearer token to send as {@code Authorization: Bearer <token>} on git over HTTPS. */
     private String token;
 
