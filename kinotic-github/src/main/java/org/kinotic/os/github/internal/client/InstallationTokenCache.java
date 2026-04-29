@@ -1,30 +1,31 @@
 package org.kinotic.os.github.internal.client;
 
-import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Per-node cache of GitHub installation access tokens, keyed by
- * {@code (installationId, repoId, permissionsKey)} so a clone-scoped token is not
- * accidentally reused for ref creation. {@code expireAfterWrite(50m)} matches the
- * GitHub-issued lifetime; on every read we additionally enforce that the remaining
- * lifetime exceeds {@link #MIN_RETURNED_TOKEN_LIFETIME}, refreshing synchronously
- * when not. Concurrent requests for the same key coalesce via a per-key promise map.
+ * {@code (installationId, repoId, permissions)} so a clone-scoped token is not
+ * accidentally reused for ref creation. Tokens are minted lazily on first use via the
+ * Caffeine async loader — concurrent callers for the same key share the in-flight
+ * load, so a flurry of webhook-driven clones doesn't hammer GitHub's
+ * {@code /access_tokens} endpoint.
+ * <p>
+ * {@code expireAfterWrite(50m)} matches the GitHub-issued lifetime; on every read we
+ * additionally enforce that the remaining lifetime exceeds
+ * {@link #MIN_RETURNED_TOKEN_LIFETIME}, evicting and reloading when it doesn't —
+ * never hand a worker a token that's about to die mid-clone.
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class InstallationTokenCache {
 
     /** Standard scopes used in the platform. Single source so the cache key dedups them. */
@@ -32,48 +33,39 @@ public class InstallationTokenCache {
     public static final Map<String, String> WRITE_CONTENTS = Map.of("contents", "write");
 
     /**
-     * Never return a token with less than this much life remaining; refresh first. 10
-     * minutes is comfortably above the slowest expected clone of a multi-GB repo.
+     * Never return a token with less than this much life remaining; evict and reload
+     * first. 10 minutes is comfortably above the slowest expected clone of a
+     * multi-GB repo.
      */
     private static final Duration MIN_RETURNED_TOKEN_LIFETIME = Duration.ofMinutes(10);
 
-    private final GitHubApiClient apiClient;
+    private final AsyncLoadingCache<Key, Entry> cache;
 
-    private final Cache<Key, Entry> cache = Caffeine.newBuilder()
-            .expireAfterWrite(Duration.ofMinutes(50))
-            .maximumSize(10_000)
-            .build();
-    private final ConcurrentHashMap<Key, Promise<Entry>> inflight = new ConcurrentHashMap<>();
+    public InstallationTokenCache(GitHubApiClient apiClient) {
+        this.cache = Caffeine.newBuilder()
+                .expireAfterWrite(Duration.ofMinutes(50))
+                .maximumSize(10_000)
+                .buildAsync((Key key, java.util.concurrent.Executor executor) ->
+                        apiClient.createInstallationToken(key.installationId(),
+                                                          key.repoId(),
+                                                          key.permissions())
+                                 .map(t -> new Entry(t.token(), t.expiresAt()))
+                                 .toCompletionStage()
+                                 .toCompletableFuture());
+    }
 
     /**
      * Returns a token whose remaining life exceeds {@link #MIN_RETURNED_TOKEN_LIFETIME},
-     * minting a new one if cache state can't satisfy that. Single-flight: concurrent
-     * callers for the same key share one mint.
+     * minting a fresh one (single-flight) when the cache can't satisfy that.
      */
     public Future<Entry> get(String installationId, String repoId, Map<String, String> permissions) {
-        Key key = new Key(installationId, repoId, permissionKey(permissions));
-        Entry cached = cache.getIfPresent(key);
-        if (cached != null && hasEnoughLife(cached)) {
-            return Future.succeededFuture(cached);
+        Key key = new Key(installationId, repoId, permissions);
+        Entry peek = cache.synchronous().getIfPresent(key);
+        if (peek != null && !hasEnoughLife(peek)) {
+            cache.synchronous().invalidate(key);
         }
-        // Coalesce concurrent mints for the same key.
-        Promise<Entry> promise = Promise.promise();
-        Promise<Entry> existing = inflight.putIfAbsent(key, promise);
-        if (existing != null) {
-            return existing.future();
-        }
-        apiClient.createInstallationToken(installationId, repoId, permissions)
-                .onComplete(ar -> {
-                    inflight.remove(key);
-                    if (ar.succeeded()) {
-                        Entry entry = new Entry(ar.result().token(), ar.result().expiresAt());
-                        cache.put(key, entry);
-                        promise.complete(entry);
-                    } else {
-                        promise.fail(ar.cause());
-                    }
-                });
-        return promise.future();
+        CompletableFuture<Entry> loaded = cache.get(key);
+        return Future.fromCompletionStage(loaded);
     }
 
     private static boolean hasEnoughLife(Entry entry) {
@@ -81,20 +73,10 @@ public class InstallationTokenCache {
     }
 
     /**
-     * Renders a permissions map to a stable cache-key fragment so {@code {"contents":"read"}}
-     * and {@code {"contents":"read"}} produce the same key regardless of HashMap order.
+     * Permissions ride in the key as a {@code Map.of(...)} immutable map; equals/hashCode
+     * are content-based, so {@link #READ_CONTENTS} and {@code Map.of("contents","read")}
+     * collide on the same cache slot.
      */
-    static String permissionKey(Map<String, String> permissions) {
-        if (permissions == null || permissions.isEmpty()) return "";
-        // TreeMap-style stable order without pulling another import.
-        Map<String, String> sorted = new HashMap<>(permissions);
-        return sorted.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(e -> e.getKey() + "=" + e.getValue())
-                .reduce((a, b) -> a + "," + b)
-                .orElse("");
-    }
-
-    public record Key(String installationId, String repoId, String permissionsKey) {}
+    public record Key(String installationId, String repoId, Map<String, String> permissions) {}
     public record Entry(String token, Instant expiresAt) {}
 }
