@@ -17,10 +17,15 @@ import java.util.Date;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Holds the GitHub App's RSA private key and produces App-level JWTs (RS256, ~9-minute
- * TTL) used to call install-token-mint endpoints. The signed JWT is cached so the
- * cost of RSA signing is paid once per refresh interval per node, not per request.
- * GitHub allows up to 10-minute App JWT lifetimes; we use 9 to leave clock-skew margin.
+ * Holds the GitHub App's RSA private key and produces App-level JWTs (RS256) used to
+ * call install-token-mint endpoints. The signed JWT is cached so the cost of RSA
+ * signing is paid once per refresh interval per node, not per request.
+ * <p>
+ * GitHub's hard limit is {@code exp - iat <= 10 minutes}. We use the full window:
+ * {@code iat} is backdated by 60s (per GitHub's recommendation, to absorb clock drift
+ * between Kinotic and GitHub) and {@code exp} is set 9 minutes after {@code now},
+ * for a 10-minute span. Forward lifetime from "now" is therefore 9 minutes — that's
+ * the refresh interval, not a conservatism margin.
  * <p>
  * The key is loaded from {@code SecretStorageService} on first use. Both PKCS#1
  * ({@code BEGIN RSA PRIVATE KEY}) and PKCS#8 ({@code BEGIN PRIVATE KEY}) PEM formats
@@ -34,6 +39,9 @@ public class GitHubAppJwtFactory {
     private static final String SECRET_SCOPE = "kinotic-system";
     private static final String SECRET_KEY = "githubAppPrivateKey";
     private static final long REFRESH_BEFORE_EXPIRY_SECONDS = 60;
+    /** {@code iat} backdating, per GitHub's clock-drift guidance. Eats into the 10-minute span. */
+    private static final long IAT_BACKDATE_SECONDS = 60;
+    /** Forward lifetime from "now". {@code IAT_BACKDATE + JWT_TTL} must be <= 600s (GitHub's max). */
     private static final long JWT_TTL_SECONDS = 9 * 60;
 
     private final KinoticGithubProperties properties;
@@ -75,8 +83,7 @@ public class GitHubAppJwtFactory {
         Instant expiresAt = now.plus(JWT_TTL_SECONDS, ChronoUnit.SECONDS);
         String token = Jwts.builder()
                 .issuer(appId)
-                // Per GitHub docs: backdate iat by 60s to allow for clock drift on their side.
-                .issuedAt(Date.from(now.minusSeconds(60)))
+                .issuedAt(Date.from(now.minusSeconds(IAT_BACKDATE_SECONDS)))
                 .expiration(Date.from(expiresAt))
                 .signWith(key, Jwts.SIG.RS256)
                 .compact();
