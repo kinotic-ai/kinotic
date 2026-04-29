@@ -343,6 +343,7 @@ export default toNative(CrudTable);
           v-if="enableViewSwitcher"
           v-model="activeView"
           :options="viewOptions"
+          optionLabel="value"
           optionValue="value"
           dataKey="value"
         >
