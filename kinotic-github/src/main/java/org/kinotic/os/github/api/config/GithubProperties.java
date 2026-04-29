@@ -33,9 +33,6 @@ public class GithubProperties {
     /** Base URL of the GitHub REST API. Override for GitHub Enterprise Server. */
     private String apiBaseUrl = "https://api.github.com";
 
-    /** Path the gateway exposes the install-start route at. */
-    private String installStartPath = "/api/github/install/start";
-
     /** Path the gateway exposes the install callback route at. */
     private String installCallbackPath = "/api/github/install/callback";
 

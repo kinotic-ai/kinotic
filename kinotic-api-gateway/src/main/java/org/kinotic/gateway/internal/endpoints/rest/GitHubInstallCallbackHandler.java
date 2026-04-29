@@ -3,13 +3,12 @@ package org.kinotic.gateway.internal.endpoints.rest;
 import io.vertx.core.Future;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.gateway.internal.endpoints.rest.support.RedirectFlowSessionSupport;
 import org.kinotic.os.github.api.config.KinoticGithubProperties;
 import org.kinotic.os.github.api.model.GitHubAppInstallation;
 import org.kinotic.os.github.internal.api.services.GitHubAppInstallationStore;
+import org.kinotic.os.github.internal.api.services.GitHubInstallStateStore;
 import org.kinotic.os.github.internal.client.GitHubApiClient;
 import org.springframework.stereotype.Component;
 
@@ -17,16 +16,19 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 /**
- * {@code GET /api/github/install/callback}: validates the CSRF state cookied during
- * {@link GitHubInstallStartHandler}, calls GitHub for installation metadata, persists
- * a {@link GitHubAppInstallation} bound to the session's {@code orgId}, and redirects
- * the browser to the SPA's success path. Any error redirects the browser to the
- * SPA's success path with {@code ?error=<code>} so the SPA can show an inline message.
+ * {@code GET /api/github/install/callback}: GitHub redirects the browser here after
+ * the user finishes the install. The {@code state} query parameter was minted by the
+ * RPC {@code GitHubAppInstallationService.startInstall()} call earlier in the same
+ * STOMP session — atomically consuming it from {@link GitHubInstallStateStore}
+ * yields the orgId the install was started for. There is no session cookie or JWT
+ * involved on this REST roundtrip.
  * <p>
- * Persistence is delegated to {@link GitHubAppInstallationStore}: at this point in the
- * flow there is no Kinotic Participant on the request, so the org-scoped CRUD service
- * can't be used — the orgId from the session (validated against the CSRF state) is
- * the security boundary.
+ * Persistence is delegated to {@link GitHubAppInstallationStore}: at this point in
+ * the flow there is no Kinotic Participant on the request, so the org-scoped CRUD
+ * service can't be used — the state-staged orgId is the security boundary.
+ * <p>
+ * Errors redirect the browser to the SPA's success path with {@code ?error=<code>}
+ * so the SPA can render an inline message.
  */
 @Slf4j
 @Component
@@ -36,6 +38,7 @@ public class GitHubInstallCallbackHandler {
     private final KinoticGithubProperties githubProperties;
     private final GitHubApiClient apiClient;
     private final GitHubAppInstallationStore installationStore;
+    private final GitHubInstallStateStore stateStore;
 
     public void mountRoute(Router router) {
         router.get(githubProperties.getGithub().getInstallCallbackPath()).handler(this::handleCallback);
@@ -43,25 +46,16 @@ public class GitHubInstallCallbackHandler {
 
     private void handleCallback(RoutingContext ctx) {
         String installationId = ctx.request().getParam("installation_id");
-        String setupAction = ctx.request().getParam("setup_action");
         String state = ctx.request().getParam("state");
 
-        Session session = ctx.session();
-        String orgId = session != null ? session.<String>get(GitHubInstallStartHandler.S_ORG_ID) : null;
-        String validatedState = RedirectFlowSessionSupport.validateAndConsumeState(
-                session, GitHubInstallStartHandler.S_STATE, state);
-        if (session != null) {
-            session.remove(GitHubInstallStartHandler.S_ORG_ID);
-        }
-
-        if (validatedState == null || orgId == null) {
-            log.warn("GitHub install callback state mismatch (orgId={}, state present={})",
-                     orgId, state != null);
+        String orgId = stateStore.consume(state);
+        if (orgId == null) {
+            log.warn("GitHub install callback rejected — unknown or expired state");
             redirect(ctx, "state_mismatch");
             return;
         }
         if (installationId == null || installationId.isBlank()) {
-            log.warn("GitHub install callback missing installation_id (setup={})", setupAction);
+            log.warn("GitHub install callback missing installation_id (org {})", orgId);
             redirect(ctx, "missing_installation_id");
             return;
         }

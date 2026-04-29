@@ -32,7 +32,6 @@
 import { onMounted, ref } from 'vue'
 import {
   GITHUB_APP_INSTALLATION_SERVICE,
-  startGitHubInstall,
   type GitHubAppInstallation,
 } from '@/services/GitHubAppInstallationService'
 
@@ -55,15 +54,10 @@ async function load() {
 
 async function link() {
   busy.value = true
+  error.value = null
   try {
-    // The Kinotic JWT is stored in session by the SDK; pull whichever cookie/store the
-    // host app uses. Adjust here to match your auth state.
-    const jwt = localStorage.getItem('kinoticJwt') ?? ''
-    if (!jwt) {
-      error.value = 'No session token available — sign in first.'
-      return
-    }
-    await startGitHubInstall(jwt)
+    const { url } = await GITHUB_APP_INSTALLATION_SERVICE.startInstall()
+    window.location.href = url
   } catch (e) {
     error.value = (e as Error).message
     busy.value = false

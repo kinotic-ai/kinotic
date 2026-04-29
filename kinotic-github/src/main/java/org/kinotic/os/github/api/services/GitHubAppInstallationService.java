@@ -3,18 +3,31 @@ package org.kinotic.os.github.api.services;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.os.github.api.model.GitHubAppInstallation;
+import org.kinotic.os.github.api.model.InstallStartResponse;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Service the frontend uses to read GitHub-link state and unlink an installation. The
- * link itself is created by the gateway's install-callback REST handler — that flow
- * needs the Vert.x session context, so it isn't a service method.
+ * Service the frontend uses to drive GitHub-linking from the existing Kinotic
+ * (STOMP) session: starts the install, reads link state, unlinks. The actual GitHub
+ * roundtrip lands on a single REST callback ({@code /api/github/install/callback})
+ * that GitHub itself drives — but everything user-initiated is a Kinotic RPC, so the
+ * short-lived JWT used for the STOMP CONNECT never needs to be replayed on REST.
  * <p>
  * Org-scoped via {@code OrganizationScoped} on {@link GitHubAppInstallation}.
  */
 @Publish
 public interface GitHubAppInstallationService extends IdentifiableCrudService<GitHubAppInstallation, String> {
+
+    /**
+     * Stages a single-use {@code state} token bound to the caller's organization in
+     * a cluster-wide store, then returns the GitHub install URL with that state
+     * embedded. The SPA performs {@code window.location = response.url}.
+     * <p>
+     * Caller must be authenticated under {@code ORGANIZATION} scope; the org is read
+     * from the participant. The state expires after 10 minutes if unused.
+     */
+    CompletableFuture<InstallStartResponse> startInstall();
 
     /**
      * Returns the (at-most-one) installation bound to the caller's organization, or
