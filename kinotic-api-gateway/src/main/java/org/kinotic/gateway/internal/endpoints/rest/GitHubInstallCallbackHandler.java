@@ -5,7 +5,6 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.os.github.api.config.KinoticGithubProperties;
 import org.kinotic.os.github.api.model.GitHubAppInstallation;
 import org.kinotic.os.github.internal.api.services.GitHubAppInstallationStore;
 import org.kinotic.os.github.internal.api.services.GitHubInstallStateStore;
@@ -35,13 +34,12 @@ import java.nio.charset.StandardCharsets;
 @RequiredArgsConstructor
 public class GitHubInstallCallbackHandler {
 
-    private final KinoticGithubProperties githubProperties;
     private final GitHubApiClient apiClient;
     private final GitHubAppInstallationStore installationStore;
     private final GitHubInstallStateStore stateStore;
 
     public void mountRoute(Router router) {
-        router.get(githubProperties.getGithub().getInstallCallbackPath()).handler(this::handleCallback);
+        router.get(GithubConstants.INSTALL_CALLBACK_PATH).handler(this::handleCallback);
     }
 
     private void handleCallback(RoutingContext ctx) {
@@ -71,13 +69,13 @@ public class GitHubInstallCallbackHandler {
     }
 
     private void redirectSuccess(RoutingContext ctx, GitHubAppInstallation install) {
-        String location = githubProperties.getGithub().getInstallSuccessPath()
+        String location = GithubConstants.INSTALL_SUCCESS_PATH
                 + "?installationId=" + URLEncoder.encode(install.getId(), StandardCharsets.UTF_8);
         ctx.response().setStatusCode(302).putHeader("Location", location).end();
     }
 
     private void redirect(RoutingContext ctx, String errorCode) {
-        String location = githubProperties.getGithub().getInstallSuccessPath()
+        String location = GithubConstants.INSTALL_SUCCESS_PATH
                 + "?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8);
         ctx.response().setStatusCode(302).putHeader("Location", location).end();
     }

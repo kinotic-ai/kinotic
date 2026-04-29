@@ -33,18 +33,6 @@ public class GithubProperties {
     /** Base URL of the GitHub REST API. Override for GitHub Enterprise Server. */
     private String apiBaseUrl = "https://api.github.com";
 
-    /** Path the gateway exposes the install callback route at. */
-    private String installCallbackPath = "/api/github/install/callback";
-
-    /** Path the gateway exposes the webhook endpoint at. */
-    private String webhookPath = "/api/github/webhook";
-
-    /**
-     * Path the SPA navigates to once the install completes, with {@code ?installationId=<id>}
-     * appended. Routed inside the SPA.
-     */
-    private String installSuccessPath = "/integrations/github";
-
     /**
      * Refresh installation tokens this much earlier than their stated expiry. Avoids
      * handing a near-expired token to a worker doing a long clone.
