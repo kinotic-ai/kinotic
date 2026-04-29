@@ -1,29 +1,28 @@
 package org.kinotic.gateway.internal.endpoints.rest;
 
-import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.gateway.internal.endpoints.rest.support.RedirectFlowSessionSupport;
 import org.springframework.stereotype.Component;
 
 /**
- * Wires the three GitHub-related routes onto the gateway router. The install routes
- * share a {@code /api/github/install/*} session handler (state cookie); the webhook
- * route deliberately does <em>not</em> use the session since GitHub posts to it from
- * outside the SPA.
+ * Wires the two GitHub-driven REST routes onto the gateway router. Everything
+ * user-initiated goes through Kinotic RPC over STOMP; only GitHub's own callbacks
+ * land here as REST.
+ * <ul>
+ *   <li>{@code GET /api/github/install/callback} — GitHub redirects the browser
+ *       here after the install. State is single-use and looked up via the
+ *       cluster-wide install-state store, so no session cookie is needed.</li>
+ *   <li>{@code POST /api/github/webhook} — GitHub posts every webhook here.</li>
+ * </ul>
  */
 @Component
 @RequiredArgsConstructor
 public class GitHubGatewayRoutes {
 
-    private final Vertx vertx;
-    private final GitHubInstallStartHandler startHandler;
     private final GitHubInstallCallbackHandler callbackHandler;
     private final GitHubWebhookHandler webhookHandler;
 
     public void mountRoutes(Router router) {
-        router.route("/api/github/install/*").handler(RedirectFlowSessionSupport.newSessionHandler(vertx));
-        startHandler.mountRoute(router);
         callbackHandler.mountRoute(router);
         webhookHandler.mountRoute(router);
     }

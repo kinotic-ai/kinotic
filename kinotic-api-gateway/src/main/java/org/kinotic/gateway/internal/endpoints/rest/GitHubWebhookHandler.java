@@ -45,8 +45,7 @@ public class GitHubWebhookHandler {
     private final GitHubWebhookDispatchService dispatchService;
 
     public void mountRoute(Router router) {
-        String path = properties.getGithub().getWebhookPath();
-        router.post(path)
+        router.post(GithubConstants.WEBHOOK_PATH)
               .handler(BodyHandler.create()
                       .setBodyLimit(properties.getGithub().getWebhookBodyLimitBytes()))
               .handler(this::handleWebhook);
