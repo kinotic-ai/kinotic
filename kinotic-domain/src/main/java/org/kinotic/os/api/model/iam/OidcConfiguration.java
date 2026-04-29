@@ -34,9 +34,11 @@ public class OidcConfiguration implements Identifiable<String> {
     private String name;
 
     /**
-     * Provider identifier (e.g., "google", "okta", "azure-ad").
+     * Provider kind selector. The Vert.x provider factory chosen at runtime keys off this
+     * value; persisted as the canonical wire string (e.g. {@code "azure-ad"}) via the
+     * {@link OidcProviderKind#key()} mapping.
      */
-    private String provider;
+    private OidcProviderKind provider;
 
     /**
      * The OAuth 2.0 client identifier issued by the provider when Kinotic OS was registered as an application.

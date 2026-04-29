@@ -137,8 +137,8 @@ public class IamSecurityService implements SecurityService {
      * Validates a Kinotic-issued JWT and resolves it to a Participant. The JWT must:
      * carry {@code aud=kinotic} (enforced by {@link KinoticJwtIssuer#authenticate}); have
      * a {@code sub} claim referencing an existing, enabled {@link IamUser}; and carry
-     * {@code scopeType}/{@code scopeId} claims that match the auth headers (defense in depth
-     * against a JWT for org A being replayed against org B).
+     * {@code authScopeType}/{@code authScopeId} claims that match the auth headers
+     * (defense in depth against a JWT for org A being replayed against org B).
      */
     private CompletableFuture<Participant> authenticateKinoticJwt(String authScopeType,
                                                                   String authScopeId,
@@ -148,20 +148,20 @@ public class IamSecurityService implements SecurityService {
                  .onSuccess(user -> {
                      JsonObject p = user.principal();
                      String sub = p.getString("sub");
-                     String jwtScopeType = p.getString("scopeType");
-                     String jwtScopeId = p.getString("scopeId");
+                     String jwtAuthScopeType = p.getString("authScopeType");
+                     String jwtAuthScopeId = p.getString("authScopeId");
 
                      if (sub == null) {
                          result.completeExceptionally(new AuthenticationException("JWT missing sub claim"));
                          return;
                      }
-                     if (jwtScopeType == null || jwtScopeId == null) {
+                     if (jwtAuthScopeType == null || jwtAuthScopeId == null) {
                          result.completeExceptionally(new AuthenticationException("JWT missing scope claims"));
                          return;
                      }
-                     if (!authScopeType.equals(jwtScopeType) || !authScopeId.equals(jwtScopeId)) {
+                     if (!authScopeType.equals(jwtAuthScopeType) || !authScopeId.equals(jwtAuthScopeId)) {
                          result.completeExceptionally(new AuthenticationException(
-                                 "JWT scope " + jwtScopeType + "/" + jwtScopeId
+                                 "JWT scope " + jwtAuthScopeType + "/" + jwtAuthScopeId
                                          + " does not match auth headers " + authScopeType + "/" + authScopeId));
                          return;
                      }

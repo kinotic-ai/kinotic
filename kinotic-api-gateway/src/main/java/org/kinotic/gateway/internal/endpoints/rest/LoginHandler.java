@@ -25,6 +25,7 @@ import org.kinotic.gateway.internal.auth.OAuth2AuthFactory;
 import org.kinotic.gateway.internal.auth.OAuth2AuthRegistry;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
+import org.kinotic.os.api.model.iam.OidcProviderKind;
 import org.kinotic.os.api.services.KinoticSystemService;
 import org.kinotic.os.api.services.OrganizationService;
 import org.kinotic.os.api.services.iam.IamUserService;
@@ -172,7 +173,9 @@ public class LoginHandler {
                   JsonArray providers = new JsonArray();
                   java.util.Set<String> seen = new java.util.LinkedHashSet<>();
                   for (OidcConfiguration c : configs) {
-                      if (seen.add(c.getProvider())) providers.add(c.getProvider());
+                      if (c.getProvider() == null) continue;
+                      String key = c.getProvider().key();
+                      if (seen.add(key)) providers.add(key);
                   }
                   ctx.response().putHeader("Content-Type", "application/json").end(providers.encode());
               })
@@ -259,12 +262,19 @@ public class LoginHandler {
 
     private void handleSocialStart(RoutingContext ctx) {
         String provider = ctx.pathParam("provider");
+        OidcProviderKind providerKind;
+        try {
+            providerKind = OidcProviderKind.fromKey(provider);
+        } catch (IllegalArgumentException ex) {
+            respondError(ctx, 400, "Unknown platform provider: " + provider);
+            return;
+        }
 
         Future.fromCompletionStage(kinoticSystemService.getOidcConfigurations())
               .compose(configs -> {
                   OidcConfiguration match = null;
                   for (OidcConfiguration c : configs) {
-                      if (provider.equals(c.getProvider())) { match = c; break; }
+                      if (providerKind == c.getProvider()) { match = c; break; }
                   }
                   if (match == null) {
                       respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
@@ -469,8 +479,8 @@ public class LoginHandler {
         JsonObject claims = new JsonObject()
                 .put("sub", user.getId())
                 .put("email", user.getEmail())
-                .put("scopeType", user.getAuthScopeType())
-                .put("scopeId", user.getAuthScopeId());
+                .put("authScopeType", user.getAuthScopeType())
+                .put("authScopeId", user.getAuthScopeId());
         return jwtIssuer.sign(claims, new JWTOptions().setExpiresInSeconds(JWT_TTL_SECONDS));
     }
 

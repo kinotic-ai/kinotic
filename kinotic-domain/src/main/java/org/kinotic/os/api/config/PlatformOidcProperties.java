@@ -49,8 +49,8 @@ public class PlatformOidcProperties {
         /** Human-readable name, e.g. "Microsoft" or "Google". */
         private String name;
 
-        /** {@link org.kinotic.os.api.model.iam.OidcProviderKind} key — "google", "azure-ad", etc. */
-        private String provider;
+        /** Provider kind. Bound from the helm/env wire string via OidcProviderKind's @JsonCreator. */
+        private org.kinotic.os.api.model.iam.OidcProviderKind provider;
 
         /** OAuth2 client id issued by the provider when Kinotic was registered. */
         private String clientId;

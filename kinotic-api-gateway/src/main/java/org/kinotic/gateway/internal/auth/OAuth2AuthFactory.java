@@ -8,6 +8,7 @@ import io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
+import org.kinotic.os.api.model.iam.OidcProviderKind;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -100,7 +101,7 @@ public class OAuth2AuthFactory {
      * provider) — a token without an email claim cannot drive an
      * {@link org.kinotic.os.api.model.iam.IamUser} lookup or creation.
      */
-    public static boolean isEmailVerified(Map<String, Object> claims, String provider) {
+    public static boolean isEmailVerified(Map<String, Object> claims, OidcProviderKind provider) {
         if (claims == null) return false;
         Object email = claims.get("email");
         if (!(email instanceof String emailStr) || emailStr.isBlank()) return false;
@@ -110,7 +111,7 @@ public class OAuth2AuthFactory {
         if (explicit instanceof String s) return Boolean.parseBoolean(s);
 
         // No explicit claim — fall back to the per-provider trust convention.
-        return "azure-ad".equals(provider) || "apple".equals(provider);
+        return provider == OidcProviderKind.AZURE_AD || provider == OidcProviderKind.APPLE;
     }
 
     /**
