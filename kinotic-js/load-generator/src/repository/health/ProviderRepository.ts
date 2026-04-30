@@ -1,4 +1,4 @@
-import { IEntitiesService } from '@kinotic-ai/persistence'
+import { type IEntitiesRepository } from '@kinotic-ai/persistence'
 import { BaseProviderRepository } from './generated/BaseProviderRepository.js'
 
 /**
@@ -7,8 +7,8 @@ import { BaseProviderRepository } from './generated/BaseProviderRepository.js'
  */
 export class ProviderRepository extends BaseProviderRepository {
 
-  constructor(entitiesService?: IEntitiesService) {
-    super(false, entitiesService)
+  constructor(entitiesRepository?: IEntitiesRepository) {
+    super(false, entitiesRepository)
   }
 
 }

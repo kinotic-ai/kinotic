@@ -220,6 +220,7 @@ export async function createAlertEntityDefinition(organizationId: string, applic
     await Kinotic.applications.createApplicationIfNotExist(applicationId, 'Application')
 
     let project: Project = new Project(null, applicationId, projectName, 'Project')
+    project.organizationId = organizationId
     project = await Kinotic.projects.createProjectIfNotExist(project)
 
     const {entityDefinitionSchema} = await createAlertSchema(organizationId, applicationId, project.id as string)
@@ -283,6 +284,7 @@ export async function createPersonEntityDefinition(organizationId: string, appli
     await Kinotic.applications.createApplicationIfNotExist(applicationId, 'Application')
 
     let project: Project = new Project(null, applicationId, projectName, 'Project')
+    project.organizationId = organizationId
     project = await Kinotic.projects.createProjectIfNotExist(project)
 
     const {entityDefinitionSchema} = await createPersonSchema(organizationId, applicationId, project.id as string, withTenant)
@@ -318,6 +320,7 @@ export async function createVehicleEntityDefinition(organizationId: string, appl
     await Kinotic.applications.createApplicationIfNotExist(applicationId, 'Application')
     console.log('Created application', applicationId);
     let project: Project = new Project(null, applicationId, projectName, 'Project')
+    project.organizationId = organizationId
     project = await Kinotic.projects.createProjectIfNotExist(project)
     console.log('Created project', project.id);
     const {entityDefinitionSchema} = await createVehicleSchema(organizationId, applicationId, project.id as string)
