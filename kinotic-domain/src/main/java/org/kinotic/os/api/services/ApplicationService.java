@@ -12,7 +12,8 @@ import java.util.concurrent.CompletableFuture;
 public interface ApplicationService extends IdentifiableCrudService<Application, String> {
 
     /**
-     * Creates a new application if it does not already exist.
+     * Creates a new application if it does not already exist. The organization id is derived
+     * from the authenticated participant.
      * @param id the id of the application to create
      * @param description the description of the application to create
      * @return {@link CompletableFuture} emitting the created application
