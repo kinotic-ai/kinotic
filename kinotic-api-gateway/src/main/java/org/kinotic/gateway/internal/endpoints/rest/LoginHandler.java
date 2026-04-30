@@ -155,7 +155,7 @@ public class LoginHandler {
                       respondError(ctx, 401, "Invalid credentials");
                       return;
                   }
-                  String jwt = mintTicket(user);
+                  String jwt = mintJwt(user);
                   ctx.response().putHeader("Content-Type", "application/json")
                      .end(new JsonObject().put("token", jwt).encode());
               })
@@ -421,7 +421,7 @@ public class LoginHandler {
                 redirectToError(ctx, "account_disabled");
                 return;
             }
-            String token = mintTicket(user);
+            String token = mintJwt(user);
             redirectSuccess(ctx, token);
         }).onFailure(err -> {
             log.warn("Login resolution failed: {}", err.getMessage());
@@ -454,7 +454,7 @@ public class LoginHandler {
                 user.setDisplayName(displayNameOverride);
             }
         })).onSuccess(user -> {
-            String jwt = mintTicket(user);
+            String jwt = mintJwt(user);
             ctx.response().putHeader("Content-Type", "application/json")
                .end(new JsonObject().put("token", jwt).encode());
         }).onFailure(ex -> {
@@ -475,7 +475,7 @@ public class LoginHandler {
         return base + "/api/login/callback/" + configId;
     }
 
-    private String mintTicket(IamUser user) {
+    private String mintJwt(IamUser user) {
         JsonObject claims = new JsonObject()
                 .put("sub", user.getId())
                 .put("email", user.getEmail())
