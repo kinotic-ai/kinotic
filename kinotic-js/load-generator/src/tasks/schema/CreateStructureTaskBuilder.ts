@@ -1,6 +1,6 @@
 import { ITask } from "../ITask"
 import { IEntityDefinitionService, EntityDefinition } from '@kinotic-ai/os-api'
-import { IEntityService, EntityService } from '@kinotic-ai/persistence'
+import { IEntityRepository, EntityRepository } from '@kinotic-ai/persistence'
 import { ObjectC3Type } from '@kinotic-ai/idl'
 import { Kinotic } from '@kinotic-ai/core'
 
@@ -10,7 +10,7 @@ export interface CreateStructureTaskConfig {
     name: string
     description: string
     entityDefinitionSupplier: () => ObjectC3Type
-    onServiceCreated?: (service: IEntityService<any>) => void
+    onServiceCreated?: (service: IEntityRepository<any>) => void
 }
 
 export class CreateStructureTaskBuilder {
@@ -51,7 +51,7 @@ export class CreateStructureTaskBuilder {
                 }
 
                 if (config.onServiceCreated) {
-                    const service = new EntityService(config.applicationId, config.name)
+                    const service = new EntityRepository(config.applicationId, config.name)
                     config.onServiceCreated(service)
                 }
             }

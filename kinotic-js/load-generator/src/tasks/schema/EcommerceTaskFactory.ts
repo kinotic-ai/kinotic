@@ -1,5 +1,5 @@
 import { ITask } from "../ITask"
-import { IEntityService } from '@kinotic-ai/persistence'
+import { IEntityRepository } from '@kinotic-ai/persistence'
 import { Project, ProjectType } from '@kinotic-ai/os-api'
 import { Kinotic } from '@kinotic-ai/core'
 import path from 'path'
@@ -18,10 +18,10 @@ export class EcommerceTaskFactory {
     private projectId = 'ecommerce_main_project'
     private readonly taskBuilder: CreateStructureTaskBuilder
     private entityDefinitions: Map<string, ObjectC3Type> = new Map()
-    private customerService?: IEntityService<Customer>
-    private productService?: IEntityService<Product>
-    private reviewService?: IEntityService<ProductReview>
-    private purchaseService?: IEntityService<Purchase>
+    private customerService?: IEntityRepository<Customer>
+    private productService?: IEntityRepository<Product>
+    private reviewService?: IEntityRepository<ProductReview>
+    private purchaseService?: IEntityRepository<Purchase>
 
     constructor() {
         this.taskBuilder = createStructureTaskBuilder()
@@ -60,7 +60,7 @@ export class EcommerceTaskFactory {
                 description: 'Customer information and preferences',
                 entityDefinitionSupplier: () => this.entityDefinitions.get('customer')!,
                 onServiceCreated: (service) => {
-                    this.customerService = service as IEntityService<Customer>
+                    this.customerService = service as IEntityRepository<Customer>
                 }
             }),
             this.taskBuilder.buildTask({
@@ -70,7 +70,7 @@ export class EcommerceTaskFactory {
                 description: 'Product catalog information',
                 entityDefinitionSupplier: () => this.entityDefinitions.get('product')!,
                 onServiceCreated: (service) => {
-                    this.productService = service as IEntityService<Product>
+                    this.productService = service as IEntityRepository<Product>
                 }
             }),
             this.taskBuilder.buildTask({
@@ -80,7 +80,7 @@ export class EcommerceTaskFactory {
                 description: 'Product reviews and ratings',
                 entityDefinitionSupplier: () => this.entityDefinitions.get('productreview')!,
                 onServiceCreated: (service) => {
-                    this.reviewService = service as IEntityService<ProductReview>
+                    this.reviewService = service as IEntityRepository<ProductReview>
                 }
             }),
             this.taskBuilder.buildTask({
@@ -90,7 +90,7 @@ export class EcommerceTaskFactory {
                 description: 'Purchase orders and transactions',
                 entityDefinitionSupplier: () => this.entityDefinitions.get('purchase')!,
                 onServiceCreated: (service) => {
-                    this.purchaseService = service as IEntityService<Purchase>
+                    this.purchaseService = service as IEntityRepository<Purchase>
                 }
             }),
             // Generate and save test data

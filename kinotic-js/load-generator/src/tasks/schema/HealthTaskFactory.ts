@@ -1,5 +1,5 @@
 import { ITask } from "../ITask"
-import { IEntityService } from '@kinotic-ai/persistence'
+import { IEntityRepository } from '@kinotic-ai/persistence'
 import { Project, ProjectType } from '@kinotic-ai/os-api'
 import { Kinotic } from '@kinotic-ai/core'
 import { Patient } from '../../entity/domain/health/Patient'
@@ -19,11 +19,11 @@ export class HealthTaskFactory {
     private projectId = 'healthcare_main_project'
     private readonly taskBuilder: CreateStructureTaskBuilder
     private entityDefinitions: Map<string, ObjectC3Type> = new Map()
-    private patientService?: IEntityService<Patient>
-    private providerService?: IEntityService<Provider>
-    private appointmentService?: IEntityService<Appointment>
-    private diagnosisService?: IEntityService<Diagnosis>
-    private treatmentService?: IEntityService<Treatment>
+    private patientService?: IEntityRepository<Patient>
+    private providerService?: IEntityRepository<Provider>
+    private appointmentService?: IEntityRepository<Appointment>
+    private diagnosisService?: IEntityRepository<Diagnosis>
+    private treatmentService?: IEntityRepository<Treatment>
 
     constructor() {
         this.taskBuilder = createStructureTaskBuilder()
@@ -61,8 +61,8 @@ export class HealthTaskFactory {
                 name: 'Patient',
                 description: 'Patient information and medical history',
                 entityDefinitionSupplier: () => this.entityDefinitions.get('patient')!,
-                onServiceCreated: (service: IEntityService<any>) => {
-                    this.patientService = service as IEntityService<Patient>
+                onServiceCreated: (service: IEntityRepository<any>) => {
+                    this.patientService = service as IEntityRepository<Patient>
                 }
             }),
             this.taskBuilder.buildTask({
@@ -71,8 +71,8 @@ export class HealthTaskFactory {
                 name: 'Provider',
                 description: 'Healthcare provider information',
                 entityDefinitionSupplier: () => this.entityDefinitions.get('provider')!,
-                onServiceCreated: (service: IEntityService<any>) => {
-                    this.providerService = service as IEntityService<Provider>
+                onServiceCreated: (service: IEntityRepository<any>) => {
+                    this.providerService = service as IEntityRepository<Provider>
                 }
             }),
             this.taskBuilder.buildTask({
@@ -81,8 +81,8 @@ export class HealthTaskFactory {
                 name: 'Appointment',
                 description: 'Medical appointments and scheduling',
                 entityDefinitionSupplier: () => this.entityDefinitions.get('appointment')!,
-                onServiceCreated: (service: IEntityService<any>) => {
-                    this.appointmentService = service as IEntityService<Appointment>
+                onServiceCreated: (service: IEntityRepository<any>) => {
+                    this.appointmentService = service as IEntityRepository<Appointment>
                 }
             }),
             this.taskBuilder.buildTask({
@@ -91,8 +91,8 @@ export class HealthTaskFactory {
                 name: 'Diagnosis',
                 description: 'Medical diagnoses and conditions',
                 entityDefinitionSupplier: () => this.entityDefinitions.get('diagnosis')!,
-                onServiceCreated: (service: IEntityService<any>) => {
-                    this.diagnosisService = service as IEntityService<Diagnosis>
+                onServiceCreated: (service: IEntityRepository<any>) => {
+                    this.diagnosisService = service as IEntityRepository<Diagnosis>
                 }
             }),
             this.taskBuilder.buildTask({
@@ -101,8 +101,8 @@ export class HealthTaskFactory {
                 name: 'Treatment',
                 description: 'Medical treatments and procedures',
                 entityDefinitionSupplier: () => this.entityDefinitions.get('treatment')!,
-                onServiceCreated: (service: IEntityService<any>) => {
-                    this.treatmentService = service as IEntityService<Treatment>
+                onServiceCreated: (service: IEntityRepository<any>) => {
+                    this.treatmentService = service as IEntityRepository<Treatment>
                 }
             }),
             // Generate and save test data
