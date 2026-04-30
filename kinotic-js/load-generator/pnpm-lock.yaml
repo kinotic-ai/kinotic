@@ -18,8 +18,8 @@ importers:
         specifier: ^1.0.9
         version: 1.0.9(typescript@6.0.2)
       '@kinotic-ai/kinotic-cli':
-        specifier: ^2.1.1
-        version: 2.1.1(@types/node@25.5.2)(typescript@6.0.2)
+        specifier: ^2.2.0
+        version: 2.2.0(@types/node@25.5.2)(typescript@6.0.2)
       '@kinotic-ai/os-api':
         specifier: ^1.2.0
         version: 1.2.0(@kinotic-ai/core@1.2.1(typescript@6.0.2))(typescript@6.0.2)
@@ -581,8 +581,8 @@ packages:
       typescript:
         optional: true
 
-  '@kinotic-ai/kinotic-cli@2.1.1':
-    resolution: {integrity: sha512-0OjbNBxCaUQ3ZBK+fGTb2M4ffyGKzPz5/x3o1QyuuCR/BC145V6B8mvjT+qEcfni4979Y3MXxx/jKpvS9O1HGQ==}
+  '@kinotic-ai/kinotic-cli@2.2.0':
+    resolution: {integrity: sha512-BJs3ev+PSEGdLcpHNf0/pLDIAmYNSCVG9f0+Y/oJeXYHUt/4sz/wW9+tQAG6UxWoELIMS62JahvAWAWH3BFghA==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -1276,7 +1276,7 @@ packages:
   basic-ftp@5.0.5:
     resolution: {integrity: sha512-4Bcg1P8xhUuqcii/S0Z9wiHIrQVPMermM1any+MX5GeGD7faD3/msQUDGLol9wOcz4/jbg/WJnGqoJF6LiBdtg==}
     engines: {node: '>=10.0.0'}
-    deprecated: Security vulnerability fixed in 5.2.0, please upgrade
+    deprecated: Security vulnerability fixed in 5.2.1, please upgrade
 
   bl@4.1.0:
     resolution: {integrity: sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w==}
@@ -3254,7 +3254,7 @@ snapshots:
     optionalDependencies:
       typescript: 6.0.2
 
-  '@kinotic-ai/kinotic-cli@2.1.1(@types/node@25.5.2)(typescript@6.0.2)':
+  '@kinotic-ai/kinotic-cli@2.2.0(@types/node@25.5.2)(typescript@6.0.2)':
     dependencies:
       '@inquirer/prompts': 8.3.2(@types/node@25.5.2)
       '@kinotic-ai/core': 1.2.1(typescript@6.0.2)
