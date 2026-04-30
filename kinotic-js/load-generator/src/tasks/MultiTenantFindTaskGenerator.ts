@@ -3,7 +3,7 @@ import {KinoticOperationTaskGenerator} from '@/tasks/KinoticOperationTaskGenerat
 import {ITaskFactory} from '@/tasks/ITaskFactory.js'
 import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
 import {ConnectionInfo, KinoticSingleton, Pageable} from '@kinotic-ai/core'
-import {EntitiesService, PersistencePlugin} from '@kinotic-ai/persistence'
+import {EntitiesRepository, PersistencePlugin} from '@kinotic-ai/persistence'
 import {OsApiPlugin} from '@kinotic-ai/os-api'
 import { ITask } from './ITask';
 import opentelemetry, {SpanKind, SpanStatusCode, Tracer} from '@opentelemetry/api'
@@ -26,7 +26,7 @@ export class MultiTenantFindTaskGenerator implements ITaskGenerator {
 
         const kinotic = new KinoticSingleton()
         kinotic.use(OsApiPlugin).use(PersistencePlugin)
-        this.personRepository = new PersonRepository(new EntitiesService(kinotic))
+        this.personRepository = new PersonRepository(new EntitiesRepository(kinotic))
 
         this.continuumTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,
                                                                         kinotic,

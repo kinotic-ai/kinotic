@@ -1,6 +1,7 @@
-import type { KinoticProjectConfig } from '@kinotic-ai/core'
+import type { KinoticProjectConfig } from '@kinotic-ai/os-api'
 
 const config: KinoticProjectConfig = {
+  organization: "kinotic",
   application: "load-testing",
   entitiesPaths: [
     {

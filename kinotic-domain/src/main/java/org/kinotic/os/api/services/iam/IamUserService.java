@@ -54,5 +54,9 @@ public interface IamUserService extends IdentifiableCrudService<IamUser, String>
      */
     CompletableFuture<java.util.List<IamUser>> findByOidcIdentity(String oidcSubject, String oidcConfigId);
 
+
+    CompletableFuture<IamUser> createUser(IamUser user, String password);
+
+
 }
 
