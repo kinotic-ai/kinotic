@@ -28,7 +28,7 @@ export interface IStructureStore {
     nodes: Node[];
     edges: Edge[]
 
-    initNewStructure(applicationId: string, projectId: string): void
+    initNewStructure(organizationId: string, applicationId: string, projectId: string): void
     addProperty(parentId: string, propertyName: string, typeCode: string, decorators?: C3Decorator[]): void
     renameProperty(parentId: string, oldName: string, newName: string): void
     updatePropertyType(parentId: string, propertyName: string, typeCode: string): void
@@ -73,14 +73,14 @@ class StructureStore implements IStructureStore {
         this.edgesRef.value = value
     }
 
-    initNewStructure(applicationId: string, projectId: string) {
+    initNewStructure(organizationId: string, applicationId: string, projectId: string) {
         const rootType = new ObjectC3Type('NewStructure123', 'default.namespace')
         rootType.addDecorator({
             type: 'Entity',
             multiTenancyType: 'NONE',
             entityType: 'TABLE'
         } as C3Decorator)
-        this.structure = new EntityDefinition(applicationId, projectId, rootType.name, rootType)
+        this.structure = new EntityDefinition(organizationId, applicationId, projectId, rootType.name, rootType)
 
         this.generateGraph()
     }

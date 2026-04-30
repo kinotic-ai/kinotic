@@ -11,7 +11,7 @@ export class BaseDashboardEntityRepository extends EntityRepository<Dashboard> {
   private readonly shouldValidate: boolean
 
   constructor(shouldValidate: boolean = true, entitiesRepository?: IEntitiesRepository) {
-    super('structures__system', 'Dashboard', entitiesRepository)
+    super('kinotic', 'structures__system', 'Dashboard', entitiesRepository)
     this.shouldValidate = shouldValidate
   }
 

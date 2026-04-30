@@ -1,9 +1,7 @@
+import type { KinoticProjectConfig } from '@kinotic-ai/os-api'
 
-
-import type { TypescriptProjectConfig } from '@kinotic-ai/persistence'
-
-const config: TypescriptProjectConfig = {
-  mdl: "ts",
+const config: KinoticProjectConfig = {
+  organization: "kinotic",
   application: "structures__system",
   entitiesPaths: [
     "src/domain"
