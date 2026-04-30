@@ -1,7 +1,7 @@
 import { ITask } from "../ITask"
 import { IEntityRepository } from '@kinotic-ai/persistence'
 import { Project, ProjectType } from '@kinotic-ai/os-api'
-import { Kinotic } from '@kinotic-ai/core'
+import { ConnectionInfo, Kinotic, KinoticSingleton } from '@kinotic-ai/core'
 import { Patient } from '../../entity/domain/health/Patient'
 import { Provider } from '../../entity/domain/health/Provider'
 import { Appointment } from '../../entity/domain/health/Appointment'
@@ -12,6 +12,7 @@ import { CreateStructureTaskBuilder } from './CreateStructureTaskBuilder'
 import { createStructureTaskBuilder } from './CreateStructureTaskBuilder'
 import { ObjectC3Type } from '@kinotic-ai/idl'
 import { TestDataGenerator } from '../../entity/domain/health/TestDataGenerator'
+import { initKinoticAppClient } from '../../utils/AuthHelpers'
 import path from 'path'
 
 export class HealthTaskFactory {
@@ -19,6 +20,8 @@ export class HealthTaskFactory {
     private readonly applicationId = 'healthcare'
     private projectId = 'healthcare_main_project'
     private readonly taskBuilder: CreateStructureTaskBuilder
+    private readonly connectionInfoSupplier: () => Promise<ConnectionInfo>
+    private appKinotic?: KinoticSingleton
     private entityDefinitions: Map<string, ObjectC3Type> = new Map()
     private patientService?: IEntityRepository<Patient>
     private providerService?: IEntityRepository<Provider>
@@ -26,7 +29,8 @@ export class HealthTaskFactory {
     private diagnosisService?: IEntityRepository<Diagnosis>
     private treatmentService?: IEntityRepository<Treatment>
 
-    constructor() {
+    constructor(connectionInfoSupplier: () => Promise<ConnectionInfo>) {
+        this.connectionInfoSupplier = connectionInfoSupplier
         this.taskBuilder = createStructureTaskBuilder()
     }
 
@@ -41,6 +45,16 @@ export class HealthTaskFactory {
                     project.organizationId = this.organizationId
                     project.sourceOfTruth = ProjectType.TYPESCRIPT
                     project = await Kinotic.projects.createProjectIfNotExist(project)
+                }
+            },
+            // Provision the application user and connect an APP-scoped client
+            // for entity-data CRUD. App/project/entity-definition management
+            // continues to use the global ORG-scoped Kinotic.
+            {
+                name: () => 'Connect Health App Client',
+                execute: async () => {
+                    const baseConnectionInfo = await this.connectionInfoSupplier()
+                    this.appKinotic = await initKinoticAppClient(baseConnectionInfo, this.applicationId)
                 }
             },
             // Then load entity definitions
@@ -59,6 +73,7 @@ export class HealthTaskFactory {
             // Then create structures
             this.taskBuilder.buildTask({
                 organizationId: this.organizationId,
+                appKinoticSupplier: () => this.appKinotic!,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Patient',
@@ -70,6 +85,7 @@ export class HealthTaskFactory {
             }),
             this.taskBuilder.buildTask({
                 organizationId: this.organizationId,
+                appKinoticSupplier: () => this.appKinotic!,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Provider',
@@ -81,6 +97,7 @@ export class HealthTaskFactory {
             }),
             this.taskBuilder.buildTask({
                 organizationId: this.organizationId,
+                appKinoticSupplier: () => this.appKinotic!,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Appointment',
@@ -92,6 +109,7 @@ export class HealthTaskFactory {
             }),
             this.taskBuilder.buildTask({
                 organizationId: this.organizationId,
+                appKinoticSupplier: () => this.appKinotic!,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Diagnosis',
@@ -103,6 +121,7 @@ export class HealthTaskFactory {
             }),
             this.taskBuilder.buildTask({
                 organizationId: this.organizationId,
+                appKinoticSupplier: () => this.appKinotic!,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Treatment',
@@ -148,7 +167,15 @@ export class HealthTaskFactory {
                         - ${treatments.length} treatments
                         - ${appointments.length} appointments`)
                 }
+            },
+            {
+                name: () => 'Disconnect Health App Client',
+                execute: async () => {
+                    if (this.appKinotic) {
+                        await this.appKinotic.disconnect()
+                    }
+                }
             }
         ]
     }
-} 
+}

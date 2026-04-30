@@ -1,7 +1,7 @@
 import { ITask } from "../ITask"
 import { IEntityRepository } from '@kinotic-ai/persistence'
 import { Project, ProjectType } from '@kinotic-ai/os-api'
-import { Kinotic } from '@kinotic-ai/core'
+import { ConnectionInfo, Kinotic, KinoticSingleton } from '@kinotic-ai/core'
 import path from 'path'
 import { Customer } from '../../entity/domain/ecommerce/Customer'
 import { Product } from '../../entity/domain/ecommerce/Product'
@@ -12,19 +12,23 @@ import { EntityDefinitionLoader } from '../../utils/EntityDefinitionLoader'
 import { CreateStructureTaskBuilder } from './CreateStructureTaskBuilder'
 import { ObjectC3Type } from '@kinotic-ai/idl'
 import { createStructureTaskBuilder } from './CreateStructureTaskBuilder'
+import { initKinoticAppClient } from '../../utils/AuthHelpers'
 
 export class EcommerceTaskFactory {
     private readonly organizationId = 'kinotic'
     private readonly applicationId = 'ecommerce'
     private projectId = 'ecommerce_main_project'
     private readonly taskBuilder: CreateStructureTaskBuilder
+    private readonly connectionInfoSupplier: () => Promise<ConnectionInfo>
+    private appKinotic?: KinoticSingleton
     private entityDefinitions: Map<string, ObjectC3Type> = new Map()
     private customerService?: IEntityRepository<Customer>
     private productService?: IEntityRepository<Product>
     private reviewService?: IEntityRepository<ProductReview>
     private purchaseService?: IEntityRepository<Purchase>
 
-    constructor() {
+    constructor(connectionInfoSupplier: () => Promise<ConnectionInfo>) {
+        this.connectionInfoSupplier = connectionInfoSupplier
         this.taskBuilder = createStructureTaskBuilder()
     }
 
@@ -39,6 +43,16 @@ export class EcommerceTaskFactory {
                     project.organizationId = this.organizationId
                     project.sourceOfTruth = ProjectType.TYPESCRIPT
                     project = await Kinotic.projects.createProjectIfNotExist(project)
+                }
+            },
+            // Provision the application user and connect an APP-scoped client
+            // for entity-data CRUD. App/project/entity-definition management
+            // continues to use the global ORG-scoped Kinotic.
+            {
+                name: () => 'Connect Ecommerce App Client',
+                execute: async () => {
+                    const baseConnectionInfo = await this.connectionInfoSupplier()
+                    this.appKinotic = await initKinoticAppClient(baseConnectionInfo, this.applicationId)
                 }
             },
             // Then load entity definitions
@@ -57,6 +71,7 @@ export class EcommerceTaskFactory {
             // Then create structures
             this.taskBuilder.buildTask({
                 organizationId: this.organizationId,
+                appKinoticSupplier: () => this.appKinotic!,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Customer',
@@ -68,6 +83,7 @@ export class EcommerceTaskFactory {
             }),
             this.taskBuilder.buildTask({
                 organizationId: this.organizationId,
+                appKinoticSupplier: () => this.appKinotic!,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Product',
@@ -79,6 +95,7 @@ export class EcommerceTaskFactory {
             }),
             this.taskBuilder.buildTask({
                 organizationId: this.organizationId,
+                appKinoticSupplier: () => this.appKinotic!,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'ProductReview',
@@ -90,6 +107,7 @@ export class EcommerceTaskFactory {
             }),
             this.taskBuilder.buildTask({
                 organizationId: this.organizationId,
+                appKinoticSupplier: () => this.appKinotic!,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Purchase',
@@ -127,7 +145,15 @@ export class EcommerceTaskFactory {
                         - ${reviews.length} reviews
                         - ${purchases.length} purchases`)
                 }
+            },
+            {
+                name: () => 'Disconnect Ecommerce App Client',
+                execute: async () => {
+                    if (this.appKinotic) {
+                        await this.appKinotic.disconnect()
+                    }
+                }
             }
         ]
     }
-} 
+}

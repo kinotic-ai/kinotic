@@ -1,8 +1,8 @@
 import { ITask } from "../ITask"
 import { IEntityDefinitionService, EntityDefinition } from '@kinotic-ai/os-api'
-import { IEntityRepository, EntityRepository } from '@kinotic-ai/persistence'
+import { IEntityRepository, EntityRepository, EntitiesRepository } from '@kinotic-ai/persistence'
 import { ObjectC3Type } from '@kinotic-ai/idl'
-import { Kinotic } from '@kinotic-ai/core'
+import { Kinotic, KinoticSingleton } from '@kinotic-ai/core'
 
 export interface CreateStructureTaskConfig {
     organizationId: string
@@ -11,6 +11,12 @@ export interface CreateStructureTaskConfig {
     name: string
     description: string
     entityDefinitionSupplier: () => ObjectC3Type
+    /**
+     * Returns the APPLICATION-scoped Kinotic that backs the EntityRepository
+     * passed to onServiceCreated. Called lazily so the caller can connect the
+     * client after the application has been created.
+     */
+    appKinoticSupplier?: () => KinoticSingleton
     onServiceCreated?: (service: IEntityRepository<any>) => void
 }
 
@@ -53,7 +59,9 @@ export class CreateStructureTaskBuilder {
                 }
 
                 if (config.onServiceCreated) {
-                    const service = new EntityRepository(config.organizationId, config.applicationId, config.name)
+                    const appKinotic = config.appKinoticSupplier?.()
+                    const entitiesRepository = appKinotic ? new EntitiesRepository(appKinotic) : undefined
+                    const service = new EntityRepository(config.organizationId, config.applicationId, config.name, entitiesRepository)
                     config.onServiceCreated(service)
                 }
             }
