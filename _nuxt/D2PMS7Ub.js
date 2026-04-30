@@ -1,0 +1,1 @@
+import{aG as n,o,e as s,q as t}from"./CILcxols.js";const a={},_={class:"max-w-[1320px] mx-auto"};function c(e,r){return o(),s("div",_,[t(e.$slots,"default")])}const i=Object.assign(n(a,[["render",c]]),{__name:"BaseContainer"});export{i as _};
