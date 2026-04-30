@@ -77,4 +77,3 @@ try {
     console.error(e, 'Exception thrown')
     await nodeSdk.shutdown().catch(console.error)
 }
-
