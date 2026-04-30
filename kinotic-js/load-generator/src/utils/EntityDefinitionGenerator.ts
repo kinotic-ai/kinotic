@@ -20,7 +20,7 @@ export class EntityDefinitionGenerator {
         const definitions = new Map<string, ObjectC3Type>()
 
         const projectConfig = new KinoticProjectConfig()
-        projectConfig.organization = 'kinotic'
+        projectConfig.organization = 'kinotic-test'
         projectConfig.application = this.application
         projectConfig.validate = false
         projectConfig.entitiesPaths = [{
