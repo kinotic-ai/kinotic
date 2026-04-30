@@ -16,7 +16,7 @@ import { initKinoticAppClient } from '../../utils/AuthHelpers'
 import path from 'path'
 
 export class HealthTaskFactory {
-    private readonly organizationId = 'kinotic'
+    private readonly organizationId = 'kinotic-test'
     private readonly applicationId = 'healthcare'
     private projectId = 'healthcare_main_project'
     private readonly taskBuilder: CreateKinoticTaskBuilder

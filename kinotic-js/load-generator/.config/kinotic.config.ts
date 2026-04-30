@@ -1,7 +1,7 @@
 import type { KinoticProjectConfig } from '@kinotic-ai/os-api'
 
 const config: KinoticProjectConfig = {
-  organization: "kinotic",
+  organization: "kinotic-test",
   application: "load-testing",
   entitiesPaths: [
     {
