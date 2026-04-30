@@ -69,6 +69,7 @@ export class Synchronize extends Command {
                                               kinoticProjectConfig.application,
                                               kinoticProjectConfig.name as string,
                                               kinoticProjectConfig.description)
+                        project.organizationId = kinoticProjectConfig.organization
                         project.sourceOfTruth = ProjectType.TYPESCRIPT
                         project = await Kinotic.projects.createProjectIfNotExist(project)
                     }
