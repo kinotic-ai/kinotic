@@ -31,7 +31,7 @@ export default class StructureSidebarDashboard extends Vue {
 <template>
   <div :class="['w-[320px] h-full flex flex-col border', isDark ? 'border-surface-800 bg-surface-900 text-surface-0' : 'border-surface-200 bg-surface-0 text-surface-950']">
     <div :class="['p-6 border-b', isDark ? 'border-surface-800' : 'border-surface-200']">
-      <h3 class="text-sm font-semibold">Structure settings</h3>
+      <h3 class="text-sm font-semibold">Entity settings</h3>
     </div>
     <div class="flex-1 overflow-y-auto p-6 space-y-6">
       <div class="space-y-3 mb-7">

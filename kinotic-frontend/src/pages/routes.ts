@@ -138,10 +138,10 @@ const pageRoutes: RouteRecordRaw[] = [
     meta: {
       showInMainNav: false,
       icon: 'objects-column.svg',
-      label: 'Project Structures',
+      label: 'Project Entities',
       sidebarItems: (route: { params: { applicationId: any; projectId: any; }; }) => [
         {
-          label: 'Structures',
+          label: 'Entities',
           icon: 'pi pi-table',
           path: `/application/${route.params.applicationId}/project/${route.params.projectId}/structures`
         }
@@ -183,7 +183,7 @@ const pageRoutes: RouteRecordRaw[] = [
     component: () => import('@/pages/NewStructure.vue'),
     meta: {
       showInMainNav: false,
-      label: 'New Structure',
+      label: 'New Entity',
     } as RouteMeta,
   },
   {

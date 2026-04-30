@@ -391,7 +391,7 @@ export default class StructureItemModal extends Vue {
       <div
         class="flex items-center justify-between p-4 border-b border-gray-200"
       >
-        <h3 class="text-xl font-semibold text-gray-900">Structure Details</h3>
+        <h3 class="text-xl font-semibold text-gray-900">Entity Details</h3>
         <Controls position="top-center" class="flex gap-2">
           <button
             @click="applyAutoLayout('LR')"

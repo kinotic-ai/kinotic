@@ -55,7 +55,7 @@ export default defineComponent({
     newStructureButtonText: {
       type: String,
       required: false,
-      default: "New Structure",
+      default: "New Entity",
     },
   },
   data() {
@@ -72,7 +72,7 @@ export default defineComponent({
       showPublishModal: false,
       showUnpublishModal: false,
       structureTableHeaders: [
-        { field: "name", header: "Structure name", sortable: true },
+        { field: "name", header: "Entity name", sortable: true },
         { field: "projectId", header: "Project", sortable: true },
         { field: "description", header: "Description", sortable: false },
         { field: "created", header: "Created", sortable: false },
@@ -280,7 +280,7 @@ export default defineComponent({
       :isShowAddNew="showNewStructureButton"
       :createNewButtonText="newStructureButtonText"
       class="!text-sm"
-      emptyStateText="No structures yet"
+      emptyStateText="No entities yet"
     >
       <template #item.created="{ item }">
         <span>{{ DatetimeUtil.formatMonthDayYear(item.created) }}</span>
@@ -343,7 +343,7 @@ export default defineComponent({
     >
       <template #header>
         <div class="flex items-center">
-          <span>{{ selectedStructure?.name || 'Structure' }}</span>
+          <span>{{ selectedStructure?.name || 'Entity' }}</span>
           <div 
             class="ml-2 px-3 py-1 rounded-full text-sm font-medium"
             :class="selectedStructure?.published ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
@@ -385,7 +385,7 @@ export default defineComponent({
     >
       <template #header>
         <div class="flex items-center">
-          <span>{{ selectedStructure?.name || 'Structure' }}</span>
+          <span>{{ selectedStructure?.name || 'Entity' }}</span>
           <div 
             class="ml-2 px-3 py-1 rounded-full text-sm font-medium"
             :class="selectedStructure?.published ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
