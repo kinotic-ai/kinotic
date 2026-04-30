@@ -8,8 +8,8 @@ import { Appointment } from '../../entity/domain/health/Appointment'
 import { Diagnosis } from '../../entity/domain/health/Diagnosis'
 import { Treatment } from '../../entity/domain/health/Treatment'
 import { EntityDefinitionLoader } from '../../utils/EntityDefinitionLoader'
-import { CreateStructureTaskBuilder } from './CreateStructureTaskBuilder'
-import { createStructureTaskBuilder } from './CreateStructureTaskBuilder'
+import { CreateKinoticTaskBuilder } from './CreateKinoticTaskBuilder'
+import { createKinoticTaskBuilder } from './CreateKinoticTaskBuilder'
 import { ObjectC3Type } from '@kinotic-ai/idl'
 import { TestDataGenerator } from '../../entity/domain/health/TestDataGenerator'
 import { initKinoticAppClient } from '../../utils/AuthHelpers'
@@ -19,7 +19,7 @@ export class HealthTaskFactory {
     private readonly organizationId = 'kinotic'
     private readonly applicationId = 'healthcare'
     private projectId = 'healthcare_main_project'
-    private readonly taskBuilder: CreateStructureTaskBuilder
+    private readonly taskBuilder: CreateKinoticTaskBuilder
     private readonly connectionInfoSupplier: () => Promise<ConnectionInfo>
     private appKinotic?: KinoticSingleton
     private entityDefinitions: Map<string, ObjectC3Type> = new Map()
@@ -31,7 +31,7 @@ export class HealthTaskFactory {
 
     constructor(connectionInfoSupplier: () => Promise<ConnectionInfo>) {
         this.connectionInfoSupplier = connectionInfoSupplier
-        this.taskBuilder = createStructureTaskBuilder()
+        this.taskBuilder = createKinoticTaskBuilder()
     }
 
     getTasks(): ITask[] {
@@ -70,7 +70,7 @@ export class HealthTaskFactory {
                     console.log('Loaded', this.entityDefinitions.size, 'entity definitions')
                 }
             },
-            // Then create structures
+            // Then create entity definitions
             this.taskBuilder.buildTask({
                 organizationId: this.organizationId,
                 appKinoticSupplier: () => this.appKinotic!,

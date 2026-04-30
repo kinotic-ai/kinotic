@@ -9,16 +9,16 @@ import { ProductReview } from '../../entity/domain/ecommerce/ProductReview'
 import { Purchase } from '../../entity/domain/ecommerce/Purchase'
 import { TestDataGenerator } from '../../entity/domain/ecommerce/TestDataGenerator'
 import { EntityDefinitionLoader } from '../../utils/EntityDefinitionLoader'
-import { CreateStructureTaskBuilder } from './CreateStructureTaskBuilder'
+import { CreateKinoticTaskBuilder } from './CreateKinoticTaskBuilder'
 import { ObjectC3Type } from '@kinotic-ai/idl'
-import { createStructureTaskBuilder } from './CreateStructureTaskBuilder'
+import { createKinoticTaskBuilder } from './CreateKinoticTaskBuilder'
 import { initKinoticAppClient } from '../../utils/AuthHelpers'
 
 export class EcommerceTaskFactory {
     private readonly organizationId = 'kinotic'
     private readonly applicationId = 'ecommerce'
     private projectId = 'ecommerce_main_project'
-    private readonly taskBuilder: CreateStructureTaskBuilder
+    private readonly taskBuilder: CreateKinoticTaskBuilder
     private readonly connectionInfoSupplier: () => Promise<ConnectionInfo>
     private appKinotic?: KinoticSingleton
     private entityDefinitions: Map<string, ObjectC3Type> = new Map()
@@ -29,7 +29,7 @@ export class EcommerceTaskFactory {
 
     constructor(connectionInfoSupplier: () => Promise<ConnectionInfo>) {
         this.connectionInfoSupplier = connectionInfoSupplier
-        this.taskBuilder = createStructureTaskBuilder()
+        this.taskBuilder = createKinoticTaskBuilder()
     }
 
     getTasks(): ITask[] {
@@ -68,7 +68,7 @@ export class EcommerceTaskFactory {
                     console.log('Loaded', this.entityDefinitions.size, 'entity definitions')
                 }
             },
-            // Then create structures
+            // Then create entity definitions
             this.taskBuilder.buildTask({
                 organizationId: this.organizationId,
                 appKinoticSupplier: () => this.appKinotic!,
