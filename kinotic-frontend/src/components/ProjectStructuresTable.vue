@@ -21,7 +21,7 @@ const debug = createDebug('project-structures-table');
 export default class ProjectStructuresTable extends Vue {
   @Prop({ required: true }) applicationId!: string
   @Prop({ required: false, default: false }) showNewStructureButton!: boolean
-  @Prop({ required: false, default: "New Structure" }) newStructureButtonText!: string
+  @Prop({ required: false, default: "New Entity" }) newStructureButtonText!: string
   @Ref('crudTable') crudTable!: InstanceType<typeof CrudTable>
 
   get projectId(): string {
@@ -29,7 +29,7 @@ export default class ProjectStructuresTable extends Vue {
   }
 
   structureTableHeaders: CrudHeader[] = [
-    { field: 'name', header: 'Structure Name', sortable: true },
+    { field: 'name', header: 'Entity Name', sortable: true },
     { field: 'description', header: 'Description', sortable: false },
     { field: 'created', header: 'Created', sortable: false },
     { field: 'updated', header: 'Updated', sortable: false },
@@ -324,11 +324,11 @@ export default class ProjectStructuresTable extends Vue {
       @onRowClick="handleRowClick"
       :isShowAddNew="showNewStructureButton"
       :createNewButtonText="newStructureButtonText"
-      emptyStateText="No structures yet for this project"
+      emptyStateText="No entities yet for this project"
       rowHoverColor=""
       class="!text-sm"
     >
-      <!-- createNewButtonText="New Structure" -->
+      <!-- createNewButtonText="New Entity" -->
       <template #item.name="{ item }">
         <span class="font-semibold">{{ item.name }}</span>
       </template>
@@ -398,7 +398,7 @@ export default class ProjectStructuresTable extends Vue {
     >
       <template #header>
         <div class="flex items-center">
-          <span>{{ selectedStructure?.name || 'Structure' }}</span>
+          <span>{{ selectedStructure?.name || 'Entity' }}</span>
           <div 
             class="ml-2 px-3 py-1 rounded-full text-sm font-medium"
             :class="selectedStructure?.published ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
@@ -439,7 +439,7 @@ export default class ProjectStructuresTable extends Vue {
     >
       <template #header>
         <div class="flex items-center">
-          <span>{{ selectedStructure?.name || 'Structure' }}</span>
+          <span>{{ selectedStructure?.name || 'Entity' }}</span>
           <div 
             class="ml-2 px-3 py-1 rounded-full text-sm font-medium"
             :class="selectedStructure?.published ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"

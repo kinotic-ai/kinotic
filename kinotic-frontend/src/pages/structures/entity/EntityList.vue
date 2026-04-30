@@ -101,7 +101,7 @@ const paramId = this.$route.params.id
 const id = this.structureId || (Array.isArray(paramId) ? paramId[0] : paramId)
 
     if (!id) {
-      this.displayAlert("Missing structure ID.")
+      this.displayAlert("Missing entity ID.")
       return
     }
 
