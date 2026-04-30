@@ -34,7 +34,8 @@ async function buildEntityDefinitions() {
                 const outputPath = path.join(outputDir, `${entityInfo.entity.name.toLowerCase()}.json`)
                 await fs.writeFile(outputPath, JSON.stringify(entityInfo.entity, null, 2))
                 logger.log(`Generated entity definition for ${entityInfo.entity.name} at ${outputPath}`)
-            }
+            },
+            true
         )
     }
 
@@ -63,7 +64,8 @@ async function buildEntityDefinitions() {
                 const outputPath = path.join(outputDir, `${entityInfo.entity.name.toLowerCase()}.json`)
                 await fs.writeFile(outputPath, JSON.stringify(entityInfo.entity, null, 2))
                 logger.log(`Generated entity definition for ${entityInfo.entity.name} at ${outputPath}`)
-            }
+            },
+            true
         )
     }
 
