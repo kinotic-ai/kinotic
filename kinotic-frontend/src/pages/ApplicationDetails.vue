@@ -97,24 +97,6 @@ export default class ApplicationDetails extends Vue {
         <h1 :class="['mb-3 text-2xl font-semibold', isDark ? 'text-white' : 'text-surface-950']">{{ applicationId }}</h1>
         <span :class="[isDark ? 'text-surface-400' : 'text-surface-600']">{{ projectsCount }} projects, {{ structuresCount }} structures</span>
       </div>
-      <div class="flex gap-3 h-full">
-        <div
-          v-if="currentApplication?.enableGraphQL"
-          @click="openGraphQL"
-          :class="['flex cursor-pointer items-center gap-2 rounded-xl border px-16', isDark ? 'border-surface-800 bg-surface-900' : 'border-surface-200']"
-        >
-          <img src="@/assets/graphql.svg" class="w-6 h-6" />
-          <span class="text-sm font-semibold">GraphQL</span>
-        </div>
-        <div 
-          v-if="currentApplication?.enableOpenAPI"
-          @click="openOpenAPI"
-          :class="['flex cursor-pointer items-center gap-2 rounded-xl border px-16', isDark ? 'border-surface-800 bg-surface-900' : 'border-surface-200']"
-        >
-          <img src="@/assets/scalar.svg" class="w-6 h-6" />
-          <span class="text-sm font-semibold">OpenAPI</span>
-        </div>
-      </div>
     </div>
 
     <Tabs :value="activeTab" @update:value="activeTab = $event">

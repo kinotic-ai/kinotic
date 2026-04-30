@@ -148,42 +148,6 @@ export default class NewProjectSidebar extends Vue {
                                 placeholder="Optional description"
                             />
                         </div>
-
-                        <div>
-                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Source of truth</label>
-                            <div :class="['flex w-full gap-2 rounded-xl p-1', isDark ? 'bg-surface-800' : 'bg-surface-100']">
-                                <Button
-                                    type="button"
-                                    @click="form.source = 'GUI'"
-                                    class="w-1/2 text-sm font-bold py-[10px] rounded-lg transition"
-                                    severity="secondary"
-                                    :class="form.source === 'GUI' ? (isDark ? '!bg-surface-950 !text-surface-0' : '!bg-surface-0 !text-surface-950') : (isDark ? '!bg-transparent !text-surface-400' : '!bg-transparent !text-surface-600')"
-                                >
-                                    GUI
-                                </Button>
-                                <Button
-                                    type="button"
-                                    @click="form.source = 'Code'"
-                                    class="w-1/2 text-sm font-bold py-[10px] rounded-lg transition"
-                                    severity="secondary"
-                                    :class="form.source === 'Code' ? (isDark ? '!bg-surface-950 !text-surface-0' : '!bg-surface-0 !text-surface-950') : (isDark ? '!bg-transparent !text-surface-400' : '!bg-transparent !text-surface-600')"
-                                >
-                                    Code
-                                </Button>
-                            </div>
-                        </div>
-
-                        <div v-if="form.source === 'Code'">
-                            <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Language</label>
-                            <Select
-                                v-model="form.language"
-                                :options="languageOptions"
-                                optionLabel="label"
-                                optionValue="value"
-                                placeholder="Select language"
-                                :class="['w-full rounded-lg p-2 text-sm', isDark ? 'border border-surface-700 bg-surface-800 text-surface-0' : 'border border-surface-300 text-surface-950']"
-                            />
-                        </div>
                     </div>
                     <div class="flex justify-end gap-2 mt-6">
                         <Button type="button" @click="handleClose" severity="secondary">

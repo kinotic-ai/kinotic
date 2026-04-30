@@ -131,25 +131,6 @@ function handleClose(): void {
             <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Description</label>
             <Textarea v-model="form.description" :class="inputClass" rows="3" />
           </div>
-          <div>
-            <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">API configuration</label>
-            <div :class="['w-full divide-y rounded-2xl border', isDark ? 'border-surface-800 divide-surface-800 bg-surface-900' : 'border-surface-200 divide-surface-200']">
-              <div class="flex items-center justify-between p-4">
-                <div class="flex items-center gap-2">
-                  <img src="@/assets/graphql.svg" />
-                  <span :class="['text-sm font-normal', isDark ? 'text-surface-100' : 'text-surface-700']">GraphQL</span>
-                </div>
-                <ToggleButton v-model="form.graphql" onLabel="On" offLabel="Off" />
-              </div>
-              <div class="flex items-center justify-between p-4">
-                <div class="flex items-center gap-2">
-                  <img src="@/assets/scalar.svg" />
-                  <span :class="['text-sm font-normal', isDark ? 'text-surface-100' : 'text-surface-700']">OpenAPI</span>
-                </div>
-                <ToggleButton v-model="form.openapi" onLabel="On" offLabel="Off" />
-              </div>
-            </div>
-          </div>
         </div>
         <div class="flex justify-end gap-2 mt-6">
           <Button type="button" @click="handleClose" severity="secondary" label="Cancel" />
