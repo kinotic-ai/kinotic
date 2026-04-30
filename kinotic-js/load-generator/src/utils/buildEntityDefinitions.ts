@@ -1,6 +1,6 @@
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import { KinoticProjectConfig } from '@kinotic-ai/core'
+import { KinoticProjectConfig } from '@kinotic-ai/os-api'
 import path from 'path'
 import fs from 'fs/promises'
 
@@ -15,6 +15,7 @@ async function buildEntityDefinitions() {
         const codeGenerationService = new EntityCodeGenerationService(namespace, '.js', logger)
 
         const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
+        namespaceConfig.organization = 'kinotic'
         namespaceConfig.application = namespace
         namespaceConfig.validate = false
         namespaceConfig.entitiesPaths = [{
@@ -43,6 +44,7 @@ async function buildEntityDefinitions() {
         const codeGenerationService = new EntityCodeGenerationService(namespace, '.js', logger)
 
         const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
+        namespaceConfig.organization = 'kinotic'
         namespaceConfig.application = namespace
         namespaceConfig.validate = false
         namespaceConfig.entitiesPaths = [{

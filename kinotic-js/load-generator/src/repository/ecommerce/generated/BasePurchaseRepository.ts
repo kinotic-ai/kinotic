@@ -11,7 +11,7 @@ export class BasePurchaseRepository extends EntityRepository<Purchase> {
   private readonly shouldValidate: boolean
 
   constructor(shouldValidate: boolean = true, entitiesRepository?: IEntitiesRepository) {
-    super('ecommerce', 'Purchase', entitiesRepository)
+    super('kinotic', 'ecommerce', 'Purchase', entitiesRepository)
     this.shouldValidate = shouldValidate
   }
 

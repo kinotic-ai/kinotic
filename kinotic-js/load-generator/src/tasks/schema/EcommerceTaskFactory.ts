@@ -14,6 +14,7 @@ import { ObjectC3Type } from '@kinotic-ai/idl'
 import { createStructureTaskBuilder } from './CreateStructureTaskBuilder'
 
 export class EcommerceTaskFactory {
+    private readonly organizationId = 'kinotic'
     private readonly applicationId = 'ecommerce'
     private projectId = 'ecommerce_main_project'
     private readonly taskBuilder: CreateStructureTaskBuilder
@@ -35,6 +36,7 @@ export class EcommerceTaskFactory {
                 execute: async () => {
                     await Kinotic.applications.createApplicationIfNotExist(this.applicationId, 'Ecommerce Domain')
                     let project = new Project(null, this.applicationId, 'Main Project', 'Ecommerce Main Project')
+                    project.organizationId = this.organizationId
                     project.sourceOfTruth = ProjectType.TYPESCRIPT
                     project = await Kinotic.projects.createProjectIfNotExist(project)
                 }
@@ -54,6 +56,7 @@ export class EcommerceTaskFactory {
             },
             // Then create structures
             this.taskBuilder.buildTask({
+                organizationId: this.organizationId,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Customer',
@@ -64,6 +67,7 @@ export class EcommerceTaskFactory {
                 }
             }),
             this.taskBuilder.buildTask({
+                organizationId: this.organizationId,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Product',
@@ -74,6 +78,7 @@ export class EcommerceTaskFactory {
                 }
             }),
             this.taskBuilder.buildTask({
+                organizationId: this.organizationId,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'ProductReview',
@@ -84,6 +89,7 @@ export class EcommerceTaskFactory {
                 }
             }),
             this.taskBuilder.buildTask({
+                organizationId: this.organizationId,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Purchase',

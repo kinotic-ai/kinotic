@@ -5,6 +5,7 @@ import { ObjectC3Type } from '@kinotic-ai/idl'
 import { Kinotic } from '@kinotic-ai/core'
 
 export interface CreateStructureTaskConfig {
+    organizationId: string
     applicationId: string
     projectId: string
     name: string
@@ -25,7 +26,7 @@ export class CreateStructureTaskBuilder {
     return {
             name: () => `Create ${config.name} Structure`,
             execute: async () => {
-                const structureId = `${config.applicationId}.${config.name.toLowerCase()}`
+                const structureId = `${config.organizationId}.${config.applicationId}.${config.name}`.toLowerCase()
                 const existingStructure = await this.entityDefinitionService.findById(structureId)
 
                 if (existingStructure) {
@@ -39,6 +40,7 @@ export class CreateStructureTaskBuilder {
                 const schema = config.entityDefinitionSupplier()
 
                 const entityDefinition = new EntityDefinition(
+                    config.organizationId,
                     config.applicationId,
                     config.projectId,
                     config.name,
@@ -51,7 +53,7 @@ export class CreateStructureTaskBuilder {
                 }
 
                 if (config.onServiceCreated) {
-                    const service = new EntityRepository(config.applicationId, config.name)
+                    const service = new EntityRepository(config.organizationId, config.applicationId, config.name)
                     config.onServiceCreated(service)
                 }
             }

@@ -15,6 +15,7 @@ import { TestDataGenerator } from '../../entity/domain/health/TestDataGenerator'
 import path from 'path'
 
 export class HealthTaskFactory {
+    private readonly organizationId = 'kinotic'
     private readonly applicationId = 'healthcare'
     private projectId = 'healthcare_main_project'
     private readonly taskBuilder: CreateStructureTaskBuilder
@@ -37,6 +38,7 @@ export class HealthTaskFactory {
                 execute: async () => {
                     await Kinotic.applications.createApplicationIfNotExist(this.applicationId, 'Healthcare Domain')
                     let project = new Project(null, this.applicationId, 'Main Project', 'Healthcare Main Project')
+                    project.organizationId = this.organizationId
                     project.sourceOfTruth = ProjectType.TYPESCRIPT
                     project = await Kinotic.projects.createProjectIfNotExist(project)
                 }
@@ -56,6 +58,7 @@ export class HealthTaskFactory {
             },
             // Then create structures
             this.taskBuilder.buildTask({
+                organizationId: this.organizationId,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Patient',
@@ -66,6 +69,7 @@ export class HealthTaskFactory {
                 }
             }),
             this.taskBuilder.buildTask({
+                organizationId: this.organizationId,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Provider',
@@ -76,6 +80,7 @@ export class HealthTaskFactory {
                 }
             }),
             this.taskBuilder.buildTask({
+                organizationId: this.organizationId,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Appointment',
@@ -86,6 +91,7 @@ export class HealthTaskFactory {
                 }
             }),
             this.taskBuilder.buildTask({
+                organizationId: this.organizationId,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Diagnosis',
@@ -96,6 +102,7 @@ export class HealthTaskFactory {
                 }
             }),
             this.taskBuilder.buildTask({
+                organizationId: this.organizationId,
                 applicationId: this.applicationId,
                 projectId: this.projectId,
                 name: 'Treatment',

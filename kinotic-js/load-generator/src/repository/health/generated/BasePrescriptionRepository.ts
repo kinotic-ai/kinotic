@@ -11,7 +11,7 @@ export class BasePrescriptionRepository extends EntityRepository<Prescription> {
   private readonly shouldValidate: boolean
 
   constructor(shouldValidate: boolean = true, entitiesRepository?: IEntitiesRepository) {
-    super('healthcare', 'Prescription', entitiesRepository)
+    super('kinotic', 'healthcare', 'Prescription', entitiesRepository)
     this.shouldValidate = shouldValidate
   }
 
