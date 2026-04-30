@@ -53,7 +53,7 @@ const isDark = computed(() => darkMode.value)
 <template>
   <div v-if="structureStore.structure">
     <div :class="['border-b p-6', isDark ? 'border-surface-800' : 'border-surface-200']">
-      <h3 class="text-sm font-semibold">Structure settings</h3>
+      <h3 class="text-sm font-semibold">Entity settings</h3>
     </div>
     <div class="flex-1 overflow-y-auto p-6 space-y-6">
       <div class="space-y-3 mb-7">

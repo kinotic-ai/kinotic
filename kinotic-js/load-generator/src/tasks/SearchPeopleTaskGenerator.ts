@@ -3,7 +3,7 @@ import {KinoticOperationTaskGenerator} from '@/tasks/KinoticOperationTaskGenerat
 import {ITaskFactory} from '@/tasks/ITaskFactory.js'
 import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
 import {ConnectionInfo, KinoticSingleton, Pageable} from '@kinotic-ai/core'
-import {EntitiesService} from '@kinotic-ai/persistence'
+import {EntitiesRepository} from '@kinotic-ai/persistence'
 import {OsApiPlugin} from '@kinotic-ai/os-api'
 import {PersistencePlugin} from '@kinotic-ai/persistence'
 import { ITask } from './ITask';
@@ -24,7 +24,7 @@ export class SearchPeopleTaskGenerator implements ITaskGenerator {
 
         const kinotic = new KinoticSingleton()
         kinotic.use(OsApiPlugin).use(PersistencePlugin)
-        this.personRepository = new PersonRepository(new EntitiesService(kinotic))
+        this.personRepository = new PersonRepository(new EntitiesRepository(kinotic))
 
         this.continuumTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,
                                                                         kinotic,

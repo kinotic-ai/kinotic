@@ -174,7 +174,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
      * @throws IllegalStateException if no {@link Participant} is bound to the current Vert.x context
      * @throws AuthorizationException if the participant's auth scope type is not {@link AuthScopeType#ORGANIZATION}
      */
-    private String requireOrganizationId() {
+    protected String requireOrganizationId() {
         Participant participant = securityContext.currentParticipant();
         if (participant == null) {
             throw new IllegalStateException(

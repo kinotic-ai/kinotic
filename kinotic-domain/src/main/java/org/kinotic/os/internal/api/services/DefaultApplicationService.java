@@ -39,12 +39,15 @@ public class DefaultApplicationService extends AbstractCrudService<Application> 
     @Override
     public CompletableFuture<Application> createApplicationIfNotExist(String id, String description) {
         DomainUtil.validateApplicationId(id);
+        String organizationId = requireOrganizationId();
         return findById(id)
                 .thenCompose(application -> {
                     if(application != null){
                         return CompletableFuture.completedFuture(application);
                     }else{
-                        return save(new Application(id, description));
+                        Application newApplication = new Application(id, description);
+                        newApplication.setOrganizationId(organizationId);
+                        return save(newApplication);
                     }
                 });
     }

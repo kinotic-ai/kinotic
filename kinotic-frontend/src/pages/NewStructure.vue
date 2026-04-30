@@ -9,6 +9,7 @@ import Button from "primevue/button"
 import InputText from "primevue/inputtext"
 import StructureNode from "@/components/structures/flow-components/StructureNode.vue"
 import { useStructureStore } from "@/stores/editor"
+import { USER_STATE } from "@/states/IUserState"
 import "@vue-flow/core/dist/style.css"
 import "@vue-flow/core/dist/theme-default.css"
 import "@vue-flow/minimap/dist/style.css"
@@ -59,7 +60,7 @@ export default class NewStructure extends Vue {
 
   beforeMount(): void {
     // Initialize structure once when modal opens
-    this.structureStore.initNewStructure("app-123", "proj-456")
+    this.structureStore.initNewStructure(USER_STATE.getOrganizationId(), "app-123", "proj-456")
   }
 
   handleMouseEnter() {

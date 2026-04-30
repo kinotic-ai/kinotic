@@ -1,6 +1,6 @@
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import { KinoticProjectConfig } from '@kinotic-ai/core'
+import { KinoticProjectConfig } from '@kinotic-ai/os-api'
 import path from 'path'
 import fs from 'fs/promises'
 
@@ -15,6 +15,7 @@ async function buildEntityDefinitions() {
         const codeGenerationService = new EntityCodeGenerationService(namespace, '.js', logger)
 
         const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
+        namespaceConfig.organization = 'kinotic-test'
         namespaceConfig.application = namespace
         namespaceConfig.validate = false
         namespaceConfig.entitiesPaths = [{
@@ -33,7 +34,8 @@ async function buildEntityDefinitions() {
                 const outputPath = path.join(outputDir, `${entityInfo.entity.name.toLowerCase()}.json`)
                 await fs.writeFile(outputPath, JSON.stringify(entityInfo.entity, null, 2))
                 logger.log(`Generated entity definition for ${entityInfo.entity.name} at ${outputPath}`)
-            }
+            },
+            true
         )
     }
 
@@ -43,6 +45,7 @@ async function buildEntityDefinitions() {
         const codeGenerationService = new EntityCodeGenerationService(namespace, '.js', logger)
 
         const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
+        namespaceConfig.organization = 'kinotic-test'
         namespaceConfig.application = namespace
         namespaceConfig.validate = false
         namespaceConfig.entitiesPaths = [{
@@ -61,7 +64,8 @@ async function buildEntityDefinitions() {
                 const outputPath = path.join(outputDir, `${entityInfo.entity.name.toLowerCase()}.json`)
                 await fs.writeFile(outputPath, JSON.stringify(entityInfo.entity, null, 2))
                 logger.log(`Generated entity definition for ${entityInfo.entity.name} at ${outputPath}`)
-            }
+            },
+            true
         )
     }
 

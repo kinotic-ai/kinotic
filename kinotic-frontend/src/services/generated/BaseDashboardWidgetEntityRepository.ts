@@ -11,7 +11,7 @@ export class BaseDashboardWidgetEntityRepository extends EntityRepository<Dashbo
   private readonly shouldValidate: boolean
 
   constructor(shouldValidate: boolean = true, entitiesRepository?: IEntitiesRepository) {
-    super('structures__system', 'DashboardWidget', entitiesRepository)
+    super('kinotic', 'structures__system', 'DashboardWidget', entitiesRepository)
     this.shouldValidate = shouldValidate
   }
 

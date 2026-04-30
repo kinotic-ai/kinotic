@@ -1,7 +1,7 @@
 import { ObjectC3Type } from '@kinotic-ai/idl'
 import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
-import { KinoticProjectConfig } from '@kinotic-ai/core'
+import { KinoticProjectConfig } from '@kinotic-ai/os-api'
 
 export class EntityDefinitionGenerator {
     private readonly codeGenerationService: EntityCodeGenerationService
@@ -20,6 +20,7 @@ export class EntityDefinitionGenerator {
         const definitions = new Map<string, ObjectC3Type>()
 
         const projectConfig = new KinoticProjectConfig()
+        projectConfig.organization = 'kinotic-test'
         projectConfig.application = this.application
         projectConfig.validate = false
         projectConfig.entitiesPaths = [{
