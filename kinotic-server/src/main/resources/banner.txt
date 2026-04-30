@@ -1,34 +1,34 @@
 
 -- Kinotic Server --
 
- ${Ansi.DEFAULT}:::::::::::::::::::::::::::::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::::::::::::::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::::::::::::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}:::::::::::::::::::::::::::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::::::::::::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::::::::::::::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}:::::::::::::::::::::::::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::::::::::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%${Ansi.DEFAULT}::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::::::::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}:::::::::::::::::::::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}:::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::${Ansi.BRIGHT_RED}%%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}:::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::::::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}:::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::${Ansi.BRIGHT_RED}%%%%%%%%%${Ansi.DEFAULT}:::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}:::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}:::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}::::::::${Ansi.BRIGHT_RED}%%%%%%%%%${Ansi.DEFAULT}:::::${Ansi.BRIGHT_RED}%%%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%${Ansi.DEFAULT}::::::::::::::::::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%${Ansi.DEFAULT}::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}::::${Ansi.BRIGHT_RED}%%%%%%%%%%%%%%${Ansi.DEFAULT}::::${Ansi.BRIGHT_RED}%%%%%%%%%%%%%%${Ansi.DEFAULT}:::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}::::${Ansi.BRIGHT_RED}%%%%%%%%%%%%%%${Ansi.DEFAULT}::::${Ansi.BRIGHT_RED}%%%%%%%%%%%%%%${Ansi.DEFAULT}:::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}::::${Ansi.BRIGHT_RED}%%%%%%%%%%%%%%${Ansi.DEFAULT}::::${Ansi.BRIGHT_RED}%%%%%%%%%%%%%%${Ansi.DEFAULT}:::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}:::::${Ansi.BRIGHT_RED}%%%%%%%%%%%%%${Ansi.DEFAULT}::::${Ansi.BRIGHT_RED}%%%%%%%%%%%%%%${Ansi.DEFAULT}:::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::::::::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::${Ansi.DEFAULT}
- ${Ansi.DEFAULT}::::::::::::::::${Ansi.BRIGHT_RED}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%${Ansi.DEFAULT}:::::::::::::::::::${Ansi.DEFAULT}
-
+${Ansi.BRIGHT_RED}
+ :::::::::::::::::::::::::::::::::::::::::::::::::          :::::::::::::::::::::::::::::::
+ ::::::::::::::::::::::::::::::::::::::::::::::::          ::::::::::::::::::::::::::::::::
+ :::::::::::::::::::::::::::::::::::::::::::::::          :::::::::::::::::::::::::::::::::
+ ::::::::::::::::::::::::::::::::::::::::::::::          ::::::::::::::::::::::::::::::::::
+ :::::::::::::::::::::::::::::::::::::::::::::          :::::::::::::::::::::::::::::::::::
+ ::::::::::::::::::::::::::::::::::::::::::::         ::::::          :::::::::::::::::::::
+ ::::::::::::::::::::::::::::::::::::::::::          :::::::          :::::::::::::::::::::
+ :::::::::::::::::::::::::::::::::::::::::          :::::::          ::::::::::::::::::::::
+ ::::::::::::::::::::::::          :::::::          ::::::          :::::::::::::::::::::::
+ :::::::::::::::::::::::          :::::::          ::::::         :::::::::::::::::::::::::
+ :::::::::::::::::::::::          ::::::          :::::          ::::::::::::::::::::::::::
+ ::::::::::::::::::::::          :::::          ::::::          :::::::::::::::::::::::::::
+ :::::::::::::::::::::          :::::          ::::::          ::::::         :::::::::::::
+ :::::::::::::::::::          ::::::          ::::::          :::::          ::::::::::::::
+ ::::::::::::::::::          ::::::          ::::::          :::::          :::::::::::::::
+ :::::::::::::::::          ::::::          ::::::          :::::          ::::::::::::::::
+ ::::::::::::::::          :::::::        ::::::::         :::::          :::::::::::::::::
+ ::::::::::::::::         ::::::::::::::::::::::::::::::::::::::         ::::::::::::::::::
+ ::::::::::::::::        :::::::::::::::::::::::::::::::::::::::        :::::::::::::::::::
+ ::::::::::::::::        ::::              ::::              :::        :::::::::::::::::::
+ ::::::::::::::::        ::::              ::::              :::        :::::::::::::::::::
+ ::::::::::::::::        ::::              ::::              :::        :::::::::::::::::::
+ ::::::::::::::::        :::::             ::::              :::        :::::::::::::::::::
+ ::::::::::::::::        :::::::::::::::::::::::::::::::::::::::        :::::::::::::::::::
+ ::::::::::::::::        :::::::::::::::::::::::::::::::::::::::        :::::::::::::::::::
+ ::::::::::::::::                                                       :::::::::::::::::::
+ ::::::::::::::::                                                       :::::::::::::::::::
+ ::::::::::::::::                                                       :::::::::::::::::::
+ ::::::::::::::::                                                       :::::::::::::::::::
 ${Ansi.DEFAULT}
