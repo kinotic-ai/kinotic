@@ -11,7 +11,7 @@ export class BaseDataInsightsWidgetEntityRepository extends EntityRepository<Dat
   private readonly shouldValidate: boolean
 
   constructor(shouldValidate: boolean = true, entitiesRepository?: IEntitiesRepository) {
-    super('structures__system', 'DataInsightsWidget', entitiesRepository)
+    super('kinotic', 'structures__system', 'DataInsightsWidget', entitiesRepository)
     this.shouldValidate = shouldValidate
   }
 
