@@ -21,11 +21,11 @@ importers:
         specifier: ^1.0.9
         version: 1.0.9(typescript@5.8.3)
       '@kinotic-ai/os-api':
-        specifier: ^1.0.14
-        version: 1.0.14(@kinotic-ai/core@1.2.1(typescript@5.8.3))(typescript@5.8.3)
+        specifier: ^1.2.0
+        version: 1.2.0(@kinotic-ai/core@1.2.1(typescript@5.8.3))(typescript@5.8.3)
       '@kinotic-ai/persistence':
-        specifier: ^1.1.0
-        version: 1.1.0(@kinotic-ai/core@1.2.1(typescript@5.8.3))(typescript@5.8.3)
+        specifier: ^1.2.1
+        version: 1.2.1(@kinotic-ai/core@1.2.1(typescript@5.8.3))(typescript@5.8.3)
       '@mdi/js':
         specifier: ^7.4.47
         version: 7.4.47
@@ -365,8 +365,8 @@ packages:
       typescript:
         optional: true
 
-  '@kinotic-ai/os-api@1.0.14':
-    resolution: {integrity: sha512-L4rXbQbDruEWZjBF+e5Du05ALAYP0zNslW6lgRRfW+TI1hbCdJ/UovCadkrdUyDCszIqP++/UAceGVBuhtmCMw==}
+  '@kinotic-ai/os-api@1.2.0':
+    resolution: {integrity: sha512-ZS+HoZZ2XhifuvMg84fmla8xAnYnM+QX5ePtJetqb7hW6KuBO4/60mKCHriw4/0jKVxzRnaU4mkLRZOdUW8iog==}
     peerDependencies:
       '@kinotic-ai/core': '>=1.2.0'
       typescript: '*'
@@ -374,10 +374,10 @@ packages:
       typescript:
         optional: true
 
-  '@kinotic-ai/persistence@1.1.0':
-    resolution: {integrity: sha512-qDKevlOdmv3Sj3hybLCyWnMSVPlHjk135XNB15VS1KuacleJFMQydDuorY13vt9q7wbnl47niH4/kQJi1/WUcQ==}
+  '@kinotic-ai/persistence@1.2.1':
+    resolution: {integrity: sha512-ZFCAkbwwKwwEsZwlHaR6sqjYML7po8sF0J+iZZPRLkJfazjAEB06B7gMA7IZCA9MCbqpMk0642DcOPugXzKghg==}
     peerDependencies:
-      '@kinotic-ai/core': '>=1.0.0'
+      '@kinotic-ai/core': '>=1.2.0'
       typescript: '*'
     peerDependenciesMeta:
       typescript:
@@ -468,51 +468,61 @@ packages:
     resolution: {integrity: sha512-bvXVU42mOVcF4le6XSjscdXjqx8okv4n5vmwgzcmtvFdifQ5U4dXFYaCB87namDRKlUL9ybVtLQ9ztnawaSzvg==}
     cpu: [arm]
     os: [linux]
+    libc: [glibc]
 
   '@rollup/rollup-linux-arm-musleabihf@4.36.0':
     resolution: {integrity: sha512-JFIQrDJYrxOnyDQGYkqnNBtjDwTgbasdbUiQvcU8JmGDfValfH1lNpng+4FWlhaVIR4KPkeddYjsVVbmJYvDcg==}
     cpu: [arm]
     os: [linux]
+    libc: [musl]
 
   '@rollup/rollup-linux-arm64-gnu@4.36.0':
     resolution: {integrity: sha512-KqjYVh3oM1bj//5X7k79PSCZ6CvaVzb7Qs7VMWS+SlWB5M8p3FqufLP9VNp4CazJ0CsPDLwVD9r3vX7Ci4J56A==}
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   '@rollup/rollup-linux-arm64-musl@4.36.0':
     resolution: {integrity: sha512-QiGnhScND+mAAtfHqeT+cB1S9yFnNQ/EwCg5yE3MzoaZZnIV0RV9O5alJAoJKX/sBONVKeZdMfO8QSaWEygMhw==}
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   '@rollup/rollup-linux-loongarch64-gnu@4.36.0':
     resolution: {integrity: sha512-1ZPyEDWF8phd4FQtTzMh8FQwqzvIjLsl6/84gzUxnMNFBtExBtpL51H67mV9xipuxl1AEAerRBgBwFNpkw8+Lg==}
     cpu: [loong64]
     os: [linux]
+    libc: [glibc]
 
   '@rollup/rollup-linux-powerpc64le-gnu@4.36.0':
     resolution: {integrity: sha512-VMPMEIUpPFKpPI9GZMhJrtu8rxnp6mJR3ZzQPykq4xc2GmdHj3Q4cA+7avMyegXy4n1v+Qynr9fR88BmyO74tg==}
     cpu: [ppc64]
     os: [linux]
+    libc: [glibc]
 
   '@rollup/rollup-linux-riscv64-gnu@4.36.0':
     resolution: {integrity: sha512-ttE6ayb/kHwNRJGYLpuAvB7SMtOeQnVXEIpMtAvx3kepFQeowVED0n1K9nAdraHUPJ5hydEMxBpIR7o4nrm8uA==}
     cpu: [riscv64]
     os: [linux]
+    libc: [glibc]
 
   '@rollup/rollup-linux-s390x-gnu@4.36.0':
     resolution: {integrity: sha512-4a5gf2jpS0AIe7uBjxDeUMNcFmaRTbNv7NxI5xOCs4lhzsVyGR/0qBXduPnoWf6dGC365saTiwag8hP1imTgag==}
     cpu: [s390x]
     os: [linux]
+    libc: [glibc]
 
   '@rollup/rollup-linux-x64-gnu@4.36.0':
     resolution: {integrity: sha512-5KtoW8UWmwFKQ96aQL3LlRXX16IMwyzMq/jSSVIIyAANiE1doaQsx/KRyhAvpHlPjPiSU/AYX/8m+lQ9VToxFQ==}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   '@rollup/rollup-linux-x64-musl@4.36.0':
     resolution: {integrity: sha512-sycrYZPrv2ag4OCvaN5js+f01eoZ2U+RmT5as8vhxiFz+kxwlHrsxOwKPSA8WyS+Wc6Epid9QeI/IkQ9NkgYyQ==}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   '@rollup/rollup-win32-arm64-msvc@4.36.0':
     resolution: {integrity: sha512-qbqt4N7tokFwwSVlWDsjfoHgviS3n/vZ8LK0h1uLG9TYIRuUTJC88E1xb3LM2iqZ/WTqNQjYrtmtGmrmmawB6A==}
@@ -577,24 +587,28 @@ packages:
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   '@tailwindcss/oxide-linux-arm64-musl@4.1.11':
     resolution: {integrity: sha512-m/NVRFNGlEHJrNVk3O6I9ggVuNjXHIPoD6bqay/pubtYC9QIdAMpS+cswZQPBLvVvEF6GtSNONbDkZrjWZXYNQ==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   '@tailwindcss/oxide-linux-x64-gnu@4.1.11':
     resolution: {integrity: sha512-YW6sblI7xukSD2TdbbaeQVDysIm/UPJtObHJHKxDEcW2exAtY47j52f8jZXkqE1krdnkhCMGqP3dbniu1Te2Fg==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   '@tailwindcss/oxide-linux-x64-musl@4.1.11':
     resolution: {integrity: sha512-e3C/RRhGunWYNC3aSF7exsQkdXzQ/M+aYuZHKnw4U7KQwTJotnWsGOIVih0s2qQzmEzOFIJ3+xt7iq67K/p56Q==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   '@tailwindcss/oxide-wasm32-wasi@4.1.11':
     resolution: {integrity: sha512-Xo1+/GU0JEN/C/dvcammKHzeM6NqKovG+6921MR6oadee5XPBaKOumrJCXvopJ/Qb5TH7LX/UAywbqrP4lax0g==}
@@ -1142,24 +1156,28 @@ packages:
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   lightningcss-linux-arm64-musl@1.30.1:
     resolution: {integrity: sha512-jmUQVx4331m6LIX+0wUhBbmMX7TCfjF5FoOH6SD1CttzuYlGNVpA7QnrmLxrsub43ClTINfGSYyHe2HWeLl5CQ==}
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   lightningcss-linux-x64-gnu@1.30.1:
     resolution: {integrity: sha512-piWx3z4wN8J8z3+O5kO74+yr6ze/dKmPnI7vLqfSqI8bccaTGY5xiSGVIJBDd5K5BHlvVLpUB3S2YCfelyJ1bw==}
     engines: {node: '>= 12.0.0'}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   lightningcss-linux-x64-musl@1.30.1:
     resolution: {integrity: sha512-rRomAK7eIkL+tHY0YPxbc5Dra2gXlI63HL+v1Pdi1a3sC+tJTcFrHX+E86sulgAXeI7rSzDYhPSeHHjqFhqfeQ==}
     engines: {node: '>= 12.0.0'}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   lightningcss-win32-arm64-msvc@1.30.1:
     resolution: {integrity: sha512-mSL4rqPi4iXq5YVqzSsJgMVFENoa4nGTT/GjO2c0Yl9OuQfPsIfncvLrEW6RbbB24WtZ3xP/2CCmI3tNkNV4oA==}
@@ -1688,16 +1706,16 @@ snapshots:
     optionalDependencies:
       typescript: 5.8.3
 
-  '@kinotic-ai/os-api@1.0.14(@kinotic-ai/core@1.2.1(typescript@5.8.3))(typescript@5.8.3)':
+  '@kinotic-ai/os-api@1.2.0(@kinotic-ai/core@1.2.1(typescript@5.8.3))(typescript@5.8.3)':
     dependencies:
       '@kinotic-ai/core': 1.2.1(typescript@5.8.3)
       '@kinotic-ai/idl': 1.0.9(typescript@5.8.3)
-      '@kinotic-ai/persistence': 1.1.0(@kinotic-ai/core@1.2.1(typescript@5.8.3))(typescript@5.8.3)
+      '@kinotic-ai/persistence': 1.2.1(@kinotic-ai/core@1.2.1(typescript@5.8.3))(typescript@5.8.3)
       rxjs: 7.8.2
     optionalDependencies:
       typescript: 5.8.3
 
-  '@kinotic-ai/persistence@1.1.0(@kinotic-ai/core@1.2.1(typescript@5.8.3))(typescript@5.8.3)':
+  '@kinotic-ai/persistence@1.2.1(@kinotic-ai/core@1.2.1(typescript@5.8.3))(typescript@5.8.3)':
     dependencies:
       '@kinotic-ai/core': 1.2.1(typescript@5.8.3)
       '@kinotic-ai/idl': 1.0.9(typescript@5.8.3)
