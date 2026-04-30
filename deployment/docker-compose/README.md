@@ -24,7 +24,7 @@ workflow — they're built up from small `compose.*.yml` files using docker-comp
 | `compose.yml` | Top-level — `include:`s every piece below | Full stack (ES + Kibana + OTEL + load-gen + migration + kinotic-server) |
 | `compose.ek-stack.yml` | Elasticsearch + Kibana | `kinotic-elasticsearch:9200`, `kinotic-kibana:5601` |
 | `compose.kinotic-migration.yml` | Runs `kinotic-migration` once against ES, then exits | One-shot job — `service_completed_successfully` is what kinotic-server waits on |
-| `compose.kinotic-server.yml` | The Kinotic server itself | `kinotic-server:9090/4000/8080/58503` (UI, GraphQL, OpenAPI, STOMP) |
+| `compose.kinotic-server.yml` | The Kinotic server itself | `kinotic-server:9090/58503` (UI, STOMP) |
 | `compose-otel.yml` | OpenTelemetry collector + Grafana + Tempo + Mimir | `grafana:3000`, plus internal otel/tempo/mimir |
 | `compose.gen-schemas.yml` | Load-generator container that pre-populates schemas | One-shot when `compose.yml` brings up the full stack |
 | `compose.keycloak.yml` | Local Keycloak as a platform OIDC provider (dev-only secret) | `keycloak:8888` — see `KEYCLOAK_HOSTS_SETUP.md` |
@@ -62,8 +62,6 @@ docker compose down -v && rm -rf ~/kinotic/elastic-data && docker compose up -d
 | Service | URL | Notes |
 |---|---|---|
 | Kinotic UI | <http://localhost:9090> | TLS off in compose. The `/login`, `/signup`, `/applications` routes are SPA. |
-| GraphQL | <http://localhost:4000/graphql> | Per-application namespaces |
-| OpenAPI | <http://localhost:8080> | |
 | STOMP | `ws://localhost:58503/v1` | Used by the SPA's `Kinotic.connect(...)` |
 | Elasticsearch | <http://localhost:9200> | `xpack.security.enabled=false` — local only |
 | Kibana | <http://localhost:5601> | |

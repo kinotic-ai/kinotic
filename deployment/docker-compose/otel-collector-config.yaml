@@ -18,12 +18,16 @@ processors:
 
 exporters:
   otlp/tempo:
-    endpoint: "tempo:4317"  # For traces to Tempo (gRPC)
+    endpoint: "tempo:4317"  # Traces to Tempo (gRPC)
     tls:
       insecure: true
-  loki:  # For logs to Loki (native Loki format)
-    endpoint: "http://loki:3100/loki/api/v1/push"
-  otlphttp/mimir:  # For metrics to Mimir (using OTLP protocol)
+  # Logs to Loki via OTLP (Loki 3.x exposes /otlp natively). The dedicated `loki`
+  # exporter was removed from otelcol-contrib; otlphttp is the supported path.
+  otlphttp/loki:
+    endpoint: "http://loki:3100/otlp"
+    tls:
+      insecure: true
+  otlphttp/mimir:  # Metrics to Mimir via OTLP
     endpoint: "http://mimir:9009/otlp"
     tls:
       insecure: true
@@ -37,7 +41,7 @@ service:
     logs:
       receivers: [otlp]
       processors: [resource, batch]
-      exporters: [loki]
+      exporters: [otlphttp/loki]
     metrics:
       receivers: [otlp]
       processors: [resource, batch]

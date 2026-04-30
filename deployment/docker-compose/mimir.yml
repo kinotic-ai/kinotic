@@ -39,8 +39,8 @@ store_gateway:
       store: inmemory
     replication_factor: 1
 
-frontend:
-  max_outstanding_per_tenant: 2048
-
+# query-frontend has no per-tenant queue config here — query_scheduler below owns queueing
+# when both components run (which they do under `target: all`). The legacy
+# frontend.max_outstanding_per_tenant field was removed from Mimir's CombinedFrontendConfig.
 query_scheduler:
   max_outstanding_requests_per_tenant: 1024

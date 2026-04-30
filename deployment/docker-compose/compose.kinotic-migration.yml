@@ -10,3 +10,4 @@ services:
       KINOTIC_MIGRATION_ELASTIC_SCHEME: http
       KINOTIC_MIGRATION_ELASTIC_HOST: kinotic-elasticsearch
       KINOTIC_MIGRATION_ELASTIC_PORT: 9200
+      SPRING_PROFILES_ACTIVE: development,compose

@@ -15,7 +15,7 @@ export interface IUserState {
 
     /**
      * Returns the organization id of the currently authenticated participant. Only valid for
-     * ORGANIZATION-scoped logins, where the JWT's scopeId IS the org id; throws for SYSTEM-
+     * ORGANIZATION-scoped logins, where the JWT's authScopeId IS the org id; throws for SYSTEM-
      * or APPLICATION-scoped participants (those need a separate resolution path — TODO).
      */
     getOrganizationId(): string
@@ -23,8 +23,8 @@ export interface IUserState {
     /**
      * Authenticates with a Kinotic-minted JWT (the short-lived ticket delivered as a URL
      * fragment after a successful /api/login/callback or /api/signup/complete-org). The JWT
-     * carries scopeType and scopeId claims which we lift onto the STOMP CONNECT headers
-     * (the gateway cross-checks them against the JWT for defense-in-depth).
+     * carries authScopeType and authScopeId claims which we lift onto the STOMP CONNECT
+     * headers (the gateway cross-checks them against the JWT for defense-in-depth).
      */
     loginWithToken(token: string): Promise<void>
 
@@ -46,21 +46,21 @@ export class UserState implements IUserState {
         }
 
         const claims = decodeJwtPayload(token)
-        if (!claims || !claims.scopeType || !claims.scopeId) {
+        if (!claims || !claims.authScopeType || !claims.authScopeId) {
             throw new Error('Token missing scope claims')
         }
 
         const connectionInfo: ConnectionInfo = createConnectionInfo()
         connectionInfo.connectHeaders = {
             Authorization: `Bearer ${token}`,
-            authScopeType: claims.scopeType,
-            authScopeId: claims.scopeId
+            authScopeType: claims.authScopeType,
+            authScopeId: claims.authScopeId
         }
 
         try {
             this.connectedInfo = await Kinotic.connect(connectionInfo)
-            this.authScopeType = claims.scopeType
-            this.authScopeId = claims.scopeId
+            this.authScopeType = claims.authScopeType
+            this.authScopeId = claims.authScopeId
             this.authenticated = true
             this.accessDenied = false
         } catch (reason: any) {
@@ -107,7 +107,7 @@ export const USER_STATE: IUserState = reactive(new UserState())
 
 /**
  * Best-effort decode of a JWT payload without verifying the signature.
- * Used only to read the scopeType/scopeId claims the gateway minted; the gateway re-validates
+ * Used only to read the authScopeType/authScopeId claims the gateway minted; the gateway re-validates
  * the JWT signature on STOMP CONNECT, so a tampered token will fail there.
  */
 function decodeJwtPayload(token: string): Record<string, any> | null {
