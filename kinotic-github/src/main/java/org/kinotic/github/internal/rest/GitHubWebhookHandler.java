@@ -112,7 +112,7 @@ public class GitHubWebhookHandler {
      * HMAC-SHA256 the raw body with the App's webhook secret and compare (constant-time)
      * against the {@code sha256=<hex>} signature GitHub sent in the header.
      */
-    private static boolean verifySignature(byte[] rawBody, String secret, String headerSignature) {
+    private boolean verifySignature(byte[] rawBody, String secret, String headerSignature) {
         if (rawBody == null || secret == null || secret.isEmpty()
                 || headerSignature == null || !headerSignature.startsWith(SIGNATURE_PREFIX)) {
             return false;
@@ -131,7 +131,7 @@ public class GitHubWebhookHandler {
                 received.getBytes(StandardCharsets.US_ASCII));
     }
 
-    private static String toHex(byte[] bytes) {
+    private String toHex(byte[] bytes) {
         char[] out = new char[bytes.length * 2];
         for (int i = 0; i < bytes.length; i++) {
             int v = bytes[i] & 0xFF;
@@ -141,9 +141,9 @@ public class GitHubWebhookHandler {
         return new String(out);
     }
 
-    private static GitHubWebhookEvent buildEvent(String eventType,
-                                                 String deliveryId,
-                                                 JsonObject payload) {
+    private GitHubWebhookEvent buildEvent(String eventType,
+                                          String deliveryId,
+                                          JsonObject payload) {
         JsonObject install = payload.getJsonObject("installation");
         Long installationId = install != null ? install.getLong("id") : null;
         JsonObject repo = payload.getJsonObject("repository");
