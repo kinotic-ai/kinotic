@@ -3,7 +3,10 @@ package org.kinotic.core.internal.config;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.config.SecretStorageProperties;
-import org.kinotic.core.internal.secret.*;
+import org.kinotic.core.internal.api.secret.AzureKeyVaultBackend;
+import org.kinotic.core.internal.api.secret.ChronicleMapBackend;
+import org.kinotic.core.internal.api.secret.InMemoryBackend;
+import org.kinotic.core.internal.api.secret.SecretStorageBackend;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

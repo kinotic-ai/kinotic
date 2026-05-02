@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.secret;
+package org.kinotic.core.internal.api.secret;
 
 import net.openhft.chronicle.map.ChronicleMap;
 import org.kinotic.core.api.config.ChronicleMapProperties;

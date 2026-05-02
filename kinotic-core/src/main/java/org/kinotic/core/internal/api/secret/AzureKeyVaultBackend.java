@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.secret;
+package org.kinotic.core.internal.api.secret;
 
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.security.keyvault.secrets.SecretAsyncClient;

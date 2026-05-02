@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.secret;
+package org.kinotic.core.internal.api.secret;
 
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.config.VersionedKeySet;
