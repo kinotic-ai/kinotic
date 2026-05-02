@@ -1,4 +1,4 @@
-Structures CLI
+Kinotic CLI
 =================
 
 <!-- toc -->
