@@ -11,6 +11,8 @@ import { DataInsightsService, type IDataInsightsService } from '@/api/services/I
 import { VmNodeServiceProxy, type IVmNodeService } from '@/api/services/IVmNodeService'
 import { WorkloadServiceProxy, type IWorkloadService } from '@/api/services/IWorkloadService'
 import { IamUserService, type IIamUserService } from '@/api/services/iam/IIamUserService'
+import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/github/IGitHubAppInstallationService'
+import { ProjectGitHubRepoService, type IProjectGitHubRepoService } from '@/api/services/github/IProjectGitHubRepoService'
 
 export interface IOsApiExtension {
     applications: IApplicationService
@@ -24,6 +26,8 @@ export interface IOsApiExtension {
     vmNodes: IVmNodeService
     workloads: IWorkloadService
     iamUsers: IIamUserService
+    githubAppInstallations: IGitHubAppInstallationService
+    githubRepoLinks: IProjectGitHubRepoService
 }
 
 export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
@@ -40,6 +44,8 @@ export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
             vmNodes: new VmNodeServiceProxy(kinotic),
             workloads: new WorkloadServiceProxy(kinotic),
             iamUsers: new IamUserService(kinotic),
+            githubAppInstallations: new GitHubAppInstallationService(kinotic),
+            githubRepoLinks: new ProjectGitHubRepoService(kinotic),
         }
     }
 }
