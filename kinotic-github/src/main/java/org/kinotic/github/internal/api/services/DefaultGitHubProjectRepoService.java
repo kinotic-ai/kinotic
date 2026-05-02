@@ -3,7 +3,6 @@ package org.kinotic.github.internal.api.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.AuthScopeType;
-import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubInstallationToken;
@@ -30,21 +29,15 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
 
     @Override
     public CompletableFuture<GitHubInstallationToken> issueRepoToken(String organizationId, String projectId) {
-        Participant participant = securityContext.currentParticipant();
         return resolve(organizationId, projectId).thenCompose(ctx ->
                 tokenCache.get(ctx.install().getGithubInstallationId(),
                                ctx.project().getRepoId(),
                                GitHubInstallationTokenCache.READ_CONTENTS)
-                          .map(entry -> {
-                              log.info("Issued GitHub clone token for project {} (org {}, repo {}) to {}",
-                                       ctx.project().getId(), ctx.project().getOrganizationId(),
-                                       ctx.project().getRepoFullName(), participant.getId());
-                              return new GitHubInstallationToken()
-                                      .setToken(entry.token())
-                                      .setExpiresAt(entry.expiresAt())
-                                      .setCloneUrl("https://github.com/" + ctx.project().getRepoFullName() + ".git")
-                                      .setDefaultBranch(ctx.project().getDefaultBranch());
-                          })
+                          .map(entry -> new GitHubInstallationToken()
+                                  .setToken(entry.token())
+                                  .setExpiresAt(entry.expiresAt())
+                                  .setCloneUrl("https://github.com/" + ctx.project().getRepoFullName() + ".git")
+                                  .setDefaultBranch(ctx.project().getDefaultBranch()))
                           .toCompletionStage().toCompletableFuture());
     }
 
@@ -70,7 +63,9 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
     }
 
     private CompletableFuture<RepoContext> resolve(String organizationId, String projectId) {
+
         securityContext.requireAuthScope(AuthScopeType.ORGANIZATION, organizationId);
+
         return projectService.findById(projectId).thenCompose(project -> {
             if (project == null || project.getRepoFullName() == null || project.getRepoId() == null) {
                 throw new IllegalStateException(
