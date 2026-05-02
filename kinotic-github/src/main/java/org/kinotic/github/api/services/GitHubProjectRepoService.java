@@ -1,7 +1,6 @@
 package org.kinotic.github.api.services;
 
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.annotations.Scope;
 import org.kinotic.github.api.model.GitHubInstallationToken;
 
 import java.util.concurrent.CompletableFuture;
@@ -10,9 +9,6 @@ import java.util.concurrent.CompletableFuture;
  * Operations against a Kinotic Project's backing GitHub repository: minting
  * short-lived installation tokens for worker clones, and creating tags or
  * branches as part of release flows.
- * <p>
- * Scoped by {@code organizationId} so all calls for one org pin to the same node
- * (keeps the in-memory installation-token cache hot per org).
  */
 @Publish
 public interface GitHubProjectRepoService {
@@ -28,7 +24,7 @@ public interface GitHubProjectRepoService {
      * @return token + expiry + clone URL, or a failed future if the project has no
      *         GitHub repo provisioned
      */
-    CompletableFuture<GitHubInstallationToken> issueRepoToken(@Scope String organizationId,
+    CompletableFuture<GitHubInstallationToken> issueRepoToken(String organizationId,
                                                               String projectId);
 
     /**
@@ -40,7 +36,7 @@ public interface GitHubProjectRepoService {
      * @param tagName        e.g. {@code v1.2.0}
      * @param sha            full 40-character commit SHA the tag should point at
      */
-    CompletableFuture<Void> createTag(@Scope String organizationId,
+    CompletableFuture<Void> createTag(String organizationId,
                                       String projectId,
                                       String tagName,
                                       String sha);
@@ -48,7 +44,7 @@ public interface GitHubProjectRepoService {
     /**
      * Creates a branch on the project's backing repo pointing at {@code sha}.
      */
-    CompletableFuture<Void> createBranch(@Scope String organizationId,
+    CompletableFuture<Void> createBranch(String organizationId,
                                          String projectId,
                                          String branchName,
                                          String sha);
