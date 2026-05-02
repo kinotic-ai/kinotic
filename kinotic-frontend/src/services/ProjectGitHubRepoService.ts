@@ -28,7 +28,7 @@ export class ProjectGitHubRepoService {
 
     constructor() {
         this.serviceProxy = Kinotic.serviceProxy(
-            'org.kinotic.os.github.api.services.ProjectGitHubRepoService')
+            'org.kinotic.github.api.services.ProjectGitHubRepoService')
     }
 
     public listAvailableRepos(): Promise<AvailableRepo[]> {

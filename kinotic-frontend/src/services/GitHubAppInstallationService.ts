@@ -25,7 +25,7 @@ export class GitHubAppInstallationService {
 
     constructor() {
         this.serviceProxy = Kinotic.serviceProxy(
-            'org.kinotic.os.github.api.services.GitHubAppInstallationService')
+            'org.kinotic.github.api.services.GitHubAppInstallationService')
     }
 
     public startInstall(): Promise<string> {
