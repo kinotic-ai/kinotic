@@ -1,4 +1,4 @@
-package org.kinotic.github.internal.client;
+package org.kinotic.github.internal.api.services.client;
 
 /**
  * Thrown by {@link GitHubApiClient} for any non-success response from GitHub. Carries

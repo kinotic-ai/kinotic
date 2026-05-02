@@ -1,4 +1,4 @@
-package org.kinotic.github.internal.client;
+package org.kinotic.github.internal.api.services.client;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;

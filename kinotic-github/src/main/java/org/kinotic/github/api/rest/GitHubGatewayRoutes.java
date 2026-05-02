@@ -2,8 +2,8 @@ package org.kinotic.github.api.rest;
 
 import io.vertx.ext.web.Router;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.github.internal.rest.GitHubInstallCallbackHandler;
-import org.kinotic.github.internal.rest.GitHubWebhookHandler;
+import org.kinotic.github.internal.api.rest.GitHubInstallCallbackHandler;
+import org.kinotic.github.internal.api.rest.GitHubWebhookHandler;
 import org.springframework.stereotype.Component;
 
 /**

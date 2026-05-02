@@ -1,4 +1,4 @@
-package org.kinotic.github.internal.client;
+package org.kinotic.github.internal.api.services.client;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;

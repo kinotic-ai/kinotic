@@ -1,4 +1,4 @@
-package org.kinotic.github.internal.rest;
+package org.kinotic.github.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;

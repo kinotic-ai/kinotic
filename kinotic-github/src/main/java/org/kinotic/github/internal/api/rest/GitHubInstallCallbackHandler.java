@@ -1,4 +1,4 @@
-package org.kinotic.github.internal.rest;
+package org.kinotic.github.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.ext.web.Router;
@@ -9,7 +9,7 @@ import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.rest.GithubConstants;
 import org.kinotic.github.internal.api.services.GitHubInstallStateService;
 import org.kinotic.github.internal.api.services.GitHubInstallationCallbackService;
-import org.kinotic.github.internal.client.GitHubApiClient;
+import org.kinotic.github.internal.api.services.client.GitHubApiClient;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;

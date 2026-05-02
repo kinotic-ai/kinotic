@@ -10,8 +10,8 @@ import org.kinotic.github.api.model.ProjectGitHubRepoLink;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.api.services.GitHubRefService;
 import org.kinotic.github.api.services.ProjectGitHubRepoService;
-import org.kinotic.github.internal.client.GitHubApiClient;
-import org.kinotic.github.internal.client.GitHubInstallationTokenCache;
+import org.kinotic.github.internal.api.services.client.GitHubApiClient;
+import org.kinotic.github.internal.api.services.client.GitHubInstallationTokenCache;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
