@@ -61,9 +61,9 @@ export * from '@/api/services/IMigrationService'
 export * from '@/api/services/IDataInsightsService'
 export * from '@/api/services/IVmNodeService'
 export * from '@/api/services/IWorkloadService'
-export * from '@/api/services/iam/IIamUserService'
-export * from '@/api/services/github/IGitHubAppInstallationService'
-export * from '@/api/services/github/IProjectGitHubRepoService'
+export * from '@/api/services/IIamUserService'
+export * from '@/api/services/IGitHubAppInstallationService'
+export * from '@/api/services/IProjectGitHubRepoService'
 
 // Plugin
 export * from '@/api/OsApiPlugin'

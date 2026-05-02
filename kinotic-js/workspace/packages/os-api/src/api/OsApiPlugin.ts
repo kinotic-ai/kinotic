@@ -10,9 +10,9 @@ import { MigrationService, type IMigrationService } from '@/api/services/IMigrat
 import { DataInsightsService, type IDataInsightsService } from '@/api/services/IDataInsightsService'
 import { VmNodeServiceProxy, type IVmNodeService } from '@/api/services/IVmNodeService'
 import { WorkloadServiceProxy, type IWorkloadService } from '@/api/services/IWorkloadService'
-import { IamUserService, type IIamUserService } from '@/api/services/iam/IIamUserService'
-import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/github/IGitHubAppInstallationService'
-import { ProjectGitHubRepoService, type IProjectGitHubRepoService } from '@/api/services/github/IProjectGitHubRepoService'
+import { IamUserService, type IIamUserService } from '@/api/services/IIamUserService'
+import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/IGitHubAppInstallationService'
+import { ProjectGitHubRepoService, type IProjectGitHubRepoService } from '@/api/services/IProjectGitHubRepoService'
 
 export interface IOsApiExtension {
     applications: IApplicationService
