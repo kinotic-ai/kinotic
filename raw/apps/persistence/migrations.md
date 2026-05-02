@@ -86,7 +86,7 @@ INSERT INTO users (name, age, active) VALUES ('Jane', 28, TRUE) WITH REFRESH;
 
 <callout type="warning">
 
-If your table has a logical `id` field, always include the `id` column in the INSERT. The value is promoted to the Elasticsearch `_id`, which is how find-by-id lookups resolve the document. An INSERT that omits `id` stores the row with a random `_id` and it can only be located via search — not via a direct id lookup. See the [Migration SQL Grammar reference](/reference/migration-sql-grammar#the-id-column) for details.
+If your table has a logical `id` field, always include the `id` column in the INSERT. The value becomes the document's storage identifier, which is how find-by-id lookups resolve the document. An INSERT that omits `id` stores the row with a random identifier and it can only be located via search — not via a direct id lookup. See the [Migration SQL Grammar reference](/reference/migration-sql-grammar#the-id-column) for details.
 
 </callout>
 

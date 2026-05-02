@@ -4,7 +4,7 @@
 
 ## Overview
 
-This grammar reference applies to migration scripts used for schema and data migrations in Kinotic. Migration scripts use a SQL dialect designed for Elasticsearch index management and data operations.
+This grammar reference applies to migration scripts used for schema and data migrations in Kinotic. Migration scripts use a SQL dialect designed for schema and data management.
 
 All statements must end with a semicolon (`;`). Identifiers must start with a letter or underscore and can contain letters, numbers, and underscores. Strings are enclosed in single quotes (`'...'`).
 
@@ -247,7 +247,7 @@ REINDEX <source_index> INTO <dest_index> [WITH (<option> [, <option>]*)] ;
     </td>
     
     <td>
-      Number of slices (parallelism); AUTO lets Elasticsearch decide
+      Number of slices for parallel processing; AUTO selects automatically based on shard count
     </td>
   </tr>
   
@@ -403,7 +403,7 @@ INSERT INTO products (name, sku, price)
 
 ### The `id` column
 
-When the column list includes `id`, its value is used as the Elasticsearch `_id` of the inserted document. If the column list omits `id`, Elasticsearch auto-generates a random `_id`.
+When the column list includes `id`, its value is used as the document's unique storage identifier. If the column list omits `id`, a random storage identifier is auto-generated.
 
 This matters because every find-by-id lookup resolves the document by its `_id`. A row inserted without an `id` column cannot be retrieved by its logical identifier later — it will only be discoverable via search.
 
@@ -510,7 +510,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </th>
     
     <th>
-      Elasticsearch Mapping
+      Description
     </th>
   </tr>
 </thead>
@@ -524,7 +524,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      text
+      Full-text searchable string; analyzed and tokenized
     </td>
   </tr>
   
@@ -536,7 +536,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      keyword
+      Exact-match string; not tokenized
     </td>
   </tr>
   
@@ -548,7 +548,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      keyword (not indexed, no doc_values)
+      Exact-match string; stored but not searchable
     </td>
   </tr>
   
@@ -560,7 +560,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      integer
+      32-bit signed integer
     </td>
   </tr>
   
@@ -572,7 +572,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      integer (not indexed, no doc_values)
+      32-bit signed integer; stored but not searchable
     </td>
   </tr>
   
@@ -584,7 +584,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      long
+      64-bit signed integer
     </td>
   </tr>
   
@@ -596,7 +596,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      long (not indexed, no doc_values)
+      64-bit signed integer; stored but not searchable
     </td>
   </tr>
   
@@ -608,7 +608,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      float
+      32-bit floating-point number
     </td>
   </tr>
   
@@ -620,7 +620,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      float (not indexed, no doc_values)
+      32-bit floating-point number; stored but not searchable
     </td>
   </tr>
   
@@ -632,7 +632,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      double
+      64-bit floating-point number
     </td>
   </tr>
   
@@ -644,7 +644,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      double (not indexed, no doc_values)
+      64-bit floating-point number; stored but not searchable
     </td>
   </tr>
   
@@ -656,7 +656,15 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      boolean
+      <code>
+        true
+      </code>
+      
+       / <code>
+        false
+      </code>
+      
+       value
     </td>
   </tr>
   
@@ -668,7 +676,15 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      boolean (not indexed, no doc_values)
+      <code>
+        true
+      </code>
+      
+       / <code>
+        false
+      </code>
+      
+       value; stored but not searchable
     </td>
   </tr>
   
@@ -680,7 +696,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      date
+      ISO 8601 date/datetime string
     </td>
   </tr>
   
@@ -692,7 +708,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      date (not indexed, no doc_values)
+      ISO 8601 date/datetime string; stored but not searchable
     </td>
   </tr>
   
@@ -704,7 +720,11 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      object (flattened)
+      Arbitrary JSON object; leaf values indexed as searchable strings (see <a href="#json-type">
+        JSON type
+      </a>
+      
+      )
     </td>
   </tr>
   
@@ -716,7 +736,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      object (not indexed)
+      Arbitrary JSON object; stored as-is without indexing any sub-fields
     </td>
   </tr>
   
@@ -728,7 +748,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      binary
+      Base64-encoded binary data; stored but not searchable
     </td>
   </tr>
   
@@ -740,7 +760,15 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      geo_point
+      Geographic point (<code>
+        lat
+      </code>
+      
+      , <code>
+        lon
+      </code>
+      
+      )
     </td>
   </tr>
   
@@ -752,7 +780,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      geo_shape
+      Geographic shape (polygon, line, etc.)
     </td>
   </tr>
   
@@ -764,7 +792,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      keyword
+      UUID stored as an exact-match string
     </td>
   </tr>
   
@@ -776,7 +804,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      keyword (not indexed, no doc_values)
+      UUID stored as an exact-match string; not searchable
     </td>
   </tr>
   
@@ -788,7 +816,7 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      double
+      Decimal number stored as a 64-bit float
     </td>
   </tr>
   
@@ -800,13 +828,45 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
     </td>
     
     <td>
-      double (not indexed, no doc_values)
+      Decimal number stored as a 64-bit float; not searchable
     </td>
   </tr>
 </tbody>
 </table>
 
-The `NOT INDEXED` variant of each type stores the value but excludes it from the inverted index and doc_values. This reduces storage and indexing overhead for fields that only need to be returned in results, not queried.
+The `NOT INDEXED` variant of each type stores the value but excludes it from the search index. This reduces storage and indexing overhead for fields that only need to be returned in results, not queried.
+
+---
+
+## JSON Type
+
+The `JSON` type stores an entire JSON object as a single field. All leaf values within the object — regardless of nesting depth — are indexed and queryable as strings. This approach avoids requiring a fixed schema for nested data, making it well-suited for semi-structured or dynamic payloads.
+
+**Key behaviors:**
+
+- **Sub-fields are queryable by dot-path.** A field defined as `metadata JSON` can be filtered with `metadata.version == '2'` or `metadata.source.region == 'us-east'`.
+- **All comparisons are string-based.** Even numeric or date values stored inside a JSON field are compared as strings. Use `TEXT`, `INTEGER`, `DOUBLE`, etc. for fields that require numeric or range queries.
+- **Dynamic nesting is supported.** The sub-field structure does not need to be declared in the schema — any JSON shape can be stored and its leaf values will be indexed automatically.
+
+**Example:**
+
+```sql
+CREATE TABLE events (
+    id      UUID,
+    ts      DATE,
+    payload JSON
+) ;
+```
+
+A record with `payload = {"source": {"region": "us-east"}, "retries": 3}` can then be filtered as:
+
+```sql
+WHERE payload.source.region == 'us-east'
+```
+
+Note that `retries` would be compared as the string `'3'`, not the number `3`.
+
+For `JSON NOT INDEXED`, the object is stored and returned in query results but none of its sub-fields can be queried.
 
 ---
 
