@@ -14,8 +14,7 @@
     "files": [
         "/bin",
         "/dist",
-        "/npm-shrinkwrap.json",
-        "/oclif.manifest.json"
+        "/npm-shrinkwrap.json"
     ],
     "dependencies": {
         "@inquirer/prompts": "^8.3.2",
@@ -24,12 +23,6 @@
         "@kinotic-ai/os-api": "^1.1.0",
         "@kinotic-ai/persistence": "^1.2.0",
         "@oclif/core": "^4.9.0",
-        "@oclif/plugin-autocomplete": "^3.2.41",
-        "@oclif/plugin-help": "^6",
-        "@oclif/plugin-not-found": "^3.2.75",
-        "@oclif/plugin-plugins": "^5.4.58",
-        "@oclif/plugin-update": "^4.7.23",
-        "@oclif/plugin-warn-if-update-available": "^3.1.55",
         "c12": "^3.3.3",
         "chalk": "^5.6.2",
         "execa": "^9.6.1",
@@ -50,7 +43,6 @@
         "zod": "^4.3.6"
     },
     "devDependencies": {
-        "@oclif/test": "^4.1.16",
         "@types/chai": "^5",
         "@types/inquirer": "^9.0.9",
         "@types/mocha": "^10.0.10",
@@ -59,10 +51,8 @@
         "@types/ws": "^8.18.1",
         "chai": "^6",
         "eslint": "^9",
-        "eslint-config-oclif": "^6",
         "eslint-config-prettier": "^10",
         "mocha": "^11",
-        "oclif": "^4.22.92",
         "shx": "^0.4.0",
         "tslib": "^2.8.1",
         "tsx": "^4.21.0",
@@ -73,14 +63,6 @@
         "bin": "kinotic",
         "dirname": "kinotic",
         "commands": "./dist/commands",
-        "plugins": [
-            "@oclif/plugin-help",
-            "@oclif/plugin-plugins",
-            "@oclif/plugin-update",
-            "@oclif/plugin-not-found",
-            "@oclif/plugin-warn-if-update-available",
-            "@oclif/plugin-autocomplete"
-        ],
         "topicSeparator": " ",
         "topics": {
             "create": {
@@ -91,18 +73,15 @@
     "scripts": {
         "build": "shx rm -rf dist && tsc -b && tsc-alias -f && pnpm run copy-files",
         "lint": "eslint . --ext .ts --config .eslintrc",
-        "postpack": "shx rm -f oclif.manifest.json",
         "posttest": "pnpm lint",
-        "prepack": "pnpm build && oclif manifest && oclif readme",
+        "prepack": "pnpm build",
         "test": "mocha --forbid-only \"test/**/*.test.ts\"",
-        "version": "oclif readme && git add README.md",
+        "version": "git add README.md",
         "copy-files": "cp -r ./src/templates/  ./dist/templates/"
     },
     "engines": {
         "node": ">=18.0.0"
     },
-    "keywords": [
-        "oclif"
-    ],
+    "keywords": [],
     "types": "dist/index.d.ts"
 }
