@@ -63,6 +63,14 @@ public class Project implements ApplicationScoped<String> {
     private boolean repoPrivate;
 
     /**
+     * Connection state between this project and its backing GitHub repository.
+     * {@link RepositoryConnectionStatus#CONNECTED} at provision time;
+     * webhook handlers flip to {@link RepositoryConnectionStatus#DISCONNECTED}
+     * when GitHub revokes access to the repo.
+     */
+    private RepositoryConnectionStatus repositoryConnectionStatus;
+
+    /**
      * The date and time the project was updated.
      */
     private Date updated;

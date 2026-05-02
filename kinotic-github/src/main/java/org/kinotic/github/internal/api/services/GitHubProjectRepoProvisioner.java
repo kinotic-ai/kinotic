@@ -9,6 +9,7 @@ import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
 import org.kinotic.github.internal.api.services.client.GitHubInstallationTokenCache;
 import org.kinotic.os.api.model.Project;
+import org.kinotic.os.api.model.RepositoryConnectionStatus;
 import org.kinotic.os.api.services.ProjectRepoProvisioner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -74,6 +75,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
         project.setRepoFullName(repoJson.getString("full_name"));
         project.setRepoId(repoJson.getLong("id"));
         project.setDefaultBranch(repoJson.getString("default_branch"));
+        project.setRepositoryConnectionStatus(RepositoryConnectionStatus.CONNECTED);
         log.info("Provisioned GitHub repo {} for project {} (org {})",
                  project.getRepoFullName(), project.getId(), project.getOrganizationId());
         return project;

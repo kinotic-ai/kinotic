@@ -2,6 +2,7 @@ package org.kinotic.github.internal.api.services;
 
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.os.api.model.Project;
+import org.kinotic.os.api.model.RepositoryConnectionStatus;
 import org.kinotic.os.api.services.ProjectRepoProvisioner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -29,6 +30,7 @@ public class MockProjectRepoProvisioner implements ProjectRepoProvisioner {
         project.setRepoFullName(FAKE_OWNER + "/" + repoName);
         project.setRepoId(FAKE_REPO_ID);
         project.setDefaultBranch(FAKE_DEFAULT_BRANCH);
+        project.setRepositoryConnectionStatus(RepositoryConnectionStatus.CONNECTED);
         log.debug("MockProjectRepoProvisioner stamped {} on project {}",
                   project.getRepoFullName(), project.getId());
         return CompletableFuture.completedFuture(project);

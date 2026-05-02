@@ -1,8 +1,11 @@
 package org.kinotic.os.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.Project;
 import org.kinotic.os.api.services.ProjectRepoProvisioner;
@@ -11,6 +14,7 @@ import org.kinotic.os.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -73,6 +77,24 @@ public class DefaultProjectService extends AbstractApplicationCrudService<Projec
         }
         project.setUpdated(new Date());
         return super.save(project);
+    }
+
+    @Override
+    public CompletableFuture<List<Project>> findByRepoFullName(String repoFullName) {
+        Validate.notBlank(repoFullName, "repoFullName must not be blank");
+        String orgId = getOrganizationIdIfEnforced();
+        Query q = Query.of(qb -> qb.bool(b -> {
+            b.filter(TermQuery.of(t -> t.field("repoFullName").value(repoFullName))._toQuery());
+            if (orgId != null) {
+                b.filter(TermQuery.of(t -> t.field("organizationId").value(orgId))._toQuery());
+            }
+            return b;
+        }));
+        return crudServiceTemplate.search("kinotic_project", Pageable.ofSize(50), Project.class, b -> {
+                                              if (orgId != null) b.routing(orgId);
+                                              b.query(q);
+                                          })
+                                  .thenApply(page -> page.getContent());
     }
 
     private CompletableFuture<Project> provisionAndSave(Project project) {

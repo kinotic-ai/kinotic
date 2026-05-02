@@ -31,6 +31,14 @@ This flag has no effect on normal builds — omitting it uses the default Java 2
 
 Names suggest meaning but don't define it. Before using an annotation, framework hook, base class, or library helper you haven't used in this codebase before, read its source or docs and confirm what it actually does. Don't infer behaviour from a plausible-sounding name and ship it. If you can't verify the behaviour, ask — don't write a comment justifying the guess.
 
+## Single CRUD layer for system objects
+
+Every persisted entity has exactly one service that owns its reads and writes — typically the `*Service` in `api/services/` whose default implementation extends `AbstractCrudService`. All callers go through that service. Don't reach around it: don't inject `CrudServiceTemplate` or `ElasticsearchAsyncClient` into a webhook handler, a config-loader, a worker, or any other ad-hoc class to run queries directly. If a method you need doesn't exist on the service, add it to the service.
+
+This keeps every entity's read/write surface in one place, makes org-scope enforcement uniform, and means schema and persistence changes only have to be reflected in one class.
+
+Cross-org access (webhook receivers, system bootstrap, cache loaders) goes through the same service, called inside `securityContext.withElevatedAccess(...)` to skip the per-call org filter.
+
 ## Java Conventions
 
 Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true)`, `@NoArgsConstructor`, `@RequiredArgsConstructor`, `@Slf4j`, `@Data`, `@Builder`. Prefer `@RequiredArgsConstructor` over hand-written constructors for dependency injection. Use `@Slf4j` instead of manual `LoggerFactory.getLogger()` calls.

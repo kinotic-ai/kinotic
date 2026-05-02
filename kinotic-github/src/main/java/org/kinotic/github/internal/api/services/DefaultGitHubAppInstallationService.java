@@ -3,6 +3,7 @@ package org.kinotic.github.internal.api.services;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.github.api.config.KinoticGithubProperties;
 import org.kinotic.github.api.model.GitHubAppInstallation;
@@ -56,9 +57,28 @@ public class DefaultGitHubAppInstallationService
         Query q = Query.of(qb -> qb.bool(b -> b.filter(
                 f -> f.term(t -> t.field("organizationId").value(orgId)))));
         return crudServiceTemplate.search(INDEX,
-                org.kinotic.core.api.crud.Pageable.ofSize(1),
+                Pageable.ofSize(1),
                 GitHubAppInstallation.class,
                 b -> b.routing(orgId).query(q))
                 .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+    }
+
+    @Override
+    public CompletableFuture<GitHubAppInstallation> findByGithubInstallationId(long githubInstallationId) {
+        String orgId = getOrganizationIdIfEnforced();
+        Query q;
+        if (orgId != null) {
+            q = Query.of(qb -> qb.bool(b -> b
+                    .filter(f -> f.term(t -> t.field("organizationId").value(orgId)))
+                    .filter(f -> f.term(t -> t.field("githubInstallationId").value(githubInstallationId)))));
+            return crudServiceTemplate.search(INDEX, Pageable.ofSize(1), GitHubAppInstallation.class,
+                                              b -> b.routing(orgId).query(q))
+                                      .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+        }
+        q = Query.of(qb -> qb.bool(b -> b.filter(
+                f -> f.term(t -> t.field("githubInstallationId").value(githubInstallationId)))));
+        return crudServiceTemplate.search(INDEX, Pageable.ofSize(1), GitHubAppInstallation.class,
+                                          b -> b.query(q))
+                                  .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 }

@@ -34,4 +34,13 @@ public interface GitHubAppInstallationService extends IdentifiableCrudService<Gi
      * indicator in the org-settings UI.
      */
     CompletableFuture<GitHubAppInstallation> findForCurrentOrg();
+
+    /**
+     * Cross-org lookup by the GitHub-side installation id. Returns {@code null} when no
+     * Kinotic org has bound this installation. Webhook handlers use this to map an
+     * inbound delivery to the org that owns the install — the delivery has no Kinotic
+     * participant attached, so call this inside
+     * {@code SecurityContext.withElevatedAccess(...)}.
+     */
+    CompletableFuture<GitHubAppInstallation> findByGithubInstallationId(long githubInstallationId);
 }
