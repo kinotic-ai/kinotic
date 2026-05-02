@@ -14,7 +14,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.internal.security.KinoticJwtIssuer;
+import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.auth.OAuth2AuthFactory;
 import org.kinotic.gateway.internal.auth.OAuth2AuthRegistry;

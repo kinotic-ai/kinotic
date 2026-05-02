@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.security;
+package org.kinotic.os.internal.api.services.iam;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
