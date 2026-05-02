@@ -17,7 +17,7 @@ import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.rest.LoginHandler;
 import org.kinotic.gateway.internal.endpoints.rest.OidcSignupHandler;
 import org.kinotic.gateway.internal.endpoints.rest.SignUpHandler;
-import org.kinotic.os.github.api.rest.GitHubGatewayRoutes;
+import org.kinotic.github.api.rest.GitHubGatewayRoutes;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
