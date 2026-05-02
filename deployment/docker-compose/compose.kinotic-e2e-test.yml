@@ -10,5 +10,12 @@ services:
   kinotic-server:
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m # remove otel javaagent for test
-      SPRING_PROFILES_ACTIVE: test,compose
+      SPRING_PROFILES_ACTIVE: e2e-tests,compose
       SPRING_AI_OPENAI_API-KEY: "noop"
+      # Placeholders to satisfy @NotBlank validation on KinoticGithubProperties.
+      # The e2e-tests profile activates MockProjectRepoProvisioner which never reads them.
+      KINOTIC_GITHUB_APPID: "test-app"
+      KINOTIC_GITHUB_APPSLUG: "test-app"
+      KINOTIC_GITHUB_APPPRIVATEKEY: "test-placeholder"
+      KINOTIC_GITHUB_WEBHOOKSECRET: "test-webhook-secret"
+      KINOTIC_GITHUB_REPOTEMPLATE: "kinotic-test/template"
