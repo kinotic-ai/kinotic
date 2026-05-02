@@ -1,5 +1,5 @@
 <script lang="ts">
-import { Component, Vue, Prop } from 'vue-facing-decorator';
+import { Component, Vue, Prop, Watch } from 'vue-facing-decorator';
 import { Kinotic } from '@kinotic-ai/core';
 import { Project, ProjectType } from '@kinotic-ai/os-api';
 import { APPLICATION_STATE } from '@/states/IApplicationState';
@@ -8,6 +8,7 @@ import { USER_STATE } from '@/states/IUserState';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
 import Button from 'primevue/button';
+import ToggleSwitch from 'primevue/toggleswitch';
 import { createDebug } from '@/util/debug';
 import { isDark as darkMode } from '@/composables/useTheme'
 
@@ -16,13 +17,15 @@ const debug = createDebug('new-project-sidebar');
 interface ProjectForm {
     name: string;
     description: string;
+    repoPrivate: boolean;
 }
 
 @Component({
     components: {
         InputText,
         Textarea,
-        Button
+        Button,
+        ToggleSwitch
     }
 })
 export default class NewProjectSidebar extends Vue {
@@ -30,10 +33,29 @@ export default class NewProjectSidebar extends Vue {
 
     form: ProjectForm = {
         name: '',
-        description: ''
+        description: '',
+        repoPrivate: true
     };
 
     loading = false;
+
+    /** null = checking; false = no install (prompt to link); true = install present (show form). */
+    githubLinked: boolean | null = null;
+
+    @Watch('visible')
+    async onVisibleChanged(isOpen: boolean): Promise<void> {
+        if (!isOpen) return;
+        this.githubLinked = null;
+        try {
+            const install = await Kinotic.githubAppInstallations.findForCurrentOrg();
+            this.githubLinked = install != null;
+        } catch (e) {
+            debug('Failed to check GitHub link state: %O', e);
+            // Treat lookup failure as "linked" — let the create attempt surface the real error
+            // rather than blocking the user behind a noisy probe.
+            this.githubLinked = true;
+        }
+    }
 
     get isDark() {
         return darkMode.value;
@@ -57,7 +79,12 @@ export default class NewProjectSidebar extends Vue {
             const project = new Project(null, app.id, this.form.name, this.form.description);
             project.organizationId = USER_STATE.getOrganizationId();
             project.sourceOfTruth = ProjectType.TYPESCRIPT;
+            project.repoPrivate = this.form.repoPrivate;
 
+            // Goes through the server-side ProjectRepoProvisioner, which creates the
+            // backing GitHub repo from the configured template and stamps the repo
+            // metadata on the project before persisting. Fails if a project with the
+            // derived id already exists.
             const createdProject = await Kinotic.projects.create(project);
 
             this.$toast.add({
@@ -71,12 +98,17 @@ export default class NewProjectSidebar extends Vue {
             this.$emit('submit', createdProject);
         } catch (error) {
             debug('Failed to create project: %O', error);
-            this.$toast.add({
-                severity: 'error',
-                summary: 'Error',
-                detail: 'Failed to create project.',
-                life: 3000
-            });
+            const message = (error as Error)?.message ?? '';
+            if (message.includes('GitHub is not linked')) {
+                this.githubLinked = false;
+            } else {
+                this.$toast.add({
+                    severity: 'error',
+                    summary: 'Error',
+                    detail: 'Failed to create project.',
+                    life: 3000
+                });
+            }
         } finally {
             this.loading = false;
         }
@@ -87,10 +119,16 @@ export default class NewProjectSidebar extends Vue {
         this.$emit('close');
     }
 
+    goToGitHubSettings(): void {
+        this.$emit('close');
+        this.$router.push('/integrations/github');
+    }
+
     private resetForm(): void {
         this.form = {
             name: '',
-            description: ''
+            description: '',
+            repoPrivate: true
         };
     }
 }
@@ -127,7 +165,29 @@ export default class NewProjectSidebar extends Vue {
                         <img src="@/assets/close-icon.svg" class="w-4 h-4" />
                     </Button>
                 </div>
-                <form @submit.prevent="handleSubmit" class="flex flex-col justify-between h-[calc(100vh-100px)] p-4">
+
+                <!-- GitHub-not-linked prompt: shown when the org has no GitHubAppInstallation. -->
+                <div v-if="githubLinked === false" class="flex flex-col gap-4 p-4">
+                    <p :class="['text-sm', isDark ? 'text-surface-200' : 'text-surface-700']">
+                        Projects are backed by a GitHub repository. Link your GitHub account to this organization
+                        before creating a project.
+                    </p>
+                    <div class="flex justify-end gap-2">
+                        <Button type="button" @click="handleClose" severity="secondary">Cancel</Button>
+                        <Button type="button" severity="primary" @click="goToGitHubSettings">
+                            Link GitHub
+                        </Button>
+                    </div>
+                </div>
+
+                <!-- Loading the link-state probe -->
+                <div v-else-if="githubLinked === null" class="flex items-center gap-2 p-4">
+                    <i class="pi pi-spin pi-spinner"></i>
+                    <span :class="['text-sm', isDark ? 'text-surface-200' : 'text-surface-700']">Checking GitHub link…</span>
+                </div>
+
+                <!-- Project form -->
+                <form v-else @submit.prevent="handleSubmit" class="flex flex-col justify-between h-[calc(100vh-100px)] p-4">
                     <div class="flex flex-col gap-5">
                         <div>
                             <label :class="['mb-2 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Name</label>
@@ -147,6 +207,16 @@ export default class NewProjectSidebar extends Vue {
                                 :class="inputClass"
                                 placeholder="Optional description"
                             />
+                        </div>
+
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <label :class="['block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Private repository</label>
+                                <p :class="['text-xs mt-1', isDark ? 'text-surface-400' : 'text-surface-500']">
+                                    Visibility of the GitHub repo created for this project.
+                                </p>
+                            </div>
+                            <ToggleSwitch v-model="form.repoPrivate" />
                         </div>
                     </div>
                     <div class="flex justify-end gap-2 mt-6">

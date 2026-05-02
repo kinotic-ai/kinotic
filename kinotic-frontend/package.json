@@ -17,7 +17,7 @@
     "@heroicons/vue": "^2.2.0",
     "@kinotic-ai/core": "^1.2.1",
     "@kinotic-ai/idl": "^1.0.9",
-    "@kinotic-ai/os-api": "^1.2.0",
+    "@kinotic-ai/os-api": "^1.4.0",
     "@kinotic-ai/persistence": "^1.2.1",
     "@mdi/js": "^7.4.47",
     "@primeuix/themes": "^1.2.1",

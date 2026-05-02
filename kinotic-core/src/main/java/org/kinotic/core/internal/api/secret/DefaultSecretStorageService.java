@@ -2,8 +2,6 @@ package org.kinotic.core.internal.api.secret;
 
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.secret.SecretStorageService;
-import org.kinotic.core.internal.secret.SecretNameDeriver;
-import org.kinotic.core.internal.secret.SecretStorageBackend;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;

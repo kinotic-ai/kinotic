@@ -10,7 +10,8 @@ import { MigrationService, type IMigrationService } from '@/api/services/IMigrat
 import { DataInsightsService, type IDataInsightsService } from '@/api/services/IDataInsightsService'
 import { VmNodeServiceProxy, type IVmNodeService } from '@/api/services/IVmNodeService'
 import { WorkloadServiceProxy, type IWorkloadService } from '@/api/services/IWorkloadService'
-import { IamUserService, type IIamUserService } from '@/api/services/iam/IIamUserService'
+import { IamUserService, type IIamUserService } from '@/api/services/IIamUserService'
+import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/IGitHubAppInstallationService'
 
 export interface IOsApiExtension {
     applications: IApplicationService
@@ -24,6 +25,7 @@ export interface IOsApiExtension {
     vmNodes: IVmNodeService
     workloads: IWorkloadService
     iamUsers: IIamUserService
+    githubAppInstallations: IGitHubAppInstallationService
 }
 
 export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
@@ -40,6 +42,7 @@ export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
             vmNodes: new VmNodeServiceProxy(kinotic),
             workloads: new WorkloadServiceProxy(kinotic),
             iamUsers: new IamUserService(kinotic),
+            githubAppInstallations: new GitHubAppInstallationService(kinotic),
         }
     }
 }

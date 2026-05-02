@@ -8,7 +8,7 @@ import org.kinotic.core.api.security.DefaultParticipant;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityService;
-import org.kinotic.core.internal.security.KinoticJwtIssuer;
+import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.services.iam.IamUserService;

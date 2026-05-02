@@ -3,6 +3,7 @@ package org.kinotic.os.internal.api.services.iam;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.secret.SecretFileLoader;
 import org.kinotic.core.api.secret.SecretStorageService;
 import org.kinotic.os.api.config.KinoticDomainProperties;
 import org.kinotic.os.api.config.PlatformOidcProperties;
@@ -12,8 +13,6 @@ import org.kinotic.os.api.services.KinoticSystemService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Date;
@@ -76,7 +75,7 @@ public class PlatformOidcBootstrap {
         }
 
         Path secretFile = secretsRoot.resolve(entry.getId());
-        String clientSecret = readSecretFile(secretFile, entry.getId());
+        String clientSecret = SecretFileLoader.read(secretFile, entry.getId(), log);
         if (clientSecret == null) return;
 
         // Store under (scope=configId, key="clientSecret"). OAuth2AuthRegistry resolves it the same way.
@@ -113,25 +112,6 @@ public class PlatformOidcBootstrap {
         }
 
         ensureReferencedBySystem(entry.getId());
-    }
-
-    private String readSecretFile(Path file, String configId) {
-        if (!Files.exists(file)) {
-            log.warn("Platform OIDC client-secret file missing for {}: {} — skipping config until populated",
-                     configId, file);
-            return null;
-        }
-        try {
-            String value = Files.readString(file).trim();
-            if (value.isEmpty()) {
-                log.warn("Platform OIDC client-secret file empty for {}: {}", configId, file);
-                return null;
-            }
-            return value;
-        } catch (IOException e) {
-            log.error("Failed to read platform OIDC client-secret file for {}: {}", configId, file, e);
-            return null;
-        }
     }
 
     private void ensureReferencedBySystem(String configId) {
