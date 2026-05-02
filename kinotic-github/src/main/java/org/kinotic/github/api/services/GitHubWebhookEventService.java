@@ -15,9 +15,10 @@ import java.util.concurrent.CompletableFuture;
 public interface GitHubWebhookEventService {
 
     /**
-     * Processes one verified GitHub delivery. Idempotent: a duplicate {@code deliveryId}
-     * is swallowed silently. Always completes (never failed) so the gateway can return
-     * 204 quickly even if downstream resolution can't find a link.
+     * Processes one verified GitHub delivery. Always completes successfully (never
+     * failed) so the gateway can return 204 quickly even when downstream resolution
+     * can't find a backing project. There is no platform-side delivery dedup —
+     * GitHub may redeliver, and consumers on the event bus must be idempotent.
      */
     CompletableFuture<Void> process(GitHubWebhookEvent event);
 }

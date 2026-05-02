@@ -59,9 +59,9 @@ public class Project implements ApplicationScoped<String> {
     /**
      * Visibility chosen for the backing repository at create time. A snapshot —
      * if the repo's visibility is later changed on GitHub directly, this field is
-     * not updated.
+     * not updated. {@code null} when the project has no GitHub repo backing.
      */
-    private boolean repoPrivate;
+    private Boolean repoPrivate;
 
     /**
      * The date and time the project was updated.

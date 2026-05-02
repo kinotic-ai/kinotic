@@ -50,6 +50,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
                         "GitHub is not linked for this organization. "
                         + "Link GitHub before creating a project.");
             }
+            boolean isPrivate = !Boolean.FALSE.equals(project.getRepoPrivate());
             return mintRepoCreateToken(install)
                     .thenCompose(token -> apiClient.createRepoFromTemplate(
                                 token,
@@ -57,9 +58,9 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
                                 install.getAccountLogin(),
                                 repoName,
                                 project.getDescription(),
-                                project.isRepoPrivate())
+                                isPrivate)
                             .toCompletionStage().toCompletableFuture())
-                    .thenApply(repoJson -> stamp(project, repoJson));
+                    .thenApply(repoJson -> stamp(project, repoJson, isPrivate));
         });
     }
 
@@ -70,10 +71,11 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
                          .toCompletionStage().toCompletableFuture();
     }
 
-    private Project stamp(Project project, JsonObject repoJson) {
+    private Project stamp(Project project, JsonObject repoJson, boolean isPrivate) {
         project.setRepoFullName(repoJson.getString("full_name"));
         project.setRepoId(repoJson.getLong("id"));
         project.setDefaultBranch(repoJson.getString("default_branch"));
+        project.setRepoPrivate(isPrivate);
         log.info("Provisioned GitHub repo {} for project {} (org {})",
                  project.getRepoFullName(), project.getId(), project.getOrganizationId());
         return project;

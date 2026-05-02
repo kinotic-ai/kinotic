@@ -55,9 +55,10 @@ export class Project implements Identifiable<string> {
     /**
      * Visibility chosen for the backing repository at create time. The SPA sets
      * this on the create call; the platform passes it through to GitHub. Snapshot
-     * only — not synced back if changed on GitHub later.
+     * only — not synced back if changed on GitHub later. {@code null} when the
+     * project has no GitHub repo backing.
      */
-    public repoPrivate: boolean = true
+    public repoPrivate: boolean | null = null
 
     /**
      * The date and time the project was updated.
