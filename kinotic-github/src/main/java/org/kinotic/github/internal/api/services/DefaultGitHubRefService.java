@@ -3,9 +3,8 @@ package org.kinotic.github.internal.api.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.os.api.model.iam.AuthScopeType;
 import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.ProjectGitHubRepoLink;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
@@ -45,7 +44,7 @@ public class DefaultGitHubRefService implements GitHubRefService {
     }
 
     private CompletableFuture<Void> createRef(String organizationId, String projectId, String refName, String sha) {
-        requireMatchingOrg(organizationId);
+        securityContext.requireAuthScope(AuthScopeType.ORGANIZATION, organizationId);
         return repoService.findByProject(projectId).thenCompose(link -> {
             if (link == null) {
                 throw new IllegalStateException(
@@ -74,17 +73,5 @@ public class DefaultGitHubRefService implements GitHubRefService {
                               GitHubInstallationTokenCache.WRITE_CONTENTS)
                          .compose(entry -> apiClient.createRef(entry.token(), link.getRepoFullName(), refName, sha))
                          .toCompletionStage().toCompletableFuture();
-    }
-
-    private void requireMatchingOrg(String organizationId) {
-        Participant participant = securityContext.currentParticipant();
-        if (participant == null) {
-            throw new AuthorizationException("Authenticated session required");
-        }
-        if (!AuthScopeType.ORGANIZATION.name().equals(participant.getAuthScopeType())
-                || !organizationId.equals(participant.getAuthScopeId())) {
-            throw new AuthorizationException(
-                    "Caller's organization does not match requested " + organizationId);
-        }
     }
 }

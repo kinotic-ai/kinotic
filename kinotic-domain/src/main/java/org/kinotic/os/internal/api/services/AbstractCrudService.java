@@ -10,10 +10,9 @@ import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.OrganizationScoped;
-import org.kinotic.os.api.model.iam.AuthScopeType;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -166,28 +165,13 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     }
 
     /**
-     * Ensures the current participant is authenticated under the ORGANIZATION auth scope and returns the
-     * organization id to use for filtering. This mirrors the tenant-scoping pattern in
-     * {@code ReadPreProcessor#createQueryWithTenantLogic}.
-     *
-     * @return the organization id from the participant's auth scope
-     * @throws IllegalStateException if no {@link Participant} is bound to the current Vert.x context
-     * @throws AuthorizationException if the participant's auth scope type is not {@link AuthScopeType#ORGANIZATION}
+     * Ensures the current participant is authenticated under the ORGANIZATION auth scope
+     * and returns the organization id to use for filtering. Thin delegate to
+     * {@link SecurityContext#requireAuthScope(AuthScopeType)} — kept on the base class
+     * so subclasses don't need to reach into {@code securityContext} for the common case.
      */
     protected String requireOrganizationId() {
-        Participant participant = securityContext.currentParticipant();
-        if (participant == null) {
-            throw new IllegalStateException(
-                    "No Participant is bound to the current Vert.x context for "
-                    + type.getSimpleName() + " operation");
-        }
-        if (!AuthScopeType.ORGANIZATION.name().equals(participant.getAuthScopeType())) {
-            throw new AuthorizationException(
-                    "Access to " + type.getSimpleName()
-                    + " requires auth scope " + AuthScopeType.ORGANIZATION.name()
-                    + " but was '" + participant.getAuthScopeType() + "'");
-        }
-        return participant.getAuthScopeId();
+        return securityContext.requireAuthScope(AuthScopeType.ORGANIZATION);
     }
 
     /**
