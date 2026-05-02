@@ -40,17 +40,17 @@ export class Project implements Identifiable<string> {
      * Full name ({@code owner/repo}) of the GitHub repository backing this project.
      * Stamped at create time by the server-side repo provisioner.
      */
-    public repoFullName: string | null = null
+    public repoFullName!: string
 
     /**
      * GitHub's stable repository id. Survives renames on the GitHub side.
      */
-    public repoId: number | null = null
+    public repoId!: number
 
     /**
      * Default branch of the backing repository at the time it was provisioned.
      */
-    public defaultBranch: string | null = null
+    public defaultBranch!: string
 
     /**
      * The date and time the project was updated.
