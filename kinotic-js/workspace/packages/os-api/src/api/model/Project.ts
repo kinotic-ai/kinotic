@@ -53,6 +53,12 @@ export class Project implements Identifiable<string> {
     public defaultBranch!: string
 
     /**
+     * Visibility chosen for the backing repository at create time. The SPA sets
+     * this before save; the platform passes it through to GitHub.
+     */
+    public repoPrivate: boolean = true
+
+    /**
      * The date and time the project was updated.
      */
     public updated: number | null = null

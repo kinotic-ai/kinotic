@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS kinotic_project (
     repoFullName KEYWORD,
     repoId LONG,
     defaultBranch KEYWORD,
+    repoPrivate BOOLEAN,
     updated DATE
 );
 

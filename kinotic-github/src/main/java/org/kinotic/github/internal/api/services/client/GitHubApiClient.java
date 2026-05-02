@@ -97,7 +97,7 @@ public class GitHubApiClient {
     // ── Repository creation from a template ───────────────────────────────────
 
     /**
-     * Creates a new private repository under {@code owner} from the given template,
+     * Creates a new repository under {@code owner} from the given template,
      * via {@code POST /repos/{template_owner}/{template_repo}/generate}. The App
      * must have {@code Administration: Write} permission on the target owner
      * for this to succeed.
@@ -108,18 +108,20 @@ public class GitHubApiClient {
      * @param owner             target account login (user or org)
      * @param name              new repo name (must satisfy GitHub's name rules)
      * @param description       optional repo description
+     * @param isPrivate         visibility of the new repo
      * @return the created repo JSON ({@code id}, {@code full_name}, {@code default_branch}, ...)
      */
     public Future<JsonObject> createRepoFromTemplate(String installationToken,
                                                      String templateFullName,
                                                      String owner,
                                                      String name,
-                                                     String description) {
+                                                     String description,
+                                                     boolean isPrivate) {
         JsonObject body = new JsonObject()
                 .put("owner", owner)
                 .put("name", name)
                 .put("include_all_branches", false)
-                .put("private", true);
+                .put("private", isPrivate);
         if (description != null && !description.isBlank()) {
             body.put("description", description);
         }

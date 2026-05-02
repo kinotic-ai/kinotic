@@ -17,9 +17,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 /**
- * Provisions a private GitHub repository for a new {@link Project} by generating it
- * from the configured template repo. Stamps the resulting {@code repoFullName},
- * {@code repoId}, and {@code defaultBranch} on the project before it is persisted.
+ * Provisions a GitHub repository for a new {@link Project} by generating it from
+ * the configured template repo. Honours the caller-supplied {@code repoPrivate}
+ * flag and stamps the resulting {@code repoFullName}, {@code repoId}, and
+ * {@code defaultBranch} on the project before it is persisted.
  */
 @Slf4j
 @Component
@@ -55,7 +56,8 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
                                 properties.getGithub().getRepoTemplate(),
                                 install.getAccountLogin(),
                                 repoName,
-                                project.getDescription())
+                                project.getDescription(),
+                                project.isRepoPrivate())
                             .toCompletionStage().toCompletableFuture())
                     .thenApply(repoJson -> stamp(project, repoJson));
         });

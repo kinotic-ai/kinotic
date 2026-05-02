@@ -57,6 +57,12 @@ public class Project implements ApplicationScoped<String> {
     private String defaultBranch;
 
     /**
+     * Visibility chosen for the backing repository at create time. The SPA sets
+     * this before save; the platform passes it through to GitHub.
+     */
+    private boolean repoPrivate;
+
+    /**
      * The date and time the project was updated.
      */
     private Date updated;
