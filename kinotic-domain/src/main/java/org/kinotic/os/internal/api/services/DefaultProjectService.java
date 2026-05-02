@@ -20,6 +20,8 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultProjectService extends AbstractApplicationCrudService<Project> implements ProjectService {
 
+    private static final String INDEX = "kinotic_project";
+
     final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
 
     private final ProjectRepoProvisioner repoProvisioner;
@@ -28,7 +30,7 @@ public class DefaultProjectService extends AbstractApplicationCrudService<Projec
                                  ElasticsearchAsyncClient esAsyncClient,
                                  SecurityContext securityContext,
                                  ProjectRepoProvisioner repoProvisioner) {
-        super("kinotic_project",
+        super(INDEX,
               Project.class,
               esAsyncClient,
               crudServiceTemplate,
@@ -90,7 +92,7 @@ public class DefaultProjectService extends AbstractApplicationCrudService<Projec
             }
             return b;
         }));
-        return crudServiceTemplate.search("kinotic_project", Pageable.ofSize(50), Project.class, b -> {
+        return crudServiceTemplate.search(INDEX, Pageable.ofSize(50), Project.class, b -> {
                                               if (orgId != null) b.routing(orgId);
                                               b.query(q);
                                           })
