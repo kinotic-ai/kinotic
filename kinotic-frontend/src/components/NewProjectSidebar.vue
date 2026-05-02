@@ -83,8 +83,9 @@ export default class NewProjectSidebar extends Vue {
 
             // Goes through the server-side ProjectRepoProvisioner, which creates the
             // backing GitHub repo from the configured template and stamps the repo
-            // metadata on the project before persisting.
-            const createdProject = await Kinotic.projects.createProjectIfNotExist(project);
+            // metadata on the project before persisting. Fails if a project with the
+            // derived id already exists.
+            const createdProject = await Kinotic.projects.create(project);
 
             this.$toast.add({
                 severity: 'success',

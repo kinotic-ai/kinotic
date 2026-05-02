@@ -33,25 +33,27 @@ public class DefaultProjectService extends AbstractApplicationCrudService<Projec
     }
 
     @Override
-    public CompletableFuture<Project> createProjectIfNotExist(Project project) {
-        Validate.notNull(project, "Project cannot be null");
-        Validate.notNull(project.getName(), "Project name cannot be null");
-        Validate.notNull(project.getApplicationId(), "Project applicationId cannot be null");
-
-        if(project.getId() == null){
-            String projectId = (project.getApplicationId()+"_"+slg.slugify(project.getName())).toLowerCase();
-            project.setId(projectId);
-        }
-        DomainUtil.validateProjectId(project.getId());
-
+    public CompletableFuture<Project> create(Project project) {
+        validateAndDeriveId(project);
         return findById(project.getId())
                 .thenCompose(existing -> {
-                    if(existing != null){
-                        return CompletableFuture.completedFuture(existing);
-                    }else{
-                        return repoProvisioner.provision(project)
-                                              .thenCompose(this::save);
+                    if (existing != null) {
+                        return CompletableFuture.failedFuture(new IllegalArgumentException(
+                                "Project for id " + project.getId() + " already exists"));
                     }
+                    return provisionAndSave(project);
+                });
+    }
+
+    @Override
+    public CompletableFuture<Project> createProjectIfNotExist(Project project) {
+        validateAndDeriveId(project);
+        return findById(project.getId())
+                .thenCompose(existing -> {
+                    if (existing != null) {
+                        return CompletableFuture.completedFuture(existing);
+                    }
+                    return provisionAndSave(project);
                 });
     }
 
@@ -67,11 +69,28 @@ public class DefaultProjectService extends AbstractApplicationCrudService<Projec
         Validate.notNull(project.getName(), "Project name cannot be null");
 
         if(project.getId() == null){
-            String projectId = (project.getApplicationId()+"_"+slg.slugify(project.getName())).toLowerCase();
-            project.setId(projectId);
+            project.setId(deriveId(project));
         }
         project.setUpdated(new Date());
         return super.save(project);
+    }
+
+    private CompletableFuture<Project> provisionAndSave(Project project) {
+        return repoProvisioner.provision(project).thenCompose(this::save);
+    }
+
+    private void validateAndDeriveId(Project project) {
+        Validate.notNull(project, "Project cannot be null");
+        Validate.notNull(project.getName(), "Project name cannot be null");
+        Validate.notNull(project.getApplicationId(), "Project applicationId cannot be null");
+        if (project.getId() == null) {
+            project.setId(deriveId(project));
+        }
+        DomainUtil.validateProjectId(project.getId());
+    }
+
+    private String deriveId(Project project) {
+        return (project.getApplicationId() + "_" + slg.slugify(project.getName())).toLowerCase();
     }
 
 }
