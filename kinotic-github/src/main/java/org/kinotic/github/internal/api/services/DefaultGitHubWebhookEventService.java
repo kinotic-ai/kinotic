@@ -10,8 +10,8 @@ import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubWebhookEvent;
-import org.kinotic.github.api.model.ProjectGitHubRepoLink;
 import org.kinotic.github.api.services.GitHubWebhookEventService;
+import org.kinotic.os.api.model.Project;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Default impl: mutates installation state for management events, looks up the
- * project link for repo events, and republishes a slim envelope on
+ * backing project for repo events, and republishes a slim envelope on
  * {@code evt://github/<eventType>/<orgId>/<projectId>}.
  * <p>
  * Talks to {@link CrudServiceTemplate} directly (rather than going through the
@@ -46,7 +46,7 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
 
     private static final String EVT_NAMESPACE = "github";
     private static final String INSTALLATION_INDEX = "kinotic_github_app_installation";
-    private static final String LINK_INDEX = "kinotic_project_github_repo";
+    private static final String PROJECT_INDEX = "kinotic_project";
 
     private final CrudServiceTemplate crudServiceTemplate;
     private final EventBusService eventBusService;
@@ -107,36 +107,30 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
         if (removed == null || removed.isEmpty()) {
             return CompletableFuture.completedFuture(null);
         }
-        CompletableFuture<Void> chain = CompletableFuture.completedFuture(null);
+        // Don't mutate Project rows from a webhook — auto-orphaning a project from its
+        // backing repo is a destructive policy decision that belongs in an explicit flow.
+        // Log and let the operator decide.
         for (int i = 0; i < removed.size(); i++) {
             String fullName = removed.getJsonObject(i).getString("full_name");
-            chain = chain.thenCompose(v -> findLinksByRepoFullName(fullName).thenCompose(links -> {
-                CompletableFuture<Void> sub = CompletableFuture.completedFuture(null);
-                for (ProjectGitHubRepoLink link : links) {
-                    sub = sub.thenCompose(unused -> crudServiceTemplate
-                            .deleteById(LINK_INDEX, link.getId(),
-                                        b -> b.routing(link.getOrganizationId()))
-                            .thenApply(r -> null));
-                }
-                return sub;
-            }));
+            log.warn("GitHub installation removed access to {}; the backing Kinotic Project (if any) "
+                     + "is now orphaned from its repo and needs operator attention", fullName);
         }
-        return chain;
+        return CompletableFuture.completedFuture(null);
     }
 
     private CompletableFuture<Void> handleRepoEvent(GitHubWebhookEvent event) {
         if (event.getRepoFullName() == null) {
             return CompletableFuture.completedFuture(null);
         }
-        return findLinksByRepoFullName(event.getRepoFullName()).thenAccept(links -> {
-            if (links.isEmpty()) {
-                log.debug("No project link for repo {} (event {}); dropping",
+        return findProjectsByRepoFullName(event.getRepoFullName()).thenAccept(projects -> {
+            if (projects.isEmpty()) {
+                log.debug("No Kinotic project for repo {} (event {}); dropping",
                           event.getRepoFullName(), event.getEventType());
                 return;
             }
-            for (ProjectGitHubRepoLink link : links) {
+            for (Project project : projects) {
                 String cri = EventConstants.EVENT_DESTINATION_SCHEME + "://" + EVT_NAMESPACE + "/" + event.getEventType()
-                        + "/" + link.getOrganizationId() + "/" + link.getProjectId();
+                        + "/" + project.getOrganizationId() + "/" + project.getId();
                 byte[] payload = event.getPayload().encode().getBytes(StandardCharsets.UTF_8);
                 eventBusService.send(Event.create(cri, payload));
             }
@@ -153,12 +147,12 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
                                   .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
-    private CompletableFuture<List<ProjectGitHubRepoLink>> findLinksByRepoFullName(String repoFullName) {
+    private CompletableFuture<List<Project>> findProjectsByRepoFullName(String repoFullName) {
         Query q = Query.of(qb -> qb.bool(b -> b.filter(
                 f -> f.term(t -> t.field("repoFullName").value(repoFullName)))));
-        return crudServiceTemplate.search(LINK_INDEX,
+        return crudServiceTemplate.search(PROJECT_INDEX,
                                           Pageable.ofSize(50),
-                                          ProjectGitHubRepoLink.class,
+                                          Project.class,
                                           b -> b.query(q))
                                   .thenApply(page -> page.getContent());
     }

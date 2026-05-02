@@ -5,6 +5,7 @@ import com.github.slugify.Slugify;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.Project;
+import org.kinotic.os.api.services.ProjectRepoProvisioner;
 import org.kinotic.os.api.services.ProjectService;
 import org.kinotic.os.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
@@ -17,14 +18,18 @@ public class DefaultProjectService extends AbstractApplicationCrudService<Projec
 
     final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
 
+    private final ProjectRepoProvisioner repoProvisioner;
+
     public DefaultProjectService(CrudServiceTemplate crudServiceTemplate,
                                  ElasticsearchAsyncClient esAsyncClient,
-                                 SecurityContext securityContext) {
+                                 SecurityContext securityContext,
+                                 ProjectRepoProvisioner repoProvisioner) {
         super("kinotic_project",
               Project.class,
               esAsyncClient,
               crudServiceTemplate,
               securityContext);
+        this.repoProvisioner = repoProvisioner;
     }
 
     @Override
@@ -44,7 +49,8 @@ public class DefaultProjectService extends AbstractApplicationCrudService<Projec
                     if(existing != null){
                         return CompletableFuture.completedFuture(existing);
                     }else{
-                        return save(project);
+                        return repoProvisioner.provision(project)
+                                              .thenCompose(this::save);
                     }
                 });
     }

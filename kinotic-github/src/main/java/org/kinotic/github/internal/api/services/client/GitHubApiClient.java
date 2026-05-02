@@ -12,12 +12,9 @@ import io.vertx.ext.web.client.WebClientOptions;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.github.api.model.AvailableRepo;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -97,41 +94,44 @@ public class GitHubApiClient {
                 });
     }
 
-    // ── Listing repos available to an installation ────────────────────────────
+    // ── Repository creation from a template ───────────────────────────────────
 
     /**
-     * Returns the repositories accessible to the installation, as the install token
-     * sees them. Caps at 100 to keep the dropdown bounded; if an org has more than
-     * 100 repos linked to the App they can search.
+     * Creates a new repository under {@code owner} from the given template,
+     * via {@code POST /repos/{template_owner}/{template_repo}/generate}. The App
+     * must have {@code Administration: Write} permission on the target owner
+     * for this to succeed.
+     *
+     * @param installationToken token scoped to the installation that has access to
+     *                          the template and the target owner
+     * @param templateFullName  {@code owner/repo} of the template
+     * @param owner             target account login (user or org)
+     * @param name              new repo name (must satisfy GitHub's name rules)
+     * @param description       optional repo description
+     * @param isPrivate         visibility of the new repo
+     * @return the created repo JSON ({@code id}, {@code full_name}, {@code default_branch}, ...)
      */
-    public Future<List<AvailableRepo>> listInstallationRepos(String installationToken) {
-        return tokenAuthedGet("/installation/repositories?per_page=100", installationToken)
+    public Future<JsonObject> createRepoFromTemplate(String installationToken,
+                                                     String templateFullName,
+                                                     String owner,
+                                                     String name,
+                                                     String description,
+                                                     boolean isPrivate) {
+        JsonObject body = new JsonObject()
+                .put("owner", owner)
+                .put("name", name)
+                .put("include_all_branches", false)
+                .put("private", isPrivate);
+        if (description != null && !description.isBlank()) {
+            body.put("description", description);
+        }
+        return tokenAuthedPost("/repos/" + templateFullName + "/generate", installationToken, body)
                 .compose(resp -> {
-                    if (resp.statusCode() / 100 != 2) {
-                        return Future.failedFuture(httpError("listInstallationRepos", resp));
+                    if (resp.statusCode() == 201) {
+                        return Future.succeededFuture(resp.bodyAsJsonObject());
                     }
-                    JsonArray repos = resp.bodyAsJsonObject().getJsonArray("repositories", new JsonArray());
-                    List<AvailableRepo> out = new ArrayList<>(repos.size());
-                    for (int i = 0; i < repos.size(); i++) {
-                        JsonObject r = repos.getJsonObject(i);
-                        out.add(new AvailableRepo()
-                                .setRepoId(r.getLong("id"))
-                                .setFullName(r.getString("full_name"))
-                                .setDefaultBranch(r.getString("default_branch"))
-                                .setPrivateRepo(Boolean.TRUE.equals(r.getBoolean("private"))));
-                    }
-                    return Future.succeededFuture(out);
+                    return Future.failedFuture(httpError("createRepoFromTemplate", resp));
                 });
-    }
-
-    /**
-     * Resolves the repo's id and default branch from {@code owner/repo}, using an
-     * installation token. Used during link to validate the chosen repo and to capture
-     * the immutable repo id (stable across renames).
-     */
-    public Future<JsonObject> getRepo(String installationToken, String repoFullName) {
-        return tokenAuthedGet("/repos/" + repoFullName, installationToken)
-                .compose(resp -> expectJsonObject(resp, "getRepo"));
     }
 
     // ── Ref creation ──────────────────────────────────────────────────────────

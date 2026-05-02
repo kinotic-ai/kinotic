@@ -37,6 +37,29 @@ export class Project implements Identifiable<string> {
     public sourceOfTruth: ProjectType | null = null
 
     /**
+     * Full name ({@code owner/repo}) of the GitHub repository backing this project.
+     * Stamped at create time by the server-side repo provisioner.
+     */
+    public repoFullName: string | null = null
+
+    /**
+     * GitHub's stable repository id. Survives renames on the GitHub side.
+     */
+    public repoId: number | null = null
+
+    /**
+     * Default branch of the backing repository at the time it was provisioned.
+     */
+    public defaultBranch: string | null = null
+
+    /**
+     * Visibility chosen for the backing repository at create time. The SPA sets
+     * this on the create call; the platform passes it through to GitHub. Snapshot
+     * only — not synced back if changed on GitHub later.
+     */
+    public repoPrivate: boolean = true
+
+    /**
      * The date and time the project was updated.
      */
     public updated: number | null = null

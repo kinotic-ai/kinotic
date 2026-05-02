@@ -50,4 +50,12 @@ public class GithubProperties {
      */
     @NotBlank
     private String webhookSecret;
+
+    /**
+     * {@code owner/repo} of the GitHub Repository Template used to seed every
+     * new project's backing repo. The App must have access to this template
+     * (typically by being installed on the owning account/org).
+     */
+    @NotBlank
+    private String repoTemplate;
 }

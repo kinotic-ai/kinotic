@@ -42,10 +42,8 @@ export * from '@/api/model/iam/IamUser'
 export * from '@/api/model/iam/SignUpRequest'
 export * from '@/api/model/iam/SignUpCompleteRequest'
 
-export * from '@/api/model/github/AvailableRepo'
 export * from '@/api/model/github/GitHubAppInstallation'
 export * from '@/api/model/github/GitHubInstallationToken'
-export * from '@/api/model/github/ProjectGitHubRepoLink'
 
 export * from '@/api/model/KinoticProjectConfig'
 
@@ -63,7 +61,6 @@ export * from '@/api/services/IVmNodeService'
 export * from '@/api/services/IWorkloadService'
 export * from '@/api/services/IIamUserService'
 export * from '@/api/services/IGitHubAppInstallationService'
-export * from '@/api/services/IProjectGitHubRepoService'
 
 // Plugin
 export * from '@/api/OsApiPlugin'

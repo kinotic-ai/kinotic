@@ -2,24 +2,23 @@ package org.kinotic.github.internal.api.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubInstallationToken;
-import org.kinotic.github.api.model.ProjectGitHubRepoLink;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.api.services.GitHubInstallationTokenService;
-import org.kinotic.github.api.services.ProjectGitHubRepoService;
 import org.kinotic.github.internal.api.services.client.GitHubInstallationTokenCache;
+import org.kinotic.os.api.model.Project;
+import org.kinotic.os.api.services.ProjectService;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Default impl: enforces caller-org match against the {@code @Scope} parameter, looks
- * up the project's {@link ProjectGitHubRepoLink}, and asks the
+ * Default impl: enforces caller-org match against the {@code @Scope} parameter,
+ * looks up the project's GitHub repo metadata, and asks the
  * {@link GitHubInstallationTokenCache} for a {@code contents:read}-scoped token.
  * Audit-logs every issuance so operators can trace which workers obtained which
  * clone tokens.
@@ -30,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultGitHubInstallationTokenService implements GitHubInstallationTokenService {
 
     private final SecurityContext securityContext;
-    private final ProjectGitHubRepoService repoService;
+    private final ProjectService projectService;
     private final GitHubAppInstallationService installationService;
     private final GitHubInstallationTokenCache tokenCache;
 
@@ -38,40 +37,40 @@ public class DefaultGitHubInstallationTokenService implements GitHubInstallation
     public CompletableFuture<GitHubInstallationToken> issueRepoToken(String organizationId, String projectId) {
         securityContext.requireAuthScope(AuthScopeType.ORGANIZATION, organizationId);
         Participant participant = securityContext.currentParticipant();
-        return repoService.findByProject(projectId).thenCompose(link -> {
-            if (link == null) {
+        return projectService.findById(projectId).thenCompose(project -> {
+            if (project == null || project.getRepoFullName() == null || project.getRepoId() == null) {
                 throw new IllegalStateException(
-                        "Project " + projectId + " is not linked to a GitHub repo");
+                        "Project " + projectId + " has no GitHub repo provisioned");
             }
-            if (!organizationId.equals(link.getOrganizationId())) {
-                throw new AuthorizationException(
+            if (!organizationId.equals(project.getOrganizationId())) {
+                throw new IllegalStateException(
                         "Project " + projectId + " does not belong to organization " + organizationId);
             }
-            return installationService.findById(link.getInstallationId()).thenCompose(install -> {
+            return installationService.findForCurrentOrg().thenCompose(install -> {
                 if (install == null) {
                     throw new IllegalStateException(
-                            "Installation " + link.getInstallationId() + " no longer exists");
+                            "GitHub install for organization " + organizationId + " no longer exists");
                 }
-                return mintAndAudit(participant, install, link);
+                return mintAndAudit(participant, install, project);
             });
         });
     }
 
     private CompletableFuture<GitHubInstallationToken> mintAndAudit(Participant participant,
                                                                     GitHubAppInstallation install,
-                                                                    ProjectGitHubRepoLink link) {
+                                                                    Project project) {
         return tokenCache.get(install.getGithubInstallationId(),
-                              link.getRepoId(),
+                              project.getRepoId(),
                               GitHubInstallationTokenCache.READ_CONTENTS)
                          .map(entry -> {
                              log.info("Issued GitHub clone token for project {} (org {}, repo {}) to {}",
-                                      link.getProjectId(), link.getOrganizationId(),
-                                      link.getRepoFullName(), participant.getId());
+                                      project.getId(), project.getOrganizationId(),
+                                      project.getRepoFullName(), participant.getId());
                              return new GitHubInstallationToken()
                                      .setToken(entry.token())
                                      .setExpiresAt(entry.expiresAt())
-                                     .setCloneUrl("https://github.com/" + link.getRepoFullName() + ".git")
-                                     .setDefaultBranch(link.getDefaultBranch());
+                                     .setCloneUrl("https://github.com/" + project.getRepoFullName() + ".git")
+                                     .setDefaultBranch(project.getDefaultBranch());
                          })
                          .toCompletionStage().toCompletableFuture();
     }

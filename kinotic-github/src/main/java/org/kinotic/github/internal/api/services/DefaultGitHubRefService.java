@@ -2,16 +2,15 @@ package org.kinotic.github.internal.api.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.github.api.model.GitHubAppInstallation;
-import org.kinotic.github.api.model.ProjectGitHubRepoLink;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.api.services.GitHubRefService;
-import org.kinotic.github.api.services.ProjectGitHubRepoService;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
 import org.kinotic.github.internal.api.services.client.GitHubInstallationTokenCache;
+import org.kinotic.os.api.model.Project;
+import org.kinotic.os.api.services.ProjectService;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
@@ -28,7 +27,7 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultGitHubRefService implements GitHubRefService {
 
     private final SecurityContext securityContext;
-    private final ProjectGitHubRepoService repoService;
+    private final ProjectService projectService;
     private final GitHubAppInstallationService installationService;
     private final GitHubInstallationTokenCache tokenCache;
     private final GitHubApiClient apiClient;
@@ -45,33 +44,33 @@ public class DefaultGitHubRefService implements GitHubRefService {
 
     private CompletableFuture<Void> createRef(String organizationId, String projectId, String refName, String sha) {
         securityContext.requireAuthScope(AuthScopeType.ORGANIZATION, organizationId);
-        return repoService.findByProject(projectId).thenCompose(link -> {
-            if (link == null) {
+        return projectService.findById(projectId).thenCompose(project -> {
+            if (project == null || project.getRepoFullName() == null || project.getRepoId() == null) {
                 throw new IllegalStateException(
-                        "Project " + projectId + " is not linked to a GitHub repo");
+                        "Project " + projectId + " has no GitHub repo provisioned");
             }
-            if (!organizationId.equals(link.getOrganizationId())) {
-                throw new AuthorizationException(
+            if (!organizationId.equals(project.getOrganizationId())) {
+                throw new IllegalStateException(
                         "Project " + projectId + " does not belong to organization " + organizationId);
             }
-            return installationService.findById(link.getInstallationId()).thenCompose(install -> {
+            return installationService.findForCurrentOrg().thenCompose(install -> {
                 if (install == null) {
                     throw new IllegalStateException(
-                            "Installation " + link.getInstallationId() + " no longer exists");
+                            "GitHub install for organization " + organizationId + " no longer exists");
                 }
-                return mintAndCreate(install, link, refName, sha);
+                return mintAndCreate(install, project, refName, sha);
             });
         });
     }
 
     private CompletableFuture<Void> mintAndCreate(GitHubAppInstallation install,
-                                                  ProjectGitHubRepoLink link,
+                                                  Project project,
                                                   String refName,
                                                   String sha) {
         return tokenCache.get(install.getGithubInstallationId(),
-                              link.getRepoId(),
+                              project.getRepoId(),
                               GitHubInstallationTokenCache.WRITE_CONTENTS)
-                         .compose(entry -> apiClient.createRef(entry.token(), link.getRepoFullName(), refName, sha))
+                         .compose(entry -> apiClient.createRef(entry.token(), project.getRepoFullName(), refName, sha))
                          .toCompletionStage().toCompletableFuture();
     }
 }
