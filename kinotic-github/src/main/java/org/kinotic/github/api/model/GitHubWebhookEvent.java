@@ -26,7 +26,7 @@ public class GitHubWebhookEvent {
     private String deliveryId;
 
     /** GitHub installation id pulled from the payload, or {@code null} for events that lack it. */
-    private String installationId;
+    private Long installationId;
 
     /** {@code owner/repo}, or {@code null} for installation-scope events. */
     private String repoFullName;

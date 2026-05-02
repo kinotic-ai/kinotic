@@ -106,7 +106,7 @@ public class DefaultProjectGitHubRepoService
                 .setOrganizationId(participant.getAuthScopeId())
                 .setInstallationId(install.getId())
                 .setRepoFullName(repoFullName)
-                .setRepoId(String.valueOf(repoJson.getLong("id")))
+                .setRepoId(repoJson.getLong("id"))
                 .setDefaultBranch(repoJson.getString("default_branch"))
                 .setUpdated(new Date());
         return save(link);

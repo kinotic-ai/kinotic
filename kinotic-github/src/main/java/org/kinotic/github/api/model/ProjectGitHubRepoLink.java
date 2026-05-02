@@ -32,8 +32,8 @@ public class ProjectGitHubRepoLink implements OrganizationScoped<String> {
     /** {@code owner/repo} string from GitHub. */
     private String repoFullName;
 
-    /** GitHub's repo id (long, stored as string). Stable across renames. */
-    private String repoId;
+    /** GitHub's repo id. Stable across renames. */
+    private Long repoId;
 
     private String defaultBranch;
 

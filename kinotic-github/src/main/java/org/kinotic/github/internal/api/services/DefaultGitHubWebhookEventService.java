@@ -68,9 +68,7 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
     private CompletableFuture<Void> handleInstallation(GitHubWebhookEvent event) {
         String action = event.getPayload().getString("action");
         JsonObject install = event.getPayload().getJsonObject("installation");
-        String installationId = install != null
-                ? String.valueOf(install.getLong("id"))
-                : event.getInstallationId();
+        Long installationId = install != null ? install.getLong("id") : event.getInstallationId();
         if (installationId == null) {
             return CompletableFuture.completedFuture(null);
         }
@@ -145,7 +143,7 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
         });
     }
 
-    private CompletableFuture<GitHubAppInstallation> findInstallationByGithubId(String githubInstallationId) {
+    private CompletableFuture<GitHubAppInstallation> findInstallationByGithubId(long githubInstallationId) {
         Query q = Query.of(qb -> qb.bool(b -> b.filter(
                 f -> f.term(t -> t.field("githubInstallationId").value(githubInstallationId)))));
         return crudServiceTemplate.search(INSTALLATION_INDEX,

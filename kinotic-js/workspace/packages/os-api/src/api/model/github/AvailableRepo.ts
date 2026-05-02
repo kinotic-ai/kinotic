@@ -5,7 +5,7 @@
  * persisting.
  */
 export class AvailableRepo {
-    public repoId: string = ''
+    public repoId: number = 0
     public fullName: string = ''
     public defaultBranch: string = ''
     public privateRepo: boolean = false

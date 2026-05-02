@@ -34,12 +34,12 @@ public class GitHubInstallationCallbackService {
      * persists it under the given org. Idempotent — repeated calls overwrite.
      */
     public CompletableFuture<GitHubAppInstallation> upsertFromGithub(String orgId,
-                                                                     String installationId,
+                                                                     long installationId,
                                                                      JsonObject githubJson) {
         JsonObject account = githubJson.getJsonObject("account");
         Date now = new Date();
         GitHubAppInstallation install = new GitHubAppInstallation()
-                .setId(installationId)
+                .setId(Long.toString(installationId))
                 .setOrganizationId(orgId)
                 .setGithubInstallationId(installationId)
                 .setAccountLogin(account != null ? account.getString("login") : null)

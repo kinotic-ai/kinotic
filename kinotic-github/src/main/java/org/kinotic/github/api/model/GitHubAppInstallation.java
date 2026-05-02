@@ -25,8 +25,8 @@ public class GitHubAppInstallation implements OrganizationScoped<String> {
 
     private String organizationId;
 
-    /** GitHub's installation id (long, stored as string for index uniformity). */
-    private String githubInstallationId;
+    /** GitHub's installation id. */
+    private Long githubInstallationId;
 
     /** GitHub login of the user or org that the app is installed under. */
     private String accountLogin;

@@ -63,7 +63,7 @@ public class GitHubApiClient {
 
     // ── Installation lookup ───────────────────────────────────────────────────
 
-    public Future<JsonObject> getInstallation(String installationId) {
+    public Future<JsonObject> getInstallation(long installationId) {
         return jwtAuthedGet("/app/installations/" + installationId)
                 .compose(resp -> expectJsonObject(resp, "getInstallation"));
     }
@@ -73,12 +73,12 @@ public class GitHubApiClient {
      * {@code permissions} produces a token that cannot exceed the requested
      * permissions even if intercepted.
      */
-    public Future<MintedToken> createInstallationToken(String installationId,
-                                                       String repoId,
+    public Future<MintedToken> createInstallationToken(long installationId,
+                                                       Long repoId,
                                                        Map<String, String> permissions) {
         JsonObject body = new JsonObject();
         if (repoId != null) {
-            body.put("repository_ids", new JsonArray().add(Long.parseLong(repoId)));
+            body.put("repository_ids", new JsonArray().add(repoId));
         }
         if (permissions != null && !permissions.isEmpty()) {
             JsonObject perms = new JsonObject();
@@ -115,7 +115,7 @@ public class GitHubApiClient {
                     for (int i = 0; i < repos.size(); i++) {
                         JsonObject r = repos.getJsonObject(i);
                         out.add(new AvailableRepo()
-                                .setRepoId(String.valueOf(r.getLong("id")))
+                                .setRepoId(r.getLong("id"))
                                 .setFullName(r.getString("full_name"))
                                 .setDefaultBranch(r.getString("default_branch"))
                                 .setPrivateRepo(Boolean.TRUE.equals(r.getBoolean("private"))));

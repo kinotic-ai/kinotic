@@ -15,7 +15,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 @NoArgsConstructor
 public class AvailableRepo {
-    private String repoId;
+    private Long repoId;
     private String fullName;
     private String defaultBranch;
     private boolean privateRepo;

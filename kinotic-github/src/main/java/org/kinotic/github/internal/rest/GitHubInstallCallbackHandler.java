@@ -45,7 +45,7 @@ public class GitHubInstallCallbackHandler {
     }
 
     private void handleCallback(RoutingContext ctx) {
-        String installationId = ctx.request().getParam("installation_id");
+        String installationIdParam = ctx.request().getParam("installation_id");
         String state = ctx.request().getParam("state");
 
         String orgId = stateService.consume(state);
@@ -54,8 +54,12 @@ public class GitHubInstallCallbackHandler {
             redirect(ctx, "state_mismatch");
             return;
         }
-        if (installationId == null || installationId.isBlank()) {
-            log.warn("GitHub install callback missing installation_id (org {})", orgId);
+        long installationId;
+        try {
+            installationId = Long.parseLong(installationIdParam);
+        } catch (NumberFormatException e) {
+            log.warn("GitHub install callback rejected — invalid installation_id={} (org {})",
+                     installationIdParam, orgId);
             redirect(ctx, "missing_installation_id");
             return;
         }

@@ -104,8 +104,7 @@ public class GitHubWebhookHandler {
                                                  String deliveryId,
                                                  JsonObject payload) {
         JsonObject install = payload.getJsonObject("installation");
-        String installationId = install != null && install.getLong("id") != null
-                ? String.valueOf(install.getLong("id")) : null;
+        Long installationId = install != null ? install.getLong("id") : null;
         JsonObject repo = payload.getJsonObject("repository");
         String repoFullName = repo != null ? repo.getString("full_name") : null;
         return new GitHubWebhookEvent()

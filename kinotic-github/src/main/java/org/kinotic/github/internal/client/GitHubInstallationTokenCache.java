@@ -58,7 +58,7 @@ public class GitHubInstallationTokenCache {
      * Returns a token whose remaining life exceeds {@link #MIN_RETURNED_TOKEN_LIFETIME},
      * minting a fresh one (single-flight) when the cache can't satisfy that.
      */
-    public Future<Entry> get(String installationId, String repoId, Map<String, String> permissions) {
+    public Future<Entry> get(long installationId, Long repoId, Map<String, String> permissions) {
         Key key = new Key(installationId, repoId, permissions);
         Entry peek = cache.synchronous().getIfPresent(key);
         if (peek != null && !hasEnoughLife(peek)) {
@@ -77,6 +77,6 @@ public class GitHubInstallationTokenCache {
      * are content-based, so {@link #READ_CONTENTS} and {@code Map.of("contents","read")}
      * collide on the same cache slot.
      */
-    public record Key(String installationId, String repoId, Map<String, String> permissions) {}
+    public record Key(long installationId, Long repoId, Map<String, String> permissions) {}
     public record Entry(String token, Instant expiresAt) {}
 }

@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS kinotic_github_app_installation (
     id KEYWORD,
     organizationId KEYWORD,
-    githubInstallationId KEYWORD,
+    githubInstallationId LONG,
     accountLogin KEYWORD,
     accountType KEYWORD,
     suspendedAt DATE,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS kinotic_project_github_repo (
     organizationId KEYWORD,
     installationId KEYWORD,
     repoFullName KEYWORD,
-    repoId KEYWORD,
+    repoId LONG,
     defaultBranch KEYWORD,
     updated DATE
 );

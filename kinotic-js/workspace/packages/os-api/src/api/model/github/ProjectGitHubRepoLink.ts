@@ -12,7 +12,7 @@ export class ProjectGitHubRepoLink implements Identifiable<string> {
     public organizationId: string = ''
     public installationId: string = ''
     public repoFullName: string = ''
-    public repoId: string = ''
+    public repoId: number = 0
     public defaultBranch: string = ''
     public updated: number | null = null
 }

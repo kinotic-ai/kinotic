@@ -9,7 +9,7 @@ import type { Identifiable } from '@kinotic-ai/core'
 export class GitHubAppInstallation implements Identifiable<string> {
     public id: string | null = null
     public organizationId: string = ''
-    public githubInstallationId: string = ''
+    public githubInstallationId: number = 0
     public accountLogin: string = ''
     public accountType: string = ''
     public suspendedAt: number | null = null
