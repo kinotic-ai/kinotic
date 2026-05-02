@@ -26,11 +26,6 @@ import java.util.Date;
  * yields the orgId the install was started for. There is no session cookie or JWT
  * involved on this REST roundtrip.
  * <p>
- * Persistence goes through {@link GitHubAppInstallationService} under
- * {@link SecurityContext#withElevatedAccess(java.util.function.Supplier) elevated
- * access} — the org-scoped CRUD enforcement can't apply because there's no Kinotic
- * Participant on this REST roundtrip; the state-staged orgId is the security boundary.
- * <p>
  * Errors redirect the browser to the SPA's success path with {@code ?error=<code>}
  * so the SPA can render an inline message.
  */
