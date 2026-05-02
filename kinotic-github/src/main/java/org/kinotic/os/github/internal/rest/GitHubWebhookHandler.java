@@ -9,11 +9,10 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.secret.SecretStorageService;
+import org.kinotic.os.github.api.config.KinoticGithubProperties;
 import org.kinotic.os.github.api.model.GitHubWebhookEvent;
 import org.kinotic.os.github.api.rest.GithubConstants;
 import org.kinotic.os.github.api.services.GitHubWebhookEventService;
-import org.kinotic.os.github.internal.bootstrap.GitHubAppSecretsBootstrap;
 import org.kinotic.os.github.internal.security.GitHubWebhookVerifier;
 import org.springframework.stereotype.Component;
 
@@ -43,7 +42,7 @@ public class GitHubWebhookHandler {
     private static final long WEBHOOK_BODY_LIMIT_BYTES = 25L * 1024 * 1024;
 
     private final Vertx vertx;
-    private final SecretStorageService secretStorageService;
+    private final KinoticGithubProperties properties;
     private final GitHubWebhookEventService webhookEventService;
 
     public void mountRoute(Router router) {
@@ -67,31 +66,10 @@ public class GitHubWebhookHandler {
             return;
         }
 
-        secretStorageService.getSecret(GitHubAppSecretsBootstrap.SECRET_SCOPE,
-                                       GitHubAppSecretsBootstrap.WEBHOOK_SECRET_KEY)
-                            .thenAccept(secret -> verifyAndDispatch(ctx, eventType, deliveryId,
-                                                                    signature, body, secret))
-                            .exceptionally(err -> {
-                                log.warn("Webhook secret lookup failed: {}", err.getMessage());
-                                ctx.response().setStatusCode(500).end();
-                                return null;
-                            });
-    }
-
-    private void verifyAndDispatch(RoutingContext ctx,
-                                   String eventType,
-                                   String deliveryId,
-                                   String signature,
-                                   Buffer body,
-                                   String secret) {
-        if (secret == null || secret.isBlank()) {
-            log.error("GitHub webhook secret not configured");
-            ctx.response().setStatusCode(503).end();
-            return;
-        }
         // HMAC verification runs in executeBlocking so a 25 MiB payload doesn't pin
         // the event loop. ordered=false lets concurrent webhooks run in parallel.
         byte[] bodyBytes = body.getBytes();
+        String secret = properties.getGithub().getWebhookSecret();
         Future<Boolean> verify = vertx.executeBlocking(
                 () -> GitHubWebhookVerifier.verify(bodyBytes, secret, signature),
                 false);

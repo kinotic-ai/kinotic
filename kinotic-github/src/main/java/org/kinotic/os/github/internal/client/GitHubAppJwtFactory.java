@@ -3,7 +3,6 @@ package org.kinotic.os.github.internal.client;
 import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.secret.SecretStorageService;
 import org.kinotic.os.github.api.config.KinoticGithubProperties;
 import org.springframework.stereotype.Component;
 
@@ -27,7 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * for a 10-minute span. Forward lifetime from "now" is therefore 9 minutes — that's
  * the refresh interval, not a conservatism margin.
  * <p>
- * The key is loaded from {@code SecretStorageService} on first use. Both PKCS#1
+ * The key is read from {@code kinotic.github.appPrivateKey}. Both PKCS#1
  * ({@code BEGIN RSA PRIVATE KEY}) and PKCS#8 ({@code BEGIN PRIVATE KEY}) PEM formats
  * are accepted — GitHub's download button emits PKCS#1.
  */
@@ -36,8 +35,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @RequiredArgsConstructor
 public class GitHubAppJwtFactory {
 
-    private static final String SECRET_SCOPE = "kinotic-system";
-    private static final String SECRET_KEY = "githubAppPrivateKey";
     private static final long REFRESH_BEFORE_EXPIRY_SECONDS = 60;
     /** {@code iat} backdating, per GitHub's clock-drift guidance. Eats into the 10-minute span. */
     private static final long IAT_BACKDATE_SECONDS = 60;
@@ -45,7 +42,6 @@ public class GitHubAppJwtFactory {
     private static final long JWT_TTL_SECONDS = 9 * 60;
 
     private final KinoticGithubProperties properties;
-    private final SecretStorageService secretStorageService;
 
     private final AtomicReference<PrivateKey> cachedKey = new AtomicReference<>();
     private final AtomicReference<CachedJwt> cachedJwt = new AtomicReference<>();
@@ -91,14 +87,7 @@ public class GitHubAppJwtFactory {
         if (existing != null) {
             return existing;
         }
-        String pem = secretStorageService.getSecret(SECRET_SCOPE, SECRET_KEY).join();
-        if (pem == null || pem.isBlank()) {
-            throw new IllegalStateException(
-                    "GitHub App private key not loaded — verify "
-                    + properties.getGithub().getSecretsPath() + "/" + SECRET_KEY
-                    + " is mounted and GitHubAppSecretsBootstrap ran");
-        }
-        PrivateKey parsed = parsePem(pem);
+        PrivateKey parsed = parsePem(properties.getGithub().getAppPrivateKey());
         cachedKey.set(parsed);
         return parsed;
     }
