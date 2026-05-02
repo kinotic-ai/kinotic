@@ -313,7 +313,6 @@ public class CrudServiceTemplate {
             builderConsumer.accept(builder);
         }
 
-        //noinspection resource
         return bindToContext(esAsyncClient._transport()
                                           .performRequestAsync(builder.build(),
                                                                endpoint,
