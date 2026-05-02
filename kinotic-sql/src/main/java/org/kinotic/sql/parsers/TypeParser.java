@@ -4,30 +4,46 @@ import org.kinotic.sql.domain.Column;
 import org.kinotic.sql.domain.ColumnType;
 import org.kinotic.sql.parser.KinoticSQLParser;
 
+import java.util.List;
+
 /**
  * Utility class for parsing column types from SQL grammar contexts.
- * Handles both regular types and NOT INDEXED variants.
+ * Handles flat types, NOT INDEXED variants, and composite types (OBJECT, NESTED, UNION).
  * Created by Navíd Mitchell 🤝 Grok on 3/31/25.
  */
 public class TypeParser {
-    
-    /**
-     * Parses a type context and returns a complete Column with name, type, and indexed flag.
-     * Handles NOT INDEXED modifiers by checking the number of children in the context.
-     * 
-     * @param name The column name
-     * @param typeContext The type context from the parser
-     * @return A complete Column with name, type, and indexed flag
-     */
+
     public static Column parseColumnType(String name, KinoticSQLParser.TypeContext typeContext) {
-        // Get the base type name
         String baseType = typeContext.getChild(0).getText();
-        
-        // Check if NOT INDEXED is present by looking at the number of children
-        // If there are 3 children, it means we have: TYPE NOT INDEXED
-        boolean indexed = typeContext.getChildCount() == 1;
-        
+
+        // NOT INDEXED detection: for both flat and composite types, the last child token
+        // text is "INDEXED" when NOT INDEXED is present.
+        boolean indexed = !"INDEXED".equals(
+            typeContext.getChild(typeContext.getChildCount() - 1).getText());
+
         ColumnType columnType = ColumnType.valueOf(baseType);
-        return new Column(name, columnType, indexed);
+
+        return switch (columnType) {
+            case OBJECT -> new Column(name, ColumnType.OBJECT, indexed,
+                parseSubColumns(typeContext.columnDefinition()));
+            case NESTED -> new Column(name, ColumnType.NESTED, true,
+                parseSubColumns(typeContext.columnDefinition()));
+            case UNION -> new Column(name, ColumnType.UNION, indexed,
+                parseUnionVariants(typeContext.unionVariant()));
+            default -> new Column(name, columnType, indexed);
+        };
     }
-} 
+
+    private static List<Column> parseSubColumns(List<KinoticSQLParser.ColumnDefinitionContext> defs) {
+        return defs.stream()
+                   .map(def -> parseColumnType(def.ID().getText(), def.type()))
+                   .toList();
+    }
+
+    private static List<Column> parseUnionVariants(List<KinoticSQLParser.UnionVariantContext> variants) {
+        return variants.stream()
+                       .map(v -> new Column(v.ID().getText(), ColumnType.OBJECT, true,
+                           parseSubColumns(v.columnDefinition())))
+                       .toList();
+    }
+}

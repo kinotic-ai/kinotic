@@ -1,8 +1,13 @@
 package org.kinotic.sql.executor;
 
+import co.elastic.clients.elasticsearch._types.mapping.DynamicMapping;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import org.kinotic.sql.domain.Column;
 import org.kinotic.sql.domain.ColumnType;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Utility class for mapping SQL types to Elasticsearch field types.
@@ -11,11 +16,11 @@ import org.kinotic.sql.domain.ColumnType;
 public class TypeMapper {
 
     public static Property mapType(Column column) {
-        return mapType(column.type(), column.indexed());
+        return mapType(column, column.indexed());
     }
 
-    private static Property mapType(ColumnType type, boolean indexed) {
-        return switch (type) {
+    private static Property mapType(Column column, boolean indexed) {
+        return switch (column.type()) {
             case TEXT -> Property.of(p -> p.text(t -> t));
             case KEYWORD, UUID -> Property.of(p -> p.keyword(k -> indexed ? k : k.index(false).docValues(false)));
             case INTEGER -> Property.of(p -> p.integer(i -> indexed ? i : i.index(false).docValues(false)));
@@ -29,6 +34,51 @@ public class TypeMapper {
             case GEO_POINT -> Property.of(p -> p.geoPoint(gp -> gp));
             case GEO_SHAPE -> Property.of(p -> p.geoShape(gs -> gs));
             case DECIMAL -> Property.of(p -> p.scaledFloat(sf -> indexed ? sf : sf.index(false).docValues(false)));
+            case OBJECT -> buildObjectProperty(column, indexed);
+            case NESTED -> buildNestedProperty(column);
+            case UNION -> buildUnionProperty(column, indexed);
         };
+    }
+
+    private static Property buildObjectProperty(Column column, boolean indexed) {
+        if (!indexed) {
+            return Property.of(p -> p.object(o -> o.enabled(false)));
+        }
+        Map<String, Property> subProps = buildSubProperties(column.subColumns());
+        return Property.of(p -> p.object(o -> o.dynamic(DynamicMapping.Strict).properties(subProps)));
+    }
+
+    private static Property buildNestedProperty(Column column) {
+        Map<String, Property> subProps = buildSubProperties(column.subColumns());
+        return Property.of(p -> p.nested(n -> n.dynamic(DynamicMapping.Strict).properties(subProps)));
+    }
+
+    private static Property buildUnionProperty(Column column, boolean indexed) {
+        if (!indexed) {
+            return Property.of(p -> p.object(o -> o.enabled(false)));
+        }
+        // Merge all variant fields into one flat object; throw on same-name/different-type conflict.
+        Map<String, Column> merged = new LinkedHashMap<>();
+        for (Column variant : column.subColumns()) {
+            for (Column field : variant.subColumns()) {
+                Column existing = merged.get(field.name());
+                if (existing != null && existing.type() != field.type()) {
+                    throw new IllegalArgumentException(
+                        "Field '" + field.name() + "' in UNION column '" + column.name()
+                        + "' has conflicting types: " + existing.type() + " vs " + field.type());
+                }
+                merged.putIfAbsent(field.name(), field);
+            }
+        }
+        Map<String, Property> subProps = buildSubProperties(List.copyOf(merged.values()));
+        return Property.of(p -> p.object(o -> o.dynamic(DynamicMapping.Strict).properties(subProps)));
+    }
+
+    private static Map<String, Property> buildSubProperties(List<Column> columns) {
+        Map<String, Property> props = new LinkedHashMap<>();
+        for (Column col : columns) {
+            props.put(col.name(), mapType(col, col.indexed()));
+        }
+        return props;
     }
 }
