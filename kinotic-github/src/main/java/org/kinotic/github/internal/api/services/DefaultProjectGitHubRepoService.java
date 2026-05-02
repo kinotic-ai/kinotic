@@ -3,10 +3,7 @@ package org.kinotic.github.internal.api.services;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import io.vertx.core.json.JsonObject;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.os.api.model.iam.AuthScopeType;
 import org.kinotic.github.api.model.AvailableRepo;
 import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.ProjectGitHubRepoLink;
@@ -55,7 +52,7 @@ public class DefaultProjectGitHubRepoService
 
     @Override
     public CompletableFuture<List<AvailableRepo>> listAvailableRepos() {
-        requireOrgScope();
+        requireOrganizationId();
         return installationService.findForCurrentOrg().thenCompose(install -> {
             if (install == null) {
                 return CompletableFuture.completedFuture(Collections.emptyList());
@@ -67,20 +64,20 @@ public class DefaultProjectGitHubRepoService
 
     @Override
     public CompletableFuture<ProjectGitHubRepoLink> linkProject(String projectId, String repoFullName) {
-        Participant participant = requireOrgScope();
+        String orgId = requireOrganizationId();
         return installationService.findForCurrentOrg().thenCompose(install -> {
             if (install == null) {
                 throw new IllegalStateException("GitHub is not linked for this organization");
             }
             return mintListingToken(install).thenCompose(token ->
                     apiClient.getRepo(token, repoFullName).toCompletionStage().toCompletableFuture()
-                             .thenCompose(repoJson -> persistLink(participant, install, projectId, repoFullName, repoJson)));
+                             .thenCompose(repoJson -> persistLink(orgId, install, projectId, repoFullName, repoJson)));
         });
     }
 
     @Override
     public CompletableFuture<Void> unlinkProject(String projectId) {
-        requireOrgScope();
+        requireOrganizationId();
         return findByProject(projectId).thenCompose(existing -> {
             if (existing == null) {
                 return CompletableFuture.completedFuture(null);
@@ -95,7 +92,7 @@ public class DefaultProjectGitHubRepoService
         return findById(projectId);
     }
 
-    private CompletableFuture<ProjectGitHubRepoLink> persistLink(Participant participant,
+    private CompletableFuture<ProjectGitHubRepoLink> persistLink(String orgId,
                                                                  GitHubAppInstallation install,
                                                                  String projectId,
                                                                  String repoFullName,
@@ -103,7 +100,7 @@ public class DefaultProjectGitHubRepoService
         ProjectGitHubRepoLink link = new ProjectGitHubRepoLink()
                 .setId(projectId)
                 .setProjectId(projectId)
-                .setOrganizationId(participant.getAuthScopeId())
+                .setOrganizationId(orgId)
                 .setInstallationId(install.getId())
                 .setRepoFullName(repoFullName)
                 .setRepoId(repoJson.getLong("id"))
@@ -122,14 +119,5 @@ public class DefaultProjectGitHubRepoService
                               GitHubInstallationTokenCache.READ_CONTENTS)
                          .map(GitHubInstallationTokenCache.Entry::token)
                          .toCompletionStage().toCompletableFuture();
-    }
-
-    private Participant requireOrgScope() {
-        Participant participant = securityContext.currentParticipant();
-        if (participant == null
-                || !AuthScopeType.ORGANIZATION.name().equals(participant.getAuthScopeType())) {
-            throw new AuthorizationException("ORGANIZATION-scoped session required");
-        }
-        return participant;
     }
 }
