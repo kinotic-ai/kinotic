@@ -14,6 +14,10 @@ import org.kinotic.sql.parsers.MigrationParser;
 import org.kinotic.test.support.elastic.ElasticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import org.kinotic.sql.domain.statements.CreateTableStatement;
+
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -223,5 +227,155 @@ class CompositeTypeTest extends ElasticTestBase {
         Map<String, Property> metaProps = nestedProps.get("meta").object().properties();
         assertEquals(Property.Kind.Keyword, metaProps.get("source")._kind());
         assertEquals(Property.Kind.Float, metaProps.get("score")._kind());
+    }
+
+    @Test
+    void whenCreateTableWithUnionNotIndexed_thenObjectDisabled() throws Exception {
+        String sql = """
+            CREATE TABLE ct_union_ni_test (
+                id KEYWORD,
+                item UNION (TypeA (kind KEYWORD, x TEXT)) NOT INDEXED
+            );
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__ct_union_ni_test", sql)), "ct_union_ni_project").get();
+
+        GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_union_ni_test"));
+        Map<String, Property> props = mapping.get("ct_union_ni_test").mappings().properties();
+
+        assertEquals(Property.Kind.Object, props.get("item")._kind());
+        assertFalse(props.get("item").object().enabled());
+    }
+
+    @Test
+    void whenCreateTableWithObjectInsideObject_thenDeepMappingCorrect() throws Exception {
+        String sql = """
+            CREATE TABLE ct_obj_obj_test (
+                id KEYWORD,
+                location OBJECT (
+                    label TEXT,
+                    coords OBJECT (lat DOUBLE, lon DOUBLE)
+                )
+            );
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__ct_obj_obj_test", sql)), "ct_obj_obj_project").get();
+
+        GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_obj_obj_test"));
+        Map<String, Property> props = mapping.get("ct_obj_obj_test").mappings().properties();
+
+        assertEquals(Property.Kind.Object, props.get("location")._kind());
+        Property coords = props.get("location").object().properties().get("coords");
+        assertEquals(Property.Kind.Object, coords._kind());
+        assertEquals(Property.Kind.Double, coords.object().properties().get("lat")._kind());
+        assertEquals(Property.Kind.Double, coords.object().properties().get("lon")._kind());
+    }
+
+    @Test
+    void whenCreateTableWithUnionInsideObject_thenMappingCorrect() throws Exception {
+        String sql = """
+            CREATE TABLE ct_union_obj_test (
+                id KEYWORD,
+                wrapper OBJECT (
+                    ref KEYWORD,
+                    item UNION (
+                        TypeA (kind KEYWORD, x TEXT),
+                        TypeB (kind KEYWORD, y INTEGER)
+                    )
+                )
+            );
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__ct_union_obj_test", sql)), "ct_union_obj_project").get();
+
+        GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_union_obj_test"));
+        Map<String, Property> props = mapping.get("ct_union_obj_test").mappings().properties();
+
+        assertEquals(Property.Kind.Object, props.get("wrapper")._kind());
+        Property item = props.get("wrapper").object().properties().get("item");
+        assertEquals(Property.Kind.Object, item._kind());
+        assertTrue(item.object().properties().containsKey("x"));
+        assertTrue(item.object().properties().containsKey("y"));
+    }
+
+    @Test
+    void whenAlterTableAddNestedColumn_thenMappingUpdated() throws Exception {
+        String createSql = """
+            CREATE TABLE ct_alter_nested_test (
+                id KEYWORD,
+                name TEXT
+            );
+            """;
+        String alterSql = """
+            ALTER TABLE ct_alter_nested_test ADD COLUMN tags NESTED (label TEXT, value KEYWORD);
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(
+                migration(1, "V1__ct_alter_nested_create", createSql),
+                migration(2, "V2__ct_alter_nested_add",    alterSql)
+            ), "ct_alter_nested_project").get();
+
+        GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_alter_nested_test"));
+        Map<String, Property> props = mapping.get("ct_alter_nested_test").mappings().properties();
+
+        assertEquals(Property.Kind.Nested, props.get("tags")._kind());
+        Map<String, Property> subProps = props.get("tags").nested().properties();
+        assertEquals(Property.Kind.Text,    subProps.get("label")._kind());
+        assertEquals(Property.Kind.Keyword, subProps.get("value")._kind());
+    }
+
+    @Test
+    void whenAlterTableAddUnionColumn_thenMappingUpdated() throws Exception {
+        String createSql = """
+            CREATE TABLE ct_alter_union_test (
+                id KEYWORD,
+                name TEXT
+            );
+            """;
+        String alterSql = """
+            ALTER TABLE ct_alter_union_test ADD COLUMN item UNION (
+                TypeA (kind KEYWORD, x TEXT),
+                TypeB (kind KEYWORD, y INTEGER)
+            );
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(
+                migration(1, "V1__ct_alter_union_create", createSql),
+                migration(2, "V2__ct_alter_union_add",    alterSql)
+            ), "ct_alter_union_project").get();
+
+        GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_alter_union_test"));
+        Map<String, Property> props = mapping.get("ct_alter_union_test").mappings().properties();
+
+        assertEquals(Property.Kind.Object, props.get("item")._kind());
+        Map<String, Property> subProps = props.get("item").object().properties();
+        assertTrue(subProps.containsKey("kind"));
+        assertTrue(subProps.containsKey("x"));
+        assertTrue(subProps.containsKey("y"));
+    }
+
+    @Test
+    void whenInsertDocumentWithUndeclaredSubField_thenRejected() throws Exception {
+        String sql = """
+            CREATE TABLE ct_strict_test (
+                id KEYWORD,
+                address OBJECT (street TEXT, city KEYWORD)
+            );
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__ct_strict_test", sql)), "ct_strict_project").get();
+
+        // dynamic:strict means undeclared sub-fields are rejected at write time
+        Map<String, Object> doc = new HashMap<>();
+        doc.put("id", "test-1");
+        Map<String, Object> address = new HashMap<>();
+        address.put("street", "123 Main St");
+        address.put("city", "Springfield");
+        address.put("country", "US"); // undeclared
+        doc.put("address", address);
+
+        assertThrows(ElasticsearchException.class, () ->
+            client.index(i -> i.index("ct_strict_test").id("test-1").document(doc))
+        );
     }
 }
