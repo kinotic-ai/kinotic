@@ -20,6 +20,8 @@ dependencies {
 
     implementation 'com.github.ben-manes.caffeine:caffeine'
 
+    implementation "com.github.slugify:slugify:${slugifyVersion}"
+
     implementation 'org.springframework:spring-core'
     implementation 'org.springframework:spring-context'
     implementation 'org.springframework.boot:spring-boot-starter-validation'

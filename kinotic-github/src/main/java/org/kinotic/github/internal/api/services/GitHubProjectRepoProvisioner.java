@@ -1,5 +1,6 @@
 package org.kinotic.github.internal.api.services;
 
+import com.github.slugify.Slugify;
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,13 +16,17 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.regex.Pattern;
 
 /**
  * Provisions a GitHub repository for a new {@link Project} by generating it from
  * the configured template repo. Honours the caller-supplied {@code repoPrivate}
  * flag and stamps the resulting {@code repoFullName}, {@code repoId}, and
  * {@code defaultBranch} on the project before it is persisted.
+ * <p>
+ * Slugifies the project name with the same {@link Slugify} configuration used by
+ * {@code DefaultProjectService} when deriving the project id, so a name that
+ * passes the platform-side id-uniqueness check produces an identically-shaped
+ * GitHub repo name.
  */
 @Slf4j
 @Component
@@ -29,9 +34,8 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
 
-    /** GitHub repository names: alphanumeric, hyphen, underscore, period. */
-    private static final Pattern UNSAFE = Pattern.compile("[^A-Za-z0-9._-]+");
-    private static final Pattern COLLAPSE = Pattern.compile("-{2,}");
+    private static final Slugify SLUGIFY = Slugify.builder().underscoreSeparator(true).build();
+    private static final int GITHUB_REPO_NAME_MAX = 100;
 
     private final GitHubAppInstallationService installationService;
     private final GitHubInstallationTokenCache tokenCache;
@@ -81,13 +85,10 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
         return project;
     }
 
-    /** Normalises a project name to a GitHub-safe repo name. */
     private static String toRepoName(String projectName) {
         if (projectName == null) return "";
-        String s = UNSAFE.matcher(projectName.trim()).replaceAll("-");
-        s = COLLAPSE.matcher(s).replaceAll("-");
-        s = s.replaceAll("^[-._]+", "").replaceAll("[-._]+$", "");
-        if (s.length() > 100) s = s.substring(0, 100);
+        String s = SLUGIFY.slugify(projectName);
+        if (s.length() > GITHUB_REPO_NAME_MAX) s = s.substring(0, GITHUB_REPO_NAME_MAX);
         return s;
     }
 }
