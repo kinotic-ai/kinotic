@@ -56,11 +56,11 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
             return crudServiceTemplate.findById(indexName, id, type, b -> b.routing(orgId))
-                                      .thenCompose(entity -> {
-                                          if (entity == null) {
+                                      .thenCompose(value -> {
+                                          if (value == null) {
                                               return CompletableFuture.completedFuture(null);
                                           }
-                                          if (!orgId.equals(((OrganizationScoped<?>) entity).getOrganizationId())) {
+                                          if (!orgId.equals(((OrganizationScoped<?>) value).getOrganizationId())) {
                                               return CompletableFuture.failedFuture(
                                                       new AuthorizationException(
                                                               "Cannot delete " + type.getSimpleName()
@@ -90,14 +90,14 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
             return crudServiceTemplate.findById(indexName, id, type, b -> b.routing(orgId))
-                                      .thenApply(entity -> {
-                                          if (entity == null) {
+                                      .thenApply(value -> {
+                                          if (value == null) {
                                               return null;
                                           }
-                                          if (!orgId.equals(((OrganizationScoped<?>) entity).getOrganizationId())) {
+                                          if (!orgId.equals(((OrganizationScoped<?>) value).getOrganizationId())) {
                                               return null;
                                           }
-                                          return entity;
+                                          return value;
                                       });
         }
         String routing = getRoutingKeyFromId(id);
@@ -106,14 +106,14 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     }
 
     @Override
-    public CompletableFuture<T> save(T entity) {
+    public CompletableFuture<T> save(T value) {
         if (shouldEnforceOrgScope()) {
-            enforceOrgOnSave(entity);
+            enforceOrgOnSave(value);
         }
-        String routing = getEntityRoutingKey(entity);
-        return crudServiceTemplate.save(indexName, entity.getId(), entity,
+        String routing = getObjectRoutingKey(value);
+        return crudServiceTemplate.save(indexName, value.getId(), value,
                                         routing != null ? b -> b.routing(routing) : null)
-                                  .thenApply(indexResponse -> entity);
+                                  .thenApply(indexResponse -> value);
     }
 
     @Override
@@ -134,19 +134,19 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     }
 
     @Override
-    public CompletableFuture<T> saveSync(T entity) {
+    public CompletableFuture<T> saveSync(T value) {
         if (shouldEnforceOrgScope()) {
-            enforceOrgOnSave(entity);
+            enforceOrgOnSave(value);
         }
-        String routing = getEntityRoutingKey(entity);
-        return crudServiceTemplate.saveSync(indexName, entity.getId(), entity,
+        String routing = getObjectRoutingKey(value);
+        return crudServiceTemplate.saveSync(indexName, value.getId(), value,
                                             routing != null ? b -> b.routing(routing) : null)
-                                  .thenApply(indexResponse -> entity);
+                                  .thenApply(indexResponse -> value);
     }
 
     /**
      * Returns the organization id to use for filtering and routing if org-scope enforcement
-     * is active (entity is {@link OrganizationScoped} and elevated access is not set), or
+     * is active (object is {@link OrganizationScoped} and elevated access is not set), or
      * {@code null} if enforcement should be skipped.
      * <p>
      * Subclasses with custom query methods that call {@code crudServiceTemplate} directly
@@ -175,13 +175,13 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     }
 
     /**
-     * Returns the organization id from the entity for use as a routing key on writes.
-     * This is always available after {@link #enforceOrgOnSave} has run or when the entity
+     * Returns the organization id from the object for use as a routing key on writes.
+     * This is always available after {@link #enforceOrgOnSave} has run or when the object
      * was created with the organization id already set.
      */
-    private String getEntityRoutingKey(T entity) {
+    private String getObjectRoutingKey(T value) {
         if (organizationScoped) {
-            String orgId = ((OrganizationScoped<?>) entity).getOrganizationId();
+            String orgId = ((OrganizationScoped<?>) value).getOrganizationId();
             if (orgId != null && !orgId.isBlank()) {
                 return orgId;
             }
@@ -190,13 +190,13 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     }
 
     /**
-     * Autopopulates or validates the organization id on the entity before a save. When the field is unset it is
+     * Autopopulates or validates the organization id on the object before a save. When the field is unset it is
      * populated with the participant's organization id; when set it must equal the participant's organization id.
      */
-    @SuppressWarnings("unchecked") // safe because we know the entity is OrganizationScoped
-    private void enforceOrgOnSave(T entity) {
+    @SuppressWarnings("unchecked") // safe because we know the object is OrganizationScoped
+    private void enforceOrgOnSave(T value) {
         String orgId = requireOrganizationId();
-        OrganizationScoped<String> scoped = (OrganizationScoped<String>) entity;
+        OrganizationScoped<String> scoped = (OrganizationScoped<String>) value;
         String entityOrgId = scoped.getOrganizationId();
 
         Validate.notBlank(entityOrgId, "Organization id must be set on " + type.getSimpleName());

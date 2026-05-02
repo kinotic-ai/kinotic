@@ -45,7 +45,7 @@ public class GitHubInstallationTokenCache {
         this.cache = Caffeine.newBuilder()
                 .expireAfterWrite(Duration.ofMinutes(50))
                 .maximumSize(10_000)
-                .buildAsync((Key key, java.util.concurrent.Executor executor) ->
+                .buildAsync((Key key, java.util.concurrent.Executor _) ->
                         apiClient.createInstallationToken(key.installationId(),
                                                           key.repoId(),
                                                           key.permissions())
