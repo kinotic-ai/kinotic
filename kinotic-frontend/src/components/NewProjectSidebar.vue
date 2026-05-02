@@ -8,7 +8,6 @@ import { USER_STATE } from '@/states/IUserState';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
 import Button from 'primevue/button';
-import ToggleSwitch from 'primevue/toggleswitch';
 import { createDebug } from '@/util/debug';
 import { isDark as darkMode } from '@/composables/useTheme'
 
@@ -17,15 +16,13 @@ const debug = createDebug('new-project-sidebar');
 interface ProjectForm {
     name: string;
     description: string;
-    repoPrivate: boolean;
 }
 
 @Component({
     components: {
         InputText,
         Textarea,
-        Button,
-        ToggleSwitch
+        Button
     }
 })
 export default class NewProjectSidebar extends Vue {
@@ -33,8 +30,7 @@ export default class NewProjectSidebar extends Vue {
 
     form: ProjectForm = {
         name: '',
-        description: '',
-        repoPrivate: true
+        description: ''
     };
 
     loading = false;
@@ -79,7 +75,6 @@ export default class NewProjectSidebar extends Vue {
             const project = new Project(null, app.id, this.form.name, this.form.description);
             project.organizationId = USER_STATE.getOrganizationId();
             project.sourceOfTruth = ProjectType.TYPESCRIPT;
-            project.repoPrivate = this.form.repoPrivate;
 
             // Goes through the server-side ProjectRepoProvisioner, which creates the
             // backing GitHub repo from the configured template and stamps the repo
@@ -127,8 +122,7 @@ export default class NewProjectSidebar extends Vue {
     private resetForm(): void {
         this.form = {
             name: '',
-            description: '',
-            repoPrivate: true
+            description: ''
         };
     }
 }
@@ -209,15 +203,6 @@ export default class NewProjectSidebar extends Vue {
                             />
                         </div>
 
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <label :class="['block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Private repository</label>
-                                <p :class="['text-xs mt-1', isDark ? 'text-surface-400' : 'text-surface-500']">
-                                    Visibility of the GitHub repo created for this project.
-                                </p>
-                            </div>
-                            <ToggleSwitch v-model="form.repoPrivate" />
-                        </div>
                     </div>
                     <div class="flex justify-end gap-2 mt-6">
                         <Button type="button" @click="handleClose" severity="secondary">

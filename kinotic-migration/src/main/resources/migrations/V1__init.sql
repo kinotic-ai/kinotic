@@ -17,7 +17,9 @@ CREATE TABLE IF NOT EXISTS kinotic_named_query_service_definition (
     namedQueries JSON NOT INDEXED
 );
 
--- Create the project table if it does not exist
+-- Create the project table if it does not exist.
+-- repoFullName / repoId / defaultBranch are stamped by the GitHub repo provisioner
+-- when the project is created; every project is backed by a GitHub repo.
 CREATE TABLE IF NOT EXISTS kinotic_project (
     id KEYWORD,
     organizationId KEYWORD,
@@ -25,6 +27,21 @@ CREATE TABLE IF NOT EXISTS kinotic_project (
     name KEYWORD,
     description TEXT,
     sourceOfTruth KEYWORD,
+    repoFullName KEYWORD,
+    repoId LONG,
+    defaultBranch KEYWORD,
+    updated DATE
+);
+
+-- GitHub App installations: one row per Kinotic Org that has linked GitHub.
+CREATE TABLE IF NOT EXISTS kinotic_github_app_installation (
+    id KEYWORD,
+    organizationId KEYWORD,
+    githubInstallationId LONG,
+    accountLogin KEYWORD,
+    accountType KEYWORD,
+    suspendedAt DATE,
+    created DATE,
     updated DATE
 );
 

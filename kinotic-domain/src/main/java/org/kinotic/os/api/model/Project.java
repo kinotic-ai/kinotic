@@ -57,13 +57,6 @@ public class Project implements ApplicationScoped<String> {
     private String defaultBranch;
 
     /**
-     * Visibility chosen for the backing repository at create time. A snapshot —
-     * if the repo's visibility is later changed on GitHub directly, this field is
-     * not updated. {@code null} when the project has no GitHub repo backing.
-     */
-    private Boolean repoPrivate;
-
-    /**
      * The date and time the project was updated.
      */
     private Date updated;

@@ -17,10 +17,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 /**
- * Provisions a GitHub repository for a new {@link Project} by generating it from
- * the configured template repo. Stamps the resulting {@code repoFullName},
- * {@code repoId}, and {@code defaultBranch} on the project; preserves the
- * caller-supplied {@code repoPrivate} flag (sent through to the GitHub create call).
+ * Provisions a private GitHub repository for a new {@link Project} by generating it
+ * from the configured template repo. Stamps the resulting {@code repoFullName},
+ * {@code repoId}, and {@code defaultBranch} on the project before it is persisted.
  */
 @Slf4j
 @Component
@@ -50,17 +49,15 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
                         "GitHub is not linked for this organization. "
                         + "Link GitHub before creating a project.");
             }
-            boolean isPrivate = !Boolean.FALSE.equals(project.getRepoPrivate());
             return mintRepoCreateToken(install)
                     .thenCompose(token -> apiClient.createRepoFromTemplate(
                                 token,
                                 properties.getGithub().getRepoTemplate(),
                                 install.getAccountLogin(),
                                 repoName,
-                                project.getDescription(),
-                                isPrivate)
+                                project.getDescription())
                             .toCompletionStage().toCompletableFuture())
-                    .thenApply(repoJson -> stamp(project, repoJson, isPrivate));
+                    .thenApply(repoJson -> stamp(project, repoJson));
         });
     }
 
@@ -71,11 +68,10 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
                          .toCompletionStage().toCompletableFuture();
     }
 
-    private Project stamp(Project project, JsonObject repoJson, boolean isPrivate) {
+    private Project stamp(Project project, JsonObject repoJson) {
         project.setRepoFullName(repoJson.getString("full_name"));
         project.setRepoId(repoJson.getLong("id"));
         project.setDefaultBranch(repoJson.getString("default_branch"));
-        project.setRepoPrivate(isPrivate);
         log.info("Provisioned GitHub repo {} for project {} (org {})",
                  project.getRepoFullName(), project.getId(), project.getOrganizationId());
         return project;
