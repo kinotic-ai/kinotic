@@ -42,6 +42,8 @@ public class TypeParser {
 
     private static List<Column> parseUnionVariants(List<KinoticSQLParser.UnionVariantContext> variants) {
         return variants.stream()
+                       // Variant pseudo-columns are structural containers only; indexed=true is a
+                       // placeholder — the parent UNION column's indexed flag governs ES behavior.
                        .map(v -> new Column(v.ID().getText(), ColumnType.OBJECT, true,
                            parseSubColumns(v.columnDefinition())))
                        .toList();
