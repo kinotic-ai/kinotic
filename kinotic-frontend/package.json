@@ -15,7 +15,7 @@
   "dependencies": {
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.2.0",
-    "@kinotic-ai/core": "^1.2.1",
+    "@kinotic-ai/core": "^1.2.2",
     "@kinotic-ai/idl": "^1.0.9",
     "@kinotic-ai/os-api": "^1.4.0",
     "@kinotic-ai/persistence": "^1.2.1",
