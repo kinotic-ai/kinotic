@@ -119,9 +119,22 @@ export default class NewProjectSidebar extends Vue {
         this.$emit('close');
     }
 
-    goToGitHubSettings(): void {
-        this.$emit('close');
-        this.$router.push('/integrations/github');
+    async linkGitHub(): Promise<void> {
+        try {
+            const url = await Kinotic.githubAppInstallations.startInstall(
+                'openNewProject',
+                this.$route.fullPath
+            );
+            window.location.href = url;
+        } catch (e) {
+            debug('Failed to start GitHub install: %O', e);
+            this.$toast.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: (e as Error)?.message ?? 'Failed to start GitHub install.',
+                life: 5000
+            });
+        }
     }
 
     private resetForm(): void {
@@ -174,7 +187,7 @@ export default class NewProjectSidebar extends Vue {
                     </p>
                     <div class="flex justify-end gap-2">
                         <Button type="button" @click="handleClose" severity="secondary">Cancel</Button>
-                        <Button type="button" severity="primary" @click="goToGitHubSettings">
+                        <Button type="button" severity="primary" @click="linkGitHub">
                             Link GitHub
                         </Button>
                     </div>

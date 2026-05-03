@@ -2,24 +2,29 @@ package org.kinotic.github.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import io.vertx.core.Future;
+import io.vertx.core.json.JsonObject;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.github.api.config.KinoticGithubProperties;
 import org.kinotic.github.api.model.GitHubAppInstallation;
+import org.kinotic.github.api.model.GitHubInstallCompletion;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
+import org.kinotic.github.internal.api.services.client.GitHubApiClient;
 import org.kinotic.os.internal.api.services.AbstractCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Default impl: CRUD over the {@code kinotic_github_app_installation} index plus the
- * {@code startInstall()} entry point and the {@link #findForCurrentOrg()} helper that
- * the SPA polls to render the org-settings "GitHub linked / not linked" card.
- * Inherits org-scope filtering from {@link AbstractCrudService} so callers cannot
- * read installations belonging to other orgs.
+ * three install-flow methods ({@link #startInstall(String, String)},
+ * {@link #completeInstall(long, String)}, {@link #findForCurrentOrg()}). Inherits
+ * org-scope filtering from {@link AbstractCrudService} so callers cannot read or
+ * mutate installations belonging to other orgs.
  */
 @Slf4j
 @Component
@@ -31,24 +36,68 @@ public class DefaultGitHubAppInstallationService
 
     private final KinoticGithubProperties properties;
     private final GitHubInstallStateService stateService;
+    private final GitHubApiClient apiClient;
 
     public DefaultGitHubAppInstallationService(CrudServiceTemplate crudServiceTemplate,
                                                ElasticsearchAsyncClient esAsyncClient,
                                                SecurityContext securityContext,
                                                KinoticGithubProperties properties,
-                                               GitHubInstallStateService stateService) {
+                                               GitHubInstallStateService stateService,
+                                               GitHubApiClient apiClient) {
         super(INDEX, GitHubAppInstallation.class, esAsyncClient, crudServiceTemplate, securityContext);
         this.properties = properties;
         this.stateService = stateService;
+        this.apiClient = apiClient;
     }
 
     @Override
-    public CompletableFuture<String> startInstall() {
+    public CompletableFuture<String> startInstall(String intent, String returnTo) {
         String orgId = requireOrganizationId();
-        String state = stateService.stage(orgId);
+        StagedInstall staged = new StagedInstall()
+                .setOrganizationId(orgId)
+                .setIntent(intent)
+                .setReturnTo(returnTo);
+        String state = stateService.stage(staged);
         return CompletableFuture.completedFuture(
                 "https://github.com/apps/" + properties.getGithub().getAppSlug()
                         + "/installations/new?state=" + state);
+    }
+
+    @Override
+    public CompletableFuture<GitHubInstallCompletion> completeInstall(long installationId, String state) {
+        String callerOrgId = requireOrganizationId();
+        StagedInstall staged = stateService.consume(state);
+        if (staged == null) {
+            return CompletableFuture.failedFuture(new IllegalStateException(
+                    "Install state is missing, expired, or already used. Please re-link GitHub."));
+        }
+        if (!callerOrgId.equals(staged.getOrganizationId())) {
+            return CompletableFuture.failedFuture(new IllegalStateException(
+                    "Install state does not belong to the current organization."));
+        }
+        return apiClient.getInstallation(installationId)
+                .compose(json -> persist(staged.getOrganizationId(), installationId, json))
+                .map(installation -> new GitHubInstallCompletion()
+                        .setInstallation(installation)
+                        .setIntent(staged.getIntent())
+                        .setReturnTo(staged.getReturnTo()))
+                .toCompletionStage().toCompletableFuture();
+    }
+
+    private Future<GitHubAppInstallation> persist(String orgId, long installationId, JsonObject githubJson) {
+        JsonObject account = githubJson.getJsonObject("account");
+        Date now = new Date();
+        GitHubAppInstallation install = new GitHubAppInstallation()
+                .setId(Long.toString(installationId))
+                .setOrganizationId(orgId)
+                .setGithubInstallationId(installationId)
+                .setAccountLogin(account != null ? account.getString("login") : null)
+                .setAccountType(account != null ? account.getString("type") : null)
+                .setCreated(now)
+                .setUpdated(now);
+        // No elevated access needed: the caller is authenticated as a member of `orgId`
+        // (enforced above), so save()'s org-scope check passes naturally.
+        return Future.fromCompletionStage(save(install));
     }
 
     @Override

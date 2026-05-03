@@ -1,22 +1,32 @@
 import { CrudServiceProxy, type IKinotic, type ICrudServiceProxy } from '@kinotic-ai/core'
 import { GitHubAppInstallation } from '@/api/model/github/GitHubAppInstallation'
+import { GitHubInstallCompletion } from '@/api/model/github/GitHubInstallCompletion'
 
 export interface IGitHubAppInstallationService extends ICrudServiceProxy<GitHubAppInstallation> {
 
     /**
-     * Stages a single-use {@code state} token bound to the caller's organization in
-     * a cluster-wide store, then returns the GitHub install URL with that state
-     * embedded. The SPA performs {@code window.location = url}.
-     * <p>
-     * Caller must be authenticated under {@code ORGANIZATION} scope; the org is read
-     * from the participant. The state expires after 10 minutes if unused.
+     * Stages a single-use state token bound to the caller's organization plus the
+     * supplied intent and returnTo, then returns the GitHub install URL with that
+     * state embedded. The SPA performs {@code window.location = url}.
+     *
+     * The intent and returnTo are echoed back from {@link completeInstall} so the
+     * SPA can drive post-install UX (e.g. re-opening the new-project sidebar).
+     * Both may be null for plain "just link GitHub" flows.
      */
-    startInstall(): Promise<string>
+    startInstall(intent: string | null, returnTo: string | null): Promise<string>
+
+    /**
+     * Finalises the install once GitHub has redirected the browser back to the SPA
+     * callback. Consumes the staged state, fetches the install details from GitHub,
+     * persists the {@link GitHubAppInstallation} row, and returns it along with the
+     * original intent and returnTo.
+     */
+    completeInstall(installationId: number, state: string): Promise<GitHubInstallCompletion>
 
     /**
      * Returns the (at-most-one) installation bound to the caller's organization, or
-     * {@code null} if GitHub is not yet linked. Drives the "linked / not linked"
-     * indicator in the org-settings UI.
+     * null if GitHub is not yet linked. Drives the "linked / not linked" indicator
+     * in the org-settings UI.
      */
     findForCurrentOrg(): Promise<GitHubAppInstallation | null>
 
@@ -29,8 +39,12 @@ export class GitHubAppInstallationService extends CrudServiceProxy<GitHubAppInst
         super(kinotic.serviceProxy('org.kinotic.github.api.services.GitHubAppInstallationService'))
     }
 
-    public startInstall(): Promise<string> {
-        return this.serviceProxy.invoke('startInstall', [])
+    public startInstall(intent: string | null, returnTo: string | null): Promise<string> {
+        return this.serviceProxy.invoke('startInstall', [intent, returnTo])
+    }
+
+    public completeInstall(installationId: number, state: string): Promise<GitHubInstallCompletion> {
+        return this.serviceProxy.invoke('completeInstall', [installationId, state])
     }
 
     public findForCurrentOrg(): Promise<GitHubAppInstallation | null> {

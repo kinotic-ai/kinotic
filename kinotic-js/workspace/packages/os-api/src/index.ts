@@ -44,6 +44,7 @@ export * from '@/api/model/iam/SignUpCompleteRequest'
 
 export * from '@/api/model/github/GitHubAppInstallation'
 export * from '@/api/model/github/GitHubInstallationToken'
+export * from '@/api/model/github/GitHubInstallCompletion'
 
 export * from '@/api/model/KinoticProjectConfig'
 

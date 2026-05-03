@@ -282,6 +282,14 @@ const pageRoutes: RouteRecordRaw[] = [
       }
     ]
   },
+  {
+    name: 'github-install-callback',
+    path: '/github/install/callback',
+    component: () => import('@/pages/GitHubInstallCallback.vue'),
+    meta: {
+      showInMainNav: false,
+    } as RouteMeta,
+  },
 ];
 
 export default pageRoutes

@@ -19,10 +19,10 @@ import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Cluster-wide store mapping a single-use {@code state} token to the Kinotic
- * {@code organizationId} that owns it. Used by the GitHub install flow: the published
- * {@code startInstall()} service stages the mapping, and the REST callback handler
- * consumes it (atomically removing the entry) when GitHub redirects back.
+ * Cluster-wide store mapping a single-use {@code state} token to the
+ * {@link StagedInstall} that owns it. The published {@code startInstall()} stages an
+ * entry; the SPA's post-install callback hands the same {@code state} to
+ * {@code completeInstall()}, which atomically pops it.
  * <p>
  * Backed by an Ignite cache when clustering is enabled (entries are partitioned with
  * one backup and TTL-expire after 10 minutes); falls back to a per-node Caffeine
@@ -44,13 +44,13 @@ public class GitHubInstallStateService {
     @Autowired(required = false)
     private Ignite ignite;
 
-    private IgniteCache<String, String> igniteCache;
-    private Cache<String, String> caffeineCache;
+    private IgniteCache<String, StagedInstall> igniteCache;
+    private Cache<String, StagedInstall> caffeineCache;
 
     @PostConstruct
     public void start() {
         if (ignite != null) {
-            CacheConfiguration<String, String> cfg = new CacheConfiguration<>(CACHE_NAME);
+            CacheConfiguration<String, StagedInstall> cfg = new CacheConfiguration<>(CACHE_NAME);
             cfg.setCacheMode(CacheMode.PARTITIONED);
             cfg.setBackups(1);
             cfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.PRIMARY_SYNC);
@@ -70,33 +70,33 @@ public class GitHubInstallStateService {
     }
 
     /**
-     * Stages a fresh state token for {@code organizationId} and returns it. The
-     * caller embeds the returned token in the GitHub install URL's {@code state}
-     * parameter; the GitHub-driven callback hands it to {@link #consume(String)}.
+     * Stages a fresh state token bound to {@code staged} and returns it. The caller
+     * embeds the returned token in the GitHub install URL's {@code state} parameter;
+     * the SPA's post-install callback hands it to {@link #consume(String)}.
      */
-    public String stage(String organizationId) {
+    public String stage(StagedInstall staged) {
         String state = randomState();
         if (igniteCache != null) {
-            igniteCache.put(state, organizationId);
+            igniteCache.put(state, staged);
         } else {
-            caffeineCache.put(state, organizationId);
+            caffeineCache.put(state, staged);
         }
         return state;
     }
 
     /**
-     * Atomically retrieves and removes the organizationId staged for {@code state}.
+     * Atomically retrieves and removes the {@link StagedInstall} for {@code state}.
      * Returns {@code null} when the state is absent, expired, or already consumed —
-     * caller should treat any of these the same: redirect to the SPA's error page.
+     * caller should treat any of these the same: surface an error to the SPA.
      */
-    public String consume(String state) {
+    public StagedInstall consume(String state) {
         if (state == null || state.isBlank()) return null;
         if (igniteCache != null) {
             return igniteCache.getAndRemove(state);
         }
         // Caffeine has no atomic getAndRemove; the small race window doesn't matter
         // because state is single-node-bound when clustering is off.
-        String value = caffeineCache.getIfPresent(state);
+        StagedInstall value = caffeineCache.getIfPresent(state);
         if (value != null) {
             caffeineCache.invalidate(state);
         }
