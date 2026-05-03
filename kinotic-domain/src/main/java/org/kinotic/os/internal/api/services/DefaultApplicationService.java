@@ -62,27 +62,6 @@ public class DefaultApplicationService extends AbstractCrudService<Application> 
     }
 
     @Override
-    public CompletableFuture<Application> create(Application entity) {
-        Validate.notNull(entity, "Entity cannot be null");
-        String id = entity.getId();
-        if (id != null) {
-            return findById(id)
-                    .thenCompose(result -> {
-                        if (result == null) {
-                            return saveSync(entity);
-                        } else {
-                            CompletableFuture<Application> future = new CompletableFuture<>();
-                            future.completeExceptionally(
-                                    new IllegalArgumentException("Application for the id " + id + " already exists"));
-                            return future;
-                        }
-                    });
-        } else {
-            return saveSync(entity);
-        }
-    }
-
-    @Override
     public CompletableFuture<Application> save(Application entity) {
         DomainUtil.validateApplicationId(entity.getId());
         entity.setUpdated(new Date());

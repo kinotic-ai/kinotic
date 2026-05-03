@@ -16,6 +16,16 @@ export interface ICrudServiceProxy<T extends Identifiable<string>> extends IEdit
     create(entity: T): Promise<T>
 
     /**
+     * Creates a new entity if one does not already exist for the given id, and waits for the
+     * change to be visible in search results before returning.
+     * Use this when you need read-your-write consistency immediately after creation.
+     *
+     * @param entity to create if one does not already exist
+     * @return a {@link Promise} containing the new entity after it is searchable, or an error if an exception occurred
+     */
+    createSync(entity: T): Promise<T>
+
+    /**
      * Saves a given entity. Use the returned instance for further operations as the save operation might have changed the
      * entity instance completely.
      *

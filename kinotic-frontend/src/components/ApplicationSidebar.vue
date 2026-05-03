@@ -70,7 +70,7 @@ async function handleSubmit(): Promise<void> {
       updated: null
     }
 
-    const createdApplication = await Kinotic.applications.create(applicationData)
+    const createdApplication = await Kinotic.applications.createSync(applicationData)
 
     toast.add({
       severity: 'success',
