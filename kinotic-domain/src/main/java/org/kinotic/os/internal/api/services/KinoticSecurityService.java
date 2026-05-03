@@ -1,4 +1,4 @@
-package org.kinotic.os.internal.api.services.iam;
+package org.kinotic.os.internal.api.services;
 
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
@@ -8,12 +8,13 @@ import org.kinotic.core.api.security.DefaultParticipant;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityService;
-import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.os.api.utils.DomainUtil;
 import org.kinotic.os.internal.api.model.iam.IamCredential;
+import org.kinotic.os.internal.api.services.iam.IamCredentialService;
+import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -43,7 +44,7 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class IamSecurityService implements SecurityService {
+public class KinoticSecurityService implements SecurityService {
 
     private final IamUserService userService;
     private final IamCredentialService credentialService;
