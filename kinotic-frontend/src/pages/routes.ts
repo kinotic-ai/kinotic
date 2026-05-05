@@ -282,6 +282,18 @@ const pageRoutes: RouteRecordRaw[] = [
       }
     ]
   },
+  {
+    name: 'github-install-callback',
+    path: '/github/install/callback',
+    component: () => import('@/pages/GitHubInstallCallback.vue'),
+    meta: {
+      showInMainNav: false,
+      // Popup-mode callback runs in a fresh window with no STOMP connection;
+      // it just postMessages installation_id + state back to the opener and
+      // closes itself. No platform call, no auth needed.
+      authenticationRequired: false,
+    } as RouteMeta,
+  },
 ];
 
 export default pageRoutes

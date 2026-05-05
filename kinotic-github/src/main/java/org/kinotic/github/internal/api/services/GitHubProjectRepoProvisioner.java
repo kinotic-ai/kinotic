@@ -1,14 +1,12 @@
 package org.kinotic.github.internal.api.services;
 
 import com.github.slugify.Slugify;
-import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.github.api.config.KinoticGithubProperties;
-import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
+import org.kinotic.github.internal.api.services.client.CreatedRepository;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
-import org.kinotic.github.internal.api.services.client.GitHubInstallationTokenCache;
 import org.kinotic.os.api.model.Project;
 import org.kinotic.os.api.model.RepositoryConnectionStatus;
 import org.kinotic.os.api.services.ProjectRepoProvisioner;
@@ -38,7 +36,6 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     private static final int GITHUB_REPO_NAME_MAX = 100;
 
     private final GitHubAppInstallationService installationService;
-    private final GitHubInstallationTokenCache tokenCache;
     private final GitHubApiClient apiClient;
     private final KinoticGithubProperties properties;
 
@@ -55,30 +52,26 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
                         "GitHub is not linked for this organization. "
                         + "Link GitHub before creating a project.");
             }
-            return mintRepoCreateToken(install)
-                    .thenCompose(token -> apiClient.createRepoFromTemplate(
-                                token,
-                                properties.getGithub().getRepoTemplate(),
-                                install.getAccountLogin(),
-                                repoName,
-                                project.getDescription(),
-                                project.isRepoPrivate())
-                            .toCompletionStage().toCompletableFuture())
-                    .thenApply(repoJson -> stamp(project, repoJson));
+            // repoId is null — the repo doesn't exist yet, so we mint an
+            // installation-wide WRITE_CONTENTS token to create it.
+            return apiClient.getToken(install.getGithubInstallationId(), null,
+                                      GitHubApiClient.WRITE_CONTENTS)
+                            .compose(token -> apiClient.createRepoFromTemplate(
+                                    token.getToken(),
+                                    properties.getGithub().getRepoTemplate(),
+                                    install.getAccountLogin(),
+                                    repoName,
+                                    project.getDescription(),
+                                    project.isRepoPrivate()))
+                            .map(repo -> stamp(project, repo))
+                            .toCompletionStage().toCompletableFuture();
         });
     }
 
-    private CompletableFuture<String> mintRepoCreateToken(GitHubAppInstallation install) {
-        return tokenCache.get(install.getGithubInstallationId(), null,
-                              GitHubInstallationTokenCache.WRITE_CONTENTS)
-                         .map(GitHubInstallationTokenCache.Entry::token)
-                         .toCompletionStage().toCompletableFuture();
-    }
-
-    private Project stamp(Project project, JsonObject repoJson) {
-        project.setRepoFullName(repoJson.getString("full_name"));
-        project.setRepoId(repoJson.getLong("id"));
-        project.setDefaultBranch(repoJson.getString("default_branch"));
+    private Project stamp(Project project, CreatedRepository repo) {
+        project.setRepoFullName(repo.fullName());
+        project.setRepoId(repo.id());
+        project.setDefaultBranch(repo.defaultBranch());
         project.setRepositoryConnectionStatus(RepositoryConnectionStatus.CONNECTED);
         log.info("Provisioned GitHub repo {} for project {} (org {})",
                  project.getRepoFullName(), project.getId(), project.getOrganizationId());

@@ -38,6 +38,21 @@ export default class ProjectList extends Vue {
   mounted() {
     this.searchText = (this.$route.query['search-project'] as string) || ''
     this.isInitialized = true
+    this.handleOpenNewProjectQuery()
+  }
+
+  /**
+   * Honors the post-install handoff from `GitHubInstallCallback`. When the user
+   * started a GitHub link from the new-project sidebar, the callback redirects
+   * back here with `?openNewProject=1` so we re-open the sidebar automatically.
+   */
+  private handleOpenNewProjectQuery(): void {
+    if (this.$route.query.openNewProject === '1') {
+      this.showProjectSidebar = true
+      const cleaned = { ...this.$route.query }
+      delete cleaned.openNewProject
+      this.$router.replace({ query: cleaned }).catch(() => {})
+    }
   }
 
   @Watch('$route.query.search-project')
