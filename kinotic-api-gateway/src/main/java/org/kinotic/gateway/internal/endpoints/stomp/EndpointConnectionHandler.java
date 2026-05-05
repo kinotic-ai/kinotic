@@ -1,7 +1,7 @@
 
 
 
-package org.kinotic.gateway.internal.endpoints;
+package org.kinotic.gateway.internal.endpoints.stomp;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -20,7 +20,7 @@ import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.security.Session;
 import org.kinotic.gateway.internal.api.CliSecurityService;
 import org.kinotic.core.internal.utils.EventUtil;
-import org.kinotic.gateway.internal.endpoints.stomp.StompSubscriptionHandler;
+import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.core.JacksonException;
