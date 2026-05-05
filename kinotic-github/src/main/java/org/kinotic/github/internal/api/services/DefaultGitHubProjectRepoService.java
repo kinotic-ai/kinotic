@@ -2,6 +2,7 @@ package org.kinotic.github.internal.api.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.github.api.model.GitHubAppInstallation;
@@ -75,7 +76,7 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
                         "Project " + projectId + " has no GitHub repo provisioned");
             }
             if (!organizationId.equals(project.getOrganizationId())) {
-                throw new IllegalStateException(
+                throw new AuthorizationException(
                         "Project " + projectId + " does not belong to organization " + organizationId);
             }
             return installationService.findForCurrentOrg().thenApply(install -> {
