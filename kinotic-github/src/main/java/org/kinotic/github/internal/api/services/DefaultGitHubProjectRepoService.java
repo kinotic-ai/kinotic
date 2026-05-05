@@ -2,14 +2,14 @@ package org.kinotic.github.internal.api.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.github.api.model.GitHubAppInstallation;
-import org.kinotic.github.api.model.GitHubInstallationToken;
+import org.kinotic.github.api.model.GitHubRepoToken;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.api.services.GitHubProjectRepoService;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
-import org.kinotic.github.internal.api.services.client.GitHubInstallationTokenCache;
 import org.kinotic.os.api.model.Project;
 import org.kinotic.os.api.services.ProjectService;
 import org.springframework.stereotype.Component;
@@ -24,21 +24,20 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
     private final SecurityContext securityContext;
     private final ProjectService projectService;
     private final GitHubAppInstallationService installationService;
-    private final GitHubInstallationTokenCache tokenCache;
     private final GitHubApiClient apiClient;
 
     @Override
-    public CompletableFuture<GitHubInstallationToken> issueRepoToken(String organizationId, String projectId) {
+    public CompletableFuture<GitHubRepoToken> issueRepoToken(String organizationId, String projectId) {
         return resolve(organizationId, projectId).thenCompose(ctx ->
-                tokenCache.get(ctx.install().getGithubInstallationId(),
-                               ctx.project().getRepoId(),
-                               GitHubInstallationTokenCache.READ_CONTENTS)
-                          .map(entry -> new GitHubInstallationToken()
-                                  .setToken(entry.token())
-                                  .setExpiresAt(entry.expiresAt())
-                                  .setCloneUrl("https://github.com/" + ctx.project().getRepoFullName() + ".git")
-                                  .setDefaultBranch(ctx.project().getDefaultBranch()))
-                          .toCompletionStage().toCompletableFuture());
+                apiClient.getToken(ctx.install().getGithubInstallationId(),
+                                   ctx.project().getRepoId(),
+                                   GitHubApiClient.READ_CONTENTS)
+                         .map(base -> new GitHubRepoToken(
+                                 base.getToken(),
+                                 base.getExpiresAt(),
+                                 "https://github.com/" + ctx.project().getRepoFullName() + ".git",
+                                 ctx.project().getDefaultBranch()))
+                         .toCompletionStage().toCompletableFuture());
     }
 
     @Override
@@ -53,13 +52,13 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
 
     private CompletableFuture<Void> createRef(String organizationId, String projectId, String refName, String sha) {
         return resolve(organizationId, projectId).thenCompose(ctx ->
-                tokenCache.get(ctx.install().getGithubInstallationId(),
-                               ctx.project().getRepoId(),
-                               GitHubInstallationTokenCache.WRITE_CONTENTS)
-                          .compose(entry -> apiClient.createRef(entry.token(),
-                                                                ctx.project().getRepoFullName(),
-                                                                refName, sha))
-                          .toCompletionStage().toCompletableFuture());
+                apiClient.getToken(ctx.install().getGithubInstallationId(),
+                                   ctx.project().getRepoId(),
+                                   GitHubApiClient.WRITE_CONTENTS)
+                         .compose(token -> apiClient.createRef(token.getToken(),
+                                                               ctx.project().getRepoFullName(),
+                                                               refName, sha))
+                         .toCompletionStage().toCompletableFuture());
     }
 
     private CompletableFuture<RepoContext> resolve(String organizationId, String projectId) {
@@ -72,7 +71,7 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
                         "Project " + projectId + " has no GitHub repo provisioned");
             }
             if (!organizationId.equals(project.getOrganizationId())) {
-                throw new IllegalStateException(
+                throw new AuthorizationException(
                         "Project " + projectId + " does not belong to organization " + organizationId);
             }
             return installationService.findForCurrentOrg().thenApply(install -> {

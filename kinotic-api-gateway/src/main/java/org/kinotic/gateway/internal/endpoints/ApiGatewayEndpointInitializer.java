@@ -30,10 +30,10 @@ public class ApiGatewayEndpointInitializer {
     @PostConstruct
     public void init(){
         int numToDeploy = kinoticProperties.getMaxNumberOfCoresToUse();
-        log.info("{} Cores will be used for Kinoitc Endpoints", numToDeploy);
+        log.info("{} Cores will be used for Kinotic Endpoints", numToDeploy);
         DeploymentOptions options = new DeploymentOptions().setInstances(numToDeploy);
 
-        log.info("Deploying {} Stomp Server Endpoint(s)", numToDeploy);
+        log.info("Deploying {} API Gateway Endpoint(s)", numToDeploy);
         vertx.deployVerticle(apiGatewayVertcleFactory::createApiGatewayVerticle, options);
 
         if (apiGatewayProperties.getApiGateway().getWebServer().isEnabled()) {

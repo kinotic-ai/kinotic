@@ -1,7 +1,6 @@
 package org.kinotic.github.api.services;
 
-import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.github.api.model.GitHubInstallationToken;
+import org.kinotic.github.api.model.GitHubRepoToken;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -10,7 +9,7 @@ import java.util.concurrent.CompletableFuture;
  * short-lived installation tokens for worker clones, and creating tags or
  * branches as part of release flows.
  */
-@Publish
+// @Publish TODO: not exposed until we are ready to use by worker nodes and security has been finalized
 public interface GitHubProjectRepoService {
 
     /**
@@ -21,11 +20,11 @@ public interface GitHubProjectRepoService {
      * @param organizationId the caller's Kinotic org id; must equal the authenticated
      *                       participant's org
      * @param projectId      the project whose repo the worker wants to clone
-     * @return token + expiry + clone URL, or a failed future if the project has no
-     *         GitHub repo provisioned
+     * @return token + expiry + clone URL + default branch, or a failed future if the
+     *         project has no GitHub repo provisioned
      */
-    CompletableFuture<GitHubInstallationToken> issueRepoToken(String organizationId,
-                                                              String projectId);
+    CompletableFuture<GitHubRepoToken> issueRepoToken(String organizationId,
+                                                      String projectId);
 
     /**
      * Creates a lightweight tag on the project's backing repo.
