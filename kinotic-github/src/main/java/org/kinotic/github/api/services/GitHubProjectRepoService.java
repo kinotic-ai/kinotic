@@ -1,6 +1,5 @@
 package org.kinotic.github.api.services;
 
-import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.github.api.model.GitHubRepoToken;
 
 import java.util.concurrent.CompletableFuture;
@@ -10,7 +9,7 @@ import java.util.concurrent.CompletableFuture;
  * short-lived installation tokens for worker clones, and creating tags or
  * branches as part of release flows.
  */
-@Publish
+// @Publish TODO: not exposed until we are ready to use by worker nodes and security has been finalized
 public interface GitHubProjectRepoService {
 
     /**
