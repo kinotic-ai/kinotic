@@ -67,7 +67,7 @@ onMounted(async () => {
   }
 
   // Same-window flow (popup blocked, or initiated from the settings page directly):
-  // do the completeInstall here and route based on the staged intent/returnTo.
+  // do the completeInstall here and bounce to the SPA-supplied returnTo.
   if (!Number.isFinite(installationId) || !stateValue) {
     state.value = 'error'
     errorMessage.value = 'GitHub redirect was missing the expected parameters.'
@@ -76,12 +76,7 @@ onMounted(async () => {
 
   try {
     const result = await Kinotic.githubAppInstallations.completeInstall(installationId, stateValue)
-    const returnTo = result.returnTo ?? SETTINGS_PATH
-    if (result.intent === 'openNewProject') {
-      router.replace({ path: returnTo, query: { openNewProject: '1' } })
-    } else {
-      router.replace(returnTo)
-    }
+    router.replace(result.returnTo ?? SETTINGS_PATH)
   } catch (e) {
     state.value = 'error'
     errorMessage.value = (e as Error)?.message ?? 'Unknown error completing GitHub install.'

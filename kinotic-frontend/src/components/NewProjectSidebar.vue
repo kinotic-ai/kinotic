@@ -162,7 +162,7 @@ export default class NewProjectSidebar extends Vue {
         this.linkingState = 'awaiting';
 
         // Resolve the GitHub URL asynchronously and aim the popup at it.
-        Kinotic.githubAppInstallations.startInstall('openNewProject', this.$route.fullPath)
+        Kinotic.githubAppInstallations.startInstall(this.buildReturnTo())
             .then(url => {
                 if (this.popup && !this.popup.closed) {
                     this.popup.location.href = url;
@@ -195,16 +195,24 @@ export default class NewProjectSidebar extends Vue {
 
     private async linkGitHubSameWindow(): Promise<void> {
         try {
-            const url = await Kinotic.githubAppInstallations.startInstall(
-                'openNewProject',
-                this.$route.fullPath
-            );
+            const url = await Kinotic.githubAppInstallations.startInstall(this.buildReturnTo());
             window.location.href = url;
         } catch (err) {
             debug('Failed to start GitHub install (same-window fallback): %O', err);
             this.linkingState = 'error';
             this.linkingError = (err as Error)?.message ?? 'Failed to start GitHub install.';
         }
+    }
+
+    /**
+     * Builds the returnTo for the install round-trip: the current route plus
+     * {@code openNewProject=1} so {@code ProjectList} re-opens the sidebar when
+     * the same-window flow lands here. Existing query params are preserved.
+     */
+    private buildReturnTo(): string {
+        const fullPath = this.$route.fullPath;
+        const sep = fullPath.includes('?') ? '&' : '?';
+        return `${fullPath}${sep}openNewProject=1`;
     }
 
     private async onInstallMessage(event: MessageEvent): Promise<void> {

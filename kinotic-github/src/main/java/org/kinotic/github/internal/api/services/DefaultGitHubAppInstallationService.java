@@ -52,11 +52,10 @@ public class DefaultGitHubAppInstallationService
     }
 
     @Override
-    public CompletableFuture<String> startInstall(String intent, String returnTo) {
+    public CompletableFuture<String> startInstall(String returnTo) {
         String orgId = requireOrganizationId();
         StagedInstall staged = new StagedInstall()
                 .setOrganizationId(orgId)
-                .setIntent(intent)
                 .setReturnTo(returnTo);
         String state = stateService.stage(staged);
         return CompletableFuture.completedFuture(
@@ -80,7 +79,6 @@ public class DefaultGitHubAppInstallationService
                 .compose(details -> persist(staged.getOrganizationId(), installationId, details))
                 .map(installation -> new GitHubInstallCompletion()
                         .setInstallation(installation)
-                        .setIntent(staged.getIntent())
                         .setReturnTo(staged.getReturnTo()))
                 .toCompletionStage().toCompletableFuture();
     }

@@ -31,21 +31,20 @@ public interface GitHubAppInstallationService extends IdentifiableCrudService<Gi
      * Caller must be authenticated under {@code ORGANIZATION} scope; the org is read
      * from the participant. The state expires after 10 minutes if unused.
      *
-     * @param intent   free-form string the SPA defines (e.g. {@code "openNewProject"});
-     *                 echoed back from {@link #completeInstall(long, String)}. May be null.
      * @param returnTo SPA route the user wants to land back on after the install
      *                 completes; echoed back from {@link #completeInstall(long, String)}.
-     *                 May be null.
+     *                 May carry query params (e.g. {@code /projects?openNewProject=1})
+     *                 to signal "what to do on arrival" to the destination page. May be null.
      */
-    CompletableFuture<String> startInstall(String intent, String returnTo);
+    CompletableFuture<String> startInstall(String returnTo);
 
     /**
      * Finalises the install once GitHub has redirected the browser back to the SPA
      * callback. Consumes the staged {@code state} (must match what was minted by
-     * {@link #startInstall(String, String)} for the caller's org), fetches the install
+     * {@link #startInstall(String)} for the caller's org), fetches the install
      * details from GitHub, and persists the {@link GitHubAppInstallation} row.
-     * Returns the persisted row plus the original intent and returnTo so the SPA can
-     * drive the post-install UX.
+     * Returns the persisted row plus the original returnTo so the SPA can drive
+     * the post-install UX.
      *
      * @throws IllegalStateException when the state is missing/expired/already consumed,
      *                               or when its staged org doesn't match the caller's org

@@ -25,9 +25,8 @@ public class StagedInstall {
 
     private String organizationId;
 
-    /** Free-form intent string the SPA defines (e.g. {@code "openNewProject"}). */
-    private String intent;
-
-    /** Path the SPA wants to land back on after the install completes. */
+    /** Path the SPA wants to land back on after the install completes. May carry
+     *  query params (e.g. {@code /projects?openNewProject=1}) so the destination
+     *  page can pick up where the user was. */
     private String returnTo;
 }

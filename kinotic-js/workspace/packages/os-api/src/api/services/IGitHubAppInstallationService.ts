@@ -6,14 +6,14 @@ export interface IGitHubAppInstallationService extends ICrudServiceProxy<GitHubA
 
     /**
      * Stages a single-use state token bound to the caller's organization plus the
-     * supplied intent and returnTo, then returns the GitHub install URL with that
-     * state embedded. The SPA performs {@code window.location = url}.
+     * supplied returnTo, then returns the GitHub install URL with that state
+     * embedded. The SPA performs {@code window.location = url}.
      *
-     * The intent and returnTo are echoed back from {@link completeInstall} so the
-     * SPA can drive post-install UX (e.g. re-opening the new-project sidebar).
-     * Both may be null for plain "just link GitHub" flows.
+     * returnTo is echoed back from {@link completeInstall} and may carry query
+     * params (e.g. {@code /projects?openNewProject=1}) so the destination page
+     * can pick up where the user was.
      */
-    startInstall(intent: string | null, returnTo: string | null): Promise<string>
+    startInstall(returnTo: string | null): Promise<string>
 
     /**
      * Finalises the install once GitHub has redirected the browser back to the SPA
@@ -39,8 +39,8 @@ export class GitHubAppInstallationService extends CrudServiceProxy<GitHubAppInst
         super(kinotic.serviceProxy('org.kinotic.github.api.services.GitHubAppInstallationService'))
     }
 
-    public startInstall(intent: string | null, returnTo: string | null): Promise<string> {
-        return this.serviceProxy.invoke('startInstall', [intent, returnTo])
+    public startInstall(returnTo: string | null): Promise<string> {
+        return this.serviceProxy.invoke('startInstall', [returnTo])
     }
 
     public completeInstall(installationId: number, state: string): Promise<GitHubInstallCompletion> {

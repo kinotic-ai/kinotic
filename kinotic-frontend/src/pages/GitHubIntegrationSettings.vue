@@ -56,9 +56,7 @@ async function link() {
   busy.value = true
   error.value = null
   try {
-    // No intent — user is on the settings page; the post-install flow lands them
-    // back here naturally.
-    const url = await installations.startInstall(null, '/integrations/github')
+    const url = await installations.startInstall('/integrations/github')
     window.location.href = url
   } catch (e) {
     error.value = (e as Error).message
