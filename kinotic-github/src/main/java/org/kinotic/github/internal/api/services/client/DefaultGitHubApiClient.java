@@ -23,18 +23,11 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Vert.x WebClient wrapper for {@code api.github.com}. The single concentration point
- * for HTTP: builds requests, attaches the right {@code Authorization: Bearer ...}
- * header (App JWT for install-token mint, install token for everything else), parses
- * responses into typed records, surfaces typed errors. Mirrors the structure of
- * {@code DefaultElasticVertxClient} in kinotic-persistence.
- * <p>
- * Installation tokens are cached in-process keyed by
- * {@code (installationId, repoId, permissions)} so a clone-scoped token is not
- * reused for ref creation. Concurrent callers for the same key share the in-flight
- * mint; on every read we additionally enforce that the remaining lifetime exceeds
- * {@link #MIN_RETURNED_TOKEN_LIFETIME} so a worker is never handed a token about
- * to die mid-clone.
+ * Vert.x WebClient backed implementation of {@link GitHubApiClient}. Builds
+ * authenticated requests (App JWT for install-token mint, install token for
+ * everything else), parses responses into typed records, and backs the token
+ * cache contract with an in-process Caffeine {@link AsyncLoadingCache}. Mirrors
+ * the structure of {@code DefaultElasticVertxClient} in kinotic-persistence.
  */
 @Slf4j
 @Component
@@ -85,14 +78,6 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
         }
     }
 
-    /**
-     * Creates a ref on {@code repoFullName}.
-     *
-     * @param refName fully qualified ref, e.g. {@code refs/tags/v1.2.0} or
-     *                {@code refs/heads/release-2026Q2}
-     * @return a future that completes successfully on 201, or also on 422 "Reference
-     * already exists" (idempotent)
-     */
     @Override
     public Future<Void> createRef(String installationToken,
                                   String repoFullName,
@@ -113,20 +98,6 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                 });
     }
 
-    /**
-     * Creates a new repository under {@code owner} from the given template,
-     * via {@code POST /repos/{template_owner}/{template_repo}/generate}. The App
-     * must have {@code Administration: Write} permission on the target owner
-     * for this to succeed.
-     *
-     * @param installationToken token scoped to the installation that has access to
-     *                          the template and the target owner
-     * @param templateFullName  {@code owner/repo} of the template
-     * @param owner             target account login (user or org)
-     * @param name              new repo name (must satisfy GitHub's name rules)
-     * @param description       optional repo description
-     * @param isPrivate         visibility of the new repo
-     */
     @Override
     public Future<CreatedRepository> createRepoFromTemplate(String installationToken,
                                                             String templateFullName,
@@ -173,14 +144,6 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                 });
     }
 
-    /**
-     * Returns a cached or freshly-minted installation access token whose remaining
-     * life exceeds {@link #MIN_RETURNED_TOKEN_LIFETIME}. Restricting {@code repoId} +
-     * {@code permissions} produces a token that cannot exceed the requested permissions
-     * even if intercepted; pass {@code null} for {@code repoId} when the operation
-     * targets the installation rather than a specific repo (e.g. creating a new repo
-     * from a template).
-     */
     @Override
     public Future<GitHubToken> getToken(long installationId,
                                         Long repoId,
