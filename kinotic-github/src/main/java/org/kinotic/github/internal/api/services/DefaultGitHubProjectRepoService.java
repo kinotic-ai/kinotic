@@ -9,6 +9,7 @@ import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubRepoToken;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.api.services.GitHubProjectRepoService;
+import org.kinotic.github.internal.api.services.client.DefaultGitHubApiClient;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
 import org.kinotic.os.api.model.Project;
 import org.kinotic.os.api.services.ProjectService;
@@ -30,8 +31,8 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
     public CompletableFuture<GitHubRepoToken> issueRepoToken(String organizationId, String projectId) {
         return resolve(organizationId, projectId).thenCompose(ctx ->
                 apiClient.getToken(ctx.install().getGithubInstallationId(),
-                                               ctx.project().getRepoId(),
-                                               GitHubApiClient.READ_CONTENTS)
+                                   ctx.project().getRepoId(),
+                                   DefaultGitHubApiClient.READ_CONTENTS)
                          .map(base -> new GitHubRepoToken(
                                  base.getToken(),
                                  base.getExpiresAt(),
@@ -53,8 +54,8 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
     private CompletableFuture<Void> createRef(String organizationId, String projectId, String refName, String sha) {
         return resolve(organizationId, projectId).thenCompose(ctx ->
                 apiClient.getToken(ctx.install().getGithubInstallationId(),
-                                               ctx.project().getRepoId(),
-                                               GitHubApiClient.WRITE_CONTENTS)
+                                   ctx.project().getRepoId(),
+                                   DefaultGitHubApiClient.WRITE_CONTENTS)
                          .compose(token -> apiClient.createRef(token.getToken(),
                                                                ctx.project().getRepoFullName(),
                                                                refName, sha))

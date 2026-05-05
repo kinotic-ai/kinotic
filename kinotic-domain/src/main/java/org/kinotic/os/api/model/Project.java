@@ -1,9 +1,10 @@
 package org.kinotic.os.api.model;
 
-import java.util.Date;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.Date;
 
 @Getter
 @Setter
@@ -46,7 +47,7 @@ public class Project implements ApplicationScoped<String> {
     private String repoFullName;
 
     /**
-     * GitHub's stable repository id. Survives renames on the GitHub side.
+     * GitHub's stable repository id. Survives rename on the GitHub side.
      */
     private Long repoId;
 

@@ -21,9 +21,7 @@ import java.io.Serializable;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class StagedInstall implements Serializable {
-
-    private static final long serialVersionUID = 1L;
+public class StagedInstall {
 
     private String organizationId;
 

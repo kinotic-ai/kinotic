@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.github.api.config.KinoticGithubProperties;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.internal.api.services.client.CreatedRepository;
+import org.kinotic.github.internal.api.services.client.DefaultGitHubApiClient;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
 import org.kinotic.os.api.model.Project;
 import org.kinotic.os.api.model.RepositoryConnectionStatus;
@@ -55,7 +56,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
             // repoId is null — the repo doesn't exist yet, so we mint an
             // installation-wide WRITE_CONTENTS token to create it.
             return apiClient.getToken(install.getGithubInstallationId(), null,
-                                      GitHubApiClient.WRITE_CONTENTS)
+                                      DefaultGitHubApiClient.WRITE_CONTENTS)
                             .compose(token -> apiClient.createRepoFromTemplate(
                                     token.getToken(),
                                     properties.getGithub().getRepoTemplate(),

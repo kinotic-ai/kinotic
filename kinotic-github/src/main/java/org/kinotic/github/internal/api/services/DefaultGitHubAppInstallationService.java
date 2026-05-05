@@ -95,8 +95,6 @@ public class DefaultGitHubAppInstallationService
                 .setAccountType(details.accountType())
                 .setCreated(now)
                 .setUpdated(now);
-        // No elevated access needed: the caller is authenticated as a member of `orgId`
-        // (enforced above), so save()'s org-scope check passes naturally.
         return Future.fromCompletionStage(save(install));
     }
 
