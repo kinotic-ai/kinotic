@@ -109,8 +109,11 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                 .compose(resp -> {
                     int code = resp.statusCode();
                     if (code == 201) return Future.succeededFuture();
-                    if (code == 422 && bodyMentions(resp, "Reference already exists")) {
-                        return Future.succeededFuture();
+                    if (code == 422) {
+                        String respBody = resp.bodyAsString();
+                        if (respBody != null && respBody.contains("Reference already exists")) {
+                            return Future.succeededFuture();
+                        }
                     }
                     return Future.failedFuture(httpError("createRef", resp));
                 });
@@ -161,7 +164,12 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
     @Override
     public Future<InstallationDetails> getInstallation(long installationId) {
         return jwtAuthedGet("/app/installations/" + installationId)
-                .compose(resp -> expectJsonObject(resp, "getInstallation"))
+                .compose(resp -> {
+                    if (resp.statusCode() / 100 != 2) {
+                        return Future.<JsonObject>failedFuture(httpError("getInstallation", resp));
+                    }
+                    return Future.succeededFuture(resp.bodyAsJsonObject());
+                })
                 .map(json -> {
                     JsonObject account = json.getJsonObject("account");
                     return new InstallationDetails(
@@ -192,18 +200,6 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
         return Future.fromCompletionStage(loaded);
     }
 
-
-    private boolean bodyMentions(HttpResponse<Buffer> resp, String needle) {
-        String body = resp.bodyAsString();
-        return body != null && body.contains(needle);
-    }
-
-    private Future<JsonObject> expectJsonObject(HttpResponse<Buffer> resp, String op) {
-        if (resp.statusCode() / 100 != 2) {
-            return Future.failedFuture(httpError(op, resp));
-        }
-        return Future.succeededFuture(resp.bodyAsJsonObject());
-    }
 
     private boolean hasEnoughLife(GitHubToken token) {
         return token.getExpiresAt().isAfter(Instant.now().plus(MIN_RETURNED_TOKEN_LIFETIME));
