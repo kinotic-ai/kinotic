@@ -21,7 +21,7 @@ import java.util.Map;
  * Vert.x WebClient wrapper for {@code api.github.com}. The single concentration point
  * for HTTP: builds requests, attaches the right {@code Authorization: Bearer ...}
  * header (App JWT for install-token mint, install token for everything else), parses
- * responses, surfaces typed errors. Mirrors the structure of
+ * responses into typed records, surfaces typed errors. Mirrors the structure of
  * {@code DefaultElasticVertxClient} in kinotic-persistence.
  */
 @Slf4j
@@ -60,9 +60,16 @@ public class GitHubApiClient {
 
     // ── Installation lookup ───────────────────────────────────────────────────
 
-    public Future<JsonObject> getInstallation(long installationId) {
+    public Future<InstallationDetails> getInstallation(long installationId) {
         return jwtAuthedGet("/app/installations/" + installationId)
-                .compose(resp -> expectJsonObject(resp, "getInstallation"));
+                .compose(resp -> expectJsonObject(resp, "getInstallation"))
+                .map(json -> {
+                    JsonObject account = json.getJsonObject("account");
+                    return new InstallationDetails(
+                            json.getLong("id"),
+                            account != null ? account.getString("login") : null,
+                            account != null ? account.getString("type") : null);
+                });
     }
 
     /**
@@ -109,14 +116,13 @@ public class GitHubApiClient {
      * @param name              new repo name (must satisfy GitHub's name rules)
      * @param description       optional repo description
      * @param isPrivate         visibility of the new repo
-     * @return the created repo JSON ({@code id}, {@code full_name}, {@code default_branch}, ...)
      */
-    public Future<JsonObject> createRepoFromTemplate(String installationToken,
-                                                     String templateFullName,
-                                                     String owner,
-                                                     String name,
-                                                     String description,
-                                                     boolean isPrivate) {
+    public Future<CreatedRepository> createRepoFromTemplate(String installationToken,
+                                                            String templateFullName,
+                                                            String owner,
+                                                            String name,
+                                                            String description,
+                                                            boolean isPrivate) {
         JsonObject body = new JsonObject()
                 .put("owner", owner)
                 .put("name", name)
@@ -128,7 +134,11 @@ public class GitHubApiClient {
         return tokenAuthedPost("/repos/" + templateFullName + "/generate", installationToken, body)
                 .compose(resp -> {
                     if (resp.statusCode() == 201) {
-                        return Future.succeededFuture(resp.bodyAsJsonObject());
+                        JsonObject json = resp.bodyAsJsonObject();
+                        return Future.succeededFuture(new CreatedRepository(
+                                json.getLong("id"),
+                                json.getString("full_name"),
+                                json.getString("default_branch")));
                     }
                     return Future.failedFuture(httpError("createRepoFromTemplate", resp));
                 });
@@ -218,4 +228,10 @@ public class GitHubApiClient {
     }
 
     public record MintedToken(String token, Instant expiresAt) {}
+
+    /** Subset of GitHub's installation JSON the platform reads. */
+    public record InstallationDetails(Long id, String accountLogin, String accountType) {}
+
+    /** Subset of GitHub's repository JSON returned by {@link #createRepoFromTemplate}. */
+    public record CreatedRepository(Long id, String fullName, String defaultBranch) {}
 }

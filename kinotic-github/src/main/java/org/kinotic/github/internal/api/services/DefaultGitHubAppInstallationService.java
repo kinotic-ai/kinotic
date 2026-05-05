@@ -3,15 +3,16 @@ package org.kinotic.github.internal.api.services;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
-import io.vertx.core.json.JsonObject;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.github.api.config.KinoticGithubProperties;
 import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubInstallCompletion;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
+import org.kinotic.github.internal.api.services.client.GitHubApiClient.InstallationDetails;
 import org.kinotic.os.internal.api.services.AbstractCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -72,11 +73,11 @@ public class DefaultGitHubAppInstallationService
                     "Install state is missing, expired, or already used. Please re-link GitHub."));
         }
         if (!callerOrgId.equals(staged.getOrganizationId())) {
-            return CompletableFuture.failedFuture(new IllegalStateException(
+            return CompletableFuture.failedFuture(new AuthorizationException(
                     "Install state does not belong to the current organization."));
         }
         return apiClient.getInstallation(installationId)
-                .compose(json -> persist(staged.getOrganizationId(), installationId, json))
+                .compose(details -> persist(staged.getOrganizationId(), installationId, details))
                 .map(installation -> new GitHubInstallCompletion()
                         .setInstallation(installation)
                         .setIntent(staged.getIntent())
@@ -84,15 +85,14 @@ public class DefaultGitHubAppInstallationService
                 .toCompletionStage().toCompletableFuture();
     }
 
-    private Future<GitHubAppInstallation> persist(String orgId, long installationId, JsonObject githubJson) {
-        JsonObject account = githubJson.getJsonObject("account");
+    private Future<GitHubAppInstallation> persist(String orgId, long installationId, InstallationDetails details) {
         Date now = new Date();
         GitHubAppInstallation install = new GitHubAppInstallation()
                 .setId(Long.toString(installationId))
                 .setOrganizationId(orgId)
                 .setGithubInstallationId(installationId)
-                .setAccountLogin(account != null ? account.getString("login") : null)
-                .setAccountType(account != null ? account.getString("type") : null)
+                .setAccountLogin(details.accountLogin())
+                .setAccountType(details.accountType())
                 .setCreated(now)
                 .setUpdated(now);
         // No elevated access needed: the caller is authenticated as a member of `orgId`

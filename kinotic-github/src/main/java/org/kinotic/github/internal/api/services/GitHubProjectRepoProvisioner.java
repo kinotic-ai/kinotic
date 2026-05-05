@@ -1,13 +1,13 @@
 package org.kinotic.github.internal.api.services;
 
 import com.github.slugify.Slugify;
-import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.github.api.config.KinoticGithubProperties;
 import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
+import org.kinotic.github.internal.api.services.client.GitHubApiClient.CreatedRepository;
 import org.kinotic.github.internal.api.services.client.GitHubInstallationTokenCache;
 import org.kinotic.os.api.model.Project;
 import org.kinotic.os.api.model.RepositoryConnectionStatus;
@@ -75,10 +75,10 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
                          .toCompletionStage().toCompletableFuture();
     }
 
-    private Project stamp(Project project, JsonObject repoJson) {
-        project.setRepoFullName(repoJson.getString("full_name"));
-        project.setRepoId(repoJson.getLong("id"));
-        project.setDefaultBranch(repoJson.getString("default_branch"));
+    private Project stamp(Project project, CreatedRepository repo) {
+        project.setRepoFullName(repo.fullName());
+        project.setRepoId(repo.id());
+        project.setDefaultBranch(repo.defaultBranch());
         project.setRepositoryConnectionStatus(RepositoryConnectionStatus.CONNECTED);
         log.info("Provisioned GitHub repo {} for project {} (org {})",
                  project.getRepoFullName(), project.getId(), project.getOrganizationId());
