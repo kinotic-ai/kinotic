@@ -1,5 +1,7 @@
 package org.kinotic.github.internal.api.services.client;
 
+import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -12,11 +14,13 @@ import io.vertx.ext.web.client.WebClientOptions;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.github.api.model.GitHubInstallationToken;
+import org.kinotic.github.api.model.GitHubToken;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Vert.x WebClient wrapper for {@code api.github.com}. The single concentration point
@@ -24,6 +28,13 @@ import java.util.Map;
  * header (App JWT for install-token mint, install token for everything else), parses
  * responses into typed records, surfaces typed errors. Mirrors the structure of
  * {@code DefaultElasticVertxClient} in kinotic-persistence.
+ * <p>
+ * Installation tokens are cached in-process keyed by
+ * {@code (installationId, repoId, permissions)} so a clone-scoped token is not
+ * reused for ref creation. Concurrent callers for the same key share the in-flight
+ * mint; on every read we additionally enforce that the remaining lifetime exceeds
+ * {@link #MIN_RETURNED_TOKEN_LIFETIME} so a worker is never handed a token about
+ * to die mid-clone.
  */
 @Slf4j
 @Component
@@ -36,9 +47,21 @@ public class GitHubApiClient {
     private static final String API_VERSION = "2022-11-28";
     private static final String USER_AGENT = "kinotic-platform";
 
+    /** Standard scopes used in the platform. Single source so the cache key dedups them. */
+    public static final Map<String, String> READ_CONTENTS = Map.of("contents", "read");
+    public static final Map<String, String> WRITE_CONTENTS = Map.of("contents", "write");
+
+    /**
+     * Never return a token with less than this much life remaining; evict and reload
+     * first. 10 minutes is comfortably above the slowest expected clone of a
+     * multi-GB repo.
+     */
+    private static final Duration MIN_RETURNED_TOKEN_LIFETIME = Duration.ofMinutes(10);
+
     private final Vertx vertx;
     private final GitHubAppJwtFactory jwtFactory;
     private WebClient webClient;
+    private AsyncLoadingCache<TokenKey, GitHubToken> tokenCache;
 
     public GitHubApiClient(Vertx vertx, GitHubAppJwtFactory jwtFactory) {
         this.vertx = vertx;
@@ -50,6 +73,15 @@ public class GitHubApiClient {
         this.webClient = WebClient.create(vertx, new WebClientOptions()
                 .setSsl(true)
                 .setUserAgent(USER_AGENT));
+        // expireAfterWrite matches GitHub's 60-minute issued lifetime; the per-read
+        // freshness check below evicts entries earlier when they're about to die.
+        this.tokenCache = Caffeine.newBuilder()
+                .expireAfterWrite(Duration.ofMinutes(50))
+                .maximumSize(10_000)
+                .buildAsync((TokenKey key, java.util.concurrent.Executor _) ->
+                        mintInstallationToken(key.installationId(), key.repoId(), key.permissions())
+                                .toCompletionStage()
+                                .toCompletableFuture());
     }
 
     @PreDestroy
@@ -74,18 +106,28 @@ public class GitHubApiClient {
     }
 
     /**
-     * Mints a scoped installation access token. Restricting {@code repoId} +
-     * {@code permissions} produces a token that cannot exceed the requested
-     * permissions even if intercepted.
-     * <p>
-     * The returned {@link GitHubInstallationToken} carries only {@code token} and
-     * {@code expiresAt} — the api client doesn't know about Kinotic projects, so
-     * worker-clone fields ({@code cloneUrl}, {@code defaultBranch}) stay null and
-     * are filled in by the RPC service that hands the token to a worker.
+     * Returns a cached or freshly-minted installation access token whose remaining
+     * life exceeds {@link #MIN_RETURNED_TOKEN_LIFETIME}. Restricting {@code repoId} +
+     * {@code permissions} produces a token that cannot exceed the requested permissions
+     * even if intercepted; pass {@code null} for {@code repoId} when the operation
+     * targets the installation rather than a specific repo (e.g. creating a new repo
+     * from a template).
      */
-    public Future<GitHubInstallationToken> createInstallationToken(long installationId,
-                                                                   Long repoId,
-                                                                   Map<String, String> permissions) {
+    public Future<GitHubToken> getInstallationToken(long installationId,
+                                                    Long repoId,
+                                                    Map<String, String> permissions) {
+        TokenKey key = new TokenKey(installationId, repoId, permissions);
+        GitHubToken peek = tokenCache.synchronous().getIfPresent(key);
+        if (peek != null && !hasEnoughLife(peek)) {
+            tokenCache.synchronous().invalidate(key);
+        }
+        CompletableFuture<GitHubToken> loaded = tokenCache.get(key);
+        return Future.fromCompletionStage(loaded);
+    }
+
+    private Future<GitHubToken> mintInstallationToken(long installationId,
+                                                      Long repoId,
+                                                      Map<String, String> permissions) {
         JsonObject body = new JsonObject();
         if (repoId != null) {
             body.put("repository_ids", new JsonArray().add(repoId));
@@ -101,10 +143,14 @@ public class GitHubApiClient {
                         return Future.failedFuture(httpError("createInstallationToken", resp));
                     }
                     JsonObject json = resp.bodyAsJsonObject();
-                    return Future.succeededFuture(new GitHubInstallationToken()
-                            .setToken(json.getString("token"))
-                            .setExpiresAt(Instant.parse(json.getString("expires_at"))));
+                    return Future.succeededFuture(new GitHubToken(
+                            json.getString("token"),
+                            Instant.parse(json.getString("expires_at"))));
                 });
+    }
+
+    private static boolean hasEnoughLife(GitHubToken token) {
+        return token.getExpiresAt().isAfter(Instant.now().plus(MIN_RETURNED_TOKEN_LIFETIME));
     }
 
     // ── Repository creation from a template ───────────────────────────────────
@@ -232,4 +278,11 @@ public class GitHubApiClient {
         String body = resp.bodyAsString();
         return body != null && body.contains(needle);
     }
+
+    /**
+     * Token-cache key. Permissions ride as a {@code Map.of(...)} immutable map so that
+     * {@link #READ_CONTENTS} and {@code Map.of("contents","read")} collide on the same
+     * cache slot.
+     */
+    private record TokenKey(long installationId, Long repoId, Map<String, String> permissions) {}
 }
