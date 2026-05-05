@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.github.api.config.KinoticGithubProperties;
 import org.kinotic.github.api.model.GitHubAppInstallation;
+import org.kinotic.github.api.model.GitHubInstallationToken;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.internal.api.services.client.CreatedRepository;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
@@ -71,7 +72,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     private CompletableFuture<String> mintRepoCreateToken(GitHubAppInstallation install) {
         return tokenCache.get(install.getGithubInstallationId(), null,
                               GitHubInstallationTokenCache.WRITE_CONTENTS)
-                         .map(GitHubInstallationTokenCache.Entry::token)
+                         .map(GitHubInstallationToken::getToken)
                          .toCompletionStage().toCompletableFuture();
     }
 

@@ -33,9 +33,12 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
                 tokenCache.get(ctx.install().getGithubInstallationId(),
                                ctx.project().getRepoId(),
                                GitHubInstallationTokenCache.READ_CONTENTS)
-                          .map(entry -> new GitHubInstallationToken()
-                                  .setToken(entry.token())
-                                  .setExpiresAt(entry.expiresAt())
+                          // Defensive copy: cached token has worker-clone fields null and is shared
+                          // across all callers for this (install, repo, perms) key. Build a fresh
+                          // instance so stamping cloneUrl/defaultBranch doesn't leak into the cache.
+                          .map(cached -> new GitHubInstallationToken()
+                                  .setToken(cached.getToken())
+                                  .setExpiresAt(cached.getExpiresAt())
                                   .setCloneUrl("https://github.com/" + ctx.project().getRepoFullName() + ".git")
                                   .setDefaultBranch(ctx.project().getDefaultBranch()))
                           .toCompletionStage().toCompletableFuture());
@@ -56,7 +59,7 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
                 tokenCache.get(ctx.install().getGithubInstallationId(),
                                ctx.project().getRepoId(),
                                GitHubInstallationTokenCache.WRITE_CONTENTS)
-                          .compose(entry -> apiClient.createRef(entry.token(),
+                          .compose(token -> apiClient.createRef(token.getToken(),
                                                                 ctx.project().getRepoFullName(),
                                                                 refName, sha))
                           .toCompletionStage().toCompletableFuture());

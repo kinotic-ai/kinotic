@@ -12,6 +12,7 @@ import io.vertx.ext.web.client.WebClientOptions;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.github.api.model.GitHubInstallationToken;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -76,10 +77,15 @@ public class GitHubApiClient {
      * Mints a scoped installation access token. Restricting {@code repoId} +
      * {@code permissions} produces a token that cannot exceed the requested
      * permissions even if intercepted.
+     * <p>
+     * The returned {@link GitHubInstallationToken} carries only {@code token} and
+     * {@code expiresAt} — the api client doesn't know about Kinotic projects, so
+     * worker-clone fields ({@code cloneUrl}, {@code defaultBranch}) stay null and
+     * are filled in by the RPC service that hands the token to a worker.
      */
-    public Future<MintedToken> createInstallationToken(long installationId,
-                                                       Long repoId,
-                                                       Map<String, String> permissions) {
+    public Future<GitHubInstallationToken> createInstallationToken(long installationId,
+                                                                   Long repoId,
+                                                                   Map<String, String> permissions) {
         JsonObject body = new JsonObject();
         if (repoId != null) {
             body.put("repository_ids", new JsonArray().add(repoId));
@@ -95,9 +101,9 @@ public class GitHubApiClient {
                         return Future.failedFuture(httpError("createInstallationToken", resp));
                     }
                     JsonObject json = resp.bodyAsJsonObject();
-                    return Future.succeededFuture(new MintedToken(
-                            json.getString("token"),
-                            Instant.parse(json.getString("expires_at"))));
+                    return Future.succeededFuture(new GitHubInstallationToken()
+                            .setToken(json.getString("token"))
+                            .setExpiresAt(Instant.parse(json.getString("expires_at"))));
                 });
     }
 

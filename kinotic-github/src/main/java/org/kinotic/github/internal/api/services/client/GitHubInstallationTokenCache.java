@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.github.api.model.GitHubInstallationToken;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -23,6 +24,10 @@ import java.util.concurrent.CompletableFuture;
  * additionally enforce that the remaining lifetime exceeds
  * {@link #MIN_RETURNED_TOKEN_LIFETIME}, evicting and reloading when it doesn't —
  * never hand a worker a token that's about to die mid-clone.
+ * <p>
+ * Cached entries carry only {@code token} and {@code expiresAt}; the worker-clone
+ * fields ({@code cloneUrl}, {@code defaultBranch}) are project-specific and stamped
+ * on by the caller before the token is handed back over RPC.
  */
 @Slf4j
 @Component
@@ -39,7 +44,7 @@ public class GitHubInstallationTokenCache {
      */
     private static final Duration MIN_RETURNED_TOKEN_LIFETIME = Duration.ofMinutes(10);
 
-    private final AsyncLoadingCache<Key, Entry> cache;
+    private final AsyncLoadingCache<Key, GitHubInstallationToken> cache;
 
     public GitHubInstallationTokenCache(GitHubApiClient apiClient) {
         this.cache = Caffeine.newBuilder()
@@ -49,7 +54,6 @@ public class GitHubInstallationTokenCache {
                         apiClient.createInstallationToken(key.installationId(),
                                                           key.repoId(),
                                                           key.permissions())
-                                 .map(t -> new Entry(t.token(), t.expiresAt()))
                                  .toCompletionStage()
                                  .toCompletableFuture());
     }
@@ -58,18 +62,18 @@ public class GitHubInstallationTokenCache {
      * Returns a token whose remaining life exceeds {@link #MIN_RETURNED_TOKEN_LIFETIME},
      * minting a fresh one (single-flight) when the cache can't satisfy that.
      */
-    public Future<Entry> get(long installationId, Long repoId, Map<String, String> permissions) {
+    public Future<GitHubInstallationToken> get(long installationId, Long repoId, Map<String, String> permissions) {
         Key key = new Key(installationId, repoId, permissions);
-        Entry peek = cache.synchronous().getIfPresent(key);
+        GitHubInstallationToken peek = cache.synchronous().getIfPresent(key);
         if (peek != null && !hasEnoughLife(peek)) {
             cache.synchronous().invalidate(key);
         }
-        CompletableFuture<Entry> loaded = cache.get(key);
+        CompletableFuture<GitHubInstallationToken> loaded = cache.get(key);
         return Future.fromCompletionStage(loaded);
     }
 
-    private static boolean hasEnoughLife(Entry entry) {
-        return entry.expiresAt().isAfter(Instant.now().plus(MIN_RETURNED_TOKEN_LIFETIME));
+    private static boolean hasEnoughLife(GitHubInstallationToken token) {
+        return token.getExpiresAt().isAfter(Instant.now().plus(MIN_RETURNED_TOKEN_LIFETIME));
     }
 
     /**
@@ -78,5 +82,4 @@ public class GitHubInstallationTokenCache {
      * collide on the same cache slot.
      */
     public record Key(long installationId, Long repoId, Map<String, String> permissions) {}
-    public record Entry(String token, Instant expiresAt) {}
 }
