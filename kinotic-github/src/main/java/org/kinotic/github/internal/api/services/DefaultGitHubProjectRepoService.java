@@ -29,7 +29,7 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
     @Override
     public CompletableFuture<GitHubRepoToken> issueRepoToken(String organizationId, String projectId) {
         return resolve(organizationId, projectId).thenCompose(ctx ->
-                apiClient.getInstallationToken(ctx.install().getGithubInstallationId(),
+                apiClient.getToken(ctx.install().getGithubInstallationId(),
                                                ctx.project().getRepoId(),
                                                GitHubApiClient.READ_CONTENTS)
                          .map(base -> new GitHubRepoToken(
@@ -52,7 +52,7 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
 
     private CompletableFuture<Void> createRef(String organizationId, String projectId, String refName, String sha) {
         return resolve(organizationId, projectId).thenCompose(ctx ->
-                apiClient.getInstallationToken(ctx.install().getGithubInstallationId(),
+                apiClient.getToken(ctx.install().getGithubInstallationId(),
                                                ctx.project().getRepoId(),
                                                GitHubApiClient.WRITE_CONTENTS)
                          .compose(token -> apiClient.createRef(token.getToken(),

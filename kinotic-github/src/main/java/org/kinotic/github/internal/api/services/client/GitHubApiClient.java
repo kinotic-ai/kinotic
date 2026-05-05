@@ -79,7 +79,7 @@ public class GitHubApiClient {
                 .expireAfterWrite(Duration.ofMinutes(50))
                 .maximumSize(10_000)
                 .buildAsync((TokenKey key, java.util.concurrent.Executor _) ->
-                        mintInstallationToken(key.installationId(), key.repoId(), key.permissions())
+                        mintToken(key.installationId(), key.repoId(), key.permissions())
                                 .toCompletionStage()
                                 .toCompletableFuture());
     }
@@ -113,9 +113,9 @@ public class GitHubApiClient {
      * targets the installation rather than a specific repo (e.g. creating a new repo
      * from a template).
      */
-    public Future<GitHubToken> getInstallationToken(long installationId,
-                                                    Long repoId,
-                                                    Map<String, String> permissions) {
+    public Future<GitHubToken> getToken(long installationId,
+                                        Long repoId,
+                                        Map<String, String> permissions) {
         TokenKey key = new TokenKey(installationId, repoId, permissions);
         GitHubToken peek = tokenCache.synchronous().getIfPresent(key);
         if (peek != null && !hasEnoughLife(peek)) {
@@ -125,9 +125,9 @@ public class GitHubApiClient {
         return Future.fromCompletionStage(loaded);
     }
 
-    private Future<GitHubToken> mintInstallationToken(long installationId,
-                                                      Long repoId,
-                                                      Map<String, String> permissions) {
+    private Future<GitHubToken> mintToken(long installationId,
+                                          Long repoId,
+                                          Map<String, String> permissions) {
         JsonObject body = new JsonObject();
         if (repoId != null) {
             body.put("repository_ids", new JsonArray().add(repoId));
@@ -140,7 +140,7 @@ public class GitHubApiClient {
         return jwtAuthedPost("/app/installations/" + installationId + "/access_tokens", body)
                 .compose(resp -> {
                     if (resp.statusCode() / 100 != 2) {
-                        return Future.failedFuture(httpError("createInstallationToken", resp));
+                        return Future.failedFuture(httpError("mintToken", resp));
                     }
                     JsonObject json = resp.bodyAsJsonObject();
                     return Future.succeededFuture(new GitHubToken(

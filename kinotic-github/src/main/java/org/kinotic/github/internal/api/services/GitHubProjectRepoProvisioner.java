@@ -54,8 +54,8 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
             }
             // repoId is null — the repo doesn't exist yet, so we mint an
             // installation-wide WRITE_CONTENTS token to create it.
-            return apiClient.getInstallationToken(install.getGithubInstallationId(), null,
-                                                  GitHubApiClient.WRITE_CONTENTS)
+            return apiClient.getToken(install.getGithubInstallationId(), null,
+                                      GitHubApiClient.WRITE_CONTENTS)
                             .compose(token -> apiClient.createRepoFromTemplate(
                                     token.getToken(),
                                     properties.getGithub().getRepoTemplate(),
