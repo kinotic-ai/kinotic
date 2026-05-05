@@ -69,7 +69,8 @@ CREATE TABLE IF NOT EXISTS kinotic_entity_definition (
     timeReferenceFieldName KEYWORD NOT INDEXED
 );
 
--- IAM User: authenticated identities at each scope layer
+-- IAM User: authenticated identities at each scope layer.
+-- Uniqueness rule (enforced in service layer): one row per (email, authScopeType, authScopeId).
 CREATE TABLE IF NOT EXISTS kinotic_iam_user (
     id KEYWORD,
     email KEYWORD,
@@ -81,7 +82,6 @@ CREATE TABLE IF NOT EXISTS kinotic_iam_user (
     authScopeId KEYWORD,
     tenantId KEYWORD,
     enabled BOOLEAN,
-    primary BOOLEAN,
     created DATE,
     updated DATE
 );
@@ -92,13 +92,17 @@ CREATE TABLE IF NOT EXISTS kinotic_iam_credential (
     passwordHash KEYWORD NOT INDEXED
 );
 
--- OIDC Configuration: standalone named OIDC provider configs (no scope/ownership)
+-- OIDC Configuration: per-org OIDC provider configs. Each row is owned by an organization
+-- (organizationId enforced by AbstractCrudService). "Where can this config be used" is
+-- expressed by inbound references — kinotic_organization.ssoConfigId for the org's SSO,
+-- kinotic_application.oidcConfigurationIds for application-level logins.
 CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     id KEYWORD,
+    organizationId KEYWORD,
     name KEYWORD,
     provider KEYWORD,
     clientId KEYWORD NOT INDEXED,
-    clientSecretRef KEYWORD NOT INDEXED,
+    secretNameRef KEYWORD NOT INDEXED,
     authority KEYWORD,
     backChannelAuthority KEYWORD NOT INDEXED,
     redirectUri KEYWORD NOT INDEXED,
@@ -114,19 +118,47 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     updated DATE
 );
 
--- System: singleton representing the Kinotic OS deployment
-CREATE TABLE IF NOT EXISTS kinotic_system (
+-- Kinotic-curated social IdP configs (Google, Microsoft Live, etc.) that power the
+-- "Continue with X" buttons on org signup and email-first org login. Seeded via SQL
+-- migration; not editable through the org admin UI.
+CREATE TABLE IF NOT EXISTS kinotic_org_signup_oidc_configuration (
     id KEYWORD,
-    oidcConfigurationIds KEYWORD,
+    name KEYWORD,
+    provider KEYWORD,
+    clientId KEYWORD NOT INDEXED,
+    secretNameRef KEYWORD NOT INDEXED,
+    authority KEYWORD,
+    audience KEYWORD NOT INDEXED,
+    enabled BOOLEAN,
+    created DATE,
     updated DATE
 );
 
--- Organization: orgs developing applications on the platform
+-- Kinotic platform-admin OIDC configs. Separate Entra app from the social-signup configs
+-- so the admin IdP can be rotated independently. Public-client flow (PKCE only) — Entra
+-- owns the user lifecycle, so Kinotic doesn't authenticate to the token endpoint as a
+-- confidential client and no client secret is stored. Singleton-shaped today; multi-row capable.
+CREATE TABLE IF NOT EXISTS kinotic_system_oidc_configuration (
+    id KEYWORD,
+    name KEYWORD,
+    provider KEYWORD,
+    clientId KEYWORD NOT INDEXED,
+    authority KEYWORD,
+    audience KEYWORD NOT INDEXED,
+    enabled BOOLEAN,
+    created DATE,
+    updated DATE
+);
+
+-- Organization: orgs developing applications on the platform.
+-- ssoConfigId points at the org's single OidcConfiguration used as its SSO provider for
+-- org-level Kinotic login (null when the org has no SSO). All other OidcConfigurations
+-- the org owns are referenced from the org's apps via kinotic_application.oidcConfigurationIds.
 CREATE TABLE IF NOT EXISTS kinotic_organization (
     id KEYWORD,
     name KEYWORD,
     description TEXT,
-    oidcConfigurationIds KEYWORD,
+    ssoConfigId KEYWORD NOT INDEXED,
     createdBy KEYWORD,
     created DATE,
     updated DATE

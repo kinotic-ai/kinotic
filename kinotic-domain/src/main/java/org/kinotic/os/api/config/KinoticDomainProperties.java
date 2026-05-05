@@ -8,8 +8,8 @@ import org.kinotic.core.api.config.KinoticProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * Contributes domain-level configuration ({@link EmailProperties}, {@link PlatformOidcProperties})
- * to the {@code kinotic} prefix.
+ * Contributes domain-level configuration (e.g. {@link EmailProperties}) to the
+ * {@code kinotic} prefix.
  */
 @Getter
 @Setter
