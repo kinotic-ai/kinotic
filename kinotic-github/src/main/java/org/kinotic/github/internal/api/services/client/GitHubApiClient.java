@@ -10,6 +10,11 @@ import java.util.Map;
  * Created By Navíd Mitchell 🤪on 5/4/26
  */
 public interface GitHubApiClient {
+
+    /** Standard token scopes used in the platform. */
+    Map<String, String> READ_CONTENTS = Map.of("contents", "read");
+    Map<String, String> WRITE_CONTENTS = Map.of("contents", "write");
+
     Future<Void> createRef(String installationToken,
                            String repoFullName,
                            String refName,

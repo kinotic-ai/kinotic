@@ -9,7 +9,6 @@ import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubRepoToken;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.api.services.GitHubProjectRepoService;
-import org.kinotic.github.internal.api.services.client.DefaultGitHubApiClient;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
 import org.kinotic.os.api.model.Project;
 import org.kinotic.os.api.services.ProjectService;
@@ -32,7 +31,7 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
         return resolve(organizationId, projectId).thenCompose(ctx ->
                 apiClient.getToken(ctx.install().getGithubInstallationId(),
                                    ctx.project().getRepoId(),
-                                   DefaultGitHubApiClient.READ_CONTENTS)
+                                   GitHubApiClient.READ_CONTENTS)
                          .map(base -> new GitHubRepoToken(
                                  base.getToken(),
                                  base.getExpiresAt(),
@@ -55,7 +54,7 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
         return resolve(organizationId, projectId).thenCompose(ctx ->
                 apiClient.getToken(ctx.install().getGithubInstallationId(),
                                    ctx.project().getRepoId(),
-                                   DefaultGitHubApiClient.WRITE_CONTENTS)
+                                   GitHubApiClient.WRITE_CONTENTS)
                          .compose(token -> apiClient.createRef(token.getToken(),
                                                                ctx.project().getRepoFullName(),
                                                                refName, sha))

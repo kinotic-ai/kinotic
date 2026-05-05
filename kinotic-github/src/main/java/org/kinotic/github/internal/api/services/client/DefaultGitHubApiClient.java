@@ -40,12 +40,6 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultGitHubApiClient implements GitHubApiClient {
 
-    /**
-     * Standard scopes used in the platform. Single source so the cache key dedups them.
-     */
-    public static final Map<String, String> READ_CONTENTS = Map.of("contents", "read");
-    public static final Map<String, String> WRITE_CONTENTS = Map.of("contents", "write");
-
     private static final String ACCEPT = "application/vnd.github+json";
     private static final String API_HOST = "api.github.com";
     private static final int API_PORT = 443;
@@ -266,8 +260,8 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
 
     /**
      * Token-cache key. Permissions ride as a {@code Map.of(...)} immutable map so that
-     * {@link #READ_CONTENTS} and {@code Map.of("contents","read")} collide on the same
-     * cache slot.
+     * {@link GitHubApiClient#READ_CONTENTS} and {@code Map.of("contents","read")}
+     * collide on the same cache slot.
      */
     private record TokenKey(long installationId, Long repoId, Map<String, String> permissions) {
     }
