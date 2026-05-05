@@ -9,11 +9,6 @@ import java.util.Map;
  * Single concentration point for GitHub REST API calls used by the platform: minting
  * installation access tokens, looking up install metadata, creating repos from a
  * template, creating tags / branches.
- * <p>
- * Token mints are cached and deduped — concurrent callers asking for a token with
- * the same {@code (installationId, repoId, permissions)} key share the in-flight
- * request, and any returned token is guaranteed to have at least 10 minutes of
- * life remaining.
  */
 public interface GitHubApiClient {
 
