@@ -226,12 +226,4 @@ public class GitHubApiClient {
         String body = resp.bodyAsString();
         return body != null && body.contains(needle);
     }
-
-    public record MintedToken(String token, Instant expiresAt) {}
-
-    /** Subset of GitHub's installation JSON the platform reads. */
-    public record InstallationDetails(Long id, String accountLogin, String accountType) {}
-
-    /** Subset of GitHub's repository JSON returned by {@link #createRepoFromTemplate}. */
-    public record CreatedRepository(Long id, String fullName, String defaultBranch) {}
 }

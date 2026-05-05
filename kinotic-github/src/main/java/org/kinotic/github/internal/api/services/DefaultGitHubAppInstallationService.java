@@ -12,7 +12,7 @@ import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubInstallCompletion;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
-import org.kinotic.github.internal.api.services.client.GitHubApiClient.InstallationDetails;
+import org.kinotic.github.internal.api.services.client.InstallationDetails;
 import org.kinotic.os.internal.api.services.AbstractCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
