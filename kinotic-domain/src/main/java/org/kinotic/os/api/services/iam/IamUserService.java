@@ -32,11 +32,12 @@ public interface IamUserService extends IdentifiableCrudService<IamUser, String>
     CompletableFuture<IamUser> findFirstByEmailInScopeType(String email, String authScopeType);
 
     /**
-     * Finds the {@link IamUser} for the given email that is marked as that identity's primary
-     * org membership. Returns null if no user with this email exists or none is flagged as
-     * primary. Used by the email-first login lookup to decide between password vs SSO redirect.
+     * Finds the {@link IamUser} record for the given email. Returns {@code null} if no
+     * user matches. Used by the email-first login lookup to decide between password vs
+     * SSO redirect — the service-layer uniqueness rule (one row per email + scope) makes
+     * this an unambiguous lookup for the org-login flow.
      */
-    CompletableFuture<IamUser> findByEmailPrimary(String email);
+    CompletableFuture<IamUser> findByEmail(String email);
 
     /**
      * Finds the {@link IamUser} (if any) with the given OIDC identity within a specific scope.

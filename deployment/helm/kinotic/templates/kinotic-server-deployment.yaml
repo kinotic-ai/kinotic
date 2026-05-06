@@ -99,10 +99,6 @@ spec:
               value: "{{ .Values.platformSecrets.mountPath }}/{{ .Values.platformSecrets.objects.jwtSigningKeys }}"
             - name: KINOTIC_PLATFORMSECRETS_SECRETSTORAGEMASTERKEYSPATH
               value: "{{ .Values.platformSecrets.mountPath }}/{{ .Values.platformSecrets.objects.secretStorageMasterKeys }}"
-            {{- if include "kinotic-server.oidcSecretsEnabled" . }}
-            - name: KINOTIC_DOMAIN_OIDC_SECRETSPATH
-              value: "{{ .Values.oidcSecrets.mountPath }}"
-            {{- end }}
           volumeMounts:
             - name: tmp-work
               mountPath: /workspace/ignite/work
@@ -118,11 +114,6 @@ spec:
             - name: platform-secrets
               mountPath: {{ .Values.platformSecrets.mountPath }}
               readOnly: true
-            {{- if include "kinotic-server.oidcSecretsEnabled" . }}
-            - name: oidc-client-secrets
-              mountPath: {{ .Values.oidcSecrets.mountPath }}
-              readOnly: true
-            {{- end }}
       restartPolicy: Always
       nodeSelector: {{ toYaml .Values.nodeSelector | nindent 8 }}
       volumes:
@@ -157,16 +148,3 @@ spec:
           secret:
             secretName: {{ include "kinotic-server.platformSecretsSecretName" . }}
           {{- end }}
-        {{- if include "kinotic-server.oidcSecretsEnabled" . }}
-        - name: oidc-client-secrets
-          {{- if .Values.oidcSecrets.keyVault.name }}
-          csi:
-            driver: secrets-store.csi.k8s.io
-            readOnly: true
-            volumeAttributes:
-              secretProviderClass: {{ include "kinotic-server.fullname" . }}-oidc-client-secrets
-          {{- else }}
-          secret:
-            secretName: {{ include "kinotic-server.oidcSecretsSecretName" . }}
-          {{- end }}
-        {{- end }}

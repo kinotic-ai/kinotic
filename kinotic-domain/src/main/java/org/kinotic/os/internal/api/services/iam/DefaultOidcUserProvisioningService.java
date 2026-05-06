@@ -91,7 +91,6 @@ public class DefaultOidcUserProvisioningService implements OidcUserProvisioningS
                 .setAuthScopeType(authScopeType)
                 .setAuthScopeId(authScopeId)
                 .setEnabled(true)
-                .setPrimary(true)
                 .setCreated(now)
                 .setUpdated(now);
         log.info("Auto-provisioning IamUser for OIDC identity sub={} config={} scope={}/{}",

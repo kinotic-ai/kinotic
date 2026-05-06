@@ -19,5 +19,11 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
      */
     CompletableFuture<List<OidcConfiguration>> findEnabledByIds(List<String> ids);
 
+    /**
+     * Returns the {@link OidcConfiguration} the given organization uses as its SSO
+     * provider, or {@code null} if the org has no SSO configured. Sources from
+     * {@link org.kinotic.os.api.model.Organization#getSsoConfigId()} — structurally
+     * one-per-org, no scope flag needed on the config row itself.
+     */
+    CompletableFuture<OidcConfiguration> findOrgLoginConfig(String organizationId);
 }
-

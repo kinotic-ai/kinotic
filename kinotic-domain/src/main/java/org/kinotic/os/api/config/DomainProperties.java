@@ -16,9 +16,4 @@ public class DomainProperties {
      */
     private EmailProperties email = new EmailProperties();
 
-    /**
-     * Platform-wide OIDC providers (Google, Microsoft, etc.) bootstrapped at startup.
-     */
-    private PlatformOidcProperties oidc = new PlatformOidcProperties();
-
 }

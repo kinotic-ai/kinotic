@@ -4,60 +4,47 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.os.api.model.OrganizationScoped;
 
 import java.util.Date;
 import java.util.List;
 
 /**
- * A standalone, reusable OIDC provider configuration. Has no embedded scope or ownership —
- * the association between OIDC configs and the scopes that use them is stored on the consuming
- * entity (KinoticSystem, Organization, Application) via {@code oidcConfigurationIds}.
- * Platform configs are bootstrapped from {@code kinotic.oidc.platformProviders[]} via
- * {@code PlatformOidcBootstrap} and referenced from {@link org.kinotic.os.api.model.KinoticSystem};
- * per-org SSO configs are referenced from {@link org.kinotic.os.api.model.Organization}.
+ * An OIDC provider configuration owned by an {@link org.kinotic.os.api.model.Organization}.
+ * "Where can this config be used" is expressed by inbound references rather than a flag
+ * on the row itself:
+ * <ul>
+ *   <li>{@link org.kinotic.os.api.model.Organization#getSsoConfigId()} points at the
+ *       org's single SSO config (when set).</li>
+ *   <li>{@link org.kinotic.os.api.model.Application#getOidcConfigurationIds()} lists the
+ *       configs each application accepts for application-level login.</li>
+ * </ul>
+ * The same config id may legitimately appear in both — e.g. an org uses the same Okta
+ * tenant for org-admin SSO and for one of its customer-facing apps.
+ *
+ * <p>Kinotic-curated social configs (Google, Microsoft Live, etc.) live in
+ * {@link OrgSignupOidcConfiguration}; platform-admin configs live in
+ * {@link SystemOidcConfiguration} — both intentionally separate so the authorization
+ * paths and lifecycle (admin UI vs. seeded migration) don't collide.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class OidcConfiguration implements Identifiable<String> {
+public class OidcConfiguration extends BaseOidcConfiguration implements OrganizationScoped<String> {
 
     /**
-     * Unique identifier for this configuration (UUID).
+     * Owning organization. Auto-populated and enforced by {@code AbstractCrudService}
+     * from the security context — callers don't set it directly outside elevated access.
      */
-    private String id;
+    private String organizationId;
 
     /**
-     * Human-readable name for this configuration (e.g., "Google", "Corporate Okta").
+     * Name of the OAuth client secret in the platform Azure Key Vault. The vault URI
+     * is global config (one Key Vault per Kinotic deployment); the resolver always
+     * fetches the latest version.
      */
-    private String name;
-
-    /**
-     * Provider kind selector. The Vert.x provider factory chosen at runtime keys off this
-     * value; persisted as the canonical wire string (e.g. {@code "azure-ad"}) via the
-     * {@link OidcProviderKind#key()} mapping.
-     */
-    private OidcProviderKind provider;
-
-    /**
-     * The OAuth 2.0 client identifier issued by the provider when Kinotic OS was registered as an application.
-     * Sent during the authorization flow and used to validate the JWT's audience claim.
-     */
-    private String clientId;
-
-    /**
-     * Reference to the OAuth 2.0 client secret stored in {@code SecretStorageService}.
-     * The value is looked up at use time via {@code secretStorageService.getSecret(secretScope, clientSecretRef)};
-     * the secret itself never lives on this entity or in Elasticsearch. Null for public-client providers
-     * (e.g. Apple, some pure SPA flows) that do not require a client secret.
-     */
-    private String clientSecretRef;
-
-    /**
-     * The browser-facing issuer URL. Must match the {@code iss} claim in JWTs from this provider.
-     */
-    private String authority;
+    private String secretNameRef;
 
     /**
      * Optional cluster-internal URL used for backchannel token validation when the
@@ -85,14 +72,8 @@ public class OidcConfiguration implements Identifiable<String> {
 
     /**
      * Email domains this provider handles (e.g., ["gmail.com", "company.com"]), or null for any domain.
-     * Used to match incoming JWTs to the correct OIDC configuration by the user's email domain.
      */
     private List<String> domains;
-
-    /**
-     * Expected {@code aud} claim value in JWTs, or null for any audience. Typically the OAuth client ID.
-     */
-    private String audience;
 
     /**
      * Dot-separated path to roles in JWT claims (e.g., "realm_access.roles" for Keycloak).
@@ -107,27 +88,10 @@ public class OidcConfiguration implements Identifiable<String> {
     private String additionalScopes;
 
     /**
-     * When {@code false}, this configuration is ignored during authentication even if
-     * it is referenced by a scope's {@code oidcConfigurationIds} list.
-     */
-    private boolean enabled;
-
-    /**
      * How new identities from this provider are handled on first successful OIDC callback.
      * Defaults to {@link UserProvisioningMode#AUTO} — matches the "Continue with Google just
      * works" UX. Set to {@link UserProvisioningMode#REGISTRATION_REQUIRED} when admins want
      * users to accept ToS or pick options before their account is created.
      */
     private UserProvisioningMode provisioningMode = UserProvisioningMode.AUTO;
-
-    /**
-     * Timestamp when this configuration was first created.
-     */
-    private Date created;
-
-    /**
-     * Timestamp when this configuration was last modified.
-     */
-    private Date updated;
-
 }

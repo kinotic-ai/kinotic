@@ -129,20 +129,10 @@ platformSecrets:
     jwtSigningKeys: kinotic-jwt-signing-keys
     secretStorageMasterKeys: kinotic-secret-storage-master-keys
 
-# OIDC client secrets — one file per platform OidcConfiguration, keyed by configId.
-# Operator-set, separate lifecycle from auto-generated platform secrets above. Each entry
-# in kinotic.domain.oidc.platformProviders[*].id corresponds to one file under mountPath.
-# In Azure: pulls from Key Vault via CSI (objects[] lists the configIds to mount). In KinD:
-# a k8s Secret created by `bin/set-oidc-client-secret.sh` (prompt-and-kubectl).
-oidcSecrets:
-  mountPath: /etc/kinotic/oidc-client-secrets
-  keyVault:
-    name: ""        # set to platformSecrets.keyVault.name to reuse the platform vault, or a separate one
-    tenantId: ""
-  secretName: ""    # KinD: e.g. "kinotic-oidc-secrets" — script populates it
-  # Azure only: Key Vault secret object names; each file lands at mountPath/<objectName>.
-  # The objectName must match the OidcConfiguration id used in helm values.
-  objects: []
+# OIDC client secrets are now resolved at runtime by SecretReferenceResolver — Azure Key
+# Vault in production (kinotic.secretStorage.azure.vaultUrl) or KINOTIC_AKV_<sanitizedName>
+# env vars in dev/local. The secret name on each OidcConfiguration row points at the AKV
+# entry; nothing is mounted into the pod.
 
 # Extra environment variables — override any Spring property via env var convention.
 # Example: KINOTIC_APIGATEWAY_WEBSERVER_PORT: "443"

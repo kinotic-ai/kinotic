@@ -122,7 +122,6 @@ public class DefaultSignUpService implements SignUpService {
                             .setAuthScopeType("ORGANIZATION")
                             .setAuthScopeId(savedOrg.getId())
                             .setEnabled(true)
-                            .setPrimary(true)  // first IamUser for this identity — required for /api/login/lookup + /api/login/token
                             .setCreated(new Date())
                             .setUpdated(new Date());
 

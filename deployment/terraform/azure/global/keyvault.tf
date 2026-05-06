@@ -94,8 +94,9 @@ resource "azurerm_key_vault_secret" "secret_storage_master_keys" {
 }
 
 # ── OIDC client secrets ───────────────────────────────────────────────────────
-# Stored at name = configId so the helm chart's oidcSecrets.objects[] can mount each as
-# /etc/kinotic/oidc-client-secrets/<configId>. PlatformOidcBootstrap reads them on startup.
+# Stored at name = configId. SecretReferenceResolver in kinotic-server fetches by name
+# at OAuth2-build time (no pod-side mount); the secretNameRef on the
+# kinotic_org_signup_oidc_configuration row points at the AKV secret name here.
 
 resource "azurerm_key_vault_secret" "entra_platform_client_secret" {
   name         = "entra-platform"
@@ -104,6 +105,26 @@ resource "azurerm_key_vault_secret" "entra_platform_client_secret" {
   value        = azuread_application_password.kinotic_platform.value
 
   tags = local.common_tags
+
+  depends_on = [terraform_data.wait_for_kv_rbac]
+}
+
+# Google OAuth client secret — created in Google Cloud Console (terraform doesn't
+# manage Google OAuth clients). Operator supplies the value via the
+# google_client_secret variable on first apply; rotations happen out-of-band
+# via `az keyvault secret set ...` and lifecycle.ignore_changes prevents terraform
+# from reverting them.
+resource "azurerm_key_vault_secret" "google_client_secret" {
+  name         = "google-platform"
+  key_vault_id = azurerm_key_vault.platform.id
+  content_type = "OIDC client secret for the Continue-with-Google social provider"
+  value        = var.google_client_secret
+
+  tags = local.common_tags
+
+  lifecycle {
+    ignore_changes = [value]
+  }
 
   depends_on = [terraform_data.wait_for_kv_rbac]
 }

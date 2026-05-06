@@ -9,14 +9,16 @@ import io.vertx.ext.stomp.lite.StompServerVerticle;
 import io.vertx.ext.stomp.lite.StompServerVerticleFactory;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.healthchecks.HealthCheckHandler;
+import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.core.internal.utils.CorsUtil;
-import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
-import org.kinotic.gateway.internal.endpoints.rest.LoginHandler;
+import org.kinotic.gateway.internal.endpoints.rest.ApplicationLoginHandler;
 import org.kinotic.gateway.internal.endpoints.rest.OidcSignupHandler;
+import org.kinotic.gateway.internal.endpoints.rest.OrganizationLoginHandler;
 import org.kinotic.gateway.internal.endpoints.rest.SignUpHandler;
+import org.kinotic.gateway.internal.endpoints.rest.SystemLoginHandler;
 import org.kinotic.github.api.rest.GitHubGatewayRoutes;
 import org.springframework.stereotype.Component;
 
@@ -27,39 +29,20 @@ import java.util.List;
  * Created by Navíd Mitchell 🤪 on 3/6/24.
  */
 @Component
+@RequiredArgsConstructor
 public class ApiGatewayVertcleFactory {
 
     private final KinoticProperties kinoticProperties;
     private final KinoticApiGatewayProperties apiGatewayProperties;
-    private final ApiGatewayProperties gatewayProperties;
     private final StompServerHandlerFactory stompServerHandlerFactory;
     private final SignUpHandler signUpHandler;
-    private final LoginHandler loginHandler;
+    private final OrganizationLoginHandler organizationLoginHandler;
     private final OidcSignupHandler oidcSignupHandler;
+    private final ApplicationLoginHandler applicationLoginHandler;
+    private final SystemLoginHandler systemLoginHandler;
     private final GitHubGatewayRoutes githubGatewayRoutes;
     private final HealthChecks healthChecks;
     private final Vertx vertx;
-
-    public ApiGatewayVertcleFactory(KinoticProperties kinoticProperties,
-                                    KinoticApiGatewayProperties kinoticApiGatewayProperties,
-                                    StompServerHandlerFactory stompServerHandlerFactory,
-                                    SignUpHandler signUpHandler,
-                                    LoginHandler loginHandler,
-                                    OidcSignupHandler oidcSignupHandler,
-                                    GitHubGatewayRoutes githubGatewayRoutes,
-                                    HealthChecks healthChecks,
-                                    Vertx vertx) {
-        this.kinoticProperties = kinoticProperties;
-        this.apiGatewayProperties = kinoticApiGatewayProperties;
-        this.gatewayProperties = kinoticApiGatewayProperties.getApiGateway();
-        this.stompServerHandlerFactory = stompServerHandlerFactory;
-        this.signUpHandler = signUpHandler;
-        this.loginHandler = loginHandler;
-        this.oidcSignupHandler = oidcSignupHandler;
-        this.githubGatewayRoutes = githubGatewayRoutes;
-        this.healthChecks = healthChecks;
-        this.vertx = vertx;
-    }
 
     public StompServerVerticle createApiGatewayVerticle(){
         Router router = Router.router(vertx);
@@ -77,11 +60,13 @@ public class ApiGatewayVertcleFactory {
 
         // REST endpoints under /api
         signUpHandler.mountRoutes(router);
-        loginHandler.mountRoutes(router);
+        organizationLoginHandler.mountRoutes(router);
         oidcSignupHandler.mountRoutes(router);
+        applicationLoginHandler.mountRoutes(router);
+        systemLoginHandler.mountRoutes(router);
         githubGatewayRoutes.mountRoutes(router);
 
-        StompServerOptions stompServerOptions = gatewayProperties.getStomp();
+        StompServerOptions stompServerOptions = apiGatewayProperties.getApiGateway().getStomp();
         // we override the body length with the continuum properties
         stompServerOptions.setMaxBodyLength(kinoticProperties.getMaxEventPayloadSize());
         HttpServerOptions serverOptions = new HttpServerOptions();

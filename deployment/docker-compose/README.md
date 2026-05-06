@@ -108,18 +108,14 @@ docker compose -f compose.yml -f compose.keycloak.yml up -d
 What this gives you:
 
 - Keycloak at <http://keycloak:8888> with the pre-imported `test` realm.
-- A `kinotic-client` confidential client whose secret is hardcoded in
-  `keycloak-test-realm.json` (matched by `dev-keycloak-oidc-secret`, mounted into
-  kinotic-server as a single file). Both files are committed because the value is
-  dev-only — never reuse for anything reachable beyond a developer's laptop.
-- A **Continue with Keycloak** button on `/login` and `/signup`, populated by
-  `PlatformOidcBootstrap` from the `KINOTIC_OIDC_PLATFORMPROVIDERS_0_*` env vars in
-  `compose.keycloak.yml`.
-
-To enable real **Continue with Google / Microsoft** social buttons in compose, follow
-[`docs/local-oidc-setup.md`](../../docs/local-oidc-setup.md) — drop the client secret
-into the same secrets dir and add another `KINOTIC_OIDC_PLATFORMPROVIDERS_*` block on
-the kinotic-server service.
+- A `kinotic-client` confidential client whose secret lives in `keycloak-test-realm.json`
+  (committed because the value is dev-only — never reuse beyond a developer's laptop).
+  The kinotic-server container picks the secret up from the `KINOTIC_AKV_KEYCLOAK` env
+  var via the dev-fallback `EnvVarSecretReferenceResolver`.
+- The **Continue with Keycloak** button isn't wired automatically — the social-button
+  list is sourced from `kinotic_org_signup_oidc_configuration` rows, and no migration
+  ships a Keycloak entry. Seed one manually via the kinotic-migration tool if you want
+  the button to appear.
 
 ## Dev with kinotic-server in IntelliJ
 
@@ -137,8 +133,7 @@ docker compose ps kinotic-migration   # State: Exited (0)
 ```
 
 Email is `enabled: false` in `application-development.yml`; verification links print to
-the IntelliJ console. See [`docs/local-oidc-setup.md`](../../docs/local-oidc-setup.md) to
-wire a platform OIDC provider.
+the IntelliJ console.
 
 If you also run the Vite frontend (`pnpm dev` on `:5173`), it proxies `/api/*` to
 `http://localhost:9090` automatically — just set `KINOTIC_APPBASEURL=http://localhost:5173`

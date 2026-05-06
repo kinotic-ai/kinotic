@@ -124,7 +124,6 @@ public class DefaultPendingRegistrationService implements PendingRegistrationSer
                 .setAuthScopeType(pending.getAuthScopeType())
                 .setAuthScopeId(pending.getAuthScopeId())
                 .setEnabled(true)
-                .setPrimary(true)  // first IamUser for this identity — sensible default
                 .setCreated(now)
                 .setUpdated(now);
 

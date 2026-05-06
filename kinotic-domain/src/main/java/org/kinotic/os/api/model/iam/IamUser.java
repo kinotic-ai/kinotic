@@ -37,13 +37,15 @@ public class IamUser implements Identifiable<String> {
     private AuthType authType;
 
     /**
-     * The {@code sub} claim from the OIDC token. Populated automatically on first successful OIDC login
-     * when the user was pre-created by an administrator with only an email.
+     * The {@code sub} claim from the OIDC token. Populated when an OIDC user is provisioned
+     * (auto on first login, or via PendingRegistration completion); used together with
+     * {@link #oidcConfigId} to resolve the IamUser back from the IdP callback.
      */
     private String oidcSubject;
 
     /**
-     * Reference to the {@link OidcConfiguration} used for authentication. Populated alongside oidcSubject on first OIDC login.
+     * Reference to the OIDC configuration used to provision this user. Distinguishes
+     * {@code sub}s issued by different IdPs that might collide.
      */
     private String oidcConfigId;
 
@@ -68,14 +70,6 @@ public class IamUser implements Identifiable<String> {
     private String tenantId;
 
     private boolean enabled;
-
-    /**
-     * When a logical identity has access to multiple org-scoped {@link IamUser} rows (keyed
-     * by {@code (oidcSubject, oidcConfigId)}), exactly one is the primary — login lands
-     * there, and the org switcher shows the others. Set on first login and toggleable from
-     * the user's account settings.
-     */
-    private boolean primary;
 
     private Date created;
 

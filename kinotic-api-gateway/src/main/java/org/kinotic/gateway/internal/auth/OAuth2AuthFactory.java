@@ -7,17 +7,21 @@ import io.vertx.ext.auth.oauth2.OAuth2Options;
 import io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.os.api.model.iam.OidcConfiguration;
+import org.kinotic.os.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.os.api.model.iam.OidcProviderKind;
 import org.springframework.stereotype.Component;
 
+import io.vertx.core.json.JsonArray;
+
+import java.util.Collection;
 import java.util.Map;
 
 /**
- * Builds a Vert.x {@link OAuth2Auth} for a given {@link OidcConfiguration} by running OIDC
- * discovery against the configured {@code authority}. This works uniformly for every
- * standards-compliant OIDC provider (Google, Azure AD, Keycloak, Salesforce, Cognito, Auth0,
- * Okta, Ping, Duende, custom) — the {@code authority} URL is the only input that varies.
+ * Builds a Vert.x {@link OAuth2Auth} for a given OIDC configuration by running OIDC
+ * discovery against the configured {@code authority}. Accepts any {@link BaseOidcConfiguration}
+ * subclass — only baseline fields ({@code authority}, {@code clientId}, {@code id}) are read.
+ * Works uniformly for every standards-compliant OIDC provider (Google, Azure AD, Keycloak,
+ * Salesforce, Cognito, Auth0, Okta, Ping, Duende, custom).
  * <p>
  * Non-OIDC-discovery providers (GitHub, Apple, Facebook, LinkedIn, Microsoft-Live) use
  * hardcoded endpoints and non-standard client-auth flows. They will need dedicated handling
@@ -35,7 +39,7 @@ public class OAuth2AuthFactory {
      * @param config       the persisted OIDC configuration (must have authority set)
      * @param clientSecret resolved client secret, or null for public-client flows
      */
-    public Future<OAuth2Auth> create(OidcConfiguration config, String clientSecret) {
+    public Future<OAuth2Auth> create(BaseOidcConfiguration config, String clientSecret) {
         if (config.getAuthority() == null || config.getAuthority().isBlank()) {
             return Future.failedFuture(new IllegalArgumentException(
                     "OidcConfiguration " + config.getId() + " has no authority; required for OIDC discovery"));
@@ -55,17 +59,26 @@ public class OAuth2AuthFactory {
 
         return OpenIDConnectAuth.discover(vertx, options)
                                 .map(oauth -> {
-                                    // Discovery still mutates JWTOptions.issuer with the same
-                                    // {tenantid}-templated string — Vert.x would then fail every
-                                    // per-JWT validation because the real JWT carries the
-                                    // substituted tid. Clear it for the multi-tenant case; we
-                                    // re-validate the issuer ourselves via {@link #isIssuerValid}
-                                    // post-exchange using the JWT's tid claim (which is signed
-                                    // by the JWKS Vert.x already verified against).
                                     if (options.getJWTOptions() != null) {
+                                        // Discovery mutates JWTOptions.issuer with the
+                                        // {tenantid}-templated string — Vert.x would then fail every
+                                        // per-JWT validation because the real JWT carries the
+                                        // substituted tid. Clear it for the multi-tenant case; we
+                                        // re-validate the issuer ourselves via {@link #isIssuerValid}
+                                        // post-exchange using the JWT's tid claim (which is signed
+                                        // by the JWKS Vert.x already verified against).
                                         String jwtIssuer = options.getJWTOptions().getIssuer();
                                         if (jwtIssuer != null && jwtIssuer.contains("{tenantid}")) {
                                             options.getJWTOptions().setIssuer(null);
+                                        }
+                                        // Belt-and-suspenders audience check: when configured, push
+                                        // the expected audience into Vert.x's JWTOptions so the aud
+                                        // claim is validated during token-exchange JWT processing.
+                                        // The orchestrator re-validates post-exchange via
+                                        // {@link #isAudienceValid} so coverage holds across Vert.x
+                                        // version drift.
+                                        if (config.getAudience() != null && !config.getAudience().isBlank()) {
+                                            options.getJWTOptions().addAudience(config.getAudience());
                                         }
                                     }
                                     return oauth;
@@ -152,6 +165,44 @@ public class OAuth2AuthFactory {
             return issStr.equals("https://login.microsoftonline.com/" + tidStr + "/v2.0");
         }
 
+        return false;
+    }
+
+    /**
+     * Verifies the JWT's {@code aud} claim against the configured expected audience.
+     * Returns {@code true} when {@code expectedAudience} is null or blank — audience
+     * checking is opt-in per config. When set, the claim must contain the expected
+     * value; per the OIDC spec {@code aud} can be a single string or an array, so both
+     * shapes are accepted.
+     *
+     * <p>Skipping null/blank deliberately: the config field is optional, and configs
+     * that don't set it (e.g. providers where the audience is implicit in the clientId
+     * already validated by Vert.x's discovery flow) shouldn't be forced to populate it.
+     * SSO and other security-sensitive configs should set audience explicitly.
+     *
+     * @param claims           flattened JWT claims
+     * @param expectedAudience the configured expected audience, or {@code null}/blank to skip
+     * @return {@code true} when the check passes or is skipped, {@code false} on mismatch
+     */
+    public static boolean isAudienceValid(Map<String, Object> claims, String expectedAudience) {
+        if (expectedAudience == null || expectedAudience.isBlank()) return true;
+        if (claims == null) return false;
+        Object aud = claims.get("aud");
+        if (aud == null) return false;
+        if (aud instanceof String s) return expectedAudience.equals(s);
+        if (aud instanceof Collection<?> col) {
+            for (Object v : col) {
+                if (v != null && expectedAudience.equals(v.toString())) return true;
+            }
+            return false;
+        }
+        if (aud instanceof JsonArray arr) {
+            for (int i = 0; i < arr.size(); i++) {
+                Object v = arr.getValue(i);
+                if (v != null && expectedAudience.equals(v.toString())) return true;
+            }
+            return false;
+        }
         return false;
     }
 }
