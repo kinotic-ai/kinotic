@@ -248,6 +248,16 @@ public interface KinoticSQLListener extends ParseTreeListener {
 	 */
 	void exitColumnDefinition(KinoticSQLParser.ColumnDefinitionContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#unionVariant}.
+	 * @param ctx the parse tree
+	 */
+	void enterUnionVariant(KinoticSQLParser.UnionVariantContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#unionVariant}.
+	 * @param ctx the parse tree
+	 */
+	void exitUnionVariant(KinoticSQLParser.UnionVariantContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link KinoticSQLParser#type}.
 	 * @param ctx the parse tree
 	 */

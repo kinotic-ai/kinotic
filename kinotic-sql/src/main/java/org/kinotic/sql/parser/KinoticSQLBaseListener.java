@@ -305,6 +305,18 @@ public class KinoticSQLBaseListener implements KinoticSQLListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterUnionVariant(KinoticSQLParser.UnionVariantContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitUnionVariant(KinoticSQLParser.UnionVariantContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterType(KinoticSQLParser.TypeContext ctx) { }
 	/**
 	 * {@inheritDoc}
