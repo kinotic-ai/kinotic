@@ -1,14 +1,17 @@
 package org.kinotic.gateway.internal.auth;
 
 import io.vertx.core.Future;
-import io.vertx.ext.auth.JWTOptions;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.auth.JWTOptions;
+import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
+import org.kinotic.gateway.internal.endpoints.rest.RedirectFlowSessionSupport;
 import org.kinotic.os.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
@@ -23,21 +26,35 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * Shared response shaping for every login/signup handler — JWT minting, redirect
- * construction, JSON error/payload writing, and the standard "after-callback" flow.
+ * Shared response shaping + URL/route plumbing for every login/signup handler — JWT
+ * minting, redirect construction, JSON error/payload writing, the standard
+ * "after-callback" flow, session-handler installation, and absolute URL building.
  * Each individual handler delegates the boilerplate here so its body keeps only the
  * route-specific decisions (which config to start with, which IamUser lookup to run).
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class LoginResponses {
+public class AuthEndpointSupport {
 
     /** JWT TTL for the STOMP-CONNECT ticket — long enough for the browser to open the WebSocket. */
     public static final int JWT_TTL_SECONDS = 60;
 
+    private final Vertx vertx;
     private final KinoticApiGatewayProperties gatewayProperties;
     private final KinoticJwtIssuer jwtIssuer;
+
+    // ── Routing ───────────────────────────────────────────────────────────────
+
+    /**
+     * Installs the redirect-flow {@link io.vertx.ext.web.handler.SessionHandler} on
+     * {@code <baseRoute>/*}. Every login/signup handler needs the same clustered-session
+     * setup; this centralizes it so handlers don't carry the {@link Vertx} reference
+     * just for one line of plumbing.
+     */
+    public void installSessionHandler(Router router, String baseRoute) {
+        router.route(baseRoute + "/*").handler(RedirectFlowSessionSupport.newSessionHandler(vertx));
+    }
 
     /**
      * Validated API base URL. Required for OIDC redirect_uri construction; throws so
@@ -52,6 +69,14 @@ public class LoginResponses {
                     + "required for OIDC redirect_uri construction");
         }
         return base;
+    }
+
+    /**
+     * Builds an absolute URL by prefixing {@code relativePath} with {@link #apiBase()}.
+     * Centralizes the apiBase validation so handlers' callback-URL builders are one-liners.
+     */
+    public String absoluteUrl(String relativePath) {
+        return apiBase() + relativePath;
     }
 
     // ── JWT ───────────────────────────────────────────────────────────────────
@@ -104,14 +129,15 @@ public class LoginResponses {
 
     /**
      * Maps an OIDC callback failure to the right error redirect. {@link OidcCallbackException}
-     * carries a typed code; everything else gets logged and falls through to {@code "exchange_failed"}.
+     * carries a typed code; everything else gets logged and falls through to
+     * {@link OidcConstants#ERR_EXCHANGE_FAILED}.
      */
     public void redirectCallbackFailure(RoutingContext ctx, Throwable ex) {
         if (ex instanceof OidcCallbackException oce) {
             redirectError(ctx, oce.getErrorCode());
         } else {
             log.warn("OIDC callback failed: {}", ex.getMessage());
-            redirectError(ctx, "exchange_failed");
+            redirectError(ctx, OidcConstants.ERR_EXCHANGE_FAILED);
         }
     }
 
@@ -201,19 +227,19 @@ public class LoginResponses {
                                           Function<String, CompletionStage<IamUser>> userLookup) {
         String sub = OidcFlowOrchestrator.stringClaim(claims, "sub");
         if (sub == null) {
-            redirectError(ctx, "invalid_token");
+            redirectError(ctx, OidcConstants.ERR_INVALID_TOKEN);
             return Future.succeededFuture();
         }
         if (!OAuth2AuthFactory.isEmailVerified(claims, config.getProvider())) {
-            redirectError(ctx, "email_not_verified");
+            redirectError(ctx, OidcConstants.ERR_EMAIL_NOT_VERIFIED);
             return Future.succeededFuture();
         }
         return Future.fromCompletionStage(userLookup.apply(sub))
                      .<Void>map(user -> {
                          if (user == null) {
-                             redirectError(ctx, "no_account");
+                             redirectError(ctx, OidcConstants.ERR_NO_ACCOUNT);
                          } else if (!user.isEnabled()) {
-                             redirectError(ctx, "account_disabled");
+                             redirectError(ctx, OidcConstants.ERR_ACCOUNT_DISABLED);
                          } else {
                              redirectSuccess(ctx, user);
                          }
@@ -221,7 +247,7 @@ public class LoginResponses {
                      })
                      .otherwise(err -> {
                          log.warn("Login resolution failed: {}", err.getMessage());
-                         redirectError(ctx, "lookup_failed");
+                         redirectError(ctx, OidcConstants.ERR_LOOKUP_FAILED);
                          return null;
                      });
     }

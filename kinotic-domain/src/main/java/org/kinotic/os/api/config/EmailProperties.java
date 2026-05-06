@@ -9,7 +9,8 @@ import java.time.Duration;
 
 /**
  * Configuration for outbound email delivered via Azure Communication Services.
- * Bound under the {@code kinotic.email} prefix via {@link KinoticDomainProperties}.
+ * Bound under {@code kinotic.domain.email.*} — the {@code domain} field on
+ * {@link KinoticDomainProperties} carries a {@link DomainProperties} that owns this.
  */
 @Getter
 @Setter

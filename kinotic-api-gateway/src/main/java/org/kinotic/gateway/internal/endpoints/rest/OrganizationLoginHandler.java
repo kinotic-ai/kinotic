@@ -1,17 +1,18 @@
 package org.kinotic.gateway.internal.endpoints.rest;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.gateway.internal.auth.LoginResponses;
+import org.kinotic.gateway.internal.auth.AuthEndpointSupport;
 import org.kinotic.gateway.internal.auth.OidcFlowOrchestrator;
 import org.kinotic.gateway.internal.auth.SessionKeys;
+import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.kinotic.os.api.model.iam.OidcProviderKind;
@@ -55,7 +56,7 @@ import java.util.Set;
  * <p>The OIDC dance itself (state/PKCE generation, callback validation, code exchange,
  * claim flattening, issuer validation) lives in {@link OidcFlowOrchestrator}; response
  * shaping (JWT minting, error/success redirects, JSON bodies) lives in
- * {@link LoginResponses}. This handler only wires routes, decides what config to start
+ * {@link AuthEndpointSupport}. This handler only wires routes, decides what config to start
  * with, and decides what to do with the resulting claims.
  *
  * <p>Callback paths are split per config type ({@code /sso/:id} vs {@code /social/:id})
@@ -66,10 +67,6 @@ import java.util.Set;
  * {@code POST /api/register/complete} consumes a {@link org.kinotic.os.api.model.iam.PendingRegistration}
  * from the {@link org.kinotic.os.api.model.iam.UserProvisioningMode#REGISTRATION_REQUIRED}
  * signup path.
- *
- * <p>Direct STOMP CONNECT with {@code login}/{@code passcode}/{@code authScopeType}/{@code
- * authScopeId} headers stays available for non-UI clients (CLI, automation) that already
- * know the target scope. The browser SPA does not use that path.
  */
 @Slf4j
 @Component
@@ -82,7 +79,6 @@ public class OrganizationLoginHandler {
     private static final SessionKeys SSO_SESSION_KEYS = SessionKeys.ofPrefix("oidc", S_ORG_ID);
     private static final SessionKeys SOCIAL_SESSION_KEYS = SessionKeys.ofPrefix("oidc-social");
 
-    private final Vertx vertx;
     private final IamUserService iamUserService;
     private final OidcConfigurationService oidcConfigurationService;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
@@ -90,28 +86,28 @@ public class OrganizationLoginHandler {
     private final PendingRegistrationService pendingRegistrationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final SecurityContext securityContext;
-    private final LoginResponses loginResponses;
+    private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
         // BodyHandler is already installed at /api/* by SignUpHandler; not duplicated here.
-        router.route("/api/login/*").handler(RedirectFlowSessionSupport.newSessionHandler(vertx));
+        authEndpointSupport.installSessionHandler(router, OidcConstants.ORG_LOGIN_BASE);
 
-        router.get("/api/login/providers").handler(this::handleProviders);
-        router.post("/api/login/lookup").handler(this::handleLookup);
-        router.post("/api/login/token").handler(this::handleToken);
-        router.post("/api/login/start/:provider").handler(this::handleSocialStart);
-        router.get("/api/login/callback/social/:configId").handler(this::handleSocialCallback);
-        router.get("/api/login/callback/sso/:configId").handler(this::handleSsoCallback);
-        router.post("/api/register/complete").handler(this::handleRegisterComplete);
+        router.get(OidcConstants.ORG_LOGIN_BASE + "/providers").handler(this::handleProviders);
+        router.post(OidcConstants.ORG_LOGIN_BASE + "/lookup").handler(this::handleLookup);
+        router.post(OidcConstants.ORG_LOGIN_BASE + "/token").handler(this::handleToken);
+        router.post(OidcConstants.ORG_LOGIN_BASE + "/start/:provider").handler(this::handleSocialStart);
+        router.get(OidcConstants.ORG_LOGIN_BASE + "/callback/social/:configId").handler(this::handleSocialCallback);
+        router.get(OidcConstants.ORG_LOGIN_BASE + "/callback/sso/:configId").handler(this::handleSsoCallback);
+        router.post(OidcConstants.ORG_REGISTER_COMPLETE).handler(this::handleRegisterComplete);
     }
 
     private void handleToken(RoutingContext ctx) {
-        loginResponses.handlePasswordToken(ctx, localAuthenticationService::authenticateLocal);
+        authEndpointSupport.handlePasswordToken(ctx, localAuthenticationService::authenticateLocal);
     }
 
     /**
      * Unique provider keys (e.g. {@code "google"}, {@code "microsoft-live"}) for rendering
-     * the social-button row. Distinct from {@link LoginResponses#respondProvidersList}
+     * the social-button row. Distinct from {@link AuthEndpointSupport#respondProvidersList}
      * which returns full config metadata — here multiple configs may share a provider
      * kind and the frontend just needs one button per kind.
      */
@@ -129,7 +125,7 @@ public class OrganizationLoginHandler {
               })
               .onFailure(err -> {
                   log.warn("Failed to list platform providers: {}", err.getMessage());
-                  loginResponses.respondError(ctx, 500, "Failed to list providers");
+                  authEndpointSupport.respondError(ctx, 500, "Failed to list providers");
               });
     }
 
@@ -137,7 +133,7 @@ public class OrganizationLoginHandler {
         JsonObject body = ctx.body().asJsonObject();
         String email = body == null ? null : body.getString("email");
         if (email == null || email.isBlank()) {
-            loginResponses.respondError(ctx, 400, "email is required");
+            authEndpointSupport.respondError(ctx, 400, "email is required");
             return;
         }
 
@@ -145,7 +141,7 @@ public class OrganizationLoginHandler {
               .compose(user -> resolveSsoOrPassword(ctx, user))
               .onFailure(err -> {
                   log.warn("Login lookup failed for {}: {}", email, err.getMessage());
-                  loginResponses.respondError(ctx, 500, "Lookup failed");
+                  authEndpointSupport.respondError(ctx, 500, "Lookup failed");
               });
     }
 
@@ -156,10 +152,10 @@ public class OrganizationLoginHandler {
      * the callback can validate state.
      */
     private Future<Void> resolveSsoOrPassword(RoutingContext ctx, IamUser user) {
-        if (user == null || user.getAuthType() == null
-                || !"OIDC".equals(user.getAuthType().name())
-                || !"ORGANIZATION".equals(user.getAuthScopeType())) {
-            return loginResponses.respondPasswordPath(ctx);
+        if (user == null
+                || user.getAuthType() != AuthType.OIDC
+                || !AuthScopeType.ORGANIZATION.name().equals(user.getAuthScopeType())) {
+            return authEndpointSupport.respondPasswordPath(ctx);
         }
 
         String orgId = user.getAuthScopeId();
@@ -169,12 +165,12 @@ public class OrganizationLoginHandler {
                              // Org has no live ORG_LOGIN config — fall back to password (which will
                              // fail with invalid creds since OIDC users have no password).
                              // Deliberately generic so we don't leak which orgs use SSO.
-                             return loginResponses.respondPasswordPath(ctx);
+                             return authEndpointSupport.respondPasswordPath(ctx);
                          }
                          return oidcFlowOrchestrator.startFlow(ctx, match, SSO_SESSION_KEYS,
                                                                ssoCallbackUrl(match.getId()),
                                                                Map.of(S_ORG_ID, orgId))
-                                 .compose(url -> loginResponses.respondSsoRedirect(ctx, url));
+                                 .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
                      });
     }
 
@@ -184,14 +180,14 @@ public class OrganizationLoginHandler {
         try {
             providerKind = OidcProviderKind.fromKey(provider);
         } catch (IllegalArgumentException ex) {
-            loginResponses.respondError(ctx, 400, "Unknown platform provider: " + provider);
+            authEndpointSupport.respondError(ctx, 400, "Unknown platform provider: " + provider);
             return;
         }
 
         Future.fromCompletionStage(orgSignupOidcConfigurationService.findEnabledByProvider(providerKind))
               .compose(config -> {
                   if (config == null) {
-                      loginResponses.respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
+                      authEndpointSupport.respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
                       return Future.<String>succeededFuture();
                   }
                   return oidcFlowOrchestrator.startFlow(ctx, config, SOCIAL_SESSION_KEYS,
@@ -204,7 +200,7 @@ public class OrganizationLoginHandler {
               })
               .onFailure(ex -> {
                   log.error("Social login start failed for {}", provider, ex);
-                  loginResponses.respondError(ctx, 500, "Provider initialization failed");
+                  authEndpointSupport.respondError(ctx, 500, "Provider initialization failed");
               });
     }
 
@@ -214,11 +210,11 @@ public class OrganizationLoginHandler {
         oidcFlowOrchestrator.<OrgSignupOidcConfiguration>handleCallback(
                 ctx, pathConfigId, SOCIAL_SESSION_KEYS, socialCallbackUrl(pathConfigId),
                 orgSignupOidcConfigurationService::findById)
-                .onSuccess(result -> loginResponses.completeOidcLogin(ctx, result.config(), result.claims(),
+                .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
                         // Social login: identity might exist in any org; pick the first match.
                         sub -> iamUserService.findByOidcIdentity(sub, result.config().getId())
                                              .thenApply(this::pickFirst)))
-                .onFailure(ex -> loginResponses.redirectCallbackFailure(ctx, ex));
+                .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }
 
     private void handleSsoCallback(RoutingContext ctx) {
@@ -232,11 +228,11 @@ public class OrganizationLoginHandler {
                 id -> securityContext.withElevatedAccess(() -> oidcConfigurationService.findById(id)))
                 .onSuccess(result -> {
                     String orgId = result.extras().get(S_ORG_ID);
-                    loginResponses.completeOidcLogin(ctx, result.config(), result.claims(),
+                    authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
                             sub -> iamUserService.findByOidcIdentityAndScope(
-                                    sub, result.config().getId(), "ORGANIZATION", orgId));
+                                    sub, result.config().getId(), AuthScopeType.ORGANIZATION.name(), orgId));
                 })
-                .onFailure(ex -> loginResponses.redirectCallbackFailure(ctx, ex));
+                .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }
 
     private IamUser pickFirst(List<IamUser> candidates) {
@@ -247,7 +243,7 @@ public class OrganizationLoginHandler {
         JsonObject body = ctx.body().asJsonObject();
         String token = body == null ? null : body.getString("token");
         if (token == null || token.isBlank()) {
-            loginResponses.respondError(ctx, 400, "token is required");
+            authEndpointSupport.respondError(ctx, 400, "token is required");
             return;
         }
         String displayNameOverride = body.getString("displayName");
@@ -256,18 +252,18 @@ public class OrganizationLoginHandler {
             if (displayNameOverride != null && !displayNameOverride.isBlank()) {
                 user.setDisplayName(displayNameOverride);
             }
-        })).onSuccess(user -> loginResponses.respondJwt(ctx, user))
+        })).onSuccess(user -> authEndpointSupport.respondJwt(ctx, user))
           .onFailure(ex -> {
               Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-              loginResponses.respondError(ctx, 400, cause.getMessage());
+              authEndpointSupport.respondError(ctx, 400, cause.getMessage());
           });
     }
 
     private String socialCallbackUrl(String configId) {
-        return loginResponses.apiBase() + "/api/login/callback/social/" + configId;
+        return authEndpointSupport.absoluteUrl(OidcConstants.ORG_LOGIN_BASE + "/callback/social/" + configId);
     }
 
     private String ssoCallbackUrl(String configId) {
-        return loginResponses.apiBase() + "/api/login/callback/sso/" + configId;
+        return authEndpointSupport.absoluteUrl(OidcConstants.ORG_LOGIN_BASE + "/callback/sso/" + configId);
     }
 }

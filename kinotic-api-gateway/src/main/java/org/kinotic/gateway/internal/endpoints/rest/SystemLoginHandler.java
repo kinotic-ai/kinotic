@@ -1,12 +1,12 @@
 package org.kinotic.gateway.internal.endpoints.rest;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.gateway.internal.auth.LoginResponses;
+import org.kinotic.core.api.security.AuthScopeType;
+import org.kinotic.gateway.internal.auth.AuthEndpointSupport;
 import org.kinotic.gateway.internal.auth.OidcFlowOrchestrator;
 import org.kinotic.gateway.internal.auth.SessionKeys;
 import org.kinotic.os.api.model.iam.IamUser;
@@ -39,29 +39,27 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class SystemLoginHandler {
 
-    private static final String SYSTEM_SCOPE_ID = "kinotic";
     private static final SessionKeys SESSION_KEYS = SessionKeys.ofPrefix("system-login");
 
-    private final Vertx vertx;
     private final IamUserService iamUserService;
     private final SystemOidcConfigurationService systemOidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
-    private final LoginResponses loginResponses;
+    private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
-        router.route("/api/system/login/*").handler(RedirectFlowSessionSupport.newSessionHandler(vertx));
+        authEndpointSupport.installSessionHandler(router, OidcConstants.SYSTEM_LOGIN_BASE);
 
-        router.get("/api/system/login/providers").handler(this::handleProviders);
-        router.post("/api/system/login/start/:configId").handler(this::handleStart);
-        router.get("/api/system/login/callback/:configId").handler(this::handleCallback);
+        router.get(OidcConstants.SYSTEM_LOGIN_BASE + "/providers").handler(this::handleProviders);
+        router.post(OidcConstants.SYSTEM_LOGIN_BASE + "/start/:configId").handler(this::handleStart);
+        router.get(OidcConstants.SYSTEM_LOGIN_BASE + "/callback/:configId").handler(this::handleCallback);
     }
 
     private void handleProviders(RoutingContext ctx) {
         Future.fromCompletionStage(systemOidcConfigurationService.findAllEnabled())
-              .onSuccess(configs -> loginResponses.respondProvidersList(ctx, configs))
+              .onSuccess(configs -> authEndpointSupport.respondProvidersList(ctx, configs))
               .onFailure(err -> {
                   log.warn("Failed to list system OIDC providers: {}", err.getMessage());
-                  loginResponses.respondError(ctx, 500, "Failed to list providers");
+                  authEndpointSupport.respondError(ctx, 500, "Failed to list providers");
               });
     }
 
@@ -71,7 +69,7 @@ public class SystemLoginHandler {
         Future.fromCompletionStage(systemOidcConfigurationService.findById(pathConfigId))
               .compose(config -> {
                   if (config == null || !config.isEnabled()) {
-                      loginResponses.respondError(ctx, 400, "Unknown or disabled system OIDC config: " + pathConfigId);
+                      authEndpointSupport.respondError(ctx, 400, "Unknown or disabled system OIDC config: " + pathConfigId);
                       return Future.<String>succeededFuture();
                   }
                   return oidcFlowOrchestrator.startFlow(ctx, config, SESSION_KEYS,
@@ -84,7 +82,7 @@ public class SystemLoginHandler {
               })
               .onFailure(ex -> {
                   log.error("System login start failed for config {}", pathConfigId, ex);
-                  loginResponses.respondError(ctx, 500, "Provider initialization failed");
+                  authEndpointSupport.respondError(ctx, 500, "Provider initialization failed");
               });
     }
 
@@ -94,13 +92,14 @@ public class SystemLoginHandler {
         oidcFlowOrchestrator.<SystemOidcConfiguration>handleCallback(
                 ctx, pathConfigId, SESSION_KEYS, callbackUrl(pathConfigId),
                 systemOidcConfigurationService::findById)
-                .onSuccess(result -> loginResponses.completeOidcLogin(ctx, result.config(), result.claims(),
+                .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
                         sub -> iamUserService.findByOidcIdentityAndScope(
-                                sub, result.config().getId(), "SYSTEM", SYSTEM_SCOPE_ID)))
-                .onFailure(ex -> loginResponses.redirectCallbackFailure(ctx, ex));
+                                sub, result.config().getId(),
+                                AuthScopeType.SYSTEM.name(), OidcConstants.SYSTEM_SCOPE_ID)))
+                .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }
 
     private String callbackUrl(String configId) {
-        return loginResponses.apiBase() + "/api/system/login/callback/" + configId;
+        return authEndpointSupport.absoluteUrl(OidcConstants.SYSTEM_LOGIN_BASE + "/callback/" + configId);
     }
 }

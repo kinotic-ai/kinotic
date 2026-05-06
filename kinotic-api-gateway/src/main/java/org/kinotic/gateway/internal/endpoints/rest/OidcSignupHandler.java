@@ -1,14 +1,14 @@
 package org.kinotic.gateway.internal.endpoints.rest;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.gateway.internal.auth.CallbackResult;
-import org.kinotic.gateway.internal.auth.LoginResponses;
+import org.kinotic.gateway.internal.auth.AuthEndpointSupport;
 import org.kinotic.gateway.internal.auth.OAuth2AuthFactory;
 import org.kinotic.gateway.internal.auth.OidcFlowOrchestrator;
 import org.kinotic.gateway.internal.auth.SessionKeys;
@@ -50,19 +50,18 @@ public class OidcSignupHandler {
 
     private static final SessionKeys SESSION_KEYS = SessionKeys.ofPrefix("signup");
 
-    private final Vertx vertx;
     private final IamUserService iamUserService;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final PendingRegistrationService pendingRegistrationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
-    private final LoginResponses loginResponses;
+    private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
-        router.route("/api/signup/*").handler(RedirectFlowSessionSupport.newSessionHandler(vertx));
+        authEndpointSupport.installSessionHandler(router, OidcConstants.SIGNUP_BASE);
 
-        router.post("/api/signup/start/:provider").handler(this::handleStart);
-        router.get("/api/signup/callback/:configId").handler(this::handleCallback);
-        router.post("/api/signup/complete-org").handler(this::handleCompleteOrg);
+        router.post(OidcConstants.SIGNUP_BASE + "/start/:provider").handler(this::handleStart);
+        router.get(OidcConstants.SIGNUP_BASE + "/callback/:configId").handler(this::handleCallback);
+        router.post(OidcConstants.SIGNUP_BASE + "/complete-org").handler(this::handleCompleteOrg);
     }
 
     private void handleStart(RoutingContext ctx) {
@@ -71,14 +70,14 @@ public class OidcSignupHandler {
         try {
             providerKind = OidcProviderKind.fromKey(provider);
         } catch (IllegalArgumentException ex) {
-            loginResponses.respondError(ctx, 400, "Unknown platform provider: " + provider);
+            authEndpointSupport.respondError(ctx, 400, "Unknown platform provider: " + provider);
             return;
         }
 
         Future.fromCompletionStage(orgSignupOidcConfigurationService.findEnabledByProvider(providerKind))
               .compose(config -> {
                   if (config == null) {
-                      loginResponses.respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
+                      authEndpointSupport.respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
                       return Future.<String>succeededFuture();
                   }
                   return oidcFlowOrchestrator.startFlow(ctx, config, SESSION_KEYS,
@@ -91,7 +90,7 @@ public class OidcSignupHandler {
               })
               .onFailure(ex -> {
                   log.error("Signup start failed for provider {}", provider, ex);
-                  loginResponses.respondError(ctx, 500, "Provider initialization failed");
+                  authEndpointSupport.respondError(ctx, 500, "Provider initialization failed");
               });
     }
 
@@ -102,7 +101,7 @@ public class OidcSignupHandler {
                 ctx, pathConfigId, SESSION_KEYS, callbackUrl(pathConfigId),
                 orgSignupOidcConfigurationService::findById)
                 .onSuccess(result -> resolveSignup(ctx, result))
-                .onFailure(ex -> loginResponses.redirectCallbackFailure(ctx, ex));
+                .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }
 
     /**
@@ -120,11 +119,11 @@ public class OidcSignupHandler {
         String displayName = OidcFlowOrchestrator.firstPresent(claims, "name", "preferred_username", "email");
 
         if (sub == null || email == null) {
-            loginResponses.redirectError(ctx, "invalid_token");
+            authEndpointSupport.redirectError(ctx, OidcConstants.ERR_INVALID_TOKEN);
             return;
         }
         if (!OAuth2AuthFactory.isEmailVerified(claims, config.getProvider())) {
-            loginResponses.redirectError(ctx, "email_not_verified");
+            authEndpointSupport.redirectError(ctx, OidcConstants.ERR_EMAIL_NOT_VERIFIED);
             return;
         }
 
@@ -139,7 +138,7 @@ public class OidcSignupHandler {
                           .setOidcConfigId(config.getId())
                           .setEmail(email)
                           .setDisplayName(displayName)
-                          .setAuthScopeType("ORGANIZATION")  // placeholder — actual orgId set on complete
+                          .setAuthScopeType(AuthScopeType.ORGANIZATION.name())  // placeholder — actual orgId set on complete
                           .setAuthScopeId("__pending__")
                           .setAdditionalClaims(claims);
                   return Future.fromCompletionStage(pendingRegistrationService.create(pending));
@@ -148,10 +147,10 @@ public class OidcSignupHandler {
               .onFailure(ex -> {
                   Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
                   if (cause instanceof AccountExistsException) {
-                      loginResponses.redirectError(ctx, "account_exists");
+                      authEndpointSupport.redirectError(ctx, OidcConstants.ERR_ACCOUNT_EXISTS);
                   } else {
                       log.warn("Signup resolution failed: {}", cause.getMessage());
-                      loginResponses.redirectError(ctx, "signup_failed");
+                      authEndpointSupport.redirectError(ctx, OidcConstants.ERR_SIGNUP_FAILED);
                   }
               });
     }
@@ -163,25 +162,25 @@ public class OidcSignupHandler {
         String orgDescription = body == null ? null : body.getString("orgDescription");
 
         if (token == null || token.isBlank()) {
-            loginResponses.respondError(ctx, 400, "token is required");
+            authEndpointSupport.respondError(ctx, 400, "token is required");
             return;
         }
         if (orgName == null || orgName.isBlank()) {
-            loginResponses.respondError(ctx, 400, "orgName is required");
+            authEndpointSupport.respondError(ctx, 400, "orgName is required");
             return;
         }
 
         Future.fromCompletionStage(pendingRegistrationService.completeWithNewOrg(token, orgName, orgDescription))
-              .onSuccess(user -> loginResponses.respondJwt(ctx, user,
+              .onSuccess(user -> authEndpointSupport.respondJwt(ctx, user,
                       new JsonObject().put("orgId", user.getAuthScopeId())))
               .onFailure(ex -> {
                   Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                  loginResponses.respondError(ctx, 400, cause.getMessage());
+                  authEndpointSupport.respondError(ctx, 400, cause.getMessage());
               });
     }
 
     private String callbackUrl(String configId) {
-        return loginResponses.apiBase() + "/api/signup/callback/" + configId;
+        return authEndpointSupport.absoluteUrl(OidcConstants.SIGNUP_BASE + "/callback/" + configId);
     }
 
     /** Sends the browser to the org-name completion page with the pending registration token. */

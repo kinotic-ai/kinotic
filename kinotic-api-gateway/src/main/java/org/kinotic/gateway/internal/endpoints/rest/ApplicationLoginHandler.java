@@ -1,16 +1,17 @@
 package org.kinotic.gateway.internal.endpoints.rest;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.gateway.internal.auth.LoginResponses;
+import org.kinotic.gateway.internal.auth.AuthEndpointSupport;
 import org.kinotic.gateway.internal.auth.OidcFlowOrchestrator;
 import org.kinotic.gateway.internal.auth.SessionKeys;
+import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.kinotic.os.api.services.ApplicationService;
@@ -48,25 +49,23 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ApplicationLoginHandler {
 
-    private static final String APP_SCOPE = "APPLICATION";
     private static final SessionKeys SESSION_KEYS = SessionKeys.ofPrefix("app-login");
 
-    private final Vertx vertx;
     private final IamUserService iamUserService;
     private final ApplicationService applicationService;
     private final OidcConfigurationService oidcConfigurationService;
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final SecurityContext securityContext;
-    private final LoginResponses loginResponses;
+    private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
-        router.route("/api/app/:appId/login/*").handler(RedirectFlowSessionSupport.newSessionHandler(vertx));
+        authEndpointSupport.installSessionHandler(router, OidcConstants.APP_LOGIN_BASE);
 
-        router.get("/api/app/:appId/login/providers").handler(this::handleProviders);
-        router.post("/api/app/:appId/login/lookup").handler(this::handleLookup);
-        router.post("/api/app/:appId/login/token").handler(this::handleToken);
-        router.get("/api/app/:appId/login/callback/:configId").handler(this::handleCallback);
+        router.get(OidcConstants.APP_LOGIN_BASE + "/providers").handler(this::handleProviders);
+        router.post(OidcConstants.APP_LOGIN_BASE + "/lookup").handler(this::handleLookup);
+        router.post(OidcConstants.APP_LOGIN_BASE + "/token").handler(this::handleToken);
+        router.get(OidcConstants.APP_LOGIN_BASE + "/callback/:configId").handler(this::handleCallback);
     }
 
     private void handleProviders(RoutingContext ctx) {
@@ -75,10 +74,10 @@ public class ApplicationLoginHandler {
               .whenComplete((configs, err) -> {
                   if (err != null) {
                       log.warn("Failed to list app providers for {}: {}", appId, err.getMessage());
-                      loginResponses.respondError(ctx, 500, "Failed to list providers");
+                      authEndpointSupport.respondError(ctx, 500, "Failed to list providers");
                       return;
                   }
-                  loginResponses.respondProvidersList(ctx, configs);
+                  authEndpointSupport.respondProvidersList(ctx, configs);
               });
     }
 
@@ -87,23 +86,23 @@ public class ApplicationLoginHandler {
         JsonObject body = ctx.body().asJsonObject();
         String email = body == null ? null : body.getString("email");
         if (email == null || email.isBlank()) {
-            loginResponses.respondError(ctx, 400, "email is required");
+            authEndpointSupport.respondError(ctx, 400, "email is required");
             return;
         }
 
-        Future.fromCompletionStage(iamUserService.findByEmailAndScope(email, APP_SCOPE, appId))
+        Future.fromCompletionStage(iamUserService.findByEmailAndScope(email, AuthScopeType.APPLICATION.name(), appId))
               .compose(user -> resolveSsoOrPassword(ctx, appId, user))
               .onFailure(err -> {
                   log.warn("App login lookup failed for {}/{}: {}", appId, email, err.getMessage());
-                  loginResponses.respondError(ctx, 500, "Lookup failed");
+                  authEndpointSupport.respondError(ctx, 500, "Lookup failed");
               });
     }
 
     private Future<Void> resolveSsoOrPassword(RoutingContext ctx, String appId, IamUser user) {
-        if (user == null || user.getAuthType() == null
-                || !"OIDC".equals(user.getAuthType().name())
+        if (user == null
+                || user.getAuthType() != AuthType.OIDC
                 || user.getOidcConfigId() == null) {
-            return loginResponses.respondPasswordPath(ctx);
+            return authEndpointSupport.respondPasswordPath(ctx);
         }
 
         String configId = user.getOidcConfigId();
@@ -111,18 +110,19 @@ public class ApplicationLoginHandler {
                         securityContext.withElevatedAccess(() -> oidcConfigurationService.findById(configId)))
                      .compose(match -> {
                          if (match == null || !match.isEnabled()) {
-                             return loginResponses.respondPasswordPath(ctx);
+                             return authEndpointSupport.respondPasswordPath(ctx);
                          }
                          return oidcFlowOrchestrator.startFlow(ctx, match, SESSION_KEYS,
                                                                callbackUrl(appId, match.getId()), null)
-                                 .compose(url -> loginResponses.respondSsoRedirect(ctx, url));
+                                 .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
                      });
     }
 
     private void handleToken(RoutingContext ctx) {
         String appId = ctx.pathParam("appId");
-        loginResponses.handlePasswordToken(ctx,
-                (email, password) -> localAuthenticationService.authenticateLocal(email, password, APP_SCOPE, appId));
+        authEndpointSupport.handlePasswordToken(ctx,
+                (email, password) -> localAuthenticationService.authenticateLocal(
+                        email, password, AuthScopeType.APPLICATION.name(), appId));
     }
 
     private void handleCallback(RoutingContext ctx) {
@@ -132,12 +132,13 @@ public class ApplicationLoginHandler {
         oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
                 ctx, pathConfigId, SESSION_KEYS, callbackUrl(appId, pathConfigId),
                 id -> securityContext.withElevatedAccess(() -> oidcConfigurationService.findById(id)))
-                .onSuccess(result -> loginResponses.completeOidcLogin(ctx, result.config(), result.claims(),
-                        sub -> iamUserService.findByOidcIdentityAndScope(sub, result.config().getId(), APP_SCOPE, appId)))
-                .onFailure(ex -> loginResponses.redirectCallbackFailure(ctx, ex));
+                .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
+                        sub -> iamUserService.findByOidcIdentityAndScope(
+                                sub, result.config().getId(), AuthScopeType.APPLICATION.name(), appId)))
+                .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }
 
     private String callbackUrl(String appId, String configId) {
-        return loginResponses.apiBase() + "/api/app/" + appId + "/login/callback/" + configId;
+        return authEndpointSupport.absoluteUrl("/api/app/" + appId + "/login/callback/" + configId);
     }
 }

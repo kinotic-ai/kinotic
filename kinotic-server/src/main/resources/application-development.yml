@@ -5,12 +5,19 @@ kinotic:
   # Verification email URLs and OIDC redirect URIs are built from this base, so they
   # need to point at the SPA's origin — not at kinotic-server's static port (9090).
   appBaseUrl: http://localhost:5173
-  email:
-    # No real ACS in dev — EmailService logs verification URLs instead of sending.
-    # To test against real ACS, flip enabled=true (endpoint/sender are pre-filled).
-    enabled: false
-    endpoint: https://acs-kinotic.communication.azure.com
-    sender-address: "DoNotReply@kinotic.ai"
+  github:
+    webhookSecret: "-"
+    repoTemplate: "-"
+    appPrivateKey: "-"
+    appId: "-"
+    appSlug: "-"
+  domain:
+    email:
+      # No real ACS in dev — EmailService logs verification URLs instead of sending.
+      # To test against real ACS, flip enabled=true (endpoint/sender are pre-filled).
+      enabled: false
+      endpoint: https://acs-kinotic.communication.azure.com
+      sender-address: "DoNotReply@kinotic.ai"
   maxNumberOfCoresToUse: 4
   ignite:
     discoveryType: SHAREDFS

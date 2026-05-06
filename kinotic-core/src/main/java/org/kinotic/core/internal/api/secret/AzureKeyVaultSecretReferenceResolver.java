@@ -8,7 +8,7 @@ import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -20,12 +20,14 @@ import java.util.concurrent.CompletableFuture;
  * local dev to {@code az login} or env vars. Always reads the latest version of the
  * secret.
  *
- * <p>Active when {@code kinotic.secretStorage.azure.vaultUrl} is set; otherwise
- * {@link EnvVarSecretReferenceResolver} fills the bean role.
+ * <p>Active when {@code kinotic.secretStorage.azure.vaultUrl} is set and non-blank;
+ * otherwise {@link EnvVarSecretReferenceResolver} fills the bean role. Both classes use
+ * {@link ConditionalOnExpression} on the same property so activation is property-driven
+ * and order-independent across the {@code @Component} scan.
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(prefix = "kinotic.secretStorage.azure", name = "vaultUrl")
+@ConditionalOnExpression("!'${kinotic.secretStorage.azure.vaultUrl:}'.isBlank()")
 public class AzureKeyVaultSecretReferenceResolver implements SecretReferenceResolver {
 
     private final SecretAsyncClient client;

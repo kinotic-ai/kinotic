@@ -11,6 +11,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
 import org.kinotic.gateway.internal.endpoints.rest.RedirectFlowSessionSupport;
 import org.kinotic.os.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
@@ -109,7 +110,7 @@ public class OidcFlowOrchestrator {
             return Future.failedFuture(new OidcCallbackException(idpError));
         }
         if (code == null || state == null) {
-            return Future.failedFuture(new OidcCallbackException("invalid_callback"));
+            return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_INVALID_CALLBACK));
         }
 
         Session session = ctx.session();
@@ -126,13 +127,13 @@ public class OidcFlowOrchestrator {
         if (expectedState == null || !expectedState.equals(state)
                 || sessionConfigId == null || !sessionConfigId.equals(pathConfigId)) {
             log.warn("OIDC callback state mismatch for configId={}", pathConfigId);
-            return Future.failedFuture(new OidcCallbackException("state_mismatch"));
+            return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_STATE_MISMATCH));
         }
 
         return Future.fromCompletionStage(configResolver.apply(pathConfigId))
                      .compose(config -> {
                          if (config == null) {
-                             return Future.failedFuture(new OidcCallbackException("config_not_found"));
+                             return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_CONFIG_NOT_FOUND));
                          }
                          return oauth2AuthRegistry.get(config, secretNameOf(config))
                                                   .compose(oauth2 -> exchangeCode(oauth2, code, callbackUrl, pkceVerifier))
@@ -141,7 +142,12 @@ public class OidcFlowOrchestrator {
                                                       if (!OAuth2AuthFactory.isIssuerValid(claims, config.getAuthority())) {
                                                           log.warn("OIDC issuer validation failed for config {}: iss={}, tid={}",
                                                                    config.getId(), claims.get("iss"), claims.get("tid"));
-                                                          throw new OidcCallbackException("invalid_token");
+                                                          throw new OidcCallbackException(OidcConstants.ERR_INVALID_TOKEN);
+                                                      }
+                                                      if (!OAuth2AuthFactory.isAudienceValid(claims, config.getAudience())) {
+                                                          log.warn("OIDC audience validation failed for config {}: expected={}, aud={}",
+                                                                   config.getId(), config.getAudience(), claims.get("aud"));
+                                                          throw new OidcCallbackException(OidcConstants.ERR_INVALID_TOKEN);
                                                       }
                                                       return new CallbackResult<>(config, claims, extras);
                                                   });

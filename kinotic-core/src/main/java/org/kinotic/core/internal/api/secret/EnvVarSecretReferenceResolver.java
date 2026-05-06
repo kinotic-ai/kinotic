@@ -3,7 +3,7 @@ package org.kinotic.core.internal.api.secret;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
@@ -14,13 +14,15 @@ import java.util.concurrent.CompletableFuture;
  * with non-alphanumeric characters replaced by {@code _}, matching standard env-var
  * conventions. Returns {@code null} when the env var is not set.
  *
- * <p>Active when no other {@link SecretReferenceResolver} bean is registered — i.e.
- * when {@code kinotic.secretStorage.azure.vaultUrl} is unset and
- * {@link AzureKeyVaultSecretReferenceResolver} therefore did not activate.
+ * <p>Active when {@code kinotic.secretStorage.azure.vaultUrl} is unset or blank.
+ * Mutually exclusive with {@link AzureKeyVaultSecretReferenceResolver} via the same
+ * property — both classes use {@link ConditionalOnExpression} rather than
+ * {@code @ConditionalOnMissingBean} so activation is property-driven and order-independent
+ * across the {@code @Component} scan.
  */
 @Slf4j
 @Component
-@ConditionalOnMissingBean(SecretReferenceResolver.class)
+@ConditionalOnExpression("'${kinotic.secretStorage.azure.vaultUrl:}'.isBlank()")
 public class EnvVarSecretReferenceResolver implements SecretReferenceResolver {
 
     @PostConstruct
