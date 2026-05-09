@@ -67,7 +67,8 @@ public class ApiGatewayVertcleFactory {
                       .setCookieHttpOnlyFlag(true)
                       .setCookieSecureFlag(true)
                       .setCookieSameSite(CookieSameSite.LAX)
-                      .setSessionTimeout(properties.getApiGateway().getSessionTimeout());
+                      .setSessionTimeout(properties.getApiGateway().getSessionTimeout())
+                      .setLazySession(true);
 
         router.route("/api/*").handler(sessionHandler);
 

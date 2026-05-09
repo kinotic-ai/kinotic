@@ -22,7 +22,6 @@ import org.springframework.stereotype.Component;
 public class SignUpHandler {
 
     private final SignUpService signUpService;
-    private final KinoticProperties kinoticProperties;
 
     /**
      * Mounts the sign-up REST routes on the given router.

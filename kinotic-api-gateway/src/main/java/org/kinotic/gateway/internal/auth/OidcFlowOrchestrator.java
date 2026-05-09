@@ -12,7 +12,6 @@ import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
-import org.kinotic.gateway.internal.endpoints.rest.RedirectFlowSessionSupport;
 import org.kinotic.os.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
 import org.kinotic.os.api.model.iam.OrgSignupOidcConfiguration;
