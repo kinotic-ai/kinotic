@@ -69,7 +69,7 @@ Active tracks:
 - JWT claims `authScopeType` / `authScopeId` (renamed from `scopeType` / `scopeId`) so
   the wire matches the rest of the system's field naming.
 - Provider-aware validation lives in two helpers in
-  `org.kinotic.gateway.internal.auth.OAuth2Util`:
+  `org.kinotic.gateway.internal.endpoints.rest.support.OAuth2Util`:
   - `isIssuerValid(claims, authority)` — direct match for fixed-issuer providers, dynamic
     substitution (using JWT's `tid`) for Microsoft `/common` / `/organizations`.
   - `isEmailVerified(claims, provider)` — explicit `email_verified=true` for providers

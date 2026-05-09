@@ -1,4 +1,4 @@
-package org.kinotic.gateway.internal.auth;
+package org.kinotic.gateway.internal.endpoints.rest.support;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;

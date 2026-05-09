@@ -7,7 +7,7 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.AuthScopeType;
-import org.kinotic.gateway.internal.auth.*;
+import org.kinotic.gateway.internal.endpoints.rest.support.*;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcProviderKind;
 import org.kinotic.os.api.model.iam.OrgSignupOidcConfiguration;
@@ -42,7 +42,7 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class OidcSignupHandler {
+public class OrganizationSignupHandler {
 
     private static final SessionKeys SESSION_KEYS = SessionKeys.ofPrefix("signup");
 

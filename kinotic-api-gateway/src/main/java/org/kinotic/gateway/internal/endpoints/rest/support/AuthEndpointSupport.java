@@ -1,17 +1,15 @@
-package org.kinotic.gateway.internal.auth;
+package org.kinotic.gateway.internal.endpoints.rest.support;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.JWTOptions;
-import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
-import org.kinotic.gateway.internal.endpoints.rest.RedirectFlowSessionSupport;
 import org.kinotic.os.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
@@ -40,7 +38,6 @@ public class AuthEndpointSupport {
     /** JWT TTL for the STOMP-CONNECT ticket — long enough for the browser to open the WebSocket. */
     public static final int JWT_TTL_SECONDS = 60;
 
-    private final Vertx vertx;
     private final KinoticApiGatewayProperties gatewayProperties;
     private final KinoticJwtIssuer jwtIssuer;
 

@@ -1,10 +1,9 @@
-package org.kinotic.gateway.internal.auth;
+package org.kinotic.gateway.internal.endpoints.rest.support;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.ext.auth.oauth2.OAuth2Auth;
 import io.vertx.ext.auth.oauth2.OAuth2Options;
-import io.vertx.ext.auth.oauth2.providers.AzureADAuth;
 import io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

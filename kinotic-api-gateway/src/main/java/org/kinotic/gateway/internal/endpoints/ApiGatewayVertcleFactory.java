@@ -12,10 +12,8 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.SessionHandler;
 import io.vertx.ext.web.healthchecks.HealthCheckHandler;
-import io.vertx.ext.web.sstore.ClusteredSessionStore;
 import io.vertx.ext.web.sstore.SessionStore;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.core.internal.utils.CorsUtil;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
@@ -37,7 +35,7 @@ public class ApiGatewayVertcleFactory {
     private final StompServerHandlerFactory stompServerHandlerFactory;
     private final SignUpHandler signUpHandler;
     private final OrganizationLoginHandler organizationLoginHandler;
-    private final OidcSignupHandler oidcSignupHandler;
+    private final OrganizationSignupHandler organizationSignupHandler;
     private final ApplicationLoginHandler applicationLoginHandler;
     private final SystemLoginHandler systemLoginHandler;
     private final GitHubGatewayRoutes githubGatewayRoutes;
@@ -75,7 +73,7 @@ public class ApiGatewayVertcleFactory {
         // REST endpoints under /api
         signUpHandler.mountRoutes(router);
         organizationLoginHandler.mountRoutes(router);
-        oidcSignupHandler.mountRoutes(router);
+        organizationSignupHandler.mountRoutes(router);
         applicationLoginHandler.mountRoutes(router);
         systemLoginHandler.mountRoutes(router);
         githubGatewayRoutes.mountRoutes(router);
