@@ -27,9 +27,8 @@ import java.util.function.Function;
  * Owns the OAuth 2.0 / OIDC dance shared by every handler that bounces the user out to
  * an IdP and back: state/nonce/PKCE generation, session storage, callback validation,
  * code exchange, claim extraction, issuer validation. Handlers compose it with their
- * own {@link SessionKeys} namespace and a per-route config resolver — the orchestrator
- * itself knows nothing about IamUser provisioning, JWT minting, or which entity table
- * the configuration came from.
+ * own per-route config resolver — the orchestrator itself knows nothing about IamUser
+ * provisioning, JWT minting, or which entity table the configuration came from.
  *
  * <p>{@link OAuth2AuthRegistry} caches per-config {@link OAuth2Auth} instances; the
  * orchestrator delegates discovery + secret resolution to it.
@@ -39,19 +38,19 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 public class OidcFlowOrchestrator {
 
+    private static final String OIDC_FLOW_SESSION_KEY = "oidcFlow";
+
     private final OAuth2AuthRegistry oauth2AuthRegistry;
 
     /**
-     * Generates state/nonce/PKCE, stores them on the session under the given keys, builds
-     * the IdP authorization URL using the supplied callback URL, and returns the URL.
+     * Generates state/nonce/PKCE, stores them on the session, builds the IdP authorization
+     * URL using the supplied callback URL, and returns the URL.
      *
      * @param extras values to stash on the session for the callback to retrieve later
-     *               (e.g. {@code orgId} for SSO flows). Keys must be enumerated in
-     *               {@link SessionKeys#extraKeys()} so the callback can capture them.
+     *               (e.g. {@code orgId} for SSO flows).
      */
     public Future<String> startFlow(RoutingContext ctx,
                                     BaseOidcConfiguration config,
-                                    SessionKeys keys,
                                     String callbackUrl,
                                     Map<String, String> extras) {
         String state = OAuth2Util.randomUrlSafe(32);
@@ -61,13 +60,7 @@ public class OidcFlowOrchestrator {
 
         Session session = ctx.session();
         session.regenerateId();
-        session.put(keys.state(), state);
-        session.put(keys.nonce(), nonce);
-        session.put(keys.pkce(), pkceVerifier);
-        session.put(keys.configId(), config.getId());
-        if (extras != null) {
-            extras.forEach(session::put);
-        }
+        session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), extras));
 
         return oauth2AuthRegistry.get(config, secretNameOf(config))
                                  .map(oauth2 -> oauth2.authorizeURL(
@@ -96,7 +89,6 @@ public class OidcFlowOrchestrator {
     public <C extends BaseOidcConfiguration> Future<CallbackResult<C>> handleCallback(
             RoutingContext ctx,
             String pathConfigId,
-            SessionKeys keys,
             String callbackUrl,
             Function<String, CompletableFuture<C>> configResolver) {
 
@@ -113,18 +105,10 @@ public class OidcFlowOrchestrator {
         }
 
         Session session = ctx.session();
-        String expectedState = session.get(keys.state());
-        String pkceVerifier = session.get(keys.pkce());
-        String sessionConfigId = session.get(keys.configId());
-        Map<String, String> extras = new HashMap<>();
-        for (String extraKey : keys.extraKeys()) {
-            String value = session.get(extraKey);
-            if (value != null) extras.put(extraKey, value);
-        }
-        session.destroy();
+        OidcFlowSession flowSession = session.remove(OIDC_FLOW_SESSION_KEY);
 
-        if (expectedState == null || !expectedState.equals(state)
-                || sessionConfigId == null || !sessionConfigId.equals(pathConfigId)) {
+        if (flowSession == null || !flowSession.state().equals(state)
+                || !flowSession.configId().equals(pathConfigId)) {
             log.warn("OIDC callback state mismatch for configId={}", pathConfigId);
             return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_STATE_MISMATCH));
         }
@@ -135,7 +119,7 @@ public class OidcFlowOrchestrator {
                              return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_CONFIG_NOT_FOUND));
                          }
                          return oauth2AuthRegistry.get(config, secretNameOf(config))
-                                                  .compose(oauth2 -> exchangeCode(oauth2, code, callbackUrl, pkceVerifier))
+                                                  .compose(oauth2 -> exchangeCode(oauth2, code, callbackUrl, flowSession.pkceVerifier()))
                                                   .map(user -> {
                                                       Map<String, Object> claims = flattenClaims(user);
                                                       if (!OAuth2Util.isIssuerValid(claims, config.getAuthority())) {
@@ -148,7 +132,7 @@ public class OidcFlowOrchestrator {
                                                                    config.getId(), config.getAudience(), claims.get("aud"));
                                                           throw new OidcCallbackException(OidcConstants.ERR_INVALID_TOKEN);
                                                       }
-                                                      return new CallbackResult<>(config, claims, extras);
+                                                      return new CallbackResult<>(config, claims, flowSession.extras());
                                                   });
                      });
     }

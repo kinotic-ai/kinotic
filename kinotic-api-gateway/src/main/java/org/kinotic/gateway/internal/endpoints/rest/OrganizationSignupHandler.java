@@ -44,8 +44,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class OrganizationSignupHandler {
 
-    private static final SessionKeys SESSION_KEYS = SessionKeys.ofPrefix("signup");
-
     private final IamUserService iamUserService;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final PendingRegistrationService pendingRegistrationService;
@@ -74,8 +72,7 @@ public class OrganizationSignupHandler {
                       authEndpointSupport.respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
                       return Future.<String>succeededFuture();
                   }
-                  return oidcFlowOrchestrator.startFlow(ctx, config, SESSION_KEYS,
-                                                       callbackUrl(config.getId()), null);
+                  return oidcFlowOrchestrator.startFlow(ctx, config, callbackUrl(config.getId()), null);
               })
               .onSuccess(url -> {
                   if (url != null) {
@@ -92,7 +89,7 @@ public class OrganizationSignupHandler {
         String pathConfigId = ctx.pathParam("configId");
 
         oidcFlowOrchestrator.<OrgSignupOidcConfiguration>handleCallback(
-                ctx, pathConfigId, SESSION_KEYS, callbackUrl(pathConfigId),
+                ctx, pathConfigId, callbackUrl(pathConfigId),
                 orgSignupOidcConfigurationService::findById)
                 .onSuccess(result -> resolveSignup(ctx, result))
                 .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));

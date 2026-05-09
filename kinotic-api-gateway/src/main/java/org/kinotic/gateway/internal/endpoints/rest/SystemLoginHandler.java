@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
-import org.kinotic.gateway.internal.endpoints.rest.support.SessionKeys;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.SystemOidcConfiguration;
 import org.kinotic.os.api.services.iam.IamUserService;
@@ -39,8 +38,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class SystemLoginHandler {
 
-    private static final SessionKeys SESSION_KEYS = SessionKeys.ofPrefix("system-login");
-
     private final IamUserService iamUserService;
     private final SystemOidcConfigurationService systemOidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
@@ -70,8 +67,7 @@ public class SystemLoginHandler {
                       authEndpointSupport.respondError(ctx, 400, "Unknown or disabled system OIDC config: " + pathConfigId);
                       return Future.<String>succeededFuture();
                   }
-                  return oidcFlowOrchestrator.startFlow(ctx, config, SESSION_KEYS,
-                                                       callbackUrl(config.getId()), null);
+                  return oidcFlowOrchestrator.startFlow(ctx, config, callbackUrl(config.getId()), null);
               })
               .onSuccess(url -> {
                   if (url != null) {
@@ -88,7 +84,7 @@ public class SystemLoginHandler {
         String pathConfigId = ctx.pathParam("configId");
 
         oidcFlowOrchestrator.<SystemOidcConfiguration>handleCallback(
-                ctx, pathConfigId, SESSION_KEYS, callbackUrl(pathConfigId),
+                ctx, pathConfigId, callbackUrl(pathConfigId),
                 systemOidcConfigurationService::findById)
                 .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
                         sub -> iamUserService.findByOidcIdentityAndScope(

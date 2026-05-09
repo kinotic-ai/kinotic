@@ -10,7 +10,6 @@ import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
-import org.kinotic.gateway.internal.endpoints.rest.support.SessionKeys;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
@@ -48,8 +47,6 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class ApplicationLoginHandler {
-
-    private static final SessionKeys SESSION_KEYS = SessionKeys.ofPrefix("app-login");
 
     private final IamUserService iamUserService;
     private final ApplicationService applicationService;
@@ -110,8 +107,7 @@ public class ApplicationLoginHandler {
                          if (match == null || !match.isEnabled()) {
                              return authEndpointSupport.respondPasswordPath(ctx);
                          }
-                         return oidcFlowOrchestrator.startFlow(ctx, match, SESSION_KEYS,
-                                                               callbackUrl(appId, match.getId()), null)
+                         return oidcFlowOrchestrator.startFlow(ctx, match, callbackUrl(appId, match.getId()), null)
                                  .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
                      });
     }
@@ -128,7 +124,7 @@ public class ApplicationLoginHandler {
         String pathConfigId = ctx.pathParam("configId");
 
         oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
-                ctx, pathConfigId, SESSION_KEYS, callbackUrl(appId, pathConfigId),
+                ctx, pathConfigId, callbackUrl(appId, pathConfigId),
                 id -> securityContext.withElevatedAccess(() -> oidcConfigurationService.findById(id)))
                 .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
                         sub -> iamUserService.findByOidcIdentityAndScope(

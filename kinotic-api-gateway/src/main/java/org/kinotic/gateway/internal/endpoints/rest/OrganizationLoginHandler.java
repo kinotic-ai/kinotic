@@ -11,7 +11,6 @@ import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
-import org.kinotic.gateway.internal.endpoints.rest.support.SessionKeys;
 import org.kinotic.os.api.model.iam.AuthType;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
@@ -74,10 +73,7 @@ import java.util.Set;
 public class OrganizationLoginHandler {
 
     /** Stashed on the SSO path so the callback can narrow the IamUser lookup. */
-    private static final String S_ORG_ID = "oidc.orgId";
-
-    private static final SessionKeys SSO_SESSION_KEYS = SessionKeys.ofPrefix("oidc", S_ORG_ID);
-    private static final SessionKeys SOCIAL_SESSION_KEYS = SessionKeys.ofPrefix("oidc-social");
+    private static final String ORG_ID_EXTRA = "orgId";
 
     private final IamUserService iamUserService;
     private final OidcConfigurationService oidcConfigurationService;
@@ -164,9 +160,8 @@ public class OrganizationLoginHandler {
                              // Deliberately generic so we don't leak which orgs use SSO.
                              return authEndpointSupport.respondPasswordPath(ctx);
                          }
-                         return oidcFlowOrchestrator.startFlow(ctx, match, SSO_SESSION_KEYS,
-                                                               ssoCallbackUrl(match.getId()),
-                                                               Map.of(S_ORG_ID, orgId))
+                         return oidcFlowOrchestrator.startFlow(ctx, match, ssoCallbackUrl(match.getId()),
+                                                               Map.of(ORG_ID_EXTRA, orgId))
                                  .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
                      });
     }
@@ -187,8 +182,7 @@ public class OrganizationLoginHandler {
                       authEndpointSupport.respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
                       return Future.<String>succeededFuture();
                   }
-                  return oidcFlowOrchestrator.startFlow(ctx, config, SOCIAL_SESSION_KEYS,
-                                                       socialCallbackUrl(config.getId()), null);
+                  return oidcFlowOrchestrator.startFlow(ctx, config, socialCallbackUrl(config.getId()), null);
               })
               .onSuccess(url -> {
                   if (url != null) {
@@ -205,7 +199,7 @@ public class OrganizationLoginHandler {
         String pathConfigId = ctx.pathParam("configId");
 
         oidcFlowOrchestrator.<OrgSignupOidcConfiguration>handleCallback(
-                ctx, pathConfigId, SOCIAL_SESSION_KEYS, socialCallbackUrl(pathConfigId),
+                ctx, pathConfigId, socialCallbackUrl(pathConfigId),
                 orgSignupOidcConfigurationService::findById)
                 .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
                         // Social login: identity might exist in any org; pick the first match.
@@ -221,10 +215,10 @@ public class OrganizationLoginHandler {
         // participant bound, so the lookup runs with elevated access. The configId is
         // trusted — it came from the IdP redirect we issued ourselves under the same id.
         oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
-                ctx, pathConfigId, SSO_SESSION_KEYS, ssoCallbackUrl(pathConfigId),
+                ctx, pathConfigId, ssoCallbackUrl(pathConfigId),
                 id -> securityContext.withElevatedAccess(() -> oidcConfigurationService.findById(id)))
                 .onSuccess(result -> {
-                    String orgId = result.extras().get(S_ORG_ID);
+                    String orgId = result.extras().get(ORG_ID_EXTRA);
                     authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
                             sub -> iamUserService.findByOidcIdentityAndScope(
                                     sub, result.config().getId(), AuthScopeType.ORGANIZATION.name(), orgId));
