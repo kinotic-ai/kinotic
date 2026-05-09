@@ -6,15 +6,16 @@ import lombok.experimental.Accessors;
 
 /**
  * Configuration settings for secret storage.
- * <p>
- * The master key set used for name derivation is no longer configured here — it is loaded
- * from the platform secrets mount (see {@link PlatformSecretsProperties}) so it can
- * rotate transparently without restarts.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 public class SecretStorageProperties {
+    /**
+     * Base64-encoded master key used by {@code SecretNameDeriver} to derive opaque,
+     * deterministic storage names from {@code (secretScope, key)} pairs.
+     */
+    private String masterKey;
     /**
      * Backend type. If null, in-memory storage is used.
      */
