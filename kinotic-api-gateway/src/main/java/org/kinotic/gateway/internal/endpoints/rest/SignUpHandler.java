@@ -29,9 +29,6 @@ public class SignUpHandler {
      * Must be called before the router is passed to the STOMP server factory.
      */
     public void mountRoutes(Router router) {
-        router.route("/api/*").handler(CorsUtil.createCorsHandler(kinoticProperties.getCors()));
-        router.route("/api/*").handler(BodyHandler.create().setBodyLimit(16384));
-
         router.post("/api/signup").handler(ctx -> {
             try {
                 SignUpRequest request = ctx.body().asPojo(SignUpRequest.class);

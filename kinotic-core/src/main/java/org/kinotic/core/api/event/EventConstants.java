@@ -25,17 +25,25 @@ public class EventConstants {
      */
     public static final String REPLY_TO_ID_HEADER = "reply-to-id";
 
-
     /**
      * Header provided by the sever on connection to represent the users session id
      */
     public static final String SESSION_HEADER = "session";
 
     /**
-     * Header provided by the client on connection request to represent that the server
-     * should not keep the session alive after any network disconnection.
+     * Cookie name used by browser clients to provide the session id during WebSocket handshake.
      */
-    public static final String DISABLE_STICKY_SESSION_HEADER = "disable-sticky-session";
+    public static final String SESSION_COOKIE_NAME = "kinotic-session";
+
+    /**
+     * Browser-readable cookie that indicates whether a session may be available.
+     */
+    public static final String SESSION_AVAILABLE_COOKIE_NAME = "sessionAvailable";
+
+    /**
+     * Header provided by the client on connection request to choose how the session is kept alive.
+     */
+    public static final String SESSION_KEEP_ALIVE_HEADER = "session-keep-alive";
 
     /**
      * Header provided by the server on connection to provide the {@link ConnectedInfo}

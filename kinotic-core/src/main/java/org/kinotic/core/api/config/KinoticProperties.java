@@ -23,8 +23,6 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class KinoticProperties {
 
-    public static long DEFAULT_SESSION_TIMEOUT = 1000 * 60 * 30;
-
     /**
      * Public-facing base URL of the SPA (scheme + host + optional port, no trailing slash).
      * Used to build absolute links to user-visible SPA routes — e.g. the verification email link
@@ -131,22 +129,10 @@ public class KinoticProperties {
      */
     private PlatformSecretsProperties platformSecrets = new PlatformSecretsProperties();
 
-    private long sessionTimeout = DEFAULT_SESSION_TIMEOUT;
 
     public void setMaxNumberOfCoresToUse(int maxNumberOfCoresToUse) {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         this.maxNumberOfCoresToUse = maxNumberOfCoresToUse > 0 ? Math.min(availableProcessors, maxNumberOfCoresToUse) : Math.max(availableProcessors, 1);
-    }
-
-    @Override
-    public String toString() {
-        ToStringBuilder sb = new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
-                .append("debug", debug)
-                .append("disableClustering", disableClustering)
-                .append("sessionTimeout", sessionTimeout)
-                .append("maxOffHeapMemory", maxOffHeapMemory);
-
-        return sb.toString();
     }
 
 }

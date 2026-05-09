@@ -48,11 +48,10 @@ describe('Kinotic Unavailable Tests', () => {
                .withName('maxretries-container')
                .start()
 
-           // Create connection info with disableStickySession enabled
+           // Create connection info
            connectionInfo.host = container.getHost()
            connectionInfo.port = 58590
            connectionInfo.maxConnectionAttempts = 3
-           connectionInfo.disableStickySession = false
            connectionInfo.connectHeaders = async () => {return {login: 'kinotic@kinotic.local', passcode: 'kinotic', authScopeType: 'ORGANIZATION', authScopeId: 'kinotic-test'}}
            console.log(`Kinotic Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
 

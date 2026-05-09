@@ -14,6 +14,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class ApiGatewayProperties {
+    public static long DEFAULT_SESSION_TIMEOUT = 1000 * 60 * 30;
     public static int DEFAULT_STOMP_PORT = 58503;
     public static String DEFAULT_STOMP_WEBSOCKET_PATH = "/v1";
 
@@ -22,6 +23,11 @@ public class ApiGatewayProperties {
      * True if CLI connections should be enabled false if not
      */
     private boolean enableCLIConnections = true;
+
+    /**
+     * How long a session should last in milliseconds.
+     */
+    private long sessionTimeout = DEFAULT_SESSION_TIMEOUT;
 
     /**
      * Stomp server configuration.
@@ -33,7 +39,6 @@ public class ApiGatewayProperties {
      * is hosted outside the cluster.
      */
     private WebServerProperties webServer = new WebServerProperties();
-
 
     public ApiGatewayProperties(KinoticProperties kinoticProperties) {
         stomp = new StompServerOptions()

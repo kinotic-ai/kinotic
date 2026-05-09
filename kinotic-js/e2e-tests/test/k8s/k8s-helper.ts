@@ -227,7 +227,6 @@ export class K8sTestHelper {
                     port: pod.localPort,
                     useSSL: false,
                     maxConnectionAttempts: 5,
-                    disableStickySession: false,
                     connectHeaders       : {
                         login   : 'admin',
                         passcode: 'structures',
@@ -282,7 +281,6 @@ export class K8sTestHelper {
             port: pod.localPort,
             useSSL: false,
             maxConnectionAttempts: 5,
-            disableStickySession: false,
             connectHeaders       : {
                 login   : 'admin',
                 passcode: 'structures',

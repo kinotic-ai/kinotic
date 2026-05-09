@@ -1,6 +1,6 @@
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, Kinotic, ConnectionInfo, KinoticSingleton} from '../src'
+import {ConnectedInfo, Kinotic, ConnectionInfo, KinoticSingleton, SessionKeepAliveMode} from '../src'
 import {TEST_SERVICE} from './ITestService'
 import { createConnectionInfo, logFailure, validateConnectedInfo } from './TestHelper'
 
@@ -13,15 +13,15 @@ describe('Disable Sticky Session Tests', () => {
     beforeAll(async () => {
         console.log('Starting Kinotic Gateway for sticky session test')
 
-        connectionInfo = createConnectionInfo(true)
+        connectionInfo = createConnectionInfo(SessionKeepAliveMode.NONE)
     }, 1000 * 60 * 10) // 10 minutes
 
     afterAll(async () => {
 
     })
 
-    it('should connect with disableStickySession and hard disconnect and reconnect', {"timeout": 1000 * 60 * 2}, async () => {
-        // Connect to the gateway with disableStickySession enabled
+    it('should connect with session keep alive NONE and hard disconnect and reconnect', {"timeout": 1000 * 60 * 2}, async () => {
+        // Connect to the gateway with session keep alive NONE enabled
         const continuum = new KinoticSingleton()
         let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(connectionInfo),
                                                             'Failed to connect to Kinotic Gateway')
@@ -31,14 +31,14 @@ describe('Disable Sticky Session Tests', () => {
         await expect(continuum.disconnect(true)).resolves.toBeUndefined()
 
         connectedInfo = await logFailure(continuum.connect(connectionInfo),
-                                            'Failed to connect to Kinotic Gateway with disableStickySession enabled')
+                                            'Failed to connect to Kinotic Gateway with session keep alive NONE enabled')
 
         validateConnectedInfo(connectedInfo)
 
         await expect(continuum.disconnect()).resolves.toBeUndefined()
     })
 
-    it('send RPC call with disableStickySession', {"timeout": 1000 * 60 * 2}, async () => {
+    it('send RPC call with session keep alive NONE', {"timeout": 1000 * 60 * 2}, async () => {
         // First connection and RPC call
         let connectedInfo: ConnectedInfo = await logFailure(Kinotic.connect(connectionInfo),
                                                             'Failed to connect to Kinotic Gateway')

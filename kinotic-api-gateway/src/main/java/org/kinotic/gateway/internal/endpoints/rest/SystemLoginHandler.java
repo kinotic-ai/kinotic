@@ -47,8 +47,6 @@ public class SystemLoginHandler {
     private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
-        authEndpointSupport.installSessionHandler(router, OidcConstants.SYSTEM_LOGIN_BASE);
-
         router.get(OidcConstants.SYSTEM_LOGIN_BASE + "/providers").handler(this::handleProviders);
         router.post(OidcConstants.SYSTEM_LOGIN_BASE + "/start/:configId").handler(this::handleStart);
         router.get(OidcConstants.SYSTEM_LOGIN_BASE + "/callback/:configId").handler(this::handleCallback);

@@ -7,11 +7,7 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.AuthScopeType;
-import org.kinotic.gateway.internal.auth.CallbackResult;
-import org.kinotic.gateway.internal.auth.AuthEndpointSupport;
-import org.kinotic.gateway.internal.auth.OAuth2AuthFactory;
-import org.kinotic.gateway.internal.auth.OidcFlowOrchestrator;
-import org.kinotic.gateway.internal.auth.SessionKeys;
+import org.kinotic.gateway.internal.auth.*;
 import org.kinotic.os.api.model.iam.IamUser;
 import org.kinotic.os.api.model.iam.OidcProviderKind;
 import org.kinotic.os.api.model.iam.OrgSignupOidcConfiguration;
@@ -57,8 +53,6 @@ public class OidcSignupHandler {
     private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
-        authEndpointSupport.installSessionHandler(router, OidcConstants.SIGNUP_BASE);
-
         router.post(OidcConstants.SIGNUP_BASE + "/start/:provider").handler(this::handleStart);
         router.get(OidcConstants.SIGNUP_BASE + "/callback/:configId").handler(this::handleCallback);
         router.post(OidcConstants.SIGNUP_BASE + "/complete-org").handler(this::handleCompleteOrg);
@@ -114,15 +108,15 @@ public class OidcSignupHandler {
         OrgSignupOidcConfiguration config = result.config();
         Map<String, Object> claims = result.claims();
 
-        String sub = OidcFlowOrchestrator.stringClaim(claims, "sub");
-        String email = OidcFlowOrchestrator.stringClaim(claims, "email");
-        String displayName = OidcFlowOrchestrator.firstPresent(claims, "name", "preferred_username", "email");
+        String sub = OAuth2Util.stringClaim(claims, "sub");
+        String email = OAuth2Util.stringClaim(claims, "email");
+        String displayName = OAuth2Util.firstPresent(claims, "name", "preferred_username", "email");
 
         if (sub == null || email == null) {
             authEndpointSupport.redirectError(ctx, OidcConstants.ERR_INVALID_TOKEN);
             return;
         }
-        if (!OAuth2AuthFactory.isEmailVerified(claims, config.getProvider())) {
+        if (!OAuth2Util.isEmailVerified(claims, config.getProvider())) {
             authEndpointSupport.redirectError(ctx, OidcConstants.ERR_EMAIL_NOT_VERIFIED);
             return;
         }

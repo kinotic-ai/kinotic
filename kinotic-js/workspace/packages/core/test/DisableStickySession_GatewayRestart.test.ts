@@ -1,6 +1,6 @@
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, ConnectionInfo, KinoticSingleton} from '../src'
+import {ConnectedInfo, ConnectionInfo, KinoticSingleton, SessionKeepAliveMode} from '../src'
 import {GenericContainer, PullPolicy, StartedTestContainer, Wait} from 'testcontainers'
 import { logFailure, validateConnectedInfo } from './TestHelper'
 import { TestService } from './ITestService'
@@ -22,14 +22,14 @@ describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
             .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
             .withPullPolicy(PullPolicy.alwaysPull())
             .withWaitStrategy(Wait.forHttp('/', 58503))
-            .withName('disable-sticky-session-reconnect-test')
+            .withName('session-keep-alive-none-reconnect-test')
             .start()
 
-        // Create connection info with disableStickySession enabled
+        // Create connection info with session keep alive NONE enabled
         connectionInfo.host = container.getHost()
         connectionInfo.port = 58599
         connectionInfo.maxConnectionAttempts = 0
-        connectionInfo.disableStickySession = true
+        connectionInfo.sessionKeepAlive = SessionKeepAliveMode.NONE
         connectionInfo.connectHeaders = async () => {return {login: 'kinotic@kinotic.local', passcode: 'kinotic', authScopeType: 'ORGANIZATION', authScopeId: 'kinotic-test'}}
 
         console.log(`Kinotic Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
@@ -40,7 +40,7 @@ describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
         await container.stop({timeout: 60000, remove: true, removeVolumes: true})
     })
 
-    it('should handle gateway restart with disableStickySession and reconnect', {"timeout": 1000 * 60 * 5}, async () => {
+    it('should handle gateway restart with session keep alive NONE and reconnect', {"timeout": 1000 * 60 * 5}, async () => {
 
         // First connection and RPC call
         const continuum = new KinoticSingleton()
@@ -65,7 +65,7 @@ describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
             .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
             .withPullPolicy(PullPolicy.alwaysPull())
             .withWaitStrategy(Wait.forHttp('/', 58503))
-            .withName('disable-sticky-session-reconnect-test')
+            .withName('session-keep-alive-none-reconnect-test')
             .start()
 
         // Update connection info with new port mapping

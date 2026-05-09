@@ -118,7 +118,7 @@ import IconField from 'primevue/iconfield'
 import { useToast } from 'primevue/usetoast'
 
 import { CONTINUUM_UI } from '@/IContinuumUI'
-import { StructuresStates } from '@/states/index'
+import { StructuresStates } from '@/states'
 import { type IUserState } from '@/states/IUserState'
 import { createDebug } from '@/util/debug'
 import { apiUrl } from '@/util/helpers'

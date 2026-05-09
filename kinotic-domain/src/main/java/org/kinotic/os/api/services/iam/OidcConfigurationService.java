@@ -1,13 +1,11 @@
 package org.kinotic.os.api.services.iam;
 
-import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-@Publish
 public interface OidcConfigurationService extends IdentifiableCrudService<OidcConfiguration, String> {
 
     /**

@@ -2,6 +2,7 @@ package org.kinotic.core.api.secret;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -55,7 +56,7 @@ public interface SecretStorageService {
      * @param keys        the logical keys identifying the secrets within the scope
      * @return a future containing a map of logical key to secret value (keys not found are omitted)
      */
-    CompletableFuture<Map<String, String>> getSecrets(String secretScope, List<String> keys);
+    CompletableFuture<Map<String, String>> getSecrets(String secretScope, Set<String> keys);
 
     /**
      * Deletes multiple secrets within a single scope.
@@ -64,5 +65,5 @@ public interface SecretStorageService {
      * @param keys        the logical keys identifying the secrets to delete
      * @return a future that completes when all secrets have been deleted
      */
-    CompletableFuture<Void> deleteSecrets(String secretScope, List<String> keys);
+    CompletableFuture<Void> deleteSecrets(String secretScope, Set<String> keys);
 }

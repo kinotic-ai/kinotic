@@ -60,8 +60,6 @@ public class ApplicationLoginHandler {
     private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
-        authEndpointSupport.installSessionHandler(router, OidcConstants.APP_LOGIN_BASE);
-
         router.get(OidcConstants.APP_LOGIN_BASE + "/providers").handler(this::handleProviders);
         router.post(OidcConstants.APP_LOGIN_BASE + "/lookup").handler(this::handleLookup);
         router.post(OidcConstants.APP_LOGIN_BASE + "/token").handler(this::handleToken);

@@ -187,10 +187,9 @@ export enum EventConstants {
     CONNECTED_INFO_HEADER = 'connected-info',
 
     /**
-     * Header provided by the client on connection request to represent that the server
-     * should not keep the session alive after any network disconnection.
+     * Header provided by the client on connection request to choose how the session is kept alive.
      */
-    DISABLE_STICKY_SESSION_HEADER = "disable-sticky-session",
+    SESSION_KEEP_ALIVE_HEADER = 'session-keep-alive',
 
     /**
      * Correlates a response with a given request
@@ -247,5 +246,17 @@ export enum EventConstants {
      * The main purpose of the tracestate header is to provide additional vendor-specific trace identification information across different distributed tracing systems and is a companion header for the traceparent field. It also conveys information about the request’s position in multiple distributed tracing graphs.
      * @see https://www.w3.org/TR/trace-context/#tracestate-header
      */
-    TRACESTATE_HEADER = 'tracestate'
+    TRACESTATE_HEADER = 'tracestate',
+
+    /**
+     * The name of the session cookie
+     * This is used to store the session id in the browser
+     */
+    SESSION_COOKIE_NAME = 'kinotic-session',
+
+    /**
+     * Browser-readable cookie that indicates whether a session may be available.
+     */
+    SESSION_AVAILABLE_COOKIE_NAME = 'sessionAvailable'
+
 }

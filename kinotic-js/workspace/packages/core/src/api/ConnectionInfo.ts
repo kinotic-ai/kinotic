@@ -13,6 +13,12 @@ export class ServerInfo {
     useSSL?: boolean | null
 }
 
+export enum SessionKeepAliveMode {
+    NONE = 'NONE',
+    ACTIVITY = 'ACTIVITY',
+    CONNECTION = 'CONNECTION'
+}
+
 /**
  * ConnectionInfo provides the information needed to connect to the kinoitc server
  */
@@ -32,10 +38,11 @@ export class ConnectionInfo extends ServerInfo {
     maxConnectionAttempts?: number | null
 
     /**
-     * If true, the session will not be kept alive after the connection is established and then disrupted.
-     * If false, the session will be kept alive after the connection is established and then disrupted, for a period of time.
+     * Controls whether session expiration is extended by gateway activity or by an active websocket connection.
+     * Defaults to {@link SessionKeepAliveMode.ACTIVITY}.
+     * Use {@link SessionKeepAliveMode.NONE} to remove the session when the websocket connection closes.
      */
-    disableStickySession?: boolean | null
+    sessionKeepAlive?: SessionKeepAliveMode | null
 
 }
 

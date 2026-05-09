@@ -3,23 +3,30 @@
 
 package org.kinotic.gateway.internal.endpoints.stomp;
 
+import io.netty.handler.codec.http.cookie.Cookie;
+import io.netty.handler.codec.http.cookie.CookieHeaderNames;
+import io.netty.handler.codec.http.cookie.DefaultCookie;
+import io.netty.handler.codec.http.cookie.ServerCookieDecoder;
+import io.netty.handler.codec.http.cookie.ServerCookieEncoder;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
+import io.vertx.core.MultiMap;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
+import io.vertx.core.http.HttpHeaders;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
-import org.kinotic.core.api.security.ConnectedInfo;
-import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
+import org.kinotic.core.api.event.SessionKeepAliveMode;
+import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.security.Session;
-import org.kinotic.gateway.internal.api.CliSecurityService;
 import org.kinotic.core.internal.utils.EventUtil;
+import org.kinotic.gateway.internal.api.CliSecurityService;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,24 +34,26 @@ import tools.jackson.core.JacksonException;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 
 /**
- * Generic class to perform {@link Event} handling coming from various endpoints
- * <p>
- * <p>
  * Created by Navid Mitchell on 11/3/20
  */
 public class EndpointConnectionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(EndpointConnectionHandler.class);
+    private static final String SESSION_COOKIE_PATH = "/v1";
     private final SecurityService securityService;
     private final Services services;
     private final Map<String, EventConsumer> subscriptions = new HashMap<>();
     private Session session;
-    private boolean disableStickySession = false;
+    private boolean sessionFromCookie = false;
+    private boolean secureCookies = false;
+    private SessionKeepAliveMode sessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY;
     private long sessionTimer = -1;
 
     public EndpointConnectionHandler(Services services) {
@@ -57,25 +66,11 @@ public class EndpointConnectionHandler {
         }
     }
 
-    /**
-     * Requests authentication for the given credentials
-     * NOTE: By default we keep the session alive after network disconnection, until the connection times out.
-     * @param connectHeaders all the headers provided with the CONNECT frame. This will include the login and passcode headers.
-     * @return a {@link Promise} completed normally to authenticate or failed to represent a failed authentication
-     *         The promise must contain a Map that will provide any additional headers to be returned to the client with the CONNECTED frame
-     */
-    public CompletableFuture<Map<String, String>> authenticate(Map<String, String> connectHeaders) {
+    public CompletableFuture<MultiMap> handshake(MultiMap transportHeaders) {
+        String sessionId = findSessionIdCookie(transportHeaders);
+        sessionKeepAliveMode = getHandshakeSessionKeepAliveMode(transportHeaders);
+        secureCookies = isSecureRequest(transportHeaders);
 
-        String sessionId = connectHeaders.get(EventConstants.SESSION_HEADER);
-
-        if(connectHeaders.containsKey(EventConstants.DISABLE_STICKY_SESSION_HEADER)){
-            this.disableStickySession = Boolean.parseBoolean(connectHeaders.get(EventConstants.DISABLE_STICKY_SESSION_HEADER));
-            if(this.disableStickySession && sessionId != null){
-                return CompletableFuture.failedFuture(new AuthenticationException("Session header provided but also requested to disable sticky session, this is not allowed"));
-            }
-        }
-
-        // Check if session is being used to authenticate
         if (sessionId != null) {
             return services.sessionManager
                     .findSession(sessionId)
@@ -83,46 +78,60 @@ public class EndpointConnectionHandler {
                         if(throwable != null){
                             throw new AuthenticationException("Could not authenticate with the given Session id", throwable);
                         }else{
-                            sessionActive(session);
-                            return Map.of(EventConstants.CONNECTED_INFO_HEADER, createConnectedInfoJson(session));
+                            sessionFromCookie = true;
+                            this.session = session;
+                            return createHandshakeResponseHeaders(session);
                         }
                     });
-        } else {
-
-            String replyToId = connectHeaders.containsKey(EventConstants.REPLY_TO_ID_HEADER)
-                    ? connectHeaders.get(EventConstants.REPLY_TO_ID_HEADER)
-                    : UUID.randomUUID().toString();
-
-            return securityService.authenticate(connectHeaders)
-                                  .handle((participant, throwable) -> {
-                                      if(throwable != null){
-                                          if(!(throwable instanceof AuthenticationException)) {
-                                              throw new AuthenticationException("Could not authenticate with the given credentials", throwable);
-                                          }else{
-                                              throw (AuthenticationException) throwable;
-                                          }
-                                      }else {
-                                          return participant;
-                                      }
-                                  })
-                                  .thenCompose(participant -> services.sessionManager.create(participant, replyToId))
-                                  .thenApply(session -> {
-                                      sessionActive(session);
-                                      Map<String, String> ret = new HashMap<>(2,1.5F);
-                                      ret.put(EventConstants.CONNECTED_INFO_HEADER, createConnectedInfoJson(session));
-                                      return ret;
-                                  });
         }
+
+        return securityService.authenticate(toCaseInsensitiveMap(transportHeaders))
+                              .handle((participant, throwable) -> {
+                                  if(throwable != null){
+                                      if(!(throwable instanceof AuthenticationException)) {
+                                          throw new AuthenticationException("Could not authenticate with the given credentials", throwable);
+                                      }else{
+                                          throw (AuthenticationException) throwable;
+                                      }
+                                  }else {
+                                      return participant;
+                                  }
+                              })
+                              .thenCompose(participant -> services.sessionManager.create(participant, UUID.randomUUID().toString()))
+                              .thenApply(session -> {
+                                  this.session = session;
+                                  return createHandshakeResponseHeaders(session);
+                              });
+    }
+
+    public CompletableFuture<Map<String, String>> connect(Map<String, String> connectHeaders) {
+        if (session != null) {
+            try {
+                sessionKeepAliveMode = getSessionKeepAliveMode(connectHeaders);
+                if(sessionKeepAliveMode == SessionKeepAliveMode.NONE && sessionFromCookie){
+                    return CompletableFuture.failedFuture(new AuthenticationException("Session cookie provided but also requested session keep alive NONE, this is not allowed"));
+                }
+
+                session.touch();
+                if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
+                    startSessionTouchTimer();
+                }
+                return CompletableFuture.completedFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
+                                                                createConnectedInfoJson(session)));
+            } catch (JacksonException e) {
+                return CompletableFuture.failedFuture(e);
+            } catch (IllegalArgumentException e) {
+                return CompletableFuture.failedFuture(new AuthenticationException("Invalid session keep alive mode", e));
+            }
+        }
+
+        return CompletableFuture.failedFuture(new AuthenticationException("Client must authenticate before sending a CONNECT frame"));
     }
 
     public void removeSession() {
-        // There will not be a session if authentication was not successful, or disableStickySession was requested
+        // There will not be a session if authentication was not successful.
         if (session != null) {
-            // We remove the session timer here so the timer does not fire after the session is removed
-            if (sessionTimer != -1) {
-                services.vertx.cancelTimer(sessionTimer);
-                sessionTimer = -1;
-            }
+            cancelSessionTimer();
 
             services.sessionManager
                     .removeSession(session.sessionId())
@@ -138,6 +147,8 @@ public class EndpointConnectionHandler {
     }
 
     public Future<Void> send(Event<byte[]> incomingEvent) {
+        session.touch();
+
         if (!session.sendAllowed(incomingEvent.cri())) {
             return Future.failedFuture(new AuthorizationException("Not Authorized to send to " + incomingEvent.cri()));
         }
@@ -191,14 +202,10 @@ public class EndpointConnectionHandler {
     }
 
     public void shutdown() {
-        // if session says not to keep alive we shutdown completely, i.e. disable sticky session
-        if(this.disableStickySession){
+        if(this.sessionKeepAliveMode == SessionKeepAliveMode.NONE){
             removeSession();
         }else{
-            if (sessionTimer != -1) {
-                services.vertx.cancelTimer(sessionTimer);
-                sessionTimer = -1;
-            }
+            cancelSessionTimer();
             subscriptions.forEach((s, eventConsumer) -> eventConsumer.unregister());
             subscriptions.clear();
         }
@@ -210,6 +217,8 @@ public class EndpointConnectionHandler {
         Validate.notNull(cri, "CRI must not be null");
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
         Validate.notNull(subscriptionHandler, "subscriptionHandler must not be null");
+
+        session.touch();
 
         if (!session.subscribeAllowed(cri)) {
             throw new AuthorizationException("Not Authorized to subscribe to " + cri);
@@ -271,6 +280,8 @@ public class EndpointConnectionHandler {
     public void unsubscribe(String subscriptionIdentifier) {
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
 
+        session.touch();
+
         EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
         if (consumer != null) {
             consumer.unregister();
@@ -279,20 +290,89 @@ public class EndpointConnectionHandler {
         }
     }
 
-    private String createConnectedInfoJson(Session session){
-        try {
-            ConnectedInfo connectedInfo = new ConnectedInfo(session.participant(), session.replyToId(), session.sessionId());
-            return services.jsonMapper.writeValueAsString(connectedInfo);
-        } catch (JacksonException e) {
-            throw new IllegalStateException(e);
-        }
+    private String createConnectedInfoJson(Session session) throws JacksonException {
+        ConnectedInfo connectedInfo = new ConnectedInfo(session.participant(), session.replyToId(), session.sessionId());
+        return services.jsonMapper.writeValueAsString(connectedInfo);
     }
 
-    private void sessionActive(Session session) {
-        this.session = session;
-        // update session at least every half the time of the timeout
+    private MultiMap createHandshakeResponseHeaders(Session session) {
+        MultiMap ret = MultiMap.caseInsensitiveMultiMap();
+        if (sessionKeepAliveMode != SessionKeepAliveMode.NONE) {
+            ret.add(HttpHeaders.SET_COOKIE, createSessionCookie(EventConstants.SESSION_COOKIE_NAME, session.sessionId(), true));
+            ret.add(HttpHeaders.SET_COOKIE, createSessionCookie(EventConstants.SESSION_AVAILABLE_COOKIE_NAME, "true", false));
+        }
+        return ret;
+    }
+
+    private String createSessionCookie(String name, String value, boolean httpOnly) {
+        DefaultCookie cookie = new DefaultCookie(name, value);
+        cookie.setPath(SESSION_COOKIE_PATH);
+        cookie.setMaxAge(TimeUnit.MILLISECONDS.toSeconds(services.kinoticProperties.getSessionTimeout()));
+        cookie.setHttpOnly(httpOnly);
+        cookie.setSecure(secureCookies);
+        cookie.setSameSite(CookieHeaderNames.SameSite.Lax);
+        return ServerCookieEncoder.STRICT.encode(cookie);
+    }
+
+    private Map<String, String> toCaseInsensitiveMap(MultiMap headers) {
+        Map<String, String> ret = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        for (Map.Entry<String, String> entry : headers) {
+            ret.put(entry.getKey(), entry.getValue());
+        }
+        return ret;
+    }
+
+    private String findSessionIdCookie(MultiMap headers) {
+        return findCookie(headers, EventConstants.SESSION_COOKIE_NAME);
+    }
+
+    private String findCookie(MultiMap headers, String name) {
+        for (String cookieHeader : headers.getAll(HttpHeaders.COOKIE)) {
+            for (Cookie cookie : ServerCookieDecoder.LAX.decode(cookieHeader)) {
+                if (name.equals(cookie.name())) {
+                    return cookie.value();
+                }
+            }
+        }
+        return null;
+    }
+
+    private SessionKeepAliveMode getSessionKeepAliveMode(Map<String, String> connectHeaders) {
+        return SessionKeepAliveMode.fromHeader(connectHeaders.get(EventConstants.SESSION_KEEP_ALIVE_HEADER));
+    }
+
+    private SessionKeepAliveMode getHandshakeSessionKeepAliveMode(MultiMap headers) {
+        return SessionKeepAliveMode.fromHeader(findCookie(headers, EventConstants.SESSION_KEEP_ALIVE_HEADER));
+    }
+
+    private boolean isSecureRequest(MultiMap headers) {
+        String forwardedProto = headers.get("x-forwarded-proto");
+        if ("https".equalsIgnoreCase(forwardedProto)) {
+            return true;
+        }
+
+        String forwardedSsl = headers.get("x-forwarded-ssl");
+        if ("on".equalsIgnoreCase(forwardedSsl)) {
+            return true;
+        }
+
+        String origin = headers.get(HttpHeaders.ORIGIN);
+        return origin != null && origin.startsWith("https://");
+    }
+
+    private void startSessionTouchTimer() {
+        if (sessionTimer != -1) {
+            return;
+        }
         long sessionUpdateInterval = services.kinoticProperties.getSessionTimeout() / 2;
-        sessionTimer = services.vertx.setPeriodic(sessionUpdateInterval, event -> this.session.touch());
+        sessionTimer = services.vertx.setPeriodic(sessionUpdateInterval, event -> session.touch());
+    }
+
+    private void cancelSessionTimer() {
+        if (sessionTimer != -1) {
+            services.vertx.cancelTimer(sessionTimer);
+            sessionTimer = -1;
+        }
     }
 
     private void validateReplyToForServiceRequest(Event<byte[]> event) {

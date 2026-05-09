@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.security.SecurityContext;
@@ -48,7 +49,7 @@ public class DefaultOrgSignupOidcConfigurationService
     public CompletableFuture<List<OrgSignupOidcConfiguration>> findAllEnabled() {
         return crudServiceTemplate.search(indexName, Pageable.create(0, 100, Sort.unsorted()), type, builder -> builder
                 .query(q -> q.term(t -> t.field("enabled").value(true))))
-                .thenApply(page -> page.getContent());
+                .thenApply(Page::getContent);
     }
 
     @Override

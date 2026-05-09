@@ -55,10 +55,10 @@ public class OidcFlowOrchestrator {
                                     SessionKeys keys,
                                     String callbackUrl,
                                     Map<String, String> extras) {
-        String state = RedirectFlowSessionSupport.randomUrlSafe(32);
-        String nonce = RedirectFlowSessionSupport.randomUrlSafe(32);
-        String pkceVerifier = RedirectFlowSessionSupport.randomUrlSafe(64);
-        String pkceChallenge = RedirectFlowSessionSupport.s256Challenge(pkceVerifier);
+        String state = OAuth2Util.randomUrlSafe(32);
+        String nonce = OAuth2Util.randomUrlSafe(32);
+        String pkceVerifier = OAuth2Util.randomUrlSafe(64);
+        String pkceChallenge = OAuth2Util.s256Challenge(pkceVerifier);
 
         Session session = ctx.session();
         session.regenerateId();
@@ -139,12 +139,12 @@ public class OidcFlowOrchestrator {
                                                   .compose(oauth2 -> exchangeCode(oauth2, code, callbackUrl, pkceVerifier))
                                                   .map(user -> {
                                                       Map<String, Object> claims = flattenClaims(user);
-                                                      if (!OAuth2AuthFactory.isIssuerValid(claims, config.getAuthority())) {
+                                                      if (!OAuth2Util.isIssuerValid(claims, config.getAuthority())) {
                                                           log.warn("OIDC issuer validation failed for config {}: iss={}, tid={}",
                                                                    config.getId(), claims.get("iss"), claims.get("tid"));
                                                           throw new OidcCallbackException(OidcConstants.ERR_INVALID_TOKEN);
                                                       }
-                                                      if (!OAuth2AuthFactory.isAudienceValid(claims, config.getAudience())) {
+                                                      if (!OAuth2Util.isAudienceValid(claims, config.getAudience())) {
                                                           log.warn("OIDC audience validation failed for config {}: expected={}, aud={}",
                                                                    config.getId(), config.getAudience(), claims.get("aud"));
                                                           throw new OidcCallbackException(OidcConstants.ERR_INVALID_TOKEN);
@@ -168,7 +168,7 @@ public class OidcFlowOrchestrator {
      * iss}, {@code tid}, {@code sub}, {@code email}, etc. live. The principal itself only
      * carries the raw token-endpoint response (encoded JWT strings).
      */
-    public static Map<String, Object> flattenClaims(User user) {
+    private Map<String, Object> flattenClaims(User user) {
         Map<String, Object> map = new HashMap<>();
         JsonObject attrs = user.attributes();
         if (attrs != null) {
@@ -181,19 +181,6 @@ public class OidcFlowOrchestrator {
             });
         }
         return map;
-    }
-
-    public static String stringClaim(Map<String, Object> claims, String name) {
-        Object value = claims.get(name);
-        return value == null ? null : value.toString();
-    }
-
-    public static String firstPresent(Map<String, Object> claims, String... names) {
-        for (String name : names) {
-            String value = stringClaim(claims, name);
-            if (value != null && !value.isBlank()) return value;
-        }
-        return null;
     }
 
     /**

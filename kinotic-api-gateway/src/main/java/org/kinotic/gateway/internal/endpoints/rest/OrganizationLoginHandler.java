@@ -89,9 +89,6 @@ public class OrganizationLoginHandler {
     private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
-        // BodyHandler is already installed at /api/* by SignUpHandler; not duplicated here.
-        authEndpointSupport.installSessionHandler(router, OidcConstants.ORG_LOGIN_BASE);
-
         router.get(OidcConstants.ORG_LOGIN_BASE + "/providers").handler(this::handleProviders);
         router.post(OidcConstants.ORG_LOGIN_BASE + "/lookup").handler(this::handleLookup);
         router.post(OidcConstants.ORG_LOGIN_BASE + "/token").handler(this::handleToken);
@@ -246,6 +243,7 @@ public class OrganizationLoginHandler {
             authEndpointSupport.respondError(ctx, 400, "token is required");
             return;
         }
+        @SuppressWarnings("null")
         String displayNameOverride = body.getString("displayName");
 
         Future.fromCompletionStage(pendingRegistrationService.complete(token, user -> {

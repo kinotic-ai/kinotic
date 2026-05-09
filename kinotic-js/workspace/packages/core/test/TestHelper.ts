@@ -1,4 +1,4 @@
-import {ConnectedInfo, ConnectHeaders, ConnectionInfo} from '../src'
+import {ConnectedInfo, ConnectHeaders, ConnectionInfo, SessionKeepAliveMode} from '../src'
 import { expect, inject } from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -45,7 +45,7 @@ export function validateConnectedInfo(connectedInfo: ConnectedInfo, roles?: stri
     }
 }
 
-export function createConnectionInfo(disableStickySession: boolean = false,
+export function createConnectionInfo(sessionKeepAlive: SessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY,
                                            connectHeaders?: ConnectHeaders | (() => Promise<ConnectHeaders>)): ConnectionInfo {
     const connectionInfo = new ConnectionInfo()
     // @ts-ignore
@@ -54,6 +54,8 @@ export function createConnectionInfo(disableStickySession: boolean = false,
     connectionInfo.port = inject('KINOTIC_PORT')
     connectionInfo.maxConnectionAttempts = 3
     connectionInfo.connectHeaders = connectHeaders || { login: 'kinotic@kinotic.local', passcode: 'kinotic', authScopeType: 'ORGANIZATION', authScopeId: 'kinotic-test' }
-    connectionInfo.disableStickySession = disableStickySession
+    if (sessionKeepAlive !== SessionKeepAliveMode.ACTIVITY) {
+        connectionInfo.sessionKeepAlive = sessionKeepAlive
+    }
     return connectionInfo
 }

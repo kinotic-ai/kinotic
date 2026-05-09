@@ -44,17 +44,6 @@ public class AuthEndpointSupport {
     private final KinoticApiGatewayProperties gatewayProperties;
     private final KinoticJwtIssuer jwtIssuer;
 
-    // ── Routing ───────────────────────────────────────────────────────────────
-
-    /**
-     * Installs the redirect-flow {@link io.vertx.ext.web.handler.SessionHandler} on
-     * {@code <baseRoute>/*}. Every login/signup handler needs the same clustered-session
-     * setup; this centralizes it so handlers don't carry the {@link Vertx} reference
-     * just for one line of plumbing.
-     */
-    public void installSessionHandler(Router router, String baseRoute) {
-        router.route(baseRoute + "/*").handler(RedirectFlowSessionSupport.newSessionHandler(vertx));
-    }
 
     /**
      * Validated API base URL. Required for OIDC redirect_uri construction; throws so
@@ -225,12 +214,12 @@ public class AuthEndpointSupport {
                                           BaseOidcConfiguration config,
                                           Map<String, Object> claims,
                                           Function<String, CompletionStage<IamUser>> userLookup) {
-        String sub = OidcFlowOrchestrator.stringClaim(claims, "sub");
+        String sub = OAuth2Util.stringClaim(claims, "sub");
         if (sub == null) {
             redirectError(ctx, OidcConstants.ERR_INVALID_TOKEN);
             return Future.succeededFuture();
         }
-        if (!OAuth2AuthFactory.isEmailVerified(claims, config.getProvider())) {
+        if (!OAuth2Util.isEmailVerified(claims, config.getProvider())) {
             redirectError(ctx, OidcConstants.ERR_EMAIL_NOT_VERIFIED);
             return Future.succeededFuture();
         }
