@@ -70,7 +70,7 @@ public class OrganizationSignupHandler {
               .compose(config -> {
                   if (config == null) {
                       authEndpointSupport.respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
-                      return Future.<String>succeededFuture();
+                      return Future.succeededFuture();
                   }
                   return oidcFlowOrchestrator.startFlow(ctx, config, callbackUrl(config.getId()), null);
               })
@@ -98,7 +98,7 @@ public class OrganizationSignupHandler {
     /**
      * After IdP returns: refuse if {@code (sub, configId)} already maps to an existing
      * IamUser anywhere (the user already has an account — they should log in, not sign up).
-     * Otherwise create a {@link PendingRegistration} carrying the verified identity and
+     * Otherwise, create a {@link PendingRegistration} carrying the verified identity and
      * redirect to the org-name completion page.
      */
     private void resolveSignup(RoutingContext ctx, CallbackResult<OrgSignupOidcConfiguration> result) {

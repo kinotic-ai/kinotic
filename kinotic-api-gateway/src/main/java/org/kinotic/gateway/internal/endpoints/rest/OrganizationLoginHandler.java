@@ -102,7 +102,7 @@ public class OrganizationLoginHandler {
      * Unique provider keys (e.g. {@code "google"}, {@code "microsoft-live"}) for rendering
      * the social-button row. Distinct from {@link AuthEndpointSupport#respondProvidersList}
      * which returns full config metadata — here multiple configs may share a provider
-     * kind and the frontend just needs one button per kind.
+     * kind, and the frontend just needs one button per kind.
      */
     private void handleProviders(RoutingContext ctx) {
         Future.fromCompletionStage(orgSignupOidcConfigurationService.findAllEnabled())
@@ -198,7 +198,7 @@ public class OrganizationLoginHandler {
     private void handleSocialCallback(RoutingContext ctx) {
         String pathConfigId = ctx.pathParam("configId");
 
-        oidcFlowOrchestrator.<OrgSignupOidcConfiguration>handleCallback(
+        oidcFlowOrchestrator.handleCallback(
                 ctx, pathConfigId, socialCallbackUrl(pathConfigId),
                 orgSignupOidcConfigurationService::findById)
                 .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
@@ -214,7 +214,7 @@ public class OrganizationLoginHandler {
         // OidcConfiguration is OrganizationScoped; the pre-auth callback has no
         // participant bound, so the lookup runs with elevated access. The configId is
         // trusted — it came from the IdP redirect we issued ourselves under the same id.
-        oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
+        oidcFlowOrchestrator.handleCallback(
                 ctx, pathConfigId, ssoCallbackUrl(pathConfigId),
                 id -> securityContext.withElevatedAccess(() -> oidcConfigurationService.findById(id)))
                 .onSuccess(result -> {
