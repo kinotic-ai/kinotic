@@ -1,15 +1,13 @@
 package org.kinotic.gateway.internal.endpoints.rest;
 
-import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.Router;
-import io.vertx.ext.web.handler.BodyHandler;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.core.internal.utils.CorsUtil;
 import org.kinotic.os.api.model.iam.SignUpRequest;
 import org.kinotic.os.api.services.iam.SignUpService;
 import org.springframework.stereotype.Component;
+
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.Router;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * REST handler for organization sign-up endpoints.

@@ -1,20 +1,5 @@
 package org.kinotic.gateway.internal.endpoints.rest.support;
 
-import io.vertx.core.Future;
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.JWTOptions;
-import io.vertx.ext.web.RoutingContext;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
-import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
-import org.kinotic.os.api.model.iam.BaseOidcConfiguration;
-import org.kinotic.os.api.model.iam.IamUser;
-import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
-import org.springframework.stereotype.Component;
-
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -22,6 +7,21 @@ import java.util.Map;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+
+import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
+import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
+import org.kinotic.os.api.model.iam.BaseOidcConfiguration;
+import org.kinotic.os.api.model.iam.IamUser;
+import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
+import org.springframework.stereotype.Component;
+
+import io.vertx.core.Future;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.auth.JWTOptions;
+import io.vertx.ext.web.RoutingContext;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Shared response shaping + URL/route plumbing for every login/signup handler — JWT
