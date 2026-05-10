@@ -43,8 +43,8 @@ public class AuthEndpointSupport {
 
 
     /**
-     * Validated API base URL. Required for OIDC redirect_uri construction; throws so
-     * misconfigurations surface at the first request rather than producing a malformed
+     * Validated API base URL. Required for OIDC redirect_uri construction; throws so any
+     * misconfiguration surface at the first request rather than producing a malformed
      * redirect that the IdP will reject.
      */
     public String apiBase() {

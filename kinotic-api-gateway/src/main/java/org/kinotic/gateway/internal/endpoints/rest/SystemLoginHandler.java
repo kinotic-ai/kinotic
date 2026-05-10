@@ -38,15 +38,34 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class SystemLoginHandler {
 
-    private final IamUserService iamUserService;
-    private final SystemOidcConfigurationService systemOidcConfigurationService;
-    private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
+    private final IamUserService iamUserService;
+    private final OidcFlowOrchestrator oidcFlowOrchestrator;
+    private final SystemOidcConfigurationService systemOidcConfigurationService;
 
     public void mountRoutes(Router router) {
         router.get(OidcConstants.SYSTEM_LOGIN_BASE + "/providers").handler(this::handleProviders);
         router.post(OidcConstants.SYSTEM_LOGIN_BASE + "/start/:configId").handler(this::handleStart);
         router.get(OidcConstants.SYSTEM_LOGIN_BASE + "/callback/:configId").handler(this::handleCallback);
+    }
+
+    private String callbackUrl(String configId) {
+        return authEndpointSupport.absoluteUrl(OidcConstants.SYSTEM_LOGIN_BASE + "/callback/" + configId);
+    }
+
+    private void handleCallback(RoutingContext ctx) {
+        String pathConfigId = ctx.pathParam("configId");
+
+        oidcFlowOrchestrator.handleCallback(ctx, pathConfigId, callbackUrl(pathConfigId), systemOidcConfigurationService::findById)
+                            .onSuccess(result ->
+                                               authEndpointSupport.completeOidcLogin(ctx,
+                                                                                     result.config(),
+                                                                                     result.claims(),
+                                                                                     sub -> iamUserService.findByOidcIdentityAndScope(sub,
+                                                                                                                                      result.config().getId(),
+                                                                                                                                      AuthScopeType.SYSTEM.name(),
+                                                                                                                                      OidcConstants.SYSTEM_SCOPE_ID)))
+                            .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }
 
     private void handleProviders(RoutingContext ctx) {
@@ -78,22 +97,5 @@ public class SystemLoginHandler {
                   log.error("System login start failed for config {}", pathConfigId, ex);
                   authEndpointSupport.respondError(ctx, 500, "Provider initialization failed");
               });
-    }
-
-    private void handleCallback(RoutingContext ctx) {
-        String pathConfigId = ctx.pathParam("configId");
-
-        oidcFlowOrchestrator.<SystemOidcConfiguration>handleCallback(
-                ctx, pathConfigId, callbackUrl(pathConfigId),
-                systemOidcConfigurationService::findById)
-                .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
-                        sub -> iamUserService.findByOidcIdentityAndScope(
-                                sub, result.config().getId(),
-                                AuthScopeType.SYSTEM.name(), OidcConstants.SYSTEM_SCOPE_ID)))
-                .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
-    }
-
-    private String callbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl(OidcConstants.SYSTEM_LOGIN_BASE + "/callback/" + configId);
     }
 }
