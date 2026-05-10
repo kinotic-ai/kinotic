@@ -1,11 +1,11 @@
 import {ConnectionInfo, SessionKeepAliveMode} from '@/api/ConnectionInfo'
-import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {EventConstants} from '@/api/event/IEventBus'
+import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {type IFrame, RxStomp, RxStompConfig, StompHeaders} from '@stomp/rx-stomp'
 import {ReconnectionTimeMode} from '@stomp/stompjs'
+import debug from 'debug'
 import {Subscription} from 'rxjs'
 import {v4 as uuidv4} from 'uuid'
-import debug from 'debug'
 
 /**
  * Creates a new RxStomp client and manages it
@@ -96,8 +96,7 @@ export class StompConnectionManager {
                         }
                     }
 
-                    const sessionKeepAlive = connectionInfo.sessionKeepAlive || SessionKeepAliveMode.ACTIVITY
-                    connectHeadersInternal[EventConstants.SESSION_KEEP_ALIVE_HEADER] = sessionKeepAlive
+                    connectHeadersInternal[EventConstants.SESSION_KEEP_ALIVE_HEADER] = connectionInfo.sessionKeepAlive || SessionKeepAliveMode.ACTIVITY
 
                     // use replyToId if provided in connectionInfo, otherwise set it
                     if(connectHeadersInternal[EventConstants.REPLY_TO_ID_HEADER]){

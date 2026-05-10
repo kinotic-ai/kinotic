@@ -1,13 +1,13 @@
 package org.kinotic.os.api.model.iam;
 
+import java.util.List;
+
+import org.kinotic.os.api.model.OrganizationScoped;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.os.api.model.OrganizationScoped;
-
-import java.util.Date;
-import java.util.List;
 
 /**
  * An OIDC provider configuration owned by an {@link org.kinotic.os.api.model.Organization}.

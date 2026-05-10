@@ -1,9 +1,9 @@
 package org.kinotic.os.internal.api.services;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
+import java.util.Date;
+import java.util.concurrent.CompletableFuture;
+
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.os.api.model.workload.VmNode;
@@ -11,8 +11,8 @@ import org.kinotic.os.api.model.workload.VmNodeStatus;
 import org.kinotic.os.api.services.VmNodeService;
 import org.springframework.stereotype.Component;
 
-import java.util.Date;
-import java.util.concurrent.CompletableFuture;
+import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 
 @Component
 public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements VmNodeService {
