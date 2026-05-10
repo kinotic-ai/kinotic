@@ -23,9 +23,5 @@ public class ConnectedInfo {
      * This id is the only valid "reply-to" scope that can be used by the client.
      */
     private String replyToId;
-    /**
-     * The connected clients session id.
-     */
-    private String sessionId;
 
 }

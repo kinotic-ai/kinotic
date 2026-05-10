@@ -3,17 +3,12 @@
 
 package org.kinotic.gateway.internal.endpoints.stomp;
 
-import io.netty.handler.codec.http.cookie.Cookie;
-import io.netty.handler.codec.http.cookie.CookieHeaderNames;
-import io.netty.handler.codec.http.cookie.DefaultCookie;
-import io.netty.handler.codec.http.cookie.ServerCookieDecoder;
-import io.netty.handler.codec.http.cookie.ServerCookieEncoder;
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
-import io.vertx.core.http.HttpHeaders;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.Session;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -25,7 +20,6 @@ import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.SecurityService;
-import org.kinotic.core.api.security.Session;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.gateway.internal.api.CliSecurityService;
 import org.kinotic.gateway.internal.endpoints.Services;
@@ -36,10 +30,7 @@ import tools.jackson.core.JacksonException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
 
 /**
  * Created by Navid Mitchell on 11/3/20
@@ -47,13 +38,13 @@ import java.util.function.BiFunction;
 public class EndpointConnectionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(EndpointConnectionHandler.class);
-    private static final String SESSION_COOKIE_PATH = "/v1";
+    private static final String CONNECTED_INFO_SESSION_KEY = EndpointConnectionHandler.class.getName() + ".connectedInfo";
     private final SecurityService securityService;
     private final Services services;
     private final Map<String, EventConsumer> subscriptions = new HashMap<>();
     private Session session;
-    private boolean sessionFromCookie = false;
-    private boolean secureCookies = false;
+    private ConnectedInfo connectedInfo;
+    private StompAuthorizer stompAuthorizer;
     private SessionKeepAliveMode sessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY;
     private long sessionTimer = -1;
 
@@ -68,25 +59,14 @@ public class EndpointConnectionHandler {
     }
 
     public CompletableFuture<MultiMap> handshake(RoutingContext routingContext) {
-        String sessionId = findSessionIdCookie(transportHeaders);
-        sessionKeepAliveMode = getHandshakeSessionKeepAliveMode(transportHeaders);
-        secureCookies = isSecureRequest(transportHeaders);
+        session = routingContext.session();
+        this.connectedInfo = connectedInfoFromSession();
 
-        if (sessionId != null) {
-            return services.sessionManager
-                    .findSession(sessionId)
-                    .handle((session, throwable) -> {
-                        if(throwable != null){
-                            throw new AuthenticationException("Could not authenticate with the given Session id", throwable);
-                        }else{
-                            sessionFromCookie = true;
-                            this.session = session;
-                            return createHandshakeResponseHeaders(session);
-                        }
-                    });
+        if (connectedInfo != null && connectedInfo.getParticipant() != null) {
+            return CompletableFuture.completedFuture(MultiMap.caseInsensitiveMultiMap());
         }
 
-        return securityService.authenticate(toCaseInsensitiveMap(transportHeaders))
+        return securityService.authenticate(toCaseInsensitiveMap(routingContext.request().headers()))
                               .handle((participant, throwable) -> {
                                   if(throwable != null){
                                       if(!(throwable instanceof AuthenticationException)) {
@@ -98,31 +78,42 @@ public class EndpointConnectionHandler {
                                       return participant;
                                   }
                               })
-                              .thenCompose(participant -> services.sessionManager.create(participant, UUID.randomUUID().toString()))
-                              .thenApply(session -> {
-                                  this.session = session;
-                                  return createHandshakeResponseHeaders(session);
+                              .thenApply(participant -> {
+                                  connectedInfo = new ConnectedInfo();
+                                  connectedInfo.setParticipant(participant);
+                                  if (session != null) {
+                                      session.put(CONNECTED_INFO_SESSION_KEY, connectedInfo);
+                                  }
+                                  return MultiMap.caseInsensitiveMultiMap();
                               });
     }
 
     public CompletableFuture<Map<String, String>> connect(Map<String, String> connectHeaders) {
-        if (session != null) {
+        if (connectedInfo != null && connectedInfo.getParticipant() != null) {
             try {
-                sessionKeepAliveMode = getSessionKeepAliveMode(connectHeaders);
-                if(sessionKeepAliveMode == SessionKeepAliveMode.NONE && sessionFromCookie){
-                    return CompletableFuture.failedFuture(new AuthenticationException("Session cookie provided but also requested session keep alive NONE, this is not allowed"));
+                sessionKeepAliveMode = SessionKeepAliveMode.fromHeader(connectHeaders.get(EventConstants.SESSION_KEEP_ALIVE_HEADER));
+                if (sessionKeepAliveMode != SessionKeepAliveMode.NONE && session == null) {
+                    throw new AuthenticationException("A Vert.x session is required unless session keep alive mode is NONE");
                 }
 
-                session.touch();
+                String replyToId = connectHeaders.get(EventConstants.REPLY_TO_ID_HEADER);
+                Validate.notEmpty(replyToId, "Client must provide a reply-to-id header");
+                connectedInfo.setReplyToId(replyToId);
+                if (session != null) {
+                    session.put(CONNECTED_INFO_SESSION_KEY, connectedInfo);
+                }
+                stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
+
+                touchSession();
                 if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
                     startSessionTouchTimer();
                 }
                 return CompletableFuture.completedFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
-                                                                createConnectedInfoJson(session)));
+                                                                services.jsonMapper.writeValueAsString(connectedInfo)));
             } catch (JacksonException e) {
                 return CompletableFuture.failedFuture(e);
             } catch (IllegalArgumentException e) {
-                return CompletableFuture.failedFuture(new AuthenticationException("Invalid session keep alive mode", e));
+                return CompletableFuture.failedFuture(new AuthenticationException("Invalid CONNECT frame", e));
             }
         }
 
@@ -130,27 +121,15 @@ public class EndpointConnectionHandler {
     }
 
     public void removeSession() {
-        // There will not be a session if authentication was not successful.
-        if (session != null) {
-            cancelSessionTimer();
-
-            services.sessionManager
-                    .removeSession(session.sessionId())
-                    .handle((BiFunction<Boolean, Throwable, Void>) (aBoolean, throwable) -> {
-                        if (throwable != null) {
-                            log.error("Could not remove sessionId: {}", session.sessionId(), throwable);
-                        }
-                        return null;
-                    });
-
-            session = null;
+        if (sessionKeepAliveMode == SessionKeepAliveMode.NONE && session != null) {
+            session.destroy();
         }
     }
 
     public Future<Void> send(Event<byte[]> incomingEvent) {
-        session.touch();
+        touchSession();
 
-        if (!session.sendAllowed(incomingEvent.cri())) {
+        if (!stompAuthorizer.sendAllowed(incomingEvent.cri())) {
             return Future.failedFuture(new AuthorizationException("Not Authorized to send to " + incomingEvent.cri()));
         }
 
@@ -159,7 +138,7 @@ public class EndpointConnectionHandler {
             try {
 
                 // FIXME: when the invocation is local this happens for no reason. If the event stays on the local bus we shouldn't do this..
-                incomingEvent.metadata().put(EventConstants.SENDER_HEADER, services.jsonMapper.writeValueAsString(session.participant()));
+                incomingEvent.metadata().put(EventConstants.SENDER_HEADER, services.jsonMapper.writeValueAsString(connectedInfo.getParticipant()));
 
                 // make sure reply-to if present is scoped to sender
                 // FIXME: a reply should not need a reply, therefore a replyCri probably should not be a EventConstants.SERVICE_DESTINATION_PREFIX
@@ -203,13 +182,15 @@ public class EndpointConnectionHandler {
     }
 
     public void shutdown() {
-        if(this.sessionKeepAliveMode == SessionKeepAliveMode.NONE){
-            removeSession();
-        }else{
-            cancelSessionTimer();
-            subscriptions.forEach((s, eventConsumer) -> eventConsumer.unregister());
-            subscriptions.clear();
+        if (sessionTimer != -1) {
+            services.vertx.cancelTimer(sessionTimer);
+            sessionTimer = -1;
         }
+        subscriptions.forEach((s, eventConsumer) -> eventConsumer.unregister());
+        subscriptions.clear();
+        session = null;
+        connectedInfo = null;
+        stompAuthorizer = null;
     }
 
     public void subscribe(CRI cri,
@@ -219,9 +200,9 @@ public class EndpointConnectionHandler {
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
         Validate.notNull(subscriptionHandler, "subscriptionHandler must not be null");
 
-        session.touch();
+        touchSession();
 
-        if (!session.subscribeAllowed(cri)) {
+        if (!stompAuthorizer.subscribeAllowed(cri)) {
             throw new AuthorizationException("Not Authorized to subscribe to " + cri);
         }
 
@@ -242,7 +223,7 @@ public class EndpointConnectionHandler {
                         if (replyTo != null) {
                             // wildcard in the reply to are not allowed since they could bypass security constraints
                             if (!replyTo.contains("*")) {
-                                session.addTemporarySendAllowed(replyTo);
+                                stompAuthorizer.addTemporarySendAllowed(replyTo);
                             } else {
                                 log.warn("reply-to header contains * and will NOT be ALLOWED for message {}",
                                          event);
@@ -257,7 +238,7 @@ public class EndpointConnectionHandler {
             log.debug("New Service Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
                       subscriptionIdentifier,
-                      session.participant());
+                      connectedInfo.getParticipant());
 
 
         } else if (cri.scheme().equals(EventConstants.STREAM_DESTINATION_SCHEME)) {
@@ -271,7 +252,7 @@ public class EndpointConnectionHandler {
             log.debug("New Event Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
                       subscriptionIdentifier,
-                      session.participant());
+                      connectedInfo.getParticipant());
 
         } else {
             throw new IllegalArgumentException("CRI scheme not supported");
@@ -281,7 +262,7 @@ public class EndpointConnectionHandler {
     public void unsubscribe(String subscriptionIdentifier) {
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
 
-        session.touch();
+        touchSession();
 
         EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
         if (consumer != null) {
@@ -289,30 +270,6 @@ public class EndpointConnectionHandler {
         } else {
             log.debug("No subscription exists for subscriptionIdentifier: {}", subscriptionIdentifier);
         }
-    }
-
-    private String createConnectedInfoJson(Session session) throws JacksonException {
-        ConnectedInfo connectedInfo = new ConnectedInfo(session.participant(), session.replyToId(), session.sessionId());
-        return services.jsonMapper.writeValueAsString(connectedInfo);
-    }
-
-    private MultiMap createHandshakeResponseHeaders(Session session) {
-        MultiMap ret = MultiMap.caseInsensitiveMultiMap();
-        if (sessionKeepAliveMode != SessionKeepAliveMode.NONE) {
-            ret.add(HttpHeaders.SET_COOKIE, createSessionCookie(EventConstants.SESSION_COOKIE_NAME, session.sessionId(), true));
-            ret.add(HttpHeaders.SET_COOKIE, createSessionCookie(EventConstants.SESSION_AVAILABLE_COOKIE_NAME, "true", false));
-        }
-        return ret;
-    }
-
-    private String createSessionCookie(String name, String value, boolean httpOnly) {
-        DefaultCookie cookie = new DefaultCookie(name, value);
-        cookie.setPath(SESSION_COOKIE_PATH);
-        cookie.setMaxAge(TimeUnit.MILLISECONDS.toSeconds(services.kinoticProperties.getSessionTimeout()));
-        cookie.setHttpOnly(httpOnly);
-        cookie.setSecure(secureCookies);
-        cookie.setSameSite(CookieHeaderNames.SameSite.Lax);
-        return ServerCookieEncoder.STRICT.encode(cookie);
     }
 
     private Map<String, String> toCaseInsensitiveMap(MultiMap headers) {
@@ -323,57 +280,33 @@ public class EndpointConnectionHandler {
         return ret;
     }
 
-    private String findSessionIdCookie(MultiMap headers) {
-        return findCookie(headers, EventConstants.SESSION_COOKIE_NAME);
-    }
-
-    private String findCookie(MultiMap headers, String name) {
-        for (String cookieHeader : headers.getAll(HttpHeaders.COOKIE)) {
-            for (Cookie cookie : ServerCookieDecoder.LAX.decode(cookieHeader)) {
-                if (name.equals(cookie.name())) {
-                    return cookie.value();
-                }
-            }
+    private ConnectedInfo connectedInfoFromSession() {
+        if (session == null) {
+            return null;
+        }
+        Object value = session.get(CONNECTED_INFO_SESSION_KEY);
+        if (value instanceof ConnectedInfo storedConnectedInfo) {
+            return storedConnectedInfo;
         }
         return null;
     }
 
-    private SessionKeepAliveMode getSessionKeepAliveMode(Map<String, String> connectHeaders) {
-        return SessionKeepAliveMode.fromHeader(connectHeaders.get(EventConstants.SESSION_KEEP_ALIVE_HEADER));
-    }
-
-    private SessionKeepAliveMode getHandshakeSessionKeepAliveMode(MultiMap headers) {
-        return SessionKeepAliveMode.fromHeader(findCookie(headers, EventConstants.SESSION_KEEP_ALIVE_HEADER));
-    }
-
-    private boolean isSecureRequest(MultiMap headers) {
-        String forwardedProto = headers.get("x-forwarded-proto");
-        if ("https".equalsIgnoreCase(forwardedProto)) {
-            return true;
+    private void touchSession() {
+        if (sessionKeepAliveMode == SessionKeepAliveMode.ACTIVITY && session != null) {
+            session.setAccessed();
         }
-
-        String forwardedSsl = headers.get("x-forwarded-ssl");
-        if ("on".equalsIgnoreCase(forwardedSsl)) {
-            return true;
-        }
-
-        String origin = headers.get(HttpHeaders.ORIGIN);
-        return origin != null && origin.startsWith("https://");
     }
 
     private void startSessionTouchTimer() {
         if (sessionTimer != -1) {
             return;
         }
-        long sessionUpdateInterval = services.kinoticProperties.getSessionTimeout() / 2;
-        sessionTimer = services.vertx.setPeriodic(sessionUpdateInterval, event -> session.touch());
-    }
-
-    private void cancelSessionTimer() {
-        if (sessionTimer != -1) {
-            services.vertx.cancelTimer(sessionTimer);
-            sessionTimer = -1;
-        }
+        long sessionUpdateInterval = services.apiGatewayProperties.getSessionTimeout() / 2;
+        sessionTimer = services.vertx.setPeriodic(sessionUpdateInterval, event -> {
+            if (session != null) {
+                session.setAccessed();
+            }
+        });
     }
 
     private void validateReplyToForServiceRequest(Event<byte[]> event) {
@@ -404,7 +337,7 @@ public class EndpointConnectionHandler {
                     scope = scope.substring(0, idx);
                 }
 
-                if (!scope.equals(session.replyToId())) {
+                if (!scope.equals(connectedInfo.getReplyToId())) {
                     throw new IllegalArgumentException("reply-to header invalid, scope: " + scope + " is not valid for service requests");
                 }
             } else {

@@ -134,7 +134,7 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
     public void exception(Throwable t) {
         // TODO: Add support for auto blacklisting client
         if(t instanceof InvalidConnectFrame){
-            log.error("Invalid connect frame "+t.getMessage()+"\nFrame: "+((InvalidConnectFrame)t).getData().toString());
+            log.error("Invalid connect frame {}\nFrame: {}", t.getMessage(), ((InvalidConnectFrame) t).getData().toString());
         }else{
             log.error("Client Caused Exception", t);
         }

@@ -34,7 +34,6 @@ export async function logFailure<T>(promise: Promise<T>, message: string): Promi
 
 export function validateConnectedInfo(connectedInfo: ConnectedInfo, roles?: string[]): void {
     expect(connectedInfo).toBeDefined()
-    expect(connectedInfo.sessionId).toBeDefined()
     expect(connectedInfo.participant.id).toBeDefined()
     expect(connectedInfo.participant.roles).toBeDefined()
     expect(connectedInfo.participant.roles.length).toBe(1)

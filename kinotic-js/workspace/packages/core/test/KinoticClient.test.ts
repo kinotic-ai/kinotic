@@ -98,24 +98,4 @@ describe('Kinotic Client Tests', () => {
         await expect(continuum.disconnect()).resolves.toBeUndefined()
 
     })
-
-    it('should allow connection with session id', async () => {
-        const continuum = new KinoticSingleton()
-        let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(createConnectionInfo(false,
-                                                                                                  {login: ParticipantConstants.CLI_PARTICIPANT_ID})),
-                                                            'Failed to connect to Kinotic Gateway')
-        validateConnectedInfo(connectedInfo, ['ANONYMOUS'])
-
-        // We use force here true. Otherwise, the server will clean up the session
-        await expect(continuum.disconnect(true)).resolves.toBeUndefined()
-
-        connectedInfo = await logFailure(continuum.connect(createConnectionInfo(false,{session: connectedInfo.sessionId})),
-            'Failed to connect to Kinotic Gateway with session id')
-
-        validateConnectedInfo(connectedInfo, ['ANONYMOUS'])
-
-        await expect(continuum.disconnect()).resolves.toBeUndefined()
-
-    })
-
 })

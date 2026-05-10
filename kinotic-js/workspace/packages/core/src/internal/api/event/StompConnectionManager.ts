@@ -178,7 +178,7 @@ export class StompConnectionManager {
 
                         serverHeadersSubscription.unsubscribe()
 
-                        if (connectedInfo.sessionId != null && connectedInfo.replyToId != null) {
+                        if (connectedInfo.replyToId != null) {
 
                             // Remove all information originally sent from the connect headers
                             if (connectionInfo.connectHeaders != null) {
@@ -186,8 +186,6 @@ export class StompConnectionManager {
                                     delete connectHeadersInternal[key]
                                 }
                             }
-
-                            connectHeadersInternal[EventConstants.SESSION_HEADER] = connectedInfo.sessionId
 
                             resolve(connectedInfo)
                         } else {
