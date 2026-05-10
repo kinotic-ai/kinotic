@@ -8,6 +8,7 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.stomp.lite.AbstractStompServerHandler;
 import io.vertx.ext.stomp.lite.frame.Frame;
 import io.vertx.ext.stomp.lite.frame.InvalidConnectFrame;
+import io.vertx.ext.web.RoutingContext;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.gateway.internal.endpoints.Services;
@@ -36,8 +37,8 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
     }
 
     @Override
-    public Future<MultiMap> handshake(MultiMap transportHeaders) {
-        return Future.fromCompletionStage(endpointConnectionHandler.handshake(transportHeaders),
+    public Future<MultiMap> handshake(RoutingContext routingContext) {
+        return Future.fromCompletionStage(endpointConnectionHandler.handshake(routingContext),
                                                                        vertx.getOrCreateContext());
     }
 

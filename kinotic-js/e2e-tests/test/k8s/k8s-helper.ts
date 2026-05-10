@@ -1,4 +1,4 @@
-import { Kinotic as Continuum } from '@kinotic-ai/core';
+import { Kinotic as Continuum, SessionKeepAliveMode } from '@kinotic-ai/core';
 import { ChildProcess, execSync } from 'child_process';
 
 
@@ -227,6 +227,7 @@ export class K8sTestHelper {
                     port: pod.localPort,
                     useSSL: false,
                     maxConnectionAttempts: 5,
+                    sessionKeepAlive: SessionKeepAliveMode.ACTIVITY,
                     connectHeaders       : {
                         login   : 'admin',
                         passcode: 'structures',
@@ -281,6 +282,7 @@ export class K8sTestHelper {
             port: pod.localPort,
             useSSL: false,
             maxConnectionAttempts: 5,
+            sessionKeepAlive: SessionKeepAliveMode.ACTIVITY,
             connectHeaders       : {
                 login   : 'admin',
                 passcode: 'structures',

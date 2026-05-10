@@ -46,7 +46,7 @@ export function validateConnectedInfo(connectedInfo: ConnectedInfo, roles?: stri
 }
 
 export function createConnectionInfo(sessionKeepAlive: SessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY,
-                                           connectHeaders?: ConnectHeaders | (() => Promise<ConnectHeaders>)): ConnectionInfo {
+                                     connectHeaders?: ConnectHeaders | (() => Promise<ConnectHeaders>)): ConnectionInfo {
     const connectionInfo = new ConnectionInfo()
     // @ts-ignore
     connectionInfo.host = inject('KINOTIC_HOST')
@@ -54,8 +54,6 @@ export function createConnectionInfo(sessionKeepAlive: SessionKeepAliveMode = Se
     connectionInfo.port = inject('KINOTIC_PORT')
     connectionInfo.maxConnectionAttempts = 3
     connectionInfo.connectHeaders = connectHeaders || { login: 'kinotic@kinotic.local', passcode: 'kinotic', authScopeType: 'ORGANIZATION', authScopeId: 'kinotic-test' }
-    if (sessionKeepAlive !== SessionKeepAliveMode.ACTIVITY) {
-        connectionInfo.sessionKeepAlive = sessionKeepAlive
-    }
+    connectionInfo.sessionKeepAlive = sessionKeepAlive
     return connectionInfo
 }

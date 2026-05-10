@@ -258,5 +258,4 @@ export enum EventConstants {
      * Browser-readable cookie that indicates whether a session may be available.
      */
     SESSION_AVAILABLE_COOKIE_NAME = 'sessionAvailable'
-
 }

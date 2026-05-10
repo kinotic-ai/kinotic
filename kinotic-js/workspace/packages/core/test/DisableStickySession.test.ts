@@ -20,8 +20,8 @@ describe('Disable Sticky Session Tests', () => {
 
     })
 
-    it('should connect with session keep alive NONE and hard disconnect and reconnect', {"timeout": 1000 * 60 * 2}, async () => {
-        // Connect to the gateway with session keep alive NONE enabled
+    it('should connect with sessionKeepAlive NONE and hard disconnect and reconnect', {"timeout": 1000 * 60 * 2}, async () => {
+        // Connect to the gateway without keeping the session alive after disconnect
         const continuum = new KinoticSingleton()
         let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(connectionInfo),
                                                             'Failed to connect to Kinotic Gateway')
@@ -31,14 +31,14 @@ describe('Disable Sticky Session Tests', () => {
         await expect(continuum.disconnect(true)).resolves.toBeUndefined()
 
         connectedInfo = await logFailure(continuum.connect(connectionInfo),
-                                            'Failed to connect to Kinotic Gateway with session keep alive NONE enabled')
+                                            'Failed to connect to Kinotic Gateway with sessionKeepAlive NONE')
 
         validateConnectedInfo(connectedInfo)
 
         await expect(continuum.disconnect()).resolves.toBeUndefined()
     })
 
-    it('send RPC call with session keep alive NONE', {"timeout": 1000 * 60 * 2}, async () => {
+    it('send RPC call with sessionKeepAlive NONE', {"timeout": 1000 * 60 * 2}, async () => {
         // First connection and RPC call
         let connectedInfo: ConnectedInfo = await logFailure(Kinotic.connect(connectionInfo),
                                                             'Failed to connect to Kinotic Gateway')

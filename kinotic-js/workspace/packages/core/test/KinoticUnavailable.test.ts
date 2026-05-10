@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, ConnectionInfo, Kinotic, KinoticSingleton} from '../src'
+import {ConnectedInfo, ConnectionInfo, Kinotic, KinoticSingleton, SessionKeepAliveMode} from '../src'
 import { GenericContainer, PullPolicy, StartedTestContainer, Wait } from 'testcontainers'
 import {TestService} from './ITestService.js'
 import { logFailure, validateConnectedInfo } from './TestHelper'
@@ -48,10 +48,11 @@ describe('Kinotic Unavailable Tests', () => {
                .withName('maxretries-container')
                .start()
 
-           // Create connection info
+           // Create connection info with default activity-based session keep alive
            connectionInfo.host = container.getHost()
            connectionInfo.port = 58590
            connectionInfo.maxConnectionAttempts = 3
+           connectionInfo.sessionKeepAlive = SessionKeepAliveMode.ACTIVITY
            connectionInfo.connectHeaders = async () => {return {login: 'kinotic@kinotic.local', passcode: 'kinotic', authScopeType: 'ORGANIZATION', authScopeId: 'kinotic-test'}}
            console.log(`Kinotic Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
 

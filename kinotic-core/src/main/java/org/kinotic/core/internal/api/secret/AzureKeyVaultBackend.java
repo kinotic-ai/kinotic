@@ -3,6 +3,7 @@ package org.kinotic.core.internal.api.secret;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.security.keyvault.secrets.SecretAsyncClient;
 import com.azure.security.keyvault.secrets.SecretClientBuilder;
+import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
 import org.kinotic.core.api.config.AzureProperties;
 import reactor.core.publisher.Flux;
 
@@ -42,7 +43,7 @@ public class AzureKeyVaultBackend implements SecretStorageBackend {
     @Override
     public CompletableFuture<String> getSecret(String derivedName) {
         return client.getSecret(derivedName)
-                     .map(secret -> secret.getValue())
+                     .map(KeyVaultSecret::getValue)
                      .toFuture();
     }
 

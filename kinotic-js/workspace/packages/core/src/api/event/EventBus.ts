@@ -160,7 +160,6 @@ export class EventBus implements IEventBus {
                                                             headers,
                                                             binaryBody: event.data.orUndefined()
                                                         })
-            this.stompConnectionManager.touchSessionAvailableCookie()
         }else{
             throw this.createSendUnavailableError()
         }
@@ -291,7 +290,6 @@ export class EventBus implements IEventBus {
      */
     private _observe(cri: string): Observable<IEvent> {
         if(this.stompConnectionManager?.rxStomp) {
-            this.stompConnectionManager.touchSessionAvailableCookie()
             return this.stompConnectionManager
                        .rxStomp
                        .watch(cri)

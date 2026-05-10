@@ -13,6 +13,7 @@ import io.vertx.core.MultiMap;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
 import io.vertx.core.http.HttpHeaders;
+import io.vertx.ext.web.RoutingContext;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -66,7 +67,7 @@ public class EndpointConnectionHandler {
         }
     }
 
-    public CompletableFuture<MultiMap> handshake(MultiMap transportHeaders) {
+    public CompletableFuture<MultiMap> handshake(RoutingContext routingContext) {
         String sessionId = findSessionIdCookie(transportHeaders);
         sessionKeepAliveMode = getHandshakeSessionKeepAliveMode(transportHeaders);
         secureCookies = isSecureRequest(transportHeaders);

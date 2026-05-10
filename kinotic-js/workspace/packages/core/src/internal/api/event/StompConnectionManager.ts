@@ -22,8 +22,6 @@ export class StompConnectionManager {
     private readonly INITIAL_RECONNECT_DELAY: number = 2000
     private readonly MAX_RECONNECT_DELAY: number = 120000 // 2 mins
     private readonly JITTER_MAX: number = 5000
-    private readonly SESSION_COOKIE_PATH: string = '/v1'
-    private readonly SESSION_AVAILABLE_COOKIE_MAX_AGE_SECONDS: number = 30 * 60
     private connectionAttempts: number = 0
     private initialConnectionSuccessful: boolean = false
     private debugLogger = debug('kinoitc:stomp')
@@ -31,8 +29,6 @@ export class StompConnectionManager {
     private replyToId = uuidv4()
     public _replyToCri: string =  EventConstants.SERVICE_DESTINATION_PREFIX + this.replyToId + ':' + this.uuidv4 + '@kinoitc.js.EventBus/replyHandler'
     public deactivationHandler: (() => void) | null = null
-    private sessionCookieSecure: boolean = false
-    private sessionAvailableCookieInterval: ReturnType<typeof setInterval> | null = null
 
     /**
      * @return true if this {@link StompConnectionManager} is actively trying to maintain a connection to the Stomp server, false if not.
@@ -76,7 +72,6 @@ export class StompConnectionManager {
             this.initialConnectionSuccessful = false
             this.lastWebsocketError = null
             this.maxConnectionAttemptsReached = false
-            this.sessionCookieSecure = !!connectionInfo.useSSL
 
             const url = 'ws' + (connectionInfo.useSSL ? 's' : '')
                 + '://' + connectionInfo.host
@@ -102,8 +97,6 @@ export class StompConnectionManager {
                     }
 
                     const sessionKeepAlive = connectionInfo.sessionKeepAlive || SessionKeepAliveMode.ACTIVITY
-                    this.setCookie(EventConstants.SESSION_KEEP_ALIVE_HEADER, sessionKeepAlive)
-
                     connectHeadersInternal[EventConstants.SESSION_KEEP_ALIVE_HEADER] = sessionKeepAlive
 
                     // use replyToId if provided in connectionInfo, otherwise set it
@@ -152,7 +145,7 @@ export class StompConnectionManager {
             this.rxStomp.stompClient.reconnectTimeMode = ReconnectionTimeMode.EXPONENTIAL
 
             // Handles Websocket Errors
-            this.rxStomp.webSocketErrors$.subscribe((value: any) => {
+            this.rxStomp.webSocketErrors$.subscribe(value => {
                 this.lastWebsocketError = value
             })
 
@@ -180,8 +173,6 @@ export class StompConnectionManager {
                 if (connectedInfoJson != null) {
 
                     const connectedInfo: ConnectedInfo = JSON.parse(connectedInfoJson)
-                    this.touchSessionAvailableCookie()
-                    this.configureSessionAvailableCookieRefresh(connectionInfo)
 
                     if(connectionInfo.sessionKeepAlive !== SessionKeepAliveMode.NONE){
 
@@ -195,6 +186,8 @@ export class StompConnectionManager {
                                     delete connectHeadersInternal[key]
                                 }
                             }
+
+                            connectHeadersInternal[EventConstants.SESSION_HEADER] = connectedInfo.sessionId
 
                             resolve(connectedInfo)
                         } else {
@@ -225,7 +218,6 @@ export class StompConnectionManager {
 
     public async deactivate(force?: boolean): Promise<void> {
         if(this.rxStomp){
-            this.clearSessionAvailableCookieRefresh()
             await this.rxStomp.deactivate({force: force})
             if(this.deactivationHandler){
                 this.deactivationHandler()
@@ -233,14 +225,6 @@ export class StompConnectionManager {
             this.rxStomp = null
         }
         return
-    }
-
-    public touchSessionAvailableCookie(): void {
-        if(this.isSessionCookieEnabled()){
-            this.setCookie(EventConstants.SESSION_AVAILABLE_COOKIE_NAME,
-                           'true',
-                           this.SESSION_AVAILABLE_COOKIE_MAX_AGE_SECONDS)
-        }
     }
 
     /**
@@ -252,50 +236,6 @@ export class StompConnectionManager {
             this.debugLogger(`Adding ${randomJitter}ms of jitter delay`)
             return new Promise(resolve => setTimeout(resolve, randomJitter));
         }
-    }
-
-    private configureSessionAvailableCookieRefresh(connectionInfo: ConnectionInfo): void {
-        this.clearSessionAvailableCookieRefresh()
-        if(this.isSessionCookieEnabled() && connectionInfo.sessionKeepAlive === SessionKeepAliveMode.CONNECTION){
-            this.sessionAvailableCookieInterval = setInterval(() => this.touchSessionAvailableCookie(),
-                                                              this.SESSION_AVAILABLE_COOKIE_MAX_AGE_SECONDS * 500)
-        }
-    }
-
-    private clearSessionAvailableCookieRefresh(): void {
-        if(this.sessionAvailableCookieInterval != null){
-            clearInterval(this.sessionAvailableCookieInterval)
-            this.sessionAvailableCookieInterval = null
-        }
-    }
-
-    private isSessionCookieEnabled(): boolean {
-        return this.getCookie(EventConstants.SESSION_KEEP_ALIVE_HEADER) !== SessionKeepAliveMode.NONE
-    }
-
-    private getCookie(name: string): string | null {
-        if(typeof document === 'undefined'){
-            return null
-        }
-
-        const prefix = `${name}=`
-        const cookie = document.cookie.split('; ').find((value: string) => value.startsWith(prefix))
-        return cookie != null ? decodeURIComponent(cookie.substring(prefix.length)) : null
-    }
-
-    private setCookie(name: string, value: string, maxAgeSeconds?: number): void {
-        if(typeof document === 'undefined'){
-            return
-        }
-
-        let cookie = `${name}=${encodeURIComponent(value)}; Path=${this.SESSION_COOKIE_PATH}; SameSite=Lax`
-        if(maxAgeSeconds != null){
-            cookie += `; Max-Age=${maxAgeSeconds}`
-        }
-        if(this.sessionCookieSecure){
-            cookie += '; Secure'
-        }
-        document.cookie = cookie
     }
 
 }
