@@ -58,12 +58,5 @@
     "vite": "^6.3.5",
     "vite-svg-loader": "^5.1.0",
     "vue-tsc": "^2.2.10"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@tailwindcss/oxide",
-      "esbuild",
-      "vue-demi"
-    ]
   }
 }

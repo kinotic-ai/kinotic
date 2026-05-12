@@ -15,9 +15,9 @@ node {
     // // It will be unpacked in the workDir
     version = "22.16.0"
 
-    // Pinned: leaving unset pulls pnpm@latest, and pnpm 11 broke our build-script
-    // approvals (see pnpm-workspace.yaml). Bump deliberately, not by drift.
-    pnpmVersion = "10.33.0"
+    // Pinned: leaving unset pulls pnpm@latest, which means a future pnpm major
+    // can silently change install behaviour. Bump deliberately, not by drift.
+    pnpmVersion = "11.1.0"
 
     // // Version of Yarn to use
     // // Any Yarn task first installs Yarn in the yarnWorkDir
