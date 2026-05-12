@@ -179,15 +179,15 @@ export default EntityList
 </script>
 
 <template>
-  <div :class="['entity-list-old w-full overflow-y-auto', isDark ? 'entity-list-old--dark bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
-    <Toolbar :class="['!w-full', isDark ? '!border-surface-700 !bg-surface-900 !text-surface-0' : '']">
+  <div :class="['entity-list-old w-full overflow-y-auto app-surface-panel', isDark ? 'entity-list-old--dark' : '']">
+    <Toolbar class="!w-full app-surface-panel app-surface-divider">
       <template #start>
         <InputText
           v-model="searchText" 
           placeholder="Search" 
           @keyup.enter="search" 
           @focus="($event.target as HTMLInputElement)?.select()"
-          :class="['w-1/2 !shadow-none', isDark ? 'border-surface-600 !bg-surface-950 !text-surface-0 placeholder:!text-surface-400' : '']"
+          class="w-1/2"
         />
         <Button icon="pi pi-times" class="ml-2" v-if="searchText" @click="clearSearch" />
       </template>
