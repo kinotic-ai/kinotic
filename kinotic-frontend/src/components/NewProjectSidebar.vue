@@ -39,15 +39,6 @@ export default class NewProjectSidebar extends Vue {
         return darkMode.value;
     }
 
-    get inputClass() {
-        return [
-            'w-full !shadow-none',
-            this.isDark
-                ? 'border-surface-700 bg-surface-800 text-surface-0 placeholder:text-surface-400 focus:border-surface-600'
-                : 'border-surface-300 bg-surface-0 text-surface-950 placeholder:text-surface-400'
-        ];
-    }
-
     async handleSubmit(): Promise<void> {
         this.loading = true;
         try {
@@ -135,7 +126,7 @@ export default class NewProjectSidebar extends Vue {
                                 v-model="form.name"
                                 placeholder="Project name"
                                 required
-                                :class="inputClass"
+                                class="w-full"
                             />
                         </div>
 
@@ -144,7 +135,7 @@ export default class NewProjectSidebar extends Vue {
                             <Textarea
                                 v-model="form.description"
                                 rows="3"
-                                :class="inputClass"
+                                class="w-full"
                                 placeholder="Optional description"
                             />
                         </div>
