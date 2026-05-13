@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.utils;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.os.api.utils.DomainUtil;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.persistence.api.model.EntityDefinition;
 
 import java.util.LinkedHashMap;

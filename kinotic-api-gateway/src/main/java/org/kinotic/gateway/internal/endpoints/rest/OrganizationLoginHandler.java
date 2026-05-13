@@ -11,11 +11,11 @@ import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
-import org.kinotic.os.api.model.iam.AuthType;
-import org.kinotic.os.api.model.iam.IamUser;
-import org.kinotic.os.api.model.iam.OidcConfiguration;
-import org.kinotic.os.api.model.iam.OidcProviderKind;
-import org.kinotic.os.api.model.iam.OrgSignupOidcConfiguration;
+import org.kinotic.domain.api.model.iam.AuthType;
+import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.OidcConfiguration;
+import org.kinotic.domain.api.model.iam.OidcProviderKind;
+import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.os.api.services.iam.LocalAuthenticationService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
@@ -63,8 +63,8 @@ import java.util.Set;
  *
  * <p>{@code GET /api/login/providers} returns the unique provider keys from the
  * Kinotic-curated social configs for rendering the social buttons.
- * {@code POST /api/register/complete} consumes a {@link org.kinotic.os.api.model.iam.PendingRegistration}
- * from the {@link org.kinotic.os.api.model.iam.UserProvisioningMode#REGISTRATION_REQUIRED}
+ * {@code POST /api/register/complete} consumes a {@link org.kinotic.domain.api.model.iam.PendingRegistration}
+ * from the {@link org.kinotic.domain.api.model.iam.UserProvisioningMode#REGISTRATION_REQUIRED}
  * signup path.
  */
 @Slf4j

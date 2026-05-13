@@ -10,8 +10,8 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.github.api.model.GitHubWebhookEvent;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.api.services.GitHubWebhookEventService;
-import org.kinotic.os.api.model.Project;
-import org.kinotic.os.api.model.RepositoryConnectionStatus;
+import org.kinotic.domain.api.model.Project;
+import org.kinotic.domain.api.model.RepositoryConnectionStatus;
 import org.kinotic.os.api.services.ProjectService;
 import org.springframework.stereotype.Component;
 

@@ -7,11 +7,12 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.AuthScopeType;
+import org.kinotic.domain.api.model.Organization;
 import org.kinotic.gateway.internal.endpoints.rest.support.*;
-import org.kinotic.os.api.model.iam.IamUser;
-import org.kinotic.os.api.model.iam.OidcProviderKind;
-import org.kinotic.os.api.model.iam.OrgSignupOidcConfiguration;
-import org.kinotic.os.api.model.iam.PendingRegistration;
+import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.OidcProviderKind;
+import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
+import org.kinotic.domain.api.model.iam.PendingRegistration;
 import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.os.api.services.iam.OrgSignupOidcConfigurationService;
 import org.kinotic.os.api.services.iam.PendingRegistrationService;
@@ -33,7 +34,7 @@ import java.util.Map;
  *       verified identity in a {@link PendingRegistration} and redirects the browser to
  *       the org-name completion page.</li>
  *   <li>{@code POST /api/signup/complete-org} — consumes the pending registration token,
- *       creates the {@link org.kinotic.os.api.model.Organization} with the supplied name,
+ *       creates the {@link Organization} with the supplied name,
  *       creates the admin {@link IamUser} (AuthType=OIDC), and returns a Kinotic JWT for
  *       the STOMP CONNECT.</li>
  * </ul>

@@ -15,10 +15,11 @@ import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
+import org.kinotic.domain.api.model.iam.SystemOidcConfiguration;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
-import org.kinotic.os.api.model.iam.BaseOidcConfiguration;
-import org.kinotic.os.api.model.iam.OidcConfiguration;
-import org.kinotic.os.api.model.iam.OrgSignupOidcConfiguration;
+import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
+import org.kinotic.domain.api.model.iam.OidcConfiguration;
+import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -234,7 +235,7 @@ public class OidcFlowOrchestrator {
 
     /**
      * Decoupling point: only {@link OidcConfiguration} and {@link OrgSignupOidcConfiguration}
-     * carry a client secret — {@link org.kinotic.os.api.model.iam.SystemOidcConfiguration}
+     * carry a client secret — {@link SystemOidcConfiguration}
      * is a public-client (PKCE only). Pattern-matching here keeps the signature
      * uniform across all three subclasses.
      */

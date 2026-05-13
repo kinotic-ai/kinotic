@@ -6,8 +6,8 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.os.internal.api.services.AbstractProjectCrudService;
-import org.kinotic.os.internal.api.services.CrudServiceTemplate;
+import org.kinotic.domain.internal.api.services.AbstractProjectCrudService;
+import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.springframework.stereotype.Component;
 

@@ -3,7 +3,7 @@
 package org.kinotic.test.tests.core.application;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.os.api.model.Application;
+import org.kinotic.domain.api.model.Application;
 import org.kinotic.os.api.services.ApplicationService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;

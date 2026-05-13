@@ -11,7 +11,7 @@ import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.kinotic.idl.api.schema.ObjectC3Type;
-import org.kinotic.os.api.model.ProjectScoped;
+import org.kinotic.domain.api.model.ProjectScoped;
 import org.kinotic.persistence.api.model.idl.decorators.EntityType;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 

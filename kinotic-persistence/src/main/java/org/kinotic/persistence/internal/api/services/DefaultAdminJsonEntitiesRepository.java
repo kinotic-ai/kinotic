@@ -6,7 +6,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.persistence.api.model.FastestType;
 import org.kinotic.persistence.api.model.QueryParameter;
-import org.kinotic.os.api.model.RawJson;
+import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.persistence.api.model.TenantSpecificId;
 import org.kinotic.persistence.api.services.AdminJsonEntitiesRepository;
 import org.kinotic.persistence.api.services.EntitiesRepository;

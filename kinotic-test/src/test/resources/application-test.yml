@@ -2,6 +2,7 @@
 kinotic:
   debug: true
   disableClustering: false
+  disableGithub: true
   maxNumberOfCoresToUse: 4
 
 logging:

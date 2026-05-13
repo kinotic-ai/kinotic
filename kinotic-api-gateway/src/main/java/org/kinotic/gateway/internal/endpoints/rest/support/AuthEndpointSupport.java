@@ -10,8 +10,8 @@ import java.util.function.Function;
 
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
-import org.kinotic.os.api.model.iam.BaseOidcConfiguration;
-import org.kinotic.os.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
+import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
 

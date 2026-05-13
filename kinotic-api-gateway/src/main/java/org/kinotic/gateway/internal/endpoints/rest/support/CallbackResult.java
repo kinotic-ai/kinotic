@@ -1,6 +1,6 @@
 package org.kinotic.gateway.internal.endpoints.rest.support;
 
-import org.kinotic.os.api.model.iam.BaseOidcConfiguration;
+import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 
 import java.util.Map;
 
