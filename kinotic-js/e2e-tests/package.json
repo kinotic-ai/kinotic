@@ -15,10 +15,10 @@
   "devDependencies": {
     "@faker-js/faker": "^10.2.0",
     "@kinotic-ai/kinotic-cli": "^2.2.0",
-    "@kinotic-ai/core": "^1.2.1",
+    "@kinotic-ai/core": "^1.2.2",
     "@kinotic-ai/idl": "^1.0.9",
-    "@kinotic-ai/os-api": "^1.1.0",
-    "@kinotic-ai/persistence": "^1.2.0",
+    "@kinotic-ai/os-api": "^1.4.0",
+    "@kinotic-ai/persistence": "^1.2.1",
     "@types/node": "^25.0.6",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-vue": "^6.0.3",

@@ -1,0 +1,31 @@
+plugins {
+    id 'org.kinotic.java-library-conventions'
+}
+
+dependencies {
+    implementation project(':kinotic-core')
+    implementation project(':kinotic-domain')
+
+    implementation 'io.vertx:vertx-core'
+    implementation 'io.vertx:vertx-web'
+    implementation 'io.vertx:vertx-web-client'
+
+    implementation 'co.elastic.clients:elasticsearch-java'
+
+    implementation 'org.apache.ignite:ignite-core'
+
+    implementation 'io.jsonwebtoken:jjwt-api'
+    runtimeOnly    'io.jsonwebtoken:jjwt-impl'
+    runtimeOnly    'io.jsonwebtoken:jjwt-jackson'
+
+    implementation 'com.github.ben-manes.caffeine:caffeine'
+
+    implementation "com.github.slugify:slugify:${slugifyVersion}"
+
+    implementation 'org.springframework:spring-core'
+    implementation 'org.springframework:spring-context'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    implementation 'tools.jackson.core:jackson-core'
+    implementation 'tools.jackson.core:jackson-databind'
+}

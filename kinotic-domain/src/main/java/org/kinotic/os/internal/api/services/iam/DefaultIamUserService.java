@@ -38,6 +38,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     public CompletableFuture<IamUser> save(IamUser entity) {
         Validate.notNull(entity.getEmail(), "IamUser email cannot be null");
         Validate.notNull(entity.getAuthScopeType(), "IamUser authScopeType cannot be null");
+        Validate.notNull(entity.getAuthScopeId(), "IamUser authScopeId cannot be null");
         // tenantId is meaningful only for APPLICATION-scoped users; SYSTEM/ORGANIZATION identities
         // are not tenants and must not carry one.
         if ("APPLICATION".equals(entity.getAuthScopeType())) {
@@ -51,7 +52,24 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
             entity.setId(UUID.randomUUID().toString());
         }
         entity.setUpdated(new Date());
-        return super.save(entity);
+        return enforceUniqueEmailInScope(entity).thenCompose(v -> super.save(entity));
+    }
+
+    /**
+     * Service-layer guarantee: at most one {@link IamUser} per
+     * {@code (email, authScopeType, authScopeId)}. Self-id is excluded so updating an
+     * existing user doesn't trip on its own row.
+     */
+    private CompletableFuture<Void> enforceUniqueEmailInScope(IamUser entity) {
+        return findByEmailAndScope(entity.getEmail(), entity.getAuthScopeType(), entity.getAuthScopeId())
+                .thenAccept(existing -> {
+                    if (existing != null && !existing.getId().equals(entity.getId())) {
+                        throw new IllegalArgumentException(
+                                "IamUser with email " + entity.getEmail()
+                                        + " already exists in scope "
+                                        + entity.getAuthScopeType() + "/" + entity.getAuthScopeId());
+                    }
+                });
     }
 
     @Override
@@ -81,14 +99,10 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     }
 
     @Override
-    public CompletableFuture<IamUser> findByEmailPrimary(String email) {
+    public CompletableFuture<IamUser> findByEmail(String email) {
         Validate.notBlank(email, "email cannot be blank");
         return crudServiceTemplate.search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builder -> builder
-                .query(q -> q.bool(BoolQuery.of(b -> {
-                    b.filter(TermQuery.of(t -> t.field("email").value(email))._toQuery());
-                    b.filter(TermQuery.of(t -> t.field("primary").value(true))._toQuery());
-                    return b;
-                }))))
+                .query(q -> q.term(t -> t.field("email").value(email))))
                 .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
@@ -154,16 +168,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
             user.setAuthType(password != null ? AuthType.LOCAL : AuthType.OIDC);
         }
 
-        return findByEmailAndScope(user.getEmail(), user.getAuthScopeType(), user.getAuthScopeId())
-                .thenCompose(existing -> {
-                    if (existing != null) {
-                        return CompletableFuture.failedFuture(
-                                new IllegalArgumentException("User with email " + user.getEmail()
-                                        + " already exists in scope " + user.getAuthScopeType()
-                                        + "/" + user.getAuthScopeId()));
-                    }
-                    return super.save(user);
-                })
+        return save(user)
                 .thenCompose(savedUser -> {
                     if (password != null) {
                         IamCredential credential = new IamCredential()

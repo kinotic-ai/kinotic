@@ -7,11 +7,11 @@ import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
 
 import java.util.Date;
-import java.util.List;
 
 /**
  * Represents an organization developing applications on the Kinotic OS platform.
- * Organizations provide the boundary for teams, applications, users, and shared OIDC configuration.
+ * Organizations provide the boundary for teams, applications, users, and the
+ * organization's single SSO/IdP configuration.
  * <p>
  * The {@code id} is auto-generated from the {@code name} on save (slugified) and serves as the URL-safe identifier.
  */
@@ -28,11 +28,16 @@ public class Organization implements Identifiable<String> {
     private String description;
 
     /**
-     * OIDC configuration IDs available for organization-level authentication.
-     * References {@link org.kinotic.os.api.model.iam.OidcConfiguration} entities by ID.
-     * The same config ID can be referenced by multiple organizations and applications.
+     * Id of the {@link org.kinotic.os.api.model.iam.OidcConfiguration} this organization
+     * uses as its SSO provider for org-level Kinotic login. {@code null} when the org
+     * has no SSO configured (members log in via password). Structurally enforces
+     * "one SSO config per org" — there's just the one field.
+     *
+     * <p>The same config id can also appear in one or more of the org's apps' OIDC lists
+     * if the admin wants to reuse the same IdP for application logins; that's a separate
+     * association and uses {@link Application#getOidcConfigurationIds()}.
      */
-    private List<String> oidcConfigurationIds;
+    private String ssoConfigId;
 
     /**
      * User ID of the administrator who created this organization.

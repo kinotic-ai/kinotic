@@ -69,6 +69,13 @@ public class DefaultApplicationService extends AbstractCrudService<Application> 
     }
 
     @Override
+    public CompletableFuture<Application> saveSync(Application entity) {
+        DomainUtil.validateApplicationId(entity.getId());
+        entity.setUpdated(new Date());
+        return super.saveSync(entity);
+    }
+
+    @Override
     public CompletableFuture<List<OidcConfiguration>> getOidcConfigurations(String applicationId) {
         Validate.notNull(applicationId, "applicationId cannot be null");
         return findById(applicationId)

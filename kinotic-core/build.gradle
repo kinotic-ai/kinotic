@@ -18,7 +18,6 @@ dependencies {
     implementation 'io.vertx:vertx-core'
     implementation 'io.vertx:vertx-reactive-streams'
     implementation 'io.vertx:vertx-auth-common'
-    implementation 'io.vertx:vertx-auth-jwt'
     implementation 'io.vertx:vertx-auth-oauth2'
     implementation 'io.vertx:vertx-ignite'
     implementation 'io.vertx:vertx-web'

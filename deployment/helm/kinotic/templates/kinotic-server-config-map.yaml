@@ -43,24 +43,6 @@ data:
   KINOTIC_CACHE_EVICTION_CSV_PATH: "{{ .Values.evictionTracking.mountPath | default "/eviction-data" }}/evictions-${POD_NAME}.csv"
   {{- end }}
 
-  {{- with .Values.kinotic.domain.oidc }}
-  {{- if .platformProviders }}
-  # ── Platform OIDC providers ───────────────────────────────
-  # Bootstrapped by PlatformOidcBootstrap. Each entry's id maps to a file under
-  # KINOTIC_DOMAIN_OIDC_SECRETSPATH (set on the deployment when oidcSecrets is configured).
-  {{- range $index, $value := .platformProviders }}
-  KINOTIC_DOMAIN_OIDC_PLATFORMPROVIDERS_{{ $index }}_ID: "{{ $value.id }}"
-  KINOTIC_DOMAIN_OIDC_PLATFORMPROVIDERS_{{ $index }}_NAME: "{{ $value.name }}"
-  KINOTIC_DOMAIN_OIDC_PLATFORMPROVIDERS_{{ $index }}_PROVIDER: "{{ $value.provider }}"
-  KINOTIC_DOMAIN_OIDC_PLATFORMPROVIDERS_{{ $index }}_CLIENT_ID: "{{ $value.clientId }}"
-  KINOTIC_DOMAIN_OIDC_PLATFORMPROVIDERS_{{ $index }}_AUTHORITY: "{{ $value.authority }}"
-  {{- if $value.audience }}
-  KINOTIC_DOMAIN_OIDC_PLATFORMPROVIDERS_{{ $index }}_AUDIENCE: "{{ $value.audience }}"
-  {{- end }}
-  {{- end }}
-  {{- end }}
-  {{- end }}
-
   # ── Extra environment variables ───────────────────────────
   # Override any Spring property via env var naming convention:
   #   kinotic.apiGateway.webServer.port → KINOTIC_APIGATEWAY_WEBSERVER_PORT

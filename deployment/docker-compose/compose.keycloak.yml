@@ -6,22 +6,12 @@ services:
       - LOGGING_LEVEL_ORG_KINOTIC_GATEWAY_INTERNAL_ENDPOINTS_REST=TRACE
       - LOGGING_LEVEL_ORG_KINOTIC_GATEWAY_INTERNAL_AUTH=TRACE
       - LOGGING_LEVEL_IO_VERTX_EXT_AUTH_OAUTH2=DEBUG
-      # Wire Keycloak as a platform OIDC provider so it shows up as
-      # "Continue with Keycloak" on /login and /signup. The redirect URIs
-      # registered in keycloak-test-realm.json must match
-      # <appBaseUrl>/api/{login,signup}/callback/keycloak.
-      - KINOTIC_OIDC_SECRETSPATH=/var/run/kinotic-oidc-secrets
-      - KINOTIC_OIDC_PLATFORMPROVIDERS_0_ID=keycloak
-      - KINOTIC_OIDC_PLATFORMPROVIDERS_0_NAME=Keycloak
-      - KINOTIC_OIDC_PLATFORMPROVIDERS_0_PROVIDER=keycloak
-      - KINOTIC_OIDC_PLATFORMPROVIDERS_0_CLIENT_ID=kinotic-client
-      - KINOTIC_OIDC_PLATFORMPROVIDERS_0_AUTHORITY=http://keycloak:8888/auth/realms/test
-    volumes:
-      # Single-file mount: PlatformOidcBootstrap reads
-      # ${KINOTIC_OIDC_SECRETSPATH}/<configId>, so this lands the keycloak secret at
-      # /var/run/kinotic-oidc-secrets/keycloak. The host file is committed (dev-only
-      # secret matching keycloak-test-realm.json's "secret": ...).
-      - ./dev-keycloak-oidc-secret:/var/run/kinotic-oidc-secrets/keycloak:ro
+      # Resolves the Keycloak client secret via the env-var fallback in
+      # EnvVarSecretReferenceResolver (KINOTIC_AKV_<sanitizedSecretName>).
+      # Wiring Keycloak as a "Continue with Keycloak" social provider also requires a
+      # row in kinotic_org_signup_oidc_configuration (currently no migration ships one;
+      # seed it manually via the kinotic-migration tool when iterating on this flow).
+      - KINOTIC_AKV_KEYCLOAK=kinotic-secret
 
   keycloak-db:
     container_name: keycloak-db

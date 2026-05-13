@@ -5,7 +5,9 @@ import co.elastic.clients.elasticsearch.core.MgetRequest;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.os.api.model.Organization;
 import org.kinotic.os.api.model.iam.OidcConfiguration;
+import org.kinotic.os.api.services.OrganizationService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.os.internal.api.services.AbstractCrudService;
 import org.kinotic.os.internal.api.services.CrudServiceTemplate;
@@ -20,10 +22,14 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultOidcConfigurationService extends AbstractCrudService<OidcConfiguration> implements OidcConfigurationService {
 
+    private final OrganizationService organizationService;
+
     public DefaultOidcConfigurationService(CrudServiceTemplate crudServiceTemplate,
                                            ElasticsearchAsyncClient esAsyncClient,
+                                           OrganizationService organizationService,
                                            SecurityContext securityContext) {
         super("kinotic_oidc_configuration", OidcConfiguration.class, esAsyncClient, crudServiceTemplate, securityContext);
+        this.organizationService = organizationService;
     }
 
     @Override
@@ -53,4 +59,25 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                                                            .toList());
     }
 
+    @Override
+    public CompletableFuture<OidcConfiguration> findOrgLoginConfig(String organizationId) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return organizationService.findById(organizationId).thenCompose(org -> {
+            if (org == null || org.getSsoConfigId() == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+            // Direct doc lookup bypasses AbstractCrudService scope enforcement so the
+            // pre-auth login-lookup path can resolve without a participant. Defense in
+            // depth: also confirm the row's organizationId matches and it's enabled.
+            return crudServiceTemplate.findById(indexName, org.getSsoConfigId(), type, b -> b.routing(organizationId))
+                                      .thenApply(c -> validForOrgLogin(c, organizationId));
+        });
+    }
+
+    private static OidcConfiguration validForOrgLogin(OidcConfiguration config, String expectedOrgId) {
+        if (config == null) return null;
+        if (!config.isEnabled()) return null;
+        if (!Objects.equals(expectedOrgId, config.getOrganizationId())) return null;
+        return config;
+    }
 }

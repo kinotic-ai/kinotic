@@ -62,6 +62,18 @@ variable "disable_grafana_entra" {
   default     = false
 }
 
+# Operator-supplied: the OAuth client_secret issued by Google Cloud Console for the
+# Kinotic social-signup OAuth client. Provide via `TF_VAR_google_client_secret`
+# at apply time — never commit a value here. After the first apply the AKV secret is
+# managed via `az keyvault secret set ...`; lifecycle.ignore_changes on the resource
+# stops terraform from clobbering rotations.
+variable "google_client_secret" {
+  description = "Google OAuth client secret for the Continue-with-Google social provider"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 data "azurerm_client_config" "current" {}
 
 locals {
@@ -105,20 +117,23 @@ resource "azuread_application" "kinotic_platform" {
   }
 
   # Web-platform redirect URIs — used by the server-side OIDC flow. Login and signup
-  # are deliberately separate handlers (LoginHandler / OidcSignupHandler), so each needs
-  # its own callback path. Microsoft permits http://localhost:* for dev without HTTPS.
-  # The portal.* URI is for production; the others cover bare-local Java (9090), the Vite
-  # dev server (5173), and KinD with mkcert (https://localhost). The configId in the path
-  # is "entra-platform" to match kinotic.oidc.platformProviders[0].id.
+  # are separate handlers (OrganizationLoginHandler / OidcSignupHandler) on distinct
+  # paths. Login callback is namespaced under /social/ so the gateway can disambiguate
+  # social vs per-org SSO callbacks at the same handler. Signup has only the social
+  # path. Microsoft permits http://localhost:* for dev without HTTPS. The portal.* URI
+  # is for production; the others cover bare-local Java (9090), the Vite dev server
+  # (5173), and KinD with mkcert (https://localhost). The configId "entra-platform"
+  # in the path matches the row seeded by V2__kinotic_data_inserts.sql into
+  # kinotic_org_signup_oidc_configuration.
   web {
     redirect_uris = [
-      "https://portal.${var.domain_name}/api/login/callback/entra-platform",
+      "https://portal.${var.domain_name}/api/login/callback/social/entra-platform",
       "https://portal.${var.domain_name}/api/signup/callback/entra-platform",
-      "http://localhost:9090/api/login/callback/entra-platform",
+      "http://localhost:9090/api/login/callback/social/entra-platform",
       "http://localhost:9090/api/signup/callback/entra-platform",
-      "http://localhost:5173/api/login/callback/entra-platform",
+      "http://localhost:5173/api/login/callback/social/entra-platform",
       "http://localhost:5173/api/signup/callback/entra-platform",
-      "https://localhost/api/login/callback/entra-platform",
+      "https://localhost/api/login/callback/social/entra-platform",
       "https://localhost/api/signup/callback/entra-platform",
     ]
     implicit_grant {

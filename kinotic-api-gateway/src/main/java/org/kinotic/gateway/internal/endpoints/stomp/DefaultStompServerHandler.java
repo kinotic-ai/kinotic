@@ -10,7 +10,6 @@ import io.vertx.ext.stomp.lite.frame.Frame;
 import io.vertx.ext.stomp.lite.frame.InvalidConnectFrame;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
-import org.kinotic.gateway.internal.endpoints.EndpointConnectionHandler;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

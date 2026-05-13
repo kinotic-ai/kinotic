@@ -21,6 +21,14 @@ kinotic:
     cors-allowed-origin-pattern: "*"
     cors-allowed-headers: "*"
     cors-allow-credentials: true
+  github:
+    # Placeholders to satisfy @NotBlank validation; the test profile activates
+    # MockProjectRepoProvisioner which never reads these.
+    appId: test-app
+    appSlug: test-app
+    appPrivateKey: "test-placeholder"
+    webhookSecret: test-webhook-secret
+    repoTemplate: kinotic-test/template
 
 logging:
   level:

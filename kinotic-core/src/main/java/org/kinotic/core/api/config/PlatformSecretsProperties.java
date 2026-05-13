@@ -23,10 +23,4 @@ public class PlatformSecretsProperties {
      * Consumed by the Kinotic JWT issuer for signing STOMP-CONNECT tickets.
      */
     private Path jwtSigningKeysPath;
-
-    /**
-     * Path to the secret-storage master key set file (one {@link VersionedKeySet} JSON document).
-     * Consumed by the secret name deriver for HKDF-based opaque naming.
-     */
-    private Path secretStorageMasterKeysPath;
 }

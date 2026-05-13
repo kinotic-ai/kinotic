@@ -266,6 +266,34 @@ const pageRoutes: RouteRecordRaw[] = [
       }
     ]
   },
+  {
+    path: '/integrations/github',
+    component: () => import('@/layouts/MainLayout.vue'),
+    meta: {
+      showInMainNav: false,
+      icon: 'settings.svg',
+      label: 'GitHub',
+    } as RouteMeta,
+    children: [
+      {
+        name: 'github-integration',
+        path: '',
+        component: () => import('@/pages/GitHubIntegrationSettings.vue'),
+      }
+    ]
+  },
+  {
+    name: 'github-install-callback',
+    path: '/github/install/callback',
+    component: () => import('@/pages/GitHubInstallCallback.vue'),
+    meta: {
+      showInMainNav: false,
+      // Popup-mode callback runs in a fresh window with no STOMP connection;
+      // it just postMessages installation_id + state back to the opener and
+      // closes itself. No platform call, no auth needed.
+      authenticationRequired: false,
+    } as RouteMeta,
+  },
 ];
 
 export default pageRoutes

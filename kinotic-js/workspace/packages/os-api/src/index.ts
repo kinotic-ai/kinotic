@@ -42,6 +42,11 @@ export * from '@/api/model/iam/IamUser'
 export * from '@/api/model/iam/SignUpRequest'
 export * from '@/api/model/iam/SignUpCompleteRequest'
 
+export * from '@/api/model/github/GitHubAppInstallation'
+export * from '@/api/model/github/GitHubToken'
+export * from '@/api/model/github/GitHubRepoToken'
+export * from '@/api/model/github/GitHubInstallCompletion'
+
 export * from '@/api/model/KinoticProjectConfig'
 
 // Services
@@ -56,7 +61,8 @@ export * from '@/api/services/IMigrationService'
 export * from '@/api/services/IDataInsightsService'
 export * from '@/api/services/IVmNodeService'
 export * from '@/api/services/IWorkloadService'
-export * from '@/api/services/iam/IIamUserService'
+export * from '@/api/services/IIamUserService'
+export * from '@/api/services/IGitHubAppInstallationService'
 
 // Plugin
 export * from '@/api/OsApiPlugin'

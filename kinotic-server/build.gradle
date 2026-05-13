@@ -14,6 +14,7 @@ dependencies {
 	implementation project(':kinotic-core')
 	implementation project(':kinotic-domain')
 	implementation project(':kinotic-persistence')
+	implementation project(':kinotic-github')
     implementation project(':kinotic-api-gateway')
 
 	implementation 'com.github.ben-manes.caffeine:caffeine'

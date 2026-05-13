@@ -5,6 +5,7 @@ plugins {
 dependencies {
     implementation project(':kinotic-core')
     implementation project(':kinotic-domain')
+    implementation project(':kinotic-github')
 
     // reactive streams apis
     implementation 'io.projectreactor:reactor-core'

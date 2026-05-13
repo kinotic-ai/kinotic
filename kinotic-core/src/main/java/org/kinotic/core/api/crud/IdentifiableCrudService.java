@@ -33,5 +33,32 @@ public interface IdentifiableCrudService<T extends Identifiable<ID>, ID> extends
         }
     }
 
+    /**
+     * Creates a new entity if one does not already exist for the given id, and waits for the
+     * change to be visible in search results before returning.
+     * Use this when you need read-your-write consistency immediately after creation.
+     *
+     * @param entity to create if one does not already exist
+     * @return a {@link CompletableFuture} containing the new entity after it is searchable, or an error if an exception occurred
+     */
+    default CompletableFuture<T> createSync(T entity) {
+        Validate.notNull(entity, "Entity cannot be null");
+        ID id = entity.getId();
+        if(id != null){
+            return findById(entity.getId())
+                    .thenCompose(result -> {
+                        if (result == null) {
+                            return saveSync(entity);
+                        } else {
+                            CompletableFuture<T> exceptionFuture = new CompletableFuture<>();
+                            exceptionFuture.completeExceptionally(new IllegalArgumentException(entity.getClass().getSimpleName() + " for the id " + entity.getId() + " already exists"));
+                            return exceptionFuture;
+                        }
+                    });
+        }else{
+            return saveSync(entity);
+        }
+    }
+
 
 }
