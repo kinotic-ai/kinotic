@@ -13,11 +13,11 @@ import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.SignUpRequest;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.os.api.services.iam.IamUserService;
-import org.kinotic.os.api.services.iam.SignUpService;
+import org.kinotic.domain.api.services.iam.SignUpService;
 import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.domain.internal.api.services.EmailService;
-import org.kinotic.os.internal.api.model.iam.IamCredential;
+import org.kinotic.domain.internal.api.model.IamCredential;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;

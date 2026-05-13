@@ -1,7 +1,7 @@
 package org.kinotic.gateway.internal.endpoints.rest;
 
 import org.kinotic.domain.api.model.iam.SignUpRequest;
-import org.kinotic.os.api.services.iam.SignUpService;
+import org.kinotic.domain.api.services.iam.SignUpService;
 import org.springframework.stereotype.Component;
 
 import io.vertx.core.json.JsonObject;

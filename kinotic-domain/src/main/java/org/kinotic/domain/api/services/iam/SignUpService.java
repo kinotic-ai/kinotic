@@ -1,6 +1,5 @@
-package org.kinotic.os.api.services.iam;
+package org.kinotic.domain.api.services.iam;
 
-import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.domain.api.model.iam.SignUpRequest;
 
 import java.util.concurrent.CompletableFuture;
@@ -17,7 +16,6 @@ import java.util.concurrent.CompletableFuture;
  *       deletes the pending request.</li>
  * </ol>
  */
-@Publish
 public interface SignUpService {
 
     /**

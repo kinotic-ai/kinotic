@@ -21,7 +21,7 @@ import org.kinotic.os.api.services.iam.LocalAuthenticationService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.os.api.services.iam.OrgSignupOidcConfigurationService;
 import org.kinotic.os.api.services.iam.PendingRegistrationService;
-import org.kinotic.os.internal.api.model.iam.IamCredential;
+import org.kinotic.domain.internal.api.model.IamCredential;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;

@@ -1,4 +1,4 @@
-package org.kinotic.os.internal.api.model.iam;
+package org.kinotic.domain.internal.api.model;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
