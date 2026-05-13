@@ -19,7 +19,10 @@ public enum ColumnType {
     GEO_POINT,
     GEO_SHAPE,
     UUID,
-    DECIMAL;
+    DECIMAL,
+    OBJECT,
+    NESTED,
+    UNION;
 
     @Override
     public String toString() {

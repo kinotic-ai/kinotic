@@ -43,7 +43,6 @@ public class DevPlatformSecretsGenerator implements PlatformSecretsBootstrap {
     public void ensureFilesExist() {
         PlatformSecretsProperties props = kinoticProperties.getPlatformSecrets();
         ensureFile(props.getJwtSigningKeysPath(), "JWT signing keys");
-        ensureFile(props.getSecretStorageMasterKeysPath(), "secret-storage master keys");
     }
 
     private void ensureFile(Path path, String label) {

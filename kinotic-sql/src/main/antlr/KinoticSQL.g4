@@ -134,6 +134,10 @@ columnDefinition
     : ID type
     ;
 
+unionVariant
+    : ID LPAREN columnDefinition (COMMA columnDefinition)* RPAREN
+    ;
+
 type
     : TEXT
     | KEYWORD (NOT INDEXED)?
@@ -149,6 +153,9 @@ type
     | GEO_SHAPE
     | UUID (NOT INDEXED)?
     | DECIMAL (NOT INDEXED)?
+    | OBJECT LPAREN columnDefinition (COMMA columnDefinition)* RPAREN (NOT INDEXED)?
+    | NESTED LPAREN columnDefinition (COMMA columnDefinition)* RPAREN
+    | UNION  LPAREN unionVariant   (COMMA unionVariant)*   RPAREN (NOT INDEXED)?
     ;
 
 comment
@@ -208,6 +215,8 @@ SKIP_IF_NO_SOURCE: 'SKIP_IF_NO_SOURCE';
 BOOLEAN: 'BOOLEAN';
 INTEGER: 'INTEGER';
 KEYWORD: 'KEYWORD';
+NESTED: 'NESTED';
+OBJECT: 'OBJECT';
 TEXT: 'TEXT';
 JSON: 'JSON';
 BINARY: 'BINARY';
@@ -215,6 +224,7 @@ GEO_POINT: 'GEO_POINT';
 GEO_SHAPE: 'GEO_SHAPE';
 UUID: 'UUID';
 DECIMAL: 'DECIMAL';
+UNION: 'UNION';
 
 // Punctuation and Operators
 COMMA: ',';

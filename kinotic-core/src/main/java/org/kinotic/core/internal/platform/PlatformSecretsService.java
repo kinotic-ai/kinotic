@@ -23,9 +23,8 @@ import java.util.function.Consumer;
 
 /**
  * Loads platform-level {@link VersionedKeySet} JSON files from disk and periodically polls
- * them for changes. Used by the JWT issuer (signing keys) and the secret name deriver
- * (masterKeys). File updates surface as atomic reference swaps; consumers register
- * listeners to react to rotations.
+ * them for changes. Used by the JWT issuer (signing keys). File updates surface as atomic
+ * reference swaps; consumers register listeners to react to rotations.
  * <p>
  * Polling (rather than {@code WatchService}) avoids the symlink/atomic-replace quirks of
  * Kubernetes Secret volumes and Azure Key Vault CSI mounts. The poll interval is well below
@@ -42,10 +41,8 @@ public class PlatformSecretsService {
     private final Optional<PlatformSecretsBootstrap> bootstrap;
 
     private final AtomicReference<Loaded> jwtSigningKeys = new AtomicReference<>();
-    private final AtomicReference<Loaded> secretStorageMasterKeys = new AtomicReference<>();
 
     private final List<Consumer<VersionedKeySet>> jwtListeners = new CopyOnWriteArrayList<>();
-    private final List<Consumer<VersionedKeySet>> masterKeyListeners = new CopyOnWriteArrayList<>();
 
     private ScheduledExecutorService scheduler;
 
@@ -63,9 +60,6 @@ public class PlatformSecretsService {
 
         if (properties.getJwtSigningKeysPath() != null) {
             jwtSigningKeys.set(loadFile(properties.getJwtSigningKeysPath()));
-        }
-        if (properties.getSecretStorageMasterKeysPath() != null) {
-            secretStorageMasterKeys.set(loadFile(properties.getSecretStorageMasterKeysPath()));
         }
 
         scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -91,23 +85,13 @@ public class PlatformSecretsService {
         return loaded == null ? null : loaded.content();
     }
 
-    public VersionedKeySet getSecretStorageMasterKeys() {
-        Loaded loaded = secretStorageMasterKeys.get();
-        return loaded == null ? null : loaded.content();
-    }
-
     public void addJwtSigningKeysListener(Consumer<VersionedKeySet> listener) {
         jwtListeners.add(listener);
-    }
-
-    public void addSecretStorageMasterKeysListener(Consumer<VersionedKeySet> listener) {
-        masterKeyListeners.add(listener);
     }
 
     private void poll() {
         try {
             reloadIfChanged(jwtSigningKeys, jwtListeners);
-            reloadIfChanged(secretStorageMasterKeys, masterKeyListeners);
         } catch (Exception e) {
             log.error("Platform secrets poll failed", e);
         }

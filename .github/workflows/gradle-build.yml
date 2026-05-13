@@ -5,8 +5,6 @@ on:
     branches:
       - develop
       - main
-      - monoRepoRefactoring
-      - 2.x
     paths-ignore:
       - 'helm/**'
       - 'docker-compose/**'
