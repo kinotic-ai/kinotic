@@ -1,16 +1,14 @@
 package org.kinotic.os.internal.api.services;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Project;
+import org.kinotic.domain.internal.api.repositories.ProjectRepository;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.os.api.services.ProjectRepoProvisioner;
 import org.kinotic.os.api.services.ProjectService;
-import org.kinotic.domain.internal.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -20,21 +18,16 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultProjectService extends org.kinotic.domain.internal.api.services.AbstractApplicationCrudService<Project> implements ProjectService {
 
-    private static final String INDEX = "kinotic_project";
-
     final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
 
+    private final ProjectRepository projectRepository;
     private final ProjectRepoProvisioner repoProvisioner;
 
-    public DefaultProjectService(org.kinotic.domain.internal.api.services.CrudServiceTemplate crudServiceTemplate,
-                                 ElasticsearchAsyncClient esAsyncClient,
+    public DefaultProjectService(ProjectRepository repository,
                                  SecurityContext securityContext,
                                  ProjectRepoProvisioner repoProvisioner) {
-        super(INDEX,
-              Project.class,
-              esAsyncClient,
-              crudServiceTemplate,
-              securityContext);
+        super(repository, securityContext);
+        this.projectRepository = repository;
         this.repoProvisioner = repoProvisioner;
     }
 
@@ -85,18 +78,8 @@ public class DefaultProjectService extends org.kinotic.domain.internal.api.servi
     public CompletableFuture<List<Project>> findByRepoFullName(String repoFullName) {
         Validate.notBlank(repoFullName, "repoFullName must not be blank");
         String orgId = getOrganizationIdIfEnforced();
-        Query q = Query.of(qb -> qb.bool(b -> {
-            b.filter(TermQuery.of(t -> t.field("repoFullName").value(repoFullName))._toQuery());
-            if (orgId != null) {
-                b.filter(TermQuery.of(t -> t.field("organizationId").value(orgId))._toQuery());
-            }
-            return b;
-        }));
-        return crudServiceTemplate.search(INDEX, Pageable.ofSize(50), Project.class, b -> {
-                                              if (orgId != null) b.routing(orgId);
-                                              b.query(q);
-                                          })
-                                  .thenApply(page -> page.getContent());
+        Query extraFilter = orgId != null ? buildOrgFilterQuery(orgId) : null;
+        return projectRepository.findByRepoFullName(repoFullName, orgId, extraFilter);
     }
 
     private CompletableFuture<Project> provisionAndSave(Project project) {

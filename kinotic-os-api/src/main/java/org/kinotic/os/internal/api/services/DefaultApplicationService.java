@@ -1,15 +1,15 @@
 package org.kinotic.os.internal.api.services;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
+import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.os.api.services.ApplicationService;
 import org.kinotic.os.api.services.ProjectService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
-import org.kinotic.domain.internal.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -23,16 +23,11 @@ public class DefaultApplicationService extends AbstractCrudService<Application> 
     private final ProjectService projectService;
     private final OidcConfigurationService oidcConfigurationService;
 
-    public DefaultApplicationService(ElasticsearchAsyncClient esAsyncClient,
+    public DefaultApplicationService(ApplicationRepository repository,
                                      ProjectService projectService,
                                      OidcConfigurationService oidcConfigurationService,
-                                     org.kinotic.domain.internal.api.services.CrudServiceTemplate crudServiceTemplate,
                                      SecurityContext securityContext) {
-        super("kinotic_application",
-              Application.class,
-              esAsyncClient,
-              crudServiceTemplate,
-              securityContext);
+        super(repository, securityContext);
         this.projectService = projectService;
         this.oidcConfigurationService = oidcConfigurationService;
     }

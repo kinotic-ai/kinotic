@@ -1,20 +1,17 @@
 package org.kinotic.github.internal.api.services;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.github.api.config.KinoticGithubProperties;
 import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubInstallCompletion;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
+import org.kinotic.github.internal.api.repositories.GitHubAppInstallationRepository;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
 import org.kinotic.github.internal.api.services.client.InstallationDetails;
-import org.kinotic.domain.internal.api.services.AbstractCrudService;
-import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -22,7 +19,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Default impl: CRUD over the {@code kinotic_github_app_installation} index plus the
- * three install-flow methods ({@link #startInstall(String, String)},
+ * three install-flow methods ({@link #startInstall(String)},
  * {@link #completeInstall(long, String)}, {@link #findForCurrentOrg()}). Inherits
  * org-scope filtering from {@link AbstractCrudService} so callers cannot read or
  * mutate installations belonging to other orgs.
@@ -33,19 +30,18 @@ public class DefaultGitHubAppInstallationService
         extends AbstractCrudService<GitHubAppInstallation>
         implements GitHubAppInstallationService {
 
-    private static final String INDEX = "kinotic_github_app_installation";
-
+    private final GitHubAppInstallationRepository installationRepository;
     private final KinoticGithubProperties properties;
     private final GitHubInstallStateService stateService;
     private final GitHubApiClient apiClient;
 
-    public DefaultGitHubAppInstallationService(CrudServiceTemplate crudServiceTemplate,
-                                               ElasticsearchAsyncClient esAsyncClient,
+    public DefaultGitHubAppInstallationService(GitHubAppInstallationRepository repository,
                                                SecurityContext securityContext,
                                                KinoticGithubProperties properties,
                                                GitHubInstallStateService stateService,
                                                GitHubApiClient apiClient) {
-        super(INDEX, GitHubAppInstallation.class, esAsyncClient, crudServiceTemplate, securityContext);
+        super(repository, securityContext);
+        this.installationRepository = repository;
         this.properties = properties;
         this.stateService = stateService;
         this.apiClient = apiClient;
@@ -99,31 +95,17 @@ public class DefaultGitHubAppInstallationService
     @Override
     public CompletableFuture<GitHubAppInstallation> findForCurrentOrg() {
         String orgId = requireOrganizationId();
-        Query q = Query.of(qb -> qb.bool(b -> b.filter(
-                f -> f.term(t -> t.field("organizationId").value(orgId)))));
-        return crudServiceTemplate.search(INDEX,
-                Pageable.ofSize(1),
-                GitHubAppInstallation.class,
-                b -> b.routing(orgId).query(q))
-                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+        return installationRepository.findAll(org.kinotic.core.api.crud.Pageable.ofSize(1),
+                                              orgId,
+                                              buildOrgFilterQuery(orgId))
+                                     .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
     @Override
     public CompletableFuture<GitHubAppInstallation> findByGithubInstallationId(long githubInstallationId) {
         String orgId = getOrganizationIdIfEnforced();
-        Query q;
-        if (orgId != null) {
-            q = Query.of(qb -> qb.bool(b -> b
-                    .filter(f -> f.term(t -> t.field("organizationId").value(orgId)))
-                    .filter(f -> f.term(t -> t.field("githubInstallationId").value(githubInstallationId)))));
-            return crudServiceTemplate.search(INDEX, Pageable.ofSize(1), GitHubAppInstallation.class,
-                                              b -> b.routing(orgId).query(q))
-                                      .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
-        }
-        q = Query.of(qb -> qb.bool(b -> b.filter(
-                f -> f.term(t -> t.field("githubInstallationId").value(githubInstallationId)))));
-        return crudServiceTemplate.search(INDEX, Pageable.ofSize(1), GitHubAppInstallation.class,
-                                          b -> b.query(q))
-                                  .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+        return installationRepository.findByGithubInstallationId(githubInstallationId,
+                                                                 orgId,
+                                                                 orgId != null ? buildOrgFilterQuery(orgId) : null);
     }
 }

@@ -1,20 +1,14 @@
 package org.kinotic.os.internal.api.services.iam;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
-import org.kinotic.os.api.services.iam.IamUserService;
-import org.kinotic.domain.internal.utils.DomainUtil;
-import org.kinotic.domain.internal.api.services.AbstractCrudService;
-import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.domain.internal.api.model.IamCredential;
+import org.kinotic.domain.internal.api.repositories.IamUserRepository;
+import org.kinotic.domain.internal.api.services.AbstractCrudService;
+import org.kinotic.domain.internal.utils.DomainUtil;
+import org.kinotic.os.api.services.iam.IamUserService;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -24,13 +18,14 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultIamUserService extends AbstractCrudService<IamUser> implements IamUserService {
 
+    private final IamUserRepository iamUserRepository;
     private final IamCredentialService credentialStore;
 
-    public DefaultIamUserService(CrudServiceTemplate crudServiceTemplate,
-                                 ElasticsearchAsyncClient esAsyncClient,
+    public DefaultIamUserService(IamUserRepository repository,
                                  IamCredentialService credentialStore,
                                  SecurityContext securityContext) {
-        super("kinotic_iam_user", IamUser.class, esAsyncClient, crudServiceTemplate, securityContext);
+        super(repository, securityContext);
+        this.iamUserRepository = repository;
         this.credentialStore = credentialStore;
     }
 
@@ -75,46 +70,20 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     @Override
     public CompletableFuture<IamUser> findByEmailAndScope(String email, String authScopeType, String authScopeId) {
         Validate.notNull(authScopeId, "authScopeId cannot be null");
-        return crudServiceTemplate.search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builder -> builder
-                .query(q -> q.bool(BoolQuery.of(b -> {
-                    b.filter(TermQuery.of(t -> t.field("email").value(email))._toQuery());
-                    b.filter(TermQuery.of(t -> t.field("authScopeType").value(authScopeType))._toQuery());
-                    b.filter(TermQuery.of(t -> t.field("authScopeId").value(authScopeId))._toQuery());
-                    return b;
-                }))))
-                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+        return iamUserRepository.findByEmailAndScope(email, authScopeType, authScopeId);
     }
 
     @Override
     public CompletableFuture<IamUser> findFirstByEmailInScopeType(String email, String authScopeType) {
         Validate.notBlank(email, "email cannot be blank");
         Validate.notBlank(authScopeType, "authScopeType cannot be blank");
-        return crudServiceTemplate.search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builder -> builder
-                .query(q -> q.bool(BoolQuery.of(b -> {
-                    b.filter(TermQuery.of(t -> t.field("email").value(email))._toQuery());
-                    b.filter(TermQuery.of(t -> t.field("authScopeType").value(authScopeType))._toQuery());
-                    return b;
-                }))))
-                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+        return iamUserRepository.findFirstByEmailInScopeType(email, authScopeType);
     }
 
     @Override
     public CompletableFuture<IamUser> findByEmail(String email) {
         Validate.notBlank(email, "email cannot be blank");
-        return crudServiceTemplate.search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builder -> builder
-                .query(q -> q.term(t -> t.field("email").value(email))))
-                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
-    }
-
-//    @Override  // commented off the interface — kept for the eventual user-management UI
-    public CompletableFuture<Page<IamUser>> findByScope(String authScopeType, String authScopeId, Pageable pageable) {
-        Validate.notNull(authScopeId, "authScopeId cannot be null");
-        return crudServiceTemplate.search(indexName, pageable, type, builder -> builder
-                .query(q -> q.bool(BoolQuery.of(b -> {
-                    b.filter(TermQuery.of(t -> t.field("authScopeType").value(authScopeType))._toQuery());
-                    b.filter(TermQuery.of(t -> t.field("authScopeId").value(authScopeId))._toQuery());
-                    return b;
-                }))));
+        return iamUserRepository.findByEmail(email);
     }
 
     @Override
@@ -126,28 +95,14 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
         Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
         Validate.notBlank(authScopeType, "authScopeType cannot be blank");
         Validate.notNull(authScopeId, "authScopeId cannot be null");
-        return crudServiceTemplate.search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builder -> builder
-                .query(q -> q.bool(BoolQuery.of(b -> {
-                    b.filter(TermQuery.of(t -> t.field("oidcSubject").value(oidcSubject))._toQuery());
-                    b.filter(TermQuery.of(t -> t.field("oidcConfigId").value(oidcConfigId))._toQuery());
-                    b.filter(TermQuery.of(t -> t.field("authScopeType").value(authScopeType))._toQuery());
-                    b.filter(TermQuery.of(t -> t.field("authScopeId").value(authScopeId))._toQuery());
-                    return b;
-                }))))
-                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+        return iamUserRepository.findByOidcIdentityAndScope(oidcSubject, oidcConfigId, authScopeType, authScopeId);
     }
 
     @Override
     public CompletableFuture<java.util.List<IamUser>> findByOidcIdentity(String oidcSubject, String oidcConfigId) {
         Validate.notBlank(oidcSubject, "oidcSubject cannot be blank");
         Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
-        return crudServiceTemplate.search(indexName, Pageable.create(0, 100, Sort.unsorted()), type, builder -> builder
-                .query(q -> q.bool(BoolQuery.of(b -> {
-                    b.filter(TermQuery.of(t -> t.field("oidcSubject").value(oidcSubject))._toQuery());
-                    b.filter(TermQuery.of(t -> t.field("oidcConfigId").value(oidcConfigId))._toQuery());
-                    return b;
-                }))))
-                .thenApply(Page::getContent);
+        return iamUserRepository.findByOidcIdentity(oidcSubject, oidcConfigId);
     }
 
     @Override
