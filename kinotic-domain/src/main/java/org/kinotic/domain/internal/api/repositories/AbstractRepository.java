@@ -6,7 +6,6 @@ import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.crud.Identifiable;
-import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.OrganizationScoped;
@@ -22,11 +21,14 @@ import java.util.concurrent.CompletableFuture;
  * Concrete subclasses supply the {@code indexName} and {@code Class<T>} via the constructor
  * and are registered as Spring beans; services depend on the concrete repository type, not
  * on {@link CrudServiceTemplate} directly.
+ * <p>
+ * Repositories deliberately do not implement any {@code CrudService} interface &mdash; those
+ * contracts carry an org-scoping guarantee that only the service tier can honour.
  *
  * @param <T> the entity type managed by this repository
  */
 @RequiredArgsConstructor
-public abstract class AbstractRepository<T extends Identifiable<String>> implements IdentifiableCrudService<T, String> {
+public abstract class AbstractRepository<T extends Identifiable<String>> {
 
     protected final String indexName;
     @Getter
@@ -42,7 +44,6 @@ public abstract class AbstractRepository<T extends Identifiable<String>> impleme
         crudServiceTemplate.verifyIndexExists(indexName);
     }
 
-    @Override
     public CompletableFuture<Long> count() {
         return count(null, null);
     }
@@ -60,7 +61,6 @@ public abstract class AbstractRepository<T extends Identifiable<String>> impleme
         });
     }
 
-    @Override
     public CompletableFuture<T> findById(String id) {
         return findById(id, getRoutingKeyFromId(id));
     }
@@ -75,7 +75,6 @@ public abstract class AbstractRepository<T extends Identifiable<String>> impleme
                                             routing != null ? b -> b.routing(routing) : null);
     }
 
-    @Override
     public CompletableFuture<Void> deleteById(String id) {
         return deleteById(id, getRoutingKeyFromId(id));
     }
@@ -91,7 +90,6 @@ public abstract class AbstractRepository<T extends Identifiable<String>> impleme
                                   .thenApply(response -> null);
     }
 
-    @Override
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
         return findAll(pageable, null, null);
     }
@@ -106,7 +104,6 @@ public abstract class AbstractRepository<T extends Identifiable<String>> impleme
         });
     }
 
-    @Override
     public CompletableFuture<T> save(T value) {
         return save(value, getObjectRoutingKey(value));
     }
@@ -122,7 +119,6 @@ public abstract class AbstractRepository<T extends Identifiable<String>> impleme
                                   .thenApply(indexResponse -> value);
     }
 
-    @Override
     public CompletableFuture<T> saveSync(T value) {
         return saveSync(value, getObjectRoutingKey(value));
     }
@@ -138,7 +134,6 @@ public abstract class AbstractRepository<T extends Identifiable<String>> impleme
                                   .thenApply(indexResponse -> value);
     }
 
-    @Override
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
         return search(searchText, pageable, null, null);
     }
@@ -164,7 +159,6 @@ public abstract class AbstractRepository<T extends Identifiable<String>> impleme
         });
     }
 
-    @Override
     public CompletableFuture<Void> syncIndex() {
         return esAsyncClient.indices()
                             .refresh(b -> b.index(indexName))

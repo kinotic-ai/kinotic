@@ -3,7 +3,6 @@ package org.kinotic.domain.internal.api.repositories;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
-import org.kinotic.core.api.crud.ApplicationScopedCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.ApplicationScoped;
@@ -17,8 +16,7 @@ import java.util.concurrent.CompletableFuture;
  * the service tier composes one of these and layers org enforcement on top.
  */
 public abstract class AbstractApplicationRepository<T extends ApplicationScoped<String>>
-        extends AbstractRepository<T>
-        implements ApplicationScopedCrudService<T, String> {
+        extends AbstractRepository<T> {
 
     public AbstractApplicationRepository(String indexName,
                                          Class<T> type,
@@ -27,7 +25,6 @@ public abstract class AbstractApplicationRepository<T extends ApplicationScoped<
         super(indexName, type, esAsyncClient, crudServiceTemplate);
     }
 
-    @Override
     public CompletableFuture<Long> countForApplication(String applicationId) {
         return countForApplication(applicationId, null, null);
     }
@@ -44,7 +41,6 @@ public abstract class AbstractApplicationRepository<T extends ApplicationScoped<
         });
     }
 
-    @Override
     public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable) {
         return findAllForApplication(applicationId, pageable, null, null);
     }

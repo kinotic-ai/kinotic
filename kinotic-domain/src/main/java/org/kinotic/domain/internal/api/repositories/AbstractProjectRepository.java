@@ -5,7 +5,6 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.crud.ProjectScopedCrudService;
 import org.kinotic.domain.api.model.ProjectScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
@@ -17,8 +16,7 @@ import java.util.concurrent.CompletableFuture;
  * to the shard determined by the project-id prefix encoded in the composite document id.
  */
 public abstract class AbstractProjectRepository<T extends ProjectScoped<String>>
-        extends AbstractApplicationRepository<T>
-        implements ProjectScopedCrudService<T, String> {
+        extends AbstractApplicationRepository<T> {
 
     public AbstractProjectRepository(String indexName,
                                      Class<T> type,
@@ -38,7 +36,6 @@ public abstract class AbstractProjectRepository<T extends ProjectScoped<String>>
         return null;
     }
 
-    @Override
     public CompletableFuture<Long> countForProject(String projectId) {
         return countForProject(projectId, null, null);
     }
@@ -54,7 +51,6 @@ public abstract class AbstractProjectRepository<T extends ProjectScoped<String>>
         });
     }
 
-    @Override
     public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable) {
         return findAllForProject(projectId, pageable, null, null);
     }
