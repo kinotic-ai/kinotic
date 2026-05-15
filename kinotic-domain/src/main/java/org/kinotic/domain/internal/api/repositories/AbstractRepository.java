@@ -22,7 +22,7 @@ import java.util.function.Consumer;
 
 /**
  * Pure Elasticsearch CRUD over a single index. Knows nothing about authentication, organization
- * scoping, or any other business concern &mdash; it just maps typed CRUD calls onto the index
+ * scoping, or any other business concern — it just maps typed CRUD calls onto the index
  * named in the constructor.
  * <p>
  * Each base CRUD method has a public no-arg form and a protected {@code Consumer<...Builder>}

@@ -11,7 +11,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Thin {@link IdentifiableCrudService} delegating to an {@link AbstractRepository}. Use this as
- * the service base for entities that are <em>not</em> organization scoped &mdash; the system root
+ * the service base for entities that are <em>not</em> organization scoped — the system root
  * (e.g. {@code Organization}) and infrastructure-level entities. For organization-scoped data
  * use {@link AbstractOrganizationScopedService} instead, which layers org enforcement on top.
  *
