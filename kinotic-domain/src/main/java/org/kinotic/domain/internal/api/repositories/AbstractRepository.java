@@ -151,6 +151,10 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
      */
     protected CompletableFuture<List<T>> multiGetByIds(List<String> ids, Predicate<T> filter) {
         Validate.notNull(filter, "filter cannot be null");
-        return multiGetByIds(ids).thenApply(list -> list.stream().filter(filter).toList());
+        List<MultiGetOperation> ops = ids.stream()
+                                         .map(id -> MultiGetOperation.of(o -> o.index(indexName).id(id)))
+                                         .toList();
+        return crudServiceTemplate.<T, T>multiGet(ops, type, null, null)
+                                  .thenApply(list -> list.stream().filter(filter).toList());
     }
 }
