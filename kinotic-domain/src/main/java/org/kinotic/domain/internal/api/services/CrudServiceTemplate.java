@@ -368,9 +368,9 @@ public class CrudServiceTemplate {
                                               if(resultMapper != null) {
                                                   for (MultiGetResponseItem<T> hit : recordsResponse) {
                                                       if (hit.isResult() && hit.result().found()) {
+                                                          // A null return from the mapper means "skip this item" —
+                                                          // see multiGetMatching, which uses this to filter inline.
                                                           R mapped = resultMapper.apply(hit.result());
-                                                          // Null from the mapper means "skip" — lets callers filter inline
-                                                          // without a second pass to strip rejected entries.
                                                           if (mapped != null) content.add(mapped);
                                                       }
                                                   }
