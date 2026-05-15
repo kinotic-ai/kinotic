@@ -7,6 +7,7 @@ import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.os.api.services.iam.LocalAuthenticationService;
+import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
 import org.kinotic.domain.internal.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
@@ -19,7 +20,7 @@ import java.util.function.Supplier;
 public class DefaultLocalAuthenticationService implements LocalAuthenticationService {
 
     private final IamUserService iamUserService;
-    private final IamCredentialService credentialStore;
+    private final IamCredentialRepository credentialRepository;
 
     @Override
     public CompletableFuture<IamUser> authenticateLocal(String email, String password) {
@@ -46,7 +47,7 @@ public class DefaultLocalAuthenticationService implements LocalAuthenticationSer
                     || !user.isEnabled()) {
                 return CompletableFuture.completedFuture(null);
             }
-            return credentialStore.findById(user.getId())
+            return credentialRepository.findById(user.getId())
                                   .thenApply(credential -> {
                                       if (credential == null
                                               || !DomainUtil.verifyPassword(password, credential.getPasswordHash())) {
