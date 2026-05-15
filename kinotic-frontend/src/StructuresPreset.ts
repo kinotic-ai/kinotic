@@ -179,6 +179,107 @@ export const StructuresPreset = definePreset(StructuresTheme, {
             color: ${dt('surface.400')};
         }
 
+        .app-sidebar-shell {
+            background: ${dt('surface.0')};
+            border-color: ${dt('surface.200')};
+        }
+
+        html.dark .app-sidebar-shell {
+            background: ${dt('surface.900')};
+            border-color: ${dt('surface.800')};
+        }
+
+        .app-sidebar-section-label {
+            color: ${dt('surface.500')};
+        }
+
+        html.dark .app-sidebar-section-label {
+            color: ${dt('surface.400')};
+        }
+
+        .app-sidebar-toggle {
+            border-color: ${dt('surface.200')};
+            color: ${dt('surface.500')};
+        }
+
+        .app-sidebar-toggle:hover {
+            background: ${dt('surface.100')};
+        }
+
+        html.dark .app-sidebar-toggle {
+            border-color: ${dt('surface.800')};
+            color: ${dt('surface.400')};
+        }
+
+        html.dark .app-sidebar-toggle:hover {
+            background: ${dt('surface.800')};
+        }
+
+        .app-sidebar-item-label {
+            color: ${dt('surface.800')};
+            font-weight: 600;
+        }
+
+        html.dark .app-sidebar-item-label {
+            color: ${dt('surface.300')};
+        }
+
+        .app-sidebar-item-label-active-expanded {
+            color: ${dt('surface.900')};
+        }
+
+        html.dark .app-sidebar-item-label-active-expanded {
+            color: ${dt('primary.300')};
+        }
+
+        .app-sidebar-item-icon {
+            color: ${dt('surface.400')};
+        }
+
+        html.dark .app-sidebar-item-icon {
+            color: ${dt('surface.500')};
+        }
+
+        .app-sidebar-item-icon-active {
+            color: ${dt('primary.500')};
+        }
+
+        html.dark .app-sidebar-item-icon-active {
+            color: ${dt('primary.300')};
+        }
+
+        .app-sidebar-item--inactive:hover {
+            background: ${dt('surface.100')};
+        }
+
+        html.dark .app-sidebar-item--inactive:hover {
+            background: ${dt('surface.800')};
+        }
+
+        .app-sidebar-item--active-expanded {
+            background: ${dt('surface.100')};
+        }
+
+        html.dark .app-sidebar-item--active-expanded {
+            background: ${dt('surface.800')};
+        }
+
+        .app-sidebar-item--active-collapsed {
+            background: ${dt('primary.50')};
+        }
+
+        html.dark .app-sidebar-item--active-collapsed {
+            background: ${dt('surface.800')};
+        }
+
+        .app-sidebar-active-rail {
+            background: ${dt('primary.500')};
+        }
+
+        html.dark .app-sidebar-active-rail {
+            background: ${dt('primary.300')};
+        }
+
         .p-button.app-neutral-button {
             border: 1px solid ${dt('surface.200')};
             background: ${dt('surface.0')};

@@ -1,14 +1,85 @@
 
 import { type RouteMeta, type RouteRecordRaw } from 'vue-router'
 
+function organizationSidebarItems() {
+  return [
+    {
+      label: 'Applications',
+      icon: 'pi-th-large',
+      path: '/applications',
+      section: 'Workspace'
+    },
+    {
+      label: 'Members',
+      icon: 'pi-users',
+      path: '/members',
+      section: 'Organization'
+    },
+    {
+      label: 'Roles & permissions',
+      icon: 'pi-shield',
+      path: '/roles-permissions',
+      section: 'Organization'
+    },
+    {
+      label: 'Authentication providers',
+      icon: 'pi-key',
+      path: '/authentication-providers',
+      section: 'Organization'
+    },
+    {
+      label: 'Identity mapping',
+      icon: 'pi-sort-alt',
+      path: '/identity-mapping',
+      section: 'Organization'
+    },
+    {
+      label: 'Organization settings',
+      icon: 'pi-cog',
+      path: '/organization-settings',
+      section: 'Organization'
+    },
+    {
+      label: 'Billing & plan',
+      icon: 'pi-credit-card',
+      path: '/billing-plan',
+      section: 'Organization'
+    }
+  ]
+}
+
+function organizationPlaceholderRoute(path: string, name: string, title: string, description: string): RouteRecordRaw {
+  return {
+    path,
+    component: () => import('@/layouts/LayoutForPage.vue'),
+    meta: {
+      showInMainNav: false,
+      label: title,
+      sidebarItems: organizationSidebarItems
+    } as RouteMeta,
+    children: [
+      {
+        name,
+        path: '',
+        component: () => import('@/pages/OrganizationWorkspacePlaceholder.vue'),
+        props: {
+          title,
+          description
+        }
+      }
+    ]
+  }
+}
+
 const pageRoutes: RouteRecordRaw[] = [
   {
     path: '/applications',
-    component: () => import('@/layouts/MainLayout.vue'),
+    component: () => import('@/layouts/LayoutForPage.vue'),
     meta: {
       showInMainNav: true,
       icon: 'microchip.svg',
       label: 'Applications',
+      sidebarItems: organizationSidebarItems
     } as RouteMeta,
     children: [
       {
@@ -18,6 +89,13 @@ const pageRoutes: RouteRecordRaw[] = [
       },
     ]
   },
+
+  organizationPlaceholderRoute('/members', 'organization-members', 'Members', 'Manage the people who can access this organization.'),
+  organizationPlaceholderRoute('/roles-permissions', 'organization-roles', 'Roles & permissions', 'Define roles and control access across your organization.'),
+  organizationPlaceholderRoute('/authentication-providers', 'organization-auth-providers', 'Authentication providers', 'Configure the identity providers available to this organization.'),
+  organizationPlaceholderRoute('/identity-mapping', 'organization-identity-mapping', 'Identity mapping', 'Map external identities to your organization users and roles.'),
+  organizationPlaceholderRoute('/organization-settings', 'organization-settings', 'Organization settings', 'Update organization-wide settings and preferences.'),
+  organizationPlaceholderRoute('/billing-plan', 'organization-billing-plan', 'Billing & plan', 'Review subscription, billing, and usage details for this organization.'),
 
   {
     path: '/application/:applicationId',
