@@ -105,7 +105,7 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     private void requireOrgMatchesEntity(T value, String orgId) {
         String entityOrgId = value.getOrganizationId();
         Validate.isTrue(orgId.equals(entityOrgId),
-                        "Cannot save %s whose organizationId '%s' does not match routing orgId '%s'",
+                        "Cannot save %s whose organizationId '%s' does not match orgId '%s'",
                         getType().getSimpleName(), entityOrgId, orgId);
     }
 
