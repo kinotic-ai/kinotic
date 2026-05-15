@@ -7,11 +7,11 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.workload.VmNode;
 import org.kinotic.domain.api.model.workload.VmNodeStatus;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
 
-@Repository
+@Component
 public class VmNodeRepository extends AbstractRepository<VmNode> {
 
     public VmNodeRepository(ElasticsearchAsyncClient esAsyncClient,

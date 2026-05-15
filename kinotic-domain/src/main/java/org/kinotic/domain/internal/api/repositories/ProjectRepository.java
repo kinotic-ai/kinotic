@@ -8,12 +8,12 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-@Repository
+@Component
 public class ProjectRepository extends AbstractApplicationScopedRepository<Project> {
 
     public ProjectRepository(ElasticsearchAsyncClient esAsyncClient,

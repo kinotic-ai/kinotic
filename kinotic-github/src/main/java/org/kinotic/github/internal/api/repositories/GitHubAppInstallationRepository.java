@@ -8,11 +8,11 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.repositories.AbstractOrganizationScopedRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.github.api.model.GitHubAppInstallation;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
 
-@Repository
+@Component
 public class GitHubAppInstallationRepository extends AbstractOrganizationScopedRepository<GitHubAppInstallation> {
 
     public GitHubAppInstallationRepository(ElasticsearchAsyncClient esAsyncClient,

@@ -9,12 +9,12 @@ import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.model.iam.OidcProviderKind;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-@Repository
+@Component
 public class OrgSignupOidcConfigurationRepository extends AbstractRepository<OrgSignupOidcConfiguration> {
 
     public OrgSignupOidcConfigurationRepository(ElasticsearchAsyncClient esAsyncClient,

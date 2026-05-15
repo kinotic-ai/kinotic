@@ -9,11 +9,11 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.repositories.AbstractProjectScopedRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.EntityDefinition;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
 
-@Repository
+@Component
 public class EntityDefinitionRepository extends AbstractProjectScopedRepository<EntityDefinition> {
 
     public EntityDefinitionRepository(ElasticsearchAsyncClient esAsyncClient,
