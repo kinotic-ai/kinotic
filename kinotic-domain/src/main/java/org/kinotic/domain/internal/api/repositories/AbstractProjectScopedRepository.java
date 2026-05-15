@@ -25,17 +25,9 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
         super(indexName, type, esAsyncClient, crudServiceTemplate);
     }
 
-    public CompletableFuture<Long> countForProject(String projectId) {
-        return count(b -> b.query(composeFilter(projectIdFilter(projectId))));
-    }
-
     public CompletableFuture<Long> countForProject(String projectId, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         return count(b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
-    }
-
-    public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable) {
-        return findAll(pageable, b -> b.query(composeFilter(projectIdFilter(projectId))));
     }
 
     public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable, String orgId) {

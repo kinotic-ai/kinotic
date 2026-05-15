@@ -24,16 +24,6 @@ public class NamedQueriesDefinitionRepository extends AbstractProjectScopedRepos
     }
 
     public CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId,
-                                                                                          String entityDefinitionName) {
-        return findAll(Pageable.ofSize(1),
-                       b -> b.query(composeFilter(applicationIdFilter(applicationId),
-                                                  entityDefinitionNameFilter(entityDefinitionName))))
-                .thenApply(page -> page.getContent() != null && !page.getContent().isEmpty()
-                        ? page.getContent().getFirst()
-                        : null);
-    }
-
-    public CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId,
                                                                                           String entityDefinitionName,
                                                                                           String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");

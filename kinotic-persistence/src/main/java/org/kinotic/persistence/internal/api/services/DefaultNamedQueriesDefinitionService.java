@@ -33,10 +33,7 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
 
     @Override
     public CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId, String entityDefinitionName) {
-        String orgId = getOrganizationIdIfEnforced();
-        return orgId != null
-                ? namedQueriesRepository.findByApplicationAndEntityDefinition(applicationId, entityDefinitionName, orgId)
-                : namedQueriesRepository.findByApplicationAndEntityDefinition(applicationId, entityDefinitionName);
+        return namedQueriesRepository.findByApplicationAndEntityDefinition(applicationId, entityDefinitionName, requireOrganizationId());
     }
 
     @Override

@@ -21,12 +21,6 @@ public class EntityDefinitionRepository extends AbstractProjectScopedRepository<
         super("kinotic_entity_definition", EntityDefinition.class, esAsyncClient, crudServiceTemplate);
     }
 
-    public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId, Pageable pageable) {
-        return findAll(pageable,
-                       b -> b.query(composeFilter(applicationIdFilter(applicationId),
-                                                  publishedFilter())));
-    }
-
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId,
                                                                                     Pageable pageable,
                                                                                     String orgId) {

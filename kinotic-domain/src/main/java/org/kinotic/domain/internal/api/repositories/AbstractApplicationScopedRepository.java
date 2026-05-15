@@ -27,17 +27,9 @@ public abstract class AbstractApplicationScopedRepository<T extends ApplicationS
         super(indexName, type, esAsyncClient, crudServiceTemplate);
     }
 
-    public CompletableFuture<Long> countForApplication(String applicationId) {
-        return count(b -> b.query(composeFilter(applicationIdFilter(applicationId))));
-    }
-
     public CompletableFuture<Long> countForApplication(String applicationId, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         return count(b -> b.routing(orgId).query(composeOrgFilter(orgId, applicationIdFilter(applicationId))));
-    }
-
-    public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable) {
-        return findAll(pageable, b -> b.query(composeFilter(applicationIdFilter(applicationId))));
     }
 
     public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable, String orgId) {
