@@ -154,7 +154,6 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
         List<MultiGetOperation> ops = ids.stream()
                                          .map(id -> MultiGetOperation.of(o -> o.index(indexName).id(id)))
                                          .toList();
-        return crudServiceTemplate.multiGet(ops, type, null,
-                                            result -> filter.test(result.source()) ? result.source() : null);
+        return crudServiceTemplate.multiGetMatching(ops, type, null, filter);
     }
 }

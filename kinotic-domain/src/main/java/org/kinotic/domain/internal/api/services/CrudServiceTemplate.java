@@ -39,6 +39,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Created by Navíd Mitchell 🤪 on 5/10/23.
@@ -384,6 +385,26 @@ public class CrudServiceTemplate {
                                               }
                                               return content;
                                           }));
+    }
+
+    /**
+     * Gets multiple documents and returns only those whose source passes the supplied {@code filter}.
+     * Convenience for the common "fetch some docs and keep only the matching ones" pattern.
+     *
+     * @param getOperations  list of {@link MultiGetOperation} to get
+     * @param type           of the document to return
+     * @param builderConsumer to customize the {@link MgetRequest}, or null if no customization is needed
+     * @param filter         applied to each resolved document; non-matching items are dropped
+     */
+    public <T> CompletableFuture<List<T>> multiGetMatching(List<MultiGetOperation> getOperations,
+                                                           Class<T> type,
+                                                           Consumer<MgetRequest.Builder> builderConsumer,
+                                                           Predicate<T> filter) {
+        Function<GetResult<T>, T> mapper = result -> {
+            T source = result.source();
+            return source != null && filter.test(source) ? source : null;
+        };
+        return multiGet(getOperations, type, builderConsumer, mapper);
     }
 
     /**
