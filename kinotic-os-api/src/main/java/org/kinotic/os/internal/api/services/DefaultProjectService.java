@@ -5,6 +5,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.internal.api.repositories.ProjectRepository;
+import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
 import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.os.api.services.ProjectRepoProvisioner;
 import org.kinotic.os.api.services.ProjectService;
@@ -15,7 +16,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Component
-public class DefaultProjectService extends org.kinotic.domain.internal.api.services.AbstractApplicationScopedService<Project> implements ProjectService {
+public class DefaultProjectService extends AbstractApplicationScopedService<Project> implements ProjectService {
 
     final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
 
