@@ -13,14 +13,12 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Repository tier for entities that belong to an organization. Adds {@code orgId}-aware
- * overloads of the base CRUD operations: the repository uses {@code orgId} as the
- * Elasticsearch routing key, and for {@code count}/{@code findAll}/{@code search} (and the
- * specialized finders on the intermediate repositories) AND-s an {@code organizationId} term
- * filter onto the query.
+ * overloads of the base CRUD operations: every operation is scoped to the supplied
+ * organization, returning, mutating, or counting only documents that belong to it.
  * <p>
- * All {@code orgId} parameters are required; passing {@code null} throws
- * {@link NullPointerException}. Callers that genuinely don't have an organization context
- * (e.g. operating under elevated access) should use the inherited no-arg base CRUD methods.
+ * All {@code orgId} parameters are required; passing {@code null} or blank throws. Callers
+ * that genuinely don't have an organization context (e.g. operating under elevated access)
+ * should use the inherited no-arg base CRUD methods.
  */
 public abstract class AbstractOrganizationScopedRepository<T extends OrganizationScoped<String>>
         extends AbstractRepository<T> {
@@ -76,8 +74,8 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     }
 
     /**
-     * Saves {@code value} with {@code orgId} as the routing key. Throws if the entity's
-     * own {@code organizationId} disagrees with {@code orgId}.
+     * Saves {@code value} as belonging to {@code orgId}. Throws if the entity's own
+     * {@code organizationId} disagrees with {@code orgId}.
      */
     public CompletableFuture<T> save(T value, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
