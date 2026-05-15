@@ -18,7 +18,6 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -133,15 +132,14 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     }
 
     /**
-     * Multi-gets the given ids and returns those whose source resolved successfully. Missing
-     * docs are silently dropped; the order of the returned list matches the order of resolved
+     * Multi-gets the given ids and returns those that resolved successfully. Missing docs
+     * are silently dropped; the order of the returned list matches the order of resolved
      * hits (not necessarily the input order).
      */
     protected CompletableFuture<List<T>> multiGetByIds(List<String> ids) {
         List<MultiGetOperation> ops = ids.stream()
                                          .map(id -> MultiGetOperation.of(o -> o.index(indexName).id(id)))
                                          .toList();
-        return crudServiceTemplate.<T, T>multiGet(ops, type, null, null)
-                                  .thenApply(list -> list.stream().filter(Objects::nonNull).toList());
+        return crudServiceTemplate.<T, T>multiGet(ops, type, null, null);
     }
 }
