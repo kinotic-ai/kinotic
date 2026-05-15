@@ -20,6 +20,7 @@ import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * Pure Elasticsearch CRUD over a single index. Knows nothing about authentication, organization
@@ -141,5 +142,15 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
                                          .map(id -> MultiGetOperation.of(o -> o.index(indexName).id(id)))
                                          .toList();
         return crudServiceTemplate.<T, T>multiGet(ops, type, null, null);
+    }
+
+    /**
+     * Multi-gets the given ids and returns those that resolved successfully and pass the
+     * supplied {@code filter}. Convenience for the common "fetch some docs and keep only the
+     * matching ones" pattern (e.g. only enabled rows).
+     */
+    protected CompletableFuture<List<T>> multiGetByIds(List<String> ids, Predicate<T> filter) {
+        Validate.notNull(filter, "filter cannot be null");
+        return multiGetByIds(ids).thenApply(list -> list.stream().filter(filter).toList());
     }
 }
