@@ -28,7 +28,7 @@ public abstract class AbstractApplicationScopedRepository<T extends ApplicationS
     }
 
     public CompletableFuture<Long> countForApplication(String applicationId) {
-        return count(b -> b.query(composeOrgFilter(null, applicationIdFilter(applicationId))));
+        return count(b -> b.query(composeFilter(applicationIdFilter(applicationId))));
     }
 
     public CompletableFuture<Long> countForApplication(String applicationId, String orgId) {
@@ -37,7 +37,7 @@ public abstract class AbstractApplicationScopedRepository<T extends ApplicationS
     }
 
     public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable) {
-        return findAll(pageable, b -> b.query(composeOrgFilter(null, applicationIdFilter(applicationId))));
+        return findAll(pageable, b -> b.query(composeFilter(applicationIdFilter(applicationId))));
     }
 
     public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable, String orgId) {

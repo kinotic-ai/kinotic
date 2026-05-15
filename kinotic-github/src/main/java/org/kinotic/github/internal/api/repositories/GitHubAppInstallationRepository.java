@@ -22,7 +22,7 @@ public class GitHubAppInstallationRepository extends AbstractOrganizationScopedR
 
     public CompletableFuture<GitHubAppInstallation> findByGithubInstallationId(long githubInstallationId) {
         return findAll(Pageable.ofSize(1),
-                       b -> b.query(composeOrgFilter(null, githubInstallationIdFilter(githubInstallationId))))
+                       b -> b.query(composeFilter(githubInstallationIdFilter(githubInstallationId))))
                 .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 

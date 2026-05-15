@@ -23,9 +23,8 @@ public class EntityDefinitionRepository extends AbstractProjectScopedRepository<
 
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId, Pageable pageable) {
         return findAll(pageable,
-                       b -> b.query(composeOrgFilter(null,
-                                                     applicationIdFilter(applicationId),
-                                                     publishedFilter())));
+                       b -> b.query(composeFilter(applicationIdFilter(applicationId),
+                                                  publishedFilter())));
     }
 
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId,

@@ -26,7 +26,7 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
     }
 
     public CompletableFuture<Long> countForProject(String projectId) {
-        return count(b -> b.query(composeOrgFilter(null, projectIdFilter(projectId))));
+        return count(b -> b.query(composeFilter(projectIdFilter(projectId))));
     }
 
     public CompletableFuture<Long> countForProject(String projectId, String orgId) {
@@ -35,7 +35,7 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
     }
 
     public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable) {
-        return findAll(pageable, b -> b.query(composeOrgFilter(null, projectIdFilter(projectId))));
+        return findAll(pageable, b -> b.query(composeFilter(projectIdFilter(projectId))));
     }
 
     public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable, String orgId) {

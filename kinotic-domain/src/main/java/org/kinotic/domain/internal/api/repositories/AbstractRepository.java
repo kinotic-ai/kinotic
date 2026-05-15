@@ -1,6 +1,7 @@
 package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.CountRequest;
 import co.elastic.clients.elasticsearch.core.DeleteRequest;
 import co.elastic.clients.elasticsearch.core.GetRequest;
@@ -10,6 +11,7 @@ import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -115,6 +117,19 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
         return esAsyncClient.indices()
                             .refresh(b -> b.index(indexName))
                             .thenApply(unused -> null);
+    }
+
+    /**
+     * Builds a bool query whose {@code filter} clauses are the supplied {@code filters}.
+     * Convenience for subclasses that compose specialized queries from one or more term
+     * filters. Requires at least one non-null filter.
+     */
+    protected Query composeFilter(Query... filters) {
+        Validate.notEmpty(filters, "filters cannot be empty");
+        return Query.of(q -> q.bool(b -> {
+            for (Query f : filters) if (f != null) b.filter(f);
+            return b;
+        }));
     }
 
     /**

@@ -23,7 +23,7 @@ public class ProjectRepository extends AbstractApplicationScopedRepository<Proje
 
     public CompletableFuture<List<Project>> findByRepoFullName(String repoFullName) {
         return findAll(Pageable.ofSize(50),
-                       b -> b.query(composeOrgFilter(null, repoFullNameFilter(repoFullName))))
+                       b -> b.query(composeFilter(repoFullNameFilter(repoFullName))))
                 .thenApply(Page::getContent);
     }
 

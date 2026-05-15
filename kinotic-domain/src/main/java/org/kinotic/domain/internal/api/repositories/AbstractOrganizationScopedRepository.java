@@ -76,20 +76,17 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     }
 
     /**
-     * Builds a bool query whose {@code filter} clauses include any caller-supplied
-     * {@code extraFilters} plus an {@code organizationId} term filter when {@code orgId}
-     * is non-null. Returns {@code null} when no filter clauses would be added so callers can
-     * skip setting a query entirely. Internal helper &mdash; public overloads pass non-null
-     * {@code orgId}, intermediate-tier overloads may pass {@code null} when scoping by another
-     * field only (e.g. {@code applicationId}).
+     * Builds a bool query whose {@code filter} clauses are any caller-supplied
+     * {@code extraFilters} AND an {@code organizationId} term filter. Subclasses use this to
+     * compose specialized queries that should be org-scoped. For queries that should NOT be
+     * org-scoped (e.g. an intermediate repository's no-arg overload) use
+     * {@link #composeFilter} on the base class instead.
      */
     protected Query composeOrgFilter(String orgId, Query... extraFilters) {
-        boolean filterByOrg = orgId != null;
-        boolean hasExtras = extraFilters != null && extraFilters.length > 0;
-        if (!filterByOrg && !hasExtras) return null;
+        Validate.notBlank(orgId, "orgId cannot be blank");
         return Query.of(q -> q.bool(b -> {
-            if (hasExtras) for (Query f : extraFilters) if (f != null) b.filter(f);
-            if (filterByOrg) b.filter(orgIdTerm(orgId));
+            if (extraFilters != null) for (Query f : extraFilters) if (f != null) b.filter(f);
+            b.filter(orgIdTerm(orgId));
             return b;
         }));
     }
