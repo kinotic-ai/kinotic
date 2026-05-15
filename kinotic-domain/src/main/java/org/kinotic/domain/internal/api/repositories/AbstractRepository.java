@@ -18,6 +18,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -154,7 +155,11 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
         List<MultiGetOperation> ops = ids.stream()
                                          .map(id -> MultiGetOperation.of(o -> o.index(indexName).id(id)))
                                          .toList();
-        return crudServiceTemplate.<T, T>multiGet(ops, type, null, null)
-                                  .thenApply(list -> list.stream().filter(filter).toList());
+        // Filter inline via the resultMapper: rejected items become null entries which we
+        // then drop in-place. One materialized list, two passes, no intermediate stream/list
+        // allocation.
+        return crudServiceTemplate.multiGet(ops, type, null,
+                                            result -> filter.test(result.source()) ? result.source() : null)
+                                  .thenApply(list -> { list.removeIf(Objects::isNull); return list; });
     }
 }
