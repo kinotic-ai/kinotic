@@ -379,7 +379,7 @@ public class CrudServiceTemplate {
                                                       if(hit.isResult() && hit.result().found()){
                                                           @SuppressWarnings("unchecked")
                                                           R result = (R)hit.result().source();
-                                                          if (result != null) content.add(result);
+                                                          content.add(result);
                                                       }
                                                   }
                                               }
