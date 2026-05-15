@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.internal.api.services.AbstractCrudService;
+import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.github.api.config.KinoticGithubProperties;
 import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubInstallCompletion;
@@ -22,13 +22,13 @@ import java.util.concurrent.CompletableFuture;
  * Default impl: CRUD over the {@code kinotic_github_app_installation} index plus the
  * three install-flow methods ({@link #startInstall(String)},
  * {@link #completeInstall(long, String)}, {@link #findForCurrentOrg()}). Inherits
- * org-scope filtering from {@link AbstractCrudService} so callers cannot read or
- * mutate installations belonging to other orgs.
+ * org-scope filtering from {@link AbstractOrganizationScopedService} so callers cannot read
+ * or mutate installations belonging to other orgs.
  */
 @Slf4j
 @Component
 public class DefaultGitHubAppInstallationService
-        extends AbstractCrudService<GitHubAppInstallation>
+        extends AbstractOrganizationScopedService<GitHubAppInstallation>
         implements GitHubAppInstallationService {
 
     private final GitHubAppInstallationRepository installationRepository;

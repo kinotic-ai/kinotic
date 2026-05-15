@@ -1,7 +1,6 @@
 package org.kinotic.os.internal.api.services.iam;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.internal.api.model.IamCredential;
@@ -22,9 +21,8 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     private final IamCredentialService credentialStore;
 
     public DefaultIamUserService(IamUserRepository repository,
-                                 IamCredentialService credentialStore,
-                                 SecurityContext securityContext) {
-        super(repository, securityContext);
+                                 IamCredentialService credentialStore) {
+        super(repository);
         this.iamUserRepository = repository;
         this.credentialStore = credentialStore;
     }

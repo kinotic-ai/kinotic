@@ -5,7 +5,7 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
-import org.kinotic.domain.internal.api.services.AbstractCrudService;
+import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
@@ -16,7 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Component
-public class DefaultOidcConfigurationService extends AbstractCrudService<OidcConfiguration> implements OidcConfigurationService {
+public class DefaultOidcConfigurationService extends AbstractOrganizationScopedService<OidcConfiguration> implements OidcConfigurationService {
 
     private final OidcConfigurationRepository oidcRepository;
     private final OrganizationService organizationService;

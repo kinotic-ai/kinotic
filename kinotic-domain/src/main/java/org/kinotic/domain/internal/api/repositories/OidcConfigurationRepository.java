@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Repository
-public class OidcConfigurationRepository extends AbstractRepository<OidcConfiguration> {
+public class OidcConfigurationRepository extends AbstractOrganizationScopedRepository<OidcConfiguration> {
 
     public OidcConfigurationRepository(ElasticsearchAsyncClient esAsyncClient,
                                        CrudServiceTemplate crudServiceTemplate) {

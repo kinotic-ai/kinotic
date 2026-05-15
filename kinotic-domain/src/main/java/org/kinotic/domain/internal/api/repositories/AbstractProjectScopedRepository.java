@@ -15,13 +15,13 @@ import java.util.concurrent.CompletableFuture;
  * Adds {@code projectId}-scoped query helpers; org-scoping is applied automatically when the
  * caller passes a non-null {@code orgId}.
  */
-public abstract class AbstractProjectRepository<T extends ProjectScoped<String>>
-        extends AbstractApplicationRepository<T> {
+public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<String>>
+        extends AbstractApplicationScopedRepository<T> {
 
-    public AbstractProjectRepository(String indexName,
-                                     Class<T> type,
-                                     ElasticsearchAsyncClient esAsyncClient,
-                                     CrudServiceTemplate crudServiceTemplate) {
+    public AbstractProjectScopedRepository(String indexName,
+                                           Class<T> type,
+                                           ElasticsearchAsyncClient esAsyncClient,
+                                           CrudServiceTemplate crudServiceTemplate) {
         super(indexName, type, esAsyncClient, crudServiceTemplate);
     }
 

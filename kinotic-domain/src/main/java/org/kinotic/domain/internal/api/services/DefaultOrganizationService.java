@@ -2,7 +2,6 @@ package org.kinotic.domain.internal.api.services;
 
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.internal.api.repositories.OrganizationRepository;
@@ -16,9 +15,8 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
 
     private final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
 
-    public DefaultOrganizationService(OrganizationRepository repository,
-                                      SecurityContext securityContext) {
-        super(repository, securityContext);
+    public DefaultOrganizationService(OrganizationRepository repository) {
+        super(repository);
     }
 
     @Override

@@ -4,7 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.internal.api.repositories.AbstractRepository;
+import org.kinotic.domain.internal.api.repositories.AbstractOrganizationScopedRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.springframework.stereotype.Repository;
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
 import java.util.concurrent.CompletableFuture;
 
 @Repository
-public class GitHubAppInstallationRepository extends AbstractRepository<GitHubAppInstallation> {
+public class GitHubAppInstallationRepository extends AbstractOrganizationScopedRepository<GitHubAppInstallation> {
 
     public GitHubAppInstallationRepository(ElasticsearchAsyncClient esAsyncClient,
                                            CrudServiceTemplate crudServiceTemplate) {

@@ -5,7 +5,7 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
-import org.kinotic.domain.internal.api.services.AbstractCrudService;
+import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.os.api.services.ApplicationService;
 import org.kinotic.os.api.services.ProjectService;
@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Component
-public class DefaultApplicationService extends AbstractCrudService<Application> implements ApplicationService {
+public class DefaultApplicationService extends AbstractOrganizationScopedService<Application> implements ApplicationService {
 
     private final ProjectService projectService;
     private final OidcConfigurationService oidcConfigurationService;

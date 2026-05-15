@@ -2,7 +2,7 @@ package org.kinotic.persistence.internal.api.services;
 
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.internal.api.services.AbstractProjectCrudService;
+import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 import org.kinotic.persistence.api.services.NamedQueriesDefinitionService;
 import org.kinotic.persistence.internal.api.repositories.NamedQueriesDefinitionRepository;
@@ -17,7 +17,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @Slf4j
 @Component
-public class DefaultNamedQueriesDefinitionService extends AbstractProjectCrudService<NamedQueriesDefinition> implements NamedQueriesDefinitionService {
+public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedService<NamedQueriesDefinition> implements NamedQueriesDefinitionService {
 
     private final NamedQueriesDefinitionRepository namedQueriesRepository;
     private final ApplicationEventPublisher eventPublisher;

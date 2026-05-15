@@ -5,7 +5,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.internal.api.repositories.AbstractProjectRepository;
+import org.kinotic.domain.internal.api.repositories.AbstractProjectScopedRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.springframework.stereotype.Repository;
@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 import java.util.concurrent.CompletableFuture;
 
 @Repository
-public class EntityDefinitionRepository extends AbstractProjectRepository<EntityDefinition> {
+public class EntityDefinitionRepository extends AbstractProjectScopedRepository<EntityDefinition> {
 
     public EntityDefinitionRepository(ElasticsearchAsyncClient esAsyncClient,
                                       CrudServiceTemplate crudServiceTemplate) {

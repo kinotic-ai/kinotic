@@ -5,18 +5,18 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.ApplicationScoped;
-import org.kinotic.domain.internal.api.repositories.AbstractApplicationRepository;
+import org.kinotic.domain.internal.api.repositories.AbstractApplicationScopedRepository;
 
 import java.util.concurrent.CompletableFuture;
 
-public abstract class AbstractApplicationCrudService<T extends ApplicationScoped<String>>
-        extends AbstractCrudService<T>
+public abstract class AbstractApplicationScopedService<T extends ApplicationScoped<String>>
+        extends AbstractOrganizationScopedService<T>
         implements ApplicationScopedCrudService<T, String> {
 
-    protected final AbstractApplicationRepository<T> applicationRepository;
+    protected final AbstractApplicationScopedRepository<T> applicationRepository;
 
-    public AbstractApplicationCrudService(AbstractApplicationRepository<T> repository,
-                                          SecurityContext securityContext) {
+    public AbstractApplicationScopedService(AbstractApplicationScopedRepository<T> repository,
+                                            SecurityContext securityContext) {
         super(repository, securityContext);
         this.applicationRepository = repository;
     }

@@ -1,7 +1,6 @@
 package org.kinotic.os.internal.api.services.iam;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.iam.SystemOidcConfiguration;
 import org.kinotic.domain.internal.api.repositories.SystemOidcConfigurationRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
@@ -20,9 +19,8 @@ public class DefaultSystemOidcConfigurationService
 
     private final SystemOidcConfigurationRepository systemOidcRepository;
 
-    public DefaultSystemOidcConfigurationService(SystemOidcConfigurationRepository repository,
-                                                 SecurityContext securityContext) {
-        super(repository, securityContext);
+    public DefaultSystemOidcConfigurationService(SystemOidcConfigurationRepository repository) {
+        super(repository);
         this.systemOidcRepository = repository;
     }
 

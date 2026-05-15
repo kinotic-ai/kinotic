@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Component
-public class DefaultProjectService extends org.kinotic.domain.internal.api.services.AbstractApplicationCrudService<Project> implements ProjectService {
+public class DefaultProjectService extends org.kinotic.domain.internal.api.services.AbstractApplicationScopedService<Project> implements ProjectService {
 
     final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
 

@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Repository
-public class ProjectRepository extends AbstractApplicationRepository<Project> {
+public class ProjectRepository extends AbstractApplicationScopedRepository<Project> {
 
     public ProjectRepository(ElasticsearchAsyncClient esAsyncClient,
                              CrudServiceTemplate crudServiceTemplate) {

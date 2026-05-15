@@ -4,7 +4,6 @@ import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.workload.VmNode;
 import org.kinotic.domain.internal.api.repositories.VmNodeRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
@@ -16,9 +15,8 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
 
     private final VmNodeRepository vmNodeRepository;
 
-    public DefaultVmNodeService(VmNodeRepository repository,
-                                SecurityContext securityContext) {
-        super(repository, securityContext);
+    public DefaultVmNodeService(VmNodeRepository repository) {
+        super(repository);
         this.vmNodeRepository = repository;
     }
 

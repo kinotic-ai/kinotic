@@ -1,7 +1,6 @@
 package org.kinotic.os.internal.api.services.iam;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.iam.OidcProviderKind;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.kinotic.domain.internal.api.repositories.OrgSignupOidcConfigurationRepository;
@@ -21,9 +20,8 @@ public class DefaultOrgSignupOidcConfigurationService
 
     private final OrgSignupOidcConfigurationRepository signupRepository;
 
-    public DefaultOrgSignupOidcConfigurationService(OrgSignupOidcConfigurationRepository repository,
-                                                    SecurityContext securityContext) {
-        super(repository, securityContext);
+    public DefaultOrgSignupOidcConfigurationService(OrgSignupOidcConfigurationRepository repository) {
+        super(repository);
         this.signupRepository = repository;
     }
 

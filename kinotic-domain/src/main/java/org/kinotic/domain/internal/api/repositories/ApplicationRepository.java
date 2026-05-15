@@ -6,7 +6,7 @@ import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class ApplicationRepository extends AbstractRepository<Application> {
+public class ApplicationRepository extends AbstractOrganizationScopedRepository<Application> {
 
     public ApplicationRepository(ElasticsearchAsyncClient esAsyncClient,
                                  CrudServiceTemplate crudServiceTemplate) {
