@@ -367,7 +367,10 @@ public class CrudServiceTemplate {
                                               if(resultMapper != null) {
                                                   for (MultiGetResponseItem<T> hit : recordsResponse) {
                                                       if (hit.isResult() && hit.result().found()) {
-                                                          content.add(resultMapper.apply(hit.result()));
+                                                          R mapped = resultMapper.apply(hit.result());
+                                                          // Null from the mapper means "skip" — lets callers filter inline
+                                                          // without a second pass to strip rejected entries.
+                                                          if (mapped != null) content.add(mapped);
                                                       }
                                                   }
                                               }else{
@@ -375,7 +378,7 @@ public class CrudServiceTemplate {
                                                       if(hit.isResult() && hit.result().found()){
                                                           @SuppressWarnings("unchecked")
                                                           R result = (R)hit.result().source();
-                                                          content.add(result);
+                                                          if (result != null) content.add(result);
                                                       }
                                                   }
                                               }
