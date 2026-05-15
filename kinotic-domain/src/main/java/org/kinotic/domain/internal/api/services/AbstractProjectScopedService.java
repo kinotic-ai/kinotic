@@ -34,12 +34,18 @@ public abstract class AbstractProjectScopedService<T extends ProjectScoped<Strin
 
     @Override
     public CompletableFuture<Long> countForProject(String projectId) {
-        return projectRepository.countForProject(projectId, getOrganizationIdIfEnforced());
+        String orgId = getOrganizationIdIfEnforced();
+        return orgId != null
+                ? projectRepository.countForProject(projectId, orgId)
+                : projectRepository.countForProject(projectId);
     }
 
     @Override
     public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable) {
-        return projectRepository.findAllForProject(projectId, pageable, getOrganizationIdIfEnforced());
+        String orgId = getOrganizationIdIfEnforced();
+        return orgId != null
+                ? projectRepository.findAllForProject(projectId, pageable, orgId)
+                : projectRepository.findAllForProject(projectId, pageable);
     }
 
 }

@@ -14,9 +14,12 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Service base that adds organization-scope enforcement on top of an
  * {@link AbstractOrganizationScopedRepository}. Per call this class decides whether to pass
- * the participant's organization id (used by the repo as routing and, for read queries, as a
- * filter), validates the org id on write, or steps out of the way when
+ * the participant's organization id to the repository (which uses it as routing and, for
+ * read queries, as a filter), validates the org id on write, or steps out of the way when
  * {@link SecurityContext#isElevatedAccess()} is set.
+ * <p>
+ * The repository's {@code orgId} overloads reject null, so this class explicitly branches
+ * between the orgId-aware and the unscoped repository overloads.
  */
 public abstract class AbstractOrganizationScopedService<T extends OrganizationScoped<String>>
         extends AbstractCrudService<T> {
@@ -33,28 +36,32 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
 
     @Override
     public CompletableFuture<Long> count() {
-        return scopedRepository.count(getOrganizationIdIfEnforced());
+        String orgId = getOrganizationIdIfEnforced();
+        return orgId != null ? scopedRepository.count(orgId) : scopedRepository.count();
     }
 
     @Override
     public CompletableFuture<T> findById(String id) {
-        String orgId = getOrganizationIdIfEnforced();
-        String routing = orgId != null ? orgId : getRoutingKeyFromId(id);
-        return scopedRepository.findById(id, routing)
-                               .thenApply(value -> {
-                                   if (value == null) return null;
-                                   if (orgId != null && !orgId.equals(value.getOrganizationId())) {
-                                       return null;
-                                   }
-                                   return value;
-                               });
+        String enforcedOrgId = getOrganizationIdIfEnforced();
+        String routingOrgId = enforcedOrgId != null ? enforcedOrgId : getRoutingKeyFromId(id);
+        CompletableFuture<T> fetch = routingOrgId != null
+                ? scopedRepository.findById(id, routingOrgId)
+                : scopedRepository.findById(id);
+        return fetch.thenApply(value -> {
+            if (value == null) return null;
+            if (enforcedOrgId != null && !enforcedOrgId.equals(value.getOrganizationId())) return null;
+            return value;
+        });
     }
 
     @Override
     public CompletableFuture<Void> deleteById(String id) {
         String orgId = getOrganizationIdIfEnforced();
         if (orgId == null) {
-            return scopedRepository.deleteById(id, getRoutingKeyFromId(id));
+            String routing = getRoutingKeyFromId(id);
+            return routing != null
+                    ? scopedRepository.deleteById(id, routing)
+                    : scopedRepository.deleteById(id);
         }
         return scopedRepository.findById(id, orgId)
                                .thenCompose(value -> {
@@ -73,7 +80,10 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
 
     @Override
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
-        return scopedRepository.findAll(pageable, getOrganizationIdIfEnforced());
+        String orgId = getOrganizationIdIfEnforced();
+        return orgId != null
+                ? scopedRepository.findAll(pageable, orgId)
+                : scopedRepository.findAll(pageable);
     }
 
     @Override
@@ -81,7 +91,8 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
         if (!securityContext.isElevatedAccess()) {
             enforceOrgOnSave(value);
         }
-        return scopedRepository.save(value, getObjectRoutingKey(value));
+        String routing = getObjectRoutingKey(value);
+        return routing != null ? scopedRepository.save(value, routing) : scopedRepository.save(value);
     }
 
     @Override
@@ -89,19 +100,23 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
         if (!securityContext.isElevatedAccess()) {
             enforceOrgOnSave(value);
         }
-        return scopedRepository.saveSync(value, getObjectRoutingKey(value));
+        String routing = getObjectRoutingKey(value);
+        return routing != null ? scopedRepository.saveSync(value, routing) : scopedRepository.saveSync(value);
     }
 
     @Override
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
-        return scopedRepository.search(searchText, pageable, getOrganizationIdIfEnforced());
+        String orgId = getOrganizationIdIfEnforced();
+        return orgId != null
+                ? scopedRepository.search(searchText, pageable, orgId)
+                : scopedRepository.search(searchText, pageable);
     }
 
     /**
      * Returns the organization id to use for filtering and routing if org-scope enforcement
      * is active (elevated access is not set), or {@code null} if enforcement should be skipped.
-     * Subclasses with custom finders pass the result straight to the corresponding repository
-     * overload.
+     * Subclasses with custom finders branch on this and pick the repository overload
+     * accordingly.
      */
     protected String getOrganizationIdIfEnforced() {
         return securityContext.isElevatedAccess() ? null : requireOrganizationId();

@@ -10,6 +10,7 @@ import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.springframework.stereotype.Repository;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 @Repository
@@ -21,18 +22,27 @@ public class EntityDefinitionRepository extends AbstractProjectScopedRepository<
     }
 
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId, Pageable pageable) {
-        return findAllPublishedForApplication(applicationId, pageable, null);
+        return findAll(pageable,
+                       b -> b.query(composeOrgFilter(null,
+                                                     applicationIdFilter(applicationId),
+                                                     publishedFilter())));
     }
 
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId,
                                                                                     Pageable pageable,
                                                                                     String orgId) {
-        Query query = composeOrgFilter(orgId,
-                                       TermQuery.of(t -> t.field("applicationId").value(applicationId))._toQuery(),
-                                       TermQuery.of(t -> t.field("published").value(true))._toQuery());
-        return findAll(pageable, b -> {
-            if (orgId != null) b.routing(orgId);
-            b.query(query);
-        });
+        Objects.requireNonNull(orgId, "orgId");
+        return findAll(pageable,
+                       b -> b.routing(orgId).query(composeOrgFilter(orgId,
+                                                                    applicationIdFilter(applicationId),
+                                                                    publishedFilter())));
+    }
+
+    private Query applicationIdFilter(String applicationId) {
+        return TermQuery.of(t -> t.field("applicationId").value(applicationId))._toQuery();
+    }
+
+    private Query publishedFilter() {
+        return TermQuery.of(t -> t.field("published").value(true))._toQuery();
     }
 }

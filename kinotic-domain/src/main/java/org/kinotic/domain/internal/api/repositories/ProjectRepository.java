@@ -10,6 +10,7 @@ import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 @Repository
@@ -21,15 +22,19 @@ public class ProjectRepository extends AbstractApplicationScopedRepository<Proje
     }
 
     public CompletableFuture<List<Project>> findByRepoFullName(String repoFullName) {
-        return findByRepoFullName(repoFullName, null);
+        return findAll(Pageable.ofSize(50),
+                       b -> b.query(composeOrgFilter(null, repoFullNameFilter(repoFullName))))
+                .thenApply(Page::getContent);
     }
 
     public CompletableFuture<List<Project>> findByRepoFullName(String repoFullName, String orgId) {
-        Query query = composeOrgFilter(orgId,
-                                       TermQuery.of(t -> t.field("repoFullName").value(repoFullName))._toQuery());
-        return findAll(Pageable.ofSize(50), b -> {
-            if (orgId != null) b.routing(orgId);
-            b.query(query);
-        }).thenApply(Page::getContent);
+        Objects.requireNonNull(orgId, "orgId");
+        return findAll(Pageable.ofSize(50),
+                       b -> b.routing(orgId).query(composeOrgFilter(orgId, repoFullNameFilter(repoFullName))))
+                .thenApply(Page::getContent);
+    }
+
+    private Query repoFullNameFilter(String repoFullName) {
+        return TermQuery.of(t -> t.field("repoFullName").value(repoFullName))._toQuery();
     }
 }

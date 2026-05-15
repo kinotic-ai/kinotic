@@ -26,7 +26,10 @@ public class DefaultEntityDefinitionDAO extends AbstractProjectScopedService<Ent
 
     @Override
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId, Pageable pageable) {
-        return entityDefinitionRepository.findAllPublishedForApplication(applicationId, pageable, getOrganizationIdIfEnforced());
+        String orgId = getOrganizationIdIfEnforced();
+        return orgId != null
+                ? entityDefinitionRepository.findAllPublishedForApplication(applicationId, pageable, orgId)
+                : entityDefinitionRepository.findAllPublishedForApplication(applicationId, pageable);
     }
 
 }

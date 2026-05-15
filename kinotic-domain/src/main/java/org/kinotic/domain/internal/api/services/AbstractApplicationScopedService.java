@@ -23,12 +23,18 @@ public abstract class AbstractApplicationScopedService<T extends ApplicationScop
 
     @Override
     public CompletableFuture<Long> countForApplication(String applicationId) {
-        return applicationRepository.countForApplication(applicationId, getOrganizationIdIfEnforced());
+        String orgId = getOrganizationIdIfEnforced();
+        return orgId != null
+                ? applicationRepository.countForApplication(applicationId, orgId)
+                : applicationRepository.countForApplication(applicationId);
     }
 
     @Override
     public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable) {
-        return applicationRepository.findAllForApplication(applicationId, pageable, getOrganizationIdIfEnforced());
+        String orgId = getOrganizationIdIfEnforced();
+        return orgId != null
+                ? applicationRepository.findAllForApplication(applicationId, pageable, orgId)
+                : applicationRepository.findAllForApplication(applicationId, pageable);
     }
 
 }

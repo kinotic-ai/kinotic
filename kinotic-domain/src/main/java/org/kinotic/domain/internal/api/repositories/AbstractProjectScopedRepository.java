@@ -8,12 +8,12 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.ProjectScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Repository tier for entities that belong to a project within an application and organization.
- * Adds {@code projectId}-scoped query helpers; org-scoping is applied automatically when the
- * caller passes a non-null {@code orgId}.
+ * Adds {@code projectId}-scoped query helpers, each with an {@code orgId}-aware overload.
  */
 public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<String>>
         extends AbstractApplicationScopedRepository<T> {
@@ -26,27 +26,21 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
     }
 
     public CompletableFuture<Long> countForProject(String projectId) {
-        return countForProject(projectId, null);
+        return count(b -> b.query(composeOrgFilter(null, projectIdFilter(projectId))));
     }
 
     public CompletableFuture<Long> countForProject(String projectId, String orgId) {
-        Query query = composeOrgFilter(orgId, projectIdFilter(projectId));
-        return count(b -> {
-            if (orgId != null) b.routing(orgId);
-            b.query(query);
-        });
+        Objects.requireNonNull(orgId, "orgId");
+        return count(b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
     }
 
     public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable) {
-        return findAllForProject(projectId, pageable, null);
+        return findAll(pageable, b -> b.query(composeOrgFilter(null, projectIdFilter(projectId))));
     }
 
     public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable, String orgId) {
-        Query query = composeOrgFilter(orgId, projectIdFilter(projectId));
-        return findAll(pageable, b -> {
-            if (orgId != null) b.routing(orgId);
-            b.query(query);
-        });
+        Objects.requireNonNull(orgId, "orgId");
+        return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
     }
 
     private Query projectIdFilter(String projectId) {

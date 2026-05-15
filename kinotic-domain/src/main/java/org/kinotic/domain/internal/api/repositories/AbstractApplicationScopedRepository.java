@@ -8,12 +8,14 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.ApplicationScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Repository tier for entities that belong to an application within an organization.
- * Adds {@code applicationId}-scoped query helpers; org-scoping is applied automatically when
- * the caller passes a non-null {@code orgId}.
+ * Adds {@code applicationId}-scoped query helpers, each with an {@code orgId}-aware overload.
+ * {@code orgId} parameters are required; callers without an organization context should use
+ * the no-arg form.
  */
 public abstract class AbstractApplicationScopedRepository<T extends ApplicationScoped<String>>
         extends AbstractOrganizationScopedRepository<T> {
@@ -26,27 +28,21 @@ public abstract class AbstractApplicationScopedRepository<T extends ApplicationS
     }
 
     public CompletableFuture<Long> countForApplication(String applicationId) {
-        return countForApplication(applicationId, null);
+        return count(b -> b.query(composeOrgFilter(null, applicationIdFilter(applicationId))));
     }
 
     public CompletableFuture<Long> countForApplication(String applicationId, String orgId) {
-        Query query = composeOrgFilter(orgId, applicationIdFilter(applicationId));
-        return count(b -> {
-            if (orgId != null) b.routing(orgId);
-            b.query(query);
-        });
+        Objects.requireNonNull(orgId, "orgId");
+        return count(b -> b.routing(orgId).query(composeOrgFilter(orgId, applicationIdFilter(applicationId))));
     }
 
     public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable) {
-        return findAllForApplication(applicationId, pageable, null);
+        return findAll(pageable, b -> b.query(composeOrgFilter(null, applicationIdFilter(applicationId))));
     }
 
     public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable, String orgId) {
-        Query query = composeOrgFilter(orgId, applicationIdFilter(applicationId));
-        return findAll(pageable, b -> {
-            if (orgId != null) b.routing(orgId);
-            b.query(query);
-        });
+        Objects.requireNonNull(orgId, "orgId");
+        return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId, applicationIdFilter(applicationId))));
     }
 
     private Query applicationIdFilter(String applicationId) {

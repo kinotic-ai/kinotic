@@ -9,6 +9,7 @@ import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 import org.springframework.stereotype.Repository;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 @Repository
@@ -24,20 +25,33 @@ public class NamedQueriesDefinitionRepository extends AbstractProjectScopedRepos
 
     public CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId,
                                                                                           String entityDefinitionName) {
-        return findByApplicationAndEntityDefinition(applicationId, entityDefinitionName, null);
+        return findAll(Pageable.ofSize(1),
+                       b -> b.query(composeOrgFilter(null,
+                                                     applicationIdFilter(applicationId),
+                                                     entityDefinitionNameFilter(entityDefinitionName))))
+                .thenApply(page -> page.getContent() != null && !page.getContent().isEmpty()
+                        ? page.getContent().getFirst()
+                        : null);
     }
 
     public CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId,
                                                                                           String entityDefinitionName,
                                                                                           String orgId) {
-        Query query = composeOrgFilter(orgId,
-                                       TermQuery.of(t -> t.field("applicationId").value(applicationId))._toQuery(),
-                                       TermQuery.of(t -> t.field("entityDefinitionName").value(entityDefinitionName))._toQuery());
-        return findAll(Pageable.ofSize(1), b -> {
-            if (orgId != null) b.routing(orgId);
-            b.query(query);
-        }).thenApply(page -> page.getContent() != null && !page.getContent().isEmpty()
-                ? page.getContent().getFirst()
-                : null);
+        Objects.requireNonNull(orgId, "orgId");
+        return findAll(Pageable.ofSize(1),
+                       b -> b.routing(orgId).query(composeOrgFilter(orgId,
+                                                                    applicationIdFilter(applicationId),
+                                                                    entityDefinitionNameFilter(entityDefinitionName))))
+                .thenApply(page -> page.getContent() != null && !page.getContent().isEmpty()
+                        ? page.getContent().getFirst()
+                        : null);
+    }
+
+    private Query applicationIdFilter(String applicationId) {
+        return TermQuery.of(t -> t.field("applicationId").value(applicationId))._toQuery();
+    }
+
+    private Query entityDefinitionNameFilter(String entityDefinitionName) {
+        return TermQuery.of(t -> t.field("entityDefinitionName").value(entityDefinitionName))._toQuery();
     }
 }
