@@ -42,33 +42,28 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     /**
      * Returns the document with the given {@code id} that belongs to {@code orgId}, or
      * {@code null} if no such document exists.
-     * <p>
-     * ES Get with {@code routing(orgId)} only narrows the request to a single shard; it does
-     * not filter document content. When two orgs hash to the same shard (a real possibility
-     * with small {@code numberOfShards}), a Get with id {@code X} on the colliding shard
-     * could return a doc that was actually indexed under another org's routing. The
-     * post-fetch check enforces the org contract: if the returned doc's
-     * {@code organizationId} doesn't match the requested {@code orgId}, treat as not found.
      */
     public CompletableFuture<T> findById(String id, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         return findById(id, b -> b.routing(orgId))
                 .thenApply(value -> {
                     if (value == null) return null;
+                    // routing only narrows to a shard; with small shard counts two orgs can
+                    // hash to the same shard, so a Get can return a doc indexed under another
+                    // org's routing. Drop it.
                     if (!orgId.equals(value.getOrganizationId())) return null;
                     return value;
                 });
     }
 
     /**
-     * Deletes the document with the given {@code id} that belongs to {@code orgId}. If no
-     * such document exists (or a shard-collision-returned doc belongs to another org), this
-     * is a silent no-op. The find-first-then-delete pattern uses
-     * {@link #findById(String, String)} for the verification step, so the org check is
-     * single-sourced.
+     * Deletes the document with the given {@code id} that belongs to {@code orgId}. No-op
+     * if no such document exists.
      */
     public CompletableFuture<Void> deleteById(String id, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
+        // findById's post-fetch check already enforces the org contract; if it returns a
+        // value, the doc is verified to belong to orgId and is safe to delete.
         return findById(id, orgId).thenCompose(value -> {
             if (value == null) return CompletableFuture.completedFuture(null);
             return deleteById(id, b -> b.routing(orgId));
@@ -81,10 +76,8 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     }
 
     /**
-     * Saves {@code value} with {@code orgId} as the routing key. The entity's own
-     * {@code organizationId} must equal {@code orgId}; otherwise the doc would be indexed on
-     * a shard that future routing-based reads (e.g. {@code findById(id, entityOrgId)}) won't
-     * visit.
+     * Saves {@code value} with {@code orgId} as the routing key. Throws if the entity's
+     * own {@code organizationId} disagrees with {@code orgId}.
      */
     public CompletableFuture<T> save(T value, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
