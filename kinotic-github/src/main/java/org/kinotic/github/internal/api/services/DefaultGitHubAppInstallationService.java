@@ -1,7 +1,9 @@
 package org.kinotic.github.internal.api.services;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
@@ -95,7 +97,7 @@ public class DefaultGitHubAppInstallationService
     @Override
     public CompletableFuture<GitHubAppInstallation> findForCurrentOrg() {
         String orgId = requireOrganizationId();
-        return installationRepository.findAll(org.kinotic.core.api.crud.Pageable.ofSize(1),
+        return installationRepository.findAll(Pageable.ofSize(1),
                                               b -> b.routing(orgId).query(buildOrgFilterQuery(orgId)))
                                      .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
@@ -106,8 +108,7 @@ public class DefaultGitHubAppInstallationService
         if (orgId == null) {
             return installationRepository.findByGithubInstallationId(githubInstallationId);
         }
-        co.elastic.clients.elasticsearch._types.query_dsl.Query composed =
-                installationRepository.buildGithubInstallationIdQuery(githubInstallationId, buildOrgFilterQuery(orgId));
+        Query composed = installationRepository.buildGithubInstallationIdQuery(githubInstallationId, buildOrgFilterQuery(orgId));
         return installationRepository.findByGithubInstallationId(githubInstallationId,
                                                                  b -> b.routing(orgId).query(composed));
     }
