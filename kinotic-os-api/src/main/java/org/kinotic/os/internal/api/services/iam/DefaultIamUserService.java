@@ -4,6 +4,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.internal.api.model.IamCredential;
+import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
 import org.kinotic.domain.internal.api.repositories.IamUserRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.domain.internal.utils.DomainUtil;
@@ -18,13 +19,13 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultIamUserService extends AbstractCrudService<IamUser> implements IamUserService {
 
     private final IamUserRepository iamUserRepository;
-    private final IamCredentialService credentialStore;
+    private final IamCredentialRepository credentialRepository;
 
     public DefaultIamUserService(IamUserRepository repository,
-                                 IamCredentialService credentialStore) {
+                                 IamCredentialRepository credentialRepository) {
         super(repository);
         this.iamUserRepository = repository;
-        this.credentialStore = credentialStore;
+        this.credentialRepository = credentialRepository;
     }
 
     @Override
@@ -127,7 +128,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                         IamCredential credential = new IamCredential()
                                 .setId(savedUser.getId())
                                 .setPasswordHash(DomainUtil.hashPassword(password));
-                        return credentialStore.save(credential).thenApply(c -> savedUser);
+                        return credentialRepository.save(credential).thenApply(c -> savedUser);
                     }
                     return CompletableFuture.completedFuture(savedUser);
                 });
@@ -139,7 +140,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
         Validate.notNull(currentPassword, "currentPassword cannot be null");
         Validate.notNull(newPassword, "newPassword cannot be null");
 
-        return credentialStore.findById(userId)
+        return credentialRepository.findById(userId)
                 .thenCompose(credential -> {
                     if (credential == null) {
                         return CompletableFuture.failedFuture(
@@ -150,7 +151,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                                 new IllegalArgumentException("Current password is incorrect"));
                     }
                     credential.setPasswordHash(DomainUtil.hashPassword(newPassword));
-                    return credentialStore.save(credential).thenApply(c -> (Void) null);
+                    return credentialRepository.save(credential).thenApply(c -> (Void) null);
                 });
     }
 
@@ -162,12 +163,12 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
         IamCredential credential = new IamCredential()
                 .setId(userId)
                 .setPasswordHash(DomainUtil.hashPassword(newPassword));
-        return credentialStore.save(credential).thenApply(c -> null);
+        return credentialRepository.save(credential).thenApply(c -> null);
     }
 
     @Override
     public CompletableFuture<Void> deleteById(String id) {
-        return credentialStore.deleteById(id)
+        return credentialRepository.deleteById(id)
                 .thenCompose(v -> super.deleteById(id));
     }
 

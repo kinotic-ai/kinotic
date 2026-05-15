@@ -13,7 +13,7 @@ import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.IamCredential;
-import org.kinotic.os.internal.api.services.iam.IamCredentialService;
+import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
 import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
 
@@ -47,7 +47,7 @@ import java.util.concurrent.CompletableFuture;
 public class KinoticSecurityService implements SecurityService {
 
     private final IamUserService userService;
-    private final IamCredentialService credentialService;
+    private final IamCredentialRepository credentialRepository;
     private final KinoticJwtIssuer jwtIssuer;
 
     /**
@@ -117,7 +117,7 @@ public class KinoticSecurityService implements SecurityService {
                               if (user.getAuthType() != AuthType.LOCAL) {
                                   return CompletableFuture.failedFuture(new AuthenticationException("User is not a local account"));
                               }
-                              return credentialService.findById(user.getId())
+                              return credentialRepository.findById(user.getId())
                                                       .thenCompose(credential -> verifyPasswordAndCreateParticipant(user, credential, password));
                           });
     }

@@ -10,6 +10,7 @@ import org.kinotic.domain.api.model.iam.SignUpRequest;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.SignUpService;
+import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
 import org.kinotic.domain.internal.api.repositories.SignUpRepository;
 import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.EmailService;
@@ -29,7 +30,7 @@ public class DefaultSignUpService implements SignUpService {
 
     private final SignUpRepository signUpRepository;
     private final IamUserService userService;
-    private final IamCredentialService credentialStore;
+    private final IamCredentialRepository credentialRepository;
     private final OrganizationService organizationService;
     private final EmailService emailService;
 
@@ -126,7 +127,7 @@ public class DefaultSignUpService implements SignUpService {
                                 IamCredential credential = new IamCredential()
                                         .setId(savedUser.getId())
                                         .setPasswordHash(DomainUtil.hashPassword(password));
-                                return credentialStore.save(credential)
+                                return credentialRepository.save(credential)
                                         .thenApply(c -> savedOrg.getId());
                             });
                 })
