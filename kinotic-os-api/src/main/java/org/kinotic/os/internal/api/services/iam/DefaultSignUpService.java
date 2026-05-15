@@ -1,9 +1,5 @@
 package org.kinotic.os.internal.api.services.iam;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.Refresh;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -14,8 +10,8 @@ import org.kinotic.domain.api.model.iam.SignUpRequest;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.SignUpService;
+import org.kinotic.domain.internal.api.repositories.SignUpRepository;
 import org.kinotic.domain.internal.utils.DomainUtil;
-import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.domain.internal.api.services.EmailService;
 import org.kinotic.domain.internal.api.model.IamCredential;
 import org.springframework.stereotype.Component;
@@ -30,19 +26,12 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultSignUpService implements SignUpService {
 
     private static final long VERIFICATION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
-    private static final String SIGNUP_REQUEST_INDEX = "kinotic_signup_request";
 
-    private final ElasticsearchAsyncClient esAsyncClient;
-    private final CrudServiceTemplate crudServiceTemplate;
+    private final SignUpRepository signUpRepository;
     private final IamUserService userService;
     private final IamCredentialService credentialStore;
     private final OrganizationService organizationService;
     private final EmailService emailService;
-
-    @PostConstruct
-    public void verifyIndexExists() {
-        crudServiceTemplate.verifyIndexExists(SIGNUP_REQUEST_INDEX);
-    }
 
     @Override
     public CompletableFuture<Void> initiateSignUp(SignUpRequest request) {
@@ -51,7 +40,7 @@ public class DefaultSignUpService implements SignUpService {
         Validate.notBlank(request.getDisplayName(), "Display name is required");
 
         // Check if a sign-up is already pending for this email
-        return findByEmail(request.getEmail())
+        return signUpRepository.findByEmail(request.getEmail())
                 .thenCompose(existing -> {
                     if (existing != null) {
                         return CompletableFuture.failedFuture(
@@ -77,7 +66,7 @@ public class DefaultSignUpService implements SignUpService {
                .setExpiresAt(new Date(System.currentTimeMillis() + VERIFICATION_EXPIRY_MS))
                .setCreated(new Date());
 
-        return save(request)
+        return signUpRepository.save(request)
                 .thenCompose(saved -> emailService.sendVerificationEmail(
                         request.getEmail(),
                         request.getDisplayName(),
@@ -89,7 +78,7 @@ public class DefaultSignUpService implements SignUpService {
         Validate.notBlank(verificationToken, "Verification token is required");
         Validate.notBlank(password, "Password is required");
 
-        return findByToken(verificationToken)
+        return signUpRepository.findByToken(verificationToken)
                 .thenCompose(request -> {
                     if (request == null) {
                         return CompletableFuture.failedFuture(
@@ -97,7 +86,7 @@ public class DefaultSignUpService implements SignUpService {
                     }
                     if (request.getExpiresAt().before(new Date())) {
                         // Clean up expired record
-                        return deleteById(request.getId())
+                        return signUpRepository.deleteById(request.getId())
                                 .thenCompose(v -> CompletableFuture.failedFuture(
                                         new IllegalArgumentException("Verification link has expired. Please sign up again.")));
                     }
@@ -143,50 +132,8 @@ public class DefaultSignUpService implements SignUpService {
                 })
                 .thenCompose(orgId ->
                     // Delete the pending record
-                    deleteById(request.getId())
+                    signUpRepository.deleteById(request.getId())
                             .thenApply(v -> orgId));
-    }
-
-    // --- SignUpRequest persistence (internal) ---
-
-    private CompletableFuture<SignUpRequest> save(SignUpRequest request) {
-        return esAsyncClient.index(i -> i
-                .index(SIGNUP_REQUEST_INDEX)
-                .id(request.getId())
-                .document(request)
-                .refresh(Refresh.WaitFor))
-                .thenApply(response -> request);
-    }
-
-    private CompletableFuture<SignUpRequest> findByToken(String verificationToken) {
-        return esAsyncClient.search(s -> s
-                .index(SIGNUP_REQUEST_INDEX)
-                .query(q -> q.term(TermQuery.of(t -> t.field("verificationToken").value(verificationToken))))
-                .size(1), SignUpRequest.class)
-                .thenApply(response -> {
-                    if (response.hits().hits().isEmpty()) {
-                        return null;
-                    }
-                    return response.hits().hits().getFirst().source();
-                });
-    }
-
-    private CompletableFuture<SignUpRequest> findByEmail(String email) {
-        return esAsyncClient.search(s -> s
-                .index(SIGNUP_REQUEST_INDEX)
-                .query(q -> q.term(TermQuery.of(t -> t.field("email").value(email))))
-                .size(1), SignUpRequest.class)
-                .thenApply(response -> {
-                    if (response.hits().hits().isEmpty()) {
-                        return null;
-                    }
-                    return response.hits().hits().getFirst().source();
-                });
-    }
-
-    private CompletableFuture<Void> deleteById(String id) {
-        return esAsyncClient.delete(d -> d.index(SIGNUP_REQUEST_INDEX).id(id).refresh(Refresh.WaitFor))
-                            .thenApply(response -> null);
     }
 
 }
