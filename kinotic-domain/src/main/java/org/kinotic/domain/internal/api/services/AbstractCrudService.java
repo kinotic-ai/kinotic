@@ -14,6 +14,8 @@ import java.util.concurrent.CompletableFuture;
  * the service base for entities that are <em>not</em> organization scoped &mdash; the system root
  * (e.g. {@code Organization}) and infrastructure-level entities. For organization-scoped data
  * use {@link AbstractOrganizationScopedService} instead, which layers org enforcement on top.
+ *
+ * Created by Nav&iacute;d Mitchell &#x1f92a; on 4/24/23.
  */
 @RequiredArgsConstructor
 public abstract class AbstractCrudService<T extends Identifiable<String>> implements IdentifiableCrudService<T, String> {
