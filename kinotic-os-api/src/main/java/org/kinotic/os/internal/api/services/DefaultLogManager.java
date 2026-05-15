@@ -4,7 +4,11 @@ package org.kinotic.os.internal.api.services;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
+import org.kinotic.domain.api.model.log.GroupLoggerLevelsDescriptor;
 import org.kinotic.domain.api.model.log.LogLevel;
+import org.kinotic.domain.api.model.log.LoggerLevelsDescriptor;
+import org.kinotic.domain.api.model.log.LoggersDescriptor;
+import org.kinotic.domain.api.model.log.SingleLoggerLevelsDescriptor;
 import org.kinotic.os.api.services.LogManager;
 import org.springframework.boot.logging.*;
 import org.springframework.stereotype.Component;
@@ -43,26 +47,26 @@ public class DefaultLogManager implements LogManager {
         return kinotic.serverInfo().getNodeId();
     }
 
-    public org.kinotic.domain.api.model.log.LoggersDescriptor loggers() {
+    public LoggersDescriptor loggers() {
         Collection<LoggerConfiguration> configurations = this.loggingSystem.getLoggerConfigurations();
-        return new org.kinotic.domain.api.model.log.LoggersDescriptor(getLevels(), getLoggers(configurations), getGroups());
+        return new LoggersDescriptor(getLevels(), getLoggers(configurations), getGroups());
     }
 
-    private Map<String, org.kinotic.domain.api.model.log.GroupLoggerLevelsDescriptor> getGroups() {
-        Map<String, org.kinotic.domain.api.model.log.GroupLoggerLevelsDescriptor> groups = new LinkedHashMap<>();
+    private Map<String, GroupLoggerLevelsDescriptor> getGroups() {
+        Map<String, GroupLoggerLevelsDescriptor> groups = new LinkedHashMap<>();
         this.loggerGroups.forEach((group) -> groups.put(group.getName(),
-                                                        new org.kinotic.domain.api.model.log.GroupLoggerLevelsDescriptor(LogLevel.fromString(group.getConfiguredLevel().name()), group.getMembers())));
+                                                        new GroupLoggerLevelsDescriptor(LogLevel.fromString(group.getConfiguredLevel().name()), group.getMembers())));
         return groups;
     }
 
-    public org.kinotic.domain.api.model.log.LoggerLevelsDescriptor loggerLevels(String name) {
+    public LoggerLevelsDescriptor loggerLevels(String name) {
         Validate.notNull(name, "Name must not be null");
         LoggerGroup group = this.loggerGroups.get(name);
         if (group != null) {
-            return new org.kinotic.domain.api.model.log.GroupLoggerLevelsDescriptor(LogLevel.fromString(group.getConfiguredLevel().name()), group.getMembers());
+            return new GroupLoggerLevelsDescriptor(LogLevel.fromString(group.getConfiguredLevel().name()), group.getMembers());
         }
         LoggerConfiguration configuration = this.loggingSystem.getLoggerConfiguration(name);
-        return (configuration != null) ? new org.kinotic.domain.api.model.log.SingleLoggerLevelsDescriptor(configuration) : null;
+        return (configuration != null) ? new SingleLoggerLevelsDescriptor(configuration) : null;
     }
 
     public void configureLogLevel(String name, LogLevel configuredLevel) {
@@ -85,10 +89,10 @@ public class DefaultLogManager implements LogManager {
         return new TreeSet<>(levels).descendingSet();
     }
 
-    private Map<String, org.kinotic.domain.api.model.log.SingleLoggerLevelsDescriptor> getLoggers(Collection<LoggerConfiguration> configurations) {
-        Map<String, org.kinotic.domain.api.model.log.SingleLoggerLevelsDescriptor> loggers = new LinkedHashMap<>(configurations.size());
+    private Map<String, SingleLoggerLevelsDescriptor> getLoggers(Collection<LoggerConfiguration> configurations) {
+        Map<String, SingleLoggerLevelsDescriptor> loggers = new LinkedHashMap<>(configurations.size());
         for (LoggerConfiguration configuration : configurations) {
-            loggers.put(configuration.getName(), new org.kinotic.domain.api.model.log.SingleLoggerLevelsDescriptor(configuration));
+            loggers.put(configuration.getName(), new SingleLoggerLevelsDescriptor(configuration));
         }
         return loggers;
     }

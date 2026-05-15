@@ -5,6 +5,7 @@ import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.PendingRegistration;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 /**
  * Stores and consumes short-lived pending registrations produced by the OIDC callback in
@@ -39,7 +40,7 @@ public interface PendingRegistrationService {
      *                          the {@link IamUser} before it is saved. Receives the user
      *                          already populated with OIDC-sourced fields.
      */
-    CompletableFuture<IamUser> complete(String verificationToken, java.util.function.Consumer<IamUser> finalizer);
+    CompletableFuture<IamUser> complete(String verificationToken, Consumer<IamUser> finalizer);
 
     /**
      * Consumes a pending registration that has no org context yet (the social-signup path):
