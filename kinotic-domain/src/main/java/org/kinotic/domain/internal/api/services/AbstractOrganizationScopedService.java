@@ -42,40 +42,20 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
 
     @Override
     public CompletableFuture<T> findById(String id) {
-        String enforcedOrgId = getOrganizationIdIfEnforced();
-        String routingOrgId = enforcedOrgId != null ? enforcedOrgId : getRoutingKeyFromId(id);
-        CompletableFuture<T> fetch = routingOrgId != null
-                ? scopedRepository.findById(id, routingOrgId)
+        String orgId = getOrganizationIdIfEnforced();
+        if (orgId == null) orgId = getRoutingKeyFromId(id);
+        return orgId != null
+                ? scopedRepository.findById(id, orgId)
                 : scopedRepository.findById(id);
-        return fetch.thenApply(value -> {
-            if (value == null) return null;
-            if (enforcedOrgId != null && !enforcedOrgId.equals(value.getOrganizationId())) return null;
-            return value;
-        });
     }
 
     @Override
     public CompletableFuture<Void> deleteById(String id) {
         String orgId = getOrganizationIdIfEnforced();
-        if (orgId == null) {
-            String routing = getRoutingKeyFromId(id);
-            return routing != null
-                    ? scopedRepository.deleteById(id, routing)
-                    : scopedRepository.deleteById(id);
-        }
-        return scopedRepository.findById(id, orgId)
-                               .thenCompose(value -> {
-                                   if (value == null) {
-                                       return CompletableFuture.completedFuture(null);
-                                   }
-                                   if (!orgId.equals(value.getOrganizationId())) {
-                                       return CompletableFuture.failedFuture(
-                                               new AuthorizationException(
-                                                       "Cannot delete " + scopedRepository.getType().getSimpleName()
-                                                       + " '" + id + "' owned by another organization"));
-                                   }
-                                   return scopedRepository.deleteById(id, orgId);
-                               });
+        if (orgId == null) orgId = getRoutingKeyFromId(id);
+        return orgId != null
+                ? scopedRepository.deleteById(id, orgId)
+                : scopedRepository.deleteById(id);
     }
 
     @Override

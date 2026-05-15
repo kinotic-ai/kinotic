@@ -39,14 +39,40 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
         return count(b -> b.routing(orgId).query(composeOrgFilter(orgId)));
     }
 
+    /**
+     * Returns the document with the given {@code id} that belongs to {@code orgId}, or
+     * {@code null} if no such document exists.
+     * <p>
+     * ES Get with {@code routing(orgId)} only narrows the request to a single shard; it does
+     * not filter document content. When two orgs hash to the same shard (a real possibility
+     * with small {@code numberOfShards}), a Get with id {@code X} on the colliding shard
+     * could return a doc that was actually indexed under another org's routing. The
+     * post-fetch check enforces the org contract: if the returned doc's
+     * {@code organizationId} doesn't match the requested {@code orgId}, treat as not found.
+     */
     public CompletableFuture<T> findById(String id, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
-        return findById(id, b -> b.routing(orgId));
+        return findById(id, b -> b.routing(orgId))
+                .thenApply(value -> {
+                    if (value == null) return null;
+                    if (!orgId.equals(value.getOrganizationId())) return null;
+                    return value;
+                });
     }
 
+    /**
+     * Deletes the document with the given {@code id} that belongs to {@code orgId}. If no
+     * such document exists (or a shard-collision-returned doc belongs to another org), this
+     * is a silent no-op. The find-first-then-delete pattern uses
+     * {@link #findById(String, String)} for the verification step, so the org check is
+     * single-sourced.
+     */
     public CompletableFuture<Void> deleteById(String id, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
-        return deleteById(id, b -> b.routing(orgId));
+        return findById(id, orgId).thenCompose(value -> {
+            if (value == null) return CompletableFuture.completedFuture(null);
+            return deleteById(id, b -> b.routing(orgId));
+        });
     }
 
     public CompletableFuture<Page<T>> findAll(Pageable pageable, String orgId) {
@@ -54,13 +80,21 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
         return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId)));
     }
 
+    /**
+     * Saves {@code value} with {@code orgId} as the routing key. The entity's own
+     * {@code organizationId} must equal {@code orgId}; otherwise the doc would be indexed on
+     * a shard that future routing-based reads (e.g. {@code findById(id, entityOrgId)}) won't
+     * visit.
+     */
     public CompletableFuture<T> save(T value, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
+        requireOrgMatchesEntity(value, orgId);
         return save(value, b -> b.routing(orgId));
     }
 
     public CompletableFuture<T> saveSync(T value, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
+        requireOrgMatchesEntity(value, orgId);
         return saveSync(value, b -> b.routing(orgId));
     }
 
@@ -73,6 +107,13 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
         return findAll(pageable, b -> b.routing(orgId).query(Query.of(q -> q.bool(bq -> bq
                 .must(m -> m.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
                 .filter(orgIdTerm(orgId))))));
+    }
+
+    private void requireOrgMatchesEntity(T value, String orgId) {
+        String entityOrgId = value.getOrganizationId();
+        Validate.isTrue(orgId.equals(entityOrgId),
+                        "Cannot save %s whose organizationId '%s' does not match routing orgId '%s'",
+                        getType().getSimpleName(), entityOrgId, orgId);
     }
 
     /**
