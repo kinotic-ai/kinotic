@@ -368,10 +368,7 @@ public class CrudServiceTemplate {
                                               if(resultMapper != null) {
                                                   for (MultiGetResponseItem<T> hit : recordsResponse) {
                                                       if (hit.isResult() && hit.result().found()) {
-                                                          // A null return from the mapper means "skip this item" —
-                                                          // see multiGetMatching, which uses this to filter inline.
-                                                          R mapped = resultMapper.apply(hit.result());
-                                                          if (mapped != null) content.add(mapped);
+                                                          content.add(resultMapper.apply(hit.result()));
                                                       }
                                                   }
                                               }else{
@@ -400,11 +397,11 @@ public class CrudServiceTemplate {
                                                            Class<T> type,
                                                            Consumer<MgetRequest.Builder> builderConsumer,
                                                            Predicate<T> filter) {
-        Function<GetResult<T>, T> mapper = result -> {
-            T source = result.source();
-            return source != null && filter.test(source) ? source : null;
-        };
-        return multiGet(getOperations, type, builderConsumer, mapper);
+        return this.<T, T>multiGet(getOperations, type, builderConsumer, null)
+                   .thenApply(list -> {
+                       list.removeIf(t -> t == null || !filter.test(t));
+                       return list;
+                   });
     }
 
     /**
