@@ -23,13 +23,13 @@ public class OrgSignupOidcConfigurationRepository extends AbstractRepository<Org
     }
 
     public CompletableFuture<List<OrgSignupOidcConfiguration>> findAllEnabled() {
-        return crudServiceTemplate.search(indexName, Pageable.create(0, 100, Sort.unsorted()), type,
-                                          b -> b.query(q -> q.term(t -> t.field("enabled").value(true))))
-                                  .thenApply(Page::getContent);
+        return doSearch(Pageable.create(0, 100, Sort.unsorted()),
+                        b -> b.query(q -> q.term(t -> t.field("enabled").value(true))))
+                .thenApply(Page::getContent);
     }
 
     public CompletableFuture<OrgSignupOidcConfiguration> findEnabledByProvider(OidcProviderKind provider) {
-        return crudServiceTemplate.search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, b -> b
+        return doSearch(Pageable.create(0, 1, Sort.unsorted()), b -> b
                 .query(q -> q.bool(BoolQuery.of(bb -> {
                     bb.filter(TermQuery.of(t -> t.field("provider").value(provider.key()))._toQuery());
                     bb.filter(TermQuery.of(t -> t.field("enabled").value(true))._toQuery());

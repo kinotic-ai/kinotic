@@ -1,6 +1,5 @@
 package org.kinotic.os.internal.api.services;
 
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
@@ -77,12 +76,7 @@ public class DefaultProjectService extends org.kinotic.domain.internal.api.servi
     @Override
     public CompletableFuture<List<Project>> findByRepoFullName(String repoFullName) {
         Validate.notBlank(repoFullName, "repoFullName must not be blank");
-        String orgId = getOrganizationIdIfEnforced();
-        if (orgId == null) {
-            return projectRepository.findByRepoFullName(repoFullName);
-        }
-        Query composed = projectRepository.buildRepoFullNameQuery(repoFullName, buildOrgFilterQuery(orgId));
-        return projectRepository.findByRepoFullName(repoFullName, b -> b.routing(orgId).query(composed));
+        return projectRepository.findByRepoFullName(repoFullName, getOrganizationIdIfEnforced());
     }
 
     private CompletableFuture<Project> provisionAndSave(Project project) {

@@ -1,6 +1,5 @@
 package org.kinotic.persistence.internal.api.services;
 
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
@@ -27,13 +26,7 @@ public class DefaultEntityDefinitionDAO extends AbstractProjectCrudService<Entit
 
     @Override
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId, Pageable pageable) {
-        String orgId = getOrganizationIdIfEnforced();
-        if (orgId == null) {
-            return entityDefinitionRepository.findAllPublishedForApplication(applicationId, pageable);
-        }
-        Query composed = entityDefinitionRepository.buildPublishedApplicationQuery(applicationId, buildOrgFilterQuery(orgId));
-        return entityDefinitionRepository.findAllPublishedForApplication(applicationId, pageable,
-                                                                         b -> b.routing(orgId).query(composed));
+        return entityDefinitionRepository.findAllPublishedForApplication(applicationId, pageable, getOrganizationIdIfEnforced());
     }
 
 }

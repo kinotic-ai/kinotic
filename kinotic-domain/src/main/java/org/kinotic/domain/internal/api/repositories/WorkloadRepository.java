@@ -19,14 +19,12 @@ public class WorkloadRepository extends AbstractRepository<Workload> {
     }
 
     public CompletableFuture<Page<Workload>> findAllForNode(String nodeId, Pageable pageable) {
-        return crudServiceTemplate.search(indexName, pageable, type,
-                                          b -> b.query(q -> q.bool(bb -> bb.filter(
-                                                  TermQuery.of(tq -> tq.field("nodeId").value(nodeId))._toQuery()))));
+        return doSearch(pageable, b -> b.query(q -> q.bool(bb -> bb.filter(
+                TermQuery.of(tq -> tq.field("nodeId").value(nodeId))._toQuery()))));
     }
 
     public CompletableFuture<Long> countForNode(String nodeId) {
-        return crudServiceTemplate.count(indexName,
-                                         b -> b.query(q -> q.bool(bb -> bb.filter(
-                                                 TermQuery.of(tq -> tq.field("nodeId").value(nodeId))._toQuery()))));
+        return doCount(b -> b.query(q -> q.bool(bb -> bb.filter(
+                TermQuery.of(tq -> tq.field("nodeId").value(nodeId))._toQuery()))));
     }
 }

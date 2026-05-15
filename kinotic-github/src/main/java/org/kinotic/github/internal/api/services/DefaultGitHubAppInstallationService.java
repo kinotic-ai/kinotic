@@ -1,6 +1,5 @@
 package org.kinotic.github.internal.api.services;
 
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Pageable;
@@ -96,20 +95,12 @@ public class DefaultGitHubAppInstallationService
 
     @Override
     public CompletableFuture<GitHubAppInstallation> findForCurrentOrg() {
-        String orgId = requireOrganizationId();
-        return installationRepository.findAll(Pageable.ofSize(1),
-                                              b -> b.routing(orgId).query(buildOrgFilterQuery(orgId)))
+        return installationRepository.findAll(Pageable.ofSize(1), requireOrganizationId())
                                      .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
     @Override
     public CompletableFuture<GitHubAppInstallation> findByGithubInstallationId(long githubInstallationId) {
-        String orgId = getOrganizationIdIfEnforced();
-        if (orgId == null) {
-            return installationRepository.findByGithubInstallationId(githubInstallationId);
-        }
-        Query composed = installationRepository.buildGithubInstallationIdQuery(githubInstallationId, buildOrgFilterQuery(orgId));
-        return installationRepository.findByGithubInstallationId(githubInstallationId,
-                                                                 b -> b.routing(orgId).query(composed));
+        return installationRepository.findByGithubInstallationId(githubInstallationId, getOrganizationIdIfEnforced());
     }
 }

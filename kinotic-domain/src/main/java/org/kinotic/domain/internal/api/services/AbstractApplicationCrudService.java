@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.services;
 
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.kinotic.core.api.crud.ApplicationScopedCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -24,22 +23,12 @@ public abstract class AbstractApplicationCrudService<T extends ApplicationScoped
 
     @Override
     public CompletableFuture<Long> countForApplication(String applicationId) {
-        String orgId = getOrganizationIdIfEnforced();
-        if (orgId == null) {
-            return applicationRepository.countForApplication(applicationId);
-        }
-        Query composed = applicationRepository.buildApplicationQuery(applicationId, buildOrgFilterQuery(orgId));
-        return applicationRepository.countForApplication(applicationId, b -> b.routing(orgId).query(composed));
+        return applicationRepository.countForApplication(applicationId, getOrganizationIdIfEnforced());
     }
 
     @Override
     public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable) {
-        String orgId = getOrganizationIdIfEnforced();
-        if (orgId == null) {
-            return applicationRepository.findAllForApplication(applicationId, pageable);
-        }
-        Query composed = applicationRepository.buildApplicationQuery(applicationId, buildOrgFilterQuery(orgId));
-        return applicationRepository.findAllForApplication(applicationId, pageable, b -> b.routing(orgId).query(composed));
+        return applicationRepository.findAllForApplication(applicationId, pageable, getOrganizationIdIfEnforced());
     }
 
 }

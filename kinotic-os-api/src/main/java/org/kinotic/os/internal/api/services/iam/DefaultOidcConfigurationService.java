@@ -56,7 +56,7 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
             // Direct repository lookup bypasses AbstractCrudService scope enforcement so the
             // pre-auth login-lookup path can resolve without a participant. Defense in depth:
             // also confirm the row's organizationId matches and it's enabled.
-            return oidcRepository.findById(org.getSsoConfigId(), b -> b.routing(organizationId))
+            return oidcRepository.findById(org.getSsoConfigId(), organizationId)
                                  .thenApply(c -> validForOrgLogin(c, organizationId));
         });
     }

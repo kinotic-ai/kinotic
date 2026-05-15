@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.services;
 
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.ProjectScopedCrudService;
@@ -23,23 +22,24 @@ public abstract class AbstractProjectCrudService<T extends ProjectScoped<String>
     }
 
     @Override
-    public CompletableFuture<Long> countForProject(String projectId) {
-        String orgId = getOrganizationIdIfEnforced();
-        if (orgId == null) {
-            return projectRepository.countForProject(projectId);
+    protected String getRoutingKeyFromId(String id) {
+        if (id != null) {
+            int dotIndex = id.indexOf('.');
+            if (dotIndex > 0) {
+                return id.substring(0, dotIndex);
+            }
         }
-        Query composed = projectRepository.buildProjectQuery(projectId, buildOrgFilterQuery(orgId));
-        return projectRepository.countForProject(projectId, b -> b.routing(orgId).query(composed));
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Long> countForProject(String projectId) {
+        return projectRepository.countForProject(projectId, getOrganizationIdIfEnforced());
     }
 
     @Override
     public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable) {
-        String orgId = getOrganizationIdIfEnforced();
-        if (orgId == null) {
-            return projectRepository.findAllForProject(projectId, pageable);
-        }
-        Query composed = projectRepository.buildProjectQuery(projectId, buildOrgFilterQuery(orgId));
-        return projectRepository.findAllForProject(projectId, pageable, b -> b.routing(orgId).query(composed));
+        return projectRepository.findAllForProject(projectId, pageable, getOrganizationIdIfEnforced());
     }
 
 }

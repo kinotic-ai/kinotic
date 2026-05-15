@@ -1,6 +1,5 @@
 package org.kinotic.persistence.internal.api.services;
 
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.internal.api.services.AbstractProjectCrudService;
@@ -34,13 +33,7 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectCrudSer
 
     @Override
     public CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId, String entityDefinitionName) {
-        String orgId = getOrganizationIdIfEnforced();
-        if (orgId == null) {
-            return namedQueriesRepository.findByApplicationAndEntityDefinition(applicationId, entityDefinitionName);
-        }
-        Query composed = namedQueriesRepository.buildApplicationEntityQuery(applicationId, entityDefinitionName, buildOrgFilterQuery(orgId));
-        return namedQueriesRepository.findByApplicationAndEntityDefinition(applicationId, entityDefinitionName,
-                                                                           b -> b.routing(orgId).query(composed));
+        return namedQueriesRepository.findByApplicationAndEntityDefinition(applicationId, entityDefinitionName, getOrganizationIdIfEnforced());
     }
 
     @Override

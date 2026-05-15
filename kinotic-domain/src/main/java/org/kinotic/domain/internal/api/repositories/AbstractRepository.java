@@ -1,11 +1,14 @@
 package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import co.elastic.clients.elasticsearch.core.CountRequest;
 import co.elastic.clients.elasticsearch.core.DeleteRequest;
 import co.elastic.clients.elasticsearch.core.GetRequest;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -15,28 +18,37 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.OrganizationScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
  * Pure Elasticsearch CRUD over a single index. Knows nothing about authentication
- * or organization scoping &mdash; that lives in {@code AbstractCrudService}, which composes
- * a repository instance and adds enforcement on top.
+ * &mdash; that lives in {@code AbstractCrudService}, which composes a repository instance and
+ * adds enforcement on top.
  * <p>
- * Concrete subclasses supply the {@code indexName} and {@code Class<T>} via the constructor
- * and are registered as Spring beans; services depend on the concrete repository type, not
- * on {@link CrudServiceTemplate} directly.
+ * Each public CRUD method has a no-arg form for the unscoped case and an overload that
+ * accepts an {@code orgId}. When supplied, the repository:
+ * <ul>
+ *   <li>uses {@code orgId} as the Elasticsearch routing key, and</li>
+ *   <li>for {@code count}/{@code findAll}/{@code search} (and the specialized finders on the
+ *       intermediate repositories), AND-s an {@code organizationId} term filter onto the query.</li>
+ * </ul>
+ * The {@code organizationId} filter is only applied when {@code T} implements
+ * {@link OrganizationScoped}; for non-org-scoped entities the {@code orgId} parameter is
+ * ignored. The decision of <em>whether</em> to pass an {@code orgId} stays with the service.
  * <p>
- * Each CRUD method comes in two flavours: a simple no-arg form for the common case, and a
- * {@code Consumer<...Builder>} form mirroring {@link CrudServiceTemplate} that lets callers
- * customize routing, filters, refresh policy, and any other request option. Repositories
- * deliberately do not implement any {@code CrudService} interface &mdash; those contracts
- * carry an org-scoping guarantee that only the service tier can honour.
+ * Subclasses that need to issue specialized queries (custom finders) use the protected
+ * {@code do*} helpers and {@link #composeOrgFilter} rather than reaching for
+ * {@link CrudServiceTemplate} directly.
  *
  * @param <T> the entity type managed by this repository
  */
 @RequiredArgsConstructor
 public abstract class AbstractRepository<T extends Identifiable<String>> {
+
+    static final String ORGANIZATION_ID_FIELD = "organizationId";
 
     protected final String indexName;
     @Getter
@@ -56,97 +68,70 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
         return count(null);
     }
 
-    /**
-     * Counts documents, letting the caller customize the request (routing, query, etc.).
-     *
-     * @param builderConsumer to customize the {@link CountRequest.Builder}, or {@code null} for no customization
-     */
-    public CompletableFuture<Long> count(Consumer<CountRequest.Builder> builderConsumer) {
-        return crudServiceTemplate.count(indexName, builderConsumer);
+    public CompletableFuture<Long> count(String orgId) {
+        return doCount(b -> applyOrgScope(b::routing, b::query, orgId, null));
     }
 
     public CompletableFuture<T> findById(String id) {
-        String routing = getRoutingKeyFromId(id);
-        return findById(id, routing != null ? b -> b.routing(routing) : null);
+        return findById(id, null);
     }
 
-    /**
-     * Finds a document by id, letting the caller customize the request (routing, source filter, etc.).
-     *
-     * @param builderConsumer to customize the {@link GetRequest.Builder}, or {@code null} for no customization
-     */
-    public CompletableFuture<T> findById(String id, Consumer<GetRequest.Builder> builderConsumer) {
-        return crudServiceTemplate.findById(indexName, id, type, builderConsumer);
+    public CompletableFuture<T> findById(String id, String orgId) {
+        return doFindById(id, orgId != null ? b -> b.routing(orgId) : null);
     }
 
     public CompletableFuture<Void> deleteById(String id) {
-        String routing = getRoutingKeyFromId(id);
-        return deleteById(id, routing != null ? b -> b.routing(routing) : null);
+        return deleteById(id, null);
     }
 
-    /**
-     * Deletes a document by id, letting the caller customize the request (routing, refresh, etc.).
-     *
-     * @param builderConsumer to customize the {@link DeleteRequest.Builder}, or {@code null} for no customization
-     */
-    public CompletableFuture<Void> deleteById(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
-        return crudServiceTemplate.deleteById(indexName, id, builderConsumer)
-                                  .thenApply(response -> null);
+    public CompletableFuture<Void> deleteById(String id, String orgId) {
+        return doDeleteById(id, orgId != null ? b -> b.routing(orgId) : null);
     }
 
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
         return findAll(pageable, null);
     }
 
-    /**
-     * Returns a page of documents, letting the caller customize the request (routing, query, etc.).
-     *
-     * @param builderConsumer to customize the {@link SearchRequest.Builder}, or {@code null} for no customization
-     */
-    public CompletableFuture<Page<T>> findAll(Pageable pageable, Consumer<SearchRequest.Builder> builderConsumer) {
-        return crudServiceTemplate.search(indexName, pageable, type, builderConsumer);
+    public CompletableFuture<Page<T>> findAll(Pageable pageable, String orgId) {
+        return doSearch(pageable, b -> applyOrgScope(b::routing, b::query, orgId, null));
     }
 
     public CompletableFuture<T> save(T value) {
-        String routing = getObjectRoutingKey(value);
-        return save(value, routing != null ? b -> b.routing(routing) : null);
+        return save(value, null);
     }
 
-    /**
-     * Saves a document, letting the caller customize the request (routing, refresh, version, etc.).
-     *
-     * @param builderConsumer to customize the {@link IndexRequest.Builder}, or {@code null} for no customization
-     */
-    public CompletableFuture<T> save(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return crudServiceTemplate.save(indexName, value.getId(), value, builderConsumer)
-                                  .thenApply(indexResponse -> value);
+    public CompletableFuture<T> save(T value, String orgId) {
+        return doSave(value, orgId != null ? b -> b.routing(orgId) : null);
     }
 
     public CompletableFuture<T> saveSync(T value) {
-        String routing = getObjectRoutingKey(value);
-        return saveSync(value, routing != null ? b -> b.routing(routing) : null);
+        return saveSync(value, null);
     }
 
-    /**
-     * Saves a document with {@code Refresh.WaitFor} semantics, letting the caller customize the request.
-     *
-     * @param builderConsumer to customize the {@link IndexRequest.Builder}, or {@code null} for no customization
-     */
-    public CompletableFuture<T> saveSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return crudServiceTemplate.saveSync(indexName, value.getId(), value, builderConsumer)
-                                  .thenApply(indexResponse -> value);
+    public CompletableFuture<T> saveSync(T value, String orgId) {
+        return doSaveSync(value, orgId != null ? b -> b.routing(orgId) : null);
     }
 
-    /**
-     * Convenience full-text search that folds the search text into the request as a top-level
-     * {@code q} parameter. For more control over the query (filters, routing, etc.) use
-     * {@link #findAll(Pageable, Consumer)} and build the search request directly.
-     */
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
-        if (searchText == null || searchText.isEmpty()) {
-            return findAll(pageable);
+        return search(searchText, pageable, null);
+    }
+
+    public CompletableFuture<Page<T>> search(String searchText, Pageable pageable, String orgId) {
+        boolean hasText = searchText != null && !searchText.isEmpty();
+        boolean filterByOrg = orgId != null && organizationScoped;
+        if (!hasText) {
+            return findAll(pageable, orgId);
         }
-        return findAll(pageable, b -> b.q(searchText));
+        return doSearch(pageable, b -> {
+            if (orgId != null) b.routing(orgId);
+            if (filterByOrg) {
+                b.query(Query.of(q -> q.bool(bq -> bq
+                        .must(m -> m.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
+                        .filter(TermQuery.of(t -> t.field(ORGANIZATION_ID_FIELD).value(orgId))._toQuery()))));
+            } else {
+                b.q(searchText);
+            }
+        });
     }
 
     public CompletableFuture<Void> syncIndex() {
@@ -156,27 +141,78 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     }
 
     /**
-     * Override point for repositories whose ids carry a routing prefix. Returns the routing
-     * key to use when {@code findById}/{@code deleteById} are called without an explicit
-     * consumer. Returning {@code null} (the default) lets Elasticsearch pick the shard by
-     * hashing the id.
+     * Builds a bool query whose {@code filter} clauses include any caller-supplied
+     * {@code extraFilters} plus an {@code organizationId} term filter when {@code orgId} is
+     * non-null and {@code T} implements {@link OrganizationScoped}. Returns {@code null} when
+     * no filter clauses would be added so callers can skip setting a query entirely.
      */
-    protected String getRoutingKeyFromId(String id) {
-        return null;
+    protected Query composeOrgFilter(String orgId, Query... extraFilters) {
+        boolean filterByOrg = orgId != null && organizationScoped;
+        boolean hasExtras = extraFilters != null && extraFilters.length > 0;
+        if (!filterByOrg && !hasExtras) return null;
+        return Query.of(q -> q.bool(b -> {
+            if (hasExtras) for (Query f : extraFilters) if (f != null) b.filter(f);
+            if (filterByOrg) {
+                b.filter(TermQuery.of(t -> t.field(ORGANIZATION_ID_FIELD).value(orgId))._toQuery());
+            }
+            return b;
+        }));
     }
 
     /**
-     * Returns the routing key derived from an entity, used as the default routing on
-     * {@code save}/{@code saveSync}. For {@link OrganizationScoped} entities this is the
-     * organization id; otherwise {@code null}.
+     * Counts documents with full builder access. Subclasses use this to issue specialized
+     * count queries without touching {@link CrudServiceTemplate} directly.
      */
-    protected String getObjectRoutingKey(T value) {
-        if (organizationScoped) {
-            String orgId = ((OrganizationScoped<?>) value).getOrganizationId();
-            if (orgId != null && !orgId.isBlank()) {
-                return orgId;
-            }
-        }
-        return null;
+    protected CompletableFuture<Long> doCount(Consumer<CountRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.count(indexName, builderConsumer);
+    }
+
+    protected CompletableFuture<T> doFindById(String id, Consumer<GetRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.findById(indexName, id, type, builderConsumer);
+    }
+
+    protected CompletableFuture<Void> doDeleteById(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.deleteById(indexName, id, builderConsumer)
+                                  .thenApply(response -> null);
+    }
+
+    /**
+     * Issues a search with full builder access. Subclasses use this to issue specialized
+     * paginated queries without touching {@link CrudServiceTemplate} directly.
+     */
+    protected CompletableFuture<Page<T>> doSearch(Pageable pageable, Consumer<SearchRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.search(indexName, pageable, type, builderConsumer);
+    }
+
+    protected CompletableFuture<T> doSave(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return crudServiceTemplate.save(indexName, value.getId(), value, builderConsumer)
+                                  .thenApply(indexResponse -> value);
+    }
+
+    protected CompletableFuture<T> doSaveSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return crudServiceTemplate.saveSync(indexName, value.getId(), value, builderConsumer)
+                                  .thenApply(indexResponse -> value);
+    }
+
+    /**
+     * Multi-gets the given ids and returns those whose source resolved successfully. Missing
+     * docs are silently dropped; the order of the returned list matches the order of resolved
+     * hits (not necessarily the input order).
+     */
+    protected CompletableFuture<List<T>> doMultiGetByIds(List<String> ids) {
+        List<MultiGetOperation> ops = ids.stream()
+                                         .map(id -> MultiGetOperation.of(o -> o.index(indexName).id(id)))
+                                         .toList();
+        return crudServiceTemplate.<T, T>multiGet(ops, type, null, null)
+                                  .thenApply(list -> list.stream().filter(Objects::nonNull).toList());
+    }
+
+    private void applyOrgScope(Consumer<String> routingSetter,
+                               Consumer<Query> querySetter,
+                               String orgId,
+                               Query extraFilter) {
+        if (orgId != null) routingSetter.accept(orgId);
+        Query filter = composeOrgFilter(orgId, extraFilter);
+        if (filter != null) querySetter.accept(filter);
     }
 }

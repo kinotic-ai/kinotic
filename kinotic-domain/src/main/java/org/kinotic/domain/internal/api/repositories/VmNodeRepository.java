@@ -25,10 +25,8 @@ public class VmNodeRepository extends AbstractRepository<VmNode> {
      * "available = total - allocated" computation as a server-side query.
      */
     public CompletableFuture<Page<VmNode>> findOnlineNodes() {
-        return crudServiceTemplate.search(indexName,
-                                          Pageable.create(0, 100, null),
-                                          type,
-                                          b -> b.query(q -> q.bool(bb -> bb.filter(
-                                                  TermQuery.of(tq -> tq.field("status").value(VmNodeStatus.ONLINE.name()))._toQuery()))));
+        return doSearch(Pageable.create(0, 100, null),
+                        b -> b.query(q -> q.bool(bb -> bb.filter(
+                                TermQuery.of(tq -> tq.field("status").value(VmNodeStatus.ONLINE.name()))._toQuery()))));
     }
 }

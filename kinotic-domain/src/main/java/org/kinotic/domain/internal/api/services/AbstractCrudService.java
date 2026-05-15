@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.services;
 
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
@@ -19,15 +18,14 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Service base that adds organization-scope enforcement on top of an {@link AbstractRepository}.
  * Pure persistence lives on the repository; this class composes one and decides &mdash; per call &mdash;
- * whether to inject the participant's organization id as a routing key and filter, validate it on
- * write, or step out of the way when {@code SecurityContext.isElevatedAccess()} is set.
+ * whether to pass the participant's organization id (which the repository uses as routing and,
+ * for read queries, as a filter), validate it on write, or step out of the way when
+ * {@code SecurityContext.isElevatedAccess()} is set.
  * <p>
  * Created by Nav&iacute;d Mitchell &#x1f92a; on 4/24/23.
  */
 @RequiredArgsConstructor
 public abstract class AbstractCrudService<T extends Identifiable<String>> implements IdentifiableCrudService<T, String> {
-
-    private static final String ORGANIZATION_ID_FIELD = "organizationId";
 
     protected final AbstractRepository<T> repository;
     protected final SecurityContext securityContext;
@@ -45,61 +43,48 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @Override
     public CompletableFuture<Long> count() {
-        if (shouldEnforceOrgScope()) {
-            String orgId = requireOrganizationId();
-            Query filter = buildOrgFilterQuery(orgId);
-            return repository.count(b -> b.routing(orgId).query(filter));
-        }
-        return repository.count();
+        return repository.count(getOrganizationIdIfEnforced());
     }
 
     @Override
     public CompletableFuture<Void> deleteById(String id) {
-        if (shouldEnforceOrgScope()) {
-            String orgId = requireOrganizationId();
-            return repository.findById(id, b -> b.routing(orgId))
-                             .thenCompose(value -> {
-                                 if (value == null) {
-                                     return CompletableFuture.completedFuture(null);
-                                 }
-                                 if (!orgId.equals(((OrganizationScoped<?>) value).getOrganizationId())) {
-                                     return CompletableFuture.failedFuture(
-                                             new AuthorizationException(
-                                                     "Cannot delete " + repository.getType().getSimpleName()
-                                                     + " '" + id + "' owned by another organization"));
-                                 }
-                                 return repository.deleteById(id, b -> b.routing(orgId));
-                             });
+        String orgId = getOrganizationIdIfEnforced();
+        if (orgId == null) {
+            return repository.deleteById(id, getRoutingKeyFromId(id));
         }
-        return repository.deleteById(id);
+        return repository.findById(id, orgId)
+                         .thenCompose(value -> {
+                             if (value == null) {
+                                 return CompletableFuture.completedFuture(null);
+                             }
+                             if (!orgId.equals(((OrganizationScoped<?>) value).getOrganizationId())) {
+                                 return CompletableFuture.failedFuture(
+                                         new AuthorizationException(
+                                                 "Cannot delete " + repository.getType().getSimpleName()
+                                                 + " '" + id + "' owned by another organization"));
+                             }
+                             return repository.deleteById(id, orgId);
+                         });
     }
 
     @Override
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
-        if (shouldEnforceOrgScope()) {
-            String orgId = requireOrganizationId();
-            Query filter = buildOrgFilterQuery(orgId);
-            return repository.findAll(pageable, b -> b.routing(orgId).query(filter));
-        }
-        return repository.findAll(pageable);
+        return repository.findAll(pageable, getOrganizationIdIfEnforced());
     }
 
     @Override
     public CompletableFuture<T> findById(String id) {
-        if (shouldEnforceOrgScope()) {
-            String orgId = requireOrganizationId();
-            return repository.findById(id, b -> b.routing(orgId))
-                             .thenApply(value -> {
-                                 if (value == null) {
-                                     return null;
-                                 }
-                                 if (!orgId.equals(((OrganizationScoped<?>) value).getOrganizationId())) {
-                                     return null;
-                                 }
-                                 return value;
-                             });
-        }
-        return repository.findById(id);
+        String orgId = getOrganizationIdIfEnforced();
+        String routing = orgId != null ? orgId : getRoutingKeyFromId(id);
+        return repository.findById(id, routing)
+                         .thenApply(value -> {
+                             if (value == null) return null;
+                             if (orgId != null
+                                     && !orgId.equals(((OrganizationScoped<?>) value).getOrganizationId())) {
+                                 return null;
+                             }
+                             return value;
+                         });
     }
 
     @Override
@@ -107,7 +92,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         if (shouldEnforceOrgScope()) {
             enforceOrgOnSave(value);
         }
-        return repository.save(value);
+        return repository.save(value, getObjectRoutingKey(value));
     }
 
     @Override
@@ -115,17 +100,12 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         if (shouldEnforceOrgScope()) {
             enforceOrgOnSave(value);
         }
-        return repository.saveSync(value);
+        return repository.saveSync(value, getObjectRoutingKey(value));
     }
 
     @Override
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
-        if (shouldEnforceOrgScope()) {
-            String orgId = requireOrganizationId();
-            Query filter = buildOrgFilterQueryWithSearch(orgId, searchText);
-            return repository.findAll(pageable, b -> b.routing(orgId).query(filter));
-        }
-        return repository.search(searchText, pageable);
+        return repository.search(searchText, pageable, getOrganizationIdIfEnforced());
     }
 
     @Override
@@ -136,18 +116,11 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     /**
      * Returns the organization id to use for filtering and routing if org-scope enforcement
      * is active (object is {@link OrganizationScoped} and elevated access is not set), or
-     * {@code null} if enforcement should be skipped.
-     * <p>
-     * Subclasses with custom query methods that call into the repository directly should
-     * call this at the top of the method and, when the result is non-null, attach the
-     * routing and an {@link #buildOrgFilterQuery org filter} through the repository's
-     * consumer-style overloads.
+     * {@code null} if enforcement should be skipped. Subclasses with custom finders pass the
+     * result straight to the corresponding repository overload.
      */
     protected String getOrganizationIdIfEnforced() {
-        if (shouldEnforceOrgScope()) {
-            return requireOrganizationId();
-        }
-        return null;
+        return shouldEnforceOrgScope() ? requireOrganizationId() : null;
     }
 
     /**
@@ -161,12 +134,28 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     }
 
     /**
-     * Builds a term-filter query restricting results to the given organization id. Exposed
-     * to subclasses that compose their own queries and need to AND in the org constraint.
+     * Override point for services whose ids carry a routing prefix. Returns the routing key
+     * to use for {@code findById}/{@code deleteById} when org-scope enforcement is off (and
+     * therefore the participant's orgId isn't available). Default implementation returns
+     * {@code null}, leaving Elasticsearch to hash the id.
      */
-    protected Query buildOrgFilterQuery(String orgId) {
-        return Query.of(q -> q.bool(b -> b.filter(fq -> fq.term(t -> t.field(ORGANIZATION_ID_FIELD)
-                                                                      .value(orgId)))));
+    protected String getRoutingKeyFromId(String id) {
+        return null;
+    }
+
+    /**
+     * Returns the routing key derived from an entity, used on {@code save}/{@code saveSync}.
+     * For {@link OrganizationScoped} entities this is the organization id; otherwise
+     * {@code null}.
+     */
+    protected String getObjectRoutingKey(T value) {
+        if (organizationScoped) {
+            String orgId = ((OrganizationScoped<?>) value).getOrganizationId();
+            if (orgId != null && !orgId.isBlank()) {
+                return orgId;
+            }
+        }
+        return null;
     }
 
     /**
@@ -187,15 +176,6 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
                     + " with organizationId '" + entityOrgId
                     + "' while authenticated as organization '" + orgId + "'");
         }
-    }
-
-    private Query buildOrgFilterQueryWithSearch(String orgId, String searchText) {
-        if (searchText == null || searchText.isEmpty()) {
-            return buildOrgFilterQuery(orgId);
-        }
-        return Query.of(q -> q.bool(b -> b.must(m -> m.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
-                                          .filter(fq -> fq.term(t -> t.field(ORGANIZATION_ID_FIELD)
-                                                                      .value(orgId)))));
     }
 
 }
