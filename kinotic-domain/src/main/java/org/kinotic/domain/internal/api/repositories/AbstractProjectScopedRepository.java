@@ -31,7 +31,7 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
 
     public CompletableFuture<Long> countForProject(String projectId, String orgId) {
         Query query = composeOrgFilter(orgId, projectIdFilter(projectId));
-        return doCount(b -> {
+        return count(b -> {
             if (orgId != null) b.routing(orgId);
             b.query(query);
         });
@@ -43,7 +43,7 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
 
     public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable, String orgId) {
         Query query = composeOrgFilter(orgId, projectIdFilter(projectId));
-        return doSearch(pageable, b -> {
+        return findAll(pageable, b -> {
             if (orgId != null) b.routing(orgId);
             b.query(query);
         });

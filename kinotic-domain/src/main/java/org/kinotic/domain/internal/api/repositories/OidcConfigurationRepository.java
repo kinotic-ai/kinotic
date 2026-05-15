@@ -20,7 +20,7 @@ public class OidcConfigurationRepository extends AbstractOrganizationScopedRepos
      * Multi-get the given ids and return only those whose source is non-null and {@code enabled}.
      */
     public CompletableFuture<List<OidcConfiguration>> findEnabledByIds(List<String> ids) {
-        return doMultiGetByIds(ids).thenApply(list -> list.stream()
+        return multiGetByIds(ids).thenApply(list -> list.stream()
                                                           .filter(OidcConfiguration::isEnabled)
                                                           .toList());
     }

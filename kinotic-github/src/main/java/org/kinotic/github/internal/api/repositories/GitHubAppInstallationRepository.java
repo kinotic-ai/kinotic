@@ -26,7 +26,7 @@ public class GitHubAppInstallationRepository extends AbstractOrganizationScopedR
     public CompletableFuture<GitHubAppInstallation> findByGithubInstallationId(long githubInstallationId, String orgId) {
         Query query = composeOrgFilter(orgId,
                                        TermQuery.of(t -> t.field("githubInstallationId").value(githubInstallationId))._toQuery());
-        return doSearch(Pageable.ofSize(1), b -> {
+        return findAll(Pageable.ofSize(1), b -> {
             if (orgId != null) b.routing(orgId);
             b.query(query);
         }).thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());

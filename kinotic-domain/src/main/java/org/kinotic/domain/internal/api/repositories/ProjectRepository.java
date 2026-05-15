@@ -27,7 +27,7 @@ public class ProjectRepository extends AbstractApplicationScopedRepository<Proje
     public CompletableFuture<List<Project>> findByRepoFullName(String repoFullName, String orgId) {
         Query query = composeOrgFilter(orgId,
                                        TermQuery.of(t -> t.field("repoFullName").value(repoFullName))._toQuery());
-        return doSearch(Pageable.ofSize(50), b -> {
+        return findAll(Pageable.ofSize(50), b -> {
             if (orgId != null) b.routing(orgId);
             b.query(query);
         }).thenApply(Page::getContent);

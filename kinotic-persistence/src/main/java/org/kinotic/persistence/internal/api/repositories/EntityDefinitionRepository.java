@@ -30,7 +30,7 @@ public class EntityDefinitionRepository extends AbstractProjectScopedRepository<
         Query query = composeOrgFilter(orgId,
                                        TermQuery.of(t -> t.field("applicationId").value(applicationId))._toQuery(),
                                        TermQuery.of(t -> t.field("published").value(true))._toQuery());
-        return doSearch(pageable, b -> {
+        return findAll(pageable, b -> {
             if (orgId != null) b.routing(orgId);
             b.query(query);
         });

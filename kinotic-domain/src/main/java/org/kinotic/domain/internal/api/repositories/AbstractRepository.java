@@ -25,8 +25,9 @@ import java.util.function.Consumer;
  * scoping, or any other business concern &mdash; it just maps typed CRUD calls onto the index
  * named in the constructor.
  * <p>
- * Subclasses that need to issue specialized queries (custom finders) use the protected
- * {@code do*} helpers rather than reaching for {@link CrudServiceTemplate} directly.
+ * Each base CRUD method has a public no-arg form and a protected {@code Consumer<...Builder>}
+ * overload that subclasses use to issue specialized queries without reaching for
+ * {@link CrudServiceTemplate} directly.
  *
  * @param <T> the entity type managed by this repository
  */
@@ -45,34 +46,69 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     }
 
     public CompletableFuture<Long> count() {
-        return doCount(null);
+        return count(null);
+    }
+
+    /**
+     * Counts documents with full builder access. Subclasses use this overload to issue
+     * specialized count queries.
+     */
+    protected CompletableFuture<Long> count(Consumer<CountRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.count(indexName, builderConsumer);
     }
 
     public CompletableFuture<T> findById(String id) {
-        return doFindById(id, null);
+        return findById(id, null);
+    }
+
+    protected CompletableFuture<T> findById(String id, Consumer<GetRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.findById(indexName, id, type, builderConsumer);
     }
 
     public CompletableFuture<Void> deleteById(String id) {
-        return doDeleteById(id, null);
+        return deleteById(id, null);
+    }
+
+    protected CompletableFuture<Void> deleteById(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.deleteById(indexName, id, builderConsumer)
+                                  .thenApply(response -> null);
     }
 
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
-        return doSearch(pageable, null);
+        return findAll(pageable, null);
+    }
+
+    /**
+     * Issues a paginated search with full builder access. Subclasses use this overload to
+     * issue specialized queries.
+     */
+    protected CompletableFuture<Page<T>> findAll(Pageable pageable, Consumer<SearchRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.search(indexName, pageable, type, builderConsumer);
     }
 
     public CompletableFuture<T> save(T value) {
-        return doSave(value, null);
+        return save(value, null);
+    }
+
+    protected CompletableFuture<T> save(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return crudServiceTemplate.save(indexName, value.getId(), value, builderConsumer)
+                                  .thenApply(indexResponse -> value);
     }
 
     public CompletableFuture<T> saveSync(T value) {
-        return doSaveSync(value, null);
+        return saveSync(value, null);
+    }
+
+    protected CompletableFuture<T> saveSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return crudServiceTemplate.saveSync(indexName, value.getId(), value, builderConsumer)
+                                  .thenApply(indexResponse -> value);
     }
 
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
         if (searchText == null || searchText.isEmpty()) {
             return findAll(pageable);
         }
-        return doSearch(pageable, b -> b.q(searchText));
+        return findAll(pageable, b -> b.q(searchText));
     }
 
     public CompletableFuture<Void> syncIndex() {
@@ -82,46 +118,11 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     }
 
     /**
-     * Counts documents with full builder access. Subclasses use this to issue specialized
-     * count queries without touching {@link CrudServiceTemplate} directly.
-     */
-    protected CompletableFuture<Long> doCount(Consumer<CountRequest.Builder> builderConsumer) {
-        return crudServiceTemplate.count(indexName, builderConsumer);
-    }
-
-    protected CompletableFuture<T> doFindById(String id, Consumer<GetRequest.Builder> builderConsumer) {
-        return crudServiceTemplate.findById(indexName, id, type, builderConsumer);
-    }
-
-    protected CompletableFuture<Void> doDeleteById(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
-        return crudServiceTemplate.deleteById(indexName, id, builderConsumer)
-                                  .thenApply(response -> null);
-    }
-
-    /**
-     * Issues a search with full builder access. Subclasses use this to issue specialized
-     * paginated queries without touching {@link CrudServiceTemplate} directly.
-     */
-    protected CompletableFuture<Page<T>> doSearch(Pageable pageable, Consumer<SearchRequest.Builder> builderConsumer) {
-        return crudServiceTemplate.search(indexName, pageable, type, builderConsumer);
-    }
-
-    protected CompletableFuture<T> doSave(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return crudServiceTemplate.save(indexName, value.getId(), value, builderConsumer)
-                                  .thenApply(indexResponse -> value);
-    }
-
-    protected CompletableFuture<T> doSaveSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return crudServiceTemplate.saveSync(indexName, value.getId(), value, builderConsumer)
-                                  .thenApply(indexResponse -> value);
-    }
-
-    /**
      * Multi-gets the given ids and returns those whose source resolved successfully. Missing
      * docs are silently dropped; the order of the returned list matches the order of resolved
      * hits (not necessarily the input order).
      */
-    protected CompletableFuture<List<T>> doMultiGetByIds(List<String> ids) {
+    protected CompletableFuture<List<T>> multiGetByIds(List<String> ids) {
         List<MultiGetOperation> ops = ids.stream()
                                          .map(id -> MultiGetOperation.of(o -> o.index(indexName).id(id)))
                                          .toList();

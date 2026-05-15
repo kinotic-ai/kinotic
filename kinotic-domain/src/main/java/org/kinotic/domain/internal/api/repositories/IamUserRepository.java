@@ -22,7 +22,7 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
     }
 
     public CompletableFuture<IamUser> findByEmailAndScope(String email, String authScopeType, String authScopeId) {
-        return doSearch(Pageable.create(0, 1, Sort.unsorted()), b -> b
+        return findAll(Pageable.create(0, 1, Sort.unsorted()), b -> b
                 .query(q -> q.bool(BoolQuery.of(bb -> {
                     bb.filter(TermQuery.of(t -> t.field("email").value(email))._toQuery());
                     bb.filter(TermQuery.of(t -> t.field("authScopeType").value(authScopeType))._toQuery());
@@ -33,7 +33,7 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
     }
 
     public CompletableFuture<IamUser> findFirstByEmailInScopeType(String email, String authScopeType) {
-        return doSearch(Pageable.create(0, 1, Sort.unsorted()), b -> b
+        return findAll(Pageable.create(0, 1, Sort.unsorted()), b -> b
                 .query(q -> q.bool(BoolQuery.of(bb -> {
                     bb.filter(TermQuery.of(t -> t.field("email").value(email))._toQuery());
                     bb.filter(TermQuery.of(t -> t.field("authScopeType").value(authScopeType))._toQuery());
@@ -43,13 +43,13 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
     }
 
     public CompletableFuture<IamUser> findByEmail(String email) {
-        return doSearch(Pageable.create(0, 1, Sort.unsorted()), b -> b
+        return findAll(Pageable.create(0, 1, Sort.unsorted()), b -> b
                 .query(q -> q.term(t -> t.field("email").value(email))))
                 .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
     public CompletableFuture<Page<IamUser>> findByScope(String authScopeType, String authScopeId, Pageable pageable) {
-        return doSearch(pageable, b -> b
+        return findAll(pageable, b -> b
                 .query(q -> q.bool(BoolQuery.of(bb -> {
                     bb.filter(TermQuery.of(t -> t.field("authScopeType").value(authScopeType))._toQuery());
                     bb.filter(TermQuery.of(t -> t.field("authScopeId").value(authScopeId))._toQuery());
@@ -61,7 +61,7 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
                                                                  String oidcConfigId,
                                                                  String authScopeType,
                                                                  String authScopeId) {
-        return doSearch(Pageable.create(0, 1, Sort.unsorted()), b -> b
+        return findAll(Pageable.create(0, 1, Sort.unsorted()), b -> b
                 .query(q -> q.bool(BoolQuery.of(bb -> {
                     bb.filter(TermQuery.of(t -> t.field("oidcSubject").value(oidcSubject))._toQuery());
                     bb.filter(TermQuery.of(t -> t.field("oidcConfigId").value(oidcConfigId))._toQuery());
@@ -73,7 +73,7 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
     }
 
     public CompletableFuture<List<IamUser>> findByOidcIdentity(String oidcSubject, String oidcConfigId) {
-        return doSearch(Pageable.create(0, 100, Sort.unsorted()), b -> b
+        return findAll(Pageable.create(0, 100, Sort.unsorted()), b -> b
                 .query(q -> q.bool(BoolQuery.of(bb -> {
                     bb.filter(TermQuery.of(t -> t.field("oidcSubject").value(oidcSubject))._toQuery());
                     bb.filter(TermQuery.of(t -> t.field("oidcConfigId").value(oidcConfigId))._toQuery());

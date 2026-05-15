@@ -20,7 +20,7 @@ public class SystemOidcConfigurationRepository extends AbstractRepository<System
     }
 
     public CompletableFuture<List<SystemOidcConfiguration>> findAllEnabled() {
-        return doSearch(Pageable.create(0, 100, Sort.unsorted()),
+        return findAll(Pageable.create(0, 100, Sort.unsorted()),
                         b -> b.query(q -> q.term(t -> t.field("enabled").value(true))))
                 .thenApply(Page::getContent);
     }

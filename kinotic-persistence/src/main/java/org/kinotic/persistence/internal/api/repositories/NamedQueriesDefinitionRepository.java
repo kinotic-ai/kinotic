@@ -33,7 +33,7 @@ public class NamedQueriesDefinitionRepository extends AbstractProjectScopedRepos
         Query query = composeOrgFilter(orgId,
                                        TermQuery.of(t -> t.field("applicationId").value(applicationId))._toQuery(),
                                        TermQuery.of(t -> t.field("entityDefinitionName").value(entityDefinitionName))._toQuery());
-        return doSearch(Pageable.ofSize(1), b -> {
+        return findAll(Pageable.ofSize(1), b -> {
             if (orgId != null) b.routing(orgId);
             b.query(query);
         }).thenApply(page -> page.getContent() != null && !page.getContent().isEmpty()

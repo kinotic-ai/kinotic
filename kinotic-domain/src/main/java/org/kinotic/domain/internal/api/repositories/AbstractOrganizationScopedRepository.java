@@ -9,6 +9,7 @@ import org.kinotic.domain.api.model.OrganizationScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 /**
  * Repository tier for entities that belong to an organization. Adds {@code orgId}-aware
@@ -33,27 +34,27 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     }
 
     public CompletableFuture<Long> count(String orgId) {
-        return doCount(b -> applyOrgScope(b::routing, b::query, orgId));
+        return count(b -> applyOrgScope(b::routing, b::query, orgId));
     }
 
     public CompletableFuture<T> findById(String id, String orgId) {
-        return doFindById(id, orgId != null ? b -> b.routing(orgId) : null);
+        return findById(id, orgId != null ? b -> b.routing(orgId) : null);
     }
 
     public CompletableFuture<Void> deleteById(String id, String orgId) {
-        return doDeleteById(id, orgId != null ? b -> b.routing(orgId) : null);
+        return deleteById(id, orgId != null ? b -> b.routing(orgId) : null);
     }
 
     public CompletableFuture<Page<T>> findAll(Pageable pageable, String orgId) {
-        return doSearch(pageable, b -> applyOrgScope(b::routing, b::query, orgId));
+        return findAll(pageable, b -> applyOrgScope(b::routing, b::query, orgId));
     }
 
     public CompletableFuture<T> save(T value, String orgId) {
-        return doSave(value, orgId != null ? b -> b.routing(orgId) : null);
+        return save(value, orgId != null ? b -> b.routing(orgId) : null);
     }
 
     public CompletableFuture<T> saveSync(T value, String orgId) {
-        return doSaveSync(value, orgId != null ? b -> b.routing(orgId) : null);
+        return saveSync(value, orgId != null ? b -> b.routing(orgId) : null);
     }
 
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable, String orgId) {
@@ -62,9 +63,9 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
             return findAll(pageable, orgId);
         }
         if (orgId == null) {
-            return doSearch(pageable, b -> b.q(searchText));
+            return findAll(pageable, b -> b.q(searchText));
         }
-        return doSearch(pageable, b -> b.routing(orgId).query(Query.of(q -> q.bool(bq -> bq
+        return findAll(pageable, b -> b.routing(orgId).query(Query.of(q -> q.bool(bq -> bq
                 .must(m -> m.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
                 .filter(orgIdTerm(orgId))))));
     }
@@ -90,8 +91,8 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
         return TermQuery.of(t -> t.field(ORGANIZATION_ID_FIELD).value(orgId))._toQuery();
     }
 
-    private void applyOrgScope(java.util.function.Consumer<String> routingSetter,
-                               java.util.function.Consumer<Query> querySetter,
+    private void applyOrgScope(Consumer<String> routingSetter,
+                               Consumer<Query> querySetter,
                                String orgId) {
         if (orgId == null) return;
         routingSetter.accept(orgId);
