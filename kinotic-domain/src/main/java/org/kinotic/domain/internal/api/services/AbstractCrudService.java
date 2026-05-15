@@ -47,7 +47,8 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<Long> count() {
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
-            return repository.count(orgId, buildOrgFilterQuery(orgId));
+            Query filter = buildOrgFilterQuery(orgId);
+            return repository.count(b -> b.routing(orgId).query(filter));
         }
         return repository.count();
     }
@@ -56,7 +57,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<Void> deleteById(String id) {
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
-            return repository.findById(id, orgId)
+            return repository.findById(id, b -> b.routing(orgId))
                              .thenCompose(value -> {
                                  if (value == null) {
                                      return CompletableFuture.completedFuture(null);
@@ -67,7 +68,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
                                                      "Cannot delete " + repository.getType().getSimpleName()
                                                      + " '" + id + "' owned by another organization"));
                                  }
-                                 return repository.deleteById(id, orgId);
+                                 return repository.deleteById(id, b -> b.routing(orgId));
                              });
         }
         return repository.deleteById(id);
@@ -77,7 +78,8 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
-            return repository.findAll(pageable, orgId, buildOrgFilterQuery(orgId));
+            Query filter = buildOrgFilterQuery(orgId);
+            return repository.findAll(pageable, b -> b.routing(orgId).query(filter));
         }
         return repository.findAll(pageable);
     }
@@ -86,7 +88,7 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<T> findById(String id) {
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
-            return repository.findById(id, orgId)
+            return repository.findById(id, b -> b.routing(orgId))
                              .thenApply(value -> {
                                  if (value == null) {
                                      return null;
@@ -120,7 +122,8 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
         if (shouldEnforceOrgScope()) {
             String orgId = requireOrganizationId();
-            return repository.search(searchText, pageable, orgId, buildOrgFilterQueryWithSearch(orgId, searchText));
+            Query filter = buildOrgFilterQueryWithSearch(orgId, searchText);
+            return repository.findAll(pageable, b -> b.routing(orgId).query(filter));
         }
         return repository.search(searchText, pageable);
     }
@@ -136,8 +139,9 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
      * {@code null} if enforcement should be skipped.
      * <p>
      * Subclasses with custom query methods that call into the repository directly should
-     * call this at the top of the method and conditionally pass the result as the routing
-     * key along with an {@link #buildOrgFilterQuery org filter} when it is non-null.
+     * call this at the top of the method and, when the result is non-null, attach the
+     * routing and an {@link #buildOrgFilterQuery org filter} through the repository's
+     * consumer-style overloads.
      */
     protected String getOrganizationIdIfEnforced() {
         if (shouldEnforceOrgScope()) {

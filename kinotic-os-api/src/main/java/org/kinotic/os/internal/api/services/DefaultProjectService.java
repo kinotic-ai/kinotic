@@ -78,8 +78,11 @@ public class DefaultProjectService extends org.kinotic.domain.internal.api.servi
     public CompletableFuture<List<Project>> findByRepoFullName(String repoFullName) {
         Validate.notBlank(repoFullName, "repoFullName must not be blank");
         String orgId = getOrganizationIdIfEnforced();
-        Query extraFilter = orgId != null ? buildOrgFilterQuery(orgId) : null;
-        return projectRepository.findByRepoFullName(repoFullName, orgId, extraFilter);
+        if (orgId == null) {
+            return projectRepository.findByRepoFullName(repoFullName);
+        }
+        Query composed = projectRepository.buildRepoFullNameQuery(repoFullName, buildOrgFilterQuery(orgId));
+        return projectRepository.findByRepoFullName(repoFullName, b -> b.routing(orgId).query(composed));
     }
 
     private CompletableFuture<Project> provisionAndSave(Project project) {

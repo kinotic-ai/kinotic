@@ -25,15 +25,21 @@ public abstract class AbstractApplicationCrudService<T extends ApplicationScoped
     @Override
     public CompletableFuture<Long> countForApplication(String applicationId) {
         String orgId = getOrganizationIdIfEnforced();
-        Query extraFilter = orgId != null ? buildOrgFilterQuery(orgId) : null;
-        return applicationRepository.countForApplication(applicationId, orgId, extraFilter);
+        if (orgId == null) {
+            return applicationRepository.countForApplication(applicationId);
+        }
+        Query composed = applicationRepository.buildApplicationQuery(applicationId, buildOrgFilterQuery(orgId));
+        return applicationRepository.countForApplication(applicationId, b -> b.routing(orgId).query(composed));
     }
 
     @Override
     public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable) {
         String orgId = getOrganizationIdIfEnforced();
-        Query extraFilter = orgId != null ? buildOrgFilterQuery(orgId) : null;
-        return applicationRepository.findAllForApplication(applicationId, pageable, orgId, extraFilter);
+        if (orgId == null) {
+            return applicationRepository.findAllForApplication(applicationId, pageable);
+        }
+        Query composed = applicationRepository.buildApplicationQuery(applicationId, buildOrgFilterQuery(orgId));
+        return applicationRepository.findAllForApplication(applicationId, pageable, b -> b.routing(orgId).query(composed));
     }
 
 }

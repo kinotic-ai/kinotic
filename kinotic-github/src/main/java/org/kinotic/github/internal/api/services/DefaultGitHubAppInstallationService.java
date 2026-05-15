@@ -96,16 +96,19 @@ public class DefaultGitHubAppInstallationService
     public CompletableFuture<GitHubAppInstallation> findForCurrentOrg() {
         String orgId = requireOrganizationId();
         return installationRepository.findAll(org.kinotic.core.api.crud.Pageable.ofSize(1),
-                                              orgId,
-                                              buildOrgFilterQuery(orgId))
+                                              b -> b.routing(orgId).query(buildOrgFilterQuery(orgId)))
                                      .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
     @Override
     public CompletableFuture<GitHubAppInstallation> findByGithubInstallationId(long githubInstallationId) {
         String orgId = getOrganizationIdIfEnforced();
+        if (orgId == null) {
+            return installationRepository.findByGithubInstallationId(githubInstallationId);
+        }
+        co.elastic.clients.elasticsearch._types.query_dsl.Query composed =
+                installationRepository.buildGithubInstallationIdQuery(githubInstallationId, buildOrgFilterQuery(orgId));
         return installationRepository.findByGithubInstallationId(githubInstallationId,
-                                                                 orgId,
-                                                                 orgId != null ? buildOrgFilterQuery(orgId) : null);
+                                                                 b -> b.routing(orgId).query(composed));
     }
 }

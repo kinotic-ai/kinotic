@@ -25,15 +25,21 @@ public abstract class AbstractProjectCrudService<T extends ProjectScoped<String>
     @Override
     public CompletableFuture<Long> countForProject(String projectId) {
         String orgId = getOrganizationIdIfEnforced();
-        Query extraFilter = orgId != null ? buildOrgFilterQuery(orgId) : null;
-        return projectRepository.countForProject(projectId, orgId, extraFilter);
+        if (orgId == null) {
+            return projectRepository.countForProject(projectId);
+        }
+        Query composed = projectRepository.buildProjectQuery(projectId, buildOrgFilterQuery(orgId));
+        return projectRepository.countForProject(projectId, b -> b.routing(orgId).query(composed));
     }
 
     @Override
     public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable) {
         String orgId = getOrganizationIdIfEnforced();
-        Query extraFilter = orgId != null ? buildOrgFilterQuery(orgId) : null;
-        return projectRepository.findAllForProject(projectId, pageable, orgId, extraFilter);
+        if (orgId == null) {
+            return projectRepository.findAllForProject(projectId, pageable);
+        }
+        Query composed = projectRepository.buildProjectQuery(projectId, buildOrgFilterQuery(orgId));
+        return projectRepository.findAllForProject(projectId, pageable, b -> b.routing(orgId).query(composed));
     }
 
 }

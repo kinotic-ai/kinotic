@@ -28,8 +28,12 @@ public class DefaultEntityDefinitionDAO extends AbstractProjectCrudService<Entit
     @Override
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId, Pageable pageable) {
         String orgId = getOrganizationIdIfEnforced();
-        Query extraFilter = orgId != null ? buildOrgFilterQuery(orgId) : null;
-        return entityDefinitionRepository.findAllPublishedForApplication(applicationId, pageable, orgId, extraFilter);
+        if (orgId == null) {
+            return entityDefinitionRepository.findAllPublishedForApplication(applicationId, pageable);
+        }
+        Query composed = entityDefinitionRepository.buildPublishedApplicationQuery(applicationId, buildOrgFilterQuery(orgId));
+        return entityDefinitionRepository.findAllPublishedForApplication(applicationId, pageable,
+                                                                         b -> b.routing(orgId).query(composed));
     }
 
 }

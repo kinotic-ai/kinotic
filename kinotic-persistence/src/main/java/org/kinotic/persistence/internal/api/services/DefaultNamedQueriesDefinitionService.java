@@ -35,8 +35,12 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectCrudSer
     @Override
     public CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId, String entityDefinitionName) {
         String orgId = getOrganizationIdIfEnforced();
-        Query extraFilter = orgId != null ? buildOrgFilterQuery(orgId) : null;
-        return namedQueriesRepository.findByApplicationAndEntityDefinition(applicationId, entityDefinitionName, orgId, extraFilter);
+        if (orgId == null) {
+            return namedQueriesRepository.findByApplicationAndEntityDefinition(applicationId, entityDefinitionName);
+        }
+        Query composed = namedQueriesRepository.buildApplicationEntityQuery(applicationId, entityDefinitionName, buildOrgFilterQuery(orgId));
+        return namedQueriesRepository.findByApplicationAndEntityDefinition(applicationId, entityDefinitionName,
+                                                                           b -> b.routing(orgId).query(composed));
     }
 
     @Override

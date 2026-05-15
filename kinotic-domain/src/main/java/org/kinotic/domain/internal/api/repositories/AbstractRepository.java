@@ -1,7 +1,11 @@
 package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch.core.CountRequest;
+import co.elastic.clients.elasticsearch.core.DeleteRequest;
+import co.elastic.clients.elasticsearch.core.GetRequest;
+import co.elastic.clients.elasticsearch.core.IndexRequest;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +16,7 @@ import org.kinotic.domain.api.model.OrganizationScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 /**
  * Pure Elasticsearch CRUD over a single index. Knows nothing about authentication
@@ -22,8 +27,11 @@ import java.util.concurrent.CompletableFuture;
  * and are registered as Spring beans; services depend on the concrete repository type, not
  * on {@link CrudServiceTemplate} directly.
  * <p>
- * Repositories deliberately do not implement any {@code CrudService} interface &mdash; those
- * contracts carry an org-scoping guarantee that only the service tier can honour.
+ * Each CRUD method comes in two flavours: a simple no-arg form for the common case, and a
+ * {@code Consumer<...Builder>} form mirroring {@link CrudServiceTemplate} that lets callers
+ * customize routing, filters, refresh policy, and any other request option. Repositories
+ * deliberately do not implement any {@code CrudService} interface &mdash; those contracts
+ * carry an org-scoping guarantee that only the service tier can honour.
  *
  * @param <T> the entity type managed by this repository
  */
@@ -45,118 +53,100 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     }
 
     public CompletableFuture<Long> count() {
-        return count(null, null);
+        return count(null);
     }
 
     /**
-     * Counts documents with optional routing and an optional extra filter.
+     * Counts documents, letting the caller customize the request (routing, query, etc.).
      *
-     * @param routing routing key, or {@code null} for the default routing
-     * @param filter  query filter to apply, or {@code null} to count all documents
+     * @param builderConsumer to customize the {@link CountRequest.Builder}, or {@code null} for no customization
      */
-    public CompletableFuture<Long> count(String routing, Query filter) {
-        return crudServiceTemplate.count(indexName, b -> {
-            if (routing != null) b.routing(routing);
-            if (filter != null) b.query(filter);
-        });
+    public CompletableFuture<Long> count(Consumer<CountRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.count(indexName, builderConsumer);
     }
 
     public CompletableFuture<T> findById(String id) {
-        return findById(id, getRoutingKeyFromId(id));
+        String routing = getRoutingKeyFromId(id);
+        return findById(id, routing != null ? b -> b.routing(routing) : null);
     }
 
     /**
-     * Finds a document by id using the supplied routing key.
+     * Finds a document by id, letting the caller customize the request (routing, source filter, etc.).
      *
-     * @param routing routing key, or {@code null} for the default routing
+     * @param builderConsumer to customize the {@link GetRequest.Builder}, or {@code null} for no customization
      */
-    public CompletableFuture<T> findById(String id, String routing) {
-        return crudServiceTemplate.findById(indexName, id, type,
-                                            routing != null ? b -> b.routing(routing) : null);
+    public CompletableFuture<T> findById(String id, Consumer<GetRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.findById(indexName, id, type, builderConsumer);
     }
 
     public CompletableFuture<Void> deleteById(String id) {
-        return deleteById(id, getRoutingKeyFromId(id));
+        String routing = getRoutingKeyFromId(id);
+        return deleteById(id, routing != null ? b -> b.routing(routing) : null);
     }
 
     /**
-     * Deletes a document by id using the supplied routing key.
+     * Deletes a document by id, letting the caller customize the request (routing, refresh, etc.).
      *
-     * @param routing routing key, or {@code null} for the default routing
+     * @param builderConsumer to customize the {@link DeleteRequest.Builder}, or {@code null} for no customization
      */
-    public CompletableFuture<Void> deleteById(String id, String routing) {
-        return crudServiceTemplate.deleteById(indexName, id,
-                                              routing != null ? b -> b.routing(routing) : null)
+    public CompletableFuture<Void> deleteById(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.deleteById(indexName, id, builderConsumer)
                                   .thenApply(response -> null);
     }
 
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
-        return findAll(pageable, null, null);
+        return findAll(pageable, null);
     }
 
     /**
-     * Returns a page of documents with optional routing and an optional extra filter.
+     * Returns a page of documents, letting the caller customize the request (routing, query, etc.).
+     *
+     * @param builderConsumer to customize the {@link SearchRequest.Builder}, or {@code null} for no customization
      */
-    public CompletableFuture<Page<T>> findAll(Pageable pageable, String routing, Query filter) {
-        return crudServiceTemplate.search(indexName, pageable, type, b -> {
-            if (routing != null) b.routing(routing);
-            if (filter != null) b.query(filter);
-        });
+    public CompletableFuture<Page<T>> findAll(Pageable pageable, Consumer<SearchRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.search(indexName, pageable, type, builderConsumer);
     }
 
     public CompletableFuture<T> save(T value) {
-        return save(value, getObjectRoutingKey(value));
+        String routing = getObjectRoutingKey(value);
+        return save(value, routing != null ? b -> b.routing(routing) : null);
     }
 
     /**
-     * Saves a document using the supplied routing key.
+     * Saves a document, letting the caller customize the request (routing, refresh, version, etc.).
      *
-     * @param routing routing key, or {@code null} for the default routing
+     * @param builderConsumer to customize the {@link IndexRequest.Builder}, or {@code null} for no customization
      */
-    public CompletableFuture<T> save(T value, String routing) {
-        return crudServiceTemplate.save(indexName, value.getId(), value,
-                                        routing != null ? b -> b.routing(routing) : null)
+    public CompletableFuture<T> save(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return crudServiceTemplate.save(indexName, value.getId(), value, builderConsumer)
                                   .thenApply(indexResponse -> value);
     }
 
     public CompletableFuture<T> saveSync(T value) {
-        return saveSync(value, getObjectRoutingKey(value));
+        String routing = getObjectRoutingKey(value);
+        return saveSync(value, routing != null ? b -> b.routing(routing) : null);
     }
 
     /**
-     * Saves a document with {@code Refresh.WaitFor} semantics using the supplied routing key.
+     * Saves a document with {@code Refresh.WaitFor} semantics, letting the caller customize the request.
      *
-     * @param routing routing key, or {@code null} for the default routing
+     * @param builderConsumer to customize the {@link IndexRequest.Builder}, or {@code null} for no customization
      */
-    public CompletableFuture<T> saveSync(T value, String routing) {
-        return crudServiceTemplate.saveSync(indexName, value.getId(), value,
-                                            routing != null ? b -> b.routing(routing) : null)
+    public CompletableFuture<T> saveSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return crudServiceTemplate.saveSync(indexName, value.getId(), value, builderConsumer)
                                   .thenApply(indexResponse -> value);
     }
 
-    public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
-        return search(searchText, pageable, null, null);
-    }
-
     /**
-     * Full-text search with optional routing and an optional extra filter. When a filter is
-     * supplied the search text is folded into the bool query as a {@code queryString} must clause;
-     * otherwise the search text is applied as a top-level {@code q} parameter.
+     * Convenience full-text search that folds the search text into the request as a top-level
+     * {@code q} parameter. For more control over the query (filters, routing, etc.) use
+     * {@link #findAll(Pageable, Consumer)} and build the search request directly.
      */
-    public CompletableFuture<Page<T>> search(String searchText, Pageable pageable, String routing, Query filter) {
-        if (filter == null) {
-            return crudServiceTemplate.search(indexName, pageable, type,
-                                              searchText != null && !searchText.isEmpty()
-                                                      ? b -> {
-                                                          if (routing != null) b.routing(routing);
-                                                          b.q(searchText);
-                                                      }
-                                                      : routing != null ? b -> b.routing(routing) : null);
+    public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
+        if (searchText == null || searchText.isEmpty()) {
+            return findAll(pageable);
         }
-        return crudServiceTemplate.search(indexName, pageable, type, b -> {
-            if (routing != null) b.routing(routing);
-            b.query(filter);
-        });
+        return findAll(pageable, b -> b.q(searchText));
     }
 
     public CompletableFuture<Void> syncIndex() {
@@ -168,8 +158,8 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     /**
      * Override point for repositories whose ids carry a routing prefix. Returns the routing
      * key to use when {@code findById}/{@code deleteById} are called without an explicit
-     * routing argument. Returning {@code null} (the default) lets Elasticsearch pick the shard
-     * by hashing the id.
+     * consumer. Returning {@code null} (the default) lets Elasticsearch pick the shard by
+     * hashing the id.
      */
     protected String getRoutingKeyFromId(String id) {
         return null;
