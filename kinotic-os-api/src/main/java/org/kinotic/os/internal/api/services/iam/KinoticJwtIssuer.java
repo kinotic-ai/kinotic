@@ -2,6 +2,7 @@ package org.kinotic.os.internal.api.services.iam;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.auth.User;
@@ -90,7 +91,7 @@ public class KinoticJwtIssuer {
         Object aud = user.principal().getValue("aud");
         boolean ok = switch (aud) {
             case String s -> KinoticJwtConstants.AUDIENCE.equals(s);
-            case io.vertx.core.json.JsonArray arr -> arr.contains(KinoticJwtConstants.AUDIENCE);
+            case JsonArray arr -> arr.contains(KinoticJwtConstants.AUDIENCE);
             case null, default -> false;
         };
         return ok ? Future.succeededFuture(user)

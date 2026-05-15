@@ -1,14 +1,10 @@
 package org.kinotic.os.internal.api.services.iam;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.crud.Sort;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.iam.SystemOidcConfiguration;
-import org.kinotic.os.api.services.iam.SystemOidcConfigurationService;
+import org.kinotic.domain.internal.api.repositories.SystemOidcConfigurationRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
-import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
+import org.kinotic.os.api.services.iam.SystemOidcConfigurationService;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -21,12 +17,11 @@ public class DefaultSystemOidcConfigurationService
         extends AbstractCrudService<SystemOidcConfiguration>
         implements SystemOidcConfigurationService {
 
-    public DefaultSystemOidcConfigurationService(CrudServiceTemplate crudServiceTemplate,
-                                                 ElasticsearchAsyncClient esAsyncClient,
-                                                 SecurityContext securityContext) {
-        super("kinotic_system_oidc_configuration",
-              SystemOidcConfiguration.class,
-              esAsyncClient, crudServiceTemplate, securityContext);
+    private final SystemOidcConfigurationRepository systemOidcRepository;
+
+    public DefaultSystemOidcConfigurationService(SystemOidcConfigurationRepository repository) {
+        super(repository);
+        this.systemOidcRepository = repository;
     }
 
     @Override
@@ -43,8 +38,6 @@ public class DefaultSystemOidcConfigurationService
 
     @Override
     public CompletableFuture<List<SystemOidcConfiguration>> findAllEnabled() {
-        return crudServiceTemplate.search(indexName, Pageable.create(0, 100, Sort.unsorted()), type, builder -> builder
-                .query(q -> q.term(t -> t.field("enabled").value(true))))
-                .thenApply(page -> page.getContent());
+        return systemOidcRepository.findAllEnabled();
     }
 }

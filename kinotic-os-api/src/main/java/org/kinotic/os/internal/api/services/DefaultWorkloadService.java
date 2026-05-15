@@ -1,12 +1,10 @@
 package org.kinotic.os.internal.api.services;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.workload.Workload;
+import org.kinotic.domain.internal.api.repositories.WorkloadRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.os.api.services.WorkloadService;
 import org.springframework.stereotype.Component;
@@ -18,32 +16,21 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultWorkloadService extends AbstractCrudService<Workload> implements WorkloadService {
 
-    public DefaultWorkloadService(ElasticsearchAsyncClient esAsyncClient,
-                                  org.kinotic.domain.internal.api.services.CrudServiceTemplate crudServiceTemplate,
-                                  SecurityContext securityContext) {
-        super("kinotic_workload",
-              Workload.class,
-              esAsyncClient,
-              crudServiceTemplate,
-              securityContext);
+    private final WorkloadRepository workloadRepository;
+
+    public DefaultWorkloadService(WorkloadRepository repository) {
+        super(repository);
+        this.workloadRepository = repository;
     }
 
     @Override
     public CompletableFuture<Page<Workload>> findAllForNode(String nodeId, Pageable pageable) {
-        return crudServiceTemplate.search(indexName, pageable, type, builder -> builder
-                .query(q -> q
-                        .bool(b -> b
-                                .filter(TermQuery.of(tq -> tq.field("nodeId").value(nodeId))._toQuery())
-                        )));
+        return workloadRepository.findAllForNode(nodeId, pageable);
     }
 
     @Override
     public CompletableFuture<Long> countForNode(String nodeId) {
-        return crudServiceTemplate.count(indexName, builder -> builder
-                .query(q -> q
-                        .bool(b -> b
-                                .filter(TermQuery.of(tq -> tq.field("nodeId").value(nodeId))._toQuery())
-                        )));
+        return workloadRepository.countForNode(nodeId);
     }
 
     @Override

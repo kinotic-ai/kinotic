@@ -1,11 +1,10 @@
 package org.kinotic.domain.internal.api.services;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.services.OrganizationService;
+import org.kinotic.domain.internal.api.repositories.OrganizationRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -16,10 +15,8 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
 
     private final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
 
-    public DefaultOrganizationService(org.kinotic.domain.internal.api.services.CrudServiceTemplate crudServiceTemplate,
-                                      ElasticsearchAsyncClient esAsyncClient,
-                                      SecurityContext securityContext) {
-        super("kinotic_organization", Organization.class, esAsyncClient, crudServiceTemplate, securityContext);
+    public DefaultOrganizationService(OrganizationRepository repository) {
+        super(repository);
     }
 
     @Override
