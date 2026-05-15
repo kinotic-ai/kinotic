@@ -6,14 +6,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Provisions the backing source-control repository for a {@link Project} during
- * creation. The implementation in {@code kinotic-github} creates a GitHub repo
- * from the configured template and stamps the repo metadata
- * ({@code repoFullName}, {@code repoId}, {@code defaultBranch}) on the project
- * before it is persisted. The caller-supplied {@code repoPrivate} flag is passed
- * through to GitHub at create time.
- * <p>
- * Implementations should fail fast when the org is not yet linked to GitHub —
- * the caller surfaces this to the user as "link GitHub before creating a project".
+ * creation.
  */
 public interface ProjectRepoProvisioner {
 

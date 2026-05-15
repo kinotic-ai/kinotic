@@ -75,7 +75,7 @@ public class ApiGatewayVertcleFactory {
         organizationLoginHandler.mountRoutes(router);
         organizationSignupHandler.mountRoutes(router);
         applicationLoginHandler.mountRoutes(router);
-        systemLoginHandler.mountRoutes(router);
+        //systemLoginHandler.mountRoutes(router);
         githubGatewayRoutes.mountRoutes(router);
 
         StompServerOptions stompServerOptions = properties.getApiGateway().getStomp();

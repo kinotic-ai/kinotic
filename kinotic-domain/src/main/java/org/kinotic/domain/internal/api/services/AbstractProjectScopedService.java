@@ -2,7 +2,7 @@ package org.kinotic.domain.internal.api.services;
 
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.crud.ProjectScopedCrudService;
+import org.kinotic.domain.api.services.ProjectScopedCrudService;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.ProjectScoped;
 import org.kinotic.domain.internal.api.repositories.AbstractProjectScopedRepository;

@@ -1,4 +1,9 @@
-package org.kinotic.core.api.crud;
+package org.kinotic.domain.api.services;
+
+import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.core.api.crud.IdentifiableCrudService;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 
 import java.util.concurrent.CompletableFuture;
 

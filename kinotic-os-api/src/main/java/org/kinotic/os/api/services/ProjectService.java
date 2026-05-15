@@ -1,7 +1,7 @@
 package org.kinotic.os.api.services;
 
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.crud.ApplicationScopedCrudService;
+import org.kinotic.domain.api.services.ApplicationScopedCrudService;
 import org.kinotic.domain.api.model.Project;
 
 import java.util.List;

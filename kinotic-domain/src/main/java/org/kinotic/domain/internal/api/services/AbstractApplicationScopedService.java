@@ -1,6 +1,6 @@
 package org.kinotic.domain.internal.api.services;
 
-import org.kinotic.core.api.crud.ApplicationScopedCrudService;
+import org.kinotic.domain.api.services.ApplicationScopedCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;

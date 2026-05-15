@@ -2,7 +2,7 @@ package org.kinotic.persistence.internal.api.services;
 
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.crud.ProjectScopedCrudService;
+import org.kinotic.domain.api.services.ProjectScopedCrudService;
 import org.kinotic.persistence.api.model.EntityDefinition;
 
 import java.util.concurrent.CompletableFuture;
