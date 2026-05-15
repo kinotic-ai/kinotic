@@ -3,13 +3,13 @@ package org.kinotic.persistence.internal.api.repositories;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.repositories.AbstractProjectScopedRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 import org.springframework.stereotype.Repository;
 
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 @Repository
@@ -37,7 +37,7 @@ public class NamedQueriesDefinitionRepository extends AbstractProjectScopedRepos
     public CompletableFuture<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId,
                                                                                           String entityDefinitionName,
                                                                                           String orgId) {
-        Objects.requireNonNull(orgId, "orgId");
+        Validate.notBlank(orgId, "orgId cannot be blank");
         return findAll(Pageable.ofSize(1),
                        b -> b.routing(orgId).query(composeOrgFilter(orgId,
                                                                     applicationIdFilter(applicationId),

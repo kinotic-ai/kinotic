@@ -3,12 +3,12 @@ package org.kinotic.domain.internal.api.repositories;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.ApplicationScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -32,7 +32,7 @@ public abstract class AbstractApplicationScopedRepository<T extends ApplicationS
     }
 
     public CompletableFuture<Long> countForApplication(String applicationId, String orgId) {
-        Objects.requireNonNull(orgId, "orgId");
+        Validate.notBlank(orgId, "orgId cannot be blank");
         return count(b -> b.routing(orgId).query(composeOrgFilter(orgId, applicationIdFilter(applicationId))));
     }
 
@@ -41,7 +41,7 @@ public abstract class AbstractApplicationScopedRepository<T extends ApplicationS
     }
 
     public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable, String orgId) {
-        Objects.requireNonNull(orgId, "orgId");
+        Validate.notBlank(orgId, "orgId cannot be blank");
         return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId, applicationIdFilter(applicationId))));
     }
 

@@ -3,12 +3,12 @@ package org.kinotic.domain.internal.api.repositories;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.OrganizationScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -35,37 +35,37 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     }
 
     public CompletableFuture<Long> count(String orgId) {
-        Objects.requireNonNull(orgId, "orgId");
+        Validate.notBlank(orgId, "orgId cannot be blank");
         return count(b -> b.routing(orgId).query(composeOrgFilter(orgId)));
     }
 
     public CompletableFuture<T> findById(String id, String orgId) {
-        Objects.requireNonNull(orgId, "orgId");
+        Validate.notBlank(orgId, "orgId cannot be blank");
         return findById(id, b -> b.routing(orgId));
     }
 
     public CompletableFuture<Void> deleteById(String id, String orgId) {
-        Objects.requireNonNull(orgId, "orgId");
+        Validate.notBlank(orgId, "orgId cannot be blank");
         return deleteById(id, b -> b.routing(orgId));
     }
 
     public CompletableFuture<Page<T>> findAll(Pageable pageable, String orgId) {
-        Objects.requireNonNull(orgId, "orgId");
+        Validate.notBlank(orgId, "orgId cannot be blank");
         return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId)));
     }
 
     public CompletableFuture<T> save(T value, String orgId) {
-        Objects.requireNonNull(orgId, "orgId");
+        Validate.notBlank(orgId, "orgId cannot be blank");
         return save(value, b -> b.routing(orgId));
     }
 
     public CompletableFuture<T> saveSync(T value, String orgId) {
-        Objects.requireNonNull(orgId, "orgId");
+        Validate.notBlank(orgId, "orgId cannot be blank");
         return saveSync(value, b -> b.routing(orgId));
     }
 
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable, String orgId) {
-        Objects.requireNonNull(orgId, "orgId");
+        Validate.notBlank(orgId, "orgId cannot be blank");
         boolean hasText = searchText != null && !searchText.isEmpty();
         if (!hasText) {
             return findAll(pageable, orgId);

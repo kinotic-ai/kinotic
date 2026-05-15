@@ -3,12 +3,12 @@ package org.kinotic.domain.internal.api.repositories;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.ProjectScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -30,7 +30,7 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
     }
 
     public CompletableFuture<Long> countForProject(String projectId, String orgId) {
-        Objects.requireNonNull(orgId, "orgId");
+        Validate.notBlank(orgId, "orgId cannot be blank");
         return count(b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
     }
 
@@ -39,7 +39,7 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
     }
 
     public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable, String orgId) {
-        Objects.requireNonNull(orgId, "orgId");
+        Validate.notBlank(orgId, "orgId cannot be blank");
         return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
     }
 
