@@ -28,7 +28,7 @@ public abstract class AbstractApplicationScopedService<T extends ApplicationScop
 
     @Override
     public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable) {
-        return applicationRepository.findAllForApplication(applicationId, pageable, requireOrganizationId());
+        return applicationRepository.findAllForApplication(applicationId, requireOrganizationId(), pageable);
     }
 
 }

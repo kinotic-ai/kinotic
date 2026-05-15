@@ -95,7 +95,7 @@ public class DefaultGitHubAppInstallationService
 
     @Override
     public CompletableFuture<GitHubAppInstallation> findForCurrentOrg() {
-        return installationRepository.findAll(Pageable.ofSize(1), requireOrganizationId())
+        return installationRepository.findAll(requireOrganizationId(), Pageable.ofSize(1))
                                      .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 

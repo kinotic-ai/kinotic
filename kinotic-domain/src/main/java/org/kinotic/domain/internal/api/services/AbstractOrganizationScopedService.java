@@ -62,7 +62,7 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
         String orgId = getOrganizationIdIfEnforced();
         return orgId != null
-                ? scopedRepository.findAll(pageable, orgId)
+                ? scopedRepository.findAll(orgId, pageable)
                 : scopedRepository.findAll(pageable);
     }
 
@@ -88,7 +88,7 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
         String orgId = getOrganizationIdIfEnforced();
         return orgId != null
-                ? scopedRepository.search(searchText, pageable, orgId)
+                ? scopedRepository.search(searchText, orgId, pageable)
                 : scopedRepository.search(searchText, pageable);
     }
 

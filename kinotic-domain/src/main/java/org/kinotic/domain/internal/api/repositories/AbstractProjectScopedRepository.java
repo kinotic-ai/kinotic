@@ -30,7 +30,7 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
         return count(b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
     }
 
-    public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable, String orgId) {
+    public CompletableFuture<Page<T>> findAllForProject(String projectId, String orgId, Pageable pageable) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
     }

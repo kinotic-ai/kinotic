@@ -68,7 +68,7 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
         });
     }
 
-    public CompletableFuture<Page<T>> findAll(Pageable pageable, String orgId) {
+    public CompletableFuture<Page<T>> findAll(String orgId, Pageable pageable) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId)));
     }
@@ -89,11 +89,11 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
         return saveSync(value, b -> b.routing(orgId));
     }
 
-    public CompletableFuture<Page<T>> search(String searchText, Pageable pageable, String orgId) {
+    public CompletableFuture<Page<T>> search(String searchText, String orgId, Pageable pageable) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         boolean hasText = searchText != null && !searchText.isEmpty();
         if (!hasText) {
-            return findAll(pageable, orgId);
+            return findAll(orgId, pageable);
         }
         return findAll(pageable, b -> b.routing(orgId).query(Query.of(q -> q.bool(bq -> bq
                 .must(m -> m.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))

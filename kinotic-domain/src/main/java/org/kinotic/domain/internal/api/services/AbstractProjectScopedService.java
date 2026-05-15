@@ -39,7 +39,7 @@ public abstract class AbstractProjectScopedService<T extends ProjectScoped<Strin
 
     @Override
     public CompletableFuture<Page<T>> findAllForProject(String projectId, Pageable pageable) {
-        return projectRepository.findAllForProject(projectId, pageable, requireOrganizationId());
+        return projectRepository.findAllForProject(projectId, requireOrganizationId(), pageable);
     }
 
 }

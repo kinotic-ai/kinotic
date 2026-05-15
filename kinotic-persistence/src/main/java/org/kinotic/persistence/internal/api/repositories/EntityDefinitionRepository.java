@@ -22,8 +22,8 @@ public class EntityDefinitionRepository extends AbstractProjectScopedRepository<
     }
 
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId,
-                                                                                    Pageable pageable,
-                                                                                    String orgId) {
+                                                                                    String orgId,
+                                                                                    Pageable pageable) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         return findAll(pageable,
                        b -> b.routing(orgId).query(composeOrgFilter(orgId,
