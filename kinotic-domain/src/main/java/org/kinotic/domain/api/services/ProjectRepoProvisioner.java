@@ -1,4 +1,4 @@
-package org.kinotic.os.api.services;
+package org.kinotic.domain.api.services;
 
 import org.kinotic.domain.api.model.Project;
 

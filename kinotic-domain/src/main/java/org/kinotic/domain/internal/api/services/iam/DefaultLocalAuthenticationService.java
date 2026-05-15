@@ -1,12 +1,12 @@
-package org.kinotic.os.internal.api.services.iam;
+package org.kinotic.domain.internal.api.services.iam;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
-import org.kinotic.os.api.services.iam.IamUserService;
-import org.kinotic.os.api.services.iam.LocalAuthenticationService;
+import org.kinotic.domain.internal.api.repositories.IamUserRepository;
+import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
 import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
 import org.kinotic.domain.internal.utils.DomainUtil;
 import org.springframework.stereotype.Component;
@@ -19,14 +19,14 @@ import java.util.function.Supplier;
 @RequiredArgsConstructor
 public class DefaultLocalAuthenticationService implements LocalAuthenticationService {
 
-    private final IamUserService iamUserService;
+    private final IamUserRepository iamUserRepository;
     private final IamCredentialRepository credentialRepository;
 
     @Override
     public CompletableFuture<IamUser> authenticateLocal(String email, String password) {
         Validate.notBlank(email, "email cannot be blank");
         Validate.notBlank(password, "password cannot be blank");
-        return verifyMatchingUser(password, () -> iamUserService.findByEmail(email));
+        return verifyMatchingUser(password, () -> iamUserRepository.findByEmail(email));
     }
 
     @Override
@@ -36,7 +36,7 @@ public class DefaultLocalAuthenticationService implements LocalAuthenticationSer
         Validate.notBlank(password, "password cannot be blank");
         Validate.notBlank(authScopeType, "authScopeType cannot be blank");
         Validate.notBlank(authScopeId, "authScopeId cannot be blank");
-        return verifyMatchingUser(password, () -> iamUserService.findByEmailAndScope(email, authScopeType, authScopeId));
+        return verifyMatchingUser(password, () -> iamUserRepository.findByEmailAndScope(email, authScopeType, authScopeId));
     }
 
     private CompletableFuture<IamUser> verifyMatchingUser(String password,

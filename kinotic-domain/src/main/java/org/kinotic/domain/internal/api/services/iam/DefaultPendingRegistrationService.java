@@ -1,4 +1,4 @@
-package org.kinotic.os.internal.api.services.iam;
+package org.kinotic.domain.internal.api.services.iam;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.Refresh;
@@ -12,7 +12,8 @@ import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.PendingRegistration;
 import org.kinotic.domain.api.services.OrganizationService;
-import org.kinotic.os.api.services.iam.PendingRegistrationService;
+import org.kinotic.domain.internal.api.repositories.IamUserRepository;
+import org.kinotic.domain.api.services.iam.PendingRegistrationService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
@@ -31,7 +32,7 @@ public class DefaultPendingRegistrationService implements PendingRegistrationSer
 
     private final ElasticsearchAsyncClient esAsyncClient;
     private final CrudServiceTemplate crudServiceTemplate;
-    private final DefaultIamUserService userService;
+    private final IamUserRepository iamUserRepository;
     private final OrganizationService organizationService;
 
     @PostConstruct
@@ -131,8 +132,8 @@ public class DefaultPendingRegistrationService implements PendingRegistrationSer
             finalizer.accept(user);
         }
 
-        return userService.save(user)
-                .thenCompose(saved -> deleteById(pending.getId()).thenApply(v -> saved));
+        return iamUserRepository.save(user)
+                                .thenCompose(saved -> deleteById(pending.getId()).thenApply(v -> saved));
     }
 
     private CompletableFuture<Void> deleteById(String id) {

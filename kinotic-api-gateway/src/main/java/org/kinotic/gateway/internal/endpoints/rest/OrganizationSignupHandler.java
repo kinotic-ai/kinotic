@@ -14,8 +14,8 @@ import org.kinotic.domain.api.model.iam.OidcProviderKind;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.iam.PendingRegistration;
 import org.kinotic.os.api.services.iam.IamUserService;
-import org.kinotic.os.api.services.iam.OrgSignupOidcConfigurationService;
-import org.kinotic.os.api.services.iam.PendingRegistrationService;
+import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
+import org.kinotic.domain.api.services.iam.PendingRegistrationService;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;

@@ -1,4 +1,4 @@
-package org.kinotic.os.internal.api.services;
+package org.kinotic.domain.internal.api.services;
 
 import java.util.Date;
 import java.util.concurrent.CompletableFuture;
@@ -6,8 +6,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.workload.VmNode;
 import org.kinotic.domain.internal.api.repositories.VmNodeRepository;
-import org.kinotic.domain.internal.api.services.AbstractCrudService;
-import org.kinotic.os.api.services.VmNodeService;
+import org.kinotic.domain.api.services.VmNodeService;
 import org.springframework.stereotype.Component;
 
 @Component

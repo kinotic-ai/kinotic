@@ -1,15 +1,16 @@
-package org.kinotic.os.api.services.iam;
+package org.kinotic.domain.api.services.iam;
 
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.PendingRegistration;
+import org.kinotic.domain.api.model.iam.UserProvisioningMode;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
  * Stores and consumes short-lived pending registrations produced by the OIDC callback in
- * {@link org.kinotic.domain.api.model.iam.UserProvisioningMode#REGISTRATION_REQUIRED} mode.
+ * {@link UserProvisioningMode#REGISTRATION_REQUIRED} mode.
  * <p>
  * Not a {@code @Publish} service — called in-process from the gateway's HTTP handlers.
  */

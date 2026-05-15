@@ -31,13 +31,6 @@ This flag has no effect on normal builds — omitting it uses the default Java 2
 
 Names suggest meaning but don't define it. Before using an annotation, framework hook, base class, or library helper you haven't used in this codebase before, read its source or docs and confirm what it actually does. Don't infer behaviour from a plausible-sounding name and ship it. If you can't verify the behaviour, ask — don't write a comment justifying the guess.
 
-## Single CRUD layer for system objects
-
-Every persisted entity has exactly one service that owns its reads and writes — typically the `*Service` in `api/services/` whose default implementation extends `AbstractCrudService`. All callers go through that service. Don't reach around it: don't inject `CrudServiceTemplate` or `ElasticsearchAsyncClient` into a webhook handler, a config-loader, a worker, or any other ad-hoc class to run queries directly. If a method you need doesn't exist on the service, add it to the service.
-
-This keeps every entity's read/write surface in one place, makes org-scope enforcement uniform, and means schema and persistence changes only have to be reflected in one class.
-
-Cross-org access (webhook receivers, system bootstrap, cache loaders) goes through the same service, called inside `securityContext.withElevatedAccess(...)` to skip the per-call org filter.
 
 ## Java Conventions
 
@@ -56,7 +49,7 @@ Both Java and TypeScript modules follow the same layout convention. The rule is:
 
 The `internal/api/` structure mirrors `api/` for implementations. Example: `api/services/ITodoService` -> `internal/api/services/DefaultTodoService`. 
 
-When create code to store data call it a Service not a Store. If the Service needs to do other work before storing the data the persistence layer should be called a Repsoitory and the service should delegate to it.
+When creating code to store data, call it a Repository, not a Store. If there is advanced logic needed outside of CRUD, create a Service that delegates to the Repository.
 
 Configuration follows the same split: `api/config/` contains `@ConfigurationProperties` classes and settings POJOs meant to be configured by users, while `internal/config/` contains Spring `@Configuration` classes that wire beans internally. This applies to all modules.
 

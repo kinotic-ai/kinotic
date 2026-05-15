@@ -1,11 +1,11 @@
-package org.kinotic.os.internal.api.services.iam;
+package org.kinotic.domain.internal.api.services.iam;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.iam.OidcProviderKind;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.kinotic.domain.internal.api.repositories.OrgSignupOidcConfigurationRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
-import org.kinotic.os.api.services.iam.OrgSignupOidcConfigurationService;
+import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;

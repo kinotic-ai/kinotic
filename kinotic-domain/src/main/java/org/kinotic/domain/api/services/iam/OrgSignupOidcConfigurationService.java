@@ -1,4 +1,4 @@
-package org.kinotic.os.api.services.iam;
+package org.kinotic.domain.api.services.iam;
 
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.domain.api.model.iam.OidcProviderKind;

@@ -27,9 +27,6 @@ import java.util.concurrent.atomic.AtomicReference;
  * to any key in the current set — enabling rotation windows without invalidating in-flight
  * tokens.
  * <p>
- * Kinotic JWTs are short-lived (seconds) tickets used to authenticate a STOMP CONNECT;
- * after that, the gateway's {@link org.kinotic.core.api.security.SessionManager} owns the
- * session lifecycle.
  */
 @Slf4j
 @Component

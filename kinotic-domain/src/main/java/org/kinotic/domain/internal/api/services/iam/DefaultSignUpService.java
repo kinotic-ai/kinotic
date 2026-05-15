@@ -1,4 +1,4 @@
-package org.kinotic.os.internal.api.services.iam;
+package org.kinotic.domain.internal.api.services.iam;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,7 +8,7 @@ import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.SignUpRequest;
 import org.kinotic.domain.api.services.OrganizationService;
-import org.kinotic.os.api.services.iam.IamUserService;
+import org.kinotic.domain.internal.api.repositories.IamUserRepository;
 import org.kinotic.domain.api.services.iam.SignUpService;
 import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
 import org.kinotic.domain.internal.api.repositories.SignUpRepository;
@@ -29,7 +29,7 @@ public class DefaultSignUpService implements SignUpService {
     private static final long VERIFICATION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
     private final SignUpRepository signUpRepository;
-    private final IamUserService userService;
+    private final IamUserRepository iamUserRepository;
     private final IamCredentialRepository credentialRepository;
     private final OrganizationService organizationService;
     private final EmailService emailService;
@@ -48,7 +48,7 @@ public class DefaultSignUpService implements SignUpService {
                                 new IllegalArgumentException("A sign-up is already pending for this email. Check your inbox for the verification link."));
                     }
                     // Check if a user with this email already exists in any ORGANIZATION scope
-                    return userService.findFirstByEmailInScopeType(request.getEmail(), "ORGANIZATION");
+                    return iamUserRepository.findFirstByEmailInScopeType(request.getEmail(), "ORGANIZATION");
                 })
                 .thenCompose(existingUser -> {
                     if (existingUser != null) {
@@ -115,14 +115,14 @@ public class DefaultSignUpService implements SignUpService {
                             .setCreated(new Date())
                             .setUpdated(new Date());
 
-                    return userService.save(user)
-                            .thenCompose(savedUser -> {
+                    return iamUserRepository.save(user)
+                                            .thenCompose(savedUser -> {
                                 // Update org with createdBy
                                 savedOrg.setCreatedBy(savedUser.getId());
                                 return organizationService.save(savedOrg)
                                         .thenApply(updatedOrg -> savedUser);
                             })
-                            .thenCompose(savedUser -> {
+                                            .thenCompose(savedUser -> {
                                 // Create the credential with the user-supplied password
                                 IamCredential credential = new IamCredential()
                                         .setId(savedUser.getId())
