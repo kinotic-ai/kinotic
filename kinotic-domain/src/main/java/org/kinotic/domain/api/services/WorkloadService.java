@@ -1,6 +1,5 @@
 package org.kinotic.domain.api.services;
 
-import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -12,7 +11,6 @@ import java.util.concurrent.CompletableFuture;
  * Service for managing {@link Workload} entities.
  * Tracks all workloads that have been deployed across the cluster.
  */
-@Publish
 public interface WorkloadService extends IdentifiableCrudService<Workload, String> {
 
     /**
