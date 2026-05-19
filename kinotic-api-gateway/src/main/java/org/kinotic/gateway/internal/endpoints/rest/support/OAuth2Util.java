@@ -49,20 +49,28 @@ public class OAuth2Util {
         if (expectedAudience == null || expectedAudience.isBlank()) return true;
         if (claims == null) return false;
         Object aud = claims.get("aud");
-        if (aud == null) return false;
-        if (aud instanceof String s) return expectedAudience.equals(s);
-        if (aud instanceof Collection<?> col) {
-            for (Object v : col) {
-                if (v != null && expectedAudience.equals(v.toString())) return true;
+        switch (aud) {
+            case null -> {
+                return false;
             }
-            return false;
-        }
-        if (aud instanceof JsonArray arr) {
-            for (int i = 0; i < arr.size(); i++) {
-                Object v = arr.getValue(i);
-                if (v != null && expectedAudience.equals(v.toString())) return true;
+            case String s -> {
+                return expectedAudience.equals(s);
             }
-            return false;
+            case Collection<?> col -> {
+                for (Object v : col) {
+                    if (v != null && expectedAudience.equals(v.toString())) return true;
+                }
+                return false;
+            }
+            case JsonArray arr -> {
+                for (int i = 0; i < arr.size(); i++) {
+                    Object v = arr.getValue(i);
+                    if (v != null && expectedAudience.equals(v.toString())) return true;
+                }
+                return false;
+            }
+            default -> {
+            }
         }
         return false;
     }

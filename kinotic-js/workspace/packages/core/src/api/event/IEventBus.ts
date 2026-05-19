@@ -177,11 +177,6 @@ export enum EventConstants {
     REPLY_TO_ID_HEADER = 'reply-to-id',
 
     /**
-     * Header provided by the sever on connection to represent the user's session id
-     */
-    SESSION_HEADER = 'session',
-
-    /**
      * Header provided by the server on connection to provide the {@link ConnectionInfo} as a JSON string
      */
     CONNECTED_INFO_HEADER = 'connected-info',
@@ -247,15 +242,4 @@ export enum EventConstants {
      * @see https://www.w3.org/TR/trace-context/#tracestate-header
      */
     TRACESTATE_HEADER = 'tracestate',
-
-    /**
-     * The name of the session cookie
-     * This is used to store the session id in the browser
-     */
-    SESSION_COOKIE_NAME = 'kinotic-session',
-
-    /**
-     * Browser-readable cookie that indicates whether a session may be available.
-     */
-    SESSION_AVAILABLE_COOKIE_NAME = 'sessionAvailable'
 }

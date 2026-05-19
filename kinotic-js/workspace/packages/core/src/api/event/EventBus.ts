@@ -191,7 +191,7 @@ export class EventBus implements IEventBus {
 
                                                       if (value.hasHeader(EventConstants.CONTROL_HEADER)) {
 
-                                                          if (value.headers.get(EventConstants.CONTROL_HEADER) === 'complete') {
+                                                          if (value.headers.get(EventConstants.CONTROL_HEADER) === EventConstants.CONTROL_VALUE_COMPLETE) {
                                                               serverSignaledCompletion = true
                                                               subscriber.complete()
                                                           } else {

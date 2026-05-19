@@ -27,7 +27,7 @@ export class StompConnectionManager {
     private debugLogger = debug('kinoitc:stomp')
     private readonly uuidv4 = uuidv4()
     private replyToId = uuidv4()
-    public _replyToCri: string =  EventConstants.SERVICE_DESTINATION_PREFIX + this.replyToId + ':' + this.uuidv4 + '@kinoitc.js.EventBus/replyHandler'
+    private _replyToCri: string =  EventConstants.SERVICE_DESTINATION_PREFIX + this.replyToId + ':' + this.uuidv4 + '@kinoitc.js.EventBus/replyHandler'
     public deactivationHandler: (() => void) | null = null
 
     /**
@@ -110,24 +110,24 @@ export class StompConnectionManager {
                     if(connectionInfo?.maxConnectionAttempts){
                         this.connectionAttempts++
 
-                       if(this.connectionAttempts > connectionInfo.maxConnectionAttempts){
+                        if(this.connectionAttempts > connectionInfo.maxConnectionAttempts){
 
-                           // Reached threshold give up
-                           this.maxConnectionAttemptsReached = true
-                           await this.deactivate()
+                            // Reached threshold give up
+                            this.maxConnectionAttemptsReached = true
+                            await this.deactivate()
 
-                           // If we have not made an initial connection, the promise is not yet resolved
-                           if(!this.initialConnectionSuccessful) {
-                               let message = (this.lastWebsocketError as any)?.message ? (this.lastWebsocketError as any)?.message : 'UNKNOWN'
-                               reject(`Max number of reconnection attempts reached. Last WS Error ${message}`)
-                           }
-                       }else{
-                           await this.connectionJitterDelay();
-                       }
-                   }else{
+                            // If we have not made an initial connection, the promise is not yet resolved
+                            if(!this.initialConnectionSuccessful) {
+                                let message = (this.lastWebsocketError as any)?.message ? (this.lastWebsocketError as any)?.message : 'UNKNOWN'
+                                reject(`Max number of reconnection attempts reached. Last WS Error ${message}`)
+                            }
+                        }else{
+                            await this.connectionJitterDelay();
+                        }
+                    }else{
                         await this.connectionJitterDelay();
-                   }
-               }
+                    }
+                }
             }
 
             if(this.debugLogger.enabled){
