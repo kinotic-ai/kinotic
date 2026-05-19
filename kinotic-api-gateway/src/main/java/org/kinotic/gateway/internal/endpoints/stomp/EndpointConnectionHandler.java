@@ -299,9 +299,7 @@ public class EndpointConnectionHandler {
     }
 
     private void startSessionTouchTimer() {
-        if (sessionTimer != -1) {
-            return;
-        }
+        Validate.isTrue(sessionTimer == -1, "session-touch timer already started");
         long sessionUpdateInterval = services.apiGatewayProperties.getSessionTimeout() / 2;
         sessionTimer = services.vertx.setPeriodic(sessionUpdateInterval, event -> {
             Validate.notNull(session, "session must be non-null while session-touch timer is active");
