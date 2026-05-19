@@ -79,32 +79,17 @@ export class StompConnectionManager {
 
             this.rxStomp = new RxStomp()
 
-            let connectHeadersInternal: StompHeaders = (typeof connectionInfo.connectHeaders !== 'function' && connectionInfo.connectHeaders != null ? connectionInfo.connectHeaders : {})
-
             const stompConfig: RxStompConfig = {
                 brokerURL: url,
-                connectHeaders: connectHeadersInternal,
+                connectHeaders: {
+                    [EventConstants.SESSION_KEEP_ALIVE_HEADER]: connectionInfo.sessionKeepAlive,
+                    [EventConstants.REPLY_TO_ID_HEADER]: this.replyToId
+                },
                 heartbeatIncoming: 120000,
                 heartbeatOutgoing: 30000,
                 reconnectDelay: this.INITIAL_RECONNECT_DELAY,
+                webSocketFactory: connectionInfo.webSocketFactory,
                 beforeConnect: async (): Promise<void> => {
-
-                    if(typeof connectionInfo.connectHeaders === 'function'){
-                        const headers = await connectionInfo.connectHeaders()
-                        for(const key in headers) {
-                            connectHeadersInternal[key] = headers[key] as string
-                        }
-                    }
-
-                    connectHeadersInternal[EventConstants.SESSION_KEEP_ALIVE_HEADER] = connectionInfo.sessionKeepAlive || SessionKeepAliveMode.ACTIVITY
-
-                    // use replyToId if provided in connectionInfo, otherwise set it
-                    if(connectHeadersInternal[EventConstants.REPLY_TO_ID_HEADER]){
-                        this.replyToId = connectHeadersInternal[EventConstants.REPLY_TO_ID_HEADER]
-                        this._replyToCri =  EventConstants.SERVICE_DESTINATION_PREFIX + this.replyToId + ':' + this.uuidv4 + '@kinoitc.js.EventBus/replyHandler'
-                    }else{
-                        connectHeadersInternal[EventConstants.REPLY_TO_ID_HEADER] = this.replyToId
-                    }
 
                     // If max connections are set then make sure we have not exceeded that threshold
                     if(connectionInfo?.maxConnectionAttempts){
@@ -172,38 +157,9 @@ export class StompConnectionManager {
                 if (connectedInfoJson != null) {
 
                     const connectedInfo: ConnectedInfo = JSON.parse(connectedInfoJson)
+                    serverHeadersSubscription.unsubscribe()
+                    resolve(connectedInfo)
 
-                    if(connectionInfo.sessionKeepAlive !== SessionKeepAliveMode.NONE){
-
-                        serverHeadersSubscription.unsubscribe()
-
-                        if (connectedInfo.replyToId != null) {
-
-                            // Remove all information originally sent from the connect headers
-                            if (connectionInfo.connectHeaders != null) {
-                                for (let key in connectHeadersInternal) {
-                                    delete connectHeadersInternal[key]
-                                }
-                            }
-
-                            resolve(connectedInfo)
-                        } else {
-                            reject('Server did not return proper data for successful login')
-                        }
-
-                    }else if(typeof connectionInfo.connectHeaders === 'function'){
-                        // If the connect headers are supplied by a function we remove all the header values since they will be recreated on next connect
-                        for (let key in connectHeadersInternal) {
-                            delete connectHeadersInternal[key]
-                        }
-                        if(!this.initialConnectionSuccessful) {
-                            resolve(connectedInfo)
-                        }
-                    }else if(typeof connectionInfo.connectHeaders === 'object'){
-                        // static object we must leave intact for reuse
-                        serverHeadersSubscription.unsubscribe()
-                        resolve(connectedInfo)
-                    }
                 } else {
                     reject('Server did not return proper data for successful login')
                 }

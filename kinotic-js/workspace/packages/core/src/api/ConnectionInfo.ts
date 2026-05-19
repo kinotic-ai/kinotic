@@ -65,6 +65,6 @@ export class ConnectionInfo extends ServerInfo {
      * Defaults to {@link SessionKeepAliveMode.ACTIVITY}.
      * Use {@link SessionKeepAliveMode.NONE} to remove the session when the websocket connection closes.
      */
-    sessionKeepAlive?: SessionKeepAliveMode | null
+    sessionKeepAlive: SessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY
 
 }
