@@ -1,11 +1,28 @@
 /**
- * ConnectHeaders to use during connection to the kinoitc server
- * These headers will be sent as part of the STOMP CONNECT frame
- * This is typically used for authentication information, but any data can be sent
+ * Structural shape of a WebSocket used by the underlying STOMP client.
+ * Copied from the WebSocket interface to avoid pulling in the DOM typelib,
+ * so this type stays usable in Node environments where `lib: dom` is not set.
  */
-export class ConnectHeaders {
-    [key: string]: string
+export interface IWebSocket {
+    url: string
+    binaryType?: string
+    readyState: number
+    onopen: ((ev?: any) => any) | undefined | null
+    onclose: ((ev?: any) => any) | undefined | null
+    onerror: ((ev: any) => any) | undefined | null
+    onmessage: ((ev: any) => any) | undefined | null
+    close(code?: number, reason?: string): void
+    send(data: string | ArrayBuffer): void
 }
+
+/**
+ * Factory invoked on every (re)connect to produce the WebSocket the STOMP
+ * client will use. Supply this in Node when you need to set headers on the
+ * upgrade request (for example, an Authorization header). Browser callers
+ * normally leave this unset and rely on the session cookie established by a
+ * prior REST login.
+ */
+export type WebSocketFactory = () => IWebSocket
 
 export class ServerInfo {
     host!: string
@@ -20,15 +37,21 @@ export enum SessionKeepAliveMode {
 }
 
 /**
- * ConnectionInfo provides the information needed to connect to the kinoitc server
+ * ConnectionInfo provides the information needed to connect to the kinoitc server.
+ *
+ * Authentication is performed during the WebSocket upgrade (handshake), not in
+ * the STOMP CONNECT frame. In the browser, log in via the REST endpoints first
+ * and the established session cookie will be used. In Node, supply a
+ * {@link WebSocketFactory} that attaches the required upgrade headers.
  */
 export class ConnectionInfo extends ServerInfo {
     /**
-     * The headers to send during the connection to the kinoitc server.
-     * If a function is provided, it will be called to get the headers each time the connection is established.
-     * This is useful for providing dynamic headers, such as a JWT token that expires.
+     * Optional factory used to create the underlying WebSocket. Use this in
+     * Node to attach custom headers (such as Authorization) to the upgrade
+     * request. If omitted, a default WebSocket is created and authentication
+     * is expected to come from the session cookie.
      */
-    connectHeaders?: ConnectHeaders | (() => Promise<ConnectHeaders>)
+    webSocketFactory?: WebSocketFactory
 
     /**
      * The maximum number of connection attempts to make during the {@link IEventBus} initial connection request.
@@ -45,5 +68,3 @@ export class ConnectionInfo extends ServerInfo {
     sessionKeepAlive?: SessionKeepAliveMode | null
 
 }
-
-
