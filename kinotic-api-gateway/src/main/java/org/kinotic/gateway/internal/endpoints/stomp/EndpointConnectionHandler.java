@@ -104,7 +104,7 @@ public class EndpointConnectionHandler {
                 }
                 stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
 
-                touchSession();
+                signalActivity();
                 if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
                     startSessionTouchTimer();
                 }
@@ -127,7 +127,7 @@ public class EndpointConnectionHandler {
     }
 
     public Future<Void> send(Event<byte[]> incomingEvent) {
-        touchSession();
+        signalActivity();
 
         if (!stompAuthorizer.sendAllowed(incomingEvent.cri())) {
             return Future.failedFuture(new AuthorizationException("Not Authorized to send to " + incomingEvent.cri()));
@@ -200,7 +200,7 @@ public class EndpointConnectionHandler {
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
         Validate.notNull(subscriptionHandler, "subscriptionHandler must not be null");
 
-        touchSession();
+        signalActivity();
 
         if (!stompAuthorizer.subscribeAllowed(cri)) {
             throw new AuthorizationException("Not Authorized to subscribe to " + cri);
@@ -262,7 +262,7 @@ public class EndpointConnectionHandler {
     public void unsubscribe(String subscriptionIdentifier) {
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
 
-        touchSession();
+        signalActivity();
 
         EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
         if (consumer != null) {
@@ -291,8 +291,9 @@ public class EndpointConnectionHandler {
         return null;
     }
 
-    private void touchSession() {
-        if (sessionKeepAliveMode == SessionKeepAliveMode.ACTIVITY && session != null) {
+    private void signalActivity() {
+        if (sessionKeepAliveMode == SessionKeepAliveMode.ACTIVITY) {
+            Validate.notNull(session, "session must be non-null when sessionKeepAliveMode is ACTIVITY");
             session.setAccessed();
         }
     }
@@ -303,9 +304,8 @@ public class EndpointConnectionHandler {
         }
         long sessionUpdateInterval = services.apiGatewayProperties.getSessionTimeout() / 2;
         sessionTimer = services.vertx.setPeriodic(sessionUpdateInterval, event -> {
-            if (session != null) {
-                session.setAccessed();
-            }
+            Validate.notNull(session, "session must be non-null while session-touch timer is active");
+            session.setAccessed();
         });
     }
 
