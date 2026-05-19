@@ -64,15 +64,4 @@ Inline comments inside method bodies are different: they're for implementation d
 The split is about audience, not formatting. Javadoc is for **consumers** of the API; inline is for **maintainers** of the body. Before writing a comment, ask which one needs it. The rationale for a defensive check, a workaround, or a tricky ordering belongs inline next to the code that does it — never in the Javadoc, even if it explains why the method behaves the way it does. The caller doesn't care that an org-mismatch returns null because of an ES shard-hashing edge case; they care that it returns null when there's no doc for that org. The "because" stays in the body.
 
 ## Properties
-Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant.
-
-## Defensive Programming
-
-Defensive programming means **asserting invariants loudly**, not silently routing around their violation. A silent `if (x != null) { ... }` or `if (timer != -1) { return; }` guard turns a real bug into a stale-state mystery three layers downstream. If a condition "should never happen," prove it: throw.
-
-- For state that an earlier step has already established (e.g. `connect()` guarantees `session` is non-null when mode is `ACTIVITY`), don't re-check with a null-skip. Use `Validate.notNull(x, "why this can't be null here")` — the message names the invariant, so a future violation is diagnosable.
-- For one-shot operations that should never be invoked twice (timer-already-started, handler-already-registered), use `Validate.isTrue(...)` instead of an early-return guard. Early returns mask double-invocation bugs.
-- Input validation at public API boundaries (caller-supplied arguments, deserialized payloads, external responses) is a different category — those are real runtime conditions, not invariants, and should be validated and reported normally.
-- Java: prefer `org.apache.commons.lang3.Validate` (`notNull`, `notEmpty`, `isTrue`) — already used across the codebase, throws `NullPointerException` / `IllegalArgumentException` with the supplied message.
-- TypeScript: throw `new Error('...')` with a message that names the invariant. Don't wrap optional access in `if (x)` blocks when the surrounding code has already established `x` must exist.
-- Never write a comment like `// shouldn't happen but just in case` next to a silent guard. If it shouldn't happen, assert it; if it can happen, handle it explicitly.
+Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant. 
