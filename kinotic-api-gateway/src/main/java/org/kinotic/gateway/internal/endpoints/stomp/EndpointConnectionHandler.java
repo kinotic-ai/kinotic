@@ -293,16 +293,28 @@ public class EndpointConnectionHandler {
 
     private void signalActivity() {
         if (sessionKeepAliveMode == SessionKeepAliveMode.ACTIVITY) {
-            Validate.notNull(session, "session must be non-null when sessionKeepAliveMode is ACTIVITY");
+            if (session == null) {
+                log.error("Invariant violated: session is null while sessionKeepAliveMode is ACTIVITY; participant={}",
+                          connectedInfo != null ? connectedInfo.getParticipant() : null);
+                throw new IllegalStateException("Internal server error");
+            }
             session.setAccessed();
         }
     }
 
     private void startSessionTouchTimer() {
-        Validate.isTrue(sessionTimer == -1, "session-touch timer already started");
+        if (sessionTimer != -1) {
+            log.error("Invariant violated: session-touch timer already started; participant={}",
+                      connectedInfo != null ? connectedInfo.getParticipant() : null);
+            throw new IllegalStateException("Internal server error");
+        }
         long sessionUpdateInterval = services.apiGatewayProperties.getSessionTimeout() / 2;
         sessionTimer = services.vertx.setPeriodic(sessionUpdateInterval, event -> {
-            Validate.notNull(session, "session must be non-null while session-touch timer is active");
+            if (session == null) {
+                log.error("Invariant violated: session is null while session-touch timer is active; participant={}",
+                          connectedInfo != null ? connectedInfo.getParticipant() : null);
+                throw new IllegalStateException("Internal server error");
+            }
             session.setAccessed();
         });
     }
