@@ -30,6 +30,7 @@ import tools.jackson.core.JacksonException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -96,15 +97,18 @@ public class EndpointConnectionHandler {
                     throw new AuthenticationException("A Vert.x session is required unless session keep alive mode is NONE");
                 }
 
-                String replyToId = connectHeaders.get(EventConstants.REPLY_TO_ID_HEADER);
-                Validate.notEmpty(replyToId, "Client must provide a reply-to-id header");
-                connectedInfo.setReplyToId(replyToId);
+                // The replyToId is generated server side so the client cannot pick a guessable
+                // or colliding value. It is reused for the life of the session so the client's
+                // reply destination stays stable across reconnects.
+                if (connectedInfo.getReplyToId() == null) {
+                    connectedInfo.setReplyToId(UUID.randomUUID().toString());
+                }
                 if (session != null) {
                     session.put(CONNECTED_INFO_SESSION_KEY, connectedInfo);
                 }
                 stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
 
-                touchSession();
+                signalActivity();
                 if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
                     startSessionTouchTimer();
                 }
@@ -127,7 +131,7 @@ public class EndpointConnectionHandler {
     }
 
     public Future<Void> send(Event<byte[]> incomingEvent) {
-        touchSession();
+        signalActivity();
 
         if (!stompAuthorizer.sendAllowed(incomingEvent.cri())) {
             return Future.failedFuture(new AuthorizationException("Not Authorized to send to " + incomingEvent.cri()));
@@ -141,7 +145,6 @@ public class EndpointConnectionHandler {
                 incomingEvent.metadata().put(EventConstants.SENDER_HEADER, services.jsonMapper.writeValueAsString(connectedInfo.getParticipant()));
 
                 // make sure reply-to if present is scoped to sender
-                // FIXME: a reply should not need a reply, therefore a replyCri probably should not be a EventConstants.SERVICE_DESTINATION_PREFIX
                 validateReplyToForServiceRequest(incomingEvent);
 
                 return services.eventBusService
@@ -176,6 +179,13 @@ public class EndpointConnectionHandler {
 
             return services.eventStreamService.send(incomingEvent);
 
+        } else if (incomingEvent.cri().scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
+
+            // A reply is a one-way delivery to the requester's reply destination. It is never
+            // invoked and never itself replies, so no ack and no reply-to validation apply.
+            services.eventBusService.send(incomingEvent);
+            return Future.succeededFuture();
+
         } else {
             return Future.failedFuture(new IllegalArgumentException("CRI scheme not supported"));
         }
@@ -200,7 +210,7 @@ public class EndpointConnectionHandler {
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
         Validate.notNull(subscriptionHandler, "subscriptionHandler must not be null");
 
-        touchSession();
+        signalActivity();
 
         if (!stompAuthorizer.subscribeAllowed(cri)) {
             throw new AuthorizationException("Not Authorized to subscribe to " + cri);
@@ -214,7 +224,7 @@ public class EndpointConnectionHandler {
                         // Reply-To is known to be scoped to the sender because there is a check when the system receives the event above
                         // Ex:
                         // Device -> subscribes to srv://MAC@device.rpc.channel
-                        // JS Client sends message to Device with a reply to of srv://REPLY_TO_ID@continuum.js.EventBus/replyHandler
+                        // JS Client sends message to Device with a reply to of reply://REPLY_TO_ID@continuum.js.EventBus/replyHandler
                         //
                         // When the system receives the message in the send() handler above it verifies the reply-to matches the sender reply to id
                         // Then we temporarily allow the device to send to the clients reply-to.
@@ -254,6 +264,19 @@ public class EndpointConnectionHandler {
                       subscriptionIdentifier,
                       connectedInfo.getParticipant());
 
+        } else if (cri.scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
+
+            EventConsumer eventConsumer = services.eventBusService.listen(cri.baseResource());
+            eventConsumer.handler(subscriptionHandler::handleEvent)
+                         .exceptionHandler(subscriptionHandler::handleError);
+
+            subscriptions.put(subscriptionIdentifier, eventConsumer);
+
+            log.debug("New Reply Subscription cri: {} id: {} for login: {}",
+                      cri.raw(),
+                      subscriptionIdentifier,
+                      connectedInfo.getParticipant());
+
         } else {
             throw new IllegalArgumentException("CRI scheme not supported");
         }
@@ -262,7 +285,7 @@ public class EndpointConnectionHandler {
     public void unsubscribe(String subscriptionIdentifier) {
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
 
-        touchSession();
+        signalActivity();
 
         EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
         if (consumer != null) {
@@ -291,21 +314,28 @@ public class EndpointConnectionHandler {
         return null;
     }
 
-    private void touchSession() {
-        if (sessionKeepAliveMode == SessionKeepAliveMode.ACTIVITY && session != null) {
+    private void signalActivity() {
+        if (sessionKeepAliveMode == SessionKeepAliveMode.ACTIVITY) {
+            if (session == null) {
+                log.error("Session is null while sessionKeepAliveMode is ACTIVITY");
+                throw new IllegalStateException("Internal server error");
+            }
             session.setAccessed();
         }
     }
 
     private void startSessionTouchTimer() {
         if (sessionTimer != -1) {
-            return;
+            log.error("Session-touch timer already started");
+            throw new IllegalStateException("Internal server error");
         }
         long sessionUpdateInterval = services.apiGatewayProperties.getSessionTimeout() / 2;
         sessionTimer = services.vertx.setPeriodic(sessionUpdateInterval, event -> {
-            if (session != null) {
-                session.setAccessed();
+            if (session == null) {
+                log.error("Session is null while session-touch timer is active");
+                throw new IllegalStateException("Internal server error");
             }
+            session.setAccessed();
         });
     }
 
@@ -325,7 +355,7 @@ public class EndpointConnectionHandler {
             }
 
             String scheme = replyCRI.scheme();
-            if (scheme == null || !scheme.equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {
+            if (scheme == null || !scheme.equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
                 throw new IllegalArgumentException("reply-to header invalid, scheme: " + scheme + " is not valid for service requests");
             }
 
@@ -344,11 +374,9 @@ public class EndpointConnectionHandler {
                 throw new IllegalArgumentException(
                         "reply-to header invalid, scope: null is not valid for service requests");
             }
+        } else {
+            throw new IllegalArgumentException("reply-to header invalid, not provided for service request");
         }
-        // FIXME: put this back when we fix the reply-to to reply-to problem
-//        }else{
-//            throw new IllegalArgumentException("reply-to header invalid not provided for service requests");
-//        }
     }
 
 }

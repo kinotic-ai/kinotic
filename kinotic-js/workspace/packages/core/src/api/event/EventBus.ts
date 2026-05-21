@@ -97,6 +97,10 @@ export class EventBus implements IEventBus {
         this.stompConnectionManager.deactivationHandler = () => {
             this.cleanup()
         }
+        this.stompConnectionManager.replyToCriChangedHandler = (replyToCri: string) => {
+            this.replyToCri = replyToCri
+            this.resetRequestReplies('Reply destination changed')
+        }
     }
 
     public isConnectionActive(): boolean{
@@ -120,7 +124,6 @@ export class EventBus implements IEventBus {
             this.serverInfo.port = connectionInfo.port
             this.serverInfo.useSSL = connectionInfo.useSSL
 
-            // FIXME: a reply should not need a reply, therefore a replyCri probably should not be a EventConstants.SERVICE_DESTINATION_PREFIX
             this.replyToCri = this.stompConnectionManager.replyToCri
 
             this.errorSubjectSubscription = this.stompConnectionManager.rxStomp?.stompErrors$.subscribe(this.errorSubject)
@@ -249,19 +252,7 @@ export class EventBus implements IEventBus {
     }
 
     private cleanup(): void{
-        if (this.requestRepliesSubject != null) {
-
-            // This will be sent to any client waiting on an Event
-            this.requestRepliesSubject.error(new Error('Connection disconnected'))
-
-            if (this.requestRepliesSubscription != null) {
-                this.requestRepliesSubscription.unsubscribe()
-                this.requestRepliesSubscription = null
-            }
-
-            this.requestRepliesSubject = null;
-            this.requestRepliesObservable = null
-        }
+        this.resetRequestReplies('Connection disconnected')
 
         if (this.errorSubjectSubscription) {
             this.errorSubjectSubscription.unsubscribe()
@@ -269,6 +260,26 @@ export class EventBus implements IEventBus {
         }
 
         this.serverInfo = null
+    }
+
+    /**
+     * Tears down the shared request-replies stream so the next request rebuilds it against the
+     * current {@link replyToCri}. Any in-flight requests are failed with the given reason since
+     * their replies can no longer be delivered.
+     */
+    private resetRequestReplies(reason: string): void {
+        if (this.requestRepliesSubject != null) {
+
+            this.requestRepliesSubject.error(new Error(reason))
+
+            if (this.requestRepliesSubscription != null) {
+                this.requestRepliesSubscription.unsubscribe()
+                this.requestRepliesSubscription = null
+            }
+
+            this.requestRepliesSubject = null
+            this.requestRepliesObservable = null
+        }
     }
 
     /**

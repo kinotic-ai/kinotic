@@ -21,11 +21,6 @@ public class EventConstants {
     public static final String REPLY_TO_HEADER = "reply-to";
 
     /**
-     * This is the replyToId that was supplied to the client
-     */
-    public static final String REPLY_TO_ID_HEADER = "reply-to-id";
-
-    /**
      * Header provided by the sever on connection to represent the users session id
      */
     public static final String SESSION_HEADER = "session";
@@ -81,6 +76,13 @@ public class EventConstants {
     public static final String SERVICE_DESTINATION_SCHEME = "srv";
 
     public static final String STREAM_DESTINATION_SCHEME = "stream";
+
+    /**
+     * Scheme for RPC reply destinations. A reply destination is a one-way sink scoped to a
+     * single connected client: it receives responses to requests that client made, is never
+     * itself invoked, and a reply event never carries its own reply-to.
+     */
+    public static final String REPLY_DESTINATION_SCHEME = "reply";
 
     /**
      * Scheme for non-persistent broadcast events (no request/response, no acknowledgement).

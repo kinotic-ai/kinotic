@@ -67,7 +67,7 @@ public class StompAuthorizerFactory {
                 }
             }
 
-            subscriptionPatterns.add(getPathPattern(EventConstants.SERVICE_DESTINATION_SCHEME + "://"
+            subscriptionPatterns.add(getPathPattern(EventConstants.REPLY_DESTINATION_SCHEME + "://"
                                                             + replyToId
                                                             + ":*@*.**"));
         }

@@ -26,9 +26,15 @@ export class StompConnectionManager {
     private initialConnectionSuccessful: boolean = false
     private debugLogger = debug('kinoitc:stomp')
     private readonly uuidv4 = uuidv4()
-    private replyToId = uuidv4()
-    private _replyToCri: string =  EventConstants.SERVICE_DESTINATION_PREFIX + this.replyToId + ':' + this.uuidv4 + '@kinoitc.js.EventBus/replyHandler'
+    private _replyToCri: string | null = null
+    private serverHeadersSubscription: Subscription | null = null
     public deactivationHandler: (() => void) | null = null
+    /**
+     * Invoked when the server issues a new replyToId on reconnect, which changes {@link replyToCri}.
+     * This always happens with {@link SessionKeepAliveMode.NONE} since no session carries the
+     * replyToId across connections.
+     */
+    public replyToCriChangedHandler: ((replyToCri: string) => void) | null = null
 
     /**
      * @return true if this {@link StompConnectionManager} is actively trying to maintain a connection to the Stomp server, false if not.
@@ -37,7 +43,11 @@ export class StompConnectionManager {
         return !!this.rxStomp;
     }
 
-    public get replyToCri(): string {
+    /**
+     * The reply destination CRI for this connection, or null before a connection has been established.
+     * It is built from the server-generated replyToId returned in the CONNECTED frame.
+     */
+    public get replyToCri(): string | null {
         return this._replyToCri
     }
 
@@ -72,6 +82,9 @@ export class StompConnectionManager {
             this.initialConnectionSuccessful = false
             this.lastWebsocketError = null
             this.maxConnectionAttemptsReached = false
+            this._replyToCri = null
+            this.serverHeadersSubscription?.unsubscribe()
+            this.serverHeadersSubscription = null
 
             const url = 'ws' + (connectionInfo.useSSL ? 's' : '')
                 + '://' + connectionInfo.host
@@ -79,32 +92,16 @@ export class StompConnectionManager {
 
             this.rxStomp = new RxStomp()
 
-            let connectHeadersInternal: StompHeaders = (typeof connectionInfo.connectHeaders !== 'function' && connectionInfo.connectHeaders != null ? connectionInfo.connectHeaders : {})
-
             const stompConfig: RxStompConfig = {
                 brokerURL: url,
-                connectHeaders: connectHeadersInternal,
+                connectHeaders: {
+                    [EventConstants.SESSION_KEEP_ALIVE_HEADER]: connectionInfo.sessionKeepAlive
+                },
                 heartbeatIncoming: 120000,
                 heartbeatOutgoing: 30000,
                 reconnectDelay: this.INITIAL_RECONNECT_DELAY,
+                webSocketFactory: connectionInfo.webSocketFactory,
                 beforeConnect: async (): Promise<void> => {
-
-                    if(typeof connectionInfo.connectHeaders === 'function'){
-                        const headers = await connectionInfo.connectHeaders()
-                        for(const key in headers) {
-                            connectHeadersInternal[key] = headers[key] as string
-                        }
-                    }
-
-                    connectHeadersInternal[EventConstants.SESSION_KEEP_ALIVE_HEADER] = connectionInfo.sessionKeepAlive || SessionKeepAliveMode.ACTIVITY
-
-                    // use replyToId if provided in connectionInfo, otherwise set it
-                    if(connectHeadersInternal[EventConstants.REPLY_TO_ID_HEADER]){
-                        this.replyToId = connectHeadersInternal[EventConstants.REPLY_TO_ID_HEADER]
-                        this._replyToCri =  EventConstants.SERVICE_DESTINATION_PREFIX + this.replyToId + ':' + this.uuidv4 + '@kinoitc.js.EventBus/replyHandler'
-                    }else{
-                        connectHeadersInternal[EventConstants.REPLY_TO_ID_HEADER] = this.replyToId
-                    }
 
                     // If max connections are set then make sure we have not exceeded that threshold
                     if(connectionInfo?.maxConnectionAttempts){
@@ -166,46 +163,38 @@ export class StompConnectionManager {
                 reject(message)
             })
 
-            // This is triggered when the server sends a CONNECTED frame.
-            const serverHeadersSubscription: Subscription = this.rxStomp.serverHeaders$.subscribe((value: StompHeaders) => {
-                let connectedInfoJson: string | undefined = value[EventConstants.CONNECTED_INFO_HEADER]
-                if (connectedInfoJson != null) {
+            // Triggered on every CONNECTED frame, including reconnects. The replyToId is generated
+            // server side, so on reconnect it may change (it always does with
+            // SessionKeepAliveMode.NONE since no session carries it across connections).
+            this.serverHeadersSubscription = this.rxStomp.serverHeaders$.subscribe((value: StompHeaders) => {
+                const connectedInfoJson: string | undefined = value[EventConstants.CONNECTED_INFO_HEADER]
+                const firstConnect: boolean = this._replyToCri == null
 
-                    const connectedInfo: ConnectedInfo = JSON.parse(connectedInfoJson)
-
-                    if(connectionInfo.sessionKeepAlive !== SessionKeepAliveMode.NONE){
-
-                        serverHeadersSubscription.unsubscribe()
-
-                        if (connectedInfo.replyToId != null) {
-
-                            // Remove all information originally sent from the connect headers
-                            if (connectionInfo.connectHeaders != null) {
-                                for (let key in connectHeadersInternal) {
-                                    delete connectHeadersInternal[key]
-                                }
-                            }
-
-                            resolve(connectedInfo)
-                        } else {
-                            reject('Server did not return proper data for successful login')
-                        }
-
-                    }else if(typeof connectionInfo.connectHeaders === 'function'){
-                        // If the connect headers are supplied by a function we remove all the header values since they will be recreated on next connect
-                        for (let key in connectHeadersInternal) {
-                            delete connectHeadersInternal[key]
-                        }
-                        if(!this.initialConnectionSuccessful) {
-                            resolve(connectedInfo)
-                        }
-                    }else if(typeof connectionInfo.connectHeaders === 'object'){
-                        // static object we must leave intact for reuse
-                        serverHeadersSubscription.unsubscribe()
-                        resolve(connectedInfo)
+                if (connectedInfoJson == null) {
+                    if (firstConnect) {
+                        reject('Server did not return proper data for successful login')
                     }
-                } else {
-                    reject('Server did not return proper data for successful login')
+                    return
+                }
+
+                const connectedInfo: ConnectedInfo = JSON.parse(connectedInfoJson)
+                if (connectedInfo.replyToId == null) {
+                    if (firstConnect) {
+                        reject('Server did not return a replyToId for successful login')
+                    }
+                    return
+                }
+
+                const newReplyToCri: string = EventConstants.REPLY_DESTINATION_PREFIX
+                    + connectedInfo.replyToId + ':' + this.uuidv4
+                    + '@kinoitc.js.EventBus/replyHandler'
+
+                if (firstConnect) {
+                    this._replyToCri = newReplyToCri
+                    resolve(connectedInfo)
+                } else if (this._replyToCri !== newReplyToCri) {
+                    this._replyToCri = newReplyToCri
+                    this.replyToCriChangedHandler?.(newReplyToCri)
                 }
             })
 
@@ -216,6 +205,8 @@ export class StompConnectionManager {
     public async deactivate(force?: boolean): Promise<void> {
         if(this.rxStomp){
             await this.rxStomp.deactivate({force: force})
+            this.serverHeadersSubscription?.unsubscribe()
+            this.serverHeadersSubscription = null
             if(this.deactivationHandler){
                 this.deactivationHandler()
             }
