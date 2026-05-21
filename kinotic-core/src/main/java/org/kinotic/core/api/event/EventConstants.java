@@ -21,11 +21,6 @@ public class EventConstants {
     public static final String REPLY_TO_HEADER = "reply-to";
 
     /**
-     * This is the replyToId that was supplied to the client
-     */
-    public static final String REPLY_TO_ID_HEADER = "reply-to-id";
-
-    /**
      * Header provided by the sever on connection to represent the users session id
      */
     public static final String SESSION_HEADER = "session";

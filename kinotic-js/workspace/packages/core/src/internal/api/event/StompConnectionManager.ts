@@ -26,8 +26,7 @@ export class StompConnectionManager {
     private initialConnectionSuccessful: boolean = false
     private debugLogger = debug('kinoitc:stomp')
     private readonly uuidv4 = uuidv4()
-    private replyToId = uuidv4()
-    private _replyToCri: string =  EventConstants.REPLY_DESTINATION_PREFIX + this.replyToId + ':' + this.uuidv4 + '@kinoitc.js.EventBus/replyHandler'
+    private _replyToCri: string | null = null
     public deactivationHandler: (() => void) | null = null
 
     /**
@@ -37,7 +36,11 @@ export class StompConnectionManager {
         return !!this.rxStomp;
     }
 
-    public get replyToCri(): string {
+    /**
+     * The reply destination CRI for this connection, or null before a connection has been established.
+     * It is built from the server-generated replyToId returned in the CONNECTED frame.
+     */
+    public get replyToCri(): string | null {
         return this._replyToCri
     }
 
@@ -82,8 +85,7 @@ export class StompConnectionManager {
             const stompConfig: RxStompConfig = {
                 brokerURL: url,
                 connectHeaders: {
-                    [EventConstants.SESSION_KEEP_ALIVE_HEADER]: connectionInfo.sessionKeepAlive,
-                    [EventConstants.REPLY_TO_ID_HEADER]: this.replyToId
+                    [EventConstants.SESSION_KEEP_ALIVE_HEADER]: connectionInfo.sessionKeepAlive
                 },
                 heartbeatIncoming: 120000,
                 heartbeatOutgoing: 30000,
@@ -158,7 +160,17 @@ export class StompConnectionManager {
 
                     const connectedInfo: ConnectedInfo = JSON.parse(connectedInfoJson)
                     serverHeadersSubscription.unsubscribe()
-                    resolve(connectedInfo)
+
+                    if (connectedInfo.replyToId != null) {
+                        // The replyToId is generated server side; the client builds its reply
+                        // destination from it once the CONNECTED frame arrives.
+                        this._replyToCri = EventConstants.REPLY_DESTINATION_PREFIX
+                            + connectedInfo.replyToId + ':' + this.uuidv4
+                            + '@kinoitc.js.EventBus/replyHandler'
+                        resolve(connectedInfo)
+                    } else {
+                        reject('Server did not return a replyToId for successful login')
+                    }
 
                 } else {
                     reject('Server did not return proper data for successful login')

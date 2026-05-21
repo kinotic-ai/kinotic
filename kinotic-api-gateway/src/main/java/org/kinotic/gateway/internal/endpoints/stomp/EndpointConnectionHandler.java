@@ -30,6 +30,7 @@ import tools.jackson.core.JacksonException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -96,9 +97,12 @@ public class EndpointConnectionHandler {
                     throw new AuthenticationException("A Vert.x session is required unless session keep alive mode is NONE");
                 }
 
-                String replyToId = connectHeaders.get(EventConstants.REPLY_TO_ID_HEADER);
-                Validate.notEmpty(replyToId, "Client must provide a reply-to-id header");
-                connectedInfo.setReplyToId(replyToId);
+                // The replyToId is generated server side so the client cannot pick a guessable
+                // or colliding value. It is reused for the life of the session so the client's
+                // reply destination stays stable across reconnects.
+                if (connectedInfo.getReplyToId() == null) {
+                    connectedInfo.setReplyToId(UUID.randomUUID().toString());
+                }
                 if (session != null) {
                     session.put(CONNECTED_INFO_SESSION_KEY, connectedInfo);
                 }
@@ -220,7 +224,7 @@ public class EndpointConnectionHandler {
                         // Reply-To is known to be scoped to the sender because there is a check when the system receives the event above
                         // Ex:
                         // Device -> subscribes to srv://MAC@device.rpc.channel
-                        // JS Client sends message to Device with a reply to of srv://REPLY_TO_ID@continuum.js.EventBus/replyHandler
+                        // JS Client sends message to Device with a reply to of reply://REPLY_TO_ID@continuum.js.EventBus/replyHandler
                         //
                         // When the system receives the message in the send() handler above it verifies the reply-to matches the sender reply to id
                         // Then we temporarily allow the device to send to the clients reply-to.
