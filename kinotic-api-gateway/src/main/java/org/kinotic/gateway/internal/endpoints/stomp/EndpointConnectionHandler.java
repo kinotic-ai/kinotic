@@ -370,13 +370,9 @@ public class EndpointConnectionHandler {
                 throw new IllegalArgumentException(
                         "reply-to header invalid, scope: null is not valid for service requests");
             }
+        } else {
+            throw new IllegalArgumentException("reply-to header invalid, not provided for service request");
         }
-        // The reply-to-to-reply-to regress is resolved: replies use the reply:// scheme and no
-        // longer re-enter this service-request path. Requiring a reply-to here is still gated on
-        // confirming no fire-and-forget srv:// sends exist.
-//        }else{
-//            throw new IllegalArgumentException("reply-to header invalid not provided for service requests");
-//        }
     }
 
 }
