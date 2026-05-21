@@ -33,12 +33,6 @@ const form = reactive<ApplicationForm>({
 
 const loading = ref(false)
 const isDark = darkMode
-const inputClass = computed(() => [
-  'w-full !shadow-none',
-  isDark.value
-    ? 'border-surface-700 bg-surface-800 text-surface-0 placeholder:text-surface-400 focus:border-surface-600'
-    : 'border-surface-300 bg-surface-0 text-surface-950 placeholder:text-surface-400'
-])
 
 const isSubmitDisabled = computed(() => loading.value || form.name.trim() === '')
 
@@ -112,7 +106,7 @@ function handleClose(): void {
     <div v-if="props.visible" :class="['fixed inset-y-0 right-0 z-50 h-screen w-[400px] overflow-y-auto shadow-xl', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
       <div :class="['mb-4 flex items-center justify-between border-b p-4', isDark ? 'border-b-surface-800' : 'border-b-surface-200']">
         <div class="flex items-center gap-3">
-          <div :class="['flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-[8px]', isDark ? 'bg-surface-800' : 'bg-surface-100']">
+          <div class="flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-[8px] bg-[#101010]">
             <img src="@/assets/plus.svg" alt="Create application" class="h-6 w-6" />
           </div>
           <h2 class="text-lg font-semibold">New Application</h2>
@@ -125,11 +119,11 @@ function handleClose(): void {
         <div>
           <div class="mb-5">
             <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Name</label>
-            <InputText v-model="form.name" type="text" :class="inputClass" required />
+            <InputText v-model="form.name" type="text" class="w-full" required />
           </div>
           <div class="mb-5">
             <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Description</label>
-            <Textarea v-model="form.description" :class="inputClass" rows="3" />
+            <Textarea v-model="form.description" class="w-full" rows="3" />
           </div>
         </div>
         <div class="flex justify-end gap-2 mt-6">

@@ -8,6 +8,13 @@ import { isDark as darkMode } from '@/composables/useTheme'
 
 const COLLAPSE_KEY = 'sidebar-collapsed'
 
+interface SidebarNavItem {
+  icon: string
+  label: string
+  path: string
+  section?: string
+}
+
 @Component({
   components: {
     SidebarItem
@@ -15,7 +22,7 @@ const COLLAPSE_KEY = 'sidebar-collapsed'
 })
 export default class Sidebar extends Vue {
   collapsed = false
-  sidebarItems: Array<{ icon: string; label: string; path: string }> = []
+  sidebarItems: SidebarNavItem[] = []
 
   strCollapse = strCollapse
   strExpand = strExpand
@@ -55,6 +62,22 @@ export default class Sidebar extends Vue {
     }
   }
 
+  get groupedSidebarItems(): Array<{ section: string; items: SidebarNavItem[] }> {
+    const groups = new Map<string, SidebarNavItem[]>()
+
+    this.sidebarItems.forEach((item) => {
+      const section = item.section ?? ''
+      const existing = groups.get(section)
+      if (existing) {
+        existing.push(item)
+      } else {
+        groups.set(section, [item])
+      }
+    })
+
+    return Array.from(groups.entries()).map(([section, items]) => ({ section, items }))
+  }
+
   generateSidebarItems() {
     const matchedWithSidebar = this.route.matched.find(r => r.meta?.sidebarItems)
 
@@ -72,7 +95,7 @@ export default class Sidebar extends Vue {
           icon: r.meta.icon,
           label: r.meta.label,
           path: r.path
-        })) as Array<{ icon: string; label: string; path: string }>
+        })) as SidebarNavItem[]
     }
   }
 
@@ -86,34 +109,63 @@ export default class Sidebar extends Vue {
 </script>
 
 <template>
-  <div class="fixed rounded-xl top-[64px] left-0 z-40 h-[calc(100vh-67px)] pl-[8px] pt-[8px] pb-[8px] box-border"
+  <div class="fixed top-[64px] left-0 z-40 h-[calc(100vh-64px)] box-border"
     :class="[collapsed ? 'w-[75px]' : 'w-[256px]']">
     <div :class="[
-      'flex h-full flex-col justify-between rounded-xl transition-[width,background-color,border-color] duration-300 ease-in-out w-full box-border border',
-      collapsed ? 'px-1 py-2 items-center' : 'px-2 py-2',
-      isDark ? 'border-surface-800 bg-surface-800' : 'border-surface-200 bg-surface-50'
+      'app-sidebar-shell flex h-full flex-col justify-between transition-[width,background-color,border-color] duration-300 ease-in-out w-full box-border border-r',
+      collapsed ? 'px-1 py-3 items-center' : 'px-4 py-4'
     ]">
-      <div class="flex flex-col w-full" :class="collapsed ? 'justify-center items-center' : 'pl-[10px]'">
-        <SidebarItem
-          v-for="item in sidebarItems"
-          :key="item.path"
-          :icon="item.icon"
-          :label="item.label"
-          :collapsed="collapsed"
-          :path="item.path"
-          :isActive="isActive(item.path)"
-          @click="navigateTo(item.path)"
-        />
+      <div class="flex flex-col w-full gap-0" :class="collapsed ? 'justify-center items-center' : ''">
+        <div
+          v-for="group in groupedSidebarItems"
+          :key="group.section || 'default'"
+          :class="[
+            'w-full',
+            group.section === 'Organization'
+              ? (collapsed ? 'mt-2 pt-2' : 'pt-3')
+              : ''
+          ]"
+        >
+          <div
+            v-if="collapsed && group.section === 'Organization'"
+            class="w-full px-[10px] pb-2"
+          >
+            <div class="app-surface-divider border-t" />
+          </div>
+
+          <div
+            v-if="!collapsed && group.section"
+            :class="[
+              'app-sidebar-section-label mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.08em]'
+            ]"
+          >
+            {{ group.section }}
+          </div>
+
+          <div class="flex flex-col w-full" :class="collapsed ? 'items-center' : ''">
+            <SidebarItem
+              v-for="item in group.items"
+              :key="item.path"
+              :icon="item.icon"
+              :label="item.label"
+              :collapsed="collapsed"
+              :path="item.path"
+              :isActive="isActive(item.path)"
+              @click="navigateTo(item.path)"
+            />
+          </div>
+        </div>
       </div>
 
       <div
         @click="toggleSidebar"
         :class="[
-          'w-max cursor-pointer rounded-lg p-2 !pl-3 transition-colors',
-          isDark ? 'hover:bg-surface-800' : 'hover:bg-surface-200'
+          'app-sidebar-toggle flex w-full items-center gap-2 cursor-pointer border-t px-2 py-3 transition-colors',
+          collapsed ? 'justify-center' : 'justify-start'
         ]"
       >
         <img :style="{ width: '14px', height: '14px' }" :src="collapsed ? strExpand : strCollapse" alt="Toggle Sidebar" class="w-5 h-5 transition-transform duration-300" :class="[collapsed ? 'rotate-180' : '', isDark ? 'opacity-70 invert' : 'opacity-70']"/>
+        <span v-if="!collapsed" class="text-sm font-medium">Collapse</span>
       </div>
     </div>
   </div>
