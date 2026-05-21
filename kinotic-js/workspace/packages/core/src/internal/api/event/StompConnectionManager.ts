@@ -27,7 +27,14 @@ export class StompConnectionManager {
     private debugLogger = debug('kinoitc:stomp')
     private readonly uuidv4 = uuidv4()
     private _replyToCri: string | null = null
+    private serverHeadersSubscription: Subscription | null = null
     public deactivationHandler: (() => void) | null = null
+    /**
+     * Invoked when the server issues a new replyToId on reconnect, which changes {@link replyToCri}.
+     * This always happens with {@link SessionKeepAliveMode.NONE} since no session carries the
+     * replyToId across connections.
+     */
+    public replyToCriChangedHandler: ((replyToCri: string) => void) | null = null
 
     /**
      * @return true if this {@link StompConnectionManager} is actively trying to maintain a connection to the Stomp server, false if not.
@@ -75,6 +82,9 @@ export class StompConnectionManager {
             this.initialConnectionSuccessful = false
             this.lastWebsocketError = null
             this.maxConnectionAttemptsReached = false
+            this._replyToCri = null
+            this.serverHeadersSubscription?.unsubscribe()
+            this.serverHeadersSubscription = null
 
             const url = 'ws' + (connectionInfo.useSSL ? 's' : '')
                 + '://' + connectionInfo.host
@@ -153,27 +163,38 @@ export class StompConnectionManager {
                 reject(message)
             })
 
-            // This is triggered when the server sends a CONNECTED frame.
-            const serverHeadersSubscription: Subscription = this.rxStomp.serverHeaders$.subscribe((value: StompHeaders) => {
-                let connectedInfoJson: string | undefined = value[EventConstants.CONNECTED_INFO_HEADER]
-                if (connectedInfoJson != null) {
+            // Triggered on every CONNECTED frame, including reconnects. The replyToId is generated
+            // server side, so on reconnect it may change (it always does with
+            // SessionKeepAliveMode.NONE since no session carries it across connections).
+            this.serverHeadersSubscription = this.rxStomp.serverHeaders$.subscribe((value: StompHeaders) => {
+                const connectedInfoJson: string | undefined = value[EventConstants.CONNECTED_INFO_HEADER]
+                const firstConnect: boolean = this._replyToCri == null
 
-                    const connectedInfo: ConnectedInfo = JSON.parse(connectedInfoJson)
-                    serverHeadersSubscription.unsubscribe()
+                if (connectedInfoJson == null) {
+                    if (firstConnect) {
+                        reject('Server did not return proper data for successful login')
+                    }
+                    return
+                }
 
-                    if (connectedInfo.replyToId != null) {
-                        // The replyToId is generated server side; the client builds its reply
-                        // destination from it once the CONNECTED frame arrives.
-                        this._replyToCri = EventConstants.REPLY_DESTINATION_PREFIX
-                            + connectedInfo.replyToId + ':' + this.uuidv4
-                            + '@kinoitc.js.EventBus/replyHandler'
-                        resolve(connectedInfo)
-                    } else {
+                const connectedInfo: ConnectedInfo = JSON.parse(connectedInfoJson)
+                if (connectedInfo.replyToId == null) {
+                    if (firstConnect) {
                         reject('Server did not return a replyToId for successful login')
                     }
+                    return
+                }
 
-                } else {
-                    reject('Server did not return proper data for successful login')
+                const newReplyToCri: string = EventConstants.REPLY_DESTINATION_PREFIX
+                    + connectedInfo.replyToId + ':' + this.uuidv4
+                    + '@kinoitc.js.EventBus/replyHandler'
+
+                if (firstConnect) {
+                    this._replyToCri = newReplyToCri
+                    resolve(connectedInfo)
+                } else if (this._replyToCri !== newReplyToCri) {
+                    this._replyToCri = newReplyToCri
+                    this.replyToCriChangedHandler?.(newReplyToCri)
                 }
             })
 
@@ -184,6 +205,8 @@ export class StompConnectionManager {
     public async deactivate(force?: boolean): Promise<void> {
         if(this.rxStomp){
             await this.rxStomp.deactivate({force: force})
+            this.serverHeadersSubscription?.unsubscribe()
+            this.serverHeadersSubscription = null
             if(this.deactivationHandler){
                 this.deactivationHandler()
             }
