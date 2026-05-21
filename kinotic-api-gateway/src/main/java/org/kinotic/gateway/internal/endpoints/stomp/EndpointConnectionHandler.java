@@ -141,7 +141,6 @@ public class EndpointConnectionHandler {
                 incomingEvent.metadata().put(EventConstants.SENDER_HEADER, services.jsonMapper.writeValueAsString(connectedInfo.getParticipant()));
 
                 // make sure reply-to if present is scoped to sender
-                // FIXME: a reply should not need a reply, therefore a replyCri probably should not be a EventConstants.SERVICE_DESTINATION_PREFIX
                 validateReplyToForServiceRequest(incomingEvent);
 
                 return services.eventBusService
@@ -175,6 +174,13 @@ public class EndpointConnectionHandler {
         } else if (incomingEvent.cri().scheme().equals(EventConstants.STREAM_DESTINATION_SCHEME)) {
 
             return services.eventStreamService.send(incomingEvent);
+
+        } else if (incomingEvent.cri().scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
+
+            // A reply is a one-way delivery to the requester's reply destination. It is never
+            // invoked and never itself replies, so no ack and no reply-to validation apply.
+            services.eventBusService.send(incomingEvent);
+            return Future.succeededFuture();
 
         } else {
             return Future.failedFuture(new IllegalArgumentException("CRI scheme not supported"));
@@ -250,6 +256,19 @@ public class EndpointConnectionHandler {
             subscriptions.put(subscriptionIdentifier, eventConsumer);
 
             log.debug("New Event Subscription cri: {} id: {} for login: {}",
+                      cri.raw(),
+                      subscriptionIdentifier,
+                      connectedInfo.getParticipant());
+
+        } else if (cri.scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
+
+            EventConsumer eventConsumer = services.eventBusService.listen(cri.baseResource());
+            eventConsumer.handler(subscriptionHandler::handleEvent)
+                         .exceptionHandler(subscriptionHandler::handleError);
+
+            subscriptions.put(subscriptionIdentifier, eventConsumer);
+
+            log.debug("New Reply Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
                       subscriptionIdentifier,
                       connectedInfo.getParticipant());
@@ -332,7 +351,7 @@ public class EndpointConnectionHandler {
             }
 
             String scheme = replyCRI.scheme();
-            if (scheme == null || !scheme.equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {
+            if (scheme == null || !scheme.equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
                 throw new IllegalArgumentException("reply-to header invalid, scheme: " + scheme + " is not valid for service requests");
             }
 
@@ -352,7 +371,9 @@ public class EndpointConnectionHandler {
                         "reply-to header invalid, scope: null is not valid for service requests");
             }
         }
-        // FIXME: put this back when we fix the reply-to to reply-to problem
+        // The reply-to-to-reply-to regress is resolved: replies use the reply:// scheme and no
+        // longer re-enter this service-request path. Requiring a reply-to here is still gated on
+        // confirming no fire-and-forget srv:// sends exist.
 //        }else{
 //            throw new IllegalArgumentException("reply-to header invalid not provided for service requests");
 //        }

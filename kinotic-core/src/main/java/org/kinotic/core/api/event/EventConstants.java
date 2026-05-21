@@ -83,6 +83,13 @@ public class EventConstants {
     public static final String STREAM_DESTINATION_SCHEME = "stream";
 
     /**
+     * Scheme for RPC reply destinations. A reply destination is a one-way sink scoped to a
+     * single connected client: it receives responses to requests that client made, is never
+     * itself invoked, and a reply event never carries its own reply-to.
+     */
+    public static final String REPLY_DESTINATION_SCHEME = "reply";
+
+    /**
      * Scheme for non-persistent broadcast events (no request/response, no acknowledgement).
      * Used for republishing external system events (webhooks, etc.) onto the bus where
      * any number of subscribers may listen on a CRI like {@code evt://github/push/<org>/<project>}.

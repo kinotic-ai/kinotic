@@ -27,7 +27,7 @@ export class StompConnectionManager {
     private debugLogger = debug('kinoitc:stomp')
     private readonly uuidv4 = uuidv4()
     private replyToId = uuidv4()
-    private _replyToCri: string =  EventConstants.SERVICE_DESTINATION_PREFIX + this.replyToId + ':' + this.uuidv4 + '@kinoitc.js.EventBus/replyHandler'
+    private _replyToCri: string =  EventConstants.REPLY_DESTINATION_PREFIX + this.replyToId + ':' + this.uuidv4 + '@kinoitc.js.EventBus/replyHandler'
     public deactivationHandler: (() => void) | null = null
 
     /**
