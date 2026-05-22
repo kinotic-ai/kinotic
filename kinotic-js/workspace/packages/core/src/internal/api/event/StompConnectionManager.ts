@@ -1,4 +1,4 @@
-import {ConnectionInfo, SessionKeepAliveMode} from '@/api/ConnectionInfo'
+import {ConnectionInfo, IWebSocket, SessionKeepAliveMode} from '@/api/ConnectionInfo'
 import {EventConstants} from '@/api/event/IEventBus'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {type IFrame, RxStomp, RxStompConfig, StompHeaders} from '@stomp/rx-stomp'
@@ -92,6 +92,13 @@ export class StompConnectionManager {
 
             this.rxStomp = new RxStomp()
 
+            // The webSocketFactory may be async (e.g. a Node client refreshing a token
+            // before each connect), but @stomp/stompjs only accepts a synchronous factory.
+            // So the socket is produced in beforeConnect — which stompjs awaits immediately
+            // before creating the socket — and handed back synchronously here.
+            let preparedSocket: IWebSocket | null = null
+            const userWebSocketFactory = connectionInfo.webSocketFactory
+
             const stompConfig: RxStompConfig = {
                 brokerURL: url,
                 connectHeaders: {
@@ -100,7 +107,7 @@ export class StompConnectionManager {
                 heartbeatIncoming: 120000,
                 heartbeatOutgoing: 30000,
                 reconnectDelay: this.INITIAL_RECONNECT_DELAY,
-                webSocketFactory: connectionInfo.webSocketFactory,
+                webSocketFactory: userWebSocketFactory ? () => preparedSocket as IWebSocket : undefined,
                 beforeConnect: async (): Promise<void> => {
 
                     // If max connections are set then make sure we have not exceeded that threshold
@@ -118,11 +125,25 @@ export class StompConnectionManager {
                                 let message = (this.lastWebsocketError as any)?.message ? (this.lastWebsocketError as any)?.message : 'UNKNOWN'
                                 reject(`Max number of reconnection attempts reached. Last WS Error ${message}`)
                             }
+                            return
                         }else{
                             await this.connectionJitterDelay();
                         }
                     }else{
                         await this.connectionJitterDelay();
+                    }
+
+                    if(userWebSocketFactory){
+                        try {
+                            preparedSocket = await userWebSocketFactory()
+                        } catch (e) {
+                            // The factory could not produce a socket (e.g. a token refresh
+                            // failed). Give up rather than reconnect-loop the same failure.
+                            await this.deactivate()
+                            if(!this.initialConnectionSuccessful) {
+                                reject(e)
+                            }
+                        }
                     }
                 }
             }
