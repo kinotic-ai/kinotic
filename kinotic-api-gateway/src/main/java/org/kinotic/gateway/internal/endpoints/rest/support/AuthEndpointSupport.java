@@ -204,7 +204,7 @@ public class AuthEndpointSupport {
      * session — otherwise writes a generic {@code 401}. The handler only needs to provide
      * the authenticate call (already scope-aware where appropriate).
      */
-    public void handlePasswordToken(RoutingContext ctx,
+    public void handlePasswordLogin(RoutingContext ctx,
                                     BiFunction<String, String, CompletionStage<IamUser>> authenticate) {
         JsonObject body;
         try {
