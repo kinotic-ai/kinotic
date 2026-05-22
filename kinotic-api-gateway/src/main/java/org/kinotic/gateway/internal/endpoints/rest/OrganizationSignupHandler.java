@@ -177,7 +177,8 @@ public class OrganizationSignupHandler {
     /** Sends the browser to the org-name completion page with the pending registration token. */
     private void redirectToCompleteOrg(RoutingContext ctx, String token) {
         ctx.response().setStatusCode(302)
-           .putHeader("Location", OidcConstants.REGISTER_PATH + "?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8))
+           .putHeader("Location", authEndpointSupport.appUrl(OidcConstants.REGISTER_PATH)
+                   + "?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8))
            .end();
     }
 

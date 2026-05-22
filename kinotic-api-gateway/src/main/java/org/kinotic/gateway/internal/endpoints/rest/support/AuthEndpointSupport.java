@@ -69,6 +69,25 @@ public class AuthEndpointSupport {
         return apiBase() + relativePath;
     }
 
+    /**
+     * Validated SPA base URL ({@code kinotic.appBaseUrl}). The SPA is a different origin than
+     * this gateway, so a post-OIDC redirect back to the browser must be absolute; throws so a
+     * misconfiguration surfaces immediately rather than redirecting the user to a dead URL.
+     */
+    public String appBase() {
+        String base = gatewayProperties.getAppBaseUrl();
+        if (base == null || base.isBlank()) {
+            throw new IllegalStateException(
+                    "kinotic.appBaseUrl is not configured — required to redirect the browser back to the SPA");
+        }
+        return base;
+    }
+
+    /** Builds an absolute SPA URL by prefixing {@code relativePath} with {@link #appBase()}. */
+    public String appUrl(String relativePath) {
+        return appBase() + relativePath;
+    }
+
     // ── JWT ───────────────────────────────────────────────────────────────────
 
     /** Mints the short-TTL Kinotic JWT carrying {@code sub/email/authScopeType/authScopeId}. */
@@ -143,14 +162,14 @@ public class AuthEndpointSupport {
     public void redirectSuccess(RoutingContext ctx, IamUser user) {
         establishSession(ctx, user);
         ctx.response().setStatusCode(302)
-           .putHeader("Location", OidcConstants.LOGIN_SUCCESS_PATH)
+           .putHeader("Location", appUrl(OidcConstants.LOGIN_SUCCESS_PATH))
            .end();
     }
 
-    /** {@code 302 Location: <errorPath>?error=<code>}. */
+    /** {@code 302 Location: <appBaseUrl><errorPath>?error=<code>}. */
     public void redirectError(RoutingContext ctx, String errorCode) {
         ctx.response().setStatusCode(302)
-           .putHeader("Location", OidcConstants.LOGIN_ERROR_PATH
+           .putHeader("Location", appUrl(OidcConstants.LOGIN_ERROR_PATH)
                    + "?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8))
            .end();
     }
