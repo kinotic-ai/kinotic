@@ -40,10 +40,11 @@ export function jsonStringifyReplacer(key: any, value: any) {
            : value;
 }
 
-/** OAuth 2.0 token-pair returned by the device-authorization endpoints. */
+/** OAuth 2.0 token response returned by the device-authorization endpoints. */
 interface DeviceTokens {
     access_token: string
     refresh_token: string
+    expires_in?: number
 }
 
 /** Resolved gateway endpoints for a server url — REST and STOMP share the gateway host/port. */
@@ -59,19 +60,19 @@ interface ServerTarget {
 const CREDENTIALS_KEY = 'kinotic-credentials'
 
 /**
- * Connects {@link Kinotic} to the server, authenticating via the OAuth 2.0 Device
- * Authorization Grant (RFC 8628). A previously stored refresh token is reused when valid;
- * otherwise the user is walked through a browser login. The rotated refresh token is
- * persisted so subsequent runs are non-interactive.
+ * Connects {@link Kinotic} to the server using stored credentials. Requires a prior
+ * {@code kinotic login} — it fails fast, with no interactive prompt, when none are stored.
+ * The short-lived access token is refreshed (and the rotating refresh token re-persisted) on
+ * every (re)connect via an async WebSocket factory.
  *
  * @param server the server to connect to
  * @param configDir directory the rotating refresh token is persisted in
  * @param logger the logger to use
  * @return true if the connection was established
  */
-export async function connectAndUpgradeSession(server: string,
-                                               configDir: string,
-                                               logger: Logger): Promise<boolean> {
+export async function connectToServer(server: string,
+                                      configDir: string,
+                                      logger: Pick<Logger, 'log'>): Promise<boolean> {
     try {
         const target = parseServer(server)
         if (target === null) {
@@ -79,36 +80,86 @@ export async function connectAndUpgradeSession(server: string,
             return false
         }
 
-        let tokens = await tryStoredRefreshToken(target.restBaseUrl, configDir, server, logger)
-        if (tokens === null) {
-            tokens = await deviceLogin(target.restBaseUrl, logger)
-        }
-        if (tokens === null) {
+        const storedRefreshToken = await loadRefreshToken(configDir, server)
+        if (storedRefreshToken === null) {
+            logger.log('Not logged in. Run `kinotic login` first.')
             return false
         }
-        await saveRefreshToken(configDir, server, tokens.refresh_token)
 
-        const accessToken = tokens.access_token
+        let refreshToken: string = storedRefreshToken
+        let accessToken: string | null = null
+        let accessTokenExpiresAt = 0
+
+        // Refreshes the access token when it is absent or within 10s of expiry. The refresh
+        // token rotates on every call, so the replacement is persisted immediately.
+        const freshAccessToken = async (): Promise<string> => {
+            if (accessToken !== null && Date.now() < accessTokenExpiresAt - 10_000) {
+                return accessToken
+            }
+            const res = await fetch(target.restBaseUrl + '/api/login/device/refresh', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({refresh_token: refreshToken})
+            })
+            if (!res.ok) {
+                throw new Error('Session expired. Run `kinotic login` again.')
+            }
+            const tokens = await res.json() as DeviceTokens
+            refreshToken = tokens.refresh_token
+            accessToken = tokens.access_token
+            accessTokenExpiresAt = Date.now() + (tokens.expires_in ?? 60) * 1000
+            await saveRefreshToken(configDir, server, refreshToken)
+            return accessToken
+        }
+
         const connectionInfo = new ConnectionInfo()
         connectionInfo.host = target.host
         connectionInfo.port = target.port
         connectionInfo.useSSL = target.useSSL
-        // The CLI is a Node client, so it attaches the access token as a WebSocket upgrade
-        // header rather than relying on a browser session cookie.
-        connectionInfo.webSocketFactory = () => new WebSocket(target.wsUrl, {
-            headers: {Authorization: 'Bearer ' + accessToken}
-        }) as unknown as IWebSocket
+        // The CLI is a Node client: it attaches the access token as a WebSocket upgrade
+        // header. The factory is async so the token is refreshed before each (re)connect.
+        connectionInfo.webSocketFactory = async () => {
+            const token = await freshAccessToken()
+            return new WebSocket(target.wsUrl, {
+                headers: {Authorization: 'Bearer ' + token}
+            }) as unknown as IWebSocket
+        }
 
         await pTimeout(Kinotic.connect(connectionInfo), {
             milliseconds: 60000,
             message: 'Connection timeout trying to connect to the Kinotic Server'
         })
-        logger.log('Authenticated successfully\n')
         return true
     } catch (e) {
-        logger.log('Could not connect to the Kinotic Server. Please check the server is running and the URL is correct.', e)
+        logger.log('Could not connect to the Kinotic Server: '
+                   + (e instanceof Error ? e.message : String(e)))
         return false
     }
+}
+
+/**
+ * Runs the interactive device-authorization login and persists the resulting refresh token
+ * for {@code server}, so later commands connect non-interactively.
+ *
+ * @param server the server to log in to
+ * @param configDir directory the refresh token is persisted in
+ * @param logger the logger to use
+ * @return true if login succeeded
+ */
+export async function loginToServer(server: string,
+                                    configDir: string,
+                                    logger: Pick<Logger, 'log'>): Promise<boolean> {
+    const target = parseServer(server)
+    if (target === null) {
+        logger.log('Invalid server URL, only http and https are supported')
+        return false
+    }
+    const tokens = await deviceLogin(target.restBaseUrl, logger)
+    if (tokens === null) {
+        return false
+    }
+    await saveRefreshToken(configDir, server, tokens.refresh_token)
+    return true
 }
 
 /** Parses the server url into the host/port the gateway serves both REST and STOMP on. */
@@ -138,7 +189,7 @@ function parseServer(server: string): ServerTarget | null {
 }
 
 /** Runs the RFC 8628 device-authorization flow: start, browser approval, then poll for tokens. */
-async function deviceLogin(restBaseUrl: string, logger: Logger): Promise<DeviceTokens | null> {
+async function deviceLogin(restBaseUrl: string, logger: Pick<Logger, 'log'>): Promise<DeviceTokens | null> {
     const startRes = await fetch(restBaseUrl + '/api/login/device/start', {method: 'POST'})
     if (!startRes.ok) {
         logger.log('Could not start device authorization with the Kinotic Server.')
@@ -184,27 +235,6 @@ async function deviceLogin(restBaseUrl: string, logger: Logger): Promise<DeviceT
         }
     }
     logger.log('Device authorization timed out before it was approved.')
-    return null
-}
-
-/** Reuses a stored refresh token for {@code server}; null when there is none or it is rejected. */
-async function tryStoredRefreshToken(restBaseUrl: string,
-                                     configDir: string,
-                                     server: string,
-                                     logger: Logger): Promise<DeviceTokens | null> {
-    const refreshToken = await loadRefreshToken(configDir, server)
-    if (refreshToken === null) {
-        return null
-    }
-    const res = await fetch(restBaseUrl + '/api/login/device/refresh', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({refresh_token: refreshToken})
-    })
-    if (res.ok) {
-        return await res.json() as DeviceTokens
-    }
-    logger.log('Stored credentials are no longer valid, a new login is required.')
     return null
 }
 
