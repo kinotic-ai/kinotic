@@ -11,11 +11,11 @@ export function createConnectionInfo(): ConnectionInfo {
         envUseSSL = true
     }
 
-    return {
-        host  : envHost,
-        port  : envPort,
-        useSSL: envUseSSL,
-    }
+    const connectionInfo = new ConnectionInfo()
+    connectionInfo.host = envHost
+    connectionInfo.port = envPort
+    connectionInfo.useSSL = envUseSSL
+    return connectionInfo
 }
 
 /**
