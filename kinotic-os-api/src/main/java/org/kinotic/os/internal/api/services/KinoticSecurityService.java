@@ -4,21 +4,18 @@ import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthenticationException;
-import org.kinotic.core.api.security.DefaultParticipant;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.domain.internal.utils.DomainUtil;
+import org.kinotic.domain.internal.utils.ParticipantUtil;
 import org.kinotic.domain.internal.api.model.IamCredential;
 import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
 import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
@@ -131,7 +128,7 @@ public class KinoticSecurityService implements SecurityService {
         if (!DomainUtil.verifyPassword(password, credential.getPasswordHash())) {
             return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
         }
-        return CompletableFuture.completedFuture(createParticipantFromUser(user));
+        return CompletableFuture.completedFuture(ParticipantUtil.fromUser(user));
     }
 
     /**
@@ -174,27 +171,12 @@ public class KinoticSecurityService implements SecurityService {
                          } else if (!iamUser.isEnabled()) {
                              result.completeExceptionally(new AuthenticationException("User account is disabled"));
                          } else {
-                             result.complete(createParticipantFromUser(iamUser));
+                             result.complete(ParticipantUtil.fromUser(iamUser));
                          }
                      });
                  })
                  .onFailure(err -> result.completeExceptionally(
                          new AuthenticationException("JWT validation failed: " + err.getMessage(), err)));
         return result;
-    }
-
-    private Participant createParticipantFromUser(IamUser user) {
-        Map<String, String> metadata = new HashMap<>(Map.of(
-                ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
-                "email", user.getEmail(),
-                "displayName", user.getDisplayName() != null ? user.getDisplayName() : user.getEmail(),
-                "authType", user.getAuthType().name()
-        ));
-
-        // tenantId is the client-tenant the caller is acting within — meaningful only for
-        // APPLICATION-scoped users (where it partitions SHARED entity data). SYSTEM and ORGANIZATION
-        // identities are not tenants, so user.getTenantId() must be null for them.
-        return new DefaultParticipant(user.getTenantId(), user.getId(),
-                user.getAuthScopeType(), user.getAuthScopeId(), metadata, List.of());
     }
 }

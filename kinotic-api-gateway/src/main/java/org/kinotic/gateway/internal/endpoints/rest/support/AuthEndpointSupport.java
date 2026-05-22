@@ -8,10 +8,13 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.internal.utils.ParticipantUtil;
 import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +23,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,7 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AuthEndpointSupport {
 
-    /** JWT TTL for the STOMP-CONNECT ticket — long enough for the browser to open the WebSocket. */
+    /** Access-token TTL for the CLI device/refresh token endpoints. */
     public static final int JWT_TTL_SECONDS = 60;
 
     private final KinoticApiGatewayProperties gatewayProperties;
@@ -77,15 +81,33 @@ public class AuthEndpointSupport {
         return jwtIssuer.sign(claims, new JWTOptions().setExpiresInSeconds(JWT_TTL_SECONDS));
     }
 
-    /** {@code 200 application/json {"token":"<jwt>"}}. */
-    public void respondJwt(RoutingContext ctx, IamUser user) {
-        ctx.response().putHeader("Content-Type", "application/json")
-           .end(new JsonObject().put("token", mintJwt(user)).encode());
+    // ── Browser session login ─────────────────────────────────────────────────
+
+    /**
+     * Authenticates the browser by placing the logged-in user's {@link Participant} into the
+     * Vert.x session. The subsequent STOMP WebSocket handshake reads it back from the session,
+     * so the browser is authenticated by its session cookie and never handles a token.
+     */
+    private void establishSession(RoutingContext ctx, IamUser user) {
+        Session session = ctx.session();
+        // Rotate the session id on the privilege change so a pre-auth (possibly fixed)
+        // id cannot be reused to ride the now-authenticated session.
+        session.regenerateId();
+        Participant participant = ParticipantUtil.fromUser(user);
+        ConnectedInfo connectedInfo = new ConnectedInfo();
+        connectedInfo.setParticipant(participant);
+        session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
     }
 
-    /** {@code 200 application/json} with {@code token} plus extra fields the caller wants in the body. */
-    public void respondJwt(RoutingContext ctx, IamUser user, JsonObject extras) {
-        JsonObject body = new JsonObject().put("token", mintJwt(user));
+    /** Establishes the browser session for {@code user}, then writes {@code 200 application/json {}}. */
+    public void respondSuccess(RoutingContext ctx, IamUser user) {
+        respondSuccess(ctx, user, null);
+    }
+
+    /** {@link #respondSuccess(RoutingContext, IamUser)} with extra fields added to the response body. */
+    public void respondSuccess(RoutingContext ctx, IamUser user, JsonObject extras) {
+        establishSession(ctx, user);
+        JsonObject body = new JsonObject();
         if (extras != null) extras.forEach(e -> body.put(e.getKey(), e.getValue()));
         ctx.response().putHeader("Content-Type", "application/json").end(body.encode());
     }
@@ -122,15 +144,13 @@ public class AuthEndpointSupport {
     // ── Redirects ─────────────────────────────────────────────────────────────
 
     /**
-     * {@code 302 Location: <successPath>#token=<jwt>}. The fragment never appears in
-     * access logs and isn't sent on subsequent requests, so the JWT stays out of
-     * server-side telemetry.
+     * Establishes the browser session and redirects to the SPA. No token travels in the URL —
+     * the browser is authenticated by its session cookie.
      */
     public void redirectSuccess(RoutingContext ctx, IamUser user) {
-        String jwt = mintJwt(user);
+        establishSession(ctx, user);
         ctx.response().setStatusCode(302)
-           .putHeader("Location", OidcConstants.LOGIN_SUCCESS_PATH
-                   + "#token=" + URLEncoder.encode(jwt, StandardCharsets.UTF_8))
+           .putHeader("Location", OidcConstants.LOGIN_SUCCESS_PATH)
            .end();
     }
 
@@ -193,10 +213,10 @@ public class AuthEndpointSupport {
     // ── Composite flows ───────────────────────────────────────────────────────
 
     /**
-     * Standard email/password token endpoint: parses the JSON body, validates fields,
-     * runs the supplied authenticate function, and writes either {@code {token}} or a
-     * generic {@code 401}. The handler only needs to provide the authenticate call
-     * (already scope-aware where appropriate).
+     * Standard email/password login endpoint: parses the JSON body, validates fields,
+     * runs the supplied authenticate function, and on success establishes the browser
+     * session — otherwise writes a generic {@code 401}. The handler only needs to provide
+     * the authenticate call (already scope-aware where appropriate).
      */
     public void handlePasswordToken(RoutingContext ctx,
                                     BiFunction<String, String, CompletionStage<IamUser>> authenticate) {
@@ -220,7 +240,7 @@ public class AuthEndpointSupport {
                       respondError(ctx, 401, "Invalid credentials");
                       return;
                   }
-                  respondJwt(ctx, user);
+                  respondSuccess(ctx, user);
               })
               .onFailure(err -> {
                   log.warn("Token endpoint error: {}", err.getMessage());

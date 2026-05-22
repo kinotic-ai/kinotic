@@ -147,7 +147,7 @@ public class OrganizationLoginHandler {
                   if (displayNameOverride != null && !displayNameOverride.isBlank()) {
                       user.setDisplayName(displayNameOverride);
                   }
-              })).onSuccess(user -> authEndpointSupport.respondJwt(ctx, user))
+              })).onSuccess(user -> authEndpointSupport.respondSuccess(ctx, user))
               .onFailure(ex -> {
                   Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
                   authEndpointSupport.respondError(ctx, 400, cause.getMessage());
