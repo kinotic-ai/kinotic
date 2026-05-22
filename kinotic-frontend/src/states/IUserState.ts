@@ -1,7 +1,7 @@
 import { ConnectedInfo, Kinotic } from '@kinotic-ai/core'
 import { reactive } from 'vue'
 import { createDebug } from '@/util/debug'
-import { createConnectionInfo } from '../util/helpers'
+import { apiUrl, createConnectionInfo } from '../util/helpers'
 
 const debug = createDebug('user-state')
 
@@ -24,6 +24,7 @@ export interface IUserState {
      */
     login(): Promise<void>
 
+    /** Destroys the server session and closes the realtime connection. */
     logout(): Promise<void>
 }
 
@@ -46,12 +47,15 @@ export class UserState implements IUserState {
     }
 
     public async logout(): Promise<void> {
-        if (this.connectedInfo) {
-            try {
-                await Kinotic.disconnect()
-            } catch (error) {
-                debug('Error disconnecting from Kinotic: %O', error)
-            }
+        try {
+            await fetch(apiUrl('/api/logout'), { method: 'POST', credentials: 'include' })
+        } catch (error) {
+            debug('Logout request failed: %O', error)
+        }
+        try {
+            await Kinotic.disconnect()
+        } catch (error) {
+            debug('Error disconnecting from Kinotic: %O', error)
         }
         this.connectedInfo = null
     }

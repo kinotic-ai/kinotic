@@ -5,6 +5,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.AuthScopeType;
@@ -49,6 +50,7 @@ import java.util.Set;
  *   <li><b>Email + password → session</b>: {@code POST /api/login {email, password}} —
  *       verifies bcrypt against {@link IamCredential} and establishes the browser session.
  *       Generic {@code 401} for any failure.</li>
+ *   <li><b>Logout</b>: {@code POST /api/logout} — destroys the browser session.</li>
  * </ul>
  *
  * <p>The OIDC dance itself (state/PKCE generation, callback validation, code exchange,
@@ -86,6 +88,7 @@ public class OrganizationLoginHandler {
         router.get(OidcConstants.ORG_LOGIN_BASE + "/providers").handler(this::handleProviders);
         router.post(OidcConstants.ORG_LOGIN_BASE + "/lookup").handler(this::handleLookup);
         router.post(OidcConstants.ORG_LOGIN_BASE).handler(this::handleLogin);
+        router.post(OidcConstants.LOGOUT_PATH).handler(this::handleLogout);
         router.post(OidcConstants.ORG_LOGIN_BASE + "/start/:provider").handler(this::handleSocialStart);
         router.get(OidcConstants.ORG_LOGIN_BASE + "/callback/social/:configId").handler(this::handleSocialCallback);
         router.get(OidcConstants.ORG_LOGIN_BASE + "/callback/sso/:configId").handler(this::handleSsoCallback);
@@ -224,6 +227,15 @@ public class OrganizationLoginHandler {
 
     private void handleLogin(RoutingContext ctx) {
         authEndpointSupport.handlePasswordLogin(ctx, localAuthenticationService::authenticateLocal);
+    }
+
+    /** Destroys the browser session — scope-agnostic, so it undoes any login path. */
+    private void handleLogout(RoutingContext ctx) {
+        Session session = ctx.session();
+        if (session != null) {
+            session.destroy();
+        }
+        ctx.response().setStatusCode(204).end();
     }
 
     private IamUser pickFirst(List<IamUser> candidates) {
