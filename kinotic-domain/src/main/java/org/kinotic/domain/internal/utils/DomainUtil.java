@@ -1,5 +1,9 @@
 package org.kinotic.domain.internal.utils;
 
+import org.kinotic.core.api.security.DefaultParticipant;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.ParticipantConstants;
+import org.kinotic.domain.api.model.iam.IamUser;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.nio.charset.StandardCharsets;
@@ -7,7 +11,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -96,6 +103,30 @@ public class DomainUtil {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is not available", e);
         }
+    }
+
+    /**
+     * Builds the {@link Participant} security identity for an authenticated {@link IamUser}.
+     * This is the single mapping from a persisted user to the identity carried for the life
+     * of a connection, so the authentication paths and the browser session-login flow stay
+     * consistent.
+     *
+     * @param user the authenticated user
+     * @return the participant for the given user
+     */
+    public static Participant createParticipant(IamUser user) {
+        Map<String, String> metadata = new HashMap<>(Map.of(
+                ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
+                "email", user.getEmail(),
+                "displayName", user.getDisplayName() != null ? user.getDisplayName() : user.getEmail(),
+                "authType", user.getAuthType().name()
+        ));
+
+        // tenantId is the client-tenant the caller is acting within — meaningful only for
+        // APPLICATION-scoped users (where it partitions SHARED entity data). SYSTEM and ORGANIZATION
+        // identities are not tenants, so user.getTenantId() must be null for them.
+        return new DefaultParticipant(user.getTenantId(), user.getId(),
+                user.getAuthScopeType(), user.getAuthScopeId(), metadata, List.of());
     }
 
 }

@@ -10,7 +10,6 @@ import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.os.api.services.iam.IamUserService;
 import org.kinotic.domain.internal.utils.DomainUtil;
-import org.kinotic.domain.internal.utils.ParticipantUtil;
 import org.kinotic.domain.internal.api.model.IamCredential;
 import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
 import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
@@ -128,7 +127,7 @@ public class KinoticSecurityService implements SecurityService {
         if (!DomainUtil.verifyPassword(password, credential.getPasswordHash())) {
             return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
         }
-        return CompletableFuture.completedFuture(ParticipantUtil.fromUser(user));
+        return CompletableFuture.completedFuture(DomainUtil.createParticipant(user));
     }
 
     /**
@@ -171,7 +170,7 @@ public class KinoticSecurityService implements SecurityService {
                          } else if (!iamUser.isEnabled()) {
                              result.completeExceptionally(new AuthenticationException("User account is disabled"));
                          } else {
-                             result.complete(ParticipantUtil.fromUser(iamUser));
+                             result.complete(DomainUtil.createParticipant(iamUser));
                          }
                      });
                  })

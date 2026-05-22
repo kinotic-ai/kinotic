@@ -14,7 +14,7 @@ import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
-import org.kinotic.domain.internal.utils.ParticipantUtil;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
 
@@ -93,7 +93,7 @@ public class AuthEndpointSupport {
         // Rotate the session id on the privilege change so a pre-auth (possibly fixed)
         // id cannot be reused to ride the now-authenticated session.
         session.regenerateId();
-        Participant participant = ParticipantUtil.fromUser(user);
+        Participant participant = DomainUtil.createParticipant(user);
         ConnectedInfo connectedInfo = new ConnectedInfo();
         connectedInfo.setParticipant(participant);
         session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
