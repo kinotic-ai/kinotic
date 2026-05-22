@@ -2,7 +2,6 @@ package org.kinotic.domain.api.services.iam;
 
 import org.kinotic.domain.api.model.iam.IamUser;
 
-import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -12,12 +11,6 @@ import java.util.concurrent.CompletableFuture;
  * Not a {@code @Publish} service — called in-process from the gateway's HTTP handlers.
  */
 public interface RefreshTokenService {
-
-    /** A newly issued refresh token. The plaintext {@link #token()} is available only here. */
-    record IssuedRefreshToken(String token, Date expiresAt) {}
-
-    /** Result of rotating a refresh token: the owning user and the replacement token. */
-    record RefreshTokenRotation(IamUser user, IssuedRefreshToken issued) {}
 
     /**
      * Issues a new refresh token in a new family for the given user.

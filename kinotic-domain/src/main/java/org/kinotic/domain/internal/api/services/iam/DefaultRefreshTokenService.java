@@ -3,6 +3,8 @@ package org.kinotic.domain.internal.api.services.iam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.services.iam.IssuedRefreshToken;
+import org.kinotic.domain.api.services.iam.RefreshTokenRotation;
 import org.kinotic.domain.api.services.iam.RefreshTokenService;
 import org.kinotic.domain.internal.api.model.RefreshToken;
 import org.kinotic.domain.internal.api.repositories.IamUserRepository;

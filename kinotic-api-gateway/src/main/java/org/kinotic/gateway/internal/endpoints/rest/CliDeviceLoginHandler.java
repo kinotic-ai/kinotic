@@ -7,7 +7,7 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.services.iam.DeviceCodeGrantService;
-import org.kinotic.domain.api.services.iam.DeviceCodeGrantService.DeviceCodePollResult;
+import org.kinotic.domain.api.services.iam.DeviceCodePollResult;
 import org.kinotic.domain.api.services.iam.RefreshTokenService;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
