@@ -1,6 +1,6 @@
 import {Command, Flags} from '@oclif/core'
 import {resolveServer} from '@/internal/state/Environment'
-import {loginToServer} from '@/internal/Utils'
+import {CliAuthenticator} from '@/internal/CliAuthenticator'
 
 export class Login extends Command {
 
@@ -18,7 +18,7 @@ export class Login extends Command {
     async run(): Promise<void> {
         const {flags} = await this.parse(Login)
         const serverConfig = await resolveServer(this.config.configDir, flags.server)
-        if (!(await loginToServer(serverConfig.url, this.config.configDir, this))) {
+        if (!(await new CliAuthenticator(serverConfig.url, this.config.configDir, this).login())) {
             this.error('Login failed')
         }
         this.log(`Logged in to ${serverConfig.url}`)

@@ -14,7 +14,7 @@ import {WebSocket} from 'ws'
 import {EntityCodeGenerationService} from '@/internal/EntityCodeGenerationService'
 import {ProjectMigrationService} from '@/internal/ProjectMigrationService'
 import {resolveServer} from '@/internal/state/Environment'
-import {connectToServer} from '@/internal/Utils'
+import {CliAuthenticator} from '@/internal/CliAuthenticator'
 
 // This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
@@ -58,7 +58,7 @@ export class Synchronize extends Command {
                 serverUrl = serverConfig.url
             }
 
-            if (flags.dryRun || await connectToServer(serverUrl, this.config.configDir, this)) {
+            if (flags.dryRun || await new CliAuthenticator(serverUrl, this.config.configDir, this).connect()) {
                 try {
 
                     let project: Project | null = null
