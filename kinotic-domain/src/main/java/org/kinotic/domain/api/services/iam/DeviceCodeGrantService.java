@@ -1,5 +1,7 @@
 package org.kinotic.domain.api.services.iam;
 
+import org.kinotic.domain.api.model.iam.DeviceCodeGrantStart;
+import org.kinotic.domain.api.model.iam.DeviceCodePollResult;
 import org.kinotic.domain.api.model.iam.IamUser;
 
 import java.util.concurrent.CompletableFuture;

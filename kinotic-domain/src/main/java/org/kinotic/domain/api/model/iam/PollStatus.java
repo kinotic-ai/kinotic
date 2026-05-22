@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.services.iam;
+package org.kinotic.domain.api.model.iam;
 
 /**
  * The outcome of a CLI poll of a device authorization grant.
