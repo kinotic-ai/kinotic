@@ -113,18 +113,19 @@ public class AuthEndpointSupport {
     }
 
     /**
-     * Validates the {@code Bearer} token on the request and resolves the authenticated
-     * user's id (the JWT {@code sub} claim). The returned future fails when the header is
-     * missing or malformed, or when the token is invalid or expired.
+     * Resolves the id of the user authenticated on the request's browser session, or
+     * {@code null} when the request has no authenticated session.
      */
-    public Future<String> requireAuthenticatedUserId(RoutingContext ctx) {
-        String header = ctx.request().getHeader("Authorization");
-        if (header == null || !header.regionMatches(true, 0, "Bearer ", 0, 7)) {
-            return Future.failedFuture(new SecurityException("Missing or malformed Authorization header"));
+    public String authenticatedUserId(RoutingContext ctx) {
+        Session session = ctx.session();
+        if (session == null) {
+            return null;
         }
-        String token = header.substring(7).trim();
-        return jwtIssuer.authenticate(token)
-                        .map(authenticated -> authenticated.principal().getString("sub"));
+        ConnectedInfo connectedInfo = session.get(ConnectedInfo.SESSION_KEY);
+        if (connectedInfo == null || connectedInfo.getParticipant() == null) {
+            return null;
+        }
+        return connectedInfo.getParticipant().getId();
     }
 
     // ── Redirects ─────────────────────────────────────────────────────────────

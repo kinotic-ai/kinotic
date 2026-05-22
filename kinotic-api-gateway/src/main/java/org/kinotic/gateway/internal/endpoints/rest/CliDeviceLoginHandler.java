@@ -112,13 +112,15 @@ public class CliDeviceLoginHandler {
             authEndpointSupport.respondError(ctx, 400, "user_code is required");
             return;
         }
-        authEndpointSupport.requireAuthenticatedUserId(ctx)
-              .onFailure(err -> authEndpointSupport.respondError(ctx, 401, "Authentication required"))
-              .onSuccess(userId ->
-                  Future.fromCompletionStage(deviceCodeGrantService.approve(userCode, userId))
-                        .onSuccess(v -> ctx.response().putHeader("Content-Type", "application/json")
-                                           .end(new JsonObject().put("status", "approved").encode()))
-                        .onFailure(err -> authEndpointSupport.respondError(ctx, 400, err.getMessage())));
+        String userId = authEndpointSupport.authenticatedUserId(ctx);
+        if (userId == null) {
+            authEndpointSupport.respondError(ctx, 401, "Authentication required");
+            return;
+        }
+        Future.fromCompletionStage(deviceCodeGrantService.approve(userCode, userId))
+              .onSuccess(v -> ctx.response().putHeader("Content-Type", "application/json")
+                                 .end(new JsonObject().put("status", "approved").encode()))
+              .onFailure(err -> authEndpointSupport.respondError(ctx, 400, err.getMessage()));
     }
 
     private void handleRefresh(RoutingContext ctx) {
