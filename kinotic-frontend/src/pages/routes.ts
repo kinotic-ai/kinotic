@@ -243,12 +243,11 @@ const pageRoutes: RouteRecordRaw[] = [
     } as RouteMeta,
   },
   {
-    path: '/sessionUpgrade/:id',
+    path: '/device',
     meta: {
       authenticationRequired: true
     },
-    component: () => import('@/pages/CliSessionUpgrade.vue'),
-    props: true
+    component: () => import('@/pages/DeviceVerification.vue'),
   },
   {
     path: '/graphql',
