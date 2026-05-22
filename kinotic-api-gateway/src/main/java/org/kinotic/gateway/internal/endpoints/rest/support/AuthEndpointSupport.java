@@ -207,34 +207,32 @@ public class AuthEndpointSupport {
      *
      * @param userLookup takes the OIDC {@code sub} claim and returns the IamUser (or null).
      */
-    public Future<Void> completeOidcLogin(RoutingContext ctx,
-                                          BaseOidcConfiguration config,
-                                          Map<String, Object> claims,
-                                          Function<String, CompletionStage<IamUser>> userLookup) {
+    public void completeOidcLogin(RoutingContext ctx,
+                                  BaseOidcConfiguration config,
+                                  Map<String, Object> claims,
+                                  Function<String, CompletionStage<IamUser>> userLookup) {
         String sub = OAuth2Util.stringClaim(claims, "sub");
         if (sub == null) {
             redirectError(ctx, OidcConstants.ERR_INVALID_TOKEN);
-            return Future.succeededFuture();
+            return;
         }
         if (!OAuth2Util.isEmailVerified(claims, config.getProvider())) {
             redirectError(ctx, OidcConstants.ERR_EMAIL_NOT_VERIFIED);
-            return Future.succeededFuture();
+            return;
         }
-        return Future.fromCompletionStage(userLookup.apply(sub))
-                     .<Void>map(user -> {
-                         if (user == null) {
-                             redirectError(ctx, OidcConstants.ERR_NO_ACCOUNT);
-                         } else if (!user.isEnabled()) {
-                             redirectError(ctx, OidcConstants.ERR_ACCOUNT_DISABLED);
-                         } else {
-                             redirectSuccess(ctx, user);
-                         }
-                         return null;
-                     })
-                     .otherwise(err -> {
-                         log.warn("Login resolution failed: {}", err.getMessage());
-                         redirectError(ctx, OidcConstants.ERR_LOOKUP_FAILED);
-                         return null;
-                     });
+        Future.fromCompletionStage(userLookup.apply(sub))
+              .onSuccess(user -> {
+                  if (user == null) {
+                      redirectError(ctx, OidcConstants.ERR_NO_ACCOUNT);
+                  } else if (!user.isEnabled()) {
+                      redirectError(ctx, OidcConstants.ERR_ACCOUNT_DISABLED);
+                  } else {
+                      redirectSuccess(ctx, user);
+                  }
+              })
+              .onFailure(err -> {
+                  log.warn("Login resolution failed: {}", err.getMessage());
+                  redirectError(ctx, OidcConstants.ERR_LOOKUP_FAILED);
+              });
     }
 }
