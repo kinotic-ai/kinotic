@@ -246,13 +246,12 @@ export default class Login extends Vue {
     }
     this.loading = true
     try {
-      // Trade email + password for a Kinotic JWT, then open STOMP with the same Bearer
-      // path the OIDC callback uses. The frontend never sends raw credentials over the
-      // WebSocket — STOMP CONNECT only carries the JWT.
+      // Verify the password; on success the gateway establishes the browser session and sets
+      // the session cookie. credentials:'include' so the cross-origin Set-Cookie is stored.
       const res = await fetch(apiUrl('/api/login/token'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
+        credentials: 'include',
         body: JSON.stringify({ email: this.email, password: this.password })
       })
       if (!res.ok) {
@@ -260,8 +259,8 @@ export default class Login extends Vue {
         this.password = ''
         return
       }
-      const data = await res.json() as { token: string }
-      await this.userState.loginWithToken(data.token)
+      // Open the realtime connection, authenticated by the freshly set session cookie.
+      await this.userState.login()
       const referer = (this.$route.query.referer as string | undefined) || '/applications'
       await CONTINUUM_UI.navigate(referer)
     } catch (err) {
