@@ -70,22 +70,11 @@ public class AuthEndpointSupport {
     }
 
     /**
-     * Validated SPA base URL ({@code kinotic.appBaseUrl}). The SPA is a different origin than
-     * this gateway, so a post-OIDC redirect back to the browser must be absolute; throws so a
-     * misconfiguration surfaces immediately rather than redirecting the user to a dead URL.
+     * Builds an absolute SPA URL ({@code kinotic.appBaseUrl} + {@code relativePath}). The SPA is
+     * a different origin than this gateway, so redirects back to the browser must be absolute.
      */
-    public String appBase() {
-        String base = gatewayProperties.getAppBaseUrl();
-        if (base == null || base.isBlank()) {
-            throw new IllegalStateException(
-                    "kinotic.appBaseUrl is not configured — required to redirect the browser back to the SPA");
-        }
-        return base;
-    }
-
-    /** Builds an absolute SPA URL by prefixing {@code relativePath} with {@link #appBase()}. */
     public String appUrl(String relativePath) {
-        return appBase() + relativePath;
+        return gatewayProperties.getAppBaseUrl() + relativePath;
     }
 
     // ── JWT ───────────────────────────────────────────────────────────────────
