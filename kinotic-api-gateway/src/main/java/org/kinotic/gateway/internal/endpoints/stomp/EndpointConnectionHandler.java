@@ -21,7 +21,6 @@ import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.internal.utils.EventUtil;
-import org.kinotic.gateway.internal.api.CliSecurityService;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,12 +50,7 @@ public class EndpointConnectionHandler {
 
     public EndpointConnectionHandler(Services services) {
         this.services = services;
-
-        if(services.apiGatewayProperties.isEnableCLIConnections()){
-            this.securityService = new CliSecurityService(services.securityService);
-        }else{
-            this.securityService = services.securityService;
-        }
+        this.securityService = services.securityService;
     }
 
     public CompletableFuture<MultiMap> handshake(RoutingContext routingContext) {

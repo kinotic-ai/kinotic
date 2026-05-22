@@ -19,12 +19,6 @@ public class ApiGatewayProperties {
     public static String DEFAULT_STOMP_WEBSOCKET_PATH = "/v1";
 
     /**
-     * Denotes if the CLI connections should be enabled or not
-     * True if CLI connections should be enabled false if not
-     */
-    private boolean enableCLIConnections = true;
-
-    /**
      * How long a session should last in milliseconds.
      */
     private long sessionTimeout = DEFAULT_SESSION_TIMEOUT;

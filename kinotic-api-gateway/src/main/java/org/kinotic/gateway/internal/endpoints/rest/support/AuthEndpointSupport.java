@@ -90,6 +90,35 @@ public class AuthEndpointSupport {
         ctx.response().putHeader("Content-Type", "application/json").end(body.encode());
     }
 
+    /**
+     * {@code 200 application/json} with the OAuth token-pair shape consumed by the CLI:
+     * a short-TTL {@code access_token} plus the {@code refresh_token} the client persists
+     * to mint future access tokens.
+     */
+    public void respondTokenPair(RoutingContext ctx, IamUser user, String refreshToken) {
+        JsonObject body = new JsonObject()
+                .put("access_token", mintJwt(user))
+                .put("token_type", "Bearer")
+                .put("expires_in", JWT_TTL_SECONDS)
+                .put("refresh_token", refreshToken);
+        ctx.response().putHeader("Content-Type", "application/json").end(body.encode());
+    }
+
+    /**
+     * Validates the {@code Bearer} token on the request and resolves the authenticated
+     * user's id (the JWT {@code sub} claim). The returned future fails when the header is
+     * missing or malformed, or when the token is invalid or expired.
+     */
+    public Future<String> requireAuthenticatedUserId(RoutingContext ctx) {
+        String header = ctx.request().getHeader("Authorization");
+        if (header == null || !header.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return Future.failedFuture(new SecurityException("Missing or malformed Authorization header"));
+        }
+        String token = header.substring(7).trim();
+        return jwtIssuer.authenticate(token)
+                        .map(authenticated -> authenticated.principal().getString("sub"));
+    }
+
     // ── Redirects ─────────────────────────────────────────────────────────────
 
     /**
