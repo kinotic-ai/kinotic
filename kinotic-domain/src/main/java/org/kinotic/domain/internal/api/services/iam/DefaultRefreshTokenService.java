@@ -3,7 +3,6 @@ package org.kinotic.domain.internal.api.services.iam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.model.iam.IssuedRefreshToken;
 import org.kinotic.domain.api.model.iam.RefreshTokenRotation;
 import org.kinotic.domain.api.services.iam.RefreshTokenService;
 import org.kinotic.domain.internal.api.model.RefreshToken;
@@ -31,10 +30,10 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
     private final IamUserRepository iamUserRepository;
 
     @Override
-    public CompletableFuture<IssuedRefreshToken> issue(String userId) {
+    public CompletableFuture<String> issue(String userId) {
         Validate.notBlank(userId, "userId is required");
         return mint(userId, UUID.randomUUID().toString())
-                .thenApply(minted -> new IssuedRefreshToken(minted.plaintext(), minted.record().getExpiresAt()));
+                .thenApply(Minted::plaintext);
     }
 
     @Override
@@ -72,10 +71,7 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                                        .setLastUsedAt(new Date())
                                        .setReplacedById(minted.record().getId());
                                 return refreshTokenRepository.saveSync(current)
-                                        .thenApply(v -> new RefreshTokenRotation(
-                                                user,
-                                                new IssuedRefreshToken(minted.plaintext(),
-                                                                       minted.record().getExpiresAt())));
+                                        .thenApply(v -> new RefreshTokenRotation(user, minted.plaintext()));
                             });
                 });
     }

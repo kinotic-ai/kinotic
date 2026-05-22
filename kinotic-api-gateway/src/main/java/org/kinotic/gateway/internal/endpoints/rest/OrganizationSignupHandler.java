@@ -163,8 +163,7 @@ public class OrganizationSignupHandler {
         }
 
         Future.fromCompletionStage(pendingRegistrationService.completeWithNewOrg(token, orgName, orgDescription))
-              .onSuccess(user -> authEndpointSupport.respondSuccess(ctx, user,
-                      new JsonObject().put("orgId", user.getAuthScopeId())))
+              .onSuccess(user -> authEndpointSupport.respondSuccess(ctx, user))
               .onFailure(ex -> {
                   Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
                   authEndpointSupport.respondError(ctx, 400, cause.getMessage());

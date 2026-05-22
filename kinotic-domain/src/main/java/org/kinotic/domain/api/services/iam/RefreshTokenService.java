@@ -1,7 +1,6 @@
 package org.kinotic.domain.api.services.iam;
 
 import org.kinotic.domain.api.model.iam.IamUser;
-import org.kinotic.domain.api.model.iam.IssuedRefreshToken;
 import org.kinotic.domain.api.model.iam.RefreshTokenRotation;
 
 import java.util.concurrent.CompletableFuture;
@@ -18,8 +17,9 @@ public interface RefreshTokenService {
      * Issues a new refresh token in a new family for the given user.
      *
      * @param userId id of the {@link IamUser} the token will authenticate
+     * @return the plaintext refresh token — available only here, the server stores only its hash
      */
-    CompletableFuture<IssuedRefreshToken> issue(String userId);
+    CompletableFuture<String> issue(String userId);
 
     /**
      * Validates and rotates a refresh token: the presented token is revoked and a fresh one

@@ -99,7 +99,7 @@ public class CliDeviceLoginHandler {
 
     private void issueTokensForApprovedGrant(RoutingContext ctx, DeviceCodePollResult result) {
         Future.fromCompletionStage(refreshTokenService.issue(result.user().getId()))
-              .onSuccess(issued -> authEndpointSupport.respondTokenPair(ctx, result.user(), issued.token()))
+              .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(ctx, result.user(), refreshToken))
               .onFailure(err -> {
                   log.warn("Could not issue refresh token after device approval: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 500, "Could not issue tokens");
@@ -130,7 +130,7 @@ public class CliDeviceLoginHandler {
         Future.fromCompletionStage(refreshTokenService.rotate(refreshToken))
               .onSuccess(rotation -> authEndpointSupport.respondTokenPair(ctx,
                                                                           rotation.user(),
-                                                                          rotation.issued().token()))
+                                                                          rotation.refreshToken()))
               .onFailure(err -> {
                   log.warn("Refresh token rotation failed: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 400, "invalid_grant");

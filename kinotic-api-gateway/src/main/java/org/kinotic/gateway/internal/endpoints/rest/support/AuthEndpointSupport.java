@@ -99,17 +99,10 @@ public class AuthEndpointSupport {
         session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
     }
 
-    /** Establishes the browser session for {@code user}, then writes {@code 200 application/json {}}. */
+    /** Establishes the browser session for {@code user} and writes {@code 204 No Content}. */
     public void respondSuccess(RoutingContext ctx, IamUser user) {
-        respondSuccess(ctx, user, null);
-    }
-
-    /** {@link #respondSuccess(RoutingContext, IamUser)} with extra fields added to the response body. */
-    public void respondSuccess(RoutingContext ctx, IamUser user, JsonObject extras) {
         establishSession(ctx, user);
-        JsonObject body = new JsonObject();
-        if (extras != null) extras.forEach(e -> body.put(e.getKey(), e.getValue()));
-        ctx.response().putHeader("Content-Type", "application/json").end(body.encode());
+        ctx.response().setStatusCode(204).end();
     }
 
     /**
