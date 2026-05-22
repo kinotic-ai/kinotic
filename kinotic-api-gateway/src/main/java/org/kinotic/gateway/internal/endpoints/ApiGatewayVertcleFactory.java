@@ -39,6 +39,7 @@ public class ApiGatewayVertcleFactory {
     private final ApplicationLoginHandler applicationLoginHandler;
     private final SystemLoginHandler systemLoginHandler;
     private final CliDeviceLoginHandler cliDeviceLoginHandler;
+    private final LogoutHandler logoutHandler;
     private final GitHubGatewayRoutes githubGatewayRoutes;
     private final HealthChecks healthChecks;
     private final Vertx vertx;
@@ -77,6 +78,7 @@ public class ApiGatewayVertcleFactory {
         organizationSignupHandler.mountRoutes(router);
         applicationLoginHandler.mountRoutes(router);
         cliDeviceLoginHandler.mountRoutes(router);
+        logoutHandler.mountRoutes(router);
         //systemLoginHandler.mountRoutes(router);
         githubGatewayRoutes.mountRoutes(router);
 
