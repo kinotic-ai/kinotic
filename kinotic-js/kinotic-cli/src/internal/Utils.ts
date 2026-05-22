@@ -1,37 +1,22 @@
-import {
-    ConnectedInfo,
-    ConnectionInfo,
-    Kinotic,
-    Event,
-    EventConstants,
-    IEvent,
-    ParticipantConstants
-} from '@kinotic-ai/core'
+import {ConnectionInfo, IWebSocket, Kinotic} from '@kinotic-ai/core'
 import {C3Type, FunctionDefinition, ObjectC3Type} from '@kinotic-ai/idl'
+import {confirm} from '@inquirer/prompts'
 import fs from 'fs'
 import fsPromises from 'fs/promises'
-import { confirm } from '@inquirer/prompts'
 import open from 'open'
 import pTimeout from 'p-timeout'
 import path from 'path'
 import {IndentationText, Node, Project} from 'ts-morph'
-import {v4 as uuidv4} from 'uuid'
+import {WebSocket} from 'ws'
 import {createConversionContext} from './converter/IConversionContext'
 import {TypescriptConversionState} from './converter/typescript/TypescriptConversionState'
 import {TypescriptConverterStrategy} from './converter/typescript/TypescriptConverterStrategy'
+import {createStateManager} from './state/IStateManager'
 import {Logger} from './Logger'
 
 export type GeneratedServiceInfo = {
     entityServiceName: string
     namedQueries: FunctionDefinition[]
-}
-export class SessionMetadata {
-    public sessionId!: string
-    public replyToId!: string
-    constructor(sessionId: string, replyToId: string) {
-        this.sessionId = sessionId
-        this.replyToId = replyToId
-    }
 }
 
 function isEmpty(value: any): boolean {
@@ -55,141 +40,204 @@ export function jsonStringifyReplacer(key: any, value: any) {
            : value;
 }
 
-/**
- * Connects to the server and upgrades the session to a CLI session
- * Currently this works by connecting and waiting for the clients session id on the event bus
- * The cli then disconnects and reconnects using the clients' session.
- * This will be replaced when the server supports a session upgrade command
- * @param server the server to connect to
- * @param logger the logger to use
- * @param authHeadersFile path to a file containing the auth headers
- * @return true if the session was upgraded successfully
- */
-export async function connectAndUpgradeSession(server: string, logger: Logger, authHeadersFile?: string): Promise<boolean>{
-    try {
-        const serverURL: URL = new URL(server)
+/** OAuth 2.0 token-pair returned by the device-authorization endpoints. */
+interface DeviceTokens {
+    access_token: string
+    refresh_token: string
+}
 
-        if(serverURL.protocol !== 'http:' && serverURL.protocol !== 'https:'){
+/** Resolved gateway endpoints for a server url — REST and STOMP share the gateway host/port. */
+interface ServerTarget {
+    host: string
+    port: number
+    useSSL: boolean
+    restBaseUrl: string
+    wsUrl: string
+}
+
+/** State key the rotating refresh token is persisted under, keyed by server url. */
+const CREDENTIALS_KEY = 'kinotic-credentials'
+
+/**
+ * Connects {@link Kinotic} to the server, authenticating via the OAuth 2.0 Device
+ * Authorization Grant (RFC 8628). A previously stored refresh token is reused when valid;
+ * otherwise the user is walked through a browser login. The rotated refresh token is
+ * persisted so subsequent runs are non-interactive.
+ *
+ * @param server the server to connect to
+ * @param configDir directory the rotating refresh token is persisted in
+ * @param logger the logger to use
+ * @return true if the connection was established
+ */
+export async function connectAndUpgradeSession(server: string,
+                                               configDir: string,
+                                               logger: Logger): Promise<boolean> {
+    try {
+        const target = parseServer(server)
+        if (target === null) {
             logger.log('Invalid server URL, only http and https are supported')
             return false
         }
 
-        let connectionInfo: ConnectionInfo = {host: ''}
-        if (serverURL.hostname === 'localhost' || serverURL.hostname === '127.0.0.1') {
-            connectionInfo.host = serverURL.hostname
-            connectionInfo.port = 58503
-            if(serverURL.protocol === 'https:'){
-                connectionInfo.useSSL = true
-            }
-        } else {
-            connectionInfo.host = serverURL.hostname
-            if(serverURL.protocol === 'https:'){
-                connectionInfo.useSSL = true
-                connectionInfo.port = 443
-            }
-            if(serverURL.port){
-                connectionInfo.port = Number(serverURL.port)
-            }else if(!connectionInfo.useSSL){
-                connectionInfo.port = 58503
-            }
+        let tokens = await tryStoredRefreshToken(target.restBaseUrl, configDir, server, logger)
+        if (tokens === null) {
+            tokens = await deviceLogin(target.restBaseUrl, logger)
         }
-
-        if(authHeadersFile){
-            if(!fs.existsSync(authHeadersFile)){
-                logger.log(`Authentication header file ${authHeadersFile} does not exist. Please provide a valid file.`)
-                return false
-            }else{
-                logger.log(`Authentication header file ${authHeadersFile} loaded successfully. Using authentication headers to connect to the Kinotic Server.`)
-            }
-            const authHeaders = JSON.parse(fs.readFileSync(authHeadersFile, 'utf8'))
-            connectionInfo.connectHeaders = authHeaders
-            const connectedInfo: ConnectedInfo = await pTimeout(Kinotic.connect(connectionInfo), {
-                milliseconds: 60000,
-                message: 'Connection timeout trying to connect to the Kinotic Server'
-            })
-            if(connectedInfo){
-                return true
-            }else{
-                return false
-            }
-        }else{
-
-            connectionInfo.connectHeaders = {
-                login: ParticipantConstants.CLI_PARTICIPANT_ID
-            }
-            const connectedInfo: ConnectedInfo = await pTimeout(Kinotic.connect(connectionInfo), {
-                milliseconds: 60000,
-                message: 'Connection timeout trying to connect to the Kinotic Server'
-            })
-
-            if (connectedInfo) {
-                // This works because any client can subscribe to a destination that is scoped to the connectedInfo.replyToId
-                const scope = connectedInfo.replyToId + ':' + uuidv4()
-                const url = server + (server.endsWith('/') ? '' : '/') + '#/sessionUpgrade/' + encodeURIComponent(scope)
-                logger.log('Authenticate your account at:')
-                logger.log(url)
-
-                const answer = await confirm({
-                    message: 'Open in browser?',
-                    default: true,
-                })
-                if(answer) {
-                    await open(url)
-                }else{
-                    logger.log('Browser will not be opened. You must authenticate your account before continuing.')
-                }
-
-                const sessionMetadata = await receiveSessionId(scope)
-
-                await Kinotic.disconnect()
-
-                connectionInfo.connectHeaders = {
-                    session: sessionMetadata.sessionId
-                }
-                // Provide this so the continuum client will use the same replyToId as the session
-                connectionInfo.connectHeaders[EventConstants.REPLY_TO_ID_HEADER] = sessionMetadata.replyToId
-
-                await Kinotic.connect(connectionInfo)
-                logger.log('Authenticated successfully\n')
-                return true
-            }else{
-                logger.log("Could not connect to the Kinotic Server. Please check the server is running and the URL is correct.")
-                return false
-            }
+        if (tokens === null) {
+            return false
         }
+        await saveRefreshToken(configDir, server, tokens.refresh_token)
+
+        const accessToken = tokens.access_token
+        const connectionInfo = new ConnectionInfo()
+        connectionInfo.host = target.host
+        connectionInfo.port = target.port
+        connectionInfo.useSSL = target.useSSL
+        // The CLI is a Node client, so it attaches the access token as a WebSocket upgrade
+        // header rather than relying on a browser session cookie.
+        connectionInfo.webSocketFactory = () => new WebSocket(target.wsUrl, {
+            headers: {Authorization: 'Bearer ' + accessToken}
+        }) as unknown as IWebSocket
+
+        await pTimeout(Kinotic.connect(connectionInfo), {
+            milliseconds: 60000,
+            message: 'Connection timeout trying to connect to the Kinotic Server'
+        })
+        logger.log('Authenticated successfully\n')
+        return true
     } catch (e) {
-        logger.log("Could not connect to the Kinotic Server. Please check the server is running and the URL is correct.", e)
+        logger.log('Could not connect to the Kinotic Server. Please check the server is running and the URL is correct.', e)
         return false
     }
 }
 
-function receiveSessionId(scope: string): Promise<SessionMetadata> {
-    const subscribeCRI = EventConstants.SERVICE_DESTINATION_PREFIX + scope + '@kinotic.cli.SessionUpgradeService'
+/** Parses the server url into the host/port the gateway serves both REST and STOMP on. */
+function parseServer(server: string): ServerTarget | null {
+    const url = new URL(server)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        return null
+    }
+    const useSSL = url.protocol === 'https:'
+    // Locally the server url often points at the static web port; the gateway (REST + STOMP)
+    // always listens on 58503, so the port is overridden.
+    let port: number
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+        port = 58503
+    } else if (url.port) {
+        port = Number(url.port)
+    } else {
+        port = useSSL ? 443 : 58503
+    }
+    return {
+        host: url.hostname,
+        port,
+        useSSL,
+        restBaseUrl: (useSSL ? 'https' : 'http') + '://' + url.hostname + ':' + port,
+        wsUrl: (useSSL ? 'wss' : 'ws') + '://' + url.hostname + ':' + port + '/v1'
+    }
+}
 
-    return new Promise<SessionMetadata>((resolve, reject) => {
-        const subscription = Kinotic.eventBus.observe(subscribeCRI).subscribe((value: IEvent) => {
-            // send reply to user
-            const replyTo = value.getHeader(EventConstants.REPLY_TO_HEADER)
-            if (replyTo) {
-                const replyEvent = new Event(replyTo)
-                const correlationId = value.getHeader(EventConstants.CORRELATION_ID_HEADER)
-                if (correlationId) {
-                    replyEvent.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
-                }
-                replyEvent.setHeader(EventConstants.CONTENT_TYPE_HEADER, EventConstants.CONTENT_JSON)
-                Kinotic.eventBus.send(replyEvent)
-            }
+/** Runs the RFC 8628 device-authorization flow: start, browser approval, then poll for tokens. */
+async function deviceLogin(restBaseUrl: string, logger: Logger): Promise<DeviceTokens | null> {
+    const startRes = await fetch(restBaseUrl + '/api/login/device/start', {method: 'POST'})
+    if (!startRes.ok) {
+        logger.log('Could not start device authorization with the Kinotic Server.')
+        return null
+    }
+    const start = await startRes.json() as {
+        device_code: string
+        user_code: string
+        verification_uri_complete: string
+        expires_in: number
+        interval: number
+    }
 
-            subscription.unsubscribe()
+    logger.log('Authenticate your account at:')
+    logger.log(start.verification_uri_complete)
+    logger.log(`Your code is: ${start.user_code}`)
 
-            const jsonObj: Array<SessionMetadata> = JSON.parse(value.getDataString())
-            if(jsonObj?.length > 0){
-                resolve(jsonObj[0])
-            }else {
-                reject('No Session Id found in data')
-            }
+    const answer = await confirm({message: 'Open in browser?', default: true})
+    if (answer) {
+        await open(start.verification_uri_complete)
+    }
+
+    const deadline = Date.now() + start.expires_in * 1000
+    let intervalMs = Math.max(start.interval, 1) * 1000
+    while (Date.now() < deadline) {
+        await delay(intervalMs)
+        const tokenRes = await fetch(restBaseUrl + '/api/login/device/token', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({device_code: start.device_code})
         })
+        if (tokenRes.ok) {
+            return await tokenRes.json() as DeviceTokens
+        }
+        const error = await readErrorCode(tokenRes)
+        if (error === 'authorization_pending') {
+            continue
+        } else if (error === 'slow_down') {
+            intervalMs += 5000
+        } else {
+            logger.log(`Device authorization failed: ${error}`)
+            return null
+        }
+    }
+    logger.log('Device authorization timed out before it was approved.')
+    return null
+}
+
+/** Reuses a stored refresh token for {@code server}; null when there is none or it is rejected. */
+async function tryStoredRefreshToken(restBaseUrl: string,
+                                     configDir: string,
+                                     server: string,
+                                     logger: Logger): Promise<DeviceTokens | null> {
+    const refreshToken = await loadRefreshToken(configDir, server)
+    if (refreshToken === null) {
+        return null
+    }
+    const res = await fetch(restBaseUrl + '/api/login/device/refresh', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({refresh_token: refreshToken})
     })
+    if (res.ok) {
+        return await res.json() as DeviceTokens
+    }
+    logger.log('Stored credentials are no longer valid, a new login is required.')
+    return null
+}
+
+async function loadRefreshToken(configDir: string, server: string): Promise<string | null> {
+    const stateManager = createStateManager(configDir)
+    if (!(await stateManager.containsState(CREDENTIALS_KEY))) {
+        return null
+    }
+    const credentials = await stateManager.load<Record<string, string>>(CREDENTIALS_KEY)
+    return credentials[server] ?? null
+}
+
+async function saveRefreshToken(configDir: string, server: string, refreshToken: string): Promise<void> {
+    const stateManager = createStateManager(configDir)
+    let credentials: Record<string, string> = {}
+    if (await stateManager.containsState(CREDENTIALS_KEY)) {
+        credentials = await stateManager.load<Record<string, string>>(CREDENTIALS_KEY)
+    }
+    credentials[server] = refreshToken
+    await stateManager.save(CREDENTIALS_KEY, credentials)
+}
+
+async function readErrorCode(res: Response): Promise<string> {
+    try {
+        const body = await res.json() as {error?: string}
+        return body.error ?? 'unknown_error'
+    } catch {
+        return 'unknown_error'
+    }
+}
+
+function delay(ms: number): Promise<void> {
+    return new Promise<void>(resolve => setTimeout(resolve, ms))
 }
 
 export type EntityInfo = {
