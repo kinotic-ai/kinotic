@@ -10,8 +10,6 @@ import java.util.concurrent.CompletableFuture;
  * Drives the server side of the OAuth 2.0 Device Authorization Grant (RFC 8628) for CLI
  * logins: starting a flow, polling it from the CLI, and approving it from an authenticated
  * browser.
- * <p>
- * Not a {@code @Publish} service — called in-process from the gateway's HTTP handlers.
  */
 public interface DeviceCodeGrantService {
 
@@ -23,7 +21,7 @@ public interface DeviceCodeGrantService {
 
     /**
      * Polls a pending grant by its {@code device_code}. Once the grant has been approved it
-     * is consumed (deleted) and the approving user returned.
+     * is consumed (deleted), and the approving user returned.
      *
      * @param deviceCode the plaintext device code issued by {@link #start()}
      */
