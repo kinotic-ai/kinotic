@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component;
  *   <li>{@code POST /api/app/:appId/login/lookup {email}} — email-first SSO/password
  *       decision. If the IamUser is OIDC and their config is live, returns
  *       {@code {type: "sso", redirect: "..."}}. Otherwise {@code {type: "password"}}.</li>
- *   <li>{@code POST /api/app/:appId/login/token {email, password}} — local password auth,
+ *   <li>{@code POST /api/app/:appId/login {email, password}} — local password auth,
  *       scoped to the application so a stray cross-scope match (dev SYSTEM admin, etc.)
  *       can't authenticate against an app endpoint.</li>
  *   <li>{@code GET /api/app/:appId/login/callback/:configId} — IdP returns here.</li>
@@ -59,7 +59,7 @@ public class ApplicationLoginHandler {
     public void mountRoutes(Router router) {
         router.get(OidcConstants.APP_LOGIN_BASE + "/providers").handler(this::handleProviders);
         router.post(OidcConstants.APP_LOGIN_BASE + "/lookup").handler(this::handleLookup);
-        router.post(OidcConstants.APP_LOGIN_BASE + "/token").handler(this::handleToken);
+        router.post(OidcConstants.APP_LOGIN_BASE).handler(this::handleLogin);
         router.get(OidcConstants.APP_LOGIN_BASE + "/callback/:configId").handler(this::handleCallback);
     }
 
@@ -112,9 +112,9 @@ public class ApplicationLoginHandler {
                      });
     }
 
-    private void handleToken(RoutingContext ctx) {
+    private void handleLogin(RoutingContext ctx) {
         String appId = ctx.pathParam("appId");
-        authEndpointSupport.handlePasswordToken(ctx,
+        authEndpointSupport.handlePasswordLogin(ctx,
                 (email, password) -> localAuthenticationService.authenticateLocal(
                         email, password, AuthScopeType.APPLICATION.name(), appId));
     }

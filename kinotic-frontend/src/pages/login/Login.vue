@@ -248,7 +248,7 @@ export default class Login extends Vue {
     try {
       // Verify the password; on success the gateway establishes the browser session and sets
       // the session cookie. credentials:'include' so the cross-origin Set-Cookie is stored.
-      const res = await fetch(apiUrl('/api/login/token'), {
+      const res = await fetch(apiUrl('/api/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
