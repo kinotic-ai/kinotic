@@ -47,26 +47,11 @@ public class AuthEndpointSupport {
 
 
     /**
-     * Validated API base URL. Required for OIDC redirect_uri construction; throws so any
-     * misconfiguration surface at the first request rather than producing a malformed
-     * redirect that the IdP will reject.
-     */
-    public String apiBase() {
-        String base = gatewayProperties.resolveApiBaseUrl();
-        if (base == null || base.isBlank()) {
-            throw new IllegalStateException(
-                    "kinotic.apiBaseUrl (or kinotic.appBaseUrl) is not configured — "
-                    + "required for OIDC redirect_uri construction");
-        }
-        return base;
-    }
-
-    /**
-     * Builds an absolute URL by prefixing {@code relativePath} with {@link #apiBase()}.
-     * Centralizes the apiBase validation so handlers' callback-URL builders are one-liners.
+     * Builds an absolute backend URL ({@code kinotic.apiBaseUrl}, falling back to
+     * {@code appBaseUrl}, + {@code relativePath}) — used for OIDC {@code redirect_uri}s.
      */
     public String absoluteUrl(String relativePath) {
-        return apiBase() + relativePath;
+        return gatewayProperties.resolveApiBaseUrl() + relativePath;
     }
 
     /**
