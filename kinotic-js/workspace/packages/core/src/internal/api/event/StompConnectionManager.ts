@@ -123,16 +123,15 @@ export class StompConnectionManager {
                 webSocketFactory: userWebSocketFactory ? () => preparedSocket as IWebSocket : undefined,
                 beforeConnect: async (): Promise<void> => {
 
-                    // If max connections are set then make sure we have not exceeded that threshold
+                    // If max connections are set, then make sure we have not exceeded that threshold
                     if(connectionInfo?.maxConnectionAttempts){
                         this.connectionAttempts++
 
                         if(this.connectionAttempts > connectionInfo.maxConnectionAttempts){
                             this.maxConnectionAttemptsReached = true
-                            const wsMessage = (this.lastWebsocketError as any)?.message ?? 'UNKNOWN'
                             // signalFatal rejects activate() via initialFailureSubscription on the initial-connect path.
                             await this.signalFatal(new Error(
-                                `Max number of reconnection attempts reached. Last WS Error ${wsMessage}`,
+                                'Max number of reconnection attempts reached',
                                 { cause: this.lastWebsocketError ?? undefined }
                             ))
                             return
@@ -187,7 +186,6 @@ export class StompConnectionManager {
 
             // Route any fatal error that arrives before the initial connection succeeds into
             // the activate() promise so the caller learns why the connection never came up.
-            // signalFatal has already deactivated by the time we get here.
             const initialFailureSubscription: Subscription = this.fatalErrorsSubject.subscribe((err: Error) => {
                 connectedSubscription.unsubscribe()
                 initialFailureSubscription.unsubscribe()
@@ -195,8 +193,7 @@ export class StompConnectionManager {
             })
 
             // Triggered on every CONNECTED frame, including reconnects. The replyToId is generated
-            // server side, so on reconnect it may change (it always does with
-            // SessionKeepAliveMode.NONE since no session carries it across connections).
+            // server side, so on reconnect it may change.
             this.serverHeadersSubscription = this.rxStomp.serverHeaders$.subscribe(async (value: StompHeaders) => {
                 const connectedInfoJson: string | undefined = value[EventConstants.CONNECTED_INFO_HEADER]
                 if (connectedInfoJson == null) {
