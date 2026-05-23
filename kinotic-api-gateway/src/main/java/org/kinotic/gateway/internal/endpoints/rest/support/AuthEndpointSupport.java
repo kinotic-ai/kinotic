@@ -112,22 +112,6 @@ public class AuthEndpointSupport {
         ctx.response().putHeader("Content-Type", "application/json").end(body.encode());
     }
 
-    /**
-     * Resolves the id of the user authenticated on the request's browser session, or
-     * {@code null} when the request has no authenticated session.
-     */
-    public String authenticatedUserId(RoutingContext ctx) {
-        Session session = ctx.session();
-        if (session == null) {
-            return null;
-        }
-        ConnectedInfo connectedInfo = session.get(ConnectedInfo.SESSION_KEY);
-        if (connectedInfo == null || connectedInfo.getParticipant() == null) {
-            return null;
-        }
-        return connectedInfo.getParticipant().getId();
-    }
-
     // ── Redirects ─────────────────────────────────────────────────────────────
 
     /**
