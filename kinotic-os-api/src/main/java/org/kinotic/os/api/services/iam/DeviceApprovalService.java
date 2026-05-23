@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.services.iam;
+package org.kinotic.os.api.services.iam;
 
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.security.Participant;

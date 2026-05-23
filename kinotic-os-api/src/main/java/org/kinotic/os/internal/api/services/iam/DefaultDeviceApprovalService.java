@@ -1,9 +1,9 @@
-package org.kinotic.domain.internal.api.services.iam;
+package org.kinotic.os.internal.api.services.iam;
 
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.domain.api.services.iam.DeviceApprovalService;
 import org.kinotic.domain.api.services.iam.DeviceCodeGrantService;
+import org.kinotic.os.api.services.iam.DeviceApprovalService;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
