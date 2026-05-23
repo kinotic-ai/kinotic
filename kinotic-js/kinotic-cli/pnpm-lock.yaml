@@ -12,17 +12,17 @@ importers:
         specifier: ^8.3.2
         version: 8.3.2(@types/node@25.5.0)
       '@kinotic-ai/core':
-        specifier: ^1.3.0
-        version: 1.3.0(typescript@5.9.3)
+        specifier: ^1.3.1
+        version: 1.3.1(typescript@5.9.3)
       '@kinotic-ai/idl':
         specifier: ^1.0.9
         version: 1.0.9(typescript@5.9.3)
       '@kinotic-ai/os-api':
         specifier: ^1.4.0
-        version: 1.5.0(@kinotic-ai/core@1.3.0(typescript@5.9.3))(typescript@5.9.3)
+        version: 1.5.0(@kinotic-ai/core@1.3.1(typescript@5.9.3))(typescript@5.9.3)
       '@kinotic-ai/persistence':
         specifier: ^1.2.1
-        version: 1.2.1(@kinotic-ai/core@1.3.0(typescript@5.9.3))(typescript@5.9.3)
+        version: 1.2.1(@kinotic-ai/core@1.3.1(typescript@5.9.3))(typescript@5.9.3)
       '@oclif/core':
         specifier: ^4.9.0
         version: 4.9.0
@@ -42,8 +42,8 @@ importers:
         specifier: ^16.13.1
         version: 16.13.1
       liquidjs:
-        specifier: 10.25.1
-        version: 10.25.1
+        specifier: 10.25.7
+        version: 10.25.7
       open:
         specifier: ^11.0.0
         version: 11.0.0
@@ -60,8 +60,8 @@ importers:
         specifier: ^0.2.2
         version: 0.2.2
       simple-git:
-        specifier: ^3.33.0
-        version: 3.33.0
+        specifier: 3.36.0
+        version: 3.36.0
       terminal-link:
         specifier: ^5.0.0
         version: 5.0.0
@@ -477,8 +477,8 @@ packages:
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
     engines: {node: '>=12'}
 
-  '@kinotic-ai/core@1.3.0':
-    resolution: {integrity: sha512-O6G2wPyDeTqvZzUYx+HFAKdTcqchwoBdRsv1yZoYgrhhv8aZDmTlKM3D3bcMzVaS3cWmCDFKkDKewt/dPv/1YQ==}
+  '@kinotic-ai/core@1.3.1':
+    resolution: {integrity: sha512-E2+HCNy5m/bMZLjMJLYRpbE4+W25iMyVshjwXNlp230lFV8qpjMuaYyE49PD13oYyxeA6Ml25VUBnTnpBycCzg==}
     peerDependencies:
       typescript: '*'
     peerDependenciesMeta:
@@ -547,6 +547,12 @@ packages:
 
   '@sec-ant/readable-stream@0.4.1':
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
+
+  '@simple-git/args-pathspec@1.0.3':
+    resolution: {integrity: sha512-ngJMaHlsWDTfjyq9F3VIQ8b7NXbBLq5j9i5bJ6XLYtD6qlDXT7fdKY2KscWWUF8t18xx052Y/PUO1K1TRc9yKA==}
+
+  '@simple-git/argv-parser@1.1.1':
+    resolution: {integrity: sha512-Q9lBcfQ+VQCpQqGJFHe5yooOS5hGdLFFbJ5R+R5aDsnkPCahtn1hSkMcORX65J2Z5lxSkD0lQorMsncuBQxYUw==}
 
   '@sindresorhus/merge-streams@4.0.0':
     resolution: {integrity: sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ==}
@@ -1239,8 +1245,8 @@ packages:
     resolution: {integrity: sha512-/vlFKAoH5Cgt3Ie+JLhRbwOsCQePABiU3tJ1egGvyQ+33R/vcwM2Zl2QR/LzjsBeItPt3oSVXapn+m4nQDvpzw==}
     engines: {node: '>=14'}
 
-  liquidjs@10.25.1:
-    resolution: {integrity: sha512-D+jsJvkGigFn8qNUgh8U6XNHhGFBp+p8Dk26ea/Hl+XrjFVSg9OXlN31hGAfS3MYQ3Kr8Xi9sEVBVQa/VTVSmg==}
+  liquidjs@10.25.7:
+    resolution: {integrity: sha512-rPCjJLiD4eDhQjvv964AeXFC+HbeYBbZrd7Z82Q6hqv1lX7G+5w4SJcKLn9CAAAwHI4aS3dTdo083UB79K3pDA==}
     engines: {node: '>=16'}
     hasBin: true
 
@@ -1593,8 +1599,8 @@ packages:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
 
-  simple-git@3.33.0:
-    resolution: {integrity: sha512-D4V/tGC2sjsoNhoMybKyGoE+v8A60hRawKQ1iFRA1zwuDgGZCBJ4ByOzZ5J8joBbi4Oam0qiPH+GhzmSBwbJng==}
+  simple-git@3.36.0:
+    resolution: {integrity: sha512-cGQjLjK8bxJw4QuYT7gxHw3/IouVESbhahSsHrX97MzCL1gu2u7oy38W6L2ZIGECEfIBG4BabsWDPjBxJENv9Q==}
 
   slash@3.0.0:
     resolution: {integrity: sha512-g9Q1haeby36OSStwb4ntCGGGaKsaVSjQ68fBxoQcutl5fS1vuY18H3wSt3jFyFtrkx+Kz0V1G85A4MyAdDMi2Q==}
@@ -2065,7 +2071,7 @@ snapshots:
       wrap-ansi: 8.1.0
       wrap-ansi-cjs: wrap-ansi@7.0.0
 
-  '@kinotic-ai/core@1.3.0(typescript@5.9.3)':
+  '@kinotic-ai/core@1.3.1(typescript@5.9.3)':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.40.0
@@ -2089,18 +2095,18 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
-  '@kinotic-ai/os-api@1.5.0(@kinotic-ai/core@1.3.0(typescript@5.9.3))(typescript@5.9.3)':
+  '@kinotic-ai/os-api@1.5.0(@kinotic-ai/core@1.3.1(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
-      '@kinotic-ai/core': 1.3.0(typescript@5.9.3)
+      '@kinotic-ai/core': 1.3.1(typescript@5.9.3)
       '@kinotic-ai/idl': 1.0.9(typescript@5.9.3)
-      '@kinotic-ai/persistence': 1.2.1(@kinotic-ai/core@1.3.0(typescript@5.9.3))(typescript@5.9.3)
+      '@kinotic-ai/persistence': 1.2.1(@kinotic-ai/core@1.3.1(typescript@5.9.3))(typescript@5.9.3)
       rxjs: 7.8.2
     optionalDependencies:
       typescript: 5.9.3
 
-  '@kinotic-ai/persistence@1.2.1(@kinotic-ai/core@1.3.0(typescript@5.9.3))(typescript@5.9.3)':
+  '@kinotic-ai/persistence@1.2.1(@kinotic-ai/core@1.3.1(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
-      '@kinotic-ai/core': 1.3.0(typescript@5.9.3)
+      '@kinotic-ai/core': 1.3.1(typescript@5.9.3)
       '@kinotic-ai/idl': 1.0.9(typescript@5.9.3)
       reflect-metadata: 0.2.2
       rxjs: 7.8.2
@@ -2156,6 +2162,12 @@ snapshots:
     optional: true
 
   '@sec-ant/readable-stream@0.4.1': {}
+
+  '@simple-git/args-pathspec@1.0.3': {}
+
+  '@simple-git/argv-parser@1.1.1':
+    dependencies:
+      '@simple-git/args-pathspec': 1.0.3
 
   '@sindresorhus/merge-streams@4.0.0': {}
 
@@ -2829,7 +2841,7 @@ snapshots:
 
   lilconfig@3.1.3: {}
 
-  liquidjs@10.25.1:
+  liquidjs@10.25.7:
     dependencies:
       commander: 10.0.1
 
@@ -3153,10 +3165,12 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
-  simple-git@3.33.0:
+  simple-git@3.36.0:
     dependencies:
       '@kwsites/file-exists': 1.1.1
       '@kwsites/promise-deferred': 1.1.1
+      '@simple-git/args-pathspec': 1.0.3
+      '@simple-git/argv-parser': 1.1.1
       debug: 4.4.3(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color

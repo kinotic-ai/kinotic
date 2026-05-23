@@ -1,4 +1,4 @@
-import {ConnectionInfo, IWebSocket, SessionKeepAliveMode} from '@/api/ConnectionInfo'
+import {ConnectionInfo, type IWebSocket, SessionKeepAliveMode} from '@/api/ConnectionInfo'
 import {EventConstants} from '@/api/event/IEventBus'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {type IFrame, RxStomp, RxStompConfig, StompHeaders} from '@stomp/rx-stomp'
