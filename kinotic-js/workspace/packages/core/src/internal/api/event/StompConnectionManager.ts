@@ -149,7 +149,7 @@ export class StompConnectionManager {
                         try {
                             preparedSocket = await userWebSocketFactory()
                         } catch (e) {
-                            const err = e instanceof Error ? e : new Error(String(e))
+                            const err = new Error('WebSocket factory failed', { cause: e })
                             if (!this.initialConnectionSuccessful) {
                                 await this.deactivate()
                                 reject(err.message)
@@ -177,7 +177,7 @@ export class StompConnectionManager {
             // Forward STOMP ERROR frames as fatal errors. Server-issued ERROR frames close the
             // connection and indicate an unrecoverable condition (auth failure, protocol error).
             this.stompErrorsSubscription = this.rxStomp.stompErrors$.subscribe((frame: IFrame) => {
-                this.fatalErrorsSubject.next(new Error(frame.headers['message'] as string))
+                this.fatalErrorsSubject.next(new Error(frame.headers['message'] as string, { cause: frame }))
             })
 
             // Handles Successful Connections
