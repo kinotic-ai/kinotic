@@ -1,10 +1,11 @@
 import {ConnectionInfo, type IWebSocket, SessionKeepAliveMode} from '@/api/ConnectionInfo'
+import {KinoticError} from '@/api/errors/KinoticError'
 import {EventConstants} from '@/api/event/IEventBus'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {type IFrame, RxStomp, RxStompConfig, StompHeaders} from '@stomp/rx-stomp'
 import {ReconnectionTimeMode} from '@stomp/stompjs'
 import debug from 'debug'
-import {Subscription} from 'rxjs'
+import {Observable, Subject, Subscription} from 'rxjs'
 import {v4 as uuidv4} from 'uuid'
 
 /**
@@ -28,6 +29,15 @@ export class StompConnectionManager {
     private readonly uuidv4 = uuidv4()
     private _replyToCri: string | null = null
     private serverHeadersSubscription: Subscription | null = null
+    private stompErrorsSubscription: Subscription | null = null
+    private fatalErrorsSubject: Subject<Error> = new Subject<Error>()
+    /**
+     * Emits when the connection encounters an unrecoverable failure: a STOMP ERROR frame from
+     * the server (typically auth/handshake rejection) or an error thrown by the user-supplied
+     * {@link ConnectionInfo#webSocketFactory} (e.g. a token refresh failed). Long-running
+     * consumers should subscribe to react to terminal failures.
+     */
+    public fatalErrors: Observable<Error> = this.fatalErrorsSubject.asObservable()
     public deactivationHandler: (() => void) | null = null
     /**
      * Invoked when the server issues a new replyToId on reconnect, which changes {@link replyToCri}.
@@ -139,9 +149,7 @@ export class StompConnectionManager {
                             // The factory could not produce a socket (e.g. a token refresh
                             // failed). Give up rather than reconnect-loop the same failure.
                             await this.deactivate()
-                            if(!this.initialConnectionSuccessful) {
-                                reject(e)
-                            }
+                            this.fatalErrorsSubject.next(e instanceof Error ? e : new Error(String(e)))
                         }
                     }
                 }
@@ -160,11 +168,17 @@ export class StompConnectionManager {
                 this.lastWebsocketError = value
             })
 
+            // Forward STOMP ERROR frames as fatal errors. Server-issued ERROR frames close the
+            // connection and indicate an unrecoverable condition (auth failure, protocol error).
+            this.stompErrorsSubscription = this.rxStomp.stompErrors$.subscribe((frame: IFrame) => {
+                this.fatalErrorsSubject.next(new KinoticError(frame.headers['message'] as string))
+            })
+
             // Handles Successful Connections
             const connectedSubscription: Subscription = this.rxStomp.connected$.subscribe(() =>{
                 // We only want these for the initial connection
                 connectedSubscription.unsubscribe()
-                errorSubscription.unsubscribe()
+                initialFailureSubscription.unsubscribe()
 
                 // Successful Connection
                 if(!this.initialConnectionSuccessful){
@@ -172,15 +186,15 @@ export class StompConnectionManager {
                 }
             })
 
-            // This subscription is to handle any errors that occur during connection
-            const errorSubscription: Subscription = this.rxStomp.stompErrors$.subscribe(async (value: IFrame) => {
-                // We only want these for the initial connection
+            // Route any fatal error that arrives before the initial connection succeeds into
+            // the activate() promise so the caller learns why the connection never came up.
+            const initialFailureSubscription: Subscription = this.fatalErrorsSubject.subscribe(async (err: Error) => {
                 connectedSubscription.unsubscribe()
-                errorSubscription.unsubscribe()
+                initialFailureSubscription.unsubscribe()
 
                 await this.deactivate()
 
-                reject(value.headers['message'])
+                reject(err.message)
             })
 
             // Triggered on every CONNECTED frame, including reconnects. The replyToId is generated
@@ -227,6 +241,8 @@ export class StompConnectionManager {
             await this.rxStomp.deactivate({force: force})
             this.serverHeadersSubscription?.unsubscribe()
             this.serverHeadersSubscription = null
+            this.stompErrorsSubscription?.unsubscribe()
+            this.stompErrorsSubscription = null
             if(this.deactivationHandler){
                 this.deactivationHandler()
             }

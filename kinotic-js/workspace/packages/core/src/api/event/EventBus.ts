@@ -1,9 +1,8 @@
 import {ConnectionInfo, ServerInfo} from '@/api/ConnectionInfo'
-import {KinoticError} from '@/api/errors/KinoticError'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {StompConnectionManager} from '@/internal/api/event/StompConnectionManager'
 import {context, propagation} from '@opentelemetry/api';
-import type {IFrame, IMessage} from '@stomp/rx-stomp';
+import type {IMessage} from '@stomp/rx-stomp';
 import {ConnectableObservable, firstValueFrom, Observable, Subject, Subscription, throwError, type Unsubscribable} from 'rxjs'
 import {filter, map, multicast} from 'rxjs/operators'
 import {Optional} from 'typescript-optional'
@@ -79,20 +78,17 @@ export class EventBus implements IEventBus {
     private requestRepliesObservable: ConnectableObservable<IEvent> | null = null
     private requestRepliesSubject: Subject<IEvent> | null = null
     private requestRepliesSubscription: Subscription | null = null
-    private errorSubject: Subject<IFrame> = new Subject<IFrame>()
-    private errorSubjectSubscription: Subscription | null | undefined = null
 
     constructor() {
-        this.fatalErrors = this.errorSubject
-                               .pipe(map<IFrame, Error>((frame: IFrame): Error => {
-                                   this.disconnect()
-                                       .catch((error: string) => {
-                                           if(console){
-                                               console.error('Error disconnecting from Stomp: ' + error)
-                                           }
-                                       })
-                                   return new KinoticError(frame.headers['message'] as string)
-                               }))
+        this.fatalErrors = this.stompConnectionManager.fatalErrors
+        this.stompConnectionManager.fatalErrors.subscribe(() => {
+            this.disconnect()
+                .catch((error: string) => {
+                    if(console){
+                        console.error('Error disconnecting from Stomp: ' + error)
+                    }
+                })
+        })
         this.stompConnectionManager.deactivationHandler = () => {
             this.cleanup()
         }
@@ -124,8 +120,6 @@ export class EventBus implements IEventBus {
             this.serverInfo.useSSL = connectionInfo.useSSL
 
             this.replyToCri = this.stompConnectionManager.replyToCri
-
-            this.errorSubjectSubscription = this.stompConnectionManager.rxStomp?.stompErrors$.subscribe(this.errorSubject)
 
             return connectedInfo
         }else{
@@ -252,11 +246,6 @@ export class EventBus implements IEventBus {
 
     private cleanup(): void{
         this.resetRequestReplies('Connection disconnected')
-
-        if (this.errorSubjectSubscription) {
-            this.errorSubjectSubscription.unsubscribe()
-            this.errorSubjectSubscription = null
-        }
 
         this.serverInfo = null
     }
