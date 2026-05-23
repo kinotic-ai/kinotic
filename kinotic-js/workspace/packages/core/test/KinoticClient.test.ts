@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, KinoticSingleton, Event, EventConstants, ParticipantConstants} from '../src'
+import {ConnectedInfo, KinoticSingleton, Event, EventConstants, ParticipantConstants, SessionKeepAliveMode} from '../src'
 import {TestService} from './ITestService.js'
 import {createConnectionInfo, logFailure, validateConnectedInfo} from './TestHelper'
 
@@ -10,20 +10,7 @@ Object.assign(global, { WebSocket})
 describe('Kinotic Client Tests', () => {
 
     async function connectToKinotic(continuum: KinoticSingleton) {
-        const connectionInfo = createConnectionInfo()
-        const host = connectionInfo.host
-        const port = connectionInfo.port as number
-        return await logFailure(continuum.connect({
-                                                      host: host,
-                                                      port: port,
-                                                      maxConnectionAttempts: 3,
-                                                      connectHeaders: {
-                                                          login: 'kinotic@kinotic.local',
-                                                          passcode: 'kinotic',
-                                                          authScopeType: 'ORGANIZATION',
-                                                          authScopeId: 'kinotic-test'
-                                                      }
-                                                  }),
+        return await logFailure(continuum.connect(createConnectionInfo()),
                                 'Failed to connect to Kinotic Gateway')
     }
 
@@ -72,7 +59,7 @@ describe('Kinotic Client Tests', () => {
         const testService = new TestService(continuum);
         console.log(`Connecting to Kinotic Gateway running at`)
 
-        let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(createConnectionInfo(false,
+        let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(createConnectionInfo(SessionKeepAliveMode.ACTIVITY,
                                                                                                    {login: ParticipantConstants.CLI_PARTICIPANT_ID})),
                                                             'Failed to connect to Kinotic Gateway')
 

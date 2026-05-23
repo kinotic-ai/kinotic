@@ -3,7 +3,7 @@ import {WebSocket} from 'ws'
 import {ConnectedInfo, ConnectionInfo, Kinotic, KinoticSingleton, SessionKeepAliveMode} from '../src'
 import { GenericContainer, PullPolicy, StartedTestContainer, Wait } from 'testcontainers'
 import {TestService} from './ITestService.js'
-import { logFailure, validateConnectedInfo } from './TestHelper'
+import { authedWebSocketFactory, logFailure, validateConnectedInfo } from './TestHelper'
 import {KINOTIC_DOCKER_IMAGE} from './TestHelper.js'
 
 // This is required when running Kinotic from node
@@ -16,12 +16,12 @@ describe('Kinotic Unavailable Tests', () => {
         const host: string = 'notavailable'
         const port: number = 58503
         console.log(`Trying to Connecting to Unavailable Kinotic Gateway`)
-        await expect(Kinotic.connect({
-                                           host:host,
-                                           port:port,
-                                           maxConnectionAttempts: 3,
-                                           connectHeaders:{login: 'kinotic@kinotic.local', passcode: 'kinotic', authScopeType: 'ORGANIZATION', authScopeId: 'kinotic-test'}
-                                       }))
+        const ci = new ConnectionInfo()
+        ci.host = host
+        ci.port = port
+        ci.maxConnectionAttempts = 3
+        ci.webSocketFactory = authedWebSocketFactory(host, port)
+        await expect(Kinotic.connect(ci))
             .rejects.toThrowError(
                 expect.stringMatching(
                     /^Max number of reconnection attempts reached\. Last WS Error getaddrinfo (ENOTFOUND|EAI_AGAIN) notavailable$/
@@ -53,7 +53,7 @@ describe('Kinotic Unavailable Tests', () => {
            connectionInfo.port = 58590
            connectionInfo.maxConnectionAttempts = 3
            connectionInfo.sessionKeepAlive = SessionKeepAliveMode.ACTIVITY
-           connectionInfo.connectHeaders = async () => {return {login: 'kinotic@kinotic.local', passcode: 'kinotic', authScopeType: 'ORGANIZATION', authScopeId: 'kinotic-test'}}
+           connectionInfo.webSocketFactory = authedWebSocketFactory(connectionInfo.host, connectionInfo.port)
            console.log(`Kinotic Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
 
            const continuum = new KinoticSingleton()
