@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
@@ -18,7 +18,7 @@ import org.springframework.validation.annotation.Validated;
 @NoArgsConstructor
 @Component
 @Validated
-public class KinoticGithubProperties extends KinoticProperties {
+public class KinoticGithubProperties extends KinoticDomainProperties {
 
     @Valid
     private GithubProperties github = new GithubProperties();

@@ -64,7 +64,7 @@ public class CliDeviceLoginHandler {
     private void handleStart(RoutingContext ctx) {
         Future.fromCompletionStage(deviceCodeGrantService.start())
               .onSuccess(start -> {
-                  String verificationUri = gatewayProperties.getAppBaseUrl() + OidcConstants.DEVICE_VERIFICATION_PATH;
+                  String verificationUri = gatewayProperties.getDomain().getAppBaseUrl() + OidcConstants.DEVICE_VERIFICATION_PATH;
                   JsonObject body = new JsonObject()
                           .put("device_code", start.deviceCode())
                           .put("user_code", start.userCode())

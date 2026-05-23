@@ -11,9 +11,9 @@ data:
   BPL_JMX_ENABLED: "{{ .Values.properties.enableJmx }}"
 
   # ── Public URL + email ────────────────────────────────────
-  KINOTIC_APPBASEURL: "{{ .Values.kinotic.appBaseUrl }}"
-  {{- if .Values.kinotic.apiBaseUrl }}
-  KINOTIC_APIBASEURL: "{{ .Values.kinotic.apiBaseUrl }}"
+  KINOTIC_DOMAIN_APPBASEURL: "{{ .Values.kinotic.domain.appBaseUrl }}"
+  {{- if .Values.kinotic.domain.apiBaseUrl }}
+  KINOTIC_DOMAIN_APIBASEURL: "{{ .Values.kinotic.domain.apiBaseUrl }}"
   {{- end }}
   KINOTIC_DOMAIN_EMAIL_ENABLED: "{{ .Values.kinotic.domain.email.enabled }}"
   {{- if .Values.kinotic.domain.email.enabled }}
@@ -33,9 +33,9 @@ data:
 
   {{- if .Values.tls.enabled }}
   # ── SSL/TLS ──────────────────────────────────────────────
-  KINOTIC_SSL_ENABLED: "true"
-  KINOTIC_SSL_CERTPATH: "/certs/tls.crt"
-  KINOTIC_SSL_KEYPATH: "/certs/tls.key"
+  KINOTIC_DOMAIN_SSL_ENABLED: "true"
+  KINOTIC_DOMAIN_SSL_CERTPATH: "/certs/tls.crt"
+  KINOTIC_DOMAIN_SSL_KEYPATH: "/certs/tls.key"
   {{- end }}
 
   {{- if .Values.evictionTracking.enabled }}

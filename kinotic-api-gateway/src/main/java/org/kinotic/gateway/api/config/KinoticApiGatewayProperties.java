@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.springframework.stereotype.Component;
 
 /**
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 @Accessors(chain = true)
 @NoArgsConstructor
 @Component
-public class KinoticApiGatewayProperties extends KinoticProperties {
+public class KinoticApiGatewayProperties extends KinoticDomainProperties {
 
     /**
      * If true, API gateway functionality will not be loaded.

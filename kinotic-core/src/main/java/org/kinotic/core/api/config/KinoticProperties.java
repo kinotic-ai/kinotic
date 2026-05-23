@@ -1,6 +1,5 @@
 package org.kinotic.core.api.config;
 
-import jakarta.validation.constraints.NotBlank;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.ignite.configuration.DataStorageConfiguration;
@@ -25,34 +24,6 @@ import lombok.experimental.Accessors;
 @Setter
 @Accessors(chain = true)
 public class KinoticProperties {
-
-    /**
-     * Public-facing base URL of the SPA (scheme + host + optional port, no trailing slash).
-     * Used to build absolute links to user-visible SPA routes — e.g. the verification email link
-     * sent to new sign-ups, or post-login redirects after an OIDC roundtrip.
-     */
-    @NotBlank
-    private String appBaseUrl = "http://localhost:9090";
-
-    /**
-     * Public-facing base URL the backend serves its REST endpoints under (scheme + host + optional
-     * port, no trailing slash). Used as the OIDC {@code redirect_uri} so the IdP returns the
-     * browser to {@code /api/login/callback/<id>} on the backend, not on the SPA.
-     * <p>
-     * Set this when the SPA and backend live on different origins (Azure Static Web Apps + AKS).
-     * When left null the platform falls back to {@link #appBaseUrl} — fine for dev and any deploy
-     * where the SPA is served from the same origin as the API.
-     */
-    private String apiBaseUrl = null;
-
-    /**
-     * Returns {@link #apiBaseUrl} when set, otherwise falls back to {@link #appBaseUrl}.
-     * Use this when constructing OIDC {@code redirect_uri} values so split-origin deploys
-     * (SPA + AKS on different domains) work without breaking same-origin defaults.
-     */
-    public String resolveApiBaseUrl() {
-        return (apiBaseUrl != null && !apiBaseUrl.isBlank()) ? apiBaseUrl : appBaseUrl;
-    }
 
     /**
      * If true, additional information will be provided to clients,
@@ -98,11 +69,6 @@ public class KinoticProperties {
      */
     private IgniteProperties ignite = new IgniteProperties();
 
-    /**
-     * CORS configuration applied to all Vert.x HTTP servers that expose browser-facing routes.
-     */
-    private CorsProperties cors = new CorsProperties();
-
     private int maxEventPayloadSize = 1024 * 1024 * 100; // 100MB
 
     /**
@@ -114,11 +80,6 @@ public class KinoticProperties {
      * The maximum amount of off-heap memory to use for Ignite cache storage.
      */
     private long maxOffHeapMemory = DataStorageConfiguration.DFLT_DATA_REGION_MAX_SIZE;
-
-    /**
-     * SSL/TLS configuration for all Vert.x HTTP servers.
-     */
-    private SslProperties ssl = new SslProperties();
 
     /**
      * Secret storage configuration. If null, an in-memory backend is used.

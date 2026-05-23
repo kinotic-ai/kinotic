@@ -14,7 +14,7 @@ public final class OidcConstants {
 
     // ── Frontend redirect targets ─────────────────────────────────────────────
 
-    /** Frontend path (resolved against {@code kinotic.appBaseUrl}) the user is redirected to after successful authentication. */
+    /** Frontend path (resolved against {@code kinotic.domain.appBaseUrl}) the user is redirected to after successful authentication. */
     public static final String LOGIN_SUCCESS_PATH = "/";
 
     /** Frontend path the user is redirected to for REGISTRATION_REQUIRED completion. The pending-registration token is appended as a query parameter (e.g. {@code /register?token=<verificationToken>}). */

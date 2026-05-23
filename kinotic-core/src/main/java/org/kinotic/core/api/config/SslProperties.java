@@ -10,9 +10,9 @@ import lombok.experimental.Accessors;
  * <p>
  * Configured via Spring properties:
  * <pre>
- * kinotic.ssl.enabled=true
- * kinotic.ssl.cert-path=/certs/tls.crt
- * kinotic.ssl.key-path=/certs/tls.key
+ * kinotic.domain.ssl.enabled=true
+ * kinotic.domain.ssl.cert-path=/certs/tls.crt
+ * kinotic.domain.ssl.key-path=/certs/tls.key
  * </pre>
  *
  * Created by Claude on 4/4/26.

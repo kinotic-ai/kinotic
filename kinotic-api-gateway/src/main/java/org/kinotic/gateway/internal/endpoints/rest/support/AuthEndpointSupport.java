@@ -41,19 +41,19 @@ public class AuthEndpointSupport {
 
 
     /**
-     * Builds an absolute backend URL ({@code kinotic.apiBaseUrl}, falling back to
+     * Builds an absolute backend URL ({@code kinotic.domain.apiBaseUrl}, falling back to
      * {@code appBaseUrl}, + {@code relativePath}) — used for OIDC {@code redirect_uri}s.
      */
     public String absoluteUrl(String relativePath) {
-        return gatewayProperties.resolveApiBaseUrl() + relativePath;
+        return gatewayProperties.getDomain().resolveApiBaseUrl() + relativePath;
     }
 
     /**
-     * Builds an absolute SPA URL ({@code kinotic.appBaseUrl} + {@code relativePath}). The SPA is
+     * Builds an absolute SPA URL ({@code kinotic.domain.appBaseUrl} + {@code relativePath}). The SPA is
      * a different origin than this gateway, so redirects back to the browser must be absolute.
      */
     public String appUrl(String relativePath) {
-        return gatewayProperties.getAppBaseUrl() + relativePath;
+        return gatewayProperties.getDomain().getAppBaseUrl() + relativePath;
     }
 
     // ── Browser session login ─────────────────────────────────────────────────

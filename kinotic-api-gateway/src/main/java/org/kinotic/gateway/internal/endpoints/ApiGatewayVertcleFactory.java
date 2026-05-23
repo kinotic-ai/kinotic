@@ -50,9 +50,9 @@ public class ApiGatewayVertcleFactory {
 
         // CORS first — the SPA is a different origin from this gateway (portal.kinotic.ai
         // vs api.kinotic.ai in prod, vite's :5173 in dev). They're same-site, so the
-        // SameSite=Lax session cookie flows; credentialed CORS (kinotic.cors.*) lets the
+        // SameSite=Lax session cookie flows; credentialed CORS (kinotic.domain.cors.*) lets the
         // cross-origin login fetch store it. Shared with the openapi/graphql routes.
-        router.route().handler(CorsUtil.createCorsHandler(properties.getCors()));
+        router.route().handler(CorsUtil.createCorsHandler(properties.getDomain().getCors()));
 
         // Health check on the api-gateway port so probes work even when the static
         // web-server (9090) is disabled in KinD/Azure.
@@ -93,12 +93,12 @@ public class ApiGatewayVertcleFactory {
         HttpServerOptions serverOptions = new HttpServerOptions();
         serverOptions.setWebSocketSubProtocols(List.of("v12.stomp"));
         serverOptions.setMaxWebSocketFrameSize(properties.getMaxEventPayloadSize());
-        SslHelper.applySsl(serverOptions, properties.getSsl());
+        SslHelper.applySsl(serverOptions, properties.getDomain().getSsl());
 
         return StompServerVerticleFactory.create(serverOptions, stompServerOptions, stompServerHandlerFactory, router);
     }
 
     public WebServerVerticle createWebServerVerticle(){
-        return new WebServerVerticle(properties.getApiGateway().getWebServer(), properties.getSsl());
+        return new WebServerVerticle(properties.getApiGateway().getWebServer(), properties.getDomain().getSsl());
     }
 }
