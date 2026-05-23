@@ -26,7 +26,7 @@ interface ServerTarget {
 const CREDENTIALS_KEY = 'kinotic-credentials'
 
 /** Per-request timeout for REST calls to the Kinotic Server. */
-const FETCH_TIMEOUT_MS = 15_000
+const FETCH_TIMEOUT_MS = 30_000
 
 /**
  * CLI authentication against a Kinotic server using the OAuth 2.0 Device Authorization Grant
