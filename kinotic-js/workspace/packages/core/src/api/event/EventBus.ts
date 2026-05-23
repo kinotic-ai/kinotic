@@ -79,9 +79,7 @@ export class EventBus implements IEventBus {
     private requestRepliesSubscription: Subscription | null = null
 
     constructor() {
-        this.stompConnectionManager.deactivationHandler = () => {
-            this.cleanup()
-        }
+        this.stompConnectionManager.fatalErrors.subscribe(() => this.cleanup())
         this.stompConnectionManager.replyToCriChangedHandler = (replyToCri: string) => {
             this.replyToCri = replyToCri
             this.resetRequestReplies('Reply destination changed')
@@ -122,8 +120,8 @@ export class EventBus implements IEventBus {
     }
 
     public async disconnect(force?: boolean): Promise<void> {
-        // deactivate triggers deactivationHandler which runs cleanup()
         await this.stompConnectionManager.deactivate(force)
+        this.cleanup()
     }
 
     public send(event: IEvent): void {

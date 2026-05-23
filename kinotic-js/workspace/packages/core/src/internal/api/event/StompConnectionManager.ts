@@ -13,7 +13,6 @@ import {v4 as uuidv4} from 'uuid'
  */
 export class StompConnectionManager {
 
-    public deactivationHandler: (() => void) | null = null
     public lastWebsocketError: Event | null = null
     /**
      * This will return true if a {@link ConnectionInfo#maxConnectionAttempts} threshold was set and was reached
@@ -237,9 +236,6 @@ export class StompConnectionManager {
             this.serverHeadersSubscription = null
             this.stompErrorsSubscription?.unsubscribe()
             this.stompErrorsSubscription = null
-            if(this.deactivationHandler){
-                this.deactivationHandler()
-            }
             this.rxStomp = null
             this._replyToCri = null
         }
