@@ -128,10 +128,7 @@ export class StompConnectionManager {
                         this.connectionAttempts++
 
                         if(this.connectionAttempts > connectionInfo.maxConnectionAttempts){
-                            // Reached threshold give up. Flag must be set before signalFatal so any
-                            // send() racing the teardown reports the right reason via createSendUnavailableError.
-                            // On the initial-connect path signalFatal will reject activate() via
-                            // initialFailureSubscription; on reconnect it just notifies fatalErrors subscribers.
+                            // Set before signalFatal so racing send() calls see the right reason.
                             this.maxConnectionAttemptsReached = true
                             const wsMessage = (this.lastWebsocketError as any)?.message ?? 'UNKNOWN'
                             await this.signalFatal(new Error(
