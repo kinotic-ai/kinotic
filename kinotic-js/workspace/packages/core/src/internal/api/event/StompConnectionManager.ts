@@ -128,9 +128,9 @@ export class StompConnectionManager {
                         this.connectionAttempts++
 
                         if(this.connectionAttempts > connectionInfo.maxConnectionAttempts){
-                            // Set before signalFatal so racing send() calls see the right reason.
                             this.maxConnectionAttemptsReached = true
                             const wsMessage = (this.lastWebsocketError as any)?.message ?? 'UNKNOWN'
+                            // signalFatal rejects activate() via initialFailureSubscription on the initial-connect path.
                             await this.signalFatal(new Error(
                                 `Max number of reconnection attempts reached. Last WS Error ${wsMessage}`,
                                 { cause: this.lastWebsocketError ?? undefined }
