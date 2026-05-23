@@ -13,48 +13,32 @@ import {v4 as uuidv4} from 'uuid'
  */
 export class StompConnectionManager {
 
+    public deactivationHandler: (() => void) | null = null
     public lastWebsocketError: Event | null = null
     /**
      * This will return true if a {@link ConnectionInfo#maxConnectionAttempts} threshold was set and was reached
      */
     public maxConnectionAttemptsReached: boolean = false
-    public rxStomp: RxStomp | null = null
-    private readonly INITIAL_RECONNECT_DELAY: number = 2000
-    private readonly MAX_RECONNECT_DELAY: number = 120000 // 2 mins
-    private readonly JITTER_MAX: number = 5000
-    private connectionAttempts: number = 0
-    private initialConnectionSuccessful: boolean = false
-    private debugLogger = debug('kinoitc:stomp')
-    private readonly uuidv4 = uuidv4()
-    private _replyToCri: string | null = null
-    private serverHeadersSubscription: Subscription | null = null
-    private stompErrorsSubscription: Subscription | null = null
-    private readonly fatalErrorsSubject: Subject<Error> = new Subject<Error>()
-    private readonly _fatalErrors: Observable<Error> = this.fatalErrorsSubject.asObservable()
-    public deactivationHandler: (() => void) | null = null
     /**
      * Invoked when the server issues a new replyToId on reconnect, which changes {@link replyToCri}.
      * This always happens with {@link SessionKeepAliveMode.NONE} since no session carries the
      * replyToId across connections.
      */
     public replyToCriChangedHandler: ((replyToCri: string) => void) | null = null
+    public rxStomp: RxStomp | null = null
+    private readonly INITIAL_RECONNECT_DELAY: number = 2000
+    private readonly JITTER_MAX: number = 5000
+    private readonly MAX_RECONNECT_DELAY: number = 120000 // 2 mins
+    private connectionAttempts: number = 0
+    private debugLogger = debug('kinoitc:stomp')
+    private readonly fatalErrorsSubject: Subject<Error> = new Subject<Error>()
+    private readonly _fatalErrors: Observable<Error> = this.fatalErrorsSubject.asObservable()
+    private initialConnectionSuccessful: boolean = false
+    private serverHeadersSubscription: Subscription | null = null
+    private stompErrorsSubscription: Subscription | null = null
+    private readonly uuidv4 = uuidv4()
 
-    /**
-     * @return true if this {@link StompConnectionManager} is actively trying to maintain a connection to the Stomp server, false if not.
-     */
-    public get active(): boolean {
-        return !!this.rxStomp;
-    }
-
-    /**
-     * Emits when the connection encounters an unrecoverable failure: a STOMP ERROR frame from
-     * the server (typically auth/handshake rejection) or an error thrown by the user-supplied
-     * {@link ConnectionInfo#webSocketFactory} (e.g. a token refresh failed). Long-running
-     * consumers should subscribe to react to terminal failures.
-     */
-    public get fatalErrors(): Observable<Error> {
-        return this._fatalErrors
-    }
+    private _replyToCri: string | null = null
 
     /**
      * The reply destination CRI for this connection, or null before a connection has been established.
@@ -65,11 +49,28 @@ export class StompConnectionManager {
     }
 
     /**
+     * @return true if this {@link StompConnectionManager} is actively trying to maintain a connection to the Stomp server, false if not.
+     */
+    public get active(): boolean {
+        return !!this.rxStomp;
+    }
+
+    /**
      * return true if this {@link StompConnectionManager} is active and has a connection to the stomp server
      */
     public get connected(): boolean {
         return this.rxStomp != null
             && this.rxStomp.connected()
+    }
+
+    /**
+     * Emits when the connection encounters an unrecoverable failure: a STOMP ERROR frame from
+     * the server (typically auth/handshake rejection) or an error thrown by the user-supplied
+     * {@link ConnectionInfo#webSocketFactory} (e.g. a token refresh failed). Long-running
+     * consumers should subscribe to react to terminal failures.
+     */
+    public get fatalErrors(): Observable<Error> {
+        return this._fatalErrors
     }
 
     public activate(connectionInfo: ConnectionInfo): Promise<ConnectedInfo> {
@@ -252,6 +253,17 @@ export class StompConnectionManager {
     }
 
     /**
+     * Make sure clients don't all try to reconnect at the same time.
+     */
+    private async connectionJitterDelay(): Promise<void> {
+        if(this.initialConnectionSuccessful) {
+            const randomJitter = Math.random() * this.JITTER_MAX;
+            this.debugLogger(`Adding ${randomJitter}ms of jitter delay`)
+            return new Promise(resolve => setTimeout(resolve, randomJitter));
+        }
+    }
+
+    /**
      * Tears down the connection then publishes the failure to {@link fatalErrors}. Deactivating
      * first means subscribers see the error already in its terminal state — no further reconnect
      * attempts, no live rxStomp — so they can react without racing the cleanup.
@@ -262,17 +274,6 @@ export class StompConnectionManager {
         }
         await this.deactivate()
         this.fatalErrorsSubject.next(err)
-    }
-
-    /**
-     * Make sure clients don't all try to reconnect at the same time.
-     */
-    private async connectionJitterDelay(): Promise<void> {
-        if(this.initialConnectionSuccessful) {
-            const randomJitter = Math.random() * this.JITTER_MAX;
-            this.debugLogger(`Adding ${randomJitter}ms of jitter delay`)
-            return new Promise(resolve => setTimeout(resolve, randomJitter));
-        }
     }
 
 }
