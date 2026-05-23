@@ -1,7 +1,20 @@
 package org.kinotic.domain.internal.utils;
 
+import org.kinotic.core.api.security.DefaultParticipant;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.ParticipantConstants;
+import org.kinotic.domain.api.model.iam.IamUser;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -12,6 +25,7 @@ public class DomainUtil {
     private static final Pattern ApplicationPattern = Pattern.compile("^[A-Za-z][A-Za-z0-9._-]*$");
     private static final Pattern ProjectIdPattern = Pattern.compile("^[a-z][a-z0-9._-]*$");
     private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     /**
      * Function will validate the structure application name
@@ -58,6 +72,61 @@ public class DomainUtil {
      */
     public static boolean verifyPassword(String rawPassword, String hash) {
         return PASSWORD_ENCODER.matches(rawPassword, hash);
+    }
+
+    /**
+     * Generates a high-entropy, URL-safe token from {@code numBytes} of secure random data.
+     * Used for bearer secrets (device codes, refresh tokens) whose plaintext is shown to a
+     * client once and only ever stored as a hash.
+     *
+     * @param numBytes number of random bytes to draw before base64url encoding
+     * @return a base64url-encoded random token without padding
+     */
+    public static String generateUrlSafeToken(int numBytes) {
+        byte[] bytes = new byte[numBytes];
+        SECURE_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /**
+     * Returns the SHA-256 hash of {@code value} as a lowercase hex string. Suitable for
+     * at-rest storage of high-entropy bearer tokens — the entropy makes a fast unsalted
+     * digest safe, and the deterministic output allows lookup by hash.
+     *
+     * @param value the value to hash
+     * @return the SHA-256 digest as lowercase hex
+     */
+    public static String sha256Hex(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
+        }
+    }
+
+    /**
+     * Builds the {@link Participant} security identity for an authenticated {@link IamUser}.
+     * This is the single mapping from a persisted user to the identity carried for the life
+     * of a connection, so the authentication paths and the browser session-login flow stay
+     * consistent.
+     *
+     * @param user the authenticated user
+     * @return the participant for the given user
+     */
+    public static Participant createParticipant(IamUser user) {
+        Map<String, String> metadata = new HashMap<>(Map.of(
+                ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
+                "email", user.getEmail(),
+                "displayName", user.getDisplayName() != null ? user.getDisplayName() : user.getEmail(),
+                "authType", user.getAuthType().name()
+        ));
+
+        // tenantId is the client-tenant the caller is acting within — meaningful only for
+        // APPLICATION-scoped users (where it partitions SHARED entity data). SYSTEM and ORGANIZATION
+        // identities are not tenants, so user.getTenantId() must be null for them.
+        return new DefaultParticipant(user.getTenantId(), user.getId(),
+                user.getAuthScopeType(), user.getAuthScopeId(), metadata, List.of());
     }
 
 }

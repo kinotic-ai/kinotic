@@ -14,7 +14,7 @@ public final class OidcConstants {
 
     // ── Frontend redirect targets ─────────────────────────────────────────────
 
-    /** Frontend path the user is redirected to after successful authentication. The Kinotic JWT is appended as a URL fragment (e.g. {@code /#token=<jwt>}). */
+    /** Frontend path (resolved against {@code kinotic.appBaseUrl}) the user is redirected to after successful authentication. */
     public static final String LOGIN_SUCCESS_PATH = "/";
 
     /** Frontend path the user is redirected to for REGISTRATION_REQUIRED completion. The pending-registration token is appended as a query parameter (e.g. {@code /register?token=<verificationToken>}). */
@@ -23,12 +23,18 @@ public final class OidcConstants {
     /** Frontend path the user is redirected to when login fails. The error code is appended as a query parameter (e.g. {@code /login?error=access_denied}). */
     public static final String LOGIN_ERROR_PATH = "/login";
 
+    /** Frontend path where the user enters/confirms a CLI device {@code user_code} (the RFC 8628 verification URI). */
+    public static final String DEVICE_VERIFICATION_PATH = "/device";
+
     // ── API route bases ───────────────────────────────────────────────────────
     // Each handler mounts its routes under one base. URL-building helpers use these
     // same prefixes so route definitions and outbound redirect_uris stay in sync.
 
     /** Org login surface — used by {@code OrganizationLoginHandler}. */
     public static final String ORG_LOGIN_BASE = "/api/login";
+
+    /** Logout endpoint — destroys the browser session. */
+    public static final String LOGOUT_PATH = "/api/logout";
 
     /** Org-signup completion endpoint that lives outside the {@link #SIGNUP_BASE} tree. */
     public static final String ORG_REGISTER_COMPLETE = "/api/register/complete";
@@ -41,6 +47,9 @@ public final class OidcConstants {
 
     /** System-admin login surface — used by {@code SystemLoginHandler}. */
     public static final String SYSTEM_LOGIN_BASE = "/api/system/login";
+
+    /** CLI device-authorization login surface (RFC 8628) — used by {@code CliDeviceLoginHandler}. Nested under {@link #ORG_LOGIN_BASE}. */
+    public static final String DEVICE_LOGIN_BASE = "/api/login/device";
 
     // ── Well-known scope ids ──────────────────────────────────────────────────
 

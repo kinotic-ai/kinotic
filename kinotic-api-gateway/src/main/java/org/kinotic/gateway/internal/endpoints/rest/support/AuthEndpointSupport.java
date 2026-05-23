@@ -8,18 +8,20 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
-import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,80 +37,66 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AuthEndpointSupport {
 
-    /** JWT TTL for the STOMP-CONNECT ticket — long enough for the browser to open the WebSocket. */
-    public static final int JWT_TTL_SECONDS = 60;
-
     private final KinoticApiGatewayProperties gatewayProperties;
-    private final KinoticJwtIssuer jwtIssuer;
 
 
     /**
-     * Validated API base URL. Required for OIDC redirect_uri construction; throws so any
-     * misconfiguration surface at the first request rather than producing a malformed
-     * redirect that the IdP will reject.
-     */
-    public String apiBase() {
-        String base = gatewayProperties.resolveApiBaseUrl();
-        if (base == null || base.isBlank()) {
-            throw new IllegalStateException(
-                    "kinotic.apiBaseUrl (or kinotic.appBaseUrl) is not configured — "
-                    + "required for OIDC redirect_uri construction");
-        }
-        return base;
-    }
-
-    /**
-     * Builds an absolute URL by prefixing {@code relativePath} with {@link #apiBase()}.
-     * Centralizes the apiBase validation so handlers' callback-URL builders are one-liners.
+     * Builds an absolute backend URL ({@code kinotic.apiBaseUrl}, falling back to
+     * {@code appBaseUrl}, + {@code relativePath}) — used for OIDC {@code redirect_uri}s.
      */
     public String absoluteUrl(String relativePath) {
-        return apiBase() + relativePath;
+        return gatewayProperties.resolveApiBaseUrl() + relativePath;
     }
 
-    // ── JWT ───────────────────────────────────────────────────────────────────
-
-    /** Mints the short-TTL Kinotic JWT carrying {@code sub/email/authScopeType/authScopeId}. */
-    public String mintJwt(IamUser user) {
-        JsonObject claims = new JsonObject()
-                .put("sub", user.getId())
-                .put("email", user.getEmail())
-                .put("authScopeType", user.getAuthScopeType())
-                .put("authScopeId", user.getAuthScopeId());
-        return jwtIssuer.sign(claims, new JWTOptions().setExpiresInSeconds(JWT_TTL_SECONDS));
+    /**
+     * Builds an absolute SPA URL ({@code kinotic.appBaseUrl} + {@code relativePath}). The SPA is
+     * a different origin than this gateway, so redirects back to the browser must be absolute.
+     */
+    public String appUrl(String relativePath) {
+        return gatewayProperties.getAppBaseUrl() + relativePath;
     }
 
-    /** {@code 200 application/json {"token":"<jwt>"}}. */
-    public void respondJwt(RoutingContext ctx, IamUser user) {
-        ctx.response().putHeader("Content-Type", "application/json")
-           .end(new JsonObject().put("token", mintJwt(user)).encode());
+    // ── Browser session login ─────────────────────────────────────────────────
+
+    /**
+     * Authenticates the browser by placing the logged-in user's {@link Participant} into the
+     * Vert.x session. The subsequent STOMP WebSocket handshake reads it back from the session,
+     * so the browser is authenticated by its session cookie and never handles a token.
+     */
+    private void establishSession(RoutingContext ctx, IamUser user) {
+        Session session = ctx.session();
+        // Rotate the session id on the privilege change so a pre-auth (possibly fixed)
+        // id cannot be reused to ride the now-authenticated session.
+        session.regenerateId();
+        Participant participant = DomainUtil.createParticipant(user);
+        ConnectedInfo connectedInfo = new ConnectedInfo();
+        connectedInfo.setParticipant(participant);
+        session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
     }
 
-    /** {@code 200 application/json} with {@code token} plus extra fields the caller wants in the body. */
-    public void respondJwt(RoutingContext ctx, IamUser user, JsonObject extras) {
-        JsonObject body = new JsonObject().put("token", mintJwt(user));
-        if (extras != null) extras.forEach(e -> body.put(e.getKey(), e.getValue()));
-        ctx.response().putHeader("Content-Type", "application/json").end(body.encode());
+    /** Establishes the browser session for {@code user} and writes {@code 204 No Content}. */
+    public void respondSuccess(RoutingContext ctx, IamUser user) {
+        establishSession(ctx, user);
+        ctx.response().setStatusCode(204).end();
     }
 
     // ── Redirects ─────────────────────────────────────────────────────────────
 
     /**
-     * {@code 302 Location: <successPath>#token=<jwt>}. The fragment never appears in
-     * access logs and isn't sent on subsequent requests, so the JWT stays out of
-     * server-side telemetry.
+     * Establishes the browser session and redirects to the SPA. No token travels in the URL —
+     * the browser is authenticated by its session cookie.
      */
     public void redirectSuccess(RoutingContext ctx, IamUser user) {
-        String jwt = mintJwt(user);
+        establishSession(ctx, user);
         ctx.response().setStatusCode(302)
-           .putHeader("Location", OidcConstants.LOGIN_SUCCESS_PATH
-                   + "#token=" + URLEncoder.encode(jwt, StandardCharsets.UTF_8))
+           .putHeader("Location", appUrl(OidcConstants.LOGIN_SUCCESS_PATH))
            .end();
     }
 
-    /** {@code 302 Location: <errorPath>?error=<code>}. */
+    /** {@code 302 Location: <appBaseUrl><errorPath>?error=<code>}. */
     public void redirectError(RoutingContext ctx, String errorCode) {
         ctx.response().setStatusCode(302)
-           .putHeader("Location", OidcConstants.LOGIN_ERROR_PATH
+           .putHeader("Location", appUrl(OidcConstants.LOGIN_ERROR_PATH)
                    + "?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8))
            .end();
     }
@@ -164,12 +152,12 @@ public class AuthEndpointSupport {
     // ── Composite flows ───────────────────────────────────────────────────────
 
     /**
-     * Standard email/password token endpoint: parses the JSON body, validates fields,
-     * runs the supplied authenticate function, and writes either {@code {token}} or a
-     * generic {@code 401}. The handler only needs to provide the authenticate call
-     * (already scope-aware where appropriate).
+     * Standard email/password login endpoint: parses the JSON body, validates fields,
+     * runs the supplied authenticate function, and on success establishes the browser
+     * session — otherwise writes a generic {@code 401}. The handler only needs to provide
+     * the authenticate call (already scope-aware where appropriate).
      */
-    public void handlePasswordToken(RoutingContext ctx,
+    public void handlePasswordLogin(RoutingContext ctx,
                                     BiFunction<String, String, CompletionStage<IamUser>> authenticate) {
         JsonObject body;
         try {
@@ -191,7 +179,7 @@ public class AuthEndpointSupport {
                       respondError(ctx, 401, "Invalid credentials");
                       return;
                   }
-                  respondJwt(ctx, user);
+                  respondSuccess(ctx, user);
               })
               .onFailure(err -> {
                   log.warn("Token endpoint error: {}", err.getMessage());

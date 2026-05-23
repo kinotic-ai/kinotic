@@ -1,7 +1,6 @@
 import { Optional } from 'typescript-optional'
 import { Observable } from 'rxjs'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
-import {KinoticError} from '@/api/errors/KinoticError'
 import {ConnectionInfo, ServerInfo} from '@/api/ConnectionInfo'
 
 /**
@@ -83,7 +82,7 @@ export interface IEventBus {
      * Any errors emitted by this observable will be fatal and the connection will be closed.
      * You will need to resolve the problem and reconnect.
      */
-    fatalErrors: Observable<KinoticError>
+    fatalErrors: Observable<Error>
 
     /**
      * The {@link ServerInfo} used when connecting, if connected or null

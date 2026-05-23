@@ -18,11 +18,12 @@ export interface IWebSocket {
 /**
  * Factory invoked on every (re)connect to produce the WebSocket the STOMP
  * client will use. Supply this in Node when you need to set headers on the
- * upgrade request (for example, an Authorization header). Browser callers
- * normally leave this unset and rely on the session cookie established by a
- * prior REST login.
+ * upgrade request (for example, an Authorization header). It may be async —
+ * for example, to refresh a short-lived access token before each connect.
+ * Browser callers normally leave this unset and rely on the session cookie
+ * established by a prior REST login.
  */
-export type WebSocketFactory = () => IWebSocket
+export type WebSocketFactory = () => IWebSocket | Promise<IWebSocket>
 
 export class ServerInfo {
     host!: string

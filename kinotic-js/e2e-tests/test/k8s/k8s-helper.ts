@@ -1,5 +1,32 @@
-import { Kinotic as Continuum, SessionKeepAliveMode } from '@kinotic-ai/core';
+import { ConnectionInfo, IWebSocket, Kinotic as Continuum, SessionKeepAliveMode, WebSocketFactory } from '@kinotic-ai/core';
 import { ChildProcess, execSync } from 'child_process';
+import { WebSocket } from 'ws';
+import { AuthHeaders } from '../TestHelpers.js';
+
+function buildPodWsUrl(localPort: number): string {
+    return `ws://localhost:${localPort}/v1`;
+}
+
+function adminWebSocketFactory(localPort: number): WebSocketFactory {
+    const headers: AuthHeaders = {
+        login: 'admin',
+        passcode: 'structures',
+        authScopeType: 'SYSTEM',
+        authScopeId: 'kinotic'
+    };
+    return () => new WebSocket(buildPodWsUrl(localPort), { headers: headers as unknown as Record<string, string> }) as unknown as IWebSocket;
+}
+
+function adminConnectionInfo(localPort: number): ConnectionInfo {
+    const ci = new ConnectionInfo();
+    ci.host = 'localhost';
+    ci.port = localPort;
+    ci.useSSL = false;
+    ci.maxConnectionAttempts = 5;
+    ci.sessionKeepAlive = SessionKeepAliveMode.ACTIVITY;
+    ci.webSocketFactory = adminWebSocketFactory(localPort);
+    return ci;
+}
 
 
 export interface K8sConfig {
@@ -222,18 +249,7 @@ export class K8sTestHelper {
                 console.log(`[port-forward-validate] Attempt ${attempt}/${maxAttempts}: Testing connectivity to ${pod.name}...`);
                 
                 // Try to connect briefly to test connectivity
-                const connectedInfo = await Continuum.connect({
-                    host: 'localhost',
-                    port: pod.localPort,
-                    useSSL: false,
-                    maxConnectionAttempts: 5,
-                    sessionKeepAlive: SessionKeepAliveMode.ACTIVITY,
-                    connectHeaders       : {
-                        login   : 'admin',
-                        passcode: 'structures',
-                        // tenantId: 'kinotic'
-                    }
-                });
+                const connectedInfo = await Continuum.connect(adminConnectionInfo(pod.localPort));
 
                 console.log(`[port-forward-validate] Connected to ${pod.name} for validation:`, JSON.stringify(connectedInfo, null, 2));
 
@@ -276,19 +292,8 @@ export class K8sTestHelper {
         await this.ensurePortForward(podIndex);
 
         console.log(`[connect] Port-forward ready, initiating STOMP connection to localhost:${pod.localPort}`);
-        
-        const connectedInfo = await Continuum.connect({
-            host: 'localhost',
-            port: pod.localPort,
-            useSSL: false,
-            maxConnectionAttempts: 5,
-            sessionKeepAlive: SessionKeepAliveMode.ACTIVITY,
-            connectHeaders       : {
-                login   : 'admin',
-                passcode: 'structures',
-                // tenantId: 'kinotic'
-            }
-        });
+
+        const connectedInfo = await Continuum.connect(adminConnectionInfo(pod.localPort));
 
         // Track which pod we're connected to
         this.currentPodIndex = podIndex;

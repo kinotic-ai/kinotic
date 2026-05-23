@@ -1,11 +1,13 @@
 package org.kinotic.core.api.config;
 
+import jakarta.validation.constraints.NotBlank;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
+import org.springframework.validation.annotation.Validated;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -18,6 +20,7 @@ import lombok.experimental.Accessors;
 @Component
 @ConfigurationProperties(prefix = "kinotic")
 @Primary
+@Validated
 @Getter
 @Setter
 @Accessors(chain = true)
@@ -28,6 +31,7 @@ public class KinoticProperties {
      * Used to build absolute links to user-visible SPA routes — e.g. the verification email link
      * sent to new sign-ups, or post-login redirects after an OIDC roundtrip.
      */
+    @NotBlank
     private String appBaseUrl = "http://localhost:9090";
 
     /**

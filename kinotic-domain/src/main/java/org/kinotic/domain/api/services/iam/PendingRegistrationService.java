@@ -11,8 +11,6 @@ import java.util.function.Consumer;
 /**
  * Stores and consumes short-lived pending registrations produced by the OIDC callback in
  * {@link UserProvisioningMode#REGISTRATION_REQUIRED} mode.
- * <p>
- * Not a {@code @Publish} service — called in-process from the gateway's HTTP handlers.
  */
 public interface PendingRegistrationService {
 

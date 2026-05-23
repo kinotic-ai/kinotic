@@ -12,13 +12,9 @@ public class ParticipantConstants {
 
     public static final String PARTICIPANT_TYPE_DEVICE = "device";
 
-    public static final String PARTICIPANT_TYPE_CLI = "cli";
-
     public static final String PARTICIPANT_TYPE_USER = "user";
 
     public static final String PARTICIPANT_TYPE_NODE = "node";
-
-    public static final String CLI_PARTICIPANT_ID = "-42-Kinotic-CLI-42-";
 
 }
 

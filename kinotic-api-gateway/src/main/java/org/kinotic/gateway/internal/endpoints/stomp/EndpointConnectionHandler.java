@@ -21,7 +21,6 @@ import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.internal.utils.EventUtil;
-import org.kinotic.gateway.internal.api.CliSecurityService;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +38,6 @@ import java.util.concurrent.CompletableFuture;
 public class EndpointConnectionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(EndpointConnectionHandler.class);
-    private static final String CONNECTED_INFO_SESSION_KEY = EndpointConnectionHandler.class.getName() + ".connectedInfo";
     private final SecurityService securityService;
     private final Services services;
     private final Map<String, EventConsumer> subscriptions = new HashMap<>();
@@ -51,12 +49,7 @@ public class EndpointConnectionHandler {
 
     public EndpointConnectionHandler(Services services) {
         this.services = services;
-
-        if(services.apiGatewayProperties.isEnableCLIConnections()){
-            this.securityService = new CliSecurityService(services.securityService);
-        }else{
-            this.securityService = services.securityService;
-        }
+        this.securityService = services.securityService;
     }
 
     public CompletableFuture<MultiMap> handshake(RoutingContext routingContext) {
@@ -83,7 +76,7 @@ public class EndpointConnectionHandler {
                                   connectedInfo = new ConnectedInfo();
                                   connectedInfo.setParticipant(participant);
                                   if (session != null) {
-                                      session.put(CONNECTED_INFO_SESSION_KEY, connectedInfo);
+                                      session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
                                   }
                                   return MultiMap.caseInsensitiveMultiMap();
                               });
@@ -104,7 +97,7 @@ public class EndpointConnectionHandler {
                     connectedInfo.setReplyToId(UUID.randomUUID().toString());
                 }
                 if (session != null) {
-                    session.put(CONNECTED_INFO_SESSION_KEY, connectedInfo);
+                    session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
                 }
                 stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
 
@@ -307,7 +300,7 @@ public class EndpointConnectionHandler {
         if (session == null) {
             return null;
         }
-        Object value = session.get(CONNECTED_INFO_SESSION_KEY);
+        Object value = session.get(ConnectedInfo.SESSION_KEY);
         if (value instanceof ConnectedInfo storedConnectedInfo) {
             return storedConnectedInfo;
         }

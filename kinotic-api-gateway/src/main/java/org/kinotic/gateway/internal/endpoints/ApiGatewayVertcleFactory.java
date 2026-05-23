@@ -38,6 +38,8 @@ public class ApiGatewayVertcleFactory {
     private final OrganizationSignupHandler organizationSignupHandler;
     private final ApplicationLoginHandler applicationLoginHandler;
     private final SystemLoginHandler systemLoginHandler;
+    private final CliDeviceLoginHandler cliDeviceLoginHandler;
+    private final LogoutHandler logoutHandler;
     private final GitHubGatewayRoutes githubGatewayRoutes;
     private final HealthChecks healthChecks;
     private final Vertx vertx;
@@ -46,10 +48,10 @@ public class ApiGatewayVertcleFactory {
     public StompServerVerticle createApiGatewayVerticle(){
         Router router = Router.router(vertx);
 
-        // CORS first — the SPA hits this port from a different origin in prod (Azure
-        // Storage → kinotic-server) and from vite (5173) in dev when not proxied.
-        // Inherited kinotic.cors.* settings (KinoticProperties.getCors); shared with the
-        // persistence-side openapi/graphql routes via the same CorsUtil helper.
+        // CORS first — the SPA is a different origin from this gateway (portal.kinotic.ai
+        // vs api.kinotic.ai in prod, vite's :5173 in dev). They're same-site, so the
+        // SameSite=Lax session cookie flows; credentialed CORS (kinotic.cors.*) lets the
+        // cross-origin login fetch store it. Shared with the openapi/graphql routes.
         router.route().handler(CorsUtil.createCorsHandler(properties.getCors()));
 
         // Health check on the api-gateway port so probes work even when the static
@@ -75,12 +77,19 @@ public class ApiGatewayVertcleFactory {
         organizationLoginHandler.mountRoutes(router);
         organizationSignupHandler.mountRoutes(router);
         applicationLoginHandler.mountRoutes(router);
+        cliDeviceLoginHandler.mountRoutes(router);
+        logoutHandler.mountRoutes(router);
         //systemLoginHandler.mountRoutes(router);
         githubGatewayRoutes.mountRoutes(router);
 
         StompServerOptions stompServerOptions = properties.getApiGateway().getStomp();
         // we override the body length with the continuum properties
         stompServerOptions.setMaxBodyLength(properties.getMaxEventPayloadSize());
+
+        // The STOMP WebSocket handshake authenticates from the browser session, so the
+        // SessionHandler must also cover the WebSocket path — it is not under /api/*.
+        router.route(stompServerOptions.getWebsocketPath()).handler(sessionHandler);
+
         HttpServerOptions serverOptions = new HttpServerOptions();
         serverOptions.setWebSocketSubProtocols(List.of("v12.stomp"));
         serverOptions.setMaxWebSocketFrameSize(properties.getMaxEventPayloadSize());

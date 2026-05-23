@@ -39,7 +39,7 @@ describe('End To End Tests', () => {
         await shutdownKinoticClient()
     }, 60000)
 
-    beforeEach<LocalTestContext>(async (context) => {
+    beforeEach<LocalTestContext>(async (context: any) => {
         // Platform metadata (Application, Project, EntityDefinition) is created as the
         // ORGANIZATION user via the default Kinotic singleton.
         context.entityDefinition = await createPersonEntityDefinitionIfNotExist(TEST_ORG_ID, generateRandomString(10), generateRandomString(5))

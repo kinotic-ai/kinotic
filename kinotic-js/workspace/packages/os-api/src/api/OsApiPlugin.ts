@@ -11,6 +11,7 @@ import { DataInsightsService, type IDataInsightsService } from '@/api/services/I
 import { VmNodeServiceProxy, type IVmNodeService } from '@/api/services/IVmNodeService'
 import { WorkloadServiceProxy, type IWorkloadService } from '@/api/services/IWorkloadService'
 import { IamUserService, type IIamUserService } from '@/api/services/IIamUserService'
+import { DeviceApprovalService, type IDeviceApprovalService } from '@/api/services/IDeviceApprovalService'
 import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/IGitHubAppInstallationService'
 
 export interface IOsApiExtension {
@@ -25,6 +26,7 @@ export interface IOsApiExtension {
     vmNodes: IVmNodeService
     workloads: IWorkloadService
     iamUsers: IIamUserService
+    deviceApproval: IDeviceApprovalService
     githubAppInstallations: IGitHubAppInstallationService
 }
 
@@ -42,6 +44,7 @@ export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
             vmNodes: new VmNodeServiceProxy(kinotic),
             workloads: new WorkloadServiceProxy(kinotic),
             iamUsers: new IamUserService(kinotic),
+            deviceApproval: new DeviceApprovalService(kinotic),
             githubAppInstallations: new GitHubAppInstallationService(kinotic),
         }
     }

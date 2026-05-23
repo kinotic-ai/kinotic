@@ -2,7 +2,7 @@ import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
 import {ConnectedInfo, ConnectionInfo, KinoticSingleton, SessionKeepAliveMode} from '../src'
 import {GenericContainer, PullPolicy, StartedTestContainer, Wait} from 'testcontainers'
-import { logFailure, validateConnectedInfo } from './TestHelper'
+import { authedWebSocketFactory, logFailure, validateConnectedInfo } from './TestHelper'
 import { TestService } from './ITestService'
 import {KINOTIC_DOCKER_IMAGE} from './TestHelper.js'
 
@@ -30,7 +30,7 @@ describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
         connectionInfo.port = 58599
         connectionInfo.maxConnectionAttempts = 0
         connectionInfo.sessionKeepAlive = SessionKeepAliveMode.NONE
-        connectionInfo.connectHeaders = async () => {return {login: 'kinotic@kinotic.local', passcode: 'kinotic', authScopeType: 'ORGANIZATION', authScopeId: 'kinotic-test'}}
+        connectionInfo.webSocketFactory = authedWebSocketFactory(connectionInfo.host, connectionInfo.port)
 
         console.log(`Kinotic Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
     }, 1000 * 60 * 10) // 10 minutes

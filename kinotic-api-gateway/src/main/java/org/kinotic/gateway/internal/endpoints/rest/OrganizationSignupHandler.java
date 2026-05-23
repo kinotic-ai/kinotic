@@ -163,8 +163,7 @@ public class OrganizationSignupHandler {
         }
 
         Future.fromCompletionStage(pendingRegistrationService.completeWithNewOrg(token, orgName, orgDescription))
-              .onSuccess(user -> authEndpointSupport.respondJwt(ctx, user,
-                      new JsonObject().put("orgId", user.getAuthScopeId())))
+              .onSuccess(user -> authEndpointSupport.respondSuccess(ctx, user))
               .onFailure(ex -> {
                   Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
                   authEndpointSupport.respondError(ctx, 400, cause.getMessage());
@@ -178,7 +177,8 @@ public class OrganizationSignupHandler {
     /** Sends the browser to the org-name completion page with the pending registration token. */
     private void redirectToCompleteOrg(RoutingContext ctx, String token) {
         ctx.response().setStatusCode(302)
-           .putHeader("Location", OidcConstants.REGISTER_PATH + "?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8))
+           .putHeader("Location", authEndpointSupport.appUrl(OidcConstants.REGISTER_PATH)
+                   + "?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8))
            .end();
     }
 

@@ -30,7 +30,7 @@ import org.springframework.stereotype.Component;
  * <p>System admins are pre-provisioned ({@link IamUser} with
  * {@code authScopeType=SYSTEM}, {@code authScopeId="kinotic"}); login is OIDC-only —
  * never auto-creates rows. The dev-only password fallback for {@code admin@kinotic.local}
- * lives on the org-login {@code /api/login/token} endpoint and is removed for production
+ * lives on the org-login {@code /api/login} endpoint and is removed for production
  * deployments.
  */
 @Slf4j
