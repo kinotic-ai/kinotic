@@ -52,9 +52,9 @@ public class ApiGatewayVertcleFactory {
 
         // CORS first — the SPA is a different origin from this gateway (portal.kinotic.ai
         // vs api.kinotic.ai in prod, vite's :5173 in dev). They're same-site, so the
-        // SameSite=Lax session cookie flows; credentialed CORS (kinotic.domain.cors.*) lets the
+        // SameSite=Lax session cookie flows; credentialed CORS (kinotic.cors.*) lets the
         // cross-origin login fetch store it. Shared with the openapi/graphql routes.
-        router.route().handler(CorsUtil.createCorsHandler(domainProperties.getDomain().getCors()));
+        router.route().handler(CorsUtil.createCorsHandler(properties.getCors()));
 
         // Health check on the api-gateway port so probes work even when the static
         // web-server (9090) is disabled in KinD/Azure.

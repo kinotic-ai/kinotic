@@ -18,6 +18,5 @@ kinotic:
     kubernetesServiceName: kinotic
     kubernetesIncludeNotReadyAddresses: true
 
-  domain:
-    cors:
-      allowedOriginPattern: "https:\\/\\/(.+\\.)?kinotic\\.ai"
+  cors:
+    allowedOriginPattern: "https:\\/\\/(.+\\.)?kinotic\\.ai"

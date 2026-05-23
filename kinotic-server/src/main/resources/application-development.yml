@@ -18,9 +18,9 @@ kinotic:
       enabled: false
       endpoint: https://acs-kinotic.communication.azure.com
       sender-address: "DoNotReply@kinotic.ai"
-    cors:
-      allowedOriginPattern: "http:\\/\\/localhost:\\d+"
-      allowCredentials: true
+  cors:
+    allowedOriginPattern: "http:\\/\\/localhost:\\d+"
+    allowCredentials: true
   maxNumberOfCoresToUse: 4
   ignite:
     discoveryType: SHAREDFS

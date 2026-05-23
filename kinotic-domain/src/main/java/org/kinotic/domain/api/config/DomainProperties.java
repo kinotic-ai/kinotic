@@ -3,7 +3,6 @@ package org.kinotic.domain.api.config;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
-import org.kinotic.core.api.config.CorsProperties;
 import org.kinotic.core.api.config.SslProperties;
 
 /**
@@ -32,11 +31,6 @@ public class DomainProperties {
      * where the SPA is served from the same origin as the API.
      */
     private String apiBaseUrl = null;
-
-    /**
-     * CORS configuration applied to all Vert.x HTTP servers that expose browser-facing routes.
-     */
-    private CorsProperties cors = new CorsProperties();
 
     /**
      * SSL/TLS configuration for all Vert.x HTTP servers.

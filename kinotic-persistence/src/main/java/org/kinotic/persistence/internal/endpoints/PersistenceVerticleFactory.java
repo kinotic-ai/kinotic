@@ -33,7 +33,7 @@ public class PersistenceVerticleFactory {
 
 
     public GqlVerticle createGqlVerticle(){
-        return new GqlVerticle(delegatingGqlHandler, properties, kinoticDomainProperties.getDomain().getSsl(), kinoticDomainProperties.getDomain().getCors(), securityService, securityContext);
+        return new GqlVerticle(delegatingGqlHandler, properties, kinoticDomainProperties.getDomain().getSsl(), kinoticDomainProperties.getCors(), securityService, securityContext);
     }
 
     public OpenApiVerticle createOpenApiVerticle(){
