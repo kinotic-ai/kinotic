@@ -149,13 +149,7 @@ export class StompConnectionManager {
                         try {
                             preparedSocket = await userWebSocketFactory()
                         } catch (e) {
-                            const err = new Error('WebSocket factory failed', { cause: e })
-                            if (!this.initialConnectionSuccessful) {
-                                await this.deactivate()
-                                reject(err.message)
-                            } else {
-                                this.fatalErrorsSubject.next(err)
-                            }
+                            await this.signalFatal(new Error('WebSocket factory failed', { cause: e }))
                         }
                     }
                 }
@@ -177,7 +171,7 @@ export class StompConnectionManager {
             // Forward STOMP ERROR frames as fatal errors. Server-issued ERROR frames close the
             // connection and indicate an unrecoverable condition (auth failure, protocol error).
             this.stompErrorsSubscription = this.rxStomp.stompErrors$.subscribe((frame: IFrame) => {
-                this.fatalErrorsSubject.next(new Error(frame.headers['message'] as string, { cause: frame }))
+                void this.signalFatal(new Error(frame.headers['message'] as string, { cause: frame }))
             })
 
             // Handles Successful Connections
@@ -194,12 +188,10 @@ export class StompConnectionManager {
 
             // Route any fatal error that arrives before the initial connection succeeds into
             // the activate() promise so the caller learns why the connection never came up.
-            const initialFailureSubscription: Subscription = this.fatalErrorsSubject.subscribe(async (err: Error) => {
+            // signalFatal has already deactivated by the time we get here.
+            const initialFailureSubscription: Subscription = this.fatalErrorsSubject.subscribe((err: Error) => {
                 connectedSubscription.unsubscribe()
                 initialFailureSubscription.unsubscribe()
-
-                await this.deactivate()
-
                 reject(err.message)
             })
 
@@ -256,6 +248,16 @@ export class StompConnectionManager {
             this._replyToCri = null
         }
         return
+    }
+
+    /**
+     * Tears down the connection then publishes the failure to {@link fatalErrors}. Deactivating
+     * first means subscribers see the error already in its terminal state — no further reconnect
+     * attempts, no live rxStomp — so they can react without racing the cleanup.
+     */
+    private async signalFatal(err: Error): Promise<void> {
+        await this.deactivate()
+        this.fatalErrorsSubject.next(err)
     }
 
     /**

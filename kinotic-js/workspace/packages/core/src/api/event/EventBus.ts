@@ -79,14 +79,6 @@ export class EventBus implements IEventBus {
     private requestRepliesSubscription: Subscription | null = null
 
     constructor() {
-        this.stompConnectionManager.fatalErrors.subscribe(() => {
-            this.disconnect()
-                .catch((error: string) => {
-                    if(console){
-                        console.error('Error disconnecting from Stomp: ' + error)
-                    }
-                })
-        })
         this.stompConnectionManager.deactivationHandler = () => {
             this.cleanup()
         }
