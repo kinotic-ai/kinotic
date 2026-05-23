@@ -255,7 +255,7 @@ export class StompConnectionManager {
 
     /**
      * Tears down the connection then publishes the failure to {@link fatalErrors}. Deactivating
-     * first means subscribers see the error already in its terminal state — no further reconnect
+     * first means subscribers see the error already in its terminal state — no further reconnection
      * attempts, no live rxStomp — so they can react without racing the cleanup.
      */
     private async signalFatal(err: Error): Promise<void> {

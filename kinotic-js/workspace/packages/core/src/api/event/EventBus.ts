@@ -79,6 +79,8 @@ export class EventBus implements IEventBus {
     private requestRepliesSubscription: Subscription | null = null
 
     constructor() {
+        // We send an error any in-flight requests and clean up our connection state on fatal errors
+        // The StompConnectionManager will automatically deactivate on fatal errors
         this.stompConnectionManager.fatalErrors.subscribe(() => this.cleanup())
         this.stompConnectionManager.replyToCriChangedHandler = (replyToCri: string) => {
             this.replyToCri = replyToCri
