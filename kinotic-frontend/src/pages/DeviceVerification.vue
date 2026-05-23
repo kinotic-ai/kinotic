@@ -56,6 +56,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-facing-decorator'
+import { Kinotic } from '@kinotic-ai/core'
 import Button from 'primevue/button'
 import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
@@ -64,7 +65,6 @@ import loginPageLeft from '@/assets/login-page-left.svg'
 import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
 import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
 import { isDark as darkMode } from '@/composables/useTheme'
-import { apiUrl } from '@/util/helpers'
 import '@/pages/auth-pages.css'
 
 /**
@@ -94,30 +94,13 @@ export default class DeviceVerification extends Vue {
     if (!userCode) return
     this.loading = true
     try {
-      const res = await fetch(apiUrl('/api/login/device/approve'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ user_code: userCode })
-      })
-      if (!res.ok) {
-        this.displayError(await this.readError(res))
-        return
-      }
+      await Kinotic.serviceProxy('org.kinotic.domain.api.services.iam.DeviceApprovalService')
+                   .invoke('approve', [userCode])
       this.approved = true
     } catch (err) {
       this.displayError(err instanceof Error ? err.message : 'Could not approve the device')
     } finally {
       this.loading = false
-    }
-  }
-
-  private async readError(res: Response): Promise<string> {
-    try {
-      const body = await res.json()
-      return body?.error ?? 'Could not approve the device'
-    } catch {
-      return 'Could not approve the device'
     }
   }
 

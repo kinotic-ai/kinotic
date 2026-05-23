@@ -28,11 +28,12 @@ import java.util.Date;
  *       and the browser verification URL.</li>
  *   <li>{@code POST /api/login/device/token} — polled by the CLI; returns
  *       {@code authorization_pending} until approved, then an access/refresh token pair.</li>
- *   <li>{@code POST /api/login/device/approve} — called by the authenticated browser to bind
- *       the logged-in user to a {@code user_code}.</li>
  *   <li>{@code POST /api/login/device/refresh} — exchanges a refresh token for a new
  *       access/refresh token pair (rotation).</li>
  * </ul>
+ *
+ * <p>The approve step is the {@code DeviceApprovalService} Kinotic service the browser
+ * invokes over its authenticated connection, not a REST route.
  *
  * <p>Error responses use the RFC 8628 / RFC 6749 shape {@code {"error":"<code>"}} so the CLI
  * can branch on the code.
@@ -50,7 +51,6 @@ public class CliDeviceLoginHandler {
     public void mountRoutes(Router router) {
         router.post(OidcConstants.DEVICE_LOGIN_BASE + "/start").handler(this::handleStart);
         router.post(OidcConstants.DEVICE_LOGIN_BASE + "/token").handler(this::handleToken);
-        router.post(OidcConstants.DEVICE_LOGIN_BASE + "/approve").handler(this::handleApprove);
         router.post(OidcConstants.DEVICE_LOGIN_BASE + "/refresh").handler(this::handleRefresh);
     }
 
@@ -104,23 +104,6 @@ public class CliDeviceLoginHandler {
                   log.warn("Could not issue refresh token after device approval: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 500, "Could not issue tokens");
               });
-    }
-
-    private void handleApprove(RoutingContext ctx) {
-        String userCode = stringField(ctx, "user_code");
-        if (userCode == null) {
-            authEndpointSupport.respondError(ctx, 400, "user_code is required");
-            return;
-        }
-        String userId = authEndpointSupport.authenticatedUserId(ctx);
-        if (userId == null) {
-            authEndpointSupport.respondError(ctx, 401, "Authentication required");
-            return;
-        }
-        Future.fromCompletionStage(deviceCodeGrantService.approve(userCode, userId))
-              .onSuccess(v -> ctx.response().putHeader("Content-Type", "application/json")
-                                 .end(new JsonObject().put("status", "approved").encode()))
-              .onFailure(err -> authEndpointSupport.respondError(ctx, 400, err.getMessage()));
     }
 
     private void handleRefresh(RoutingContext ctx) {
