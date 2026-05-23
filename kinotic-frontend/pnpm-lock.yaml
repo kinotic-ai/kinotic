@@ -21,8 +21,8 @@ importers:
         specifier: ^1.0.9
         version: 1.0.9(typescript@5.8.3)
       '@kinotic-ai/os-api':
-        specifier: ^1.5.0
-        version: 1.5.0(@kinotic-ai/core@1.3.0(typescript@5.8.3))(typescript@5.8.3)
+        specifier: ^1.5.1
+        version: 1.5.1(@kinotic-ai/core@1.3.0(typescript@5.8.3))(typescript@5.8.3)
       '@kinotic-ai/persistence':
         specifier: ^1.2.1
         version: 1.2.1(@kinotic-ai/core@1.3.0(typescript@5.8.3))(typescript@5.8.3)
@@ -232,8 +232,8 @@ packages:
       typescript:
         optional: true
 
-  '@kinotic-ai/os-api@1.5.0':
-    resolution: {integrity: sha512-l7I+pfWZEHuStP5iRgcGlziFPnVBuciMqIyFElJVdG88F0nW8dpOffF3z9/MaMhXgIGt6HW03R1tUiYfq+1SXg==}
+  '@kinotic-ai/os-api@1.5.1':
+    resolution: {integrity: sha512-9C6S/DxhPD8TwSiBEyc0FbuPO1QVHx7Nqo46EIHedrm/7X2FLvEZfEUUIT9RteWSV+V1Dj3cgHFNyAG/gmyqnQ==}
     peerDependencies:
       '@kinotic-ai/core': '>=1.2.0'
       typescript: '*'
@@ -1483,7 +1483,7 @@ snapshots:
     optionalDependencies:
       typescript: 5.8.3
 
-  '@kinotic-ai/os-api@1.5.0(@kinotic-ai/core@1.3.0(typescript@5.8.3))(typescript@5.8.3)':
+  '@kinotic-ai/os-api@1.5.1(@kinotic-ai/core@1.3.0(typescript@5.8.3))(typescript@5.8.3)':
     dependencies:
       '@kinotic-ai/core': 1.3.0(typescript@5.8.3)
       '@kinotic-ai/idl': 1.0.9(typescript@5.8.3)
