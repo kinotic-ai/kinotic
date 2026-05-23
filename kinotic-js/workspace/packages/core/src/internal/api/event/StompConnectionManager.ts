@@ -150,9 +150,6 @@ export class StompConnectionManager {
                         try {
                             preparedSocket = await userWebSocketFactory()
                         } catch (e) {
-                            // The factory could not produce a socket (e.g. a token refresh
-                            // failed). Give up rather than reconnect-loop the same failure.
-                            await this.deactivate()
                             const message = e instanceof Error ? e.message : String(e)
                             this.fatalErrorsSubject.next(new KinoticError(message))
                         }
