@@ -45,7 +45,7 @@ let schemas: Map<string, SchemaCreationResult> = new Map<string, SchemaCreationR
  * {@link KinoticSecurityService} authenticates the participant from these
  * before the STOMP CONNECT frame is processed.
  */
-interface AuthHeaders {
+export interface AuthHeaders {
     login: string
     passcode: string
     authScopeType: 'SYSTEM' | 'ORGANIZATION' | 'APPLICATION'

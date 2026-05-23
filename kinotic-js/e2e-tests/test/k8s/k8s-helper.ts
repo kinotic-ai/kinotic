@@ -1,13 +1,7 @@
 import { ConnectionInfo, IWebSocket, Kinotic as Continuum, SessionKeepAliveMode, WebSocketFactory } from '@kinotic-ai/core';
 import { ChildProcess, execSync } from 'child_process';
 import { WebSocket } from 'ws';
-
-interface AuthHeaders {
-    login: string;
-    passcode: string;
-    authScopeType: 'SYSTEM' | 'ORGANIZATION' | 'APPLICATION';
-    authScopeId: string;
-}
+import { AuthHeaders } from '../TestHelpers.js';
 
 function buildPodWsUrl(localPort: number): string {
     return `ws://localhost:${localPort}/v1`;
