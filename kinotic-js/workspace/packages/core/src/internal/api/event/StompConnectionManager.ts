@@ -128,16 +128,14 @@ export class StompConnectionManager {
                         this.connectionAttempts++
 
                         if(this.connectionAttempts > connectionInfo.maxConnectionAttempts){
-
-                            // Reached threshold give up
+                            // Reached threshold give up. Flag must be set before signalFatal so any
+                            // send() racing the teardown reports the right reason via createSendUnavailableError.
                             this.maxConnectionAttemptsReached = true
-                            await this.deactivate()
-
-                            // If we have not made an initial connection, the promise is not yet resolved
-                            if(!this.initialConnectionSuccessful) {
-                                let message = (this.lastWebsocketError as any)?.message ? (this.lastWebsocketError as any)?.message : 'UNKNOWN'
-                                reject(`Max number of reconnection attempts reached. Last WS Error ${message}`)
-                            }
+                            const wsMessage = (this.lastWebsocketError as any)?.message ?? 'UNKNOWN'
+                            await this.signalFatal(new Error(
+                                `Max number of reconnection attempts reached. Last WS Error ${wsMessage}`,
+                                { cause: this.lastWebsocketError ?? undefined }
+                            ))
                             return
                         }else{
                             await this.connectionJitterDelay();
