@@ -122,7 +122,8 @@ import { StructuresStates } from '@/states'
 import { type IUserState } from '@/states/IUserState'
 import { createDebug } from '@/util/debug'
 import { apiUrl } from '@/util/helpers'
-import loginPageLeft from '@/assets/login-page-left.svg'
+import loginBgDark from '@/assets/left_background_dark.png'
+import loginBgLight from '@/assets/left-background_light.png'
 import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
 import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
 import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
@@ -148,10 +149,10 @@ export default class Login extends Vue {
   loading: boolean = false
   providers: string[] = []
 
-  private readonly loginBackgroundArt = loginPageLeft
   private toast = useToast()
   private userState: IUserState = StructuresStates.getUserState()
 
+  get loginBackgroundArt() { return darkMode.value ? loginBgDark : loginBgLight }
   get loginBrandMark() { return darkMode.value ? loginPageLogo : loginPageLogoLight }
   get isDark() { return darkMode.value }
   toggleTheme() { toggleDark() }

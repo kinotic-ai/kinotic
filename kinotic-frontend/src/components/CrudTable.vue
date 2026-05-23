@@ -323,12 +323,6 @@ export default toNative(CrudTable);
         <InputIcon class="pi pi-search" />
         <InputText
           v-model="searchText"
-          :class="[
-            '!shadow-none',
-            isDark
-              ? 'border-surface-700 bg-surface-950 text-surface-0 placeholder:text-surface-500'
-              : 'border-surface-300 bg-surface-0 text-surface-950 placeholder:text-surface-400'
-          ]"
           placeholder="Search"
           size="small"
           @input="onSearchChange"
