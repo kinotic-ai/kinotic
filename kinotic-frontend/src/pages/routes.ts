@@ -247,7 +247,7 @@ const pageRoutes: RouteRecordRaw[] = [
     meta: {
       authenticationRequired: true
     },
-    component: () => import('@/pages/DeviceVerification.vue'),
+    component: () => import('@/pages/login/DeviceVerification.vue'),
   },
   {
     path: '/graphql',
