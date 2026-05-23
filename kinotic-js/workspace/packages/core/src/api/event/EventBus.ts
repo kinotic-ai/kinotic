@@ -122,9 +122,8 @@ export class EventBus implements IEventBus {
     }
 
     public async disconnect(force?: boolean): Promise<void> {
+        // deactivate triggers deactivationHandler which runs cleanup()
         await this.stompConnectionManager.deactivate(force)
-
-        this.cleanup()
     }
 
     public send(event: IEvent): void {
