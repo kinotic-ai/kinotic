@@ -171,7 +171,8 @@ export class StompConnectionManager {
             // Forward STOMP ERROR frames as fatal errors. Server-issued ERROR frames close the
             // connection and indicate an unrecoverable condition (auth failure, protocol error).
             this.stompErrorsSubscription = this.rxStomp.stompErrors$.subscribe(async (frame: IFrame) => {
-                await this.signalFatal(new Error(frame.headers['message'] as string, { cause: 'Stomp Error' }))
+                const stompError = new Error(frame.headers['message'] as string, { cause: frame })
+                await this.signalFatal(new Error('STOMP connection error', { cause: stompError }))
             })
 
             // Handles Successful Connections
