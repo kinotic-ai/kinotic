@@ -25,6 +25,9 @@ interface ServerTarget {
 /** State key the rotating refresh token is persisted under, keyed by server url. */
 const CREDENTIALS_KEY = 'kinotic-credentials'
 
+/** Per-request timeout for REST calls to the Kinotic Server. */
+const FETCH_TIMEOUT_MS = 15_000
+
 /**
  * CLI authentication against a Kinotic server using the OAuth 2.0 Device Authorization Grant
  * (RFC 8628). {@link login} runs the interactive browser flow once and stores the refresh
@@ -119,7 +122,8 @@ export class CliAuthenticator {
         const res = await fetch(restBaseUrl + '/api/login/device/refresh', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({refresh_token: this.refreshToken})
+            body: JSON.stringify({refresh_token: this.refreshToken}),
+            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
         })
         if (!res.ok) {
             throw new Error('Session expired. Run `kinotic login` again.')
@@ -161,7 +165,10 @@ export class CliAuthenticator {
 
     /** Runs the RFC 8628 device flow: start, browser approval, then poll for tokens. */
     private async deviceLogin(restBaseUrl: string): Promise<DeviceTokens | null> {
-        const startRes = await fetch(restBaseUrl + '/api/login/device/start', {method: 'POST'})
+        const startRes = await fetch(restBaseUrl + '/api/login/device/start', {
+            method: 'POST',
+            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+        })
         if (!startRes.ok) {
             this.logger.log('Could not start device authorization with the Kinotic Server.')
             return null
@@ -190,7 +197,8 @@ export class CliAuthenticator {
             const tokenRes = await fetch(restBaseUrl + '/api/login/device/token', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({device_code: start.device_code})
+                body: JSON.stringify({device_code: start.device_code}),
+                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
             })
             if (tokenRes.ok) {
                 return await tokenRes.json() as DeviceTokens
