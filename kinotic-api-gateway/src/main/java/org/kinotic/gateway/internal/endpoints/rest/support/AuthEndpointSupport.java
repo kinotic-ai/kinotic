@@ -10,7 +10,7 @@ import java.util.function.Function;
 
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -37,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AuthEndpointSupport {
 
-    private final KinoticApiGatewayProperties gatewayProperties;
+    private final KinoticDomainProperties domainProperties;
 
 
     /**
@@ -45,7 +45,7 @@ public class AuthEndpointSupport {
      * {@code appBaseUrl}, + {@code relativePath}) — used for OIDC {@code redirect_uri}s.
      */
     public String absoluteUrl(String relativePath) {
-        return gatewayProperties.getDomain().resolveApiBaseUrl() + relativePath;
+        return domainProperties.getDomain().resolveApiBaseUrl() + relativePath;
     }
 
     /**
@@ -53,7 +53,7 @@ public class AuthEndpointSupport {
      * a different origin than this gateway, so redirects back to the browser must be absolute.
      */
     public String appUrl(String relativePath) {
-        return gatewayProperties.getDomain().getAppBaseUrl() + relativePath;
+        return domainProperties.getDomain().getAppBaseUrl() + relativePath;
     }
 
     // ── Browser session login ─────────────────────────────────────────────────

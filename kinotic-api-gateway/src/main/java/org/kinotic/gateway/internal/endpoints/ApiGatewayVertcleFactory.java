@@ -16,6 +16,7 @@ import io.vertx.ext.web.sstore.SessionStore;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.core.internal.utils.CorsUtil;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.rest.*;
 import org.kinotic.github.api.rest.GitHubGatewayRoutes;
@@ -32,6 +33,7 @@ import java.util.List;
 public class ApiGatewayVertcleFactory {
 
     private final KinoticApiGatewayProperties properties;
+    private final KinoticDomainProperties domainProperties;
     private final StompServerHandlerFactory stompServerHandlerFactory;
     private final SignUpHandler signUpHandler;
     private final OrganizationLoginHandler organizationLoginHandler;
@@ -52,7 +54,7 @@ public class ApiGatewayVertcleFactory {
         // vs api.kinotic.ai in prod, vite's :5173 in dev). They're same-site, so the
         // SameSite=Lax session cookie flows; credentialed CORS (kinotic.domain.cors.*) lets the
         // cross-origin login fetch store it. Shared with the openapi/graphql routes.
-        router.route().handler(CorsUtil.createCorsHandler(properties.getDomain().getCors()));
+        router.route().handler(CorsUtil.createCorsHandler(domainProperties.getDomain().getCors()));
 
         // Health check on the api-gateway port so probes work even when the static
         // web-server (9090) is disabled in KinD/Azure.
@@ -93,12 +95,12 @@ public class ApiGatewayVertcleFactory {
         HttpServerOptions serverOptions = new HttpServerOptions();
         serverOptions.setWebSocketSubProtocols(List.of("v12.stomp"));
         serverOptions.setMaxWebSocketFrameSize(properties.getMaxEventPayloadSize());
-        SslHelper.applySsl(serverOptions, properties.getDomain().getSsl());
+        SslHelper.applySsl(serverOptions, domainProperties.getDomain().getSsl());
 
         return StompServerVerticleFactory.create(serverOptions, stompServerOptions, stompServerHandlerFactory, router);
     }
 
     public WebServerVerticle createWebServerVerticle(){
-        return new WebServerVerticle(properties.getApiGateway().getWebServer(), properties.getDomain().getSsl());
+        return new WebServerVerticle(properties.getApiGateway().getWebServer(), domainProperties.getDomain().getSsl());
     }
 }
