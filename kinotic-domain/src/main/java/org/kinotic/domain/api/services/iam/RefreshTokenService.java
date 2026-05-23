@@ -8,8 +8,6 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Issues and rotates refresh tokens for CLI sessions. Tokens are stored only as hashes; each
  * redemption rotates the token and detects reuse of an already-rotated token.
- * <p>
- * Not a {@code @Publish} service — called in-process from the gateway's HTTP handlers.
  */
 public interface RefreshTokenService {
 
