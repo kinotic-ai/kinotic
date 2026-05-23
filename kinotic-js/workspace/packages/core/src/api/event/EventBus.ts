@@ -1,5 +1,4 @@
 import {ConnectionInfo, ServerInfo} from '@/api/ConnectionInfo'
-import {KinoticError} from '@/api/errors/KinoticError'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {StompConnectionManager} from '@/internal/api/event/StompConnectionManager'
 import {context, propagation} from '@opentelemetry/api';
@@ -97,7 +96,7 @@ export class EventBus implements IEventBus {
         }
     }
 
-    public get fatalErrors(): Observable<KinoticError> {
+    public get fatalErrors(): Observable<Error> {
         return this.stompConnectionManager.fatalErrors
     }
 

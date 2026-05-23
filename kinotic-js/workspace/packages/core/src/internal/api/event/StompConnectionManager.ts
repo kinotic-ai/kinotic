@@ -1,5 +1,4 @@
 import {ConnectionInfo, type IWebSocket, SessionKeepAliveMode} from '@/api/ConnectionInfo'
-import {KinoticError} from '@/api/errors/KinoticError'
 import {EventConstants} from '@/api/event/IEventBus'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {type IFrame, RxStomp, RxStompConfig, StompHeaders} from '@stomp/rx-stomp'
@@ -30,8 +29,8 @@ export class StompConnectionManager {
     private _replyToCri: string | null = null
     private serverHeadersSubscription: Subscription | null = null
     private stompErrorsSubscription: Subscription | null = null
-    private readonly fatalErrorsSubject: Subject<KinoticError> = new Subject<KinoticError>()
-    private readonly _fatalErrors: Observable<KinoticError> = this.fatalErrorsSubject.asObservable()
+    private readonly fatalErrorsSubject: Subject<Error> = new Subject<Error>()
+    private readonly _fatalErrors: Observable<Error> = this.fatalErrorsSubject.asObservable()
     public deactivationHandler: (() => void) | null = null
     /**
      * Invoked when the server issues a new replyToId on reconnect, which changes {@link replyToCri}.
@@ -53,7 +52,7 @@ export class StompConnectionManager {
      * {@link ConnectionInfo#webSocketFactory} (e.g. a token refresh failed). Long-running
      * consumers should subscribe to react to terminal failures.
      */
-    public get fatalErrors(): Observable<KinoticError> {
+    public get fatalErrors(): Observable<Error> {
         return this._fatalErrors
     }
 
@@ -150,12 +149,12 @@ export class StompConnectionManager {
                         try {
                             preparedSocket = await userWebSocketFactory()
                         } catch (e) {
-                            const message = e instanceof Error ? e.message : String(e)
+                            const err = e instanceof Error ? e : new Error(String(e))
                             if (!this.initialConnectionSuccessful) {
                                 await this.deactivate()
-                                reject(message)
+                                reject(err.message)
                             } else {
-                                this.fatalErrorsSubject.next(new KinoticError(message))
+                                this.fatalErrorsSubject.next(err)
                             }
                         }
                     }
@@ -178,7 +177,7 @@ export class StompConnectionManager {
             // Forward STOMP ERROR frames as fatal errors. Server-issued ERROR frames close the
             // connection and indicate an unrecoverable condition (auth failure, protocol error).
             this.stompErrorsSubscription = this.rxStomp.stompErrors$.subscribe((frame: IFrame) => {
-                this.fatalErrorsSubject.next(new KinoticError(frame.headers['message'] as string))
+                this.fatalErrorsSubject.next(new Error(frame.headers['message'] as string))
             })
 
             // Handles Successful Connections
@@ -195,7 +194,7 @@ export class StompConnectionManager {
 
             // Route any fatal error that arrives before the initial connection succeeds into
             // the activate() promise so the caller learns why the connection never came up.
-            const initialFailureSubscription: Subscription = this.fatalErrorsSubject.subscribe(async (err: KinoticError) => {
+            const initialFailureSubscription: Subscription = this.fatalErrorsSubject.subscribe(async (err: Error) => {
                 connectedSubscription.unsubscribe()
                 initialFailureSubscription.unsubscribe()
 
