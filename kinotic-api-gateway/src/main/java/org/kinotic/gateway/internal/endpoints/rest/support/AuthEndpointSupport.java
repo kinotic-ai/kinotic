@@ -15,13 +15,11 @@ import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.internal.utils.DomainUtil;
-import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
@@ -39,11 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AuthEndpointSupport {
 
-    /** Access-token TTL for the CLI device/refresh token endpoints. */
-    public static final int JWT_TTL_SECONDS = 60;
-
     private final KinoticApiGatewayProperties gatewayProperties;
-    private final KinoticJwtIssuer jwtIssuer;
 
 
     /**
@@ -60,18 +54,6 @@ public class AuthEndpointSupport {
      */
     public String appUrl(String relativePath) {
         return gatewayProperties.getAppBaseUrl() + relativePath;
-    }
-
-    // ── JWT ───────────────────────────────────────────────────────────────────
-
-    /** Mints the short-TTL Kinotic JWT carrying {@code sub/email/authScopeType/authScopeId}. */
-    public String mintJwt(IamUser user) {
-        JsonObject claims = new JsonObject()
-                .put("sub", user.getId())
-                .put("email", user.getEmail())
-                .put("authScopeType", user.getAuthScopeType())
-                .put("authScopeId", user.getAuthScopeId());
-        return jwtIssuer.sign(claims, new JWTOptions().setExpiresInSeconds(JWT_TTL_SECONDS));
     }
 
     // ── Browser session login ─────────────────────────────────────────────────
@@ -96,20 +78,6 @@ public class AuthEndpointSupport {
     public void respondSuccess(RoutingContext ctx, IamUser user) {
         establishSession(ctx, user);
         ctx.response().setStatusCode(204).end();
-    }
-
-    /**
-     * {@code 200 application/json} with the OAuth token-pair shape consumed by the CLI:
-     * a short-TTL {@code access_token} plus the {@code refresh_token} the client persists
-     * to mint future access tokens.
-     */
-    public void respondTokenPair(RoutingContext ctx, IamUser user, String refreshToken) {
-        JsonObject body = new JsonObject()
-                .put("access_token", mintJwt(user))
-                .put("token_type", "Bearer")
-                .put("expires_in", JWT_TTL_SECONDS)
-                .put("refresh_token", refreshToken);
-        ctx.response().putHeader("Content-Type", "application/json").end(body.encode());
     }
 
     // ── Redirects ─────────────────────────────────────────────────────────────

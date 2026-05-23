@@ -94,8 +94,7 @@ export default class DeviceVerification extends Vue {
     if (!userCode) return
     this.loading = true
     try {
-      await Kinotic.serviceProxy('org.kinotic.domain.api.services.iam.DeviceApprovalService')
-                   .invoke('approve', [userCode])
+      await Kinotic.deviceApproval.approve(userCode)
       this.approved = true
     } catch (err) {
       this.displayError(err instanceof Error ? err.message : 'Could not approve the device')
