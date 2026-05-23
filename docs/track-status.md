@@ -44,8 +44,8 @@ Active tracks:
   and a composed Microsoft button per Entra brand specs. Falls back to a generic styled
   button for unknown providers (e.g. Keycloak).
 - **Split api/app base URLs**
-  `kinotic.appBaseUrl` → SPA origin (used for verification email links + post-OIDC SPA
-  redirects). `kinotic.apiBaseUrl` (optional, falls back to `appBaseUrl`) → backend origin
+  `kinotic.domain.appBaseUrl` → SPA origin (used for verification email links + post-OIDC SPA
+  redirects). `kinotic.domain.apiBaseUrl` (optional, falls back to `appBaseUrl`) → backend origin
   used for OIDC `redirect_uri`. Required for the Azure split-origin deploy
   (`portal.kinotic.ai` SPA + `api.kinotic.ai` AKS).
 

@@ -10,7 +10,7 @@ import java.util.function.Function;
 
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -37,23 +37,23 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AuthEndpointSupport {
 
-    private final KinoticApiGatewayProperties gatewayProperties;
+    private final KinoticDomainProperties domainProperties;
 
 
     /**
-     * Builds an absolute backend URL ({@code kinotic.apiBaseUrl}, falling back to
+     * Builds an absolute backend URL ({@code kinotic.domain.apiBaseUrl}, falling back to
      * {@code appBaseUrl}, + {@code relativePath}) — used for OIDC {@code redirect_uri}s.
      */
     public String absoluteUrl(String relativePath) {
-        return gatewayProperties.resolveApiBaseUrl() + relativePath;
+        return domainProperties.getDomain().resolveApiBaseUrl() + relativePath;
     }
 
     /**
-     * Builds an absolute SPA URL ({@code kinotic.appBaseUrl} + {@code relativePath}). The SPA is
+     * Builds an absolute SPA URL ({@code kinotic.domain.appBaseUrl} + {@code relativePath}). The SPA is
      * a different origin than this gateway, so redirects back to the browser must be absolute.
      */
     public String appUrl(String relativePath) {
-        return gatewayProperties.getAppBaseUrl() + relativePath;
+        return domainProperties.getDomain().getAppBaseUrl() + relativePath;
     }
 
     // ── Browser session login ─────────────────────────────────────────────────

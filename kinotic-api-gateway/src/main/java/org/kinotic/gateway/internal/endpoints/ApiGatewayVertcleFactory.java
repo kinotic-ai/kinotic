@@ -16,6 +16,7 @@ import io.vertx.ext.web.sstore.SessionStore;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.core.internal.utils.CorsUtil;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.rest.*;
 import org.kinotic.github.api.rest.GitHubGatewayRoutes;
@@ -32,6 +33,7 @@ import java.util.List;
 public class ApiGatewayVertcleFactory {
 
     private final KinoticApiGatewayProperties properties;
+    private final KinoticDomainProperties domainProperties;
     private final StompServerHandlerFactory stompServerHandlerFactory;
     private final SignUpHandler signUpHandler;
     private final OrganizationLoginHandler organizationLoginHandler;
@@ -93,12 +95,12 @@ public class ApiGatewayVertcleFactory {
         HttpServerOptions serverOptions = new HttpServerOptions();
         serverOptions.setWebSocketSubProtocols(List.of("v12.stomp"));
         serverOptions.setMaxWebSocketFrameSize(properties.getMaxEventPayloadSize());
-        SslHelper.applySsl(serverOptions, properties.getSsl());
+        SslHelper.applySsl(serverOptions, domainProperties.getDomain().getSsl());
 
         return StompServerVerticleFactory.create(serverOptions, stompServerOptions, stompServerHandlerFactory, router);
     }
 
     public WebServerVerticle createWebServerVerticle(){
-        return new WebServerVerticle(properties.getApiGateway().getWebServer(), properties.getSsl());
+        return new WebServerVerticle(properties.getApiGateway().getWebServer(), domainProperties.getDomain().getSsl());
     }
 }

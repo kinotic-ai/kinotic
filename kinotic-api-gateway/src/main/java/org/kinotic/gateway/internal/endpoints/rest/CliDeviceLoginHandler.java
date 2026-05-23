@@ -7,11 +7,11 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.iam.DeviceCodePollResult;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.services.iam.DeviceCodeGrantService;
 import org.kinotic.domain.api.services.iam.RefreshTokenService;
-import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
 import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
@@ -52,7 +52,7 @@ public class CliDeviceLoginHandler {
     private final AuthEndpointSupport authEndpointSupport;
     private final DeviceCodeGrantService deviceCodeGrantService;
     private final RefreshTokenService refreshTokenService;
-    private final KinoticApiGatewayProperties gatewayProperties;
+    private final KinoticDomainProperties domainProperties;
     private final KinoticJwtIssuer jwtIssuer;
 
     public void mountRoutes(Router router) {
@@ -64,7 +64,7 @@ public class CliDeviceLoginHandler {
     private void handleStart(RoutingContext ctx) {
         Future.fromCompletionStage(deviceCodeGrantService.start())
               .onSuccess(start -> {
-                  String verificationUri = gatewayProperties.getAppBaseUrl() + OidcConstants.DEVICE_VERIFICATION_PATH;
+                  String verificationUri = domainProperties.getDomain().getAppBaseUrl() + OidcConstants.DEVICE_VERIFICATION_PATH;
                   JsonObject body = new JsonObject()
                           .put("device_code", start.deviceCode())
                           .put("user_code", start.userCode())
