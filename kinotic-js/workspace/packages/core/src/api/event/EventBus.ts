@@ -1,4 +1,5 @@
 import {ConnectionInfo, ServerInfo} from '@/api/ConnectionInfo'
+import {KinoticError} from '@/api/errors/KinoticError'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {StompConnectionManager} from '@/internal/api/event/StompConnectionManager'
 import {context, propagation} from '@opentelemetry/api';
@@ -71,7 +72,6 @@ interface Carrier {
  */
 export class EventBus implements IEventBus {
 
-    public fatalErrors: Observable<Error>
     public serverInfo: ServerInfo | null = null
     private stompConnectionManager: StompConnectionManager = new StompConnectionManager()
     private replyToCri: string  | null = null
@@ -80,7 +80,6 @@ export class EventBus implements IEventBus {
     private requestRepliesSubscription: Subscription | null = null
 
     constructor() {
-        this.fatalErrors = this.stompConnectionManager.fatalErrors
         this.stompConnectionManager.fatalErrors.subscribe(() => {
             this.disconnect()
                 .catch((error: string) => {
@@ -96,6 +95,10 @@ export class EventBus implements IEventBus {
             this.replyToCri = replyToCri
             this.resetRequestReplies('Reply destination changed')
         }
+    }
+
+    public get fatalErrors(): Observable<KinoticError> {
+        return this.stompConnectionManager.fatalErrors
     }
 
     public isConnectionActive(): boolean{
