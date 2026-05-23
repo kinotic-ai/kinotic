@@ -257,6 +257,9 @@ export class StompConnectionManager {
      * attempts, no live rxStomp — so they can react without racing the cleanup.
      */
     private async signalFatal(err: Error): Promise<void> {
+        if(console){
+            console.error('StompConnectionManager fatal error, deactivating connection', err)
+        }
         await this.deactivate()
         this.fatalErrorsSubject.next(err)
     }
