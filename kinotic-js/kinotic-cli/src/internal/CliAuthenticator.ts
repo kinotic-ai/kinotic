@@ -196,11 +196,9 @@ export class CliAuthenticator {
                 return await tokenRes.json() as DeviceTokens
             }
             const error = await readErrorCode(tokenRes)
-            if (error === 'authorization_pending') {
-                continue
-            } else if (error === 'slow_down') {
+            if (error === 'slow_down') {
                 intervalMs += 5000
-            } else {
+            } else if (error !== 'authorization_pending') {
                 this.logger.log(`Device authorization failed: ${error}`)
                 return null
             }
