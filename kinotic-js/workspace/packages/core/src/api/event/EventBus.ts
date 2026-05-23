@@ -91,7 +91,6 @@ export class EventBus implements IEventBus {
                                                console.error('Error disconnecting from Stomp: ' + error)
                                            }
                                        })
-                                   // TODO: map to kinoitc error
                                    return new KinoticError(frame.headers['message'] as string)
                                }))
         this.stompConnectionManager.deactivationHandler = () => {

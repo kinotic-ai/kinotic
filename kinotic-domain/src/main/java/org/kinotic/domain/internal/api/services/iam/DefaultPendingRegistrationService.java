@@ -27,6 +27,7 @@ import java.util.function.Consumer;
 @RequiredArgsConstructor
 public class DefaultPendingRegistrationService implements PendingRegistrationService {
 
+    // FIXME: Move to repository
     static final String INDEX = "kinotic_pending_registration";
     private static final long DEFAULT_TTL_MS = 10 * 60 * 1000L; // 10 minutes
 

@@ -82,9 +82,6 @@ export class StompConnectionManager {
             this.initialConnectionSuccessful = false
             this.lastWebsocketError = null
             this.maxConnectionAttemptsReached = false
-            this._replyToCri = null
-            this.serverHeadersSubscription?.unsubscribe()
-            this.serverHeadersSubscription = null
 
             const url = 'ws' + (connectionInfo.useSSL ? 's' : '')
                 + '://' + connectionInfo.host
@@ -107,6 +104,8 @@ export class StompConnectionManager {
                 heartbeatIncoming: 120000,
                 heartbeatOutgoing: 30000,
                 reconnectDelay: this.INITIAL_RECONNECT_DELAY,
+                maxReconnectDelay: this.MAX_RECONNECT_DELAY,
+                reconnectTimeMode: ReconnectionTimeMode.EXPONENTIAL,
                 webSocketFactory: userWebSocketFactory ? () => preparedSocket as IWebSocket : undefined,
                 beforeConnect: async (): Promise<void> => {
 
@@ -154,12 +153,7 @@ export class StompConnectionManager {
                 }
             }
 
-            //*** Begin Block that handles backoff ***
             this.rxStomp.configure(stompConfig)
-
-            // Set values that are only accessible from the stompClient
-            this.rxStomp.stompClient.maxReconnectDelay = this.MAX_RECONNECT_DELAY
-            this.rxStomp.stompClient.reconnectTimeMode = ReconnectionTimeMode.EXPONENTIAL
 
             // Handles Websocket Errors
             this.rxStomp.webSocketErrors$.subscribe(value => {
@@ -168,7 +162,10 @@ export class StompConnectionManager {
 
             // Handles Successful Connections
             const connectedSubscription: Subscription = this.rxStomp.connected$.subscribe(() =>{
+                // We only want these for the initial connection
                 connectedSubscription.unsubscribe()
+                errorSubscription.unsubscribe()
+
                 // Successful Connection
                 if(!this.initialConnectionSuccessful){
                     this.initialConnectionSuccessful = true
@@ -176,23 +173,24 @@ export class StompConnectionManager {
             })
 
             // This subscription is to handle any errors that occur during connection
-            const errorSubscription: Subscription = this.rxStomp.stompErrors$.subscribe((value: IFrame) => {
+            const errorSubscription: Subscription = this.rxStomp.stompErrors$.subscribe(async (value: IFrame) => {
+                // We only want these for the initial connection
+                connectedSubscription.unsubscribe()
                 errorSubscription.unsubscribe()
-                const message = value.headers['message']
-                this.rxStomp?.deactivate()
-                this.rxStomp = null
-                reject(message)
+
+                await this.deactivate()
+
+                reject(value.headers['message'])
             })
 
             // Triggered on every CONNECTED frame, including reconnects. The replyToId is generated
             // server side, so on reconnect it may change (it always does with
             // SessionKeepAliveMode.NONE since no session carries it across connections).
-            this.serverHeadersSubscription = this.rxStomp.serverHeaders$.subscribe((value: StompHeaders) => {
+            this.serverHeadersSubscription = this.rxStomp.serverHeaders$.subscribe(async (value: StompHeaders) => {
                 const connectedInfoJson: string | undefined = value[EventConstants.CONNECTED_INFO_HEADER]
-                const firstConnect: boolean = this._replyToCri == null
-
                 if (connectedInfoJson == null) {
-                    if (firstConnect) {
+                    if (!this.initialConnectionSuccessful) {
+                        await this.deactivate()
                         reject('Server did not return proper data for successful login')
                     }
                     return
@@ -200,7 +198,8 @@ export class StompConnectionManager {
 
                 const connectedInfo: ConnectedInfo = JSON.parse(connectedInfoJson)
                 if (connectedInfo.replyToId == null) {
-                    if (firstConnect) {
+                    if (!this.initialConnectionSuccessful) {
+                        await this.deactivate()
                         reject('Server did not return a replyToId for successful login')
                     }
                     return
@@ -210,7 +209,7 @@ export class StompConnectionManager {
                     + connectedInfo.replyToId + ':' + this.uuidv4
                     + '@kinoitc.js.EventBus/replyHandler'
 
-                if (firstConnect) {
+                if (!this.initialConnectionSuccessful) {
                     this._replyToCri = newReplyToCri
                     resolve(connectedInfo)
                 } else if (this._replyToCri !== newReplyToCri) {
@@ -232,6 +231,7 @@ export class StompConnectionManager {
                 this.deactivationHandler()
             }
             this.rxStomp = null
+            this._replyToCri = null
         }
         return
     }
