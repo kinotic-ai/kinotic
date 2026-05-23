@@ -151,7 +151,12 @@ export class StompConnectionManager {
                             preparedSocket = await userWebSocketFactory()
                         } catch (e) {
                             const message = e instanceof Error ? e.message : String(e)
-                            this.fatalErrorsSubject.next(new KinoticError(message))
+                            if (!this.initialConnectionSuccessful) {
+                                await this.deactivate()
+                                reject(message)
+                            } else {
+                                this.fatalErrorsSubject.next(new KinoticError(message))
+                            }
                         }
                     }
                 }
