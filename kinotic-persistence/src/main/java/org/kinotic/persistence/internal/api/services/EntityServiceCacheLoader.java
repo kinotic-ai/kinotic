@@ -8,6 +8,7 @@ import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.services.EntityDefinitionService;
 import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
@@ -38,7 +39,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
     private final NamedQueriesService namedQueriesService;
     private final JsonMapper jsonMapper;
     private final ReadPreProcessor readPreProcessor;
-    private final EntityDefinitionDAO entityDefinitionDAO;
+    private final EntityDefinitionService entityDefinitionService;
     private final SecurityContext securityContext;
     private final PersistenceProperties persistenceProperties;
     private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
@@ -50,7 +51,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
                                     NamedQueriesService namedQueriesService,
                                     JsonMapper jsonMapper,
                                     ReadPreProcessor readPreProcessor,
-                                    EntityDefinitionDAO entityDefinitionDAO,
+                                    EntityDefinitionService entityDefinitionService,
                                     SecurityContext securityContext,
                                     PersistenceProperties persistenceProperties,
                                     List<UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors) {
@@ -60,7 +61,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
         this.namedQueriesService = namedQueriesService;
         this.jsonMapper = jsonMapper;
         this.readPreProcessor = readPreProcessor;
-        this.entityDefinitionDAO = entityDefinitionDAO;
+        this.entityDefinitionService = entityDefinitionService;
         this.securityContext = securityContext;
         this.persistenceProperties = persistenceProperties;
 
@@ -71,7 +72,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
 
     @Override
     public CompletableFuture<? extends EntityService> asyncLoad(String key, Executor executor) throws Exception {
-        return securityContext.withElevatedAccess(() -> entityDefinitionDAO.findById(key))
+        return securityContext.withElevatedAccess(() -> entityDefinitionService.findById(key))
                                   .thenApply(entityDefinition -> {
                                Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
                                return entityDefinition;

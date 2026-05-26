@@ -13,8 +13,8 @@ import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 import org.kinotic.persistence.api.model.idl.PageC3Type;
 import org.kinotic.persistence.api.model.idl.decorators.QueryDecorator;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
+import org.kinotic.persistence.api.services.EntityDefinitionService;
 import org.kinotic.persistence.api.services.NamedQueriesDefinitionService;
-import org.kinotic.persistence.internal.api.services.EntityDefinitionDAO;
 import org.kinotic.persistence.internal.api.services.sql.SqlQueryType;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.PagedQueryDataFetcher;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.QueryDataFetcher;
@@ -42,12 +42,12 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
     private final EntitiesService entitiesService;
     private final NamedQueriesDefinitionService namedQueriesDefinitionService;
     private final ObjectMapper objectMapper;
-    private final EntityDefinitionDAO entityDefinitionDAO;
+    private final EntityDefinitionService entityDefinitionService;
     private final SecurityContext securityContext;
 
     @Override
     public CompletableFuture<? extends List<GqlOperationDefinition>> asyncLoad(String key, Executor executor) {
-        return securityContext.withElevatedAccess(() -> entityDefinitionDAO.findById(key))
+        return securityContext.withElevatedAccess(() -> entityDefinitionService.findById(key))
                                   .thenApply(entityDefinition -> {
                                       Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
                                       return entityDefinition;

@@ -4,14 +4,17 @@ import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch.indices.DataStreamVisibility;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
-import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.services.EntityDefinitionService;
+import org.kinotic.persistence.internal.api.repositories.EntityDefinitionRepository;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.springframework.context.ApplicationEventPublisher;
@@ -23,32 +26,27 @@ import java.util.concurrent.CompletableFuture;
 
 
 @Component
-@RequiredArgsConstructor
-public class DefaultEntityDefinitionService implements EntityDefinitionService {
+public class DefaultEntityDefinitionService extends AbstractProjectScopedService<EntityDefinition>
+        implements EntityDefinitionService {
 
     private final ApplicationEventPublisher eventPublisher;
     private final CrudServiceTemplate crudServiceTemplate;
     private final EntityDefinitionConversionService entityDefinitionConversionService;
-    private final EntityDefinitionDAO entityDefinitionDAO;
+    private final EntityDefinitionRepository entityDefinitionRepository;
     private final PersistenceProperties persistenceProperties;
 
-
-    @WithSpan
-    @Override
-    public CompletableFuture<Long> count() {
-        return entityDefinitionDAO.count();
-    }
-
-    @WithSpan
-    @Override
-    public CompletableFuture<Long> countForApplication(@SpanAttribute("applicationId") String applicationId) {
-        return entityDefinitionDAO.countForApplication(applicationId);
-    }
-
-    @WithSpan
-    @Override
-    public CompletableFuture<Long> countForProject(@SpanAttribute("projectId") String projectId) {
-        return entityDefinitionDAO.countForProject(projectId);
+    public DefaultEntityDefinitionService(ApplicationEventPublisher eventPublisher,
+                                          CrudServiceTemplate crudServiceTemplate,
+                                          EntityDefinitionConversionService entityDefinitionConversionService,
+                                          EntityDefinitionRepository entityDefinitionRepository,
+                                          PersistenceProperties persistenceProperties,
+                                          SecurityContext securityContext) {
+        super(entityDefinitionRepository, securityContext);
+        this.eventPublisher = eventPublisher;
+        this.crudServiceTemplate = crudServiceTemplate;
+        this.entityDefinitionConversionService = entityDefinitionConversionService;
+        this.entityDefinitionRepository = entityDefinitionRepository;
+        this.persistenceProperties = persistenceProperties;
     }
 
     @WithSpan
@@ -101,7 +99,7 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                     entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
                     entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());
 
-                    return  entityDefinitionDAO.save(entityDefinition);
+                    return super.save(entityDefinition);
                 });
     }
 
@@ -122,38 +120,14 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
 
                     this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId(), entityDefinition.getId()));
 
-                    return entityDefinitionDAO.deleteById(entityDefinitionId);
+                    return super.deleteById(entityDefinitionId);
                 });
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Page<EntityDefinition>> findAll(Pageable pageable) {
-        return entityDefinitionDAO.findAll(pageable);
-    }
-
-    @WithSpan
-    @Override
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(@SpanAttribute("applicationId") String applicationId, Pageable pageable) {
-        return entityDefinitionDAO.findAllPublishedForApplication(applicationId, pageable);
-    }
-
-    @WithSpan
-    @Override
-    public CompletableFuture<Page<EntityDefinition>> findAllForApplication(@SpanAttribute("applicationId") String applicationId, Pageable pageable) {
-        return entityDefinitionDAO.findAllForApplication(applicationId, pageable);
-    }
-
-    @WithSpan
-    @Override
-    public CompletableFuture<Page<EntityDefinition>> findAllForProject(@SpanAttribute("projectId") String projectId, Pageable pageable) {
-        return entityDefinitionDAO.findAllForProject(projectId, pageable);
-    }
-
-    @WithSpan
-    @Override
-    public CompletableFuture<EntityDefinition> findById(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
-        return entityDefinitionDAO.findById(entityDefinitionId);
+        return entityDefinitionRepository.findAllPublishedForApplication(applicationId, requireOrganizationId(), pageable);
     }
 
     @WithSpan
@@ -189,12 +163,12 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                         entityDefinition.setPublished(true);
                         entityDefinition.setPublishedTimestamp(new Date());
                         entityDefinition.setUpdated(entityDefinition.getPublishedTimestamp());
-                        return entityDefinitionDAO.save(entityDefinition)
-                                                  .thenApply(entityDefinition1 -> {
-                                               this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(),
-                                                                                                                                 entityDefinition1.getId()));
-                                               return null;
-                                           });
+                        return super.save(entityDefinition)
+                                .thenApply(entityDefinition1 -> {
+                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(),
+                                                                                                                     entityDefinition1.getId()));
+                                    return null;
+                                });
                     });
                 });
     }
@@ -203,9 +177,7 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
     @Override
     public CompletableFuture<EntityDefinition> save(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
         try {
-            if (entityDefinition.getId() == null || entityDefinition.getId().isBlank()) {
-                throw new IllegalArgumentException("EntityDefinition Id Invalid");
-            }
+            Validate.notBlank(entityDefinition.getId(), "EntityDefinition Id Invalid");
             PersistenceUtil.validateEntityDefinition(entityDefinition);
         } catch (IllegalArgumentException e) {
             return CompletableFuture.failedFuture(e);
@@ -269,23 +241,15 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                             updateFuture = crudServiceTemplate.updateIndexMapping(entityDefinition.getItemIndex(), mappings);
                         }
 
-                        return updateFuture.thenCompose(v -> entityDefinitionDAO
-                                .save(entityDefinition)
+                        return updateFuture.thenCompose(v -> super.save(entityDefinition)
                                 .thenApply(entityDefinition1 -> {
                                     this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
                                     return entityDefinition1;
                                 }));
                     } else {
-                        return entityDefinitionDAO.save(entityDefinition);
+                        return super.save(entityDefinition);
                     }
                 });
-    }
-
-
-    @WithSpan
-    @Override
-    public CompletableFuture<Page<EntityDefinition>> search(@SpanAttribute("searchText") String searchText, Pageable pageable) {
-        return entityDefinitionDAO.search(searchText, pageable);
     }
 
     @WithSpan
@@ -318,22 +282,12 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                         entityDefinition.setPublished(false);
                         entityDefinition.setPublishedTimestamp(null);
                         entityDefinition.setUpdated(new Date());
-                        return entityDefinitionDAO.save(entityDefinition)
-                                                  .thenApply(entityDefinition1 -> {
-                                               this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
-                                               return null;
-                                           });
+                        return super.save(entityDefinition)
+                                .thenApply(entityDefinition1 -> {
+                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
+                                    return null;
+                                });
                     });
                 });
-    }
-
-    @Override
-    public CompletableFuture<Void> syncIndex() {
-        return entityDefinitionDAO.syncIndex();
-    }
-
-    @Override
-    public CompletableFuture<EntityDefinition> saveSync(EntityDefinition entity) {
-        return entityDefinitionDAO.saveSync(entity);
     }
 }
