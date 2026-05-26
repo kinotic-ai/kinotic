@@ -30,7 +30,7 @@ import java.util.concurrent.Executor;
  * Created by Navíd Mitchell 🤪 on 5/10/23.
  */
 @Component
-public class EntityServiceCacheLoader implements AsyncCacheLoader<String, EntityRepository> {
+public class EntityServiceCacheLoader implements AsyncCacheLoader<String, EntityService> {
 
     private final AuthorizationServiceFactory authServiceFactory;
     private final CrudServiceTemplate crudServiceTemplate;
@@ -70,7 +70,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
 
 
     @Override
-    public CompletableFuture<? extends EntityRepository> asyncLoad(String key, Executor executor) throws Exception {
+    public CompletableFuture<? extends EntityService> asyncLoad(String key, Executor executor) throws Exception {
         return securityContext.withElevatedAccess(() -> entityDefinitionDAO.findById(key))
                                   .thenApply(entityDefinition -> {
                                Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
@@ -80,7 +80,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
     }
 
     @SuppressWarnings("unchecked")
-    public CompletableFuture<EntityRepository> createEntityService(EntityDefinition entityDefinition) {
+    public CompletableFuture<EntityService> createEntityService(EntityDefinition entityDefinition) {
 
         if(entityDefinition == null){
             return CompletableFuture.failedFuture(new IllegalArgumentException("EntityDefinition must not be null"));
@@ -104,7 +104,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
         }
 
         return authServiceFactory.createEntityDefinitionAuthorizationService(entityDefinition)
-                                 .thenApply(authService -> new DefaultEntityRepository(
+                                 .thenApply(authService -> new DefaultEntityService(
                                          authService,
                                          crudServiceTemplate,
                                          new DelegatingUpsertPreProcessor(persistenceProperties,

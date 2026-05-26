@@ -9,7 +9,6 @@ import org.kinotic.persistence.api.model.QueryParameter;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.persistence.api.model.TenantSpecificId;
 import org.kinotic.persistence.api.services.AdminJsonEntitiesRepository;
-import org.kinotic.persistence.api.services.EntitiesRepository;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.internal.api.services.sql.ListParameterHolder;
 import org.springframework.stereotype.Component;
@@ -24,12 +23,12 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class DefaultAdminJsonEntitiesRepository implements AdminJsonEntitiesRepository {
 
-    private final EntitiesRepository entitiesRepository;
+    private final EntitiesService entitiesService;
 
     @Override
     public CompletableFuture<Long> count(String entityDefinitionId, List<String> tenantSelection, Participant participant) {
-        return entitiesRepository.count(entityDefinitionId,
-                                        new DefaultEntityContext(participant)
+        return entitiesService.count(entityDefinitionId,
+                                     new DefaultEntityContext(participant)
                                              .setTenantSelection(tenantSelection));
     }
 
@@ -38,17 +37,17 @@ public class DefaultAdminJsonEntitiesRepository implements AdminJsonEntitiesRepo
                                                 String query,
                                                 List<String> tenantSelection,
                                                 Participant participant) {
-        return entitiesRepository.countByQuery(entityDefinitionId,
-                                               query,
-                                               new DefaultEntityContext(participant)
+        return entitiesService.countByQuery(entityDefinitionId,
+                                            query,
+                                            new DefaultEntityContext(participant)
                                                     .setTenantSelection(tenantSelection));
     }
 
     @Override
     public CompletableFuture<Void> deleteById(String entityDefinitionId, TenantSpecificId id, Participant participant) {
-        return entitiesRepository.deleteById(entityDefinitionId,
-                                             id,
-                                             new DefaultEntityContext(participant));
+        return entitiesService.deleteById(entityDefinitionId,
+                                          id,
+                                          new DefaultEntityContext(participant));
     }
 
     @Override
@@ -56,9 +55,9 @@ public class DefaultAdminJsonEntitiesRepository implements AdminJsonEntitiesRepo
                                                  String query,
                                                  List<String> tenantSelection,
                                                  Participant participant) {
-        return entitiesRepository.deleteByQuery(entityDefinitionId,
-                                                query,
-                                                new DefaultEntityContext(participant)
+        return entitiesService.deleteByQuery(entityDefinitionId,
+                                             query,
+                                             new DefaultEntityContext(participant)
                                                      .setTenantSelection(tenantSelection));
     }
 
@@ -67,29 +66,29 @@ public class DefaultAdminJsonEntitiesRepository implements AdminJsonEntitiesRepo
                                                         List<String> tenantSelection,
                                                         Pageable pageable,
                                                         Participant participant) {
-        return entitiesRepository.findAll(entityDefinitionId,
-                                          pageable,
-                                          FastestType.class,
-                                          new DefaultEntityContext(participant)
+        return entitiesService.findAll(entityDefinitionId,
+                                       pageable,
+                                       FastestType.class,
+                                       new DefaultEntityContext(participant)
                                                .setTenantSelection(tenantSelection));
     }
 
     @Override
     public CompletableFuture<FastestType> findById(String entityDefinitionId, TenantSpecificId id, Participant participant) {
-        return entitiesRepository.findById(entityDefinitionId,
-                                           id,
-                                           FastestType.class,
-                                           new DefaultEntityContext(participant));
+        return entitiesService.findById(entityDefinitionId,
+                                        id,
+                                        FastestType.class,
+                                        new DefaultEntityContext(participant));
     }
 
     @Override
     public CompletableFuture<List<FastestType>> findByIds(String entityDefinitionId,
                                                           List<TenantSpecificId> ids,
                                                           Participant participant) {
-        return entitiesRepository.findByIdsWithTenant(entityDefinitionId,
-                                                      ids,
-                                                      FastestType.class,
-                                                      new DefaultEntityContext(participant));
+        return entitiesService.findByIdsWithTenant(entityDefinitionId,
+                                                   ids,
+                                                   FastestType.class,
+                                                   new DefaultEntityContext(participant));
     }
 
     @Override
@@ -98,11 +97,11 @@ public class DefaultAdminJsonEntitiesRepository implements AdminJsonEntitiesRepo
                                                        List<QueryParameter> queryParameters,
                                                        List<String> tenantSelection,
                                                        Participant participant) {
-        return entitiesRepository.namedQuery(entityDefinitionId,
-                                             queryName,
-                                             new ListParameterHolder(queryParameters),
-                                             RawJson.class,
-                                             new DefaultEntityContext(participant)
+        return entitiesService.namedQuery(entityDefinitionId,
+                                          queryName,
+                                          new ListParameterHolder(queryParameters),
+                                          RawJson.class,
+                                          new DefaultEntityContext(participant)
                                                   .setTenantSelection(tenantSelection));
     }
 
@@ -113,12 +112,12 @@ public class DefaultAdminJsonEntitiesRepository implements AdminJsonEntitiesRepo
                                                            List<String> tenantSelection,
                                                            Pageable pageable,
                                                            Participant participant) {
-        return entitiesRepository.namedQueryPage(entityDefinitionId,
-                                                 queryName,
-                                                 new ListParameterHolder(queryParameters),
-                                                 pageable,
-                                                 RawJson.class,
-                                                 new DefaultEntityContext(participant)
+        return entitiesService.namedQueryPage(entityDefinitionId,
+                                              queryName,
+                                              new ListParameterHolder(queryParameters),
+                                              pageable,
+                                              RawJson.class,
+                                              new DefaultEntityContext(participant)
                                                       .setTenantSelection(tenantSelection));
     }
 
@@ -128,11 +127,11 @@ public class DefaultAdminJsonEntitiesRepository implements AdminJsonEntitiesRepo
                                                        List<String> tenantSelection,
                                                        Pageable pageable,
                                                        Participant participant) {
-        return entitiesRepository.search(entityDefinitionId,
-                                         searchText,
-                                         pageable,
-                                         FastestType.class,
-                                         new DefaultEntityContext(participant)
+        return entitiesService.search(entityDefinitionId,
+                                      searchText,
+                                      pageable,
+                                      FastestType.class,
+                                      new DefaultEntityContext(participant)
                                               .setTenantSelection(tenantSelection));
     }
 

@@ -7,8 +7,8 @@ import { Base{{ entityName }}Repository } from './generated/Base{{ entityName }}
  */
 export class {{ entityName }}Repository extends Base{{ entityName }}Repository {
 
-  constructor(entitiesRepository?: IEntitiesRepository) {
-    super({{ validate }}, entitiesRepository)
+  constructor(entitiesService?: IEntitiesRepository) {
+    super({{ validate }}, entitiesService)
   }
 
 }

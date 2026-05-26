@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.endpoints.graphql.datafetchers;
 
-import org.kinotic.persistence.api.services.EntitiesRepository;
+import org.kinotic.persistence.internal.api.services.EntitiesService;
 import tools.jackson.databind.ObjectMapper;
 import graphql.ExecutionResult;
 import graphql.schema.DataFetcher;
@@ -28,7 +28,7 @@ import java.util.concurrent.CompletableFuture;
 public class PagedQueryDataFetcher implements DataFetcher<CompletableFuture<Page<Map>>> {
 
     private final Pageable defaultPageable;
-    private final EntitiesRepository entitiesRepository;
+    private final EntitiesService entitiesService;
     private final ObjectMapper objectMapper;
     private final String pageableName;
     private final String queryName;
@@ -36,19 +36,19 @@ public class PagedQueryDataFetcher implements DataFetcher<CompletableFuture<Page
 
     /**
      * Creates a {@link DataFetcher} that will execute a named query page and return the result as a {@link ExecutionResult}
-     * @param entitiesRepository the {@link EntitiesRepository} to use to execute the query
+     * @param entitiesService the {@link EntitiesService} to use to execute the query
      * @param objectMapper the {@link ObjectMapper} to use to deserialize the input parameters
      * @param queryDefinition the {@link FunctionDefinition} for the query to execute
      * @param defaultPageable the default {@link Pageable} to use if no pageable parameter is defined in the {@link FunctionDefinition}
      * @param entityDefinitionId the id of the {@link EntityDefinition} that the query is for
      */
-    public PagedQueryDataFetcher(EntitiesRepository entitiesRepository,
+    public PagedQueryDataFetcher(EntitiesService entitiesService,
                                  ObjectMapper objectMapper,
                                  FunctionDefinition queryDefinition,
                                  Pageable defaultPageable,
                                  String entityDefinitionId) {
         this.defaultPageable = defaultPageable;
-        this.entitiesRepository = entitiesRepository;
+        this.entitiesService = entitiesService;
         this.objectMapper = objectMapper;
         this.queryName = queryDefinition.getName();
         this.entityDefinitionId = entityDefinitionId;
@@ -78,11 +78,11 @@ public class PagedQueryDataFetcher implements DataFetcher<CompletableFuture<Page
         }else {
             pageable = defaultPageable;
         }
-        return entitiesRepository.namedQueryPage(entityDefinitionId,
-                                                 queryName,
-                                                 new MapParameterHolder(environment.getArguments()),
-                                                 pageable,
-                                                 Map.class,
-                                                 ec);
+        return entitiesService.namedQueryPage(entityDefinitionId,
+                                              queryName,
+                                              new MapParameterHolder(environment.getArguments()),
+                                              pageable,
+                                              Map.class,
+                                              ec);
     }
 }

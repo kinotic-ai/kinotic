@@ -42,9 +42,9 @@ import java.util.function.Function;
  * Created by Navíd Mitchell 🤪on 5/2/23.
  */
 @RequiredArgsConstructor
-public class DefaultEntityRepository implements EntityRepository {
+public class DefaultEntityService implements EntityService {
 
-    private static final Logger log = LoggerFactory.getLogger(DefaultEntityRepository.class);
+    private static final Logger log = LoggerFactory.getLogger(DefaultEntityService.class);
 
     private final AuthorizationService<EntityOperation> authService;
     private final CrudServiceTemplate crudServiceTemplate;

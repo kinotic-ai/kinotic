@@ -16,7 +16,7 @@ import java.util.concurrent.CompletableFuture;
  * Provides functionality to query data for a single "Entity" for a given {@link EntityDefinition}.
  * Created by Navíd Mitchell 🤪 on 5/2/23.
  */
-public interface EntityRepository {
+public interface EntityService {
 
     /**
      * Saves all given entities.

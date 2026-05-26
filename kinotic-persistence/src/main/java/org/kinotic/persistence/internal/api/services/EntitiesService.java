@@ -1,4 +1,4 @@
-package org.kinotic.persistence.api.services;
+package org.kinotic.persistence.internal.api.services;
 
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -15,7 +15,7 @@ import java.util.concurrent.CompletableFuture;
  * Provides access to entities for a given {@link EntityDefinition}.
  * Created by Navíd Mitchell 🤪on 5/10/23.
  */
-public interface EntitiesRepository {
+public interface EntitiesService {
 
     /**
      * Saves all given entities.
