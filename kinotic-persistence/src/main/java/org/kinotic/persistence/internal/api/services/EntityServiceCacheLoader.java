@@ -3,12 +3,10 @@ package org.kinotic.persistence.internal.api.services;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityDefinition;
-import org.kinotic.persistence.api.services.EntityDefinitionService;
 import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
@@ -16,6 +14,7 @@ import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
 import org.kinotic.persistence.api.model.DecoratedProperty;
+import org.kinotic.persistence.internal.api.repositories.EntityDefinitionRepository;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
@@ -39,8 +38,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
     private final NamedQueriesService namedQueriesService;
     private final JsonMapper jsonMapper;
     private final ReadPreProcessor readPreProcessor;
-    private final EntityDefinitionService entityDefinitionService;
-    private final SecurityContext securityContext;
+    private final EntityDefinitionRepository entityDefinitionRepository;
     private final PersistenceProperties persistenceProperties;
     private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
 
@@ -51,8 +49,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
                                     NamedQueriesService namedQueriesService,
                                     JsonMapper jsonMapper,
                                     ReadPreProcessor readPreProcessor,
-                                    EntityDefinitionService entityDefinitionService,
-                                    SecurityContext securityContext,
+                                    EntityDefinitionRepository entityDefinitionRepository,
                                     PersistenceProperties persistenceProperties,
                                     List<UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors) {
         this.authServiceFactory = authServiceFactory;
@@ -61,8 +58,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
         this.namedQueriesService = namedQueriesService;
         this.jsonMapper = jsonMapper;
         this.readPreProcessor = readPreProcessor;
-        this.entityDefinitionService = entityDefinitionService;
-        this.securityContext = securityContext;
+        this.entityDefinitionRepository = entityDefinitionRepository;
         this.persistenceProperties = persistenceProperties;
 
         this.upsertFieldPreProcessors = PersistenceUtil.listToMap(upsertFieldPreProcessors,
@@ -72,12 +68,12 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
 
     @Override
     public CompletableFuture<? extends EntityService> asyncLoad(String key, Executor executor) throws Exception {
-        return securityContext.withElevatedAccess(() -> entityDefinitionService.findById(key))
-                                  .thenApply(entityDefinition -> {
-                               Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
-                               return entityDefinition;
-                           })
-                                  .thenComposeAsync(this::createEntityService, executor);
+        return entityDefinitionRepository.findById(key)
+                .thenApply(entityDefinition -> {
+                    Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
+                    return entityDefinition;
+                })
+                .thenComposeAsync(this::createEntityService, executor);
     }
 
     @SuppressWarnings("unchecked")
