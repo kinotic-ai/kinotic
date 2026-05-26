@@ -23,7 +23,7 @@ function adminConnectionInfo(localPort: number): ConnectionInfo {
     ci.port = localPort;
     ci.useSSL = false;
     ci.maxConnectionAttempts = 5;
-    ci.sessionKeepAlive = SessionKeepAliveMode.ACTIVITY;
+    ci.sessionKeepAlive = SessionKeepAliveMode.NONE;
     ci.webSocketFactory = adminWebSocketFactory(localPort);
     return ci;
 }

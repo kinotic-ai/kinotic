@@ -87,7 +87,8 @@ public class EndpointConnectionHandler {
             try {
                 sessionKeepAliveMode = SessionKeepAliveMode.fromHeader(connectHeaders.get(EventConstants.SESSION_KEEP_ALIVE_HEADER));
                 if (sessionKeepAliveMode != SessionKeepAliveMode.NONE && session == null) {
-                    throw new AuthenticationException("A Vert.x session is required unless session keep alive mode is NONE");
+                    return CompletableFuture.failedFuture(
+                            new AuthenticationException("A Vert.x session is required unless session keep alive mode is NONE"));
                 }
 
                 // The replyToId is generated server side so the client cannot pick a guessable

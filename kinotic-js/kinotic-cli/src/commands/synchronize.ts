@@ -198,6 +198,7 @@ export class Synchronize extends Command {
 
         try {
             const namedQueriesDefinition = new NamedQueriesDefinition(id,
+                                                                      organizationId,
                                                                       application,
                                                                       projectId,
                                                                       entityDefinitionName,

@@ -20,7 +20,7 @@
         "@inquirer/prompts": "^8.3.2",
         "@kinotic-ai/core": "^1.4.0",
         "@kinotic-ai/idl": "^1.0.9",
-        "@kinotic-ai/os-api": "^1.5.1",
+        "@kinotic-ai/os-api": "^1.6.1",
         "@kinotic-ai/persistence": "^1.2.1",
         "@oclif/core": "^4.9.0",
         "c12": "^3.3.3",

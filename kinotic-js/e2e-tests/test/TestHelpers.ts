@@ -1,7 +1,7 @@
 import {faker} from '@faker-js/faker/locale/en'
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import {ConnectionInfo, IWebSocket, Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, WebSocketFactory} from '@kinotic-ai/core'
+import {ConnectionInfo, IWebSocket, Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, SessionKeepAliveMode, WebSocketFactory} from '@kinotic-ai/core'
 import {WebSocket} from 'ws'
 import {
     ObjectC3Type,
@@ -65,6 +65,7 @@ function buildConnectionInfo(host: string, port: number, headers: AuthHeaders): 
     ci.host = host
     ci.port = port
     ci.useSSL = false
+    ci.sessionKeepAlive = SessionKeepAliveMode.NONE
     ci.webSocketFactory = authedWebSocketFactory(buildWsUrl(host, port), headers)
     return ci
 }
@@ -188,6 +189,7 @@ export async function createSchema(organizationId: string, applicationId: string
                                      const result: SchemaCreationResult = {
                                         entityDefinitionSchema: entityInfo.entity,
                                         namedQueriesDefinition: new NamedQueriesDefinition(id,
+                                                                                           organizationId,
                                                                                            applicationId,
                                                                                            projectId,
                                                                                            entityName,
@@ -207,6 +209,7 @@ export async function createSchema(organizationId: string, applicationId: string
 
     ret.entityDefinitionSchema.name = entityName
     ret.namedQueriesDefinition.id = (organizationId + '.' + applicationId + '.' + entityName).toLowerCase()
+    ret.namedQueriesDefinition.organizationId = organizationId
     ret.namedQueriesDefinition.entityDefinitionName = entityName
     replaceAllQueryPlaceholdersWithId(organizationId + '.' + applicationId + '.' + entityName, ret.namedQueriesDefinition.namedQueries)
     return ret
