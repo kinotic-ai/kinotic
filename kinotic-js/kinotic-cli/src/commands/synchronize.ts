@@ -197,7 +197,8 @@ export class Synchronize extends Command {
         this.log(`Synchronizing Named Queries for Entity: ${application}.${entityDefinitionName}`)
 
         try {
-            const namedQueriesDefinition = new NamedQueriesDefinition(id,
+            const namedQueriesDefinition = new NamedQueriesDefinition(organizationId,
+                                                                      id,
                                                                       application,
                                                                       projectId,
                                                                       entityDefinitionName,

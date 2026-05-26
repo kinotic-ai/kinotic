@@ -187,7 +187,8 @@ export async function createSchema(organizationId: string, applicationId: string
                                      const id = (organizationId + '.' + applicationId + '.' + entityName).toLowerCase()
                                      const result: SchemaCreationResult = {
                                         entityDefinitionSchema: entityInfo.entity,
-                                        namedQueriesDefinition: new NamedQueriesDefinition(id,
+                                        namedQueriesDefinition: new NamedQueriesDefinition(organizationId,
+                                                                                           id,
                                                                                            applicationId,
                                                                                            projectId,
                                                                                            entityName,
@@ -207,6 +208,7 @@ export async function createSchema(organizationId: string, applicationId: string
 
     ret.entityDefinitionSchema.name = entityName
     ret.namedQueriesDefinition.id = (organizationId + '.' + applicationId + '.' + entityName).toLowerCase()
+    ret.namedQueriesDefinition.organizationId = organizationId
     ret.namedQueriesDefinition.entityDefinitionName = entityName
     replaceAllQueryPlaceholdersWithId(organizationId + '.' + applicationId + '.' + entityName, ret.namedQueriesDefinition.namedQueries)
     return ret
