@@ -9,12 +9,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.ParameterHolder;
-import org.kinotic.persistence.api.services.NamedQueriesDefinitionService;
 import org.kinotic.persistence.api.services.NamedQueriesService;
+import org.kinotic.persistence.internal.api.repositories.NamedQueriesDefinitionRepository;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 import org.kinotic.persistence.internal.api.services.sql.QueryExecutorFactory;
 import org.kinotic.persistence.internal.api.services.sql.executors.QueryExecutor;
@@ -39,18 +38,17 @@ public class DefaultNamedQueriesService implements NamedQueriesService {
     private final ConcurrentHashMap<String, List<CacheKey>> cacheKeyTracker = new ConcurrentHashMap<>();
 
     public DefaultNamedQueriesService(DefaultCaffeineCacheFactory cacheFactory,
-                                      NamedQueriesDefinitionService namedQueriesDefinitionService,
-                                      QueryExecutorFactory queryExecutorFactory,
-                                      SecurityContext securityContext) {
+                                      NamedQueriesDefinitionRepository namedQueriesRepository,
+                                      QueryExecutorFactory queryExecutorFactory) {
 
         cache = cacheFactory.<CacheKey, QueryExecutor>newBuilder()
                             .name("namedQueriesCache")
                             .expireAfterAccess(Duration.ofHours(20))
                             .maximumSize(10_000)
-                            .buildAsync((key, executor) -> securityContext.withElevatedAccess(() ->
-                                    namedQueriesDefinitionService
+                            .buildAsync((key, executor) -> namedQueriesRepository
                                     .findByApplicationAndEntityDefinition(key.entityDefinition().getApplicationId(),
-                                                                          key.entityDefinition().getName()))
+                                                                          key.entityDefinition().getName(),
+                                                                          key.entityDefinition().getOrganizationId())
                                     .thenApplyAsync(namedQueriesDefinition -> {
 
                                         Validate.notNull(namedQueriesDefinition, "No Named Query found for EntityDefinition: "
