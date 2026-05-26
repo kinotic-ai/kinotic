@@ -12,8 +12,8 @@ export class NamedQueriesDefinition implements Identifiable<string> {
     public entityDefinitionName: string
     public namedQueries: FunctionDefinition[]
 
-    constructor(organizationId: string,
-                id: string,
+    constructor(id: string,
+                organizationId: string,
                 applicationId: string,
                 projectId: string,
                 entityDefinitionName: string,

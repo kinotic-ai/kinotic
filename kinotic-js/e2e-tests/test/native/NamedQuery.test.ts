@@ -76,8 +76,8 @@ describe('End To End Tests', () => {
             namedQuery.returnType = new ArrayC3Type(new ObjectC3Type('PeopleCount', applicationIdUsed)
                                                         .addProperty("count", new LongC3Type()))
 
-            const namedQueriesDefinition = new NamedQueriesDefinition(TEST_ORG_ID,
-                                                                      structureId,
+            const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
+                                                                      TEST_ORG_ID,
                                                                       applicationIdUsed,
                                                                       projectIdUsed,
                                                                       entityService.entityName,
@@ -111,8 +111,8 @@ describe('End To End Tests', () => {
                 .addProperty("lastName", new StringC3Type())
             namedQuery.returnType = new ArrayC3Type(contentType)
 
-            const namedQueriesDefinition = new NamedQueriesDefinition(TEST_ORG_ID,
-                                                                      structureId,
+            const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
+                                                                      TEST_ORG_ID,
                                                                       applicationIdUsed,
                                                                       projectIdUsed,
                                                                       entityService.entityName,
@@ -147,8 +147,8 @@ describe('End To End Tests', () => {
                 .addProperty("lastName", new StringC3Type())
             namedQuery.returnType = new PageC3Type(contentType)
 
-            const namedQueriesDefinition = new NamedQueriesDefinition(TEST_ORG_ID,
-                                                                      structureId,
+            const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
+                                                                      TEST_ORG_ID,
                                                                       applicationIdUsed,
                                                                       projectIdUsed,
                                                                       entityService.entityName,
@@ -209,8 +209,8 @@ describe('End To End Tests', () => {
             namedQuery3.returnType = new PageC3Type(contentType3)
 
             // Save the named queries
-            const namedQueriesDefinition = new NamedQueriesDefinition(TEST_ORG_ID,
-                                                                      structureId,
+            const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
+                                                                      TEST_ORG_ID,
                                                                       applicationIdUsed,
                                                                       projectIdUsed,
                                                                       entityService.entityName,
