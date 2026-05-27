@@ -76,5 +76,3 @@ These are distinct concepts — don't conflate them.
 - **Tenant** is an isolation scope for the **data that end users of an Application save** — i.e. instances of `Entity` types defined by an `EntityDefinition`. It exists so that Application developers can build multi-tenant applications where each end-user dataset is partitioned by `tenantId`.
 
 So the hierarchy is: **Org → Application → (end-user data, partitioned by tenant)**. Tenants live underneath an Application; they are not a layer above Organizations. A `Participant`'s `tenantId` describes which slice of an Application's user data they belong to; their Org affiliation is separate (and for APPLICATION-scope participants must be derived from the Application).
-
-Kinotic was originally single-org-per-server, and org-awareness was retrofitted. Some code still reflects that history.
