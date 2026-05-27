@@ -1,9 +1,6 @@
 package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
-import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.model.iam.SignUpRequest;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -19,14 +16,10 @@ public class SignUpRepository extends AbstractRepository<SignUpRequest> {
     }
 
     public CompletableFuture<SignUpRequest> findByToken(String verificationToken) {
-        return findAll(Pageable.create(0, 1, Sort.unsorted()), b -> b
-                .query(q -> q.term(TermQuery.of(t -> t.field("verificationToken").value(verificationToken)))))
-                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+        return findFirst(b -> b.query(termFilter("verificationToken", verificationToken)));
     }
 
     public CompletableFuture<SignUpRequest> findByEmail(String email) {
-        return findAll(Pageable.create(0, 1, Sort.unsorted()), b -> b
-                .query(q -> q.term(TermQuery.of(t -> t.field("email").value(email)))))
-                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+        return findFirst(b -> b.query(termFilter("email", email)));
     }
 }

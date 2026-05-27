@@ -1,8 +1,6 @@
 package org.kinotic.persistence.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -28,10 +26,6 @@ public class EntityDefinitionRepository extends AbstractProjectScopedRepository<
         return findAll(pageable,
                        b -> b.routing(orgId).query(composeOrgFilter(orgId,
                                                                     applicationIdFilter(applicationId),
-                                                                    publishedFilter())));
-    }
-
-    private Query publishedFilter() {
-        return TermQuery.of(t -> t.field("published").value(true))._toQuery();
+                                                                    termFilter("published", true))));
     }
 }

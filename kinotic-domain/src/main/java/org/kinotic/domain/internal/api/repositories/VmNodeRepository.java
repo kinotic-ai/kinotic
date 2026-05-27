@@ -1,7 +1,6 @@
 package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.workload.VmNode;
@@ -25,8 +24,6 @@ public class VmNodeRepository extends AbstractRepository<VmNode> {
      * "available = total - allocated" computation as a server-side query.
      */
     public CompletableFuture<Page<VmNode>> findOnlineNodes() {
-        return findAll(Pageable.create(0, 100, null),
-                        b -> b.query(q -> q.bool(bb -> bb.filter(
-                                TermQuery.of(tq -> tq.field("status").value(VmNodeStatus.ONLINE.name()))._toQuery()))));
+        return findAll(Pageable.ofSize(100), b -> b.query(termFilter("status", VmNodeStatus.ONLINE.name())));
     }
 }

@@ -2,7 +2,6 @@ package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -97,7 +96,7 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
         }
         return findAll(pageable, b -> b.routing(orgId).query(Query.of(q -> q.bool(bq -> bq
                 .must(m -> m.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
-                .filter(orgIdTerm(orgId))))));
+                .filter(termFilter(ORGANIZATION_ID_FIELD, orgId))))));
     }
 
     private void requireOrgMatchesEntity(T value, String orgId) {
@@ -118,12 +117,8 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
         Validate.notBlank(orgId, "orgId cannot be blank");
         return Query.of(q -> q.bool(b -> {
             if (extraFilters != null) for (Query f : extraFilters) if (f != null) b.filter(f);
-            b.filter(orgIdTerm(orgId));
+            b.filter(termFilter(ORGANIZATION_ID_FIELD, orgId));
             return b;
         }));
-    }
-
-    private static Query orgIdTerm(String orgId) {
-        return TermQuery.of(t -> t.field(ORGANIZATION_ID_FIELD).value(orgId))._toQuery();
     }
 }

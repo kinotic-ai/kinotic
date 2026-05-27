@@ -1,8 +1,6 @@
 package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -23,18 +21,14 @@ public class ProjectRepository extends AbstractApplicationScopedRepository<Proje
 
     public CompletableFuture<List<Project>> findByRepoFullName(String repoFullName) {
         return findAll(Pageable.ofSize(50),
-                       b -> b.query(composeFilter(repoFullNameFilter(repoFullName))))
+                       b -> b.query(termFilter("repoFullName", repoFullName)))
                 .thenApply(Page::getContent);
     }
 
     public CompletableFuture<List<Project>> findByRepoFullName(String repoFullName, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         return findAll(Pageable.ofSize(50),
-                       b -> b.routing(orgId).query(composeOrgFilter(orgId, repoFullNameFilter(repoFullName))))
+                       b -> b.routing(orgId).query(composeOrgFilter(orgId, termFilter("repoFullName", repoFullName))))
                 .thenApply(Page::getContent);
-    }
-
-    private Query repoFullNameFilter(String repoFullName) {
-        return TermQuery.of(t -> t.field("repoFullName").value(repoFullName))._toQuery();
     }
 }

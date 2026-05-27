@@ -3,7 +3,6 @@ package org.kinotic.domain.internal.api.repositories;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.model.iam.SystemOidcConfiguration;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -20,8 +19,7 @@ public class SystemOidcConfigurationRepository extends AbstractRepository<System
     }
 
     public CompletableFuture<List<SystemOidcConfiguration>> findAllEnabled() {
-        return findAll(Pageable.create(0, 100, Sort.unsorted()),
-                        b -> b.query(q -> q.term(t -> t.field("enabled").value(true))))
+        return findAll(Pageable.ofSize(100), b -> b.query(termFilter("enabled", true)))
                 .thenApply(Page::getContent);
     }
 }

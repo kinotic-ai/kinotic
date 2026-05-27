@@ -2,7 +2,6 @@ package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -38,6 +37,6 @@ public abstract class AbstractApplicationScopedRepository<T extends ApplicationS
     }
 
     protected Query applicationIdFilter(String applicationId) {
-        return TermQuery.of(t -> t.field("applicationId").value(applicationId))._toQuery();
+        return termFilter("applicationId", applicationId);
     }
 }
