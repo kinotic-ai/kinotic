@@ -66,4 +66,26 @@ Inline comments inside method bodies are different: they're for implementation d
 The split is about audience, not formatting. Javadoc is for **consumers** of the API; inline is for **maintainers** of the body. Before writing a comment, ask which one needs it. The rationale for a defensive check, a workaround, or a tricky ordering belongs inline next to the code that does it — never in the Javadoc, even if it explains why the method behaves the way it does. The caller doesn't care that an org-mismatch returns null because of an ES shard-hashing edge case; they care that it returns null when there's no doc for that org. The "because" stays in the body.
 
 ## Properties
-Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant. 
+Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant.
+
+## Tenant vs Organization
+
+These are distinct concepts — don't conflate them.
+
+- **Organization** owns **Applications**. An Application belongs to exactly one Org.
+- **Tenant** is an isolation scope for the **data that end users of an Application save** — i.e. instances of `Entity` types defined by an `EntityDefinition`. It exists so that Application developers can build multi-tenant applications where each end-user dataset is partitioned by `tenantId`.
+
+So the hierarchy is: **Org → Application → (end-user data, partitioned by tenant)**. Tenants live underneath an Application; they are not a layer above Organizations. A `Participant`'s `tenantId` describes which slice of an Application's user data they belong to; their Org affiliation is separate (and for APPLICATION-scope participants must be derived from the Application).
+
+Kinotic was originally single-org-per-server, and org-awareness was retrofitted. Some code still reflects that history.
+
+## `withElevatedAccess` is migration debt — avoid it
+
+`SecurityContext#withElevatedAccess` exists because retrofitting org-scope enforcement onto code that predated multi-org was easier with an escape hatch than with a full refactor. **Treat it as a security hazard, not a tool.** Every call site that wraps a service call in `withElevatedAccess` is a place where the caller is saying "trust me, skip the org check" — which is exactly the kind of bypass that turns into a tenant/org isolation bug when the surrounding context changes.
+
+Rules of thumb:
+- Don't add new `withElevatedAccess` call sites. If you find yourself reaching for it, the right move is almost always to plumb the orgId through explicitly (from the `Participant`, from the id format if it encodes one, or from the cache key) and use the repository tier's routing-aware overloads directly.
+- When touching code that already uses `withElevatedAccess`, prefer removing it over preserving it. Cache loaders and background tasks should derive the org from inputs they already have.
+- True system-wide operations (cross-org admin, system-level migrations) are the only legitimate use, and even those should be questioned.
+
+The long-term direction is removal. Anything new should be written as if it didn't exist.
