@@ -36,10 +36,6 @@ public class NamedQueriesDefinitionRepository extends AbstractProjectScopedRepos
                         : null);
     }
 
-    private Query applicationIdFilter(String applicationId) {
-        return TermQuery.of(t -> t.field("applicationId").value(applicationId))._toQuery();
-    }
-
     private Query entityDefinitionNameFilter(String entityDefinitionName) {
         return TermQuery.of(t -> t.field("entityDefinitionName").value(entityDefinitionName))._toQuery();
     }

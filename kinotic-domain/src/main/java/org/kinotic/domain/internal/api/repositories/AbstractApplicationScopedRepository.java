@@ -37,7 +37,7 @@ public abstract class AbstractApplicationScopedRepository<T extends ApplicationS
         return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId, applicationIdFilter(applicationId))));
     }
 
-    private Query applicationIdFilter(String applicationId) {
+    protected Query applicationIdFilter(String applicationId) {
         return TermQuery.of(t -> t.field("applicationId").value(applicationId))._toQuery();
     }
 }

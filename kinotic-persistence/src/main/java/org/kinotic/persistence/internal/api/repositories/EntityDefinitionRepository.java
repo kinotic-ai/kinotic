@@ -31,10 +31,6 @@ public class EntityDefinitionRepository extends AbstractProjectScopedRepository<
                                                                     publishedFilter())));
     }
 
-    private Query applicationIdFilter(String applicationId) {
-        return TermQuery.of(t -> t.field("applicationId").value(applicationId))._toQuery();
-    }
-
     private Query publishedFilter() {
         return TermQuery.of(t -> t.field("published").value(true))._toQuery();
     }

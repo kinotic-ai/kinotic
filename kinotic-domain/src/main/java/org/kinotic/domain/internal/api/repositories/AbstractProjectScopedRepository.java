@@ -35,7 +35,7 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
         return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
     }
 
-    private Query projectIdFilter(String projectId) {
+    protected Query projectIdFilter(String projectId) {
         return TermQuery.of(t -> t.field("projectId").value(projectId))._toQuery();
     }
 }
