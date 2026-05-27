@@ -66,4 +66,13 @@ Inline comments inside method bodies are different: they're for implementation d
 The split is about audience, not formatting. Javadoc is for **consumers** of the API; inline is for **maintainers** of the body. Before writing a comment, ask which one needs it. The rationale for a defensive check, a workaround, or a tricky ordering belongs inline next to the code that does it — never in the Javadoc, even if it explains why the method behaves the way it does. The caller doesn't care that an org-mismatch returns null because of an ES shard-hashing edge case; they care that it returns null when there's no doc for that org. The "because" stays in the body.
 
 ## Properties
-Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant. 
+Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant.
+
+## Tenant vs Organization
+
+These are distinct concepts — don't conflate them.
+
+- **Organization** owns **Applications**. An Application belongs to exactly one Org.
+- **Tenant** is an isolation scope for the **data that end users of an Application save** — i.e. instances of `Entity` types defined by an `EntityDefinition`. It exists so that Application developers can build multi-tenant applications where each end-user dataset is partitioned by `tenantId`.
+
+So the hierarchy is: **Org → Application → (end-user data, partitioned by tenant)**. Tenants live underneath an Application; they are not a layer above Organizations. A `Participant`'s `tenantId` describes which slice of an Application's user data they belong to; their Org affiliation is separate (and for APPLICATION-scope participants must be derived from the Application).
