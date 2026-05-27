@@ -4,21 +4,22 @@
 package org.kinotic.gateway.internal.endpoints.stomp;
 
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
+import io.vertx.core.MultiMap;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
+import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.Session;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
-import org.kinotic.core.api.security.ConnectedInfo;
-import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
-import org.kinotic.core.api.security.Session;
-import org.kinotic.gateway.internal.api.CliSecurityService;
+import org.kinotic.core.api.event.SessionKeepAliveMode;
+import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
@@ -27,14 +28,11 @@ import tools.jackson.core.JacksonException;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
 
 /**
- * Generic class to perform {@link Event} handling coming from various endpoints
- * <p>
- * <p>
  * Created by Navid Mitchell on 11/3/20
  */
 public class EndpointConnectionHandler {
@@ -44,101 +42,92 @@ public class EndpointConnectionHandler {
     private final Services services;
     private final Map<String, EventConsumer> subscriptions = new HashMap<>();
     private Session session;
-    private boolean disableStickySession = false;
+    private ConnectedInfo connectedInfo;
+    private StompAuthorizer stompAuthorizer;
+    private SessionKeepAliveMode sessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY;
     private long sessionTimer = -1;
 
     public EndpointConnectionHandler(Services services) {
         this.services = services;
-
-        if(services.apiGatewayProperties.isEnableCLIConnections()){
-            this.securityService = new CliSecurityService(services.securityService);
-        }else{
-            this.securityService = services.securityService;
-        }
+        this.securityService = services.securityService;
     }
 
-    /**
-     * Requests authentication for the given credentials
-     * NOTE: By default we keep the session alive after network disconnection, until the connection times out.
-     * @param connectHeaders all the headers provided with the CONNECT frame. This will include the login and passcode headers.
-     * @return a {@link Promise} completed normally to authenticate or failed to represent a failed authentication
-     *         The promise must contain a Map that will provide any additional headers to be returned to the client with the CONNECTED frame
-     */
-    public CompletableFuture<Map<String, String>> authenticate(Map<String, String> connectHeaders) {
+    public CompletableFuture<MultiMap> handshake(RoutingContext routingContext) {
+        session = routingContext.session();
+        this.connectedInfo = connectedInfoFromSession();
 
-        String sessionId = connectHeaders.get(EventConstants.SESSION_HEADER);
+        if (connectedInfo != null && connectedInfo.getParticipant() != null) {
+            return CompletableFuture.completedFuture(MultiMap.caseInsensitiveMultiMap());
+        }
 
-        if(connectHeaders.containsKey(EventConstants.DISABLE_STICKY_SESSION_HEADER)){
-            this.disableStickySession = Boolean.parseBoolean(connectHeaders.get(EventConstants.DISABLE_STICKY_SESSION_HEADER));
-            if(this.disableStickySession && sessionId != null){
-                return CompletableFuture.failedFuture(new AuthenticationException("Session header provided but also requested to disable sticky session, this is not allowed"));
+        return securityService.authenticate(toCaseInsensitiveMap(routingContext.request().headers()))
+                              .handle((participant, throwable) -> {
+                                  if(throwable != null){
+                                      if(!(throwable instanceof AuthenticationException)) {
+                                          throw new AuthenticationException("Could not authenticate with the given credentials", throwable);
+                                      }else{
+                                          throw (AuthenticationException) throwable;
+                                      }
+                                  }else {
+                                      return participant;
+                                  }
+                              })
+                              .thenApply(participant -> {
+                                  connectedInfo = new ConnectedInfo();
+                                  connectedInfo.setParticipant(participant);
+                                  if (session != null) {
+                                      session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
+                                  }
+                                  return MultiMap.caseInsensitiveMultiMap();
+                              });
+    }
+
+    public CompletableFuture<Map<String, String>> connect(Map<String, String> connectHeaders) {
+        if (connectedInfo != null && connectedInfo.getParticipant() != null) {
+            try {
+                sessionKeepAliveMode = SessionKeepAliveMode.fromHeader(connectHeaders.get(EventConstants.SESSION_KEEP_ALIVE_HEADER));
+                if (sessionKeepAliveMode != SessionKeepAliveMode.NONE && session == null) {
+                    return CompletableFuture.failedFuture(
+                            new AuthenticationException("A Vert.x session is required unless session keep alive mode is NONE"));
+                }
+
+                // The replyToId is generated server side so the client cannot pick a guessable
+                // or colliding value. It is reused for the life of the session so the client's
+                // reply destination stays stable across reconnects.
+                if (connectedInfo.getReplyToId() == null) {
+                    connectedInfo.setReplyToId(UUID.randomUUID().toString());
+                }
+                if (session != null) {
+                    session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
+                }
+                stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
+
+                signalActivity();
+                if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
+                    startSessionTouchTimer();
+                }
+                return CompletableFuture.completedFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
+                                                                services.jsonMapper.writeValueAsString(connectedInfo)));
+            } catch (JacksonException e) {
+                return CompletableFuture.failedFuture(e);
+            } catch (IllegalArgumentException e) {
+                return CompletableFuture.failedFuture(new AuthenticationException("Invalid CONNECT frame", e));
             }
         }
 
-        // Check if session is being used to authenticate
-        if (sessionId != null) {
-            return services.sessionManager
-                    .findSession(sessionId)
-                    .handle((session, throwable) -> {
-                        if(throwable != null){
-                            throw new AuthenticationException("Could not authenticate with the given Session id", throwable);
-                        }else{
-                            sessionActive(session);
-                            return Map.of(EventConstants.CONNECTED_INFO_HEADER, createConnectedInfoJson(session));
-                        }
-                    });
-        } else {
-
-            String replyToId = connectHeaders.containsKey(EventConstants.REPLY_TO_ID_HEADER)
-                    ? connectHeaders.get(EventConstants.REPLY_TO_ID_HEADER)
-                    : UUID.randomUUID().toString();
-
-            return securityService.authenticate(connectHeaders)
-                                  .handle((participant, throwable) -> {
-                                      if(throwable != null){
-                                          if(!(throwable instanceof AuthenticationException)) {
-                                              throw new AuthenticationException("Could not authenticate with the given credentials", throwable);
-                                          }else{
-                                              throw (AuthenticationException) throwable;
-                                          }
-                                      }else {
-                                          return participant;
-                                      }
-                                  })
-                                  .thenCompose(participant -> services.sessionManager.create(participant, replyToId))
-                                  .thenApply(session -> {
-                                      sessionActive(session);
-                                      Map<String, String> ret = new HashMap<>(2,1.5F);
-                                      ret.put(EventConstants.CONNECTED_INFO_HEADER, createConnectedInfoJson(session));
-                                      return ret;
-                                  });
-        }
+        return CompletableFuture.failedFuture(new AuthenticationException("Client must authenticate before sending a CONNECT frame"));
     }
 
     public void removeSession() {
-        // There will not be a session if authentication was not successful, or disableStickySession was requested
-        if (session != null) {
-            // We remove the session timer here so the timer does not fire after the session is removed
-            if (sessionTimer != -1) {
-                services.vertx.cancelTimer(sessionTimer);
-                sessionTimer = -1;
-            }
-
-            services.sessionManager
-                    .removeSession(session.sessionId())
-                    .handle((BiFunction<Boolean, Throwable, Void>) (aBoolean, throwable) -> {
-                        if (throwable != null) {
-                            log.error("Could not remove sessionId: {}", session.sessionId(), throwable);
-                        }
-                        return null;
-                    });
-
-            session = null;
+        if (sessionKeepAliveMode == SessionKeepAliveMode.NONE && session != null) {
+            session.destroy();
         }
     }
 
     public Future<Void> send(Event<byte[]> incomingEvent) {
-        if (!session.sendAllowed(incomingEvent.cri())) {
+        signalActivity();
+
+        if (!stompAuthorizer.sendAllowed(incomingEvent.cri())) {
             return Future.failedFuture(new AuthorizationException("Not Authorized to send to " + incomingEvent.cri()));
         }
 
@@ -147,10 +136,9 @@ public class EndpointConnectionHandler {
             try {
 
                 // FIXME: when the invocation is local this happens for no reason. If the event stays on the local bus we shouldn't do this..
-                incomingEvent.metadata().put(EventConstants.SENDER_HEADER, services.jsonMapper.writeValueAsString(session.participant()));
+                incomingEvent.metadata().put(EventConstants.SENDER_HEADER, services.jsonMapper.writeValueAsString(connectedInfo.getParticipant()));
 
                 // make sure reply-to if present is scoped to sender
-                // FIXME: a reply should not need a reply, therefore a replyCri probably should not be a EventConstants.SERVICE_DESTINATION_PREFIX
                 validateReplyToForServiceRequest(incomingEvent);
 
                 return services.eventBusService
@@ -185,23 +173,28 @@ public class EndpointConnectionHandler {
 
             return services.eventStreamService.send(incomingEvent);
 
+        } else if (incomingEvent.cri().scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
+
+            // A reply is a one-way delivery to the requester's reply destination. It is never
+            // invoked and never itself replies, so no ack and no reply-to validation apply.
+            services.eventBusService.send(incomingEvent);
+            return Future.succeededFuture();
+
         } else {
             return Future.failedFuture(new IllegalArgumentException("CRI scheme not supported"));
         }
     }
 
     public void shutdown() {
-        // if session says not to keep alive we shutdown completely, i.e. disable sticky session
-        if(this.disableStickySession){
-            removeSession();
-        }else{
-            if (sessionTimer != -1) {
-                services.vertx.cancelTimer(sessionTimer);
-                sessionTimer = -1;
-            }
-            subscriptions.forEach((s, eventConsumer) -> eventConsumer.unregister());
-            subscriptions.clear();
+        if (sessionTimer != -1) {
+            services.vertx.cancelTimer(sessionTimer);
+            sessionTimer = -1;
         }
+        subscriptions.forEach((s, eventConsumer) -> eventConsumer.unregister());
+        subscriptions.clear();
+        session = null;
+        connectedInfo = null;
+        stompAuthorizer = null;
     }
 
     public void subscribe(CRI cri,
@@ -211,7 +204,9 @@ public class EndpointConnectionHandler {
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
         Validate.notNull(subscriptionHandler, "subscriptionHandler must not be null");
 
-        if (!session.subscribeAllowed(cri)) {
+        signalActivity();
+
+        if (!stompAuthorizer.subscribeAllowed(cri)) {
             throw new AuthorizationException("Not Authorized to subscribe to " + cri);
         }
 
@@ -223,7 +218,7 @@ public class EndpointConnectionHandler {
                         // Reply-To is known to be scoped to the sender because there is a check when the system receives the event above
                         // Ex:
                         // Device -> subscribes to srv://MAC@device.rpc.channel
-                        // JS Client sends message to Device with a reply to of srv://REPLY_TO_ID@continuum.js.EventBus/replyHandler
+                        // JS Client sends message to Device with a reply to of reply://REPLY_TO_ID@continuum.js.EventBus/replyHandler
                         //
                         // When the system receives the message in the send() handler above it verifies the reply-to matches the sender reply to id
                         // Then we temporarily allow the device to send to the clients reply-to.
@@ -232,7 +227,7 @@ public class EndpointConnectionHandler {
                         if (replyTo != null) {
                             // wildcard in the reply to are not allowed since they could bypass security constraints
                             if (!replyTo.contains("*")) {
-                                session.addTemporarySendAllowed(replyTo);
+                                stompAuthorizer.addTemporarySendAllowed(replyTo);
                             } else {
                                 log.warn("reply-to header contains * and will NOT be ALLOWED for message {}",
                                          event);
@@ -247,7 +242,7 @@ public class EndpointConnectionHandler {
             log.debug("New Service Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
                       subscriptionIdentifier,
-                      session.participant());
+                      connectedInfo.getParticipant());
 
 
         } else if (cri.scheme().equals(EventConstants.STREAM_DESTINATION_SCHEME)) {
@@ -261,7 +256,20 @@ public class EndpointConnectionHandler {
             log.debug("New Event Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
                       subscriptionIdentifier,
-                      session.participant());
+                      connectedInfo.getParticipant());
+
+        } else if (cri.scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
+
+            EventConsumer eventConsumer = services.eventBusService.listen(cri.baseResource());
+            eventConsumer.handler(subscriptionHandler::handleEvent)
+                         .exceptionHandler(subscriptionHandler::handleError);
+
+            subscriptions.put(subscriptionIdentifier, eventConsumer);
+
+            log.debug("New Reply Subscription cri: {} id: {} for login: {}",
+                      cri.raw(),
+                      subscriptionIdentifier,
+                      connectedInfo.getParticipant());
 
         } else {
             throw new IllegalArgumentException("CRI scheme not supported");
@@ -271,6 +279,8 @@ public class EndpointConnectionHandler {
     public void unsubscribe(String subscriptionIdentifier) {
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
 
+        signalActivity();
+
         EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
         if (consumer != null) {
             consumer.unregister();
@@ -279,20 +289,48 @@ public class EndpointConnectionHandler {
         }
     }
 
-    private String createConnectedInfoJson(Session session){
-        try {
-            ConnectedInfo connectedInfo = new ConnectedInfo(session.participant(), session.replyToId(), session.sessionId());
-            return services.jsonMapper.writeValueAsString(connectedInfo);
-        } catch (JacksonException e) {
-            throw new IllegalStateException(e);
+    private Map<String, String> toCaseInsensitiveMap(MultiMap headers) {
+        Map<String, String> ret = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        for (Map.Entry<String, String> entry : headers) {
+            ret.put(entry.getKey(), entry.getValue());
+        }
+        return ret;
+    }
+
+    private ConnectedInfo connectedInfoFromSession() {
+        if (session == null) {
+            return null;
+        }
+        Object value = session.get(ConnectedInfo.SESSION_KEY);
+        if (value instanceof ConnectedInfo storedConnectedInfo) {
+            return storedConnectedInfo;
+        }
+        return null;
+    }
+
+    private void signalActivity() {
+        if (sessionKeepAliveMode == SessionKeepAliveMode.ACTIVITY) {
+            if (session == null) {
+                log.error("Session is null while sessionKeepAliveMode is ACTIVITY");
+                throw new IllegalStateException("Internal server error");
+            }
+            session.setAccessed();
         }
     }
 
-    private void sessionActive(Session session) {
-        this.session = session;
-        // update session at least every half the time of the timeout
-        long sessionUpdateInterval = services.kinoticProperties.getSessionTimeout() / 2;
-        sessionTimer = services.vertx.setPeriodic(sessionUpdateInterval, event -> this.session.touch());
+    private void startSessionTouchTimer() {
+        if (sessionTimer != -1) {
+            log.error("Session-touch timer already started");
+            throw new IllegalStateException("Internal server error");
+        }
+        long sessionUpdateInterval = services.apiGatewayProperties.getSessionTimeout() / 2;
+        sessionTimer = services.vertx.setPeriodic(sessionUpdateInterval, event -> {
+            if (session == null) {
+                log.error("Session is null while session-touch timer is active");
+                throw new IllegalStateException("Internal server error");
+            }
+            session.setAccessed();
+        });
     }
 
     private void validateReplyToForServiceRequest(Event<byte[]> event) {
@@ -311,7 +349,7 @@ public class EndpointConnectionHandler {
             }
 
             String scheme = replyCRI.scheme();
-            if (scheme == null || !scheme.equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {
+            if (scheme == null || !scheme.equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
                 throw new IllegalArgumentException("reply-to header invalid, scheme: " + scheme + " is not valid for service requests");
             }
 
@@ -323,18 +361,16 @@ public class EndpointConnectionHandler {
                     scope = scope.substring(0, idx);
                 }
 
-                if (!scope.equals(session.replyToId())) {
+                if (!scope.equals(connectedInfo.getReplyToId())) {
                     throw new IllegalArgumentException("reply-to header invalid, scope: " + scope + " is not valid for service requests");
                 }
             } else {
                 throw new IllegalArgumentException(
                         "reply-to header invalid, scope: null is not valid for service requests");
             }
+        } else {
+            throw new IllegalArgumentException("reply-to header invalid, not provided for service request");
         }
-        // FIXME: put this back when we fix the reply-to to reply-to problem
-//        }else{
-//            throw new IllegalArgumentException("reply-to header invalid not provided for service requests");
-//        }
     }
 
 }

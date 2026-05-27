@@ -1,7 +1,27 @@
-import {ConnectedInfo, ConnectHeaders, ConnectionInfo} from '../src'
+import {ConnectedInfo, ConnectionInfo, IWebSocket, SessionKeepAliveMode, WebSocketFactory} from '../src'
 import { expect, inject } from 'vitest'
+import { WebSocket } from 'ws'
 import * as fs from 'fs'
 import * as path from 'path'
+
+/**
+ * Credentials passed as WebSocket upgrade headers; the gateway's
+ * KinoticSecurityService authenticates the participant from these before
+ * the STOMP CONNECT frame is processed.
+ */
+export interface AuthHeaders {
+    login: string
+    passcode: string
+    authScopeType: 'SYSTEM' | 'ORGANIZATION' | 'APPLICATION'
+    authScopeId: string
+}
+
+const DEFAULT_AUTH_HEADERS: AuthHeaders = {
+    login: 'kinotic@kinotic.local',
+    passcode: 'kinotic',
+    authScopeType: 'ORGANIZATION',
+    authScopeId: 'kinotic-test'
+}
 
 /**
  * Returns the Kinotic Docker image string with version from gradle.properties
@@ -34,7 +54,6 @@ export async function logFailure<T>(promise: Promise<T>, message: string): Promi
 
 export function validateConnectedInfo(connectedInfo: ConnectedInfo, roles?: string[]): void {
     expect(connectedInfo).toBeDefined()
-    expect(connectedInfo.sessionId).toBeDefined()
     expect(connectedInfo.participant.id).toBeDefined()
     expect(connectedInfo.participant.roles).toBeDefined()
     expect(connectedInfo.participant.roles.length).toBe(1)
@@ -45,15 +64,38 @@ export function validateConnectedInfo(connectedInfo: ConnectedInfo, roles?: stri
     }
 }
 
-export function createConnectionInfo(disableStickySession: boolean = false,
-                                           connectHeaders?: ConnectHeaders | (() => Promise<ConnectHeaders>)): ConnectionInfo {
+function buildWsUrl(host: string, port: number, useSSL: boolean = false): string {
+    return `${useSSL ? 'wss' : 'ws'}://${host}:${port}/v1`
+}
+
+/**
+ * Builds a webSocketFactory that attaches the given auth headers — merged
+ * over the default kinotic-test credentials — to the WebSocket upgrade. The
+ * async provider form lets callers refresh headers on every (re)connect.
+ */
+export function authedWebSocketFactory(host: string,
+                                       port: number,
+                                       authHeaders?: Partial<AuthHeaders> | (() => Promise<Partial<AuthHeaders>>),
+                                       useSSL: boolean = false): WebSocketFactory {
+    const wsUrl = buildWsUrl(host, port, useSSL)
+    return async () => {
+        const overrides = typeof authHeaders === 'function' ? await authHeaders() : (authHeaders ?? {})
+        const headers: AuthHeaders = { ...DEFAULT_AUTH_HEADERS, ...overrides }
+        return new WebSocket(wsUrl, { headers: headers as unknown as Record<string, string> }) as unknown as IWebSocket
+    }
+}
+
+export function createConnectionInfo(sessionKeepAlive: SessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY,
+                                     authHeaders?: Partial<AuthHeaders> | (() => Promise<Partial<AuthHeaders>>)): ConnectionInfo {
     const connectionInfo = new ConnectionInfo()
     // @ts-ignore
     connectionInfo.host = inject('KINOTIC_HOST')
     // @ts-ignore
     connectionInfo.port = inject('KINOTIC_PORT')
     connectionInfo.maxConnectionAttempts = 3
-    connectionInfo.connectHeaders = connectHeaders || { login: 'kinotic@kinotic.local', passcode: 'kinotic', authScopeType: 'ORGANIZATION', authScopeId: 'kinotic-test' }
-    connectionInfo.disableStickySession = disableStickySession
+    connectionInfo.sessionKeepAlive = sessionKeepAlive
+    connectionInfo.webSocketFactory = authedWebSocketFactory(connectionInfo.host as string,
+                                                             connectionInfo.port as number,
+                                                             authHeaders)
     return connectionInfo
 }

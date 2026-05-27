@@ -1,7 +1,8 @@
 import {faker} from '@faker-js/faker/locale/en'
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import {Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage} from '@kinotic-ai/core'
+import {ConnectionInfo, IWebSocket, Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, SessionKeepAliveMode, WebSocketFactory} from '@kinotic-ai/core'
+import {WebSocket} from 'ws'
 import {
     ObjectC3Type,
     FunctionDefinition
@@ -39,20 +40,51 @@ type SchemaCreationResult ={
 }
 let schemas: Map<string, SchemaCreationResult> = new Map<string, SchemaCreationResult>()
 
+/**
+ * Credentials passed as WebSocket upgrade headers; the gateway's
+ * {@link KinoticSecurityService} authenticates the participant from these
+ * before the STOMP CONNECT frame is processed.
+ */
+export interface AuthHeaders {
+    login: string
+    passcode: string
+    authScopeType: 'SYSTEM' | 'ORGANIZATION' | 'APPLICATION'
+    authScopeId: string
+}
+
+function buildWsUrl(host: string, port: number, useSSL: boolean = false): string {
+    return `${useSSL ? 'wss' : 'ws'}://${host}:${port}/v1`
+}
+
+function authedWebSocketFactory(wsUrl: string, headers: AuthHeaders): WebSocketFactory {
+    return () => new WebSocket(wsUrl, { headers: headers as unknown as Record<string, string> }) as unknown as IWebSocket
+}
+
+function buildConnectionInfo(host: string, port: number, headers: AuthHeaders): ConnectionInfo {
+    const ci = new ConnectionInfo()
+    ci.host = host
+    ci.port = port
+    ci.useSSL = false
+    ci.sessionKeepAlive = SessionKeepAliveMode.NONE
+    ci.webSocketFactory = authedWebSocketFactory(buildWsUrl(host, port), headers)
+    return ci
+}
+
 export async function initKinoticClient(): Promise<void> {
     try {
         // @ts-ignore
-        const host = inject('KINOTIC_HOST')
+        const host = inject('KINOTIC_HOST') as string
         // @ts-ignore
-        const port = inject('KINOTIC_PORT')
+        const port = inject('KINOTIC_PORT') as number
 
         console.log('Connecting to Kinotic at ' + host)
 
-        await Kinotic.connect({
-                                    host:host as string,
-                                    port:port as number,
-                                    connectHeaders:{login: 'kinotic@kinotic.local', passcode: 'kinotic', authScopeType: 'ORGANIZATION', authScopeId: 'kinotic-test'}
-                                })
+        await Kinotic.connect(buildConnectionInfo(host, port, {
+            login: 'kinotic@kinotic.local',
+            passcode: 'kinotic',
+            authScopeType: 'ORGANIZATION',
+            authScopeId: 'kinotic-test'
+        }))
 
         console.log('Connected to Kinotic')
     } catch (e) {
@@ -110,16 +142,12 @@ export async function initKinoticAppClient(applicationId: string, tenantId: stri
     const appKinotic = new KinoticSingleton()
     appKinotic.use(OsApiPlugin).use(PersistencePlugin)
 
-    await appKinotic.connect({
-        host: host,
-        port: port,
-        connectHeaders: {
-            login: email,
-            passcode: 'kinotic',
-            authScopeType: 'APPLICATION',
-            authScopeId: applicationId
-        }
-    })
+    await appKinotic.connect(buildConnectionInfo(host, port, {
+        login: email,
+        passcode: 'kinotic',
+        authScopeType: 'APPLICATION',
+        authScopeId: applicationId
+    }))
     return appKinotic
 }
 
@@ -161,6 +189,7 @@ export async function createSchema(organizationId: string, applicationId: string
                                      const result: SchemaCreationResult = {
                                         entityDefinitionSchema: entityInfo.entity,
                                         namedQueriesDefinition: new NamedQueriesDefinition(id,
+                                                                                           organizationId,
                                                                                            applicationId,
                                                                                            projectId,
                                                                                            entityName,
@@ -180,6 +209,7 @@ export async function createSchema(organizationId: string, applicationId: string
 
     ret.entityDefinitionSchema.name = entityName
     ret.namedQueriesDefinition.id = (organizationId + '.' + applicationId + '.' + entityName).toLowerCase()
+    ret.namedQueriesDefinition.organizationId = organizationId
     ret.namedQueriesDefinition.entityDefinitionName = entityName
     replaceAllQueryPlaceholdersWithId(organizationId + '.' + applicationId + '.' + entityName, ret.namedQueriesDefinition.namedQueries)
     return ret

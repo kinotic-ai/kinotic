@@ -44,8 +44,8 @@ Active tracks:
   and a composed Microsoft button per Entra brand specs. Falls back to a generic styled
   button for unknown providers (e.g. Keycloak).
 - **Split api/app base URLs**
-  `kinotic.appBaseUrl` → SPA origin (used for verification email links + post-OIDC SPA
-  redirects). `kinotic.apiBaseUrl` (optional, falls back to `appBaseUrl`) → backend origin
+  `kinotic.domain.appBaseUrl` → SPA origin (used for verification email links + post-OIDC SPA
+  redirects). `kinotic.domain.apiBaseUrl` (optional, falls back to `appBaseUrl`) → backend origin
   used for OIDC `redirect_uri`. Required for the Azure split-origin deploy
   (`portal.kinotic.ai` SPA + `api.kinotic.ai` AKS).
 
@@ -69,7 +69,7 @@ Active tracks:
 - JWT claims `authScopeType` / `authScopeId` (renamed from `scopeType` / `scopeId`) so
   the wire matches the rest of the system's field naming.
 - Provider-aware validation lives in two helpers in
-  `org.kinotic.gateway.internal.auth.OAuth2AuthFactory`:
+  `org.kinotic.gateway.internal.endpoints.rest.support.OAuth2Util`:
   - `isIssuerValid(claims, authority)` — direct match for fixed-issuer providers, dynamic
     substitution (using JWT's `tid`) for Microsoft `/common` / `/organizations`.
   - `isEmailVerified(claims, provider)` — explicit `email_verified=true` for providers

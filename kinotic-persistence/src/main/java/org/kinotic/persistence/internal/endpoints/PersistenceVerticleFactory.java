@@ -1,9 +1,9 @@
 package org.kinotic.persistence.internal.endpoints;
 
 import lombok.RequiredArgsConstructor;
-import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.internal.endpoints.graphql.DelegatingGqlHandler;
 import org.kinotic.persistence.internal.endpoints.graphql.GqlVerticle;
@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component;
 public class PersistenceVerticleFactory {
 
     // Common Deps
-    private final KinoticProperties kinoticProperties;
+    private final KinoticDomainProperties kinoticDomainProperties;
     private final SecurityContext securityContext;
     private final PersistenceProperties properties;
     private final SecurityService securityService;
@@ -33,10 +33,10 @@ public class PersistenceVerticleFactory {
 
 
     public GqlVerticle createGqlVerticle(){
-        return new GqlVerticle(delegatingGqlHandler, properties, kinoticProperties.getSsl(), kinoticProperties.getCors(), securityService, securityContext);
+        return new GqlVerticle(delegatingGqlHandler, properties, kinoticDomainProperties.getDomain().getSsl(), kinoticDomainProperties.getCors(), securityService, securityContext);
     }
 
     public OpenApiVerticle createOpenApiVerticle(){
-        return new OpenApiVerticle(properties, kinoticProperties.getSsl(), openApiVertxRouterFactory.createRouter());
+        return new OpenApiVerticle(properties, kinoticDomainProperties.getDomain().getSsl(), openApiVertxRouterFactory.createRouter());
     }
 }

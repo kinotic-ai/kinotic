@@ -8,15 +8,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.gateway.internal.auth.AuthEndpointSupport;
-import org.kinotic.gateway.internal.auth.OidcFlowOrchestrator;
-import org.kinotic.gateway.internal.auth.SessionKeys;
-import org.kinotic.os.api.model.iam.AuthType;
-import org.kinotic.os.api.model.iam.IamUser;
-import org.kinotic.os.api.model.iam.OidcConfiguration;
+import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
+import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
+import org.kinotic.domain.api.model.iam.AuthType;
+import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.OidcConfiguration;
 import org.kinotic.os.api.services.ApplicationService;
 import org.kinotic.os.api.services.iam.IamUserService;
-import org.kinotic.os.api.services.iam.LocalAuthenticationService;
+import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
@@ -33,7 +32,7 @@ import org.springframework.stereotype.Component;
  *   <li>{@code POST /api/app/:appId/login/lookup {email}} — email-first SSO/password
  *       decision. If the IamUser is OIDC and their config is live, returns
  *       {@code {type: "sso", redirect: "..."}}. Otherwise {@code {type: "password"}}.</li>
- *   <li>{@code POST /api/app/:appId/login/token {email, password}} — local password auth,
+ *   <li>{@code POST /api/app/:appId/login {email, password}} — local password auth,
  *       scoped to the application so a stray cross-scope match (dev SYSTEM admin, etc.)
  *       can't authenticate against an app endpoint.</li>
  *   <li>{@code GET /api/app/:appId/login/callback/:configId} — IdP returns here.</li>
@@ -49,8 +48,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ApplicationLoginHandler {
 
-    private static final SessionKeys SESSION_KEYS = SessionKeys.ofPrefix("app-login");
-
     private final IamUserService iamUserService;
     private final ApplicationService applicationService;
     private final OidcConfigurationService oidcConfigurationService;
@@ -60,11 +57,9 @@ public class ApplicationLoginHandler {
     private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
-        authEndpointSupport.installSessionHandler(router, OidcConstants.APP_LOGIN_BASE);
-
         router.get(OidcConstants.APP_LOGIN_BASE + "/providers").handler(this::handleProviders);
         router.post(OidcConstants.APP_LOGIN_BASE + "/lookup").handler(this::handleLookup);
-        router.post(OidcConstants.APP_LOGIN_BASE + "/token").handler(this::handleToken);
+        router.post(OidcConstants.APP_LOGIN_BASE).handler(this::handleLogin);
         router.get(OidcConstants.APP_LOGIN_BASE + "/callback/:configId").handler(this::handleCallback);
     }
 
@@ -112,15 +107,14 @@ public class ApplicationLoginHandler {
                          if (match == null || !match.isEnabled()) {
                              return authEndpointSupport.respondPasswordPath(ctx);
                          }
-                         return oidcFlowOrchestrator.startFlow(ctx, match, SESSION_KEYS,
-                                                               callbackUrl(appId, match.getId()), null)
+                         return oidcFlowOrchestrator.startFlow(ctx, match, callbackUrl(appId, match.getId()), null)
                                  .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
                      });
     }
 
-    private void handleToken(RoutingContext ctx) {
+    private void handleLogin(RoutingContext ctx) {
         String appId = ctx.pathParam("appId");
-        authEndpointSupport.handlePasswordToken(ctx,
+        authEndpointSupport.handlePasswordLogin(ctx,
                 (email, password) -> localAuthenticationService.authenticateLocal(
                         email, password, AuthScopeType.APPLICATION.name(), appId));
     }
@@ -130,7 +124,7 @@ public class ApplicationLoginHandler {
         String pathConfigId = ctx.pathParam("configId");
 
         oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
-                ctx, pathConfigId, SESSION_KEYS, callbackUrl(appId, pathConfigId),
+                ctx, pathConfigId, callbackUrl(appId, pathConfigId),
                 id -> securityContext.withElevatedAccess(() -> oidcConfigurationService.findById(id)))
                 .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
                         sub -> iamUserService.findByOidcIdentityAndScope(

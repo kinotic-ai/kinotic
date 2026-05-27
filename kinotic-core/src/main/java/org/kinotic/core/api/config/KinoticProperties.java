@@ -6,6 +6,7 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
+import org.springframework.validation.annotation.Validated;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -18,39 +19,11 @@ import lombok.experimental.Accessors;
 @Component
 @ConfigurationProperties(prefix = "kinotic")
 @Primary
+@Validated
 @Getter
 @Setter
 @Accessors(chain = true)
 public class KinoticProperties {
-
-    public static long DEFAULT_SESSION_TIMEOUT = 1000 * 60 * 30;
-
-    /**
-     * Public-facing base URL of the SPA (scheme + host + optional port, no trailing slash).
-     * Used to build absolute links to user-visible SPA routes — e.g. the verification email link
-     * sent to new sign-ups, or post-login redirects after an OIDC roundtrip.
-     */
-    private String appBaseUrl = "http://localhost:9090";
-
-    /**
-     * Public-facing base URL the backend serves its REST endpoints under (scheme + host + optional
-     * port, no trailing slash). Used as the OIDC {@code redirect_uri} so the IdP returns the
-     * browser to {@code /api/login/callback/<id>} on the backend, not on the SPA.
-     * <p>
-     * Set this when the SPA and backend live on different origins (Azure Static Web Apps + AKS).
-     * When left null the platform falls back to {@link #appBaseUrl} — fine for dev and any deploy
-     * where the SPA is served from the same origin as the API.
-     */
-    private String apiBaseUrl = null;
-
-    /**
-     * Returns {@link #apiBaseUrl} when set, otherwise falls back to {@link #appBaseUrl}.
-     * Use this when constructing OIDC {@code redirect_uri} values so split-origin deploys
-     * (SPA + AKS on different domains) work without breaking same-origin defaults.
-     */
-    public String resolveApiBaseUrl() {
-        return (apiBaseUrl != null && !apiBaseUrl.isBlank()) ? apiBaseUrl : appBaseUrl;
-    }
 
     /**
      * If true, additional information will be provided to clients,
@@ -114,11 +87,6 @@ public class KinoticProperties {
     private long maxOffHeapMemory = DataStorageConfiguration.DFLT_DATA_REGION_MAX_SIZE;
 
     /**
-     * SSL/TLS configuration for all Vert.x HTTP servers.
-     */
-    private SslProperties ssl = new SslProperties();
-
-    /**
      * Secret storage configuration. If null, an in-memory backend is used.
      */
     private SecretStorageProperties secretStorage;
@@ -131,22 +99,10 @@ public class KinoticProperties {
      */
     private PlatformSecretsProperties platformSecrets = new PlatformSecretsProperties();
 
-    private long sessionTimeout = DEFAULT_SESSION_TIMEOUT;
 
     public void setMaxNumberOfCoresToUse(int maxNumberOfCoresToUse) {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         this.maxNumberOfCoresToUse = maxNumberOfCoresToUse > 0 ? Math.min(availableProcessors, maxNumberOfCoresToUse) : Math.max(availableProcessors, 1);
-    }
-
-    @Override
-    public String toString() {
-        ToStringBuilder sb = new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
-                .append("debug", debug)
-                .append("disableClustering", disableClustering)
-                .append("sessionTimeout", sessionTimeout)
-                .append("maxOffHeapMemory", maxOffHeapMemory);
-
-        return sb.toString();
     }
 
 }

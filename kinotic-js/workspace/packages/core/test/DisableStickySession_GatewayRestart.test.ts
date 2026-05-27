@@ -1,8 +1,8 @@
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, ConnectionInfo, KinoticSingleton} from '../src'
+import {ConnectedInfo, ConnectionInfo, KinoticSingleton, SessionKeepAliveMode} from '../src'
 import {GenericContainer, PullPolicy, StartedTestContainer, Wait} from 'testcontainers'
-import { logFailure, validateConnectedInfo } from './TestHelper'
+import { authedWebSocketFactory, logFailure, validateConnectedInfo } from './TestHelper'
 import { TestService } from './ITestService'
 import {KINOTIC_DOCKER_IMAGE} from './TestHelper.js'
 
@@ -25,12 +25,12 @@ describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
             .withName('disable-sticky-session-reconnect-test')
             .start()
 
-        // Create connection info with disableStickySession enabled
+        // Create connection info without keeping the session alive after disconnect
         connectionInfo.host = container.getHost()
         connectionInfo.port = 58599
         connectionInfo.maxConnectionAttempts = 0
-        connectionInfo.disableStickySession = true
-        connectionInfo.connectHeaders = async () => {return {login: 'kinotic@kinotic.local', passcode: 'kinotic', authScopeType: 'ORGANIZATION', authScopeId: 'kinotic-test'}}
+        connectionInfo.sessionKeepAlive = SessionKeepAliveMode.NONE
+        connectionInfo.webSocketFactory = authedWebSocketFactory(connectionInfo.host, connectionInfo.port)
 
         console.log(`Kinotic Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
     }, 1000 * 60 * 10) // 10 minutes
@@ -40,7 +40,7 @@ describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
         await container.stop({timeout: 60000, remove: true, removeVolumes: true})
     })
 
-    it('should handle gateway restart with disableStickySession and reconnect', {"timeout": 1000 * 60 * 5}, async () => {
+    it('should handle gateway restart with sessionKeepAlive NONE and reconnect', {"timeout": 1000 * 60 * 5}, async () => {
 
         // First connection and RPC call
         const continuum = new KinoticSingleton()

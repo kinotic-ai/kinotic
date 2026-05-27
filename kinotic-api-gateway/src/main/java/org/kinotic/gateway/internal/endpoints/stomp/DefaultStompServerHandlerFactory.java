@@ -3,7 +3,6 @@
 package org.kinotic.gateway.internal.endpoints.stomp;
 
 import io.vertx.core.Vertx;
-import io.vertx.ext.stomp.lite.StompServerConnection;
 import io.vertx.ext.stomp.lite.StompServerHandler;
 import io.vertx.ext.stomp.lite.StompServerHandlerFactory;
 import org.kinotic.gateway.internal.endpoints.Services;
@@ -25,10 +24,9 @@ public class DefaultStompServerHandlerFactory implements StompServerHandlerFacto
     }
 
     @Override
-    public StompServerHandler create(StompServerConnection stompServerConnection) {
+    public StompServerHandler create() {
         return new DefaultStompServerHandler(vertx,
-                                             services,
-                                             stompServerConnection);
+                                             services);
     }
 
 }

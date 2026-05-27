@@ -12,7 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.persistence.api.model.EntityOperation;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;
 import org.kinotic.persistence.api.model.idl.decorators.PolicyDecorator;
-import org.kinotic.persistence.api.services.EntitiesRepository;
+import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.utils.GqlUtils;
@@ -38,7 +38,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
     private final List<GqlOperationDefinition> builtInOperationDefinitions;
     private final AsyncLoadingCache<String, List<GqlOperationDefinition>> namedQueryOperationDefinitionCache;
 
-    public DefaultGqlOperationDefinitionService(EntitiesRepository entitiesRepository,
+    public DefaultGqlOperationDefinitionService(EntitiesService entitiesService,
                                                 NamedQueryGqlOperationDefinitionCacheLoader namedQueryGqlOperationDefinitionCacheLoader,
                                                 ObjectMapper objectMapper,
                                                 DefaultCaffeineCacheFactory cacheFactory) {
@@ -67,7 +67,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(entityDefinition -> new BulkSaveDataFetcher(entityDefinition.getId(),
-                                                                                                                 entitiesRepository))
+                                                                                                                 entitiesService))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -85,7 +85,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(entityDefinition -> new BulkUpdateDataFetcher(entityDefinition.getId(),
-                                                                                                                   entitiesRepository))
+                                                                                                                   entitiesService))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -101,7 +101,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(entityDefinition -> new CountDataFetcher(entityDefinition.getId(),
-                                                                                                              entitiesRepository))
+                                                                                                              entitiesService))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -119,7 +119,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(entityDefinition -> new DeleteDataFetcher(entityDefinition.getId(),
-                                                                                                               entitiesRepository))
+                                                                                                               entitiesService))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -137,7 +137,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(entityDefinition -> new FindByIdDataFetcher(entityDefinition.getId(),
-                                                                                                                 entitiesRepository))
+                                                                                                                 entitiesService))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -155,7 +155,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(entityDefinition -> new FindAllDataFetcher(entityDefinition.getId(),
-                                                                                                                entitiesRepository, objectMapper))
+                                                                                                                entitiesService, objectMapper))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -173,7 +173,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(entityDefinition -> new FindAllDataFetcher(entityDefinition.getId(),
-                                                                                                                entitiesRepository, objectMapper))
+                                                                                                                entitiesService, objectMapper))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -191,7 +191,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(entityDefinition -> new SaveDataFetcher(entityDefinition.getId(),
-                                                                                                             entitiesRepository))
+                                                                                                             entitiesService))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -211,7 +211,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(entityDefinition -> new SearchDataFetcher(entityDefinition.getId(),
-                                                                                                               entitiesRepository, objectMapper))
+                                                                                                               entitiesService, objectMapper))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -231,7 +231,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(entityDefinition -> new SearchDataFetcher(entityDefinition.getId(),
-                                                                                                               entitiesRepository, objectMapper))
+                                                                                                               entitiesService, objectMapper))
                                       .build(),
 
 
@@ -248,7 +248,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(entityDefinition -> new SyncIndexDataFetcher(entityDefinition.getId(),
-                                                                                                                  entitiesRepository))
+                                                                                                                  entitiesService))
                                       .build(),
 
 
@@ -267,7 +267,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           return builder.build();
                                       })
                                       .dataFetcherDefinitionFunction(entityDefinition -> new UpdateDataFetcher(entityDefinition.getId(),
-                                                                                                               entitiesRepository))
+                                                                                                               entitiesService))
                                       .build()
         );
     }

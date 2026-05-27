@@ -350,10 +350,10 @@ public class ServiceInvocationSupervisor {
         String replyTo = incomingEvent.metadata().get(EventConstants.REPLY_TO_HEADER);
         if(replyTo != null){
             if(!replyTo.isBlank()) {
-                if (replyTo.startsWith(EventConstants.SERVICE_DESTINATION_SCHEME + ":")) {
+                if (replyTo.startsWith(EventConstants.REPLY_DESTINATION_SCHEME + ":")) {
                     ret = true;
                 } else {
-                    log.warn("Reply-to header must be a valid service destination");
+                    log.warn("Reply-to header must be a valid reply destination");
                 }
             }else {
                 log.warn("Reply-to header must not be blank");

@@ -1,9 +1,9 @@
 package org.kinotic.github.internal.api.services;
 
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.os.api.model.Project;
-import org.kinotic.os.api.model.RepositoryConnectionStatus;
-import org.kinotic.os.api.services.ProjectRepoProvisioner;
+import org.kinotic.domain.api.model.Project;
+import org.kinotic.domain.api.model.RepositoryConnectionStatus;
+import org.kinotic.domain.api.services.ProjectRepoProvisioner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 

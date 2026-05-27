@@ -4,7 +4,7 @@ import io.vertx.core.Vertx;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.EntityDefinition;
-import org.kinotic.persistence.api.services.EntitiesRepository;
+import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.internal.sample.Car;
 import org.kinotic.persistence.internal.sample.DummyParticipant;
@@ -34,7 +34,7 @@ public class TestHelper {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private EntitiesRepository entitiesRepository;
+    private EntitiesService entitiesService;
 
     @Autowired
     private Vertx vertx;
@@ -99,7 +99,7 @@ public class TestHelper {
         } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
-        return elevated(() -> entitiesRepository.bulkUpdate(entityDefinition.getId(), tokenBuffer, entityContext));
+        return elevated(() -> entitiesService.bulkUpdate(entityDefinition.getId(), tokenBuffer, entityContext));
     }
 
     public CompletableFuture<Void> bulkSaveCarsAsRawJson(List<Car> cars, EntityDefinition entityDefinition, EntityContext entityContext){
@@ -109,7 +109,7 @@ public class TestHelper {
         } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
-        return elevated(() -> entitiesRepository.bulkSave(entityDefinition.getId(), tokenBuffer, entityContext));
+        return elevated(() -> entitiesService.bulkSave(entityDefinition.getId(), tokenBuffer, entityContext));
     }
 
     public CompletableFuture<Car> saveCarAsRawJson(Car car, EntityDefinition entityDefinition, EntityContext entityContext){
@@ -119,7 +119,7 @@ public class TestHelper {
         } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
-        return elevated(() -> entitiesRepository.save(entityDefinition.getId(), tokenBuffer, entityContext))
+        return elevated(() -> entitiesService.save(entityDefinition.getId(), tokenBuffer, entityContext))
                                  .thenApply(saved -> {
                                   try (JsonParser parser = saved.asParser()) {
                                       return objectMapper.readValue(parser, Car.class);
@@ -138,7 +138,7 @@ public class TestHelper {
             return CompletableFuture.failedFuture(e);
         }
 
-        return elevated(() -> entitiesRepository.update(entityDefinition.getId(), tokenBuffer, entityContext))
+        return elevated(() -> entitiesService.update(entityDefinition.getId(), tokenBuffer, entityContext))
                                  .thenApply(saved -> {
                                   try (JsonParser parser = saved.asParser()) {
                                       return objectMapper.readValue(parser, Car.class);
@@ -169,10 +169,10 @@ public class TestHelper {
                                                  for(Person person : people){
                                                      try (TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false)) {
                                                          tokenBuffer.writePOJO(person);
-                                                         completableFutures.add(entitiesRepository.save(entityDefinition.getId(),
-                                                                                                        tokenBuffer,
-                                                                                                        entityContext)
-                                                                                                  .thenCompose(saved -> {
+                                                         completableFutures.add(entitiesService.save(entityDefinition.getId(),
+                                                                                                     tokenBuffer,
+                                                                                                     entityContext)
+                                                                                               .thenCompose(saved -> {
                                                                                                    try (JsonParser parser = saved.asParser()) {
                                                                                                        Person deserializedPerson = objectMapper.readValue(parser,
                                                                                                                                                           Person.class);
@@ -213,10 +213,10 @@ public class TestHelper {
                                                      return CompletableFuture.failedFuture(e);
                                                  }
 
-                                                 return entitiesRepository.bulkSave(entityDefinition.getId(),
-                                                                                    tokenBuffer,
-                                                                                    entityContext)
-                                                                          .thenCompose(unused -> CompletableFuture
+                                                 return entitiesService.bulkSave(entityDefinition.getId(),
+                                                                                 tokenBuffer,
+                                                                                 entityContext)
+                                                                       .thenCompose(unused -> CompletableFuture
                                                                  .completedFuture(new StructureAndPersonHolder(
                                                                          entityDefinition,
                                                                          people)));

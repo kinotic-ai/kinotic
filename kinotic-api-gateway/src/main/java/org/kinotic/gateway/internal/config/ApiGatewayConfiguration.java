@@ -2,6 +2,8 @@ package org.kinotic.gateway.internal.config;
 
 import io.vertx.core.Vertx;
 import io.vertx.ext.healthchecks.HealthChecks;
+import io.vertx.ext.web.sstore.SessionStore;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.springframework.context.annotation.Bean;
@@ -23,5 +25,10 @@ public class ApiGatewayConfiguration {
     @Bean
     public ApiGatewayProperties rpcGatewayProperties(KinoticApiGatewayProperties kinoticProperties){
         return kinoticProperties.getApiGateway();
+    }
+
+    @Bean
+    public SessionStore sessionStore(Vertx vertx){
+        return SessionStore.create(vertx);
     }
 }

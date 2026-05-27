@@ -1,0 +1,17 @@
+package org.kinotic.domain.api.services.iam;
+
+import org.kinotic.core.api.crud.IdentifiableCrudService;
+import org.kinotic.domain.api.model.iam.SystemOidcConfiguration;
+
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+public interface SystemOidcConfigurationService extends IdentifiableCrudService<SystemOidcConfiguration, String> {
+
+    /**
+     * Returns every enabled system-admin OIDC config. Today this is a single row, but
+     * the table allows growth if the platform later supports multiple admin IdPs.
+     */
+    CompletableFuture<List<SystemOidcConfiguration>> findAllEnabled();
+
+}

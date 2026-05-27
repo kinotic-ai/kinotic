@@ -6,13 +6,12 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.AuthScopeType;
-import org.kinotic.gateway.internal.auth.AuthEndpointSupport;
-import org.kinotic.gateway.internal.auth.OidcFlowOrchestrator;
-import org.kinotic.gateway.internal.auth.SessionKeys;
-import org.kinotic.os.api.model.iam.IamUser;
-import org.kinotic.os.api.model.iam.SystemOidcConfiguration;
+import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
+import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
+import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.SystemOidcConfiguration;
 import org.kinotic.os.api.services.iam.IamUserService;
-import org.kinotic.os.api.services.iam.SystemOidcConfigurationService;
+import org.kinotic.domain.api.services.iam.SystemOidcConfigurationService;
 import org.springframework.stereotype.Component;
 
 /**
@@ -31,7 +30,7 @@ import org.springframework.stereotype.Component;
  * <p>System admins are pre-provisioned ({@link IamUser} with
  * {@code authScopeType=SYSTEM}, {@code authScopeId="kinotic"}); login is OIDC-only —
  * never auto-creates rows. The dev-only password fallback for {@code admin@kinotic.local}
- * lives on the org-login {@code /api/login/token} endpoint and is removed for production
+ * lives on the org-login {@code /api/login} endpoint and is removed for production
  * deployments.
  */
 @Slf4j
@@ -39,19 +38,34 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class SystemLoginHandler {
 
-    private static final SessionKeys SESSION_KEYS = SessionKeys.ofPrefix("system-login");
-
-    private final IamUserService iamUserService;
-    private final SystemOidcConfigurationService systemOidcConfigurationService;
-    private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
+    private final IamUserService iamUserService;
+    private final OidcFlowOrchestrator oidcFlowOrchestrator;
+    private final SystemOidcConfigurationService systemOidcConfigurationService;
 
     public void mountRoutes(Router router) {
-        authEndpointSupport.installSessionHandler(router, OidcConstants.SYSTEM_LOGIN_BASE);
-
         router.get(OidcConstants.SYSTEM_LOGIN_BASE + "/providers").handler(this::handleProviders);
         router.post(OidcConstants.SYSTEM_LOGIN_BASE + "/start/:configId").handler(this::handleStart);
         router.get(OidcConstants.SYSTEM_LOGIN_BASE + "/callback/:configId").handler(this::handleCallback);
+    }
+
+    private String callbackUrl(String configId) {
+        return authEndpointSupport.absoluteUrl(OidcConstants.SYSTEM_LOGIN_BASE + "/callback/" + configId);
+    }
+
+    private void handleCallback(RoutingContext ctx) {
+        String pathConfigId = ctx.pathParam("configId");
+
+        oidcFlowOrchestrator.handleCallback(ctx, pathConfigId, callbackUrl(pathConfigId), systemOidcConfigurationService::findById)
+                            .onSuccess(result ->
+                                               authEndpointSupport.completeOidcLogin(ctx,
+                                                                                     result.config(),
+                                                                                     result.claims(),
+                                                                                     sub -> iamUserService.findByOidcIdentityAndScope(sub,
+                                                                                                                                      result.config().getId(),
+                                                                                                                                      AuthScopeType.SYSTEM.name(),
+                                                                                                                                      OidcConstants.SYSTEM_SCOPE_ID)))
+                            .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }
 
     private void handleProviders(RoutingContext ctx) {
@@ -72,8 +86,7 @@ public class SystemLoginHandler {
                       authEndpointSupport.respondError(ctx, 400, "Unknown or disabled system OIDC config: " + pathConfigId);
                       return Future.<String>succeededFuture();
                   }
-                  return oidcFlowOrchestrator.startFlow(ctx, config, SESSION_KEYS,
-                                                       callbackUrl(config.getId()), null);
+                  return oidcFlowOrchestrator.startFlow(ctx, config, callbackUrl(config.getId()), null);
               })
               .onSuccess(url -> {
                   if (url != null) {
@@ -84,22 +97,5 @@ public class SystemLoginHandler {
                   log.error("System login start failed for config {}", pathConfigId, ex);
                   authEndpointSupport.respondError(ctx, 500, "Provider initialization failed");
               });
-    }
-
-    private void handleCallback(RoutingContext ctx) {
-        String pathConfigId = ctx.pathParam("configId");
-
-        oidcFlowOrchestrator.<SystemOidcConfiguration>handleCallback(
-                ctx, pathConfigId, SESSION_KEYS, callbackUrl(pathConfigId),
-                systemOidcConfigurationService::findById)
-                .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
-                        sub -> iamUserService.findByOidcIdentityAndScope(
-                                sub, result.config().getId(),
-                                AuthScopeType.SYSTEM.name(), OidcConstants.SYSTEM_SCOPE_ID)))
-                .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
-    }
-
-    private String callbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl(OidcConstants.SYSTEM_LOGIN_BASE + "/callback/" + configId);
     }
 }

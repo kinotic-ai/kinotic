@@ -10,6 +10,7 @@ import { CONTINUUM_UI } from '@/IContinuumUI'
 import 'primeicons/primeicons.css'
 import { createApp } from 'vue'
 import App from './App.vue'
+import { StructuresStates } from '@/states'
 
 import { Kinotic } from '@kinotic-ai/core'
 import { OsApiPlugin } from '@kinotic-ai/os-api'
@@ -81,4 +82,8 @@ app.use(createStructuresUI(), { router })
 
 app.use(router)
 
-app.mount('#app')
+// Restore the session from the cookie a prior REST login set, then mount. A failed probe just
+// means the user is not signed in — the router guard will send them to /login.
+StructuresStates.getUserState().login()
+    .catch(() => {})
+    .finally(() => app.mount('#app'))

@@ -2,6 +2,7 @@ package org.kinotic.test.support.kinotic;
 
 import io.vertx.core.Vertx;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.api.model.OrganizationScoped;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
@@ -36,7 +37,7 @@ public abstract class KinoticTestBase {
     /**
      * Runs the supplied async operation on a Vert.x context with elevated access
      * so that {@code AbstractCrudService} skips org-scope enforcement on
-     * {@link org.kinotic.os.api.model.OrganizationScoped} entities. This lets tests
+     * {@link OrganizationScoped} entities. This lets tests
      * exercise scoped services without authenticating as an ORGANIZATION participant.
      */
     protected <T> CompletableFuture<T> elevated(Supplier<CompletableFuture<T>> supplier) {

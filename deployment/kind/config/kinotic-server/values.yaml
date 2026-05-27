@@ -31,13 +31,14 @@ properties:
   bplJvmHeadRoom: 10
 
 kinotic:
-  # KinD exposes the cluster ingress on host port 443 (TLS via mkcert) or 9090 (plain).
-  # appBaseUrl gets re-set from terraform based on use_mkcert; default here covers TLS.
-  appBaseUrl: "https://localhost"
+  domain:
+    # KinD exposes the cluster ingress on host port 443 (TLS via mkcert) or 9090 (plain).
+    # appBaseUrl gets re-set from terraform based on use_mkcert; default here covers TLS.
+    appBaseUrl: "https://localhost"
+    email:
+      enabled: false
   # SPA is hosted outside the cluster — no static server inside.
   webServer:
-    enabled: false
-  email:
     enabled: false
   elastic:
     connections:
