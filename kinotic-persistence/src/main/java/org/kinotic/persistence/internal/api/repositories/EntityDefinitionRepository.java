@@ -19,6 +19,19 @@ public class EntityDefinitionRepository extends AbstractProjectScopedRepository<
         super("kinotic_entity_definition", EntityDefinition.class, esAsyncClient, crudServiceTemplate);
     }
 
+    /**
+     * The id encodes {@code orgId} as its prefix (see
+     * {@link org.kinotic.persistence.internal.utils.PersistenceUtil#createEntityDefinitionId}),
+     * so we route the Get to the correct shard without needing the participant's org context.
+     */
+    @Override
+    public CompletableFuture<EntityDefinition> findById(String id) {
+        if (id == null) return super.findById(id);
+        int dot = id.indexOf('.');
+        if (dot <= 0) return super.findById(id);
+        return findById(id, id.substring(0, dot));
+    }
+
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId,
                                                                                     String orgId,
                                                                                     Pageable pageable) {
