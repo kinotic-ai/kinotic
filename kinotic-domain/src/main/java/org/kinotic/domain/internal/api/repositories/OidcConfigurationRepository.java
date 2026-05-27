@@ -3,7 +3,6 @@ package org.kinotic.domain.internal.api.repositories;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.IdsQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
@@ -26,7 +25,7 @@ public class OidcConfigurationRepository extends AbstractOrganizationScopedRepos
      */
     public CompletableFuture<List<OidcConfiguration>> findEnabledByIds(List<String> ids) {
         Query query = composeFilter(IdsQuery.of(i -> i.values(ids))._toQuery(),
-                                    TermQuery.of(t -> t.field("enabled").value(true))._toQuery());
+                                    termFilter("enabled", true));
         return findAll(Pageable.ofSize(ids.size()), b -> b.query(query))
                 .thenApply(Page::getContent);
     }

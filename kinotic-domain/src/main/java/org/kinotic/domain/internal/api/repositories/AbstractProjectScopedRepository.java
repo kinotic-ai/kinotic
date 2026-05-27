@@ -2,7 +2,6 @@ package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -35,7 +34,7 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
         return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
     }
 
-    private Query projectIdFilter(String projectId) {
-        return TermQuery.of(t -> t.field("projectId").value(projectId))._toQuery();
+    protected Query projectIdFilter(String projectId) {
+        return termFilter("projectId", projectId);
     }
 }

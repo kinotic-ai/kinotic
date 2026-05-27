@@ -19,8 +19,8 @@ import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsDecorator;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
+import org.kinotic.persistence.internal.api.repositories.EntityDefinitionRepository;
 import org.kinotic.persistence.internal.api.services.EntityDefinitionConversionService;
-import org.kinotic.persistence.internal.api.services.EntityDefinitionDAO;
 import org.kinotic.persistence.api.model.EntityOperation;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.EntitiesDataFetcher;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.EntitiesTypeResolver;
@@ -82,7 +82,7 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<GqlCacheKey
 
     private final DefaultCaffeineCacheFactory cacheFactory;
     private final EntitiesService entitiesService;
-    private final EntityDefinitionDAO entityDefinitionDAO;
+    private final EntityDefinitionRepository entityDefinitionRepository;
     private final EntityDefinitionConversionService entityDefinitionConversionService;
     private final GqlOperationDefinitionService gqlOperationDefinitionService;
 
@@ -110,8 +110,8 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<GqlCacheKey
                                                                  @SpanAttribute("applicationId")
                                                                  String applicationId,
                                                                  Executor executor) {
-        return entityDefinitionDAO
-                .findAllPublishedForApplication(applicationId, Pageable.ofSize(500))
+        return entityDefinitionRepository
+                .findAllPublishedForApplication(applicationId, organizationId, Pageable.ofSize(500))
                 .thenComposeAsync(entityDefinitionPage -> {
                     if(entityDefinitionPage.getTotalElements() > 0) {
                         log.debug("Creating GraphQL Schema for application: {}", applicationId);
