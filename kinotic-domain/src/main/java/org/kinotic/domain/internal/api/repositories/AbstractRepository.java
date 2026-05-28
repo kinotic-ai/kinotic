@@ -2,7 +2,6 @@ package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import co.elastic.clients.elasticsearch.core.CountRequest;
 import co.elastic.clients.elasticsearch.core.DeleteRequest;
 import co.elastic.clients.elasticsearch.core.GetRequest;
@@ -11,14 +10,11 @@ import co.elastic.clients.elasticsearch.core.SearchRequest;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -119,46 +115,28 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
                             .thenApply(unused -> null);
     }
 
-    /**
-     * Builds a bool query whose {@code filter} clauses are the supplied {@code filters}.
-     * Convenience for subclasses that compose specialized queries from one or more term
-     * filters. Requires at least one non-null filter.
-     */
     protected Query composeFilter(Query... filters) {
-        Validate.notEmpty(filters, "filters cannot be empty");
-        return Query.of(q -> q.bool(b -> {
-            for (Query f : filters) if (f != null) b.filter(f);
-            return b;
-        }));
+        return crudServiceTemplate.composeFilter(filters);
     }
 
-    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
     protected Query termFilter(String field, String value) {
-        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
+        return crudServiceTemplate.termFilter(field, value);
     }
 
-    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
     protected Query termFilter(String field, boolean value) {
-        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
+        return crudServiceTemplate.termFilter(field, value);
     }
 
-    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
     protected Query termFilter(String field, long value) {
-        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
+        return crudServiceTemplate.termFilter(field, value);
     }
 
-    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
     protected Query termFilter(String field, double value) {
-        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
+        return crudServiceTemplate.termFilter(field, value);
     }
 
-    /**
-     * Issues a search with {@code size=1} and returns the single hit, or {@code null} if none.
-     * Convenience for "find by unique key" lookups.
-     */
     protected CompletableFuture<T> findFirst(Consumer<SearchRequest.Builder> builderConsumer) {
-        return findAll(Pageable.create(0, 1, Sort.unsorted()), builderConsumer)
-                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+        return crudServiceTemplate.findFirst(indexName, type, builderConsumer);
     }
 
 }

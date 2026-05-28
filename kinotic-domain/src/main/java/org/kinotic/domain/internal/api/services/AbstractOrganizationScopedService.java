@@ -1,6 +1,7 @@
 package org.kinotic.domain.internal.api.services;
 
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -13,57 +14,46 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Service base that adds organization-scope enforcement on top of an
- * {@link AbstractOrganizationScopedRepository}. Per call this class decides whether to pass
- * the participant's organization id to the repository (which uses it as routing and, for
- * read queries, as a filter), validates the org id on write, or steps out of the way when
- * {@link SecurityContext#isElevatedAccess()} is set.
+ * {@link AbstractOrganizationScopedRepository}. Per call this class derives the organization
+ * id (from the participant's auth scope, or from the entity on writes) and forwards it to
+ * the repository, whose orgId-aware overloads scope routing, document id, and read filters.
  * <p>
- * The repository's {@code orgId} overloads reject null, so this class explicitly branches
- * between the orgId-aware and the unscoped repository overloads.
+ * The repository deliberately exposes no unscoped CRUD overloads — under its composite
+ * {@code orgId + "-" + id} document id, a lookup without {@code orgId} cannot address the
+ * right document. When elevated access is set and no orgId can be derived from the security
+ * context or the id itself ({@link #getRoutingKeyFromId(String)}), this service fails fast
+ * rather than issuing a lookup that would silently miss.
  */
 public abstract class AbstractOrganizationScopedService<T extends OrganizationScoped<String>>
-        extends AbstractCrudService<T> {
+        implements IdentifiableCrudService<T, String> {
 
     protected final AbstractOrganizationScopedRepository<T> scopedRepository;
     protected final SecurityContext securityContext;
 
     public AbstractOrganizationScopedService(AbstractOrganizationScopedRepository<T> repository,
                                              SecurityContext securityContext) {
-        super(repository);
         this.scopedRepository = repository;
         this.securityContext = securityContext;
     }
 
     @Override
     public CompletableFuture<Long> count() {
-        String orgId = getOrganizationIdIfEnforced();
-        return orgId != null ? scopedRepository.count(orgId) : scopedRepository.count();
+        return scopedRepository.count(resolveReadOrgId(null));
     }
 
     @Override
     public CompletableFuture<T> findById(String id) {
-        String orgId = getOrganizationIdIfEnforced();
-        if (orgId == null) orgId = getRoutingKeyFromId(id);
-        return orgId != null
-                ? scopedRepository.findById(id, orgId)
-                : scopedRepository.findById(id);
+        return scopedRepository.findById(id, resolveReadOrgId(id));
     }
 
     @Override
     public CompletableFuture<Void> deleteById(String id) {
-        String orgId = getOrganizationIdIfEnforced();
-        if (orgId == null) orgId = getRoutingKeyFromId(id);
-        return orgId != null
-                ? scopedRepository.deleteById(id, orgId)
-                : scopedRepository.deleteById(id);
+        return scopedRepository.deleteById(id, resolveReadOrgId(id));
     }
 
     @Override
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
-        String orgId = getOrganizationIdIfEnforced();
-        return orgId != null
-                ? scopedRepository.findAll(orgId, pageable)
-                : scopedRepository.findAll(pageable);
+        return scopedRepository.findAll(resolveReadOrgId(null), pageable);
     }
 
     @Override
@@ -71,8 +61,7 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
         if (!securityContext.isElevatedAccess()) {
             enforceOrgOnSave(value);
         }
-        String routing = getObjectRoutingKey(value);
-        return routing != null ? scopedRepository.save(value, routing) : scopedRepository.save(value);
+        return scopedRepository.save(value, resolveWriteOrgId(value));
     }
 
     @Override
@@ -80,16 +69,17 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
         if (!securityContext.isElevatedAccess()) {
             enforceOrgOnSave(value);
         }
-        String routing = getObjectRoutingKey(value);
-        return routing != null ? scopedRepository.saveSync(value, routing) : scopedRepository.saveSync(value);
+        return scopedRepository.saveSync(value, resolveWriteOrgId(value));
     }
 
     @Override
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
-        String orgId = getOrganizationIdIfEnforced();
-        return orgId != null
-                ? scopedRepository.search(searchText, orgId, pageable)
-                : scopedRepository.search(searchText, pageable);
+        return scopedRepository.search(searchText, resolveReadOrgId(null), pageable);
+    }
+
+    @Override
+    public CompletableFuture<Void> syncIndex() {
+        return scopedRepository.syncIndex();
     }
 
     /**
@@ -112,28 +102,47 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
     }
 
     /**
-     * Override point for services whose ids carry a routing prefix. Returns the routing key
-     * to use for {@code findById}/{@code deleteById} when org-scope enforcement is off (and
-     * therefore the participant's orgId isn't available). Default implementation returns
-     * {@code null}, leaving Elasticsearch to hash the id.
+     * Override point for services whose ids carry an org routing prefix. When the participant
+     * is operating under elevated access (no org context from the security context), the
+     * service uses this hook to recover the orgId from {@code id} itself so it can still
+     * address the composite document id. Default returns {@code null}; subclasses with
+     * id-based routing override it.
+     * <p>
+     * FIXME: remove when elevated access is removed. This hook only exists to recover an
+     * orgId for elevated-access lookups; once every caller carries an org context, the
+     * orgId-aware repository methods can be used directly.
      */
     protected String getRoutingKeyFromId(String id) {
         return null;
     }
 
     /**
-     * Returns the routing key derived from an entity, used on {@code save}/{@code saveSync}.
-     * For org-scoped entities this is the organization id when present.
+     * Resolves the orgId for a read or delete. Uses the participant's org if enforcement is
+     * active, otherwise falls back to {@link #getRoutingKeyFromId(String)}. Throws when
+     * neither is available — under composite document ids a read without an orgId can't
+     * address any document.
      */
-    protected String getObjectRoutingKey(T value) {
-        String orgId = value.getOrganizationId();
-        return (orgId != null && !orgId.isBlank()) ? orgId : null;
+    private String resolveReadOrgId(String id) {
+        String orgId = getOrganizationIdIfEnforced();
+        if (orgId != null) return orgId;
+        if (id != null) {
+            String fromId = getRoutingKeyFromId(id);
+            if (fromId != null) return fromId;
+        }
+        throw new IllegalStateException(
+                "Elevated-access operation on " + scopedRepository.getType().getSimpleName()
+                + " requires an organization id, but none could be derived"
+                + (id != null ? " from id '" + id + "'" : ""));
     }
 
-    /**
-     * Autopopulates or validates the organization id on the object before a save. The field
-     * must be set and must equal the participant's organization id.
-     */
+    private String resolveWriteOrgId(T value) {
+        String orgId = value.getOrganizationId();
+        Validate.notBlank(orgId,
+                          "Organization id must be set on %s before save",
+                          scopedRepository.getType().getSimpleName());
+        return orgId;
+    }
+
     private void enforceOrgOnSave(T value) {
         String orgId = requireOrganizationId();
         String entityOrgId = value.getOrganizationId();
