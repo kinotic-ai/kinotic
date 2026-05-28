@@ -41,9 +41,10 @@ public class DefaultOidcConfigurationService extends AbstractOrganizationScopedS
     }
 
     @Override
-    public CompletableFuture<List<OidcConfiguration>> findEnabledByIds(List<String> ids) {
+    public CompletableFuture<List<OidcConfiguration>> findEnabledByIds(List<String> ids, String orgId) {
         Validate.notEmpty(ids, "ids cannot be null or empty");
-        return oidcRepository.findEnabledByIds(ids);
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        return oidcRepository.findEnabledByIds(ids, orgId);
     }
 
     @Override

@@ -107,6 +107,10 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
      * service uses this hook to recover the orgId from {@code id} itself so it can still
      * address the composite document id. Default returns {@code null}; subclasses with
      * id-based routing override it.
+     * <p>
+     * FIXME: remove when elevated access is removed. This hook only exists to recover an
+     * orgId for elevated-access lookups; once every caller carries an org context, the
+     * orgId-aware repository methods can be used directly.
      */
     protected String getRoutingKeyFromId(String id) {
         return null;

@@ -181,7 +181,13 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
                         getType().getSimpleName(), entityOrgId, orgId);
     }
 
-    private String composeDocumentId(String id, String orgId) {
+    /**
+     * Builds the Elasticsearch {@code _id} for an entity belonging to {@code orgId}:
+     * {@code orgId + "-" + id}. Subclasses use this when issuing specialized queries that
+     * target documents by id (e.g. an {@code IdsQuery}) and therefore need the composite
+     * form rather than the entity's raw id.
+     */
+    protected String composeDocumentId(String id, String orgId) {
         Validate.notBlank(id, "id cannot be blank");
         return orgId + "-" + id;
     }

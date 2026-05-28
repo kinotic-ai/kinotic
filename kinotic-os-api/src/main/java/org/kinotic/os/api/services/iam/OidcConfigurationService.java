@@ -10,13 +10,15 @@ import java.util.concurrent.CompletableFuture;
 public interface OidcConfigurationService extends IdentifiableCrudService<OidcConfiguration, String> {
 
     /**
-     * Fetches the given OIDC configurations in a single request, returning only those that exist
-     * and are enabled. Missing or disabled configurations are silently omitted.
+     * Fetches the given OIDC configurations in a single request, returning only those that
+     * belong to {@code orgId} and whose {@code enabled} flag is true. Missing or disabled
+     * configurations are silently omitted.
      *
-     * @param ids the configuration ids to load; may be null or empty
-     * @return the enabled configurations, or an empty list if {@code ids} is null/empty
+     * @param ids the configuration ids to load; must be non-null and non-empty
+     * @param orgId the organization that owns the configurations
+     * @return the enabled configurations
      */
-    CompletableFuture<List<OidcConfiguration>> findEnabledByIds(List<String> ids);
+    CompletableFuture<List<OidcConfiguration>> findEnabledByIds(List<String> ids, String orgId);
 
     /**
      * Returns the {@link OidcConfiguration} the given organization uses as its SSO

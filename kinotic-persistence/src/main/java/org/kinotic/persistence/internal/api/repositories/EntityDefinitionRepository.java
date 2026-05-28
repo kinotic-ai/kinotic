@@ -26,6 +26,10 @@ public class EntityDefinitionRepository extends AbstractProjectScopedRepository<
      * which this method extracts and forwards to the orgId-aware overload — under the
      * composite-document-id scheme, a lookup without an orgId can't address the row.
      * Returns {@code null} for ids that don't carry the expected prefix.
+     * <p>
+     * FIXME: remove when elevated access is removed. This convenience only exists so
+     * elevated-access call sites that don't carry an org context can still resolve an
+     * EntityDefinition by recovering the orgId from the id prefix.
      */
     public CompletableFuture<EntityDefinition> findById(String id) {
         if (id == null) return CompletableFuture.completedFuture(null);

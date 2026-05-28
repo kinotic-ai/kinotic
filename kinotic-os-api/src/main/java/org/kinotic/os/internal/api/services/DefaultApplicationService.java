@@ -81,7 +81,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                     if (ids == null || ids.isEmpty()) {
                         return CompletableFuture.completedFuture(Collections.emptyList());
                     }
-                    return oidcConfigurationService.findEnabledByIds(ids);
+                    return oidcConfigurationService.findEnabledByIds(ids, application.getOrganizationId());
                 });
     }
 
