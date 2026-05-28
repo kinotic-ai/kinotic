@@ -50,10 +50,7 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
      */
     public CompletableFuture<T> findById(String id, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
-        return crudServiceTemplate.findById(indexName,
-                                            composeDocumentId(id, orgId),
-                                            type,
-                                            b -> b.routing(orgId));
+        return findById(composeDocumentId(id, orgId), b -> b.routing(orgId));
     }
 
     /**
@@ -62,10 +59,7 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
      */
     public CompletableFuture<Void> deleteById(String id, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
-        return crudServiceTemplate.deleteById(indexName,
-                                              composeDocumentId(id, orgId),
-                                              b -> b.routing(orgId))
-                                  .thenApply(response -> null);
+        return deleteById(composeDocumentId(id, orgId), b -> b.routing(orgId));
     }
 
     public CompletableFuture<Page<T>> findAll(String orgId, Pageable pageable) {
@@ -80,21 +74,13 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     public CompletableFuture<T> save(T value, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         requireOrgMatchesEntity(value, orgId);
-        return crudServiceTemplate.save(indexName,
-                                        composeDocumentId(value.getId(), orgId),
-                                        value,
-                                        b -> b.routing(orgId))
-                                  .thenApply(indexResponse -> value);
+        return save(composeDocumentId(value.getId(), orgId), value, b -> b.routing(orgId));
     }
 
     public CompletableFuture<T> saveSync(T value, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         requireOrgMatchesEntity(value, orgId);
-        return crudServiceTemplate.saveSync(indexName,
-                                            composeDocumentId(value.getId(), orgId),
-                                            value,
-                                            b -> b.routing(orgId))
-                                  .thenApply(indexResponse -> value);
+        return saveSync(composeDocumentId(value.getId(), orgId), value, b -> b.routing(orgId));
     }
 
     public CompletableFuture<Page<T>> search(String searchText, String orgId, Pageable pageable) {

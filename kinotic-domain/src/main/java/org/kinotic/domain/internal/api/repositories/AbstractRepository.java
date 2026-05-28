@@ -93,7 +93,18 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     }
 
     protected CompletableFuture<T> save(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return crudServiceTemplate.save(indexName, value.getId(), value, builderConsumer)
+        return save(value.getId(), value, builderConsumer);
+    }
+
+    /**
+     * Saves {@code value} under an explicit Elasticsearch {@code _id}. Subclasses use this
+     * overload when the on-disk document id is namespaced — e.g. {@code orgId + "-" + id} —
+     * and therefore differs from {@code value.getId()}.
+     */
+    protected CompletableFuture<T> save(String documentId,
+                                        T value,
+                                        Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return crudServiceTemplate.save(indexName, documentId, value, builderConsumer)
                                   .thenApply(indexResponse -> value);
     }
 
@@ -102,7 +113,16 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     }
 
     protected CompletableFuture<T> saveSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return crudServiceTemplate.saveSync(indexName, value.getId(), value, builderConsumer)
+        return saveSync(value.getId(), value, builderConsumer);
+    }
+
+    /**
+     * Synchronous (read-your-write) variant of {@link #save(String, Object, Consumer)}.
+     */
+    protected CompletableFuture<T> saveSync(String documentId,
+                                            T value,
+                                            Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return crudServiceTemplate.saveSync(indexName, documentId, value, builderConsumer)
                                   .thenApply(indexResponse -> value);
     }
 
