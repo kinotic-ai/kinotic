@@ -8,6 +8,8 @@ import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.mapping.DynamicMapping;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
 import co.elastic.clients.elasticsearch.core.*;
 import co.elastic.clients.elasticsearch.core.get.GetResult;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
@@ -587,6 +589,50 @@ public class CrudServiceTemplate {
                                                                             .thenApply(pr -> null);
                                                     });
                             }));
+    }
+
+    /**
+     * Issues a search with {@code size=1} and returns the single hit, or {@code null} if none.
+     * Convenience for "find by unique key" lookups.
+     */
+    public <T> CompletableFuture<T> findFirst(String indexName,
+                                              Class<T> type,
+                                              Consumer<SearchRequest.Builder> builderConsumer) {
+        return search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builderConsumer)
+                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+    }
+
+    /**
+     * Builds a bool query whose {@code filter} clauses are the supplied {@code filters}.
+     * Convenience for callers that compose specialized queries from one or more term
+     * filters. Requires at least one non-null filter.
+     */
+    public Query composeFilter(Query... filters) {
+        Validate.notEmpty(filters, "filters cannot be empty");
+        return Query.of(q -> q.bool(b -> {
+            for (Query f : filters) if (f != null) b.filter(f);
+            return b;
+        }));
+    }
+
+    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
+    public Query termFilter(String field, String value) {
+        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
+    }
+
+    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
+    public Query termFilter(String field, boolean value) {
+        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
+    }
+
+    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
+    public Query termFilter(String field, long value) {
+        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
+    }
+
+    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
+    public Query termFilter(String field, double value) {
+        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
     }
 
     /**

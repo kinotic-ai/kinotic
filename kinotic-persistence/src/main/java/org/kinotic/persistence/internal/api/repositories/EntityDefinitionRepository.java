@@ -20,15 +20,17 @@ public class EntityDefinitionRepository extends AbstractProjectScopedRepository<
     }
 
     /**
-     * The id encodes {@code orgId} as its prefix (see
+     * Looks up an EntityDefinition by its prefixed id. The id encodes {@code orgId} as its
+     * prefix (see
      * {@link org.kinotic.persistence.internal.utils.PersistenceUtil#createEntityDefinitionId}),
-     * so we route the Get to the correct shard without needing the participant's org context.
+     * which this method extracts and forwards to the orgId-aware overload — under the
+     * composite-document-id scheme, a lookup without an orgId can't address the row.
+     * Returns {@code null} for ids that don't carry the expected prefix.
      */
-    @Override
     public CompletableFuture<EntityDefinition> findById(String id) {
-        if (id == null) return super.findById(id);
+        if (id == null) return CompletableFuture.completedFuture(null);
         int dot = id.indexOf('.');
-        if (dot <= 0) return super.findById(id);
+        if (dot <= 0) return CompletableFuture.completedFuture(null);
         return findById(id, id.substring(0, dot));
     }
 
