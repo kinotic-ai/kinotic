@@ -10,7 +10,7 @@ import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.SystemOidcConfiguration;
-import org.kinotic.os.api.services.iam.IamUserService;
+import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.SystemOidcConfigurationService;
 import org.springframework.stereotype.Component;
 

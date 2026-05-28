@@ -13,7 +13,7 @@ import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.OidcProviderKind;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.iam.PendingRegistration;
-import org.kinotic.os.api.services.iam.IamUserService;
+import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.services.iam.PendingRegistrationService;
 import org.springframework.stereotype.Component;

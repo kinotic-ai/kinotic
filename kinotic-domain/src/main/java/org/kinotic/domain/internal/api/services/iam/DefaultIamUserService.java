@@ -1,17 +1,26 @@
-package org.kinotic.os.internal.api.services.iam;
+package org.kinotic.domain.internal.api.services.iam;
 
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.security.AuthScopeType;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.security.DefaultApplicationParticipant;
+import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
+import org.kinotic.domain.api.security.DefaultSystemParticipant;
+import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.internal.api.model.IamCredential;
+import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
 import org.kinotic.domain.internal.api.repositories.IamUserRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.domain.internal.utils.DomainUtil;
-import org.kinotic.os.api.services.iam.IamUserService;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -20,12 +29,15 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
 
     private final IamUserRepository iamUserRepository;
     private final IamCredentialRepository credentialRepository;
+    private final ApplicationRepository applicationRepository;
 
     public DefaultIamUserService(IamUserRepository repository,
-                                 IamCredentialRepository credentialRepository) {
+                                 IamCredentialRepository credentialRepository,
+                                 ApplicationRepository applicationRepository) {
         super(repository);
         this.iamUserRepository = repository;
         this.credentialRepository = credentialRepository;
+        this.applicationRepository = applicationRepository;
     }
 
     @Override
@@ -170,6 +182,50 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     public CompletableFuture<Void> deleteById(String id) {
         return credentialRepository.deleteById(id)
                 .thenCompose(v -> super.deleteById(id));
+    }
+
+    @Override
+    public CompletableFuture<Participant> createParticipant(IamUser user) {
+        return switch (AuthScopeType.valueOf(user.getAuthScopeType())) {
+            case SYSTEM -> CompletableFuture.completedFuture(
+                    DefaultSystemParticipant.builder()
+                                            .id(user.getId())
+                                            .metadata(metadataFor(user))
+                                            .roles(List.of())
+                                            .build());
+            case ORGANIZATION -> CompletableFuture.completedFuture(
+                    DefaultOrganizationParticipant.builder()
+                                                  .id(user.getId())
+                                                  .organizationId(user.getAuthScopeId())
+                                                  .metadata(metadataFor(user))
+                                                  .roles(List.of())
+                                                  .build());
+            case APPLICATION -> applicationRepository.findByAppId(user.getAuthScopeId())
+                    .thenApply(application -> {
+                        if (application == null) {
+                            throw new IllegalStateException(
+                                    "Cannot build ApplicationParticipant for IamUser '" + user.getId()
+                                    + "': no Application found for appId '" + user.getAuthScopeId() + "'.");
+                        }
+                        return DefaultApplicationParticipant.builder()
+                                                            .id(user.getId())
+                                                            .organizationId(application.getOrganizationId())
+                                                            .applicationId(user.getAuthScopeId())
+                                                            .tenantId(user.getTenantId())
+                                                            .metadata(metadataFor(user))
+                                                            .roles(List.of())
+                                                            .build();
+                    });
+        };
+    }
+
+    private static Map<String, String> metadataFor(IamUser user) {
+        return Map.of(
+                ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
+                "email", user.getEmail(),
+                "displayName", user.getDisplayName() != null ? user.getDisplayName() : user.getEmail(),
+                "authType", user.getAuthType().name()
+        );
     }
 
 }
