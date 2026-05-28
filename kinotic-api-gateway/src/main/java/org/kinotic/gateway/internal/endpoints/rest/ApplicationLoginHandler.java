@@ -6,7 +6,6 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
@@ -22,26 +21,29 @@ import org.springframework.stereotype.Component;
 /**
  * Login routes for end-users of an application built on Kinotic. Distinct from the
  * org-login handler: the user is logging into an application's own user base (an
- * {@link IamUser} with {@code authScopeType=APPLICATION}, {@code authScopeId=<appId>}),
+ * APP-scope {@link IamUser} — {@code organizationId} + {@code applicationId} both set),
  * not into the platform-managed org admin surface.
  *
  * <ul>
- *   <li>{@code GET /api/app/:appId/login/providers} — lists the enabled
+ *   <li>{@code GET /api/app/:orgId/:appId/login/providers} — lists the enabled
  *       {@link OidcConfiguration} rows the app references via
  *       {@code Application.oidcConfigurationIds}.</li>
- *   <li>{@code POST /api/app/:appId/login/lookup {email}} — email-first SSO/password
+ *   <li>{@code POST /api/app/:orgId/:appId/login/lookup {email}} — email-first SSO/password
  *       decision. If the IamUser is OIDC and their config is live, returns
  *       {@code {type: "sso", redirect: "..."}}. Otherwise {@code {type: "password"}}.</li>
- *   <li>{@code POST /api/app/:appId/login {email, password}} — local password auth,
- *       scoped to the application so a stray cross-scope match (dev SYSTEM admin, etc.)
- *       can't authenticate against an app endpoint.</li>
- *   <li>{@code GET /api/app/:appId/login/callback/:configId} — IdP returns here.</li>
+ *   <li>{@code POST /api/app/:orgId/:appId/login {email, password}} — local password
+ *       auth, scoped to the application so a stray cross-scope match (dev SYSTEM admin,
+ *       etc.) can't authenticate against an app endpoint.</li>
+ *   <li>{@code GET /api/app/:orgId/:appId/login/callback/:configId} — IdP returns here.</li>
  * </ul>
  *
+ * <p>The {@code :orgId} path param disambiguates between orgs that happen to share an
+ * appId — every IamUser/OidcConfiguration lookup carries both ids so the auth path can
+ * never collide cross-org.
+ *
  * <p>OIDC config lookups run inside {@link SecurityContext#withElevatedAccess} — the
- * pre-auth login flow has no participant bound to filter against, and the configId is
- * trusted (it came from the IamUser row resolved by email or from the IdP redirect we
- * issued ourselves).
+ * pre-auth login flow has no participant bound to filter against. Phase 5a replaces those
+ * wrappers with direct repository calls.
  */
 @Slf4j
 @Component
@@ -64,11 +66,12 @@ public class ApplicationLoginHandler {
     }
 
     private void handleProviders(RoutingContext ctx) {
+        String orgId = ctx.pathParam("orgId");
         String appId = ctx.pathParam("appId");
         securityContext.withElevatedAccess(() -> applicationService.getOidcConfigurations(appId))
               .whenComplete((configs, err) -> {
                   if (err != null) {
-                      log.warn("Failed to list app providers for {}: {}", appId, err.getMessage());
+                      log.warn("Failed to list app providers for {}/{}: {}", orgId, appId, err.getMessage());
                       authEndpointSupport.respondError(ctx, 500, "Failed to list providers");
                       return;
                   }
@@ -77,6 +80,7 @@ public class ApplicationLoginHandler {
     }
 
     private void handleLookup(RoutingContext ctx) {
+        String orgId = ctx.pathParam("orgId");
         String appId = ctx.pathParam("appId");
         JsonObject body = ctx.body().asJsonObject();
         String email = body == null ? null : body.getString("email");
@@ -85,15 +89,15 @@ public class ApplicationLoginHandler {
             return;
         }
 
-        Future.fromCompletionStage(iamUserService.findByEmailAndScope(email, AuthScopeType.APPLICATION.name(), appId))
-              .compose(user -> resolveSsoOrPassword(ctx, appId, user))
+        Future.fromCompletionStage(iamUserService.findByEmail(email, orgId, appId))
+              .compose(user -> resolveSsoOrPassword(ctx, orgId, appId, user))
               .onFailure(err -> {
-                  log.warn("App login lookup failed for {}/{}: {}", appId, email, err.getMessage());
+                  log.warn("App login lookup failed for {}/{}/{}: {}", orgId, appId, email, err.getMessage());
                   authEndpointSupport.respondError(ctx, 500, "Lookup failed");
               });
     }
 
-    private Future<Void> resolveSsoOrPassword(RoutingContext ctx, String appId, IamUser user) {
+    private Future<Void> resolveSsoOrPassword(RoutingContext ctx, String orgId, String appId, IamUser user) {
         if (user == null
                 || user.getAuthType() != AuthType.OIDC
                 || user.getOidcConfigId() == null) {
@@ -107,32 +111,34 @@ public class ApplicationLoginHandler {
                          if (match == null || !match.isEnabled()) {
                              return authEndpointSupport.respondPasswordPath(ctx);
                          }
-                         return oidcFlowOrchestrator.startFlow(ctx, match, callbackUrl(appId, match.getId()), null)
+                         return oidcFlowOrchestrator.startFlow(ctx, match, callbackUrl(orgId, appId, match.getId()), null)
                                  .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
                      });
     }
 
     private void handleLogin(RoutingContext ctx) {
+        String orgId = ctx.pathParam("orgId");
         String appId = ctx.pathParam("appId");
         authEndpointSupport.handlePasswordLogin(ctx,
                 (email, password) -> localAuthenticationService.authenticateLocal(
-                        email, password, AuthScopeType.APPLICATION.name(), appId));
+                        email, password, orgId, appId));
     }
 
     private void handleCallback(RoutingContext ctx) {
+        String orgId = ctx.pathParam("orgId");
         String appId = ctx.pathParam("appId");
         String pathConfigId = ctx.pathParam("configId");
 
         oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
-                ctx, pathConfigId, callbackUrl(appId, pathConfigId),
+                ctx, pathConfigId, callbackUrl(orgId, appId, pathConfigId),
                 id -> securityContext.withElevatedAccess(() -> oidcConfigurationService.findById(id)))
                 .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
-                        sub -> iamUserService.findByOidcIdentityAndScope(
-                                sub, result.config().getId(), AuthScopeType.APPLICATION.name(), appId)))
+                        sub -> iamUserService.findByOidcIdentity(
+                                sub, result.config().getId(), orgId, appId)))
                 .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }
 
-    private String callbackUrl(String appId, String configId) {
-        return authEndpointSupport.absoluteUrl("/api/app/" + appId + "/login/callback/" + configId);
+    private String callbackUrl(String orgId, String appId, String configId) {
+        return authEndpointSupport.absoluteUrl("/api/app/" + orgId + "/" + appId + "/login/callback/" + configId);
     }
 }

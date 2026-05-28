@@ -7,7 +7,6 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
@@ -214,10 +213,10 @@ public class OrganizationLoginHandler {
                                 authEndpointSupport.completeOidcLogin(ctx,
                                                                       result.config(),
                                                                       result.claims(),
-                                                                      sub -> iamUserService.findByOidcIdentityAndScope(sub,
-                                                                                                                       result.config().getId(),
-                                                                                                                       AuthScopeType.ORGANIZATION.name(),
-                                                                                                                       orgId));
+                                                                      sub -> iamUserService.findByOidcIdentity(sub,
+                                                                                                                result.config().getId(),
+                                                                                                                orgId,
+                                                                                                                null));
                             })
                             .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }

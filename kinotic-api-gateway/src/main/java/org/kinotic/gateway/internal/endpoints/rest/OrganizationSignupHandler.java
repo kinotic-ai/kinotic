@@ -6,7 +6,6 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.gateway.internal.endpoints.rest.support.*;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -130,7 +129,7 @@ public class OrganizationSignupHandler {
                           .setOidcConfigId(config.getId())
                           .setEmail(email)
                           .setDisplayName(displayName)
-                          .setAuthScopeType(AuthScopeType.ORGANIZATION.name())  // placeholder — actual orgId set on complete
+                          .setAuthScopeType("ORGANIZATION")  // placeholder — actual orgId set on complete
                           .setAuthScopeId("__pending__")
                           .setAdditionalClaims(claims);
                   return Future.fromCompletionStage(pendingRegistrationService.create(pending));

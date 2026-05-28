@@ -16,23 +16,32 @@ import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Sole {@link SecurityService} implementation for Kinotic OS. Handles both email/password
  * and Kinotic-issued JWT authentication across all three scope layers (System, Organization,
- * Application).
+ * Application). Scope is identified structurally by the {@code organizationId} and
+ * {@code applicationId} STOMP CONNECT headers (or the matching JWT claims):
+ * <ul>
+ *   <li>both absent → SYSTEM</li>
+ *   <li>{@code organizationId} only → ORGANIZATION</li>
+ *   <li>both set → APPLICATION</li>
+ * </ul>
+ * {@code applicationId} without {@code organizationId} is rejected.
  * <p>
  * <b>Two paths:</b>
  * <ol>
  *   <li><b>Email/password</b> — direct STOMP CONNECT with {@code login}/{@code passcode}
  *       headers. Looks up the {@link IamUser} by email + scope, verifies the bcrypt password.</li>
  *   <li><b>Kinotic JWT</b> — {@code Authorization: Bearer <jwt>} header. The JWT was minted
- *       by {@link KinoticJwtIssuer} after a successful OIDC callback (via the gateway's
- *       {@code /api/login/callback} or {@code /api/signup/complete-org}). We validate the
- *       JWT signature + audience, then look up the {@link IamUser} by id from the JWT
- *       {@code sub} claim. Cross-checks that the JWT's scope matches the headers.</li>
+ *       by {@link KinoticJwtIssuer} after a successful OIDC callback. We validate the JWT
+ *       signature + audience, then look up the {@link IamUser} by id from the JWT
+ *       {@code sub} claim. Cross-checks that the JWT's {@code organizationId} /
+ *       {@code applicationId} claims match the headers (defense in depth against a JWT for
+ *       org A being replayed against org B).</li>
  * </ol>
  * IdP JWTs are never accepted directly here — the OIDC roundtrip terminates at the gateway,
  * which mints a Kinotic JWT for the STOMP handoff.
@@ -46,38 +55,26 @@ public class KinoticSecurityService implements SecurityService {
     private final IamCredentialRepository credentialRepository;
     private final KinoticJwtIssuer jwtIssuer;
 
-    /**
-     * Entry point for all authentication. Parses the {@code authScopeType}/{@code authScopeId}
-     * headers to determine the target scope, then dispatches to either Kinotic JWT or
-     * email/password authentication based on the presence of a Bearer token.
-     *
-     * @param authenticationInfo headers from the STOMP CONNECT frame. Required:
-     *                          {@code authScopeType}, {@code authScopeId} (e.g., "kinotic" for SYSTEM).
-     *                          For email/password: {@code login}, {@code passcode}.
-     *                          For JWT: {@code Authorization: Bearer <jwt>}.
-     */
     @Override
     public CompletableFuture<Participant> authenticate(Map<String, String> authenticationInfo) {
         // HTTP callers (AuthenticationHandler) lowercase all header names; STOMP preserves case.
         // Wrap in a case-insensitive view so both transports work with the same camelCase names.
         Map<String, String> authInfo = caseInsensitive(authenticationInfo);
 
-        String authScopeType = authInfo.get("authScopeType");
-        String authScopeId = authInfo.get("authScopeId");
+        String organizationId = authInfo.get("organizationId");
+        String applicationId = authInfo.get("applicationId");
 
-        if (authScopeType == null) {
-            return CompletableFuture.failedFuture(new AuthenticationException("authScopeType header is required"));
-        }
-        if (authScopeId == null) {
-            return CompletableFuture.failedFuture(new AuthenticationException("authScopeId header is required"));
+        if (applicationId != null && organizationId == null) {
+            return CompletableFuture.failedFuture(new AuthenticationException(
+                    "organizationId header is required when applicationId is supplied"));
         }
 
         String authHeader = authInfo.get("Authorization");
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authenticateKinoticJwt(authScopeType, authScopeId, authHeader.substring(7));
+            return authenticateKinoticJwt(organizationId, applicationId, authHeader.substring(7));
         } else {
-            return authenticateEmailPassword(authScopeType, authScopeId, authInfo);
+            return authenticateEmailPassword(organizationId, applicationId, authInfo);
         }
     }
 
@@ -92,8 +89,8 @@ public class KinoticSecurityService implements SecurityService {
     /**
      * Authenticates a user via email and password within the target scope.
      */
-    private CompletableFuture<Participant> authenticateEmailPassword(String authScopeType,
-                                                                     String authScopeId,
+    private CompletableFuture<Participant> authenticateEmailPassword(String organizationId,
+                                                                     String applicationId,
                                                                      Map<String, String> authInfo) {
         String email = authInfo.get("login");
         String password = authInfo.get("passcode");
@@ -102,7 +99,7 @@ public class KinoticSecurityService implements SecurityService {
             return CompletableFuture.failedFuture(new AuthenticationException("login and passcode headers are required for email/password authentication"));
         }
 
-        return userService.findByEmailAndScope(email, authScopeType, authScopeId)
+        return userService.findByEmail(email, organizationId, applicationId)
                           .thenCompose(user -> {
                               if (user == null) {
                                   return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
@@ -134,32 +131,28 @@ public class KinoticSecurityService implements SecurityService {
      * Validates a Kinotic-issued JWT and resolves it to a Participant. The JWT must:
      * carry {@code aud=kinotic} (enforced by {@link KinoticJwtIssuer#authenticate}); have
      * a {@code sub} claim referencing an existing, enabled {@link IamUser}; and carry
-     * {@code authScopeType}/{@code authScopeId} claims that match the auth headers
+     * {@code organizationId} / {@code applicationId} claims that match the auth headers
      * (defense in depth against a JWT for org A being replayed against org B).
      */
-    private CompletableFuture<Participant> authenticateKinoticJwt(String authScopeType,
-                                                                  String authScopeId,
+    private CompletableFuture<Participant> authenticateKinoticJwt(String organizationId,
+                                                                  String applicationId,
                                                                   String token) {
         CompletableFuture<Participant> result = new CompletableFuture<>();
         jwtIssuer.authenticate(token)
                  .onSuccess(user -> {
                      JsonObject p = user.principal();
                      String sub = p.getString("sub");
-                     String jwtAuthScopeType = p.getString("authScopeType");
-                     String jwtAuthScopeId = p.getString("authScopeId");
+                     String jwtOrgId = p.getString("organizationId");
+                     String jwtAppId = p.getString("applicationId");
 
                      if (sub == null) {
                          result.completeExceptionally(new AuthenticationException("JWT missing sub claim"));
                          return;
                      }
-                     if (jwtAuthScopeType == null || jwtAuthScopeId == null) {
-                         result.completeExceptionally(new AuthenticationException("JWT missing scope claims"));
-                         return;
-                     }
-                     if (!authScopeType.equals(jwtAuthScopeType) || !authScopeId.equals(jwtAuthScopeId)) {
+                     if (!Objects.equals(organizationId, jwtOrgId) || !Objects.equals(applicationId, jwtAppId)) {
                          result.completeExceptionally(new AuthenticationException(
-                                 "JWT scope " + jwtAuthScopeType + "/" + jwtAuthScopeId
-                                         + " does not match auth headers " + authScopeType + "/" + authScopeId));
+                                 "JWT scope " + describeScope(jwtOrgId, jwtAppId)
+                                         + " does not match auth headers " + describeScope(organizationId, applicationId)));
                          return;
                      }
                      userService.findById(sub).whenComplete((iamUser, err) -> {
@@ -177,5 +170,11 @@ public class KinoticSecurityService implements SecurityService {
                  .onFailure(err -> result.completeExceptionally(
                          new AuthenticationException("JWT validation failed: " + err.getMessage(), err)));
         return result;
+    }
+
+    private static String describeScope(String organizationId, String applicationId) {
+        if (organizationId == null && applicationId == null) return "SYSTEM";
+        if (applicationId == null) return "ORGANIZATION/" + organizationId;
+        return "APPLICATION/" + organizationId + "/" + applicationId;
     }
 }

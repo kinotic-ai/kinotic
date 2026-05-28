@@ -5,7 +5,6 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -61,10 +60,10 @@ public class SystemLoginHandler {
                                                authEndpointSupport.completeOidcLogin(ctx,
                                                                                      result.config(),
                                                                                      result.claims(),
-                                                                                     sub -> iamUserService.findByOidcIdentityAndScope(sub,
-                                                                                                                                      result.config().getId(),
-                                                                                                                                      AuthScopeType.SYSTEM.name(),
-                                                                                                                                      OidcConstants.SYSTEM_SCOPE_ID)))
+                                                                                     sub -> iamUserService.findByOidcIdentity(sub,
+                                                                                                                              result.config().getId(),
+                                                                                                                              null,
+                                                                                                                              null)))
                             .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }
 

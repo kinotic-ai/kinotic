@@ -42,8 +42,8 @@ public final class OidcConstants {
     /** Org-signup surface — used by {@code OidcSignupHandler}. */
     public static final String SIGNUP_BASE = "/api/signup";
 
-    /** Application-login surface — used by {@code ApplicationLoginHandler}. Includes the {@code :appId} path param. */
-    public static final String APP_LOGIN_BASE = "/api/app/:appId/login";
+    /** Application-login surface — used by {@code ApplicationLoginHandler}. Includes both {@code :orgId} and {@code :appId} path params so APP-scope auth can never be ambiguous between orgs that happen to share an appId. */
+    public static final String APP_LOGIN_BASE = "/api/app/:orgId/:appId/login";
 
     /** System-admin login surface — used by {@code SystemLoginHandler}. */
     public static final String SYSTEM_LOGIN_BASE = "/api/system/login";
