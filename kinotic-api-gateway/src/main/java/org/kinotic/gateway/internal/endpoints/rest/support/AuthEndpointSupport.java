@@ -11,10 +11,10 @@ import java.util.function.Function;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import io.vertx.core.Future;
@@ -38,7 +38,6 @@ import lombok.extern.slf4j.Slf4j;
 public class AuthEndpointSupport {
 
     private final KinoticDomainProperties domainProperties;
-    private final IamUserService iamUserService;
 
 
     /**
@@ -64,30 +63,21 @@ public class AuthEndpointSupport {
      * Vert.x session. The subsequent STOMP WebSocket handshake reads it back from the session,
      * so the browser is authenticated by its session cookie and never handles a token.
      */
-    private CompletionStage<Void> establishSession(RoutingContext ctx, IamUser user) {
+    private void establishSession(RoutingContext ctx, IamUser user) {
         Session session = ctx.session();
         // Rotate the session id on the privilege change so a pre-auth (possibly fixed)
         // id cannot be reused to ride the now-authenticated session.
         session.regenerateId();
-        return iamUserService.createParticipant(user)
-                             .thenAccept(participant -> {
-                                 ConnectedInfo connectedInfo = new ConnectedInfo();
-                                 connectedInfo.setParticipant(participant);
-                                 session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
-                             });
+        Participant participant = DomainUtil.createParticipant(user);
+        ConnectedInfo connectedInfo = new ConnectedInfo();
+        connectedInfo.setParticipant(participant);
+        session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
     }
 
     /** Establishes the browser session for {@code user} and writes {@code 204 No Content}. */
     public void respondSuccess(RoutingContext ctx, IamUser user) {
-        establishSession(ctx, user)
-                .whenComplete((v, err) -> {
-                    if (err != null) {
-                        log.warn("Session establishment failed: {}", err.getMessage());
-                        respondError(ctx, 500, "Login failed");
-                    } else {
-                        ctx.response().setStatusCode(204).end();
-                    }
-                });
+        establishSession(ctx, user);
+        ctx.response().setStatusCode(204).end();
     }
 
     // ── Redirects ─────────────────────────────────────────────────────────────
@@ -97,17 +87,10 @@ public class AuthEndpointSupport {
      * the browser is authenticated by its session cookie.
      */
     public void redirectSuccess(RoutingContext ctx, IamUser user) {
-        establishSession(ctx, user)
-                .whenComplete((v, err) -> {
-                    if (err != null) {
-                        log.warn("Session establishment failed: {}", err.getMessage());
-                        redirectError(ctx, OidcConstants.ERR_LOOKUP_FAILED);
-                    } else {
-                        ctx.response().setStatusCode(302)
-                           .putHeader("Location", appUrl(OidcConstants.LOGIN_SUCCESS_PATH))
-                           .end();
-                    }
-                });
+        establishSession(ctx, user);
+        ctx.response().setStatusCode(302)
+           .putHeader("Location", appUrl(OidcConstants.LOGIN_SUCCESS_PATH))
+           .end();
     }
 
     /** {@code 302 Location: <appBaseUrl><errorPath>?error=<code>}. */

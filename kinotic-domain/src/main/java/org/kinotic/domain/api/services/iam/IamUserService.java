@@ -1,7 +1,6 @@
 package org.kinotic.domain.api.services.iam;
 
 import org.kinotic.core.api.crud.IdentifiableCrudService;
-import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.iam.IamUser;
 
 import java.util.List;
@@ -58,21 +57,5 @@ public interface IamUserService extends IdentifiableCrudService<IamUser, String>
 
     CompletableFuture<IamUser> createUser(IamUser user, String password);
 
-    /**
-     * Builds the {@link Participant} security identity for an authenticated {@link IamUser}.
-     * The returned subtype matches {@code user.getAuthScopeType()}:
-     * <ul>
-     *   <li>{@code SYSTEM} → {@code SystemParticipant} (completed synchronously)</li>
-     *   <li>{@code ORGANIZATION} → {@code OrganizationParticipant} with
-     *       {@code organizationId = user.getAuthScopeId()} (completed synchronously)</li>
-     *   <li>{@code APPLICATION} → {@code ApplicationParticipant}; the organization is sourced
-     *       by looking up the Application referenced by {@code user.getAuthScopeId()}</li>
-     * </ul>
-     *
-     * @param user the authenticated user
-     * @return future emitting the typed participant; fails if {@code user} is APP-scoped and
-     *         no Application matches its {@code authScopeId}
-     */
-    CompletableFuture<Participant> createParticipant(IamUser user);
-
 }
+

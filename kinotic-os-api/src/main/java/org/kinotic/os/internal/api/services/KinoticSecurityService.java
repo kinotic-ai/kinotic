@@ -127,7 +127,7 @@ public class KinoticSecurityService implements SecurityService {
         if (!DomainUtil.verifyPassword(password, credential.getPasswordHash())) {
             return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
         }
-        return userService.createParticipant(user);
+        return CompletableFuture.completedFuture(DomainUtil.createParticipant(user));
     }
 
     /**
@@ -170,13 +170,7 @@ public class KinoticSecurityService implements SecurityService {
                          } else if (!iamUser.isEnabled()) {
                              result.completeExceptionally(new AuthenticationException("User account is disabled"));
                          } else {
-                             userService.createParticipant(iamUser).whenComplete((participant, perr) -> {
-                                 if (perr != null) {
-                                     result.completeExceptionally(new AuthenticationException("Participant build failed", perr));
-                                 } else {
-                                     result.complete(participant);
-                                 }
-                             });
+                             result.complete(DomainUtil.createParticipant(iamUser));
                          }
                      });
                  })

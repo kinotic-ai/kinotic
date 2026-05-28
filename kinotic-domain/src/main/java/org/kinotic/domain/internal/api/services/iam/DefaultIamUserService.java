@@ -2,16 +2,10 @@ package org.kinotic.domain.internal.api.services.iam;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.AuthScopeType;
-import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
-import org.kinotic.domain.api.security.DefaultApplicationParticipant;
-import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
-import org.kinotic.domain.api.security.DefaultSystemParticipant;
 import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.internal.api.model.IamCredential;
-import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
 import org.kinotic.domain.internal.api.repositories.IamUserRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
@@ -19,8 +13,6 @@ import org.kinotic.domain.internal.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -29,31 +21,18 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
 
     private final IamUserRepository iamUserRepository;
     private final IamCredentialRepository credentialRepository;
-    private final ApplicationRepository applicationRepository;
 
     public DefaultIamUserService(IamUserRepository repository,
-                                 IamCredentialRepository credentialRepository,
-                                 ApplicationRepository applicationRepository) {
+                                 IamCredentialRepository credentialRepository) {
         super(repository);
         this.iamUserRepository = repository;
         this.credentialRepository = credentialRepository;
-        this.applicationRepository = applicationRepository;
     }
 
     @Override
     public CompletableFuture<IamUser> save(IamUser entity) {
         Validate.notNull(entity.getEmail(), "IamUser email cannot be null");
-        Validate.notNull(entity.getAuthScopeType(), "IamUser authScopeType cannot be null");
-        Validate.notNull(entity.getAuthScopeId(), "IamUser authScopeId cannot be null");
-        // tenantId is meaningful only for APPLICATION-scoped users; SYSTEM/ORGANIZATION identities
-        // are not tenants and must not carry one.
-        if ("APPLICATION".equals(entity.getAuthScopeType())) {
-            Validate.notBlank(entity.getTenantId(),
-                              "IamUser tenantId is required for APPLICATION-scoped users");
-        } else if (entity.getTenantId() != null) {
-            throw new IllegalArgumentException(
-                    "IamUser tenantId must be null for " + entity.getAuthScopeType() + "-scoped users");
-        }
+        validateScopeFields(entity);
         if (entity.getId() == null) {
             entity.setId(UUID.randomUUID().toString());
         }
@@ -62,25 +41,58 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     }
 
     /**
+     * Scope shape is encoded structurally — every save must conform to one of the three
+     * valid combinations:
+     * <ul>
+     *   <li>SYSTEM: both {@code organizationId} and {@code applicationId} null, {@code tenantId} null</li>
+     *   <li>ORGANIZATION: {@code organizationId} set, {@code applicationId} null, {@code tenantId} null</li>
+     *   <li>APPLICATION: {@code organizationId} set, {@code applicationId} set; {@code tenantId} optional</li>
+     * </ul>
+     */
+    private void validateScopeFields(IamUser entity) {
+        if (entity.getApplicationId() != null) {
+            Validate.notBlank(entity.getOrganizationId(),
+                              "IamUser organizationId is required when applicationId is set");
+        } else if (entity.getTenantId() != null) {
+            throw new IllegalArgumentException(
+                    "IamUser tenantId must be null when applicationId is null (tenantId is "
+                    + "meaningful only for APPLICATION-scope users)");
+        }
+    }
+
+    /**
      * Service-layer guarantee: at most one {@link IamUser} per
-     * {@code (email, authScopeType, authScopeId)}. Self-id is excluded so updating an
+     * {@code (email, organizationId, applicationId)}. Self-id is excluded so updating an
      * existing user doesn't trip on its own row.
      */
     private CompletableFuture<Void> enforceUniqueEmailInScope(IamUser entity) {
-        return findByEmailAndScope(entity.getEmail(), entity.getAuthScopeType(), entity.getAuthScopeId())
+        AuthScopeType type;
+        String scopeId;
+        if (entity.getApplicationId() != null) {
+            type = AuthScopeType.APPLICATION;
+            scopeId = entity.getApplicationId();
+        } else if (entity.getOrganizationId() != null) {
+            type = AuthScopeType.ORGANIZATION;
+            scopeId = entity.getOrganizationId();
+        } else {
+            type = AuthScopeType.SYSTEM;
+            scopeId = null;
+        }
+        return findByEmailAndScope(entity.getEmail(), type.name(), scopeId)
                 .thenAccept(existing -> {
                     if (existing != null && !existing.getId().equals(entity.getId())) {
                         throw new IllegalArgumentException(
                                 "IamUser with email " + entity.getEmail()
-                                        + " already exists in scope "
-                                        + entity.getAuthScopeType() + "/" + entity.getAuthScopeId());
+                                        + " already exists in scope " + type
+                                        + (scopeId != null ? "/" + scopeId : ""));
                     }
                 });
     }
 
     @Override
     public CompletableFuture<IamUser> findByEmailAndScope(String email, String authScopeType, String authScopeId) {
-        Validate.notNull(authScopeId, "authScopeId cannot be null");
+        Validate.notBlank(email, "email cannot be blank");
+        Validate.notBlank(authScopeType, "authScopeType cannot be blank");
         return iamUserRepository.findByEmailAndScope(email, authScopeType, authScopeId);
     }
 
@@ -105,7 +117,6 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
         Validate.notBlank(oidcSubject, "oidcSubject cannot be blank");
         Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
         Validate.notBlank(authScopeType, "authScopeType cannot be blank");
-        Validate.notNull(authScopeId, "authScopeId cannot be null");
         return iamUserRepository.findByOidcIdentityAndScope(oidcSubject, oidcConfigId, authScopeType, authScopeId);
     }
 
@@ -119,7 +130,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     @Override
     public CompletableFuture<IamUser> createUser(IamUser user, String password) {
         Validate.notNull(user.getEmail(), "IamUser email cannot be null");
-        Validate.notNull(user.getAuthScopeType(), "IamUser authScopeType cannot be null");
+        validateScopeFields(user);
 
         if (user.getId() == null) {
             user.setId(UUID.randomUUID().toString());
@@ -182,50 +193,6 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     public CompletableFuture<Void> deleteById(String id) {
         return credentialRepository.deleteById(id)
                 .thenCompose(v -> super.deleteById(id));
-    }
-
-    @Override
-    public CompletableFuture<Participant> createParticipant(IamUser user) {
-        return switch (AuthScopeType.valueOf(user.getAuthScopeType())) {
-            case SYSTEM -> CompletableFuture.completedFuture(
-                    DefaultSystemParticipant.builder()
-                                            .id(user.getId())
-                                            .metadata(metadataFor(user))
-                                            .roles(List.of())
-                                            .build());
-            case ORGANIZATION -> CompletableFuture.completedFuture(
-                    DefaultOrganizationParticipant.builder()
-                                                  .id(user.getId())
-                                                  .organizationId(user.getAuthScopeId())
-                                                  .metadata(metadataFor(user))
-                                                  .roles(List.of())
-                                                  .build());
-            case APPLICATION -> applicationRepository.findByAppId(user.getAuthScopeId())
-                    .thenApply(application -> {
-                        if (application == null) {
-                            throw new IllegalStateException(
-                                    "Cannot build ApplicationParticipant for IamUser '" + user.getId()
-                                    + "': no Application found for appId '" + user.getAuthScopeId() + "'.");
-                        }
-                        return DefaultApplicationParticipant.builder()
-                                                            .id(user.getId())
-                                                            .organizationId(application.getOrganizationId())
-                                                            .applicationId(user.getAuthScopeId())
-                                                            .tenantId(user.getTenantId())
-                                                            .metadata(metadataFor(user))
-                                                            .roles(List.of())
-                                                            .build();
-                    });
-        };
-    }
-
-    private static Map<String, String> metadataFor(IamUser user) {
-        return Map.of(
-                ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
-                "email", user.getEmail(),
-                "displayName", user.getDisplayName() != null ? user.getDisplayName() : user.getEmail(),
-                "authType", user.getAuthType().name()
-        );
     }
 
 }
