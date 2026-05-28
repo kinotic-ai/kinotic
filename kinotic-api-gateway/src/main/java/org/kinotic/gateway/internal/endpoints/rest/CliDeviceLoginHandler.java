@@ -7,6 +7,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.iam.DeviceCodePollResult;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -151,9 +152,21 @@ public class CliDeviceLoginHandler {
         JsonObject claims = new JsonObject()
                 .put("sub", user.getId())
                 .put("email", user.getEmail())
-                .put("authScopeType", user.getAuthScopeType())
-                .put("authScopeId", user.getAuthScopeId());
+                .put("authScopeType", authScopeTypeOf(user))
+                .put("authScopeId", authScopeIdOf(user));
         return jwtIssuer.sign(claims, new JWTOptions().setExpiresInSeconds(JWT_TTL_SECONDS));
+    }
+
+    private static String authScopeTypeOf(IamUser user) {
+        if (user.getOrganizationId() == null) return AuthScopeType.SYSTEM.name();
+        if (user.getApplicationId() == null) return AuthScopeType.ORGANIZATION.name();
+        return AuthScopeType.APPLICATION.name();
+    }
+
+    private static String authScopeIdOf(IamUser user) {
+        if (user.getOrganizationId() == null) return OidcConstants.SYSTEM_SCOPE_ID;
+        if (user.getApplicationId() == null) return user.getOrganizationId();
+        return user.getApplicationId();
     }
 
     /**

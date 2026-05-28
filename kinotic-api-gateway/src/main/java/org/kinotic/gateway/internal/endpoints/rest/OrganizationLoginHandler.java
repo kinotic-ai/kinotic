@@ -239,11 +239,12 @@ public class OrganizationLoginHandler {
     private Future<Void> resolveSsoOrPassword(RoutingContext ctx, IamUser user) {
         if (user == null
                 || user.getAuthType() != AuthType.OIDC
-                || !AuthScopeType.ORGANIZATION.name().equals(user.getAuthScopeType())) {
+                || user.getOrganizationId() == null
+                || user.getApplicationId() != null) {
             return authEndpointSupport.respondPasswordPath(ctx);
         }
 
-        String orgId = user.getAuthScopeId();
+        String orgId = user.getOrganizationId();
         return Future.fromCompletionStage(oidcConfigurationService.findOrgLoginConfig(orgId))
                      .compose(match -> {
                          if (match == null) {

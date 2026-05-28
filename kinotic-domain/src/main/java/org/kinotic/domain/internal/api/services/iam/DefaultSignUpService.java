@@ -109,8 +109,7 @@ public class DefaultSignUpService implements SignUpService {
                             .setEmail(request.getEmail())
                             .setDisplayName(request.getDisplayName())
                             .setAuthType(AuthType.LOCAL)
-                            .setAuthScopeType("ORGANIZATION")
-                            .setAuthScopeId(savedOrg.getId())
+                            .setOrganizationId(savedOrg.getId())
                             .setEnabled(true)
                             .setCreated(new Date())
                             .setUpdated(new Date());

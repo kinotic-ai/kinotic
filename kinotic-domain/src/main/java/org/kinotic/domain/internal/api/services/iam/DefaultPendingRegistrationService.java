@@ -7,6 +7,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -123,11 +124,10 @@ public class DefaultPendingRegistrationService implements PendingRegistrationSer
                 .setAuthType(AuthType.OIDC)
                 .setOidcSubject(pending.getOidcSubject())
                 .setOidcConfigId(pending.getOidcConfigId())
-                .setAuthScopeType(pending.getAuthScopeType())
-                .setAuthScopeId(pending.getAuthScopeId())
                 .setEnabled(true)
                 .setCreated(now)
                 .setUpdated(now);
+        applyPendingScope(user, pending);
 
         if (finalizer != null) {
             finalizer.accept(user);
@@ -140,5 +140,20 @@ public class DefaultPendingRegistrationService implements PendingRegistrationSer
     private CompletableFuture<Void> deleteById(String id) {
         return esAsyncClient.delete(d -> d.index(INDEX).id(id).refresh(Refresh.WaitFor))
                             .thenApply(response -> null);
+    }
+
+    /**
+     * Translates the {@link PendingRegistration}'s flat {@code authScopeType}/
+     * {@code authScopeId} pair into the typed scope fields on the new {@link IamUser}.
+     * Only ORGANIZATION pending registrations are produced by the current signup flow;
+     * SYSTEM and APPLICATION are rejected to surface any wiring mistakes.
+     */
+    private static void applyPendingScope(IamUser user, PendingRegistration pending) {
+        AuthScopeType scope = AuthScopeType.valueOf(pending.getAuthScopeType());
+        switch (scope) {
+            case ORGANIZATION -> user.setOrganizationId(pending.getAuthScopeId());
+            case SYSTEM, APPLICATION -> throw new IllegalStateException(
+                    "PendingRegistration with " + scope + " scope is not supported by the signup flow");
+        }
     }
 }
