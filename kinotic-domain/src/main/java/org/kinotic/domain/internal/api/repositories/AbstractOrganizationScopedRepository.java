@@ -15,6 +15,14 @@ import java.util.concurrent.CompletableFuture;
  * overloads of the base CRUD operations: every operation is scoped to the supplied
  * organization, returning, mutating, or counting only documents that belong to it.
  * <p>
+ * Documents are stored with a composite Elasticsearch {@code _id} of {@code orgId + "-" + id},
+ * mirroring the {@code SHARED} multi-tenancy pattern used by
+ * {@link org.kinotic.persistence.internal.api.services.EntityHolder}. The composite id makes
+ * the stored document globally unique across orgs, so a get-by-id under one org cannot
+ * return another org's document when the two routing values hash to the same shard. The
+ * entity's own {@code id} is not modified — the namespacing only happens at the persistence
+ * layer, and the raw id round-trips through the source.
+ * <p>
  * All {@code orgId} parameters are required; passing {@code null} or blank throws. Callers
  * that genuinely don't have an organization context (e.g. operating under elevated access)
  * should use the inherited no-arg base CRUD methods.
@@ -42,15 +50,10 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
      */
     public CompletableFuture<T> findById(String id, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
-        return findById(id, b -> b.routing(orgId))
-                .thenApply(value -> {
-                    if (value == null) return null;
-                    // routing only narrows to a shard; with small shard counts two orgs can
-                    // hash to the same shard, so a Get can return a doc indexed under another
-                    // org's routing. Drop it.
-                    if (!orgId.equals(value.getOrganizationId())) return null;
-                    return value;
-                });
+        return crudServiceTemplate.findById(indexName,
+                                            composeDocumentId(id, orgId),
+                                            type,
+                                            b -> b.routing(orgId));
     }
 
     /**
@@ -59,12 +62,10 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
      */
     public CompletableFuture<Void> deleteById(String id, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
-        // findById's post-fetch check already enforces the org contract; if it returns a
-        // value, the doc is verified to belong to orgId and is safe to delete.
-        return findById(id, orgId).thenCompose(value -> {
-            if (value == null) return CompletableFuture.completedFuture(null);
-            return deleteById(id, b -> b.routing(orgId));
-        });
+        return crudServiceTemplate.deleteById(indexName,
+                                              composeDocumentId(id, orgId),
+                                              b -> b.routing(orgId))
+                                  .thenApply(response -> null);
     }
 
     public CompletableFuture<Page<T>> findAll(String orgId, Pageable pageable) {
@@ -79,13 +80,21 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     public CompletableFuture<T> save(T value, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         requireOrgMatchesEntity(value, orgId);
-        return save(value, b -> b.routing(orgId));
+        return crudServiceTemplate.save(indexName,
+                                        composeDocumentId(value.getId(), orgId),
+                                        value,
+                                        b -> b.routing(orgId))
+                                  .thenApply(indexResponse -> value);
     }
 
     public CompletableFuture<T> saveSync(T value, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         requireOrgMatchesEntity(value, orgId);
-        return saveSync(value, b -> b.routing(orgId));
+        return crudServiceTemplate.saveSync(indexName,
+                                            composeDocumentId(value.getId(), orgId),
+                                            value,
+                                            b -> b.routing(orgId))
+                                  .thenApply(indexResponse -> value);
     }
 
     public CompletableFuture<Page<T>> search(String searchText, String orgId, Pageable pageable) {
@@ -104,6 +113,11 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
         Validate.isTrue(orgId.equals(entityOrgId),
                         "Cannot save %s whose organizationId '%s' does not match orgId '%s'",
                         getType().getSimpleName(), entityOrgId, orgId);
+    }
+
+    private String composeDocumentId(String id, String orgId) {
+        Validate.notBlank(id, "id cannot be blank");
+        return orgId + "-" + id;
     }
 
     /**
