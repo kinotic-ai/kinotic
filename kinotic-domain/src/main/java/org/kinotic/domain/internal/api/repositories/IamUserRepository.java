@@ -4,7 +4,6 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -20,37 +19,38 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
         super("kinotic_iam_user", IamUser.class, esAsyncClient, crudServiceTemplate);
     }
 
-    public CompletableFuture<IamUser> findByEmailAndScope(String email, String authScopeType, String authScopeId) {
+    public CompletableFuture<IamUser> findByEmail(String email, String organizationId, String applicationId) {
         return findFirst(b -> b.query(composeFilter(
                 termFilter("email", email),
-                scopeFilter(AuthScopeType.valueOf(authScopeType), authScopeId))));
+                scopeFilter(organizationId, applicationId))));
     }
 
-    public CompletableFuture<IamUser> findFirstByEmailInScopeType(String email, String authScopeType) {
+    public CompletableFuture<IamUser> findFirstOrgUserByEmail(String email) {
         return findFirst(b -> b.query(composeFilter(
                 termFilter("email", email),
-                scopeTypeFilter(AuthScopeType.valueOf(authScopeType)))));
+                existsFilter("organizationId"),
+                missingFilter("applicationId"))));
     }
 
     public CompletableFuture<IamUser> findByEmail(String email) {
         return findFirst(b -> b.query(termFilter("email", email)));
     }
 
-    public CompletableFuture<Page<IamUser>> findByScope(String authScopeType, String authScopeId, Pageable pageable) {
-        return findAll(pageable, b -> b.query(scopeFilter(AuthScopeType.valueOf(authScopeType), authScopeId)));
+    public CompletableFuture<Page<IamUser>> findByScope(String organizationId, String applicationId, Pageable pageable) {
+        return findAll(pageable, b -> b.query(scopeFilter(organizationId, applicationId)));
     }
 
-    public CompletableFuture<IamUser> findByOidcIdentityAndScope(String oidcSubject,
-                                                                 String oidcConfigId,
-                                                                 String authScopeType,
-                                                                 String authScopeId) {
+    public CompletableFuture<IamUser> findByOidcIdentity(String oidcSubject,
+                                                         String oidcConfigId,
+                                                         String organizationId,
+                                                         String applicationId) {
         return findFirst(b -> b.query(composeFilter(
                 termFilter("oidcSubject", oidcSubject),
                 termFilter("oidcConfigId", oidcConfigId),
-                scopeFilter(AuthScopeType.valueOf(authScopeType), authScopeId))));
+                scopeFilter(organizationId, applicationId))));
     }
 
-    public CompletableFuture<List<IamUser>> findByOidcIdentity(String oidcSubject, String oidcConfigId) {
+    public CompletableFuture<List<IamUser>> findAllByOidcIdentity(String oidcSubject, String oidcConfigId) {
         return findAll(Pageable.ofSize(100), b -> b.query(composeFilter(
                 termFilter("oidcSubject", oidcSubject),
                 termFilter("oidcConfigId", oidcConfigId))))
@@ -58,37 +58,25 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
     }
 
     /**
-     * Builds the scope-narrowing filter for {@code (authScopeType, authScopeId)} against the
-     * typed scope fields on the document:
+     * Structural scope filter against the typed scope fields on the document:
      * <ul>
-     *   <li>{@code SYSTEM} → {@code organizationId} must be missing</li>
-     *   <li>{@code ORGANIZATION} → {@code organizationId == authScopeId} AND {@code applicationId} must be missing</li>
-     *   <li>{@code APPLICATION} → {@code applicationId == authScopeId}</li>
+     *   <li>both null → {@code organizationId} must be missing (SYSTEM)</li>
+     *   <li>only {@code organizationId} set → matches that org AND {@code applicationId} is missing (ORG)</li>
+     *   <li>both set → matches both fields (APP)</li>
      * </ul>
-     * For APPLICATION lookups, callers that need to disambiguate users across orgs sharing
-     * the same appId should narrow further by {@code organizationId}; this helper does not
-     * because the auth-flow callers don't always carry an org id (TODO: tighten once the
-     * APP-login flow plumbs organizationId end-to-end).
      */
-    private Query scopeFilter(AuthScopeType type, String scopeId) {
-        return switch (type) {
-            case SYSTEM -> missingFilter("organizationId");
-            case ORGANIZATION -> composeFilter(
-                    termFilter("organizationId", scopeId),
+    private Query scopeFilter(String organizationId, String applicationId) {
+        if (organizationId == null && applicationId == null) {
+            return missingFilter("organizationId");
+        }
+        if (applicationId == null) {
+            return composeFilter(
+                    termFilter("organizationId", organizationId),
                     missingFilter("applicationId"));
-            case APPLICATION -> termFilter("applicationId", scopeId);
-        };
-    }
-
-    /** Same as {@link #scopeFilter} but matches any scope id within {@code type}. */
-    private Query scopeTypeFilter(AuthScopeType type) {
-        return switch (type) {
-            case SYSTEM -> missingFilter("organizationId");
-            case ORGANIZATION -> composeFilter(
-                    existsFilter("organizationId"),
-                    missingFilter("applicationId"));
-            case APPLICATION -> existsFilter("applicationId");
-        };
+        }
+        return composeFilter(
+                termFilter("organizationId", organizationId),
+                termFilter("applicationId", applicationId));
     }
 
     private static Query missingFilter(String field) {

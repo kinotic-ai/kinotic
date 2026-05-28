@@ -48,7 +48,7 @@ public class DefaultSignUpService implements SignUpService {
                                 new IllegalArgumentException("A sign-up is already pending for this email. Check your inbox for the verification link."));
                     }
                     // Check if a user with this email already exists in any ORGANIZATION scope
-                    return iamUserRepository.findFirstByEmailInScopeType(request.getEmail(), "ORGANIZATION");
+                    return iamUserRepository.findFirstOrgUserByEmail(request.getEmail());
                 })
                 .thenCompose(existingUser -> {
                     if (existingUser != null) {

@@ -9,53 +9,57 @@ import java.util.concurrent.CompletableFuture;
 public interface IamUserService extends IdentifiableCrudService<IamUser, String> {
 
     /**
-     * Finds the user with the given email within the given auth scope.
+     * Finds the user with the given email within the given scope, identified structurally
+     * by {@code (organizationId, applicationId)}:
+     * <ul>
+     *   <li>both null → SYSTEM</li>
+     *   <li>{@code organizationId} only → ORGANIZATION (in that org)</li>
+     *   <li>both set → APPLICATION (in that app within that org)</li>
+     * </ul>
+     * Passing only {@code applicationId} (no {@code organizationId}) is an error and is
+     * rejected at the service layer.
      *
      * @param email the email address to look up
-     * @param authScopeType the scope type the user is registered against (e.g. {@code SYSTEM},
-     *                      {@code ORGANIZATION}, {@code APPLICATION})
-     * @param authScopeId the id of the scope the user is registered against
+     * @param organizationId the owning org id, or null for SYSTEM
+     * @param applicationId the owning app id, or null for SYSTEM/ORGANIZATION
      * @return {@link CompletableFuture} emitting the matching user, or {@code null} if no user matches
      */
-    CompletableFuture<IamUser> findByEmailAndScope(String email, String authScopeType, String authScopeId);
+    CompletableFuture<IamUser> findByEmail(String email, String organizationId, String applicationId);
 
     /**
-     * Finds the first user with the given email across all scope ids of the given scope type.
-     * Used by the sign-up flow to enforce one user per email at organization-creation time,
-     * before the new organization's scope id exists.
-     *
-     * @param email the email address to look up
-     * @param authScopeType the scope type to search within (e.g. {@code ORGANIZATION})
-     * @return {@link CompletableFuture} emitting the first matching user, or {@code null} if no user matches
+     * Finds the first ORG-scope user with the given email across all organizations. Used by
+     * the sign-up flow to enforce one user per email at organization-creation time, before
+     * the new organization's id exists.
      */
-    CompletableFuture<IamUser> findFirstByEmailInScopeType(String email, String authScopeType);
+    CompletableFuture<IamUser> findFirstOrgUserByEmail(String email);
 
     /**
-     * Finds the {@link IamUser} record for the given email. Returns {@code null} if no
-     * user matches. Used by the email-first login lookup to decide between password vs
+     * Finds the {@link IamUser} record for the given email, across all scopes. Returns
+     * the first match. Used by the email-first login lookup to decide between password vs
      * SSO redirect — the service-layer uniqueness rule (one row per email + scope) makes
      * this an unambiguous lookup for the org-login flow.
      */
     CompletableFuture<IamUser> findByEmail(String email);
 
     /**
-     * Finds the {@link IamUser} (if any) with the given OIDC identity within a specific scope.
-     * The composite {@code (oidcSubject, oidcConfigId)} uniquely identifies a person-at-an-IdP;
-     * adding the scope narrows to a single org/application record.
+     * Finds the {@link IamUser} (if any) with the given OIDC identity within a specific
+     * scope. Scope is identified by {@code (organizationId, applicationId)} with the same
+     * null conventions as {@link #findByEmail(String, String, String)}.
      */
-    CompletableFuture<IamUser> findByOidcIdentityAndScope(String oidcSubject,
-                                                         String oidcConfigId,
-                                                         String authScopeType,
-                                                         String authScopeId);
+    CompletableFuture<IamUser> findByOidcIdentity(String oidcSubject,
+                                                  String oidcConfigId,
+                                                  String organizationId,
+                                                  String applicationId);
 
     /**
      * Finds all {@link IamUser} records across scopes for a given OIDC identity. Used by the
      * post-login org switcher to enumerate the orgs this identity can access.
      */
-    CompletableFuture<List<IamUser>> findByOidcIdentity(String oidcSubject, String oidcConfigId);
+    CompletableFuture<List<IamUser>> findAllByOidcIdentity(String oidcSubject, String oidcConfigId);
 
 
     CompletableFuture<IamUser> createUser(IamUser user, String password);
 
 }
+
 

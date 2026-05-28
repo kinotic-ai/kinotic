@@ -25,11 +25,17 @@ public interface LocalAuthenticationService {
 
     /**
      * Scope-restricted variant of {@link #authenticateLocal(String, String)}: only
-     * matches an {@link IamUser} in the given {@code (authScopeType, authScopeId)} pair.
-     * Used by the application and system login handlers so a stray cross-scope match
-     * (e.g. the dev admin row in SYSTEM scope) can't authenticate against an app or
-     * system endpoint.
+     * matches an {@link IamUser} in the given {@code (organizationId, applicationId)}
+     * pair. Used by the application and system login handlers so a stray cross-scope
+     * match (e.g. the dev admin row in SYSTEM scope) can't authenticate against an app
+     * or system endpoint. Scope is identified structurally:
+     * <ul>
+     *   <li>both null → SYSTEM</li>
+     *   <li>{@code organizationId} only → ORGANIZATION</li>
+     *   <li>both set → APPLICATION</li>
+     * </ul>
      */
     CompletableFuture<IamUser> authenticateLocal(String email, String password,
-                                                 String authScopeType, String authScopeId);
+                                                 String organizationId, String applicationId);
 }
+

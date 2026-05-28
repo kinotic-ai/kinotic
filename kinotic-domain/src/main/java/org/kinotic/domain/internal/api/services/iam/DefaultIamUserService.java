@@ -1,7 +1,6 @@
 package org.kinotic.domain.internal.api.services.iam;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.services.iam.IamUserService;
@@ -66,41 +65,36 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
      * existing user doesn't trip on its own row.
      */
     private CompletableFuture<Void> enforceUniqueEmailInScope(IamUser entity) {
-        AuthScopeType type;
-        String scopeId;
-        if (entity.getApplicationId() != null) {
-            type = AuthScopeType.APPLICATION;
-            scopeId = entity.getApplicationId();
-        } else if (entity.getOrganizationId() != null) {
-            type = AuthScopeType.ORGANIZATION;
-            scopeId = entity.getOrganizationId();
-        } else {
-            type = AuthScopeType.SYSTEM;
-            scopeId = null;
-        }
-        return findByEmailAndScope(entity.getEmail(), type.name(), scopeId)
+        return findByEmail(entity.getEmail(), entity.getOrganizationId(), entity.getApplicationId())
                 .thenAccept(existing -> {
                     if (existing != null && !existing.getId().equals(entity.getId())) {
                         throw new IllegalArgumentException(
                                 "IamUser with email " + entity.getEmail()
-                                        + " already exists in scope " + type
-                                        + (scopeId != null ? "/" + scopeId : ""));
+                                        + " already exists in scope " + describeScope(entity));
                     }
                 });
     }
 
-    @Override
-    public CompletableFuture<IamUser> findByEmailAndScope(String email, String authScopeType, String authScopeId) {
-        Validate.notBlank(email, "email cannot be blank");
-        Validate.notBlank(authScopeType, "authScopeType cannot be blank");
-        return iamUserRepository.findByEmailAndScope(email, authScopeType, authScopeId);
+    private static String describeScope(IamUser user) {
+        if (user.getOrganizationId() == null) return "SYSTEM";
+        if (user.getApplicationId() == null) return "ORGANIZATION/" + user.getOrganizationId();
+        return "APPLICATION/" + user.getOrganizationId() + "/" + user.getApplicationId();
     }
 
     @Override
-    public CompletableFuture<IamUser> findFirstByEmailInScopeType(String email, String authScopeType) {
+    public CompletableFuture<IamUser> findByEmail(String email, String organizationId, String applicationId) {
         Validate.notBlank(email, "email cannot be blank");
-        Validate.notBlank(authScopeType, "authScopeType cannot be blank");
-        return iamUserRepository.findFirstByEmailInScopeType(email, authScopeType);
+        if (applicationId != null) {
+            Validate.notBlank(organizationId,
+                              "organizationId is required when applicationId is supplied");
+        }
+        return iamUserRepository.findByEmail(email, organizationId, applicationId);
+    }
+
+    @Override
+    public CompletableFuture<IamUser> findFirstOrgUserByEmail(String email) {
+        Validate.notBlank(email, "email cannot be blank");
+        return iamUserRepository.findFirstOrgUserByEmail(email);
     }
 
     @Override
@@ -110,21 +104,24 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     }
 
     @Override
-    public CompletableFuture<IamUser> findByOidcIdentityAndScope(String oidcSubject,
-                                                                 String oidcConfigId,
-                                                                 String authScopeType,
-                                                                 String authScopeId) {
+    public CompletableFuture<IamUser> findByOidcIdentity(String oidcSubject,
+                                                         String oidcConfigId,
+                                                         String organizationId,
+                                                         String applicationId) {
         Validate.notBlank(oidcSubject, "oidcSubject cannot be blank");
         Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
-        Validate.notBlank(authScopeType, "authScopeType cannot be blank");
-        return iamUserRepository.findByOidcIdentityAndScope(oidcSubject, oidcConfigId, authScopeType, authScopeId);
+        if (applicationId != null) {
+            Validate.notBlank(organizationId,
+                              "organizationId is required when applicationId is supplied");
+        }
+        return iamUserRepository.findByOidcIdentity(oidcSubject, oidcConfigId, organizationId, applicationId);
     }
 
     @Override
-    public CompletableFuture<java.util.List<IamUser>> findByOidcIdentity(String oidcSubject, String oidcConfigId) {
+    public CompletableFuture<java.util.List<IamUser>> findAllByOidcIdentity(String oidcSubject, String oidcConfigId) {
         Validate.notBlank(oidcSubject, "oidcSubject cannot be blank");
         Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
-        return iamUserRepository.findByOidcIdentity(oidcSubject, oidcConfigId);
+        return iamUserRepository.findAllByOidcIdentity(oidcSubject, oidcConfigId);
     }
 
     @Override

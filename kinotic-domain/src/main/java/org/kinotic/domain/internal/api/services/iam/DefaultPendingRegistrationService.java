@@ -7,7 +7,6 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -146,14 +145,15 @@ public class DefaultPendingRegistrationService implements PendingRegistrationSer
      * Translates the {@link PendingRegistration}'s flat {@code authScopeType}/
      * {@code authScopeId} pair into the typed scope fields on the new {@link IamUser}.
      * Only ORGANIZATION pending registrations are produced by the current signup flow;
-     * SYSTEM and APPLICATION are rejected to surface any wiring mistakes.
+     * other values are rejected to surface any wiring mistakes.
      */
     private static void applyPendingScope(IamUser user, PendingRegistration pending) {
-        AuthScopeType scope = AuthScopeType.valueOf(pending.getAuthScopeType());
-        switch (scope) {
-            case ORGANIZATION -> user.setOrganizationId(pending.getAuthScopeId());
-            case SYSTEM, APPLICATION -> throw new IllegalStateException(
-                    "PendingRegistration with " + scope + " scope is not supported by the signup flow");
+        String scope = pending.getAuthScopeType();
+        if ("ORGANIZATION".equals(scope)) {
+            user.setOrganizationId(pending.getAuthScopeId());
+        } else {
+            throw new IllegalStateException(
+                    "PendingRegistration with '" + scope + "' scope is not supported by the signup flow");
         }
     }
 }
