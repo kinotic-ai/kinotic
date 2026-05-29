@@ -118,11 +118,12 @@ import IconField from 'primevue/iconfield'
 import { useToast } from 'primevue/usetoast'
 
 import { CONTINUUM_UI } from '@/IContinuumUI'
-import { StructuresStates } from '@/states/index'
+import { StructuresStates } from '@/states'
 import { type IUserState } from '@/states/IUserState'
 import { createDebug } from '@/util/debug'
 import { apiUrl } from '@/util/helpers'
-import loginPageLeft from '@/assets/login-page-left.svg'
+import loginBgDark from '@/assets/left_background_dark.png'
+import loginBgLight from '@/assets/left-background_light.png'
 import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
 import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
 import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
@@ -148,10 +149,10 @@ export default class Login extends Vue {
   loading: boolean = false
   providers: string[] = []
 
-  private readonly loginBackgroundArt = loginPageLeft
   private toast = useToast()
   private userState: IUserState = StructuresStates.getUserState()
 
+  get loginBackgroundArt() { return darkMode.value ? loginBgDark : loginBgLight }
   get loginBrandMark() { return darkMode.value ? loginPageLogo : loginPageLogoLight }
   get isDark() { return darkMode.value }
   toggleTheme() { toggleDark() }
@@ -246,13 +247,12 @@ export default class Login extends Vue {
     }
     this.loading = true
     try {
-      // Trade email + password for a Kinotic JWT, then open STOMP with the same Bearer
-      // path the OIDC callback uses. The frontend never sends raw credentials over the
-      // WebSocket — STOMP CONNECT only carries the JWT.
-      const res = await fetch(apiUrl('/api/login/token'), {
+      // Verify the password; on success the gateway establishes the browser session and sets
+      // the session cookie. credentials:'include' so the cross-origin Set-Cookie is stored.
+      const res = await fetch(apiUrl('/api/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
+        credentials: 'include',
         body: JSON.stringify({ email: this.email, password: this.password })
       })
       if (!res.ok) {
@@ -260,8 +260,8 @@ export default class Login extends Vue {
         this.password = ''
         return
       }
-      const data = await res.json() as { token: string }
-      await this.userState.loginWithToken(data.token)
+      // Open the realtime connection, authenticated by the freshly set session cookie.
+      await this.userState.login()
       const referer = (this.$route.query.referer as string | undefined) || '/applications'
       await CONTINUUM_UI.navigate(referer)
     } catch (err) {

@@ -5,6 +5,7 @@ plugins {
 dependencies {
     implementation project(':kinotic-core')
     implementation project(':kinotic-domain')
+    implementation project(':kinotic-os-api')
     implementation project(':kinotic-github')
 
     // reactive streams apis
@@ -24,6 +25,7 @@ dependencies {
 
     implementation 'org.springframework:spring-core'
     implementation 'org.springframework:spring-context'
+    implementation 'org.springframework:spring-web'
 
     implementation 'tools.jackson.core:jackson-core'
     implementation 'tools.jackson.core:jackson-databind'

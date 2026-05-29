@@ -1,16 +1,15 @@
 <template>
   <div :class="['h-full flex flex-col', isDark ? 'bg-surface-900 text-surface-0' : 'bg-transparent text-surface-950']">
     <!-- Header -->
-    <div :class="['flex justify-between items-center p-4 border-b', isDark ? 'border-surface-800 bg-surface-900' : 'bg-surface-0 border-surface-200']">
+    <div class="app-surface-header flex justify-between items-center p-4 border-b">
       <div class="flex items-center gap-4">
         <Button @click="goBack" icon="pi pi-arrow-left" class="p-button-text p-button-sm" />
         <div>
-          <h1 :class="['text-xl font-semibold', isDark ? 'text-surface-0' : 'text-surface-900']">{{ dashboardTitle }}</h1>
-          <p :class="['text-sm', isDark ? 'text-surface-400' : 'text-surface-500']">{{ dashboard?.description || 'Dashboard' }}</p>
+          <h1 class="app-heading-text text-xl font-semibold">{{ dashboardTitle }}</h1>
+          <p class="app-muted-text text-sm">{{ dashboard?.description || 'Dashboard' }}</p>
         </div>
       </div>
-            <Button @click="editDashboard" label="Edit" icon="pi pi-pencil" 
-              :class="isDark ? 'bg-surface-900 border border-surface-700 text-surface-0 hover:bg-surface-800 hover:border-surface-600 rounded-md px-3 py-2 font-medium' : 'bg-surface-0 border border-surface-200 text-surface-700 hover:bg-surface-50 hover:border-surface-300 rounded-md px-3 py-2 font-medium'" />
+            <Button @click="editDashboard" label="Edit" icon="pi pi-pencil" class="app-neutral-button" />
     </div>
 
     <!-- Dashboard Content -->
@@ -19,12 +18,11 @@
         <i class="pi pi-spin pi-spinner text-3xl"></i>
       </div>
       <div v-else-if="!hasWidgets" class="flex items-center justify-center flex-1">
-          <div :class="['text-center', isDark ? 'text-surface-400' : 'text-surface-500']">
+          <div class="app-muted-text text-center">
           <i class="pi pi-chart-bar text-6xl mb-4"></i>
           <h3 class="text-lg font-semibold mb-2">No widgets yet</h3>
           <p class="text-surface-400">This dashboard doesn't have any widgets configured.</p>
-            <Button @click="editDashboard" label="Add Widgets" 
-              :class="isDark ? 'bg-surface-900 border border-surface-700 text-surface-0 hover:bg-surface-800 hover:border-surface-600 rounded-md px-3 py-2 font-medium mt-4' : 'bg-surface-0 border border-surface-200 text-surface-700 hover:bg-surface-50 hover:border-surface-300 rounded-md px-3 py-2 font-medium mt-4'" />
+            <Button @click="editDashboard" label="Add Widgets" class="app-neutral-button mt-4" />
         </div>
       </div>
       <div v-else class="dashboard-view-container">
@@ -32,12 +30,12 @@
           <div
             v-for="widgetData in dashboardWidgets"
             :key="widgetData.instanceId"
-            :class="['dashboard-widget rounded-lg border shadow-sm', isDark ? 'border-surface-800 bg-surface-900' : 'bg-surface-0 border-surface-200']"
+            class="dashboard-widget rounded-lg border shadow-sm app-card-surface"
             :style="getWidgetStyle(widgetData)"
           >
-            <div :class="['widget-header p-4 border-b', isDark ? 'border-surface-800' : 'border-surface-100']">
-              <h3 :class="['font-semibold', isDark ? 'text-surface-0' : 'text-surface-900']">{{ getWidgetTitle(widgetData.widget) }}</h3>
-              <p :class="['mt-1 text-sm', isDark ? 'text-surface-400' : 'text-surface-500']">{{ getWidgetSubtitle(widgetData.widget) }}</p>
+            <div class="widget-header p-4 border-b app-surface-divider">
+              <h3 class="app-heading-text font-semibold">{{ getWidgetTitle(widgetData.widget) }}</h3>
+              <p class="app-muted-text mt-1 text-sm">{{ getWidgetSubtitle(widgetData.widget) }}</p>
             </div>
             <div class="widget-content p-4">
               <div class="widget-chart-area" :data-widget-id="widgetData.widget.id">

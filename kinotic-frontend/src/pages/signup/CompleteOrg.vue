@@ -79,7 +79,8 @@ import { useToast } from 'primevue/usetoast'
 import { CONTINUUM_UI } from '@/IContinuumUI'
 import { StructuresStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
-import loginPageLeft from '@/assets/login-page-left.svg'
+import loginBgDark from '@/assets/left_background_dark.png'
+import loginBgLight from '@/assets/left-background_light.png'
 import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
 import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
 import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
@@ -89,8 +90,8 @@ import '@/pages/auth-pages.css'
 /**
  * Lands here after `/api/signup/callback/:configId` redirects with `?token=<verificationToken>`
  * (a {@code PendingRegistration}). The user supplies an org name; we POST to
- * `/api/signup/complete-org`, the backend creates the Organization + admin IamUser, and
- * returns a Kinotic JWT we then use to open the STOMP session.
+ * `/api/signup/complete-org`, the backend creates the Organization + admin IamUser and
+ * establishes the browser session, which we then use to open the realtime connection.
  */
 @Component({
   components: { InputText, Button, Toast }
@@ -100,10 +101,10 @@ export default class CompleteOrg extends Vue {
   orgDescription = ''
   loading = false
 
-  private readonly loginBackgroundArt = loginPageLeft
   private toast = useToast()
   private userState: IUserState = StructuresStates.getUserState()
 
+  get loginBackgroundArt() { return darkMode.value ? loginBgDark : loginBgLight }
   get loginBrandMark() { return darkMode.value ? loginPageLogo : loginPageLogoLight }
   get isDark() { return darkMode.value }
   toggleTheme() { toggleDark() }
@@ -135,7 +136,7 @@ export default class CompleteOrg extends Vue {
       const res = await fetch(apiUrl('/api/signup/complete-org'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
+        credentials: 'include',
         body: JSON.stringify({
           token: this.token,
           orgName,
@@ -147,8 +148,8 @@ export default class CompleteOrg extends Vue {
         this.displayError(message)
         return
       }
-      const data = await res.json() as { token: string }
-      await this.userState.loginWithToken(data.token)
+      // The org and admin user are created and the session established; connect with it.
+      await this.userState.login()
       await CONTINUUM_UI.navigate('/applications')
     } catch (err) {
       this.displayError(err instanceof Error ? err.message : 'Sign-up failed')

@@ -27,15 +27,17 @@ describe('Kinotic RPC Tests', () => {
         toSend.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
         toSend.setDataString('["Bob"]')
 
-        let errorEncountered = new Promise<Error>((resolve, reject) => {
+        let errorEncountered = new Promise<Error>((resolve) => {
             Kinotic.eventBus.fatalErrors.subscribe((error: Error) => {
-                reject(error)
+                resolve(error)
             })
         })
 
         Kinotic.eventBus.send(toSend)
 
-        await expect(errorEncountered).rejects.toThrowError('reply-to header invalid, scheme: null is not valid for service requests')
+        const error = await errorEncountered
+        expect(error.message).toBe('STOMP connection error')
+        expect((error.cause as Error).message).toBe('reply-to header invalid, scheme: null is not valid for service requests')
 
         expect(Kinotic.eventBus.isConnectionActive()).toBeFalsy()
 

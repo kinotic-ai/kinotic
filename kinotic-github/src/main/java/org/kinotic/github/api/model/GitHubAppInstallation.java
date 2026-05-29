@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.os.api.model.OrganizationScoped;
+import org.kinotic.domain.api.model.OrganizationScoped;
 
 import java.util.Date;
 

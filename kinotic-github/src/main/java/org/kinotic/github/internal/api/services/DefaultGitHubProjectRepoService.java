@@ -10,7 +10,7 @@ import org.kinotic.github.api.model.GitHubRepoToken;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.api.services.GitHubProjectRepoService;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
-import org.kinotic.os.api.model.Project;
+import org.kinotic.domain.api.model.Project;
 import org.kinotic.os.api.services.ProjectService;
 import org.springframework.stereotype.Component;
 

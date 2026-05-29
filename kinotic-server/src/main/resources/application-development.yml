@@ -1,10 +1,6 @@
 # YAML Reference http://www.yaml.org/refcard.html
 kinotic:
   debug: true
-  # IDE dev runs the SPA on vite (5173); kinotic-server is just the backend on 58503.
-  # Verification email URLs and OIDC redirect URIs are built from this base, so they
-  # need to point at the SPA's origin — not at kinotic-server's static port (9090).
-  appBaseUrl: http://localhost:5173
   github:
     webhookSecret: "-"
     repoTemplate: "-"
@@ -12,12 +8,19 @@ kinotic:
     appId: "-"
     appSlug: "-"
   domain:
+    # IDE dev runs the SPA on vite (5173); kinotic-server is just the backend on 58503.
+    # Verification email URLs and OIDC redirect URIs are built from this base, so they
+    # need to point at the SPA's origin — not at kinotic-server's static port (9090).
+    appBaseUrl: http://localhost:5173
     email:
       # No real ACS in dev — EmailService logs verification URLs instead of sending.
       # To test against real ACS, flip enabled=true (endpoint/sender are pre-filled).
       enabled: false
       endpoint: https://acs-kinotic.communication.azure.com
       sender-address: "DoNotReply@kinotic.ai"
+  cors:
+    allowedOriginPattern: "http:\\/\\/localhost:\\d+"
+    allowCredentials: true
   maxNumberOfCoresToUse: 4
   ignite:
     discoveryType: SHAREDFS
@@ -39,9 +42,6 @@ kinotic:
   # kinotic.secretStorage.azure.vaultUrl is set, otherwise from KINOTIC_AKV_<name> env vars
   # (uppercased, non-alphanumerics → "_"). For local dev, export the env var matching the
   # secret name on the seeded OrgSignupOidcConfiguration / OidcConfiguration row.
-  cors:
-    allowedOriginPattern: "http:\\/\\/localhost:\\d+"
-    allowCredentials: true
   persistence:
     elastic-connections:
       - scheme: "http"

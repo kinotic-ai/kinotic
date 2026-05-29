@@ -62,6 +62,7 @@ export * from '@/api/services/IDataInsightsService'
 export * from '@/api/services/IVmNodeService'
 export * from '@/api/services/IWorkloadService'
 export * from '@/api/services/IIamUserService'
+export * from '@/api/services/IDeviceApprovalService'
 export * from '@/api/services/IGitHubAppInstallationService'
 
 // Plugin

@@ -1,9 +1,8 @@
 import {ConnectionInfo, ServerInfo} from '@/api/ConnectionInfo'
-import {KinoticError} from '@/api/errors/KinoticError'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {StompConnectionManager} from '@/internal/api/event/StompConnectionManager'
 import {context, propagation} from '@opentelemetry/api';
-import type {IFrame, IMessage} from '@stomp/rx-stomp';
+import type {IMessage} from '@stomp/rx-stomp';
 import {ConnectableObservable, firstValueFrom, Observable, Subject, Subscription, throwError, type Unsubscribable} from 'rxjs'
 import {filter, map, multicast} from 'rxjs/operators'
 import {Optional} from 'typescript-optional'
@@ -72,31 +71,25 @@ interface Carrier {
  */
 export class EventBus implements IEventBus {
 
-    public fatalErrors: Observable<Error>
     public serverInfo: ServerInfo | null = null
     private stompConnectionManager: StompConnectionManager = new StompConnectionManager()
     private replyToCri: string  | null = null
     private requestRepliesObservable: ConnectableObservable<IEvent> | null = null
     private requestRepliesSubject: Subject<IEvent> | null = null
     private requestRepliesSubscription: Subscription | null = null
-    private errorSubject: Subject<IFrame> = new Subject<IFrame>()
-    private errorSubjectSubscription: Subscription | null | undefined = null
 
     constructor() {
-        this.fatalErrors = this.errorSubject
-                               .pipe(map<IFrame, Error>((frame: IFrame): Error => {
-                                   this.disconnect()
-                                       .catch((error: string) => {
-                                           if(console){
-                                               console.error('Error disconnecting from Stomp: ' + error)
-                                           }
-                                       })
-                                   // TODO: map to kinoitc error
-                                   return new KinoticError(frame.headers['message'] as string)
-                               }))
-        this.stompConnectionManager.deactivationHandler = () => {
-            this.cleanup()
+        // We send an error any in-flight requests and clean up our connection state on fatal errors
+        // The StompConnectionManager will automatically deactivate on fatal errors
+        this.stompConnectionManager.fatalErrors.subscribe(() => this.cleanup())
+        this.stompConnectionManager.replyToCriChangedHandler = (replyToCri: string) => {
+            this.replyToCri = replyToCri
+            this.resetRequestReplies('Reply destination changed')
         }
+    }
+
+    public get fatalErrors(): Observable<Error> {
+        return this.stompConnectionManager.fatalErrors
     }
 
     public isConnectionActive(): boolean{
@@ -120,10 +113,7 @@ export class EventBus implements IEventBus {
             this.serverInfo.port = connectionInfo.port
             this.serverInfo.useSSL = connectionInfo.useSSL
 
-            // FIXME: a reply should not need a reply, therefore a replyCri probably should not be a EventConstants.SERVICE_DESTINATION_PREFIX
             this.replyToCri = this.stompConnectionManager.replyToCri
-
-            this.errorSubjectSubscription = this.stompConnectionManager.rxStomp?.stompErrors$.subscribe(this.errorSubject)
 
             return connectedInfo
         }else{
@@ -133,7 +123,6 @@ export class EventBus implements IEventBus {
 
     public async disconnect(force?: boolean): Promise<void> {
         await this.stompConnectionManager.deactivate(force)
-
         this.cleanup()
     }
 
@@ -191,7 +180,7 @@ export class EventBus implements IEventBus {
 
                                                       if (value.hasHeader(EventConstants.CONTROL_HEADER)) {
 
-                                                          if (value.headers.get(EventConstants.CONTROL_HEADER) === 'complete') {
+                                                          if (value.headers.get(EventConstants.CONTROL_HEADER) === EventConstants.CONTROL_VALUE_COMPLETE) {
                                                               serverSignaledCompletion = true
                                                               subscriber.complete()
                                                           } else {
@@ -249,26 +238,29 @@ export class EventBus implements IEventBus {
     }
 
     private cleanup(): void{
+        this.resetRequestReplies('Connection disconnected')
+
+        this.serverInfo = null
+    }
+
+    /**
+     * Tears down the shared request-replies stream so the next request rebuilds it against the
+     * current {@link replyToCri}. Any in-flight requests are failed with the given reason since
+     * their replies can no longer be delivered.
+     */
+    private resetRequestReplies(reason: string): void {
         if (this.requestRepliesSubject != null) {
 
-            // This will be sent to any client waiting on an Event
-            this.requestRepliesSubject.error(new Error('Connection disconnected'))
+            this.requestRepliesSubject.error(new Error(reason))
 
             if (this.requestRepliesSubscription != null) {
                 this.requestRepliesSubscription.unsubscribe()
                 this.requestRepliesSubscription = null
             }
 
-            this.requestRepliesSubject = null;
+            this.requestRepliesSubject = null
             this.requestRepliesObservable = null
         }
-
-        if (this.errorSubjectSubscription) {
-            this.errorSubjectSubscription.unsubscribe()
-            this.errorSubjectSubscription = null
-        }
-
-        this.serverInfo = null
     }
 
     /**

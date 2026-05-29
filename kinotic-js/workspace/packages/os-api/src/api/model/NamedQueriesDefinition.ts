@@ -6,18 +6,20 @@ import type { FunctionDefinition } from '@kinotic-ai/idl'
  */
 export class NamedQueriesDefinition implements Identifiable<string> {
     public id: string
-    public organizationId?: string | null
+    public organizationId: string
     public applicationId: string
     public projectId: string
     public entityDefinitionName: string
     public namedQueries: FunctionDefinition[]
 
     constructor(id: string,
+                organizationId: string,
                 applicationId: string,
                 projectId: string,
                 entityDefinitionName: string,
                 namedQueries: FunctionDefinition[]) {
         this.id = id;
+        this.organizationId = organizationId;
         this.applicationId = applicationId;
         this.projectId = projectId;
         this.entityDefinitionName = entityDefinitionName;

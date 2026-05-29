@@ -1040,7 +1040,7 @@ onMounted(async () => {
           <div v-if="!isEditMode" class="flex items-center gap-2">
             <Button
               @click="toggleDateRangePicker"
-              :class="showDateRangePicker ? '!bg-blue-600 !border-blue-600 !text-white !hover:bg-blue-700 !hover:border-blue-700 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px] [&_.pi]:!w-[14px] [&_.pi]:!h-[14px]' : '!bg-surface-0 !border !border-surface-300 !text-surface-700 !hover:bg-surface-50 !hover:border-surface-400 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px] [&_.pi]:!w-[14px] [&_.pi]:!h-[14px]'"
+              :class="showDateRangePicker ? '!bg-blue-600 !border-blue-600 !text-white !hover:bg-blue-700 !hover:border-blue-700 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px] [&_.pi]:!w-[14px] [&_.pi]:!h-[14px]' : 'app-neutral-button app-neutral-button-sm'"
               icon="pi pi-calendar"
               size="small"
               :label="showDateRangePicker ? 'Hide Date Range' : 'Set Date Range'"
@@ -1079,11 +1079,9 @@ onMounted(async () => {
             </div>
           </div>
           
-          <Button v-if="!isEditMode" @click="enterEditMode" label="Edit" icon="pi pi-pencil" 
-                  :class="isDark ? '!bg-surface-900 !border !border-surface-700 !text-surface-0 !hover:bg-surface-800 !hover:border-surface-600 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px] [&_.pi]:!w-[14px] [&_.pi]:!h-[14px]' : '!bg-surface-0 !border !border-surface-300 !text-surface-700 !hover:bg-surface-50 !hover:border-surface-400 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px] [&_.pi]:!w-[14px] [&_.pi]:!h-[14px]'" />
+            <Button v-if="!isEditMode" @click="enterEditMode" label="Edit" icon="pi pi-pencil" class="app-neutral-button app-neutral-button-sm" />
           <template v-if="isEditMode">
-            <Button @click="goBack" label="Cancel" 
-                    :class="isDark ? '!bg-surface-800 !border-surface-800 !text-surface-0 !hover:bg-surface-700 !hover:border-surface-700 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px]' : '!bg-surface-200 !border-surface-200 !text-surface-700 !hover:bg-surface-300 !hover:border-surface-300 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px]'" />
+              <Button @click="goBack" label="Cancel" class="app-tonal-button app-tonal-button-sm" />
             <Button @click="saveDashboard" :label="saveButtonLabel" 
                     class="!bg-blue-600 !border-blue-600 !text-white !hover:bg-blue-700 !hover:border-blue-700 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px]" />
           </template>
@@ -1105,8 +1103,7 @@ onMounted(async () => {
                <i class="pi pi-chart-bar text-6xl mb-4"></i>
                <h3 class="text-lg font-semibold mb-2">No widgets yet</h3>
                <p :class="['mb-4', isDark ? 'text-surface-500' : 'text-surface-400']">This dashboard doesn't have any widgets configured.</p>
-               <Button @click="enterEditMode" label="Add Widgets" 
-                       :class="isDark ? 'bg-surface-900 border border-surface-700 text-surface-0 hover:bg-surface-800 hover:border-surface-600 rounded-md px-3 py-2 font-medium' : 'bg-surface-0 border border-surface-200 text-surface-700 hover:bg-surface-50 hover:border-surface-300 rounded-md px-3 py-2 font-medium'" />
+                     <Button @click="enterEditMode" label="Add Widgets" class="app-neutral-button" />
              </div>
            </div>
          </div>

@@ -21,10 +21,6 @@ export * from './api/crud/Page'
 export * from './api/crud/Pageable'
 export * from './api/crud/Sort'
 
-export * from './api/errors/KinoticError'
-export * from './api/errors/AuthenticationError'
-export * from './api/errors/AuthorizationError'
-
 export * from './api/event/CRI'
 export * from './api/event/DefaultCRI'
 export * from './api/event/EventBus'

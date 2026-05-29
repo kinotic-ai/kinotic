@@ -4,7 +4,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.vertx.ext.web.RoutingContext;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.services.EntitiesRepository;
+import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.endpoints.openapi.RoutingContextToEntityContextAdapter;
 
 import java.util.Objects;
@@ -16,11 +16,11 @@ import java.util.concurrent.CompletableFuture;
 public class DeleteDataFetcher implements DataFetcher<CompletableFuture<String>> {
 
     private final String entityDefinitionId;
-    private final EntitiesRepository entitiesRepository;
+    private final EntitiesService entitiesService;
 
-    public DeleteDataFetcher(String entityDefinitionId, EntitiesRepository entitiesRepository) {
+    public DeleteDataFetcher(String entityDefinitionId, EntitiesService entitiesService) {
         this.entityDefinitionId = entityDefinitionId;
-        this.entitiesRepository = entitiesRepository;
+        this.entitiesService = entitiesService;
     }
 
     @Override
@@ -31,7 +31,7 @@ public class DeleteDataFetcher implements DataFetcher<CompletableFuture<String>>
 
         String id = environment.getArgument("id");
 
-        return entitiesRepository.deleteById(entityDefinitionId, id, ec)
-                                 .thenCompose(aVoid -> CompletableFuture.completedFuture(id));
+        return entitiesService.deleteById(entityDefinitionId, id, ec)
+                              .thenCompose(aVoid -> CompletableFuture.completedFuture(id));
     }
 }

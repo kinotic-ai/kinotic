@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
-import org.kinotic.persistence.api.services.EntitiesRepository;
+import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.api.services.EntityDefinitionService;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.internal.sample.DummyParticipant;
@@ -28,7 +28,7 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 	@Autowired
 	private TestDataService testDataService;
 	@Autowired
-	private EntitiesRepository entitiesRepository;
+	private EntitiesService entitiesService;
 
 	@Test
 	public void createPublishAndDeleteStructure() throws Exception {
@@ -181,7 +181,7 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 					.expectComplete()
 					.verify();
 
-		StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesRepository.count(future.join().getId(), new DefaultEntityContext(new DummyParticipant())))))
+		StepVerifier.create(Mono.fromFuture(elevated(() -> entitiesService.count(future.join().getId(), new DefaultEntityContext(new DummyParticipant())))))
 					.expectError(IllegalArgumentException.class)
 					.verify();
 

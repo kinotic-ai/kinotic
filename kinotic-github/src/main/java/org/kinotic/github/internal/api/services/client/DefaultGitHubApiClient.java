@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 /**
  * Vert.x WebClient backed implementation of {@link GitHubApiClient}. Builds
@@ -65,7 +66,7 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
         this.tokenCache = Caffeine.newBuilder()
                                   .expireAfterWrite(Duration.ofMinutes(50))
                                   .maximumSize(10_000)
-                                  .buildAsync((TokenKey key, java.util.concurrent.Executor _) ->
+                                  .buildAsync((TokenKey key, Executor _) ->
                                                       mintToken(key.installationId(), key.repoId(), key.permissions())
                                                               .toCompletionStage()
                                                               .toCompletableFuture());

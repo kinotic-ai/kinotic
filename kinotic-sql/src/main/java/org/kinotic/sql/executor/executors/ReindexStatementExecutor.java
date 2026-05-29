@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.statements.ReindexStatement;
@@ -120,7 +121,7 @@ public class ReindexStatementExecutor implements StatementExecutor<ReindexStatem
                 future.completeExceptionally(new IllegalStateException("Timed out waiting for reindex task to complete"));
             } else {
                 // Schedule next poll
-                CompletableFuture.delayedExecutor(2, java.util.concurrent.TimeUnit.SECONDS)
+                CompletableFuture.delayedExecutor(2, TimeUnit.SECONDS)
                     .execute(() -> pollTaskRecursive(taskId, future, start, timeout));
             }
         });

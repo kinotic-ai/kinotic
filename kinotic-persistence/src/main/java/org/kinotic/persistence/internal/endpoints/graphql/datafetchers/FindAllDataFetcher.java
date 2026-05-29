@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.endpoints.graphql.datafetchers;
 
-import org.kinotic.persistence.api.services.EntitiesRepository;
+import org.kinotic.persistence.internal.api.services.EntitiesService;
 import tools.jackson.databind.ObjectMapper;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -22,14 +22,14 @@ import java.util.concurrent.CompletableFuture;
 public class FindAllDataFetcher implements DataFetcher<CompletableFuture<Page<Map>>> {
 
     private final String entityDefinitionId;
-    private final EntitiesRepository entitiesRepository;
+    private final EntitiesService entitiesService;
     private final ObjectMapper objectMapper;
 
     public FindAllDataFetcher(String entityDefinitionId,
-                              EntitiesRepository entitiesRepository,
+                              EntitiesService entitiesService,
                               ObjectMapper objectMapper) {
         this.entityDefinitionId = entityDefinitionId;
-        this.entitiesRepository = entitiesRepository;
+        this.entitiesService = entitiesService;
         this.objectMapper = objectMapper;
     }
     
@@ -44,9 +44,9 @@ public class FindAllDataFetcher implements DataFetcher<CompletableFuture<Page<Ma
                                                     Pageable.class,
                                                     objectMapper);
 
-        return entitiesRepository.findAll(entityDefinitionId,
-                                          pageable,
-                                          Map.class,
-                                          ec);
+        return entitiesService.findAll(entityDefinitionId,
+                                       pageable,
+                                       Map.class,
+                                       ec);
     }
 }

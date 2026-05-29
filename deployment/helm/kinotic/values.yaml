@@ -33,20 +33,20 @@ properties:
 # Kinotic platform — mirrors the Spring property structure:
 #   kinotic.persistence.*  → ports, ES, health
 #   kinotic.apiGateway.*   → STOMP, static web server
-#   kinotic.domain.*       → email, platform OIDC providers
+#   kinotic.domain.*       → public URLs, TLS, email, platform OIDC providers
+#   kinotic.cors.*         → CORS (allowed origins, credentials)
 #   kinotic.ignite.*       → cluster (set in application-kubernetes.yml)
-#   kinotic.ssl.*          → TLS (set via tls.enabled below)
 kinotic:
-  # Public base URL of the SPA (no trailing slash) — used for verification email links
-  # and post-OIDC SPA redirects. Must be set per-environment.
-  appBaseUrl: "http://localhost:9090"
-  # Public base URL of the backend REST endpoints (no trailing slash) — used as the OIDC
-  # redirect_uri. Set this when the SPA and backend live on different origins (e.g. SPA on
-  # Azure Static Web Apps, backend on AKS). Leave empty to fall back to appBaseUrl, which
-  # is correct for any same-origin deploy.
-  apiBaseUrl: ""
-  # kinotic.domain.* — domain-layer configuration (email, platform OIDC providers).
+  # kinotic.domain.* — domain-layer configuration (public URLs, TLS, email).
   domain:
+    # Public base URL of the SPA (no trailing slash) — used for verification email links
+    # and post-OIDC SPA redirects. Must be set per-environment.
+    appBaseUrl: "http://localhost:9090"
+    # Public base URL of the backend REST endpoints (no trailing slash) — used as the OIDC
+    # redirect_uri. Set this when the SPA and backend live on different origins (e.g. SPA on
+    # Azure Static Web Apps, backend on AKS). Leave empty to fall back to appBaseUrl, which
+    # is correct for any same-origin deploy.
+    apiBaseUrl: ""
     # kinotic.domain.email.* — outbound mail via Azure Communication Services
     email:
       # When false, EmailService logs verification URLs instead of sending. Required for
@@ -83,7 +83,7 @@ kinotic:
     discoveryPort: 47500
     communicationPort: 47100
 
-# TLS (kinotic.ssl.*)
+# TLS (kinotic.domain.ssl.*)
 tls:
   enabled: false
   secretName: kinotic-tls

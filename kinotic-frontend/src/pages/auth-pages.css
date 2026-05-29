@@ -21,14 +21,14 @@
 .login-art {
   display: none;
   overflow: hidden;
-  background: linear-gradient(135deg, #171717 45%, rgba(236, 31, 82, 0.3) 100%);
+  background: #171717;
 }
 
 .login-art__image {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center;
+  object-position: center center;
 }
 
 .login-panel {
@@ -44,14 +44,7 @@
 }
 
 .login-panel::before {
-  content: '';
-  position: absolute;
-  inset: auto auto -12rem -8rem;
-  width: 20rem;
-  height: 20rem;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(236, 31, 82, var(--lp-radial-opacity)) 0%, rgba(236, 31, 82, 0) 70%);
-  pointer-events: none;
+  display: none;
 }
 
 .login-panel__content {
@@ -132,6 +125,19 @@
   color: var(--lp-input-color);
   box-shadow: none;
   outline: none;
+}
+
+.login-input.p-inputtext::placeholder,
+.login-password .p-inputtext::placeholder,
+.login-password-input::placeholder {
+  color: var(--lp-input-placeholder);
+  opacity: 1;
+}
+
+.login-input.p-inputtext:enabled:focus,
+.login-password .p-inputtext:enabled:focus,
+.login-password-input:enabled:focus {
+  border-color: var(--lp-input-focus-border);
 }
 
 .login-input--disabled.p-inputtext {
@@ -313,7 +319,7 @@
 
 @media (min-width: 960px) {
   .login-shell {
-    grid-template-columns: minmax(0, 1fr) minmax(20rem, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
   .login-art { display: block; }
   .login-brand { width: 12rem; }

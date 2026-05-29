@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -45,7 +46,7 @@ public class DefaultSecretStorageService implements SecretStorageService {
     }
 
     @Override
-    public CompletableFuture<Map<String, String>> getSecrets(String secretScope, List<String> keys) {
+    public CompletableFuture<Map<String, String>> getSecrets(String secretScope, Set<String> keys) {
         Map<String, String> derivedToOriginal = keys.stream()
                                                     .collect(Collectors.toMap(
                                                             k -> secretNameDeriver.derive(secretScope, k),
@@ -61,7 +62,7 @@ public class DefaultSecretStorageService implements SecretStorageService {
     }
 
     @Override
-    public CompletableFuture<Void> deleteSecrets(String secretScope, List<String> keys) {
+    public CompletableFuture<Void> deleteSecrets(String secretScope, Set<String> keys) {
         List<String> derivedNames = keys.stream()
                                         .map(k -> secretNameDeriver.derive(secretScope, k))
                                         .toList();
