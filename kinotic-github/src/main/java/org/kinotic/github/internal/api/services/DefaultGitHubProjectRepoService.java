@@ -63,7 +63,7 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
 
     private CompletableFuture<RepoContext> resolve(String organizationId, String projectId) {
 
-        OrganizationParticipant caller = OrganizationParticipant.require(securityContext.currentParticipant());
+        OrganizationParticipant caller = securityContext.requireParticipant(OrganizationParticipant.class);
         if (!organizationId.equals(caller.getOrganizationId())) {
             throw new AuthorizationException(
                     "Caller's organizationId '" + caller.getOrganizationId()

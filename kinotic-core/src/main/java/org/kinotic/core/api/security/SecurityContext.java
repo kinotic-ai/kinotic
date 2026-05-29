@@ -3,6 +3,7 @@ package org.kinotic.core.api.security;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import io.vertx.core.spi.context.storage.ContextLocal;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
@@ -14,10 +15,11 @@ import java.util.function.Supplier;
  * use to bypass scope enforcement (e.g. when a cache loader needs to read an
  * OrganizationScoped entity on behalf of an APPLICATION-scoped caller).
  * <p>
- * Type-aware scope checks live on the typed Participant subtypes (e.g.
- * {@code OrganizationParticipant.require(...)} in {@code kinotic-domain}); this class
- * stays type-agnostic so {@code kinotic-core} consumers without {@code kinotic-domain}
- * on the classpath are unaffected.
+ * Typed scope checks go through {@link #requireParticipant(Class)} — callers pass the
+ * concrete {@code Participant} subtype they need (e.g. {@code OrganizationParticipant.class}
+ * from {@code kinotic-domain}). This lets {@code SecurityContext} stay type-agnostic so
+ * {@code kinotic-core} consumers without {@code kinotic-domain} on the classpath are
+ * unaffected.
  * <p>
  * Must only be used as a Spring-managed bean. The underlying {@link ContextLocal}s must be
  * registered before any {@link Vertx} instance is created, which is handled by the bean
@@ -38,6 +40,26 @@ public class SecurityContext {
             return context.getLocal(PARTICIPANT_LOCAL);
         }
         return null;
+    }
+
+    /**
+     * Returns the current {@link Participant} narrowed to {@code type}.
+     *
+     * @param type the required {@code Participant} subtype (e.g.
+     *             {@code OrganizationParticipant.class})
+     * @throws IllegalStateException if no participant is bound to the current Vert.x context
+     * @throws AuthorizationException if the current participant is not an instance of {@code type}
+     */
+    public <T extends Participant> T requireParticipant(Class<T> type) {
+        Participant participant = currentParticipant();
+        if (participant == null) {
+            throw new IllegalStateException("No Participant is bound to the current Vert.x context");
+        }
+        if (!type.isInstance(participant)) {
+            throw new AuthorizationException(
+                    type.getSimpleName() + " required, got " + participant.getClass().getSimpleName());
+        }
+        return type.cast(participant);
     }
 
     /**
@@ -83,3 +105,4 @@ public class SecurityContext {
     }
 
 }
+

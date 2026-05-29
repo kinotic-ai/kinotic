@@ -102,7 +102,7 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
      * @throws AuthorizationException if the participant is not an {@code OrganizationParticipant}
      */
     protected String requireOrganizationId() {
-        return OrganizationParticipant.require(securityContext.currentParticipant()).getOrganizationId();
+        return securityContext.requireParticipant(OrganizationParticipant.class).getOrganizationId();
     }
 
     /**
