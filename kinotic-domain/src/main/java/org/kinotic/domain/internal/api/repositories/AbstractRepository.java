@@ -135,6 +135,14 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
         return crudServiceTemplate.termFilter(field, value);
     }
 
+    protected Query existsFilter(String field) {
+        return crudServiceTemplate.existsFilter(field);
+    }
+
+    protected Query missingFilter(String field) {
+        return crudServiceTemplate.missingFilter(field);
+    }
+
     protected CompletableFuture<T> findFirst(Consumer<SearchRequest.Builder> builderConsumer) {
         return crudServiceTemplate.findFirst(indexName, type, builderConsumer);
     }

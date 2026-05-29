@@ -78,12 +78,4 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
                 termFilter("organizationId", organizationId),
                 termFilter("applicationId", applicationId));
     }
-
-    private static Query missingFilter(String field) {
-        return Query.of(q -> q.bool(b -> b.mustNot(mn -> mn.exists(e -> e.field(field)))));
-    }
-
-    private static Query existsFilter(String field) {
-        return Query.of(q -> q.exists(e -> e.field(field)));
-    }
 }
