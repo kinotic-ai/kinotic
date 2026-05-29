@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.*;
+import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.EntityDefinition;
@@ -55,7 +56,7 @@ public class ReadPreProcessor {
             if(context.hasTenantSelection()){
                 builder.routing(context.getTenantSelection().getFirst());
             }else{
-                builder.routing(context.getParticipant().getTenantId());
+                builder.routing(tenantIdOf(context));
             }
         }
     }
@@ -98,7 +99,7 @@ public class ReadPreProcessor {
             if(context.hasTenantSelection()){
                 builder.routing(context.getTenantSelection().getFirst());
             }else{
-                builder.routing(context.getParticipant().getTenantId());
+                builder.routing(tenantIdOf(context));
                 if(!entityDefinition.isMultiTenantSelectionEnabled()) {
                     builder.sourceExcludes(persistenceProperties.getTenantIdFieldName());
                 }
@@ -161,11 +162,11 @@ public class ReadPreProcessor {
                                                                          .terms(tqf-> tqf.value(fieldValues)))));
             }else{
 
-                routingConsumer.accept(context.getParticipant().getTenantId());
+                routingConsumer.accept(tenantIdOf(context));
                 queryBuilder = new Query.Builder();
                 queryBuilder
                         .bool(b -> b.filter(qb -> qb.term(tq -> tq.field(persistenceProperties.getTenantIdFieldName())
-                                                                  .value(context.getParticipant().getTenantId()))));
+                                                                  .value(tenantIdOf(context)))));
             }
         }
         return queryBuilder;
@@ -198,11 +199,11 @@ public class ReadPreProcessor {
 
                 }else{
 
-                    routingConsumer.accept(context.getParticipant().getTenantId());
+                    routingConsumer.accept(tenantIdOf(context));
                     queryBuilder
                             .bool(b -> b.must(must -> must.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
                                         .filter(qb -> qb.term(tq -> tq.field(persistenceProperties.getTenantIdFieldName())
-                                                                      .value(context.getParticipant().getTenantId()))));
+                                                                      .value(tenantIdOf(context)))));
                 }
             }else{
                 queryBuilder.queryString(qs -> qs.query(searchText).analyzeWildcard(true));
@@ -237,6 +238,10 @@ public class ReadPreProcessor {
             }
             return sf;
         }));
+    }
+
+    private static String tenantIdOf(EntityContext context) {
+        return context.getParticipant() instanceof ApplicationParticipant app ? app.getTenantId() : null;
     }
 
 }

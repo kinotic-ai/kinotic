@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.ObjectUtils;
 import org.kinotic.domain.api.model.RawJson;
+import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -463,7 +464,7 @@ public class DefaultEntityService implements EntityService {
     private String composeId(final String id, final EntityContext context){
         String ret;
         if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED){
-            String tenantId = context.getParticipant().getTenantId();
+            String tenantId = tenantIdOf(context);
             ret = tenantId + "-" + id;
         }else{
             ret = id;
@@ -479,7 +480,7 @@ public class DefaultEntityService implements EntityService {
         List<MultiGetOperation> ret = new ArrayList<>(ids.size());
         boolean multiTenancyShared = entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED;
 
-        String tenantId = context.getParticipant().getTenantId();
+        String tenantId = tenantIdOf(context);
         for (String id : ids){
             MultiGetOperation.Builder builder =  new MultiGetOperation.Builder();
             builder.index(entityDefinition.getItemIndex());
@@ -525,14 +526,14 @@ public class DefaultEntityService implements EntityService {
                                     formatToPrintJson(object));
                         }
                     }else {
-                        if (tenant != null && tenant.equals(context.getParticipant().getTenantId())) {
+                        if (tenant != null && tenant.equals(tenantIdOf(context))) {
                             result.add(object);
                         }else{
                             log.error(
                                     "{} Multi tenancy is not working properly for EntityDefinition: {} and expected tenant: {} got: {}\nData:\n{}",
                                     what,
                                     entityDefinition,
-                                    context.getParticipant().getTenantId(),
+                                    tenantIdOf(context),
                                     tenant,
                                     formatToPrintJson(object));
                         }
@@ -829,9 +830,13 @@ public class DefaultEntityService implements EntityService {
         return entity;
     }
 
+    private static String tenantIdOf(EntityContext context) {
+        return context.getParticipant() instanceof ApplicationParticipant app ? app.getTenantId() : null;
+    }
+
     private CompletableFuture<Void> validateContext(final EntityContext context){
         if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED){
-            if(context.getParticipant() != null && context.getParticipant().getTenantId() != null) {
+            if(context.getParticipant() instanceof ApplicationParticipant app && app.getTenantId() != null) {
 
                 // Check if tenant selection is trying to be used but not enabled
                 if (ObjectUtils.isNotEmpty(context.getTenantSelection())
@@ -845,7 +850,7 @@ public class DefaultEntityService implements EntityService {
                     return CompletableFuture.completedFuture(null);
                 }
             }else{
-                return CompletableFuture.failedFuture(new IllegalArgumentException("Participant with a TenantId is required when MultiTenancyType is SHARED"));
+                return CompletableFuture.failedFuture(new IllegalArgumentException("SHARED multi-tenancy requires an ApplicationParticipant with a tenantId"));
             }
         }else if(ObjectUtils.isNotEmpty(context.getTenantSelection())){
             // This check is here since continuum will allow any published service to be called.
@@ -864,7 +869,7 @@ public class DefaultEntityService implements EntityService {
         if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED
                 && entityDefinition.isMultiTenantSelectionEnabled()){
 
-            if(entityContext.getParticipant() != null && entityContext.getParticipant().getTenantId() != null) {
+            if(entityContext.getParticipant() instanceof ApplicationParticipant app && app.getTenantId() != null) {
 
                 List<MultiGetOperation> ret = new ArrayList<>(ids.size());
                 List<String> tenants = new ArrayList<>(ids.size());
@@ -882,7 +887,7 @@ public class DefaultEntityService implements EntityService {
                 return CompletableFuture.completedFuture(ret);
 
             }else{
-                return CompletableFuture.failedFuture(new IllegalArgumentException("Participant with a TenantId is required when MultiTenancyType is SHARED"));
+                return CompletableFuture.failedFuture(new IllegalArgumentException("SHARED multi-tenancy requires an ApplicationParticipant with a tenantId"));
             }
         }else{
             return CompletableFuture.failedFuture(
