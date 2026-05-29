@@ -58,6 +58,8 @@ public class PendingRegistration implements Identifiable<String> {
 
     // ── Target scope for the eventual IamUser ──
 
+    // FIXME: Move to organizationId and applicationId this is going away
+
     /** Scope layer for the user to be created ({@code SYSTEM}, {@code ORGANIZATION}, {@code APPLICATION}). */
     private String authScopeType;
 
