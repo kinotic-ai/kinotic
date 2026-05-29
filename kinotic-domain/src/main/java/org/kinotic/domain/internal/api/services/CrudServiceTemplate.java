@@ -635,6 +635,16 @@ public class CrudServiceTemplate {
         return TermQuery.of(t -> t.field(field).value(value))._toQuery();
     }
 
+    /** Matches documents where {@code field} is present (the inverse of {@link #missingFilter}). */
+    public Query existsFilter(String field) {
+        return Query.of(q -> q.exists(e -> e.field(field)));
+    }
+
+    /** Matches documents where {@code field} is absent (the inverse of {@link #existsFilter}). */
+    public Query missingFilter(String field) {
+        return Query.of(q -> q.bool(b -> b.mustNot(mn -> mn.exists(e -> e.field(field)))));
+    }
+
     /**
      * Binds the continuations of the given {@link CompletableFuture} back to the Vert.x context
      * that is current at the moment this method is invoked. Any downstream {@code thenCompose} /
