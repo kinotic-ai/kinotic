@@ -5,9 +5,10 @@ import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.OrganizationScoped;
+import org.kinotic.domain.api.security.ApplicationParticipant;
+import org.kinotic.domain.api.security.OrganizationParticipant;
 import org.kinotic.domain.internal.api.repositories.AbstractOrganizationScopedRepository;
 
 import java.util.concurrent.CompletableFuture;
@@ -93,12 +94,15 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
     }
 
     /**
-     * Ensures the current participant is authenticated under the ORGANIZATION auth scope and
-     * returns their organization id. Thin delegate to
-     * {@link SecurityContext#requireAuthScope(AuthScopeType)}.
+     * Ensures the current participant carries an {@code organizationId} — either an
+     * {@link OrganizationParticipant} or its {@link ApplicationParticipant} subtype — and
+     * returns that id.
+     *
+     * @throws IllegalStateException if no participant is bound to the current context
+     * @throws AuthorizationException if the participant is not an {@code OrganizationParticipant}
      */
     protected String requireOrganizationId() {
-        return securityContext.requireAuthScope(AuthScopeType.ORGANIZATION);
+        return OrganizationParticipant.require(securityContext.currentParticipant()).getOrganizationId();
     }
 
     /**

@@ -163,8 +163,8 @@ public class OrganizationLoginHandler {
                                                                                        result.config(),
                                                                                        result.claims(),
                                     // Social login: identity might exist in any org; pick the first match.
-                                                                                       sub -> iamUserService.findByOidcIdentity(sub,
-                                                                                                                                result.config().getId())
+                                                                                       sub -> iamUserService.findAllByOidcIdentity(sub,
+                                                                                                                                   result.config().getId())
                                                                                                             .thenApply(this::pickFirst)))
                             .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }

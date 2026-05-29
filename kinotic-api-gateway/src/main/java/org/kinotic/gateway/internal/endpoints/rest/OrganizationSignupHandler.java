@@ -118,7 +118,7 @@ public class OrganizationSignupHandler {
             return;
         }
 
-        Future.fromCompletionStage(iamUserService.findByOidcIdentity(sub, config.getId()))
+        Future.fromCompletionStage(iamUserService.findAllByOidcIdentity(sub, config.getId()))
               .compose(existing -> {
                   if (existing != null && !existing.isEmpty()) {
                       // Already have an account for this identity — push them to log in instead.
