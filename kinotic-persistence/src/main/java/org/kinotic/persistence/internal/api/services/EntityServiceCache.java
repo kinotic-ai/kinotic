@@ -34,7 +34,7 @@ import java.util.concurrent.Executor;
  * Created by Navíd Mitchell 🤪 on 5/10/23.
  */
 @Component
-public class EntityServiceCacheLoader {
+public class EntityServiceCache {
 
     private final AuthorizationServiceFactory authServiceFactory;
     private final CrudServiceTemplate crudServiceTemplate;
@@ -47,7 +47,7 @@ public class EntityServiceCacheLoader {
     private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
     private final AsyncLoadingCache<CacheKey, EntityService> cache;
 
-    public EntityServiceCacheLoader(AuthorizationServiceFactory authServiceFactory,
+    public EntityServiceCache(AuthorizationServiceFactory authServiceFactory,
                                     CrudServiceTemplate crudServiceTemplate,
                                     ElasticsearchAsyncClient esAsyncClient,
                                     NamedQueriesService namedQueriesService,

@@ -25,9 +25,9 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultEntitiesService implements EntitiesService {
 
-    private final EntityServiceCacheLoader entityServiceCache;
+    private final EntityServiceCache entityServiceCache;
 
-    public DefaultEntitiesService(EntityServiceCacheLoader entityServiceCache) {
+    public DefaultEntitiesService(EntityServiceCache entityServiceCache) {
         this.entityServiceCache = entityServiceCache;
     }
 

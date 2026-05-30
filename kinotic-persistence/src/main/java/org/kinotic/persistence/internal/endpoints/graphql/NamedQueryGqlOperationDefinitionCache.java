@@ -35,8 +35,8 @@ import java.util.concurrent.Executor;
  * Created By Navíd Mitchell 🤪on 2/12/25
  */
 @Component
-public class NamedQueryGqlOperationDefinitionCacheLoader {
-    private static final Logger log = LoggerFactory.getLogger(NamedQueryGqlOperationDefinitionCacheLoader.class);
+public class NamedQueryGqlOperationDefinitionCache {
+    private static final Logger log = LoggerFactory.getLogger(NamedQueryGqlOperationDefinitionCache.class);
     private static final Pageable CURSOR_PAGEABLE = Pageable.create(null, 25, null);
     private static final Pageable OFFSET_PAGEABLE = Pageable.create(0, 25, null);
 
@@ -46,7 +46,7 @@ public class NamedQueryGqlOperationDefinitionCacheLoader {
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final AsyncLoadingCache<CacheKey, List<GqlOperationDefinition>> cache;
 
-    public NamedQueryGqlOperationDefinitionCacheLoader(EntitiesService entitiesService,
+    public NamedQueryGqlOperationDefinitionCache(EntitiesService entitiesService,
                                                        NamedQueriesDefinitionRepository namedQueriesDefinitionRepository,
                                                        ObjectMapper objectMapper,
                                                        EntityDefinitionRepository entityDefinitionRepository,

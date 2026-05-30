@@ -33,13 +33,13 @@ import static graphql.schema.GraphQLNonNull.nonNull;
 public class DefaultGqlOperationDefinitionService implements GqlOperationDefinitionService {
 
     private final List<GqlOperationDefinition> builtInOperationDefinitions;
-    private final NamedQueryGqlOperationDefinitionCacheLoader namedQueryOperationDefinitionCache;
+    private final NamedQueryGqlOperationDefinitionCache namedQueryOperationDefinitionCache;
 
     public DefaultGqlOperationDefinitionService(EntitiesService entitiesService,
-                                                NamedQueryGqlOperationDefinitionCacheLoader namedQueryGqlOperationDefinitionCacheLoader,
+                                                NamedQueryGqlOperationDefinitionCache namedQueryGqlOperationDefinitionCache,
                                                 ObjectMapper objectMapper) {
 
-        this.namedQueryOperationDefinitionCache = namedQueryGqlOperationDefinitionCacheLoader;
+        this.namedQueryOperationDefinitionCache = namedQueryGqlOperationDefinitionCache;
 
         this.builtInOperationDefinitions = List.of(
 
