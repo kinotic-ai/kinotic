@@ -17,6 +17,7 @@ import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.services.sql.SqlQueryType;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.PagedQueryDataFetcher;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.QueryDataFetcher;
+import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.kinotic.persistence.internal.utils.QueryUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +46,7 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
 
     @Override
     public CompletableFuture<? extends List<GqlOperationDefinition>> asyncLoad(String key, Executor executor) {
-        return entityDefinitionRepository.findById(key)
+        return entityDefinitionRepository.findById(key, PersistenceUtil.organizationIdFromEntityDefinitionId(key))
                 .thenApply(entityDefinition -> {
                     Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
                     return entityDefinition;

@@ -21,18 +21,6 @@ public abstract class AbstractProjectScopedService<T extends ProjectScoped<Strin
         this.projectRepository = repository;
     }
 
-    // FIXME: remove when elevated access is removed.
-    @Override
-    protected String getRoutingKeyFromId(String id) {
-        if (id != null) {
-            int dotIndex = id.indexOf('.');
-            if (dotIndex > 0) {
-                return id.substring(0, dotIndex);
-            }
-        }
-        return null;
-    }
-
     @Override
     public CompletableFuture<Long> countForProject(String projectId) {
         return projectRepository.countForProject(projectId, requireOrganizationId());

@@ -68,7 +68,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
 
     @Override
     public CompletableFuture<? extends EntityService> asyncLoad(String key, Executor executor) throws Exception {
-        return entityDefinitionRepository.findById(key)
+        return entityDefinitionRepository.findById(key, PersistenceUtil.organizationIdFromEntityDefinitionId(key))
                 .thenApply(entityDefinition -> {
                     Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
                     return entityDefinition;
