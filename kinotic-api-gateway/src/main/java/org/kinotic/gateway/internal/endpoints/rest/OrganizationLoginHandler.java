@@ -7,7 +7,6 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.AuthType;
@@ -21,6 +20,7 @@ import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.services.iam.PendingRegistrationService;
 import org.kinotic.domain.internal.api.model.IamCredential;
+import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
@@ -79,7 +79,7 @@ public class OrganizationLoginHandler {
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final PendingRegistrationService pendingRegistrationService;
-    private final SecurityContext securityContext;
+    private final OidcConfigurationRepository oidcConfigurationRepository;
 
     public void mountRoutes(Router router) {
         router.get(OidcConstants.ORG_LOGIN_BASE + "/providers").handler(this::handleProviders);
@@ -158,7 +158,7 @@ public class OrganizationLoginHandler {
         oidcFlowOrchestrator.handleCallback(ctx,
                                             pathConfigId,
                                             socialCallbackUrl(pathConfigId),
-                                            orgSignupOidcConfigurationService::findById)
+                                            (id, extras) -> orgSignupOidcConfigurationService.findById(id))
                             .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx,
                                                                                        result.config(),
                                                                                        result.claims(),
@@ -201,13 +201,13 @@ public class OrganizationLoginHandler {
     private void handleSsoCallback(RoutingContext ctx) {
         String pathConfigId = ctx.pathParam("configId");
 
-        // OidcConfiguration is OrganizationScoped; the pre-auth callback has no
-        // participant bound, so the lookup runs with elevated access. The configId is
-        // trusted — it came from the IdP redirect we issued ourselves under the same id.
+        // OidcConfiguration is OrganizationScoped; the pre-auth callback has no participant
+        // bound, so the lookup is scoped by the orgId stashed on the flow session at startFlow.
+        // The configId is trusted — it came from the IdP redirect we issued ourselves.
         oidcFlowOrchestrator.handleCallback(ctx,
                                             pathConfigId,
                                             ssoCallbackUrl(pathConfigId),
-                                            id -> securityContext.withElevatedAccess(() -> oidcConfigurationService.findById(id)))
+                                            (id, extras) -> oidcConfigurationRepository.findById(id, extras.get(ORG_ID_EXTRA)))
                             .onSuccess(result -> {
                                 String orgId = result.extras().get(ORG_ID_EXTRA);
                                 authEndpointSupport.completeOidcLogin(ctx,

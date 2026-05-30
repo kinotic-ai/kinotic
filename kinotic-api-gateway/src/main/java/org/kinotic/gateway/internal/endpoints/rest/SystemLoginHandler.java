@@ -55,7 +55,8 @@ public class SystemLoginHandler {
     private void handleCallback(RoutingContext ctx) {
         String pathConfigId = ctx.pathParam("configId");
 
-        oidcFlowOrchestrator.handleCallback(ctx, pathConfigId, callbackUrl(pathConfigId), systemOidcConfigurationService::findById)
+        oidcFlowOrchestrator.handleCallback(ctx, pathConfigId, callbackUrl(pathConfigId),
+                                            (id, extras) -> systemOidcConfigurationService.findById(id))
                             .onSuccess(result ->
                                                authEndpointSupport.completeOidcLogin(ctx,
                                                                                      result.config(),

@@ -90,7 +90,7 @@ public class OrganizationSignupHandler {
 
         oidcFlowOrchestrator.<OrgSignupOidcConfiguration>handleCallback(
                 ctx, pathConfigId, callbackUrl(pathConfigId),
-                orgSignupOidcConfigurationService::findById)
+                (id, extras) -> orgSignupOidcConfigurationService.findById(id))
                 .onSuccess(result -> resolveSignup(ctx, result))
                 .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }

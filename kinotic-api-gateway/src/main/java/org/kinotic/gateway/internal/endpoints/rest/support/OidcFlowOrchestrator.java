@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
 /**
  * Owns the OAuth 2.0 / OIDC dance shared by every handler that bounces the user out to
@@ -56,8 +56,10 @@ public class OidcFlowOrchestrator {
      *
      * <p>The session is consumed regardless of outcome — replay protection.
      *
-     * @param configResolver looks up the config by the {@code :configId} path param from
-     *                       the appropriate service for this route. Must return a
+     * @param configResolver looks up the config from the appropriate service/repository for
+     *                       this route, given the {@code :configId} path param (first arg) and
+     *                       the {@code extras} stashed at {@link #startFlow} (second arg — e.g.
+     *                       {@code orgId} for an org-scoped lookup). Must return a
      *                       {@link CompletableFuture} resolving to {@code null} when the
      *                       id is unknown.
      */
@@ -65,7 +67,7 @@ public class OidcFlowOrchestrator {
             RoutingContext ctx,
             String pathConfigId,
             String callbackUrl,
-            Function<String, CompletableFuture<C>> configResolver) {
+            BiFunction<String, Map<String, String>, CompletableFuture<C>> configResolver) {
 
         String code = ctx.request().getParam("code");
         String state = ctx.request().getParam("state");
@@ -88,7 +90,7 @@ public class OidcFlowOrchestrator {
             return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_STATE_MISMATCH));
         }
 
-        return Future.fromCompletionStage(configResolver.apply(pathConfigId))
+        return Future.fromCompletionStage(configResolver.apply(pathConfigId, flowSession.extras()))
                      .compose(config -> {
                          if (config == null) {
                              return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_CONFIG_NOT_FOUND));

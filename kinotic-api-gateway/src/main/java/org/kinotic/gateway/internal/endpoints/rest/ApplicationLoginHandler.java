@@ -6,17 +6,20 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
-import org.kinotic.os.api.services.ApplicationService;
 import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
+import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
+import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Login routes for end-users of an application built on Kinotic. Distinct from the
@@ -41,9 +44,9 @@ import org.springframework.stereotype.Component;
  * appId — every IamUser/OidcConfiguration lookup carries both ids so the auth path can
  * never collide cross-org.
  *
- * <p>OIDC config lookups run inside {@link SecurityContext#withElevatedAccess} — the
- * pre-auth login flow has no participant bound to filter against. Phase 5a replaces those
- * wrappers with direct repository calls.
+ * <p>The pre-auth login flow has no participant bound to filter against, so OIDC config
+ * lookups go directly through the org-scoped repositories, scoped by the {@code :orgId}
+ * path param.
  */
 @Slf4j
 @Component
@@ -51,11 +54,11 @@ import org.springframework.stereotype.Component;
 public class ApplicationLoginHandler {
 
     private final IamUserService iamUserService;
-    private final ApplicationService applicationService;
+    private final ApplicationRepository applicationRepository;
     private final OidcConfigurationService oidcConfigurationService;
+    private final OidcConfigurationRepository oidcConfigurationRepository;
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
-    private final SecurityContext securityContext;
     private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
@@ -68,7 +71,14 @@ public class ApplicationLoginHandler {
     private void handleProviders(RoutingContext ctx) {
         String orgId = ctx.pathParam("orgId");
         String appId = ctx.pathParam("appId");
-        securityContext.withElevatedAccess(() -> applicationService.getOidcConfigurations(appId))
+        applicationRepository.findById(appId, orgId)
+              .thenCompose(app -> {
+                  if (app == null || app.getOidcConfigurationIds() == null
+                          || app.getOidcConfigurationIds().isEmpty()) {
+                      return CompletableFuture.completedFuture(List.<OidcConfiguration>of());
+                  }
+                  return oidcConfigurationService.findEnabledByIds(app.getOidcConfigurationIds(), orgId);
+              })
               .whenComplete((configs, err) -> {
                   if (err != null) {
                       log.warn("Failed to list app providers for {}/{}: {}", orgId, appId, err.getMessage());
@@ -105,8 +115,7 @@ public class ApplicationLoginHandler {
         }
 
         String configId = user.getOidcConfigId();
-        return Future.fromCompletionStage(
-                        securityContext.withElevatedAccess(() -> oidcConfigurationService.findById(configId)))
+        return Future.fromCompletionStage(oidcConfigurationRepository.findById(configId, orgId))
                      .compose(match -> {
                          if (match == null || !match.isEnabled()) {
                              return authEndpointSupport.respondPasswordPath(ctx);
@@ -131,7 +140,7 @@ public class ApplicationLoginHandler {
 
         oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
                 ctx, pathConfigId, callbackUrl(orgId, appId, pathConfigId),
-                id -> securityContext.withElevatedAccess(() -> oidcConfigurationService.findById(id)))
+                (id, extras) -> oidcConfigurationRepository.findById(id, orgId))
                 .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
                         sub -> iamUserService.findByOidcIdentity(
                                 sub, result.config().getId(), orgId, appId)))
