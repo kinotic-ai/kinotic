@@ -58,13 +58,12 @@ public class PendingRegistration implements Identifiable<String> {
 
     // ── Target scope for the eventual IamUser ──
 
-    // FIXME: Move to organizationId and applicationId this is going away
-
-    /** Scope layer for the user to be created ({@code SYSTEM}, {@code ORGANIZATION}, {@code APPLICATION}). */
-    private String authScopeType;
-
-    /** Scope identifier for the user to be created. */
-    private String authScopeId;
+    /**
+     * Organization the created {@link IamUser} will belong to. May be {@code null} while the
+     * registration is pending — the social-signup path doesn't learn the org until the user
+     * names it at completion.
+     */
+    private String organizationId;
 
     /** Additional OIDC claims preserved for the registration form and eventual user record. */
     private Map<String, Object> additionalClaims;

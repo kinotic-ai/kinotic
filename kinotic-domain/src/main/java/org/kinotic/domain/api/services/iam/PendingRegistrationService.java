@@ -31,8 +31,8 @@ public interface PendingRegistrationService {
      * user-supplied extras to a new {@link IamUser}, deletes the pending record, and returns
      * the created user. Fails if the token is missing, already consumed, or expired.
      * <p>
-     * The pending registration must already have its target scope populated (this is the
-     * REGISTRATION_REQUIRED path, where the org is known up front).
+     * The pending registration must already have its {@code organizationId} populated (this is
+     * the REGISTRATION_REQUIRED path, where the org is known up front).
      *
      * @param verificationToken one-time token from the pending registration
      * @param finalizer         applies user-supplied overrides (e.g. chosen display name) to

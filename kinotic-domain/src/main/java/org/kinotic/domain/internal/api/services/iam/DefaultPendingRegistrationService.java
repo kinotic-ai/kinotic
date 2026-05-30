@@ -46,7 +46,6 @@ public class DefaultPendingRegistrationService implements PendingRegistrationSer
         Validate.notBlank(registration.getOidcSubject(), "oidcSubject is required");
         Validate.notBlank(registration.getOidcConfigId(), "oidcConfigId is required");
         Validate.notBlank(registration.getEmail(), "email is required");
-        Validate.notBlank(registration.getAuthScopeType(), "authScopeType is required");
 
         Date now = new Date();
         registration.setId(UUID.randomUUID().toString())
@@ -87,8 +86,8 @@ public class DefaultPendingRegistrationService implements PendingRegistrationSer
                     .setDescription(orgDescription);
             return organizationService.save(org)
                     .thenCompose(savedOrg -> {
-                        // Promote the pending reg's scope to the new org so createUserFromPending wires it correctly
-                        pending.setAuthScopeType("ORGANIZATION").setAuthScopeId(savedOrg.getId());
+                        // Org now exists — point the pending registration at it so createUserFromPending wires organizationId.
+                        pending.setOrganizationId(savedOrg.getId());
                         return createUserFromPending(pending, null)
                                 .thenCompose(savedUser -> {
                                     savedOrg.setCreatedBy(savedUser.getId());
@@ -115,6 +114,11 @@ public class DefaultPendingRegistrationService implements PendingRegistrationSer
 
     private CompletableFuture<IamUser> createUserFromPending(PendingRegistration pending,
                                                              Consumer<IamUser> finalizer) {
+        // A null organizationId leaves the new user with both scope ids null — i.e. SYSTEM —
+        // and OIDC registration must never mint a platform operator. completeWithNewOrg fills
+        // this in first; the REGISTRATION_REQUIRED complete() path must supply it up front.
+        Validate.notBlank(pending.getOrganizationId(),
+                          "Cannot create user: pending registration has no organizationId");
         Date now = new Date();
         IamUser user = new IamUser()
                 .setId(UUID.randomUUID().toString())
@@ -123,10 +127,10 @@ public class DefaultPendingRegistrationService implements PendingRegistrationSer
                 .setAuthType(AuthType.OIDC)
                 .setOidcSubject(pending.getOidcSubject())
                 .setOidcConfigId(pending.getOidcConfigId())
+                .setOrganizationId(pending.getOrganizationId())
                 .setEnabled(true)
                 .setCreated(now)
                 .setUpdated(now);
-        applyPendingScope(user, pending);
 
         if (finalizer != null) {
             finalizer.accept(user);
@@ -139,21 +143,5 @@ public class DefaultPendingRegistrationService implements PendingRegistrationSer
     private CompletableFuture<Void> deleteById(String id) {
         return esAsyncClient.delete(d -> d.index(INDEX).id(id).refresh(Refresh.WaitFor))
                             .thenApply(response -> null);
-    }
-
-    /**
-     * Translates the {@link PendingRegistration}'s flat {@code authScopeType}/
-     * {@code authScopeId} pair into the typed scope fields on the new {@link IamUser}.
-     * Only ORGANIZATION pending registrations are produced by the current signup flow;
-     * other values are rejected to surface any wiring mistakes.
-     */
-    private static void applyPendingScope(IamUser user, PendingRegistration pending) {
-        String scope = pending.getAuthScopeType();
-        if ("ORGANIZATION".equals(scope)) {
-            user.setOrganizationId(pending.getAuthScopeId());
-        } else {
-            throw new IllegalStateException(
-                    "PendingRegistration with '" + scope + "' scope is not supported by the signup flow");
-        }
     }
 }

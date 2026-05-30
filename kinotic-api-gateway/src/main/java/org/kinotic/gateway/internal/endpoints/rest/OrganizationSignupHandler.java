@@ -129,8 +129,6 @@ public class OrganizationSignupHandler {
                           .setOidcConfigId(config.getId())
                           .setEmail(email)
                           .setDisplayName(displayName)
-                          .setAuthScopeType("ORGANIZATION")  // placeholder — actual orgId set on complete
-                          .setAuthScopeId("__pending__")
                           .setAdditionalClaims(claims);
                   return Future.fromCompletionStage(pendingRegistrationService.create(pending));
               })
