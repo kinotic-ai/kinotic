@@ -24,16 +24,16 @@ public class ApplicationTests extends KinoticTestBase {
 		test.setOrganizationId(TEST_ORG_ID);
 		test.setDescription("Testing This Application");
 
-		StepVerifier.create(Mono.fromFuture(elevated(() -> applicationService.save(test))))
+		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.save(test))))
 					.expectNextMatches(application -> application.getId().equals("Test") && application.getUpdated() != null)
 					.expectComplete()
 					.verify();
 
-		StepVerifier.create(Mono.fromFuture(elevated(() -> applicationService.deleteById(test.getId()))))
+		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.deleteById(test.getId()))))
 					.expectComplete()
 					.verify();
 
-		StepVerifier.create(Mono.fromFuture(elevated(() -> applicationService.findById(test.getId()))))
+		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.findById(test.getId()))))
 					.expectComplete()
 					.verify();
 	}
