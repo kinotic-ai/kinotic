@@ -26,22 +26,6 @@ public class PersistenceUtil {
     }
 
     /**
-     * Extracts the {@code organizationId} prefix from an id created by
-     * {@link #createEntityDefinitionId}. The id is {@code organizationId.applicationId.name},
-     * so the organizationId is the segment before the first dot.
-     *
-     * @param entityDefinitionId a prefixed EntityDefinition id
-     * @return the organizationId prefix
-     * @throws IllegalArgumentException if the id carries no organizationId prefix
-     */
-    public static String organizationIdFromEntityDefinitionId(String entityDefinitionId){
-        Validate.notBlank(entityDefinitionId, "entityDefinitionId must not be blank");
-        int dot = entityDefinitionId.indexOf('.');
-        Validate.isTrue(dot > 0, "entityDefinitionId '%s' has no organizationId prefix", entityDefinitionId);
-        return entityDefinitionId.substring(0, dot);
-    }
-
-    /**
      * Function will validate a {@link EntityDefinition}
      *
      * @param entityDefinition to validate

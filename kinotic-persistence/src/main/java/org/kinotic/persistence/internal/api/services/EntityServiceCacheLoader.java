@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
+import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
@@ -15,10 +15,12 @@ import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
 import org.kinotic.persistence.api.model.DecoratedProperty;
 import org.kinotic.persistence.internal.api.repositories.EntityDefinitionRepository;
+import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,11 +28,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
- * This simplifies the creation of the EntityService, since a lot of dependencies are needed.
+ * Owns the cache of {@link EntityService}s, keyed by {@code (organizationId, entityDefinitionId)},
+ * and builds one on a miss. Building an EntityService needs a lot of dependencies, which is why
+ * this is its own component.
  * Created by Navíd Mitchell 🤪 on 5/10/23.
  */
 @Component
-public class EntityServiceCacheLoader implements AsyncCacheLoader<String, EntityService> {
+public class EntityServiceCacheLoader {
 
     private final AuthorizationServiceFactory authServiceFactory;
     private final CrudServiceTemplate crudServiceTemplate;
@@ -41,7 +45,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final PersistenceProperties persistenceProperties;
     private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
-
+    private final AsyncLoadingCache<CacheKey, EntityService> cache;
 
     public EntityServiceCacheLoader(AuthorizationServiceFactory authServiceFactory,
                                     CrudServiceTemplate crudServiceTemplate,
@@ -51,7 +55,8 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
                                     ReadPreProcessor readPreProcessor,
                                     EntityDefinitionRepository entityDefinitionRepository,
                                     PersistenceProperties persistenceProperties,
-                                    List<UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors) {
+                                    List<UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors,
+                                    DefaultCaffeineCacheFactory cacheFactory) {
         this.authServiceFactory = authServiceFactory;
         this.crudServiceTemplate = crudServiceTemplate;
         this.esAsyncClient = esAsyncClient;
@@ -63,14 +68,33 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
 
         this.upsertFieldPreProcessors = PersistenceUtil.listToMap(upsertFieldPreProcessors,
                                                                  p -> p.implementsDecorator().getName());
+
+        this.cache = cacheFactory.<CacheKey, EntityService>newBuilder()
+                                 .name("entityServiceCache")
+                                 .expireAfterAccess(Duration.ofHours(20))
+                                 .maximumSize(2000)
+                                 .buildAsync(this::load);
     }
 
+    /**
+     * Returns the {@link EntityService} for {@code entityDefinitionId} within {@code organizationId},
+     * building and caching it on a miss.
+     */
+    public CompletableFuture<EntityService> get(String organizationId, String entityDefinitionId) {
+        return cache.get(new CacheKey(organizationId, entityDefinitionId));
+    }
 
-    @Override
-    public CompletableFuture<? extends EntityService> asyncLoad(String key, Executor executor) throws Exception {
-        return entityDefinitionRepository.findById(key, PersistenceUtil.organizationIdFromEntityDefinitionId(key))
+    /**
+     * Evicts the cached {@link EntityService} for {@code entityDefinitionId} within {@code organizationId}.
+     */
+    public void evict(String organizationId, String entityDefinitionId) {
+        cache.asMap().remove(new CacheKey(organizationId, entityDefinitionId));
+    }
+
+    private CompletableFuture<EntityService> load(CacheKey key, Executor executor) {
+        return entityDefinitionRepository.findById(key.entityDefinitionId(), key.organizationId())
                 .thenApply(entityDefinition -> {
-                    Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
+                    Validate.notNull(entityDefinition, "No EntityDefinition found for %s", key);
                     return entityDefinition;
                 })
                 .thenComposeAsync(this::createEntityService, executor);
@@ -115,5 +139,7 @@ public class EntityServiceCacheLoader implements AsyncCacheLoader<String, Entity
                                          entityDefinition,
                                          persistenceProperties));
     }
+
+    private record CacheKey(String organizationId, String entityDefinitionId) {}
 
 }
