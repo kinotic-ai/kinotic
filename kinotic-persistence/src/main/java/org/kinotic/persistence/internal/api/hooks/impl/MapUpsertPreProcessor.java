@@ -2,7 +2,6 @@ package org.kinotic.persistence.internal.api.hooks.impl;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import org.apache.commons.lang3.tuple.Pair;
-import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityDefinition;
@@ -126,11 +125,11 @@ public class MapUpsertPreProcessor implements UpsertPreProcessor<Map<Object, Obj
 
                 tenantId = (String) entity.get(persistenceProperties.getTenantIdFieldName());
 
-                if (tenantId != null && !tenantId.equals(tenantIdOf(context))) {
+                if (tenantId != null && !tenantId.equals(context.getParticipant().getTenantId())) {
                     throw new IllegalArgumentException("Tenant Id invalid for logged in participant");
 
                 } else if (tenantId == null) {
-                    tenantId = tenantIdOf(context);
+                    tenantId = context.getParticipant().getTenantId();
                     entity.put(persistenceProperties.getTenantIdFieldName(), tenantId);
                 }
             }
@@ -153,9 +152,5 @@ public class MapUpsertPreProcessor implements UpsertPreProcessor<Map<Object, Obj
                                   tenantId,
                                   version
         );
-    }
-
-    private static String tenantIdOf(EntityContext context) {
-        return context.getParticipant() instanceof ApplicationParticipant app ? app.getTenantId() : null;
     }
 }

@@ -12,7 +12,6 @@ import tools.jackson.core.util.ByteArrayBuilder;
 import tools.jackson.databind.json.JsonMapper;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.*;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
@@ -184,7 +183,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                             // or matches the logged in tenant
                             jsonParser.nextToken(); // move to value token
                             currentTenantId = jsonMapper.readValue(jsonParser, String.class);
-                            if(currentTenantId != null && !currentTenantId.equals(tenantIdOf(context))){
+                            if(currentTenantId != null && !currentTenantId.equals(context.getParticipant().getTenantId())){
                                 throw new IllegalArgumentException("Tenant Id invalid for logged in participant");
                             }
 
@@ -216,7 +215,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         // If this is a multi tenant EntityDefinition and multi tenant selection is not enabled, add the tenant if necessary
                         if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED
                                 && currentTenantId == null){
-                            currentTenantId = tenantIdOf(context);
+                            currentTenantId = context.getParticipant().getTenantId();
                             jsonGenerator.writeStringProperty(persistenceProperties.getTenantIdFieldName(), currentTenantId);
                         }
 
@@ -270,10 +269,6 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
         } catch (Exception e) {
             return CompletableFuture.failedFuture(e);
         }
-    }
-
-    private static String tenantIdOf(EntityContext context) {
-        return context.getParticipant() instanceof ApplicationParticipant app ? app.getTenantId() : null;
     }
 
     private boolean shouldSkipToken(JsonToken token, Object currentValue, int arrayDepth, boolean processArray){

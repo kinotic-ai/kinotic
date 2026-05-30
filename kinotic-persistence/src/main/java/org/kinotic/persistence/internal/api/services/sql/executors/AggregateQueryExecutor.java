@@ -5,7 +5,6 @@ import java.util.concurrent.CompletableFuture;
 
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
@@ -103,7 +102,7 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
                 //       ]
                 //     }
 
-                String tenantId = context.getEntityContext().getParticipant() instanceof ApplicationParticipant app ? app.getTenantId() : null;
+                String tenantId = context.getEntityContext().getParticipant().getTenantId();
                 filter = new JsonObject().put("bool", new JsonObject()
                         .put("filter", new JsonArray()
                                 .add(new JsonObject().put("term", new JsonObject()

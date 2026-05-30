@@ -1,6 +1,6 @@
 package org.kinotic.persistence.api.model;
 
-import org.kinotic.core.api.security.Participant;
+import org.kinotic.domain.api.security.ApplicationParticipant;
 
 import java.util.List;
 
@@ -25,9 +25,13 @@ public interface EntityContext {
     boolean hasIncludedFieldsFilter();
 
     /**
-     * @return the {@link Participant} that is performing the operation
+     * The {@link ApplicationParticipant} performing the operation. Entity data is always
+     * application-scoped end-user data, so an entity operation is always carried out by an
+     * Application participant.
+     *
+     * @return the {@link ApplicationParticipant} that is performing the operation
      */
-    Participant getParticipant();
+    ApplicationParticipant getParticipant();
 
     /**
      * Checks if a tenant selection is provided for the current operation
