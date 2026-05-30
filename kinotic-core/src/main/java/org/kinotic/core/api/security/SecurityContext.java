@@ -16,12 +16,6 @@ import java.util.function.Supplier;
  * use to bypass scope enforcement (e.g. when a cache loader needs to read an
  * OrganizationScoped entity on behalf of an APPLICATION-scoped caller).
  * <p>
- * Typed scope checks go through {@link #requireParticipant(Class)} — callers pass the
- * concrete {@code Participant} subtype they need (e.g. {@code OrganizationParticipant.class}
- * from {@code kinotic-domain}). This lets {@code SecurityContext} stay type-agnostic so
- * {@code kinotic-core} consumers without {@code kinotic-domain} on the classpath are
- * unaffected.
- * <p>
  * Must only be used as a Spring-managed bean. The underlying {@link ContextLocal}s must be
  * registered before any {@link Vertx} instance is created, which is handled by the bean
  * definitions in {@code org.kinotic.core.internal.config.KinoticVertxConfig}.
