@@ -7,6 +7,7 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
+import org.kinotic.gateway.internal.endpoints.rest.support.CallbackResult;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -140,11 +141,17 @@ public class ApplicationLoginHandler {
 
         oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
                 ctx, pathConfigId, callbackUrl(orgId, appId, pathConfigId),
-                (id, extras) -> oidcConfigurationRepository.findById(id, orgId))
-                .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
-                        sub -> iamUserService.findByOidcIdentity(
-                                sub, result.config().getId(), orgId, appId)))
+                _ -> oidcConfigurationRepository.findById(pathConfigId, orgId))
+                .onSuccess(result -> completeAppLogin(ctx, result, orgId, appId))
                 .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
+    }
+
+    private void completeAppLogin(RoutingContext ctx,
+                                  CallbackResult<OidcConfiguration> result,
+                                  String orgId,
+                                  String appId) {
+        authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
+                sub -> iamUserService.findByOidcIdentity(sub, result.config().getId(), orgId, appId));
     }
 
     private String callbackUrl(String orgId, String appId, String configId) {

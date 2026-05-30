@@ -8,6 +8,7 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
+import org.kinotic.gateway.internal.endpoints.rest.support.CallbackResult;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -25,7 +26,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -70,8 +70,6 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class OrganizationLoginHandler {
 
-    /** Stashed on the SSO path so the callback can narrow the IamUser lookup. */
-    private static final String ORG_ID_EXTRA = "orgId";
     private final AuthEndpointSupport authEndpointSupport;
     private final IamUserService iamUserService;
     private final LocalAuthenticationService localAuthenticationService;
@@ -158,15 +156,16 @@ public class OrganizationLoginHandler {
         oidcFlowOrchestrator.handleCallback(ctx,
                                             pathConfigId,
                                             socialCallbackUrl(pathConfigId),
-                                            (id, extras) -> orgSignupOidcConfigurationService.findById(id))
-                            .onSuccess(result -> authEndpointSupport.completeOidcLogin(ctx,
-                                                                                       result.config(),
-                                                                                       result.claims(),
-                                    // Social login: identity might exist in any org; pick the first match.
-                                                                                       sub -> iamUserService.findAllByOidcIdentity(sub,
-                                                                                                                                   result.config().getId())
-                                                                                                            .thenApply(this::pickFirst)))
+                                            _ -> orgSignupOidcConfigurationService.findById(pathConfigId))
+                            .onSuccess(result -> completeSocialLogin(ctx, result))
                             .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
+    }
+
+    private void completeSocialLogin(RoutingContext ctx, CallbackResult<OrgSignupOidcConfiguration> result) {
+        authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
+                // Social login: identity might exist in any org; pick the first match.
+                sub -> iamUserService.findAllByOidcIdentity(sub, result.config().getId())
+                                     .thenApply(this::pickFirst));
     }
 
     private void handleSocialStart(RoutingContext ctx) {
@@ -207,18 +206,14 @@ public class OrganizationLoginHandler {
         oidcFlowOrchestrator.handleCallback(ctx,
                                             pathConfigId,
                                             ssoCallbackUrl(pathConfigId),
-                                            (id, extras) -> oidcConfigurationRepository.findById(id, extras.get(ORG_ID_EXTRA)))
-                            .onSuccess(result -> {
-                                String orgId = result.extras().get(ORG_ID_EXTRA);
-                                authEndpointSupport.completeOidcLogin(ctx,
-                                                                      result.config(),
-                                                                      result.claims(),
-                                                                      sub -> iamUserService.findByOidcIdentity(sub,
-                                                                                                                result.config().getId(),
-                                                                                                                orgId,
-                                                                                                                null));
-                            })
+                                            orgId -> oidcConfigurationRepository.findById(pathConfigId, orgId))
+                            .onSuccess(result -> completeSsoLogin(ctx, result))
                             .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
+    }
+
+    private void completeSsoLogin(RoutingContext ctx, CallbackResult<OidcConfiguration> result) {
+        authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
+                sub -> iamUserService.findByOidcIdentity(sub, result.config().getId(), result.orgId(), null));
     }
 
     private void handleLogin(RoutingContext ctx) {
@@ -255,7 +250,7 @@ public class OrganizationLoginHandler {
                          return oidcFlowOrchestrator.startFlow(ctx,
                                                                match,
                                                                ssoCallbackUrl(match.getId()),
-                                                               Map.of(ORG_ID_EXTRA, orgId))
+                                                               orgId)
                                                     .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
                      });
     }

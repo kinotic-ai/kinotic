@@ -6,6 +6,7 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
+import org.kinotic.gateway.internal.endpoints.rest.support.CallbackResult;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.SystemOidcConfiguration;
@@ -56,16 +57,14 @@ public class SystemLoginHandler {
         String pathConfigId = ctx.pathParam("configId");
 
         oidcFlowOrchestrator.handleCallback(ctx, pathConfigId, callbackUrl(pathConfigId),
-                                            (id, extras) -> systemOidcConfigurationService.findById(id))
-                            .onSuccess(result ->
-                                               authEndpointSupport.completeOidcLogin(ctx,
-                                                                                     result.config(),
-                                                                                     result.claims(),
-                                                                                     sub -> iamUserService.findByOidcIdentity(sub,
-                                                                                                                              result.config().getId(),
-                                                                                                                              null,
-                                                                                                                              null)))
+                                            _ -> systemOidcConfigurationService.findById(pathConfigId))
+                            .onSuccess(result -> completeSystemLogin(ctx, result))
                             .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
+    }
+
+    private void completeSystemLogin(RoutingContext ctx, CallbackResult<SystemOidcConfiguration> result) {
+        authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
+                sub -> iamUserService.findByOidcIdentity(sub, result.config().getId(), null, null));
     }
 
     private void handleProviders(RoutingContext ctx) {
