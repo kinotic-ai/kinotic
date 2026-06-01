@@ -69,8 +69,10 @@ CREATE TABLE IF NOT EXISTS kinotic_entity_definition (
     timeReferenceFieldName KEYWORD NOT INDEXED
 );
 
--- IAM User: authenticated identities at each scope layer.
--- Uniqueness rule (enforced in service layer): one row per (email, authScopeType, authScopeId).
+-- IAM User: authenticated identities at each scope layer. Scope is encoded structurally by
+-- which of organizationId / applicationId is set: both null = SYSTEM, organizationId only =
+-- ORGANIZATION, both set = APPLICATION.
+-- Uniqueness rule (enforced in service layer): one row per (email, organizationId, applicationId).
 CREATE TABLE IF NOT EXISTS kinotic_iam_user (
     id KEYWORD,
     email KEYWORD,
@@ -78,8 +80,8 @@ CREATE TABLE IF NOT EXISTS kinotic_iam_user (
     authType KEYWORD,
     oidcSubject KEYWORD,
     oidcConfigId KEYWORD,
-    authScopeType KEYWORD,
-    authScopeId KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
     tenantId KEYWORD,
     enabled BOOLEAN,
     created DATE,
@@ -164,7 +166,7 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     updated DATE
 );
 
--- Pending OIDC registrations awaiting completion form submission
+-- Pending OIDC sign-ups awaiting completion form submission (OidcPendingSignUp)
 CREATE TABLE IF NOT EXISTS kinotic_pending_registration (
     id KEYWORD,
     verificationToken KEYWORD,
@@ -174,8 +176,7 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_registration (
     oidcConfigId KEYWORD,
     email KEYWORD,
     displayName KEYWORD,
-    authScopeType KEYWORD,
-    authScopeId KEYWORD,
+    organizationId KEYWORD,
     additionalClaims JSON NOT INDEXED
 );
 
