@@ -46,7 +46,7 @@ public class IamUser implements Identifiable<String> {
 
     /**
      * The {@code sub} claim from the OIDC token. Populated when an OIDC user is provisioned
-     * (auto on first login, or via PendingRegistration completion); used together with
+     * (auto on first login, or via pending sign-up completion); used together with
      * {@link #oidcConfigId} to resolve the IamUser back from the IdP callback.
      */
     private String oidcSubject;

@@ -13,7 +13,7 @@ public enum UserProvisioningMode {
     AUTO,
 
     /**
-     * Stash the verified identity in a short-lived {@code PendingRegistration} and redirect
+     * Stash the verified identity in a short-lived {@code OidcPendingSignUp} and redirect
      * the user to a completion form so they can supply Kinotic-specific info (ToS, display
      * name, etc.) before the account is created.
      */

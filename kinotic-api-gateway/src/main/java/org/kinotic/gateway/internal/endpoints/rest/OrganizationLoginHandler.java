@@ -19,7 +19,7 @@ import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
-import org.kinotic.domain.api.services.iam.PendingRegistrationService;
+import org.kinotic.domain.api.services.iam.OidcSignUpService;
 import org.kinotic.domain.internal.api.model.IamCredential;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.springframework.stereotype.Component;
@@ -61,7 +61,7 @@ import java.util.Set;
  *
  * <p>{@code GET /api/login/providers} returns the unique provider keys from the
  * Kinotic-curated social configs for rendering the social buttons.
- * {@code POST /api/register/complete} consumes a {@link org.kinotic.domain.api.model.iam.PendingRegistration}
+ * {@code POST /api/register/complete} consumes a {@link org.kinotic.domain.api.model.iam.OidcPendingSignUp}
  * from the {@link org.kinotic.domain.api.model.iam.UserProvisioningMode#REGISTRATION_REQUIRED}
  * signup path.
  */
@@ -76,7 +76,7 @@ public class OrganizationLoginHandler {
     private final OidcConfigurationService oidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
-    private final PendingRegistrationService pendingRegistrationService;
+    private final OidcSignUpService oidcSignUpService;
     private final OidcConfigurationRepository oidcConfigurationRepository;
 
     public void mountRoutes(Router router) {
@@ -139,7 +139,7 @@ public class OrganizationLoginHandler {
         @SuppressWarnings("null")
         String displayNameOverride = body.getString("displayName");
 
-        Future.fromCompletionStage(pendingRegistrationService.complete(token, user -> {
+        Future.fromCompletionStage(oidcSignUpService.complete(token, user -> {
                   if (displayNameOverride != null && !displayNameOverride.isBlank()) {
                       user.setDisplayName(displayNameOverride);
                   }

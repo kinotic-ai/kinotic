@@ -90,6 +90,6 @@ public final class OidcConstants {
     /** Signup callback found an existing IamUser for the IdP identity — caller should log in instead. */
     public static final String ERR_ACCOUNT_EXISTS = "account_exists";
 
-    /** Signup failed during PendingRegistration creation. */
+    /** Signup failed during pending sign-up creation. */
     public static final String ERR_SIGNUP_FAILED = "signup_failed";
 }

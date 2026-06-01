@@ -1,7 +1,7 @@
 package org.kinotic.gateway.internal.endpoints.rest;
 
-import org.kinotic.domain.api.model.iam.SignUpRequest;
-import org.kinotic.domain.api.services.iam.SignUpService;
+import org.kinotic.domain.api.model.iam.LocalPendingSignUp;
+import org.kinotic.domain.api.services.iam.LocalSignUpService;
 import org.springframework.stereotype.Component;
 
 import io.vertx.core.json.JsonObject;
@@ -12,14 +12,14 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * REST handler for organization sign-up endpoints.
  * Mounts routes on the shared Vert.x Router alongside the STOMP/WebSocket server.
- * Contains no business logic — delegates entirely to {@link SignUpService}.
+ * Contains no business logic — delegates entirely to {@link LocalSignUpService}.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class SignUpHandler {
 
-    private final SignUpService signUpService;
+    private final LocalSignUpService localSignUpService;
 
     /**
      * Mounts the sign-up REST routes on the given router.
@@ -28,9 +28,9 @@ public class SignUpHandler {
     public void mountRoutes(Router router) {
         router.post("/api/signup").handler(ctx -> {
             try {
-                SignUpRequest request = ctx.body().asPojo(SignUpRequest.class);
+                LocalPendingSignUp request = ctx.body().asPojo(LocalPendingSignUp.class);
 
-                signUpService.initiateSignUp(request)
+                localSignUpService.initiateSignUp(request)
                         .thenAccept(v -> {
                             ctx.response()
                                .setStatusCode(200)
@@ -61,7 +61,7 @@ public class SignUpHandler {
                 String token = body.getString("token");
                 String password = body.getString("password");
 
-                signUpService.completeSignUp(token, password)
+                localSignUpService.completeSignUp(token, password)
                         .thenAccept(orgId -> {
                             ctx.response()
                                .setStatusCode(200)
