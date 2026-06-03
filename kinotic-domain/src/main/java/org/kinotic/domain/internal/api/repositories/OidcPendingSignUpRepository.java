@@ -10,6 +10,6 @@ public class OidcPendingSignUpRepository extends PendingSignUpRepository<OidcPen
 
     public OidcPendingSignUpRepository(ElasticsearchAsyncClient esAsyncClient,
                                        CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_pending_registration", OidcPendingSignUp.class, esAsyncClient, crudServiceTemplate);
+        super("kinotic_oidc_pending_signup", OidcPendingSignUp.class, esAsyncClient, crudServiceTemplate);
     }
 }

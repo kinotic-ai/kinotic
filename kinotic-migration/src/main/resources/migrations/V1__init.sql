@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
 );
 
 -- Pending OIDC sign-ups awaiting completion form submission (OidcPendingSignUp)
-CREATE TABLE IF NOT EXISTS kinotic_pending_registration (
+CREATE TABLE IF NOT EXISTS kinotic_oidc_pending_signup (
     id KEYWORD,
     verificationToken KEYWORD,
     expiresAt DATE,
@@ -180,8 +180,8 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_registration (
     additionalClaims JSON NOT INDEXED
 );
 
--- Sign-up requests awaiting email verification
-CREATE TABLE IF NOT EXISTS kinotic_signup_request (
+-- Pending local (email/password) sign-ups awaiting email verification (LocalPendingSignUp)
+CREATE TABLE IF NOT EXISTS kinotic_local_pending_signup (
     id KEYWORD,
     orgName KEYWORD,
     orgDescription TEXT,

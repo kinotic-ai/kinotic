@@ -12,7 +12,7 @@ public class LocalPendingSignUpRepository extends PendingSignUpRepository<LocalP
 
     public LocalPendingSignUpRepository(ElasticsearchAsyncClient esAsyncClient,
                                         CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_signup_request", LocalPendingSignUp.class, esAsyncClient, crudServiceTemplate);
+        super("kinotic_local_pending_signup", LocalPendingSignUp.class, esAsyncClient, crudServiceTemplate);
     }
 
     /** Finds a pending local sign-up by email, or {@code null} — used to block duplicate submissions. */
