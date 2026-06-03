@@ -19,8 +19,18 @@
                 <span class="verify-icon-wrap verify-icon-wrap--primary">
                   <span class="pi pi-shield verify-header__icon"></span>
                 </span>
-                <h2 class="verify-title">Thank you for verifying your email</h2>
-                <p class="verify-text">Please set your password to finish creating your account.</p>
+                <h2 class="verify-title">Email verified</h2>
+                <p class="verify-text">Name your organization and set a password to finish.</p>
+              </div>
+
+              <div class="login-field">
+                <InputText
+                  ref="orgNameInput"
+                  v-model="request.orgName"
+                  class="login-input"
+                  placeholder="Organization name"
+                  @keyup.enter="focusPassword"
+                />
               </div>
 
               <IconField class="login-field">
@@ -91,9 +101,9 @@ import { Component, Vue } from 'vue-facing-decorator';
 import Password from 'primevue/password'
 import Button from 'primevue/button'
 import IconField from 'primevue/iconfield'
+import InputText from 'primevue/inputtext'
 import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
-import type { SignUpCompleteRequest } from '@kinotic-ai/os-api'
 
 import loginBgDark from '@/assets/left_background_dark.png'
 import loginBgLight from '@/assets/left-background_light.png'
@@ -108,6 +118,7 @@ import '@/pages/auth-pages.css'
     Password,
     Button,
     IconField,
+    InputText,
     Toast,
   }
 })
@@ -129,13 +140,15 @@ export default class VerifyEmail extends Vue {
   }
 
   get canSubmit(): boolean {
-    return !!this.request.password
+    return !!this.request.orgName
+        && !!this.request.password
         && !!this.confirmPassword
         && this.request.password === this.confirmPassword
   }
 
-  request: SignUpCompleteRequest = {
+  request = {
     token: '',
+    orgName: '',
     password: '',
   }
   confirmPassword = ''
@@ -149,6 +162,13 @@ export default class VerifyEmail extends Vue {
     }
   }
 
+  private focusPassword() {
+    const el = this.$refs.passwordInput as any
+    if (el?.$el) {
+      el.$el.querySelector('input')?.focus()
+    }
+  }
+
   private focusConfirm() {
     const el = this.$refs.confirmPasswordInput as any
     if (el?.$el) {
@@ -159,6 +179,11 @@ export default class VerifyEmail extends Vue {
   async handleSubmit() {
     if (!this.request.token) {
       this.displayAlert('No verification token provided.')
+      return
+    }
+    this.request.orgName = this.request.orgName.trim()
+    if (!this.request.orgName) {
+      this.displayAlert('Organization name is required')
       return
     }
     if (!this.request.password) {
