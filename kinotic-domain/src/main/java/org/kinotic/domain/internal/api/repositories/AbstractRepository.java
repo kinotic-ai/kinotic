@@ -102,6 +102,16 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
                                   .thenApply(indexResponse -> value);
     }
 
+    /**
+     * Persists a new entity, failing if one with the same id already exists. Unlike {@link #save},
+     * which overwrites, this fails with {@link org.kinotic.core.api.exceptions.AlreadyExistsException}
+     * on an id collision — use it to enforce uniqueness on a caller-assigned id.
+     */
+    public CompletableFuture<T> create(T value) {
+        return crudServiceTemplate.create(indexName, value.getId(), value)
+                                  .thenApply(indexResponse -> value);
+    }
+
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
         if (searchText == null || searchText.isEmpty()) {
             return findAll(pageable);

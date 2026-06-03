@@ -1,9 +1,11 @@
 package org.kinotic.domain.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.ErrorResponse;
 import co.elastic.clients.elasticsearch._types.FieldSort;
 import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.OpType;
 import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.mapping.DynamicMapping;
@@ -25,6 +27,7 @@ import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.*;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.domain.internal.serializer.RawJsonJsonpDeserializer;
 import org.slf4j.Logger;
@@ -509,6 +512,28 @@ public class CrudServiceTemplate {
         });
     }
 
+    /**
+     * Indexes a document only if its id is not already present, using Elasticsearch's
+     * {@code create} op-type. Fails with {@link AlreadyExistsException} when a document with the
+     * same id already exists, instead of overwriting it the way {@link #save} would.
+     *
+     * @param indexName name of the index
+     * @param id        id the document must be created under
+     * @param document  the document to index
+     * @return a {@link CompletableFuture} completing with the {@link IndexResponse}, or failing
+     *         with {@link AlreadyExistsException} if the id is already taken
+     */
+    public <T> CompletableFuture<IndexResponse> create(String indexName,
+                                                       String id,
+                                                       T document) {
+        return bindToContext(esAsyncClient.index((IndexRequest.Builder<T> builder) ->
+                builder.index(indexName).id(id).document(document).opType(OpType.Create)))
+                .exceptionallyCompose(throwable -> isVersionConflict(throwable)
+                        ? CompletableFuture.<IndexResponse>failedFuture(new AlreadyExistsException(
+                                "A document with id '" + id + "' already exists in index '" + indexName + "'"))
+                        : CompletableFuture.<IndexResponse>failedFuture(throwable));
+    }
+
     public CompletableFuture<Void> updateIndexMapping(String indexName,
                                                       Map<String, Property> mappings) {
         return bindToContext(esAsyncClient.indices().exists(builder -> builder.index(indexName))
@@ -670,6 +695,19 @@ public class CrudServiceTemplate {
             }
         }));
         return bound;
+    }
+
+    /**
+     * True when {@code throwable} or one of its causes is an Elasticsearch 409 — i.e. an
+     * {@code op_type=create} index that hit an already-present document id.
+     */
+    private static boolean isVersionConflict(Throwable throwable) {
+        for (Throwable cause = throwable; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ElasticsearchException esException && esException.status() == 409) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private <T> JsonpDeserializer<T> getDeserializer(Class<T> type) {
