@@ -166,30 +166,23 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     updated DATE
 );
 
--- Pending OIDC sign-ups awaiting completion form submission (OidcPendingSignUp)
-CREATE TABLE IF NOT EXISTS kinotic_oidc_pending_signup (
+-- Pending sign-ups (email-verification or OIDC) awaiting completion (PendingSignUp). One flat
+-- shape: authType + the verified identity + the target scope (organizationId/applicationId/
+-- tenantId). The organization name is collected at completion, not stored here.
+CREATE TABLE IF NOT EXISTS kinotic_pending_signup (
     id KEYWORD,
     verificationToken KEYWORD,
     expiresAt DATE,
     created DATE,
+    email KEYWORD,
+    displayName KEYWORD,
+    authType KEYWORD,
     oidcSubject KEYWORD,
     oidcConfigId KEYWORD,
-    email KEYWORD,
-    displayName KEYWORD,
+    additionalClaims JSON NOT INDEXED,
     organizationId KEYWORD,
-    additionalClaims JSON NOT INDEXED
-);
-
--- Pending local (email/password) sign-ups awaiting email verification (LocalPendingSignUp)
-CREATE TABLE IF NOT EXISTS kinotic_local_pending_signup (
-    id KEYWORD,
-    orgName KEYWORD,
-    orgDescription TEXT,
-    email KEYWORD,
-    displayName KEYWORD,
-    verificationToken KEYWORD,
-    expiresAt DATE,
-    created DATE
+    applicationId KEYWORD,
+    tenantId KEYWORD
 );
 
 -- Create the vm_node table for tracking VmManager nodes

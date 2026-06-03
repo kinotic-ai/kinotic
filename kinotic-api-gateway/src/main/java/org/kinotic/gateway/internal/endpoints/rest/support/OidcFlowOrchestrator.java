@@ -52,7 +52,7 @@ public class OidcFlowOrchestrator {
      * Validates the callback (state match, no IdP error), exchanges the code, validates
      * the issuer, and returns the configuration along with the verified id_token claims.
      * The handler decides what to do with the claims (look up an IamUser, create a
-     * {@code OidcPendingSignUp}, etc.).
+     * {@code PendingSignUp}, etc.).
      *
      * <p>The session is consumed regardless of outcome — replay protection.
      *

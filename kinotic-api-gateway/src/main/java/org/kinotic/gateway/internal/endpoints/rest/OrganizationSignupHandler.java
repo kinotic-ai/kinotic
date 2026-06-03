@@ -11,10 +11,10 @@ import org.kinotic.gateway.internal.endpoints.rest.support.*;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.OidcProviderKind;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
-import org.kinotic.domain.api.model.iam.OidcPendingSignUp;
+import org.kinotic.domain.api.model.iam.PendingSignUp;
 import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
-import org.kinotic.domain.api.services.iam.OidcSignUpService;
+import org.kinotic.domain.api.services.iam.SignUpService;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
@@ -30,7 +30,7 @@ import java.util.Map;
  *   <li>{@code GET /api/signup/callback/:configId} — handles the IdP response. Validates
  *       state, exchanges the code, checks {@code email_verified}, refuses if an
  *       {@link IamUser} already exists for {@code (sub, configId)}, otherwise stashes the
- *       verified identity in a {@link OidcPendingSignUp} and redirects the browser to
+ *       verified identity in a {@link PendingSignUp} and redirects the browser to
  *       the org-name completion page.</li>
  *   <li>{@code POST /api/signup/complete-org} — consumes the pending registration token,
  *       creates the {@link Organization} with the supplied name,
@@ -46,7 +46,7 @@ public class OrganizationSignupHandler {
 
     private final IamUserService iamUserService;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
-    private final OidcSignUpService oidcSignUpService;
+    private final SignUpService signUpService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
 
@@ -98,7 +98,7 @@ public class OrganizationSignupHandler {
     /**
      * After IdP returns: refuse if {@code (sub, configId)} already maps to an existing
      * IamUser anywhere (the user already has an account — they should log in, not sign up).
-     * Otherwise, create a {@link OidcPendingSignUp} carrying the verified identity and
+     * Otherwise, create a {@link PendingSignUp} carrying the verified identity and
      * redirect to the org-name completion page.
      */
     private void resolveSignup(RoutingContext ctx, CallbackResult<OrgSignupOidcConfiguration> result) {
@@ -122,15 +122,15 @@ public class OrganizationSignupHandler {
               .compose(existing -> {
                   if (existing != null && !existing.isEmpty()) {
                       // Already have an account for this identity — push them to log in instead.
-                      return Future.<OidcPendingSignUp>failedFuture(new AccountExistsException());
+                      return Future.<PendingSignUp>failedFuture(new AccountExistsException());
                   }
-                  OidcPendingSignUp pending = new OidcPendingSignUp();
+                  PendingSignUp pending = new PendingSignUp();
                   pending.setOidcSubject(sub);
                   pending.setOidcConfigId(config.getId());
                   pending.setEmail(email);
                   pending.setDisplayName(displayName);
                   pending.setAdditionalClaims(claims);
-                  return Future.fromCompletionStage(oidcSignUpService.create(pending));
+                  return Future.fromCompletionStage(signUpService.createOidcPending(pending));
               })
               .onSuccess(pending -> redirectToCompleteOrg(ctx, pending.getVerificationToken()))
               .onFailure(ex -> {
@@ -159,7 +159,7 @@ public class OrganizationSignupHandler {
             return;
         }
 
-        Future.fromCompletionStage(oidcSignUpService.completeWithNewOrg(token, orgName, orgDescription))
+        Future.fromCompletionStage(signUpService.completeOidcWithNewOrg(token, orgName, orgDescription))
               .onSuccess(user -> authEndpointSupport.respondSuccess(ctx, user))
               .onFailure(ex -> {
                   Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
