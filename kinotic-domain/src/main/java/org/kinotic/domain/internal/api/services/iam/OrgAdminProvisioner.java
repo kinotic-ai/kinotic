@@ -33,7 +33,7 @@ public class OrgAdminProvisioner {
         Organization org = new Organization()
                 .setName(orgName)
                 .setDescription(orgDescription);
-        return organizationService.save(org)
+        return organizationService.create(org)
                 .thenCompose(savedOrg -> {
                     admin.setOrganizationId(savedOrg.getId());
                     return iamUserRepository.save(admin)
