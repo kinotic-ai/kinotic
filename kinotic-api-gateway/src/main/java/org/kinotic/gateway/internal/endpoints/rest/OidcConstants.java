@@ -36,9 +36,6 @@ public final class OidcConstants {
     /** Logout endpoint — destroys the browser session. */
     public static final String LOGOUT_PATH = "/api/logout";
 
-    /** Org-signup completion endpoint that lives outside the {@link #SIGNUP_BASE} tree. */
-    public static final String ORG_REGISTER_COMPLETE = "/api/register/complete";
-
     /** Org-signup surface — used by {@code OidcSignupHandler}. */
     public static final String SIGNUP_BASE = "/api/signup";
 

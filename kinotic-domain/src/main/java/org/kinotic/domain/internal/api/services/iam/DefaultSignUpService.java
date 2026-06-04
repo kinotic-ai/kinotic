@@ -20,7 +20,6 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 
 @Slf4j
 @Component
@@ -114,23 +113,6 @@ public class DefaultSignUpService implements SignUpService {
                     return createOrgWithAdmin(orgName, orgDescription, admin)
                             .thenCompose(savedAdmin -> pendingSignUpRepository.deleteById(pending.getId())
                                     .thenApply(v -> savedAdmin));
-                });
-    }
-
-    @Override
-    public CompletableFuture<IamUser> completeOidc(String token, Consumer<IamUser> finalizer) {
-        return pendingSignUpRepository.findValidByToken(token)
-                .thenCompose(pending -> {
-                    IamUser user = newUser(pending).setOrganizationId(pending.getOrganizationId());
-                    // Both scope ids null = SYSTEM; OIDC registration must never mint a platform operator.
-                    Validate.notBlank(user.getOrganizationId(),
-                                      "Cannot create user: pending sign-up has no organizationId");
-                    if (finalizer != null) {
-                        finalizer.accept(user);
-                    }
-                    return iamUserRepository.save(user)
-                            .thenCompose(saved -> pendingSignUpRepository.deleteById(pending.getId())
-                                    .thenApply(v -> saved));
                 });
     }
 

@@ -4,7 +4,6 @@ import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.PendingSignUp;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 
 /**
  * Drives every sign-up through one short-lived {@link PendingSignUp} record. Two phases:
@@ -41,11 +40,4 @@ public interface SignUpService {
      * is taken), making the verified identity its admin, then deleting the pending record.
      */
     CompletableFuture<IamUser> completeOidcWithNewOrg(String token, String orgName, String orgDescription);
-
-    /**
-     * Completes an OIDC registration into the organization already recorded on the pending sign-up:
-     * creates the member user (applying {@code finalizer} for user-supplied overrides) and deletes
-     * the pending record.
-     */
-    CompletableFuture<IamUser> completeOidc(String token, Consumer<IamUser> finalizer);
 }

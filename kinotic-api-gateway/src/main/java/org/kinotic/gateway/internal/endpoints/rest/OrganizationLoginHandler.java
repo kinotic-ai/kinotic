@@ -19,7 +19,6 @@ import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
-import org.kinotic.domain.api.services.iam.SignUpService;
 import org.kinotic.domain.internal.api.model.IamCredential;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.springframework.stereotype.Component;
@@ -61,9 +60,6 @@ import java.util.Set;
  *
  * <p>{@code GET /api/login/providers} returns the unique provider keys from the
  * Kinotic-curated social configs for rendering the social buttons.
- * {@code POST /api/register/complete} consumes a {@link org.kinotic.domain.api.model.iam.PendingSignUp}
- * from the {@link org.kinotic.domain.api.model.iam.UserProvisioningMode#REGISTRATION_REQUIRED}
- * signup path.
  */
 @Slf4j
 @Component
@@ -76,7 +72,6 @@ public class OrganizationLoginHandler {
     private final OidcConfigurationService oidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
-    private final SignUpService signUpService;
     private final OidcConfigurationRepository oidcConfigurationRepository;
 
     public void mountRoutes(Router router) {
@@ -86,7 +81,6 @@ public class OrganizationLoginHandler {
         router.post(OidcConstants.ORG_LOGIN_BASE + "/start/:provider").handler(this::handleSocialStart);
         router.get(OidcConstants.ORG_LOGIN_BASE + "/callback/social/:configId").handler(this::handleSocialCallback);
         router.get(OidcConstants.ORG_LOGIN_BASE + "/callback/sso/:configId").handler(this::handleSsoCallback);
-        router.post(OidcConstants.ORG_REGISTER_COMPLETE).handler(this::handleRegisterComplete);
     }
 
     private void handleLookup(RoutingContext ctx) {
@@ -126,32 +120,6 @@ public class OrganizationLoginHandler {
               .onFailure(err -> {
                   log.warn("Failed to list platform providers: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 500, "Failed to list providers");
-              });
-    }
-
-    /**
-     * {@code POST /api/register/complete} — completes an OIDC registration into an existing
-     * organization: consumes the pending sign-up (which carries its {@code organizationId}),
-     * creates the member {@link IamUser}, and applies the user's chosen display name.
-     */
-    private void handleRegisterComplete(RoutingContext ctx) {
-        JsonObject body = ctx.body().asJsonObject();
-        String token = body == null ? null : body.getString("token");
-        if (token == null || token.isBlank()) {
-            authEndpointSupport.respondError(ctx, 400, "token is required");
-            return;
-        }
-        @SuppressWarnings("null")
-        String displayNameOverride = body.getString("displayName");
-
-        Future.fromCompletionStage(signUpService.completeOidc(token, user -> {
-                  if (displayNameOverride != null && !displayNameOverride.isBlank()) {
-                      user.setDisplayName(displayNameOverride);
-                  }
-              })).onSuccess(user -> authEndpointSupport.respondSuccess(ctx, user))
-              .onFailure(ex -> {
-                  Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                  authEndpointSupport.respondError(ctx, 400, cause.getMessage());
               });
     }
 
