@@ -23,17 +23,14 @@ import java.util.Map;
 
 /**
  * All organization sign-up routes — the sign-up counterpart to {@link OrganizationLoginHandler},
- * which likewise serves both password and OIDC for org login. Both paths here create a new
- * {@link Organization} and its admin {@link IamUser}.
+ * which likewise serves both password and OIDC for org login. Both flows here create a new
+ * {@link Organization} and its admin {@link IamUser}, each in two steps:
  * <ul>
- *   <li>Email/password: {@code POST /api/signup} stores a pending sign-up and emails a
- *       verification link; {@code POST /api/signup/complete} then creates the org, admin, and
- *       password credential once the user clicks the link and names the org.</li>
- *   <li>Social (OIDC): {@code POST /api/signup/start/:provider} initiates the IdP flow;
- *       {@code GET /api/signup/callback/:configId} validates the response, refuses if an
- *       {@link IamUser} already exists for {@code (sub, configId)}, otherwise stashes the verified
- *       identity in a {@link PendingSignUp} and redirects to the org-name completion page;
- *       {@code POST /api/signup/complete-org} then creates the org + admin (AuthType=OIDC).</li>
+ *   <li><b>Email/password</b>: {@link #handleLocalSignUp} (store pending + email a link) →
+ *       {@link #handleLocalComplete} (create org + admin + credential).</li>
+ *   <li><b>Social (OIDC)</b>: {@link #handleSocialStart} → IdP → {@link #handleSocialCallback}
+ *       (which stashes the verified identity via {@link #createPendingSignUp}) →
+ *       {@link #handleSocialCompleteOrg} (create org + admin).</li>
  * </ul>
  */
 @Slf4j
@@ -48,16 +45,21 @@ public class OrganizationSignupHandler {
     private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
-        // Email/password sign-up
-        router.post("/api/signup").handler(this::handleSignUp);
-        router.post("/api/signup/complete").handler(this::handleSignUpComplete);
-        // Social (OIDC) sign-up
-        router.post(OidcConstants.SIGNUP_BASE + "/start/:provider").handler(this::handleStart);
-        router.get(OidcConstants.SIGNUP_BASE + "/callback/:configId").handler(this::handleCallback);
-        router.post(OidcConstants.SIGNUP_BASE + "/complete-org").handler(this::handleCompleteOrg);
+        // Email/password: form submit, then completion after the user clicks the email link.
+        router.post("/api/signup").handler(this::handleLocalSignUp);
+        router.post("/api/signup/complete").handler(this::handleLocalComplete);
+        // Social (OIDC): start → IdP → callback → org-naming form → complete.
+        router.post(OidcConstants.SIGNUP_BASE + "/start/:provider").handler(this::handleSocialStart);
+        router.get(OidcConstants.SIGNUP_BASE + "/callback/:configId").handler(this::handleSocialCallback);
+        router.post(OidcConstants.SIGNUP_BASE + "/complete-org").handler(this::handleSocialCompleteOrg);
     }
 
-    private void handleSignUp(RoutingContext ctx) {
+    /**
+     * {@code POST /api/signup} — start email/password sign-up. Validates the request, stores a
+     * pending sign-up, and emails a verification link. The org name and password are collected
+     * later, at {@link #handleLocalComplete}.
+     */
+    private void handleLocalSignUp(RoutingContext ctx) {
         try {
             JsonObject body = ctx.body().asJsonObject();
             String email = body.getString("email");
@@ -86,7 +88,12 @@ public class OrganizationSignupHandler {
         }
     }
 
-    private void handleSignUpComplete(RoutingContext ctx) {
+    /**
+     * {@code POST /api/signup/complete} — finish email/password sign-up. Called when the user has
+     * clicked the verification link and submitted an org name + password; creates the organization,
+     * its admin user, and the password credential.
+     */
+    private void handleLocalComplete(RoutingContext ctx) {
         try {
             JsonObject body = ctx.body().asJsonObject();
             String token = body.getString("token");
@@ -120,7 +127,11 @@ public class OrganizationSignupHandler {
         }
     }
 
-    private void handleStart(RoutingContext ctx) {
+    /**
+     * {@code POST /api/signup/start/:provider} — start social (OIDC) sign-up by redirecting the
+     * browser to the chosen Kinotic-curated social IdP.
+     */
+    private void handleSocialStart(RoutingContext ctx) {
         String provider = ctx.pathParam("provider");
         OidcProviderKind providerKind;
         try {
@@ -149,23 +160,28 @@ public class OrganizationSignupHandler {
               });
     }
 
-    private void handleCallback(RoutingContext ctx) {
+    /**
+     * {@code GET /api/signup/callback/:configId} — the social IdP returns here. Validates the
+     * callback (state, code exchange, issuer) via {@link OidcFlowOrchestrator}, then hands the
+     * verified claims to {@link #createPendingSignUp}.
+     */
+    private void handleSocialCallback(RoutingContext ctx) {
         String pathConfigId = ctx.pathParam("configId");
 
         oidcFlowOrchestrator.<OrgSignupOidcConfiguration>handleCallback(
                 ctx, pathConfigId, callbackUrl(pathConfigId),
                 _ -> orgSignupOidcConfigurationService.findById(pathConfigId))
-                .onSuccess(result -> resolveSignup(ctx, result))
+                .onSuccess(result -> createPendingSignUp(ctx, result))
                 .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }
 
     /**
-     * After IdP returns: refuse if {@code (sub, configId)} already maps to an existing
-     * IamUser anywhere (the user already has an account — they should log in, not sign up).
-     * Otherwise, create a {@link PendingSignUp} carrying the verified identity and
-     * redirect to the org-name completion page.
+     * Turns a verified social identity into a pending sign-up: refuses if an {@link IamUser}
+     * already exists for this identity (they should log in, not sign up), otherwise stores a
+     * {@link PendingSignUp} carrying the verified identity and redirects the browser to the
+     * org-naming page that posts back to {@link #handleSocialCompleteOrg}.
      */
-    private void resolveSignup(RoutingContext ctx, CallbackResult<OrgSignupOidcConfiguration> result) {
+    private void createPendingSignUp(RoutingContext ctx, CallbackResult<OrgSignupOidcConfiguration> result) {
         OrgSignupOidcConfiguration config = result.config();
         Map<String, Object> claims = result.claims();
 
@@ -208,7 +224,12 @@ public class OrganizationSignupHandler {
               });
     }
 
-    private void handleCompleteOrg(RoutingContext ctx) {
+    /**
+     * {@code POST /api/signup/complete-org} — finish social sign-up. The user has named their org;
+     * creates the organization and its admin {@link IamUser} (AuthType=OIDC) from the pending
+     * sign-up identified by the token.
+     */
+    private void handleSocialCompleteOrg(RoutingContext ctx) {
         JsonObject body = ctx.body().asJsonObject();
         String token = body == null ? null : body.getString("token");
         String orgName = body == null ? null : body.getString("orgName");
@@ -235,7 +256,7 @@ public class OrganizationSignupHandler {
         return authEndpointSupport.absoluteUrl(OidcConstants.SIGNUP_BASE + "/callback/" + configId);
     }
 
-    /** Sends the browser to the org-name completion page with the pending registration token. */
+    /** Sends the browser to the org-naming page with the pending sign-up token. */
     private void redirectToCompleteOrg(RoutingContext ctx, String token) {
         ctx.response().setStatusCode(302)
            .putHeader("Location", authEndpointSupport.appUrl(OidcConstants.REGISTER_PATH)

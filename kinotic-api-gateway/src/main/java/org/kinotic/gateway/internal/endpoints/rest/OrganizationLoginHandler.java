@@ -129,6 +129,18 @@ public class OrganizationLoginHandler {
               });
     }
 
+    /**
+     * {@code POST /api/register/complete} — completes an OIDC registration into an <em>existing</em>
+     * organization: consumes a pending sign-up that already carries its {@code organizationId},
+     * creates the member {@link IamUser}, and applies the user's chosen display name. This is a
+     * sign-up completion (the existing-org counterpart to
+     * {@code OrganizationSignupHandler.handleSocialCompleteOrg}).
+     *
+     * <p>Not yet reachable: the OIDC login callback rejects unknown identities with
+     * {@code no_account} rather than creating the existing-org pending sign-up this would finish,
+     * and no caller posts here. Kept as scaffolding for the REGISTRATION_REQUIRED-into-existing-org
+     * flow.
+     */
     private void handleRegisterComplete(RoutingContext ctx) {
         JsonObject body = ctx.body().asJsonObject();
         String token = body == null ? null : body.getString("token");
