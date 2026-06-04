@@ -36,22 +36,14 @@ public final class OidcConstants {
     /** Logout endpoint — destroys the browser session. */
     public static final String LOGOUT_PATH = "/api/logout";
 
-    /** Org-signup surface — used by {@code OidcSignupHandler}. */
+    /** Org-signup surface — used by {@code OrganizationSignupHandler}. */
     public static final String SIGNUP_BASE = "/api/signup";
 
     /** Application-login surface — used by {@code ApplicationLoginHandler}. Includes both {@code :orgId} and {@code :appId} path params so APP-scope auth can never be ambiguous between orgs that happen to share an appId. */
     public static final String APP_LOGIN_BASE = "/api/app/:orgId/:appId/login";
 
-    /** System-admin login surface — used by {@code SystemLoginHandler}. */
-    public static final String SYSTEM_LOGIN_BASE = "/api/system/login";
-
     /** CLI device-authorization login surface (RFC 8628) — used by {@code CliDeviceLoginHandler}. Nested under {@link #ORG_LOGIN_BASE}. */
     public static final String DEVICE_LOGIN_BASE = "/api/login/device";
-
-    // ── Well-known scope ids ──────────────────────────────────────────────────
-
-    /** Fixed {@code authScopeId} for SYSTEM-scoped IamUsers — Kinotic platform admins. */
-    public static final String SYSTEM_SCOPE_ID = "kinotic";
 
     // ── Error codes ───────────────────────────────────────────────────────────
     // Wire-stable strings the frontend matches on to render specific UX. Add new

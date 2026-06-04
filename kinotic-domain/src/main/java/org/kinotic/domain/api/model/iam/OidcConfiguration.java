@@ -24,10 +24,9 @@ import lombok.experimental.Accessors;
  * The same config id may legitimately appear in both — e.g. an org uses the same Okta
  * tenant for org-admin SSO and for one of its customer-facing apps.
  *
- * <p>Kinotic-curated social configs (Google, Microsoft Live, etc.) live in
- * {@link OrgSignupOidcConfiguration}; platform-admin configs live in
- * {@link SystemOidcConfiguration} — both intentionally separate so the authorization
- * paths and lifecycle (admin UI vs. seeded migration) don't collide.
+ * <p>Kinotic-curated social configs (Google, Microsoft Live, etc.) live separately in
+ * {@link OrgSignupOidcConfiguration} — kept apart so the authorization paths and
+ * lifecycle (admin UI vs. seeded migration) don't collide.
  */
 @Getter
 @Setter

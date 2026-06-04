@@ -136,22 +136,6 @@ CREATE TABLE IF NOT EXISTS kinotic_org_signup_oidc_configuration (
     updated DATE
 );
 
--- Kinotic platform-admin OIDC configs. Separate Entra app from the social-signup configs
--- so the admin IdP can be rotated independently. Public-client flow (PKCE only) — Entra
--- owns the user lifecycle, so Kinotic doesn't authenticate to the token endpoint as a
--- confidential client and no client secret is stored. Singleton-shaped today; multi-row capable.
-CREATE TABLE IF NOT EXISTS kinotic_system_oidc_configuration (
-    id KEYWORD,
-    name KEYWORD,
-    provider KEYWORD,
-    clientId KEYWORD NOT INDEXED,
-    authority KEYWORD,
-    audience KEYWORD NOT INDEXED,
-    enabled BOOLEAN,
-    created DATE,
-    updated DATE
-);
-
 -- Organization: orgs developing applications on the platform.
 -- ssoConfigId points at the org's single OidcConfiguration used as its SSO provider for
 -- org-level Kinotic login (null when the org has no SSO). All other OidcConfigurations

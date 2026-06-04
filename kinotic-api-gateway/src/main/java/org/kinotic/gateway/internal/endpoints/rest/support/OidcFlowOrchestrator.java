@@ -15,7 +15,6 @@ import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
-import org.kinotic.domain.api.model.iam.SystemOidcConfiguration;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
@@ -235,10 +234,9 @@ public class OidcFlowOrchestrator {
     }
 
     /**
-     * Decoupling point: only {@link OidcConfiguration} and {@link OrgSignupOidcConfiguration}
-     * carry a client secret — {@link SystemOidcConfiguration}
-     * is a public-client (PKCE only). Pattern-matching here keeps the signature
-     * uniform across all three subclasses.
+     * Resolves the Key Vault secret name for confidential-client configs. Both concrete
+     * config types carry one today; the {@code default} branch yields {@code null} so a
+     * future public-client (PKCE-only) subclass needs no change here.
      */
     private String secretNameOf(BaseOidcConfiguration config) {
         return switch (config) {
