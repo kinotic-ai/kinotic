@@ -35,7 +35,6 @@ public class ApiGatewayVertcleFactory {
     private final KinoticApiGatewayProperties properties;
     private final KinoticDomainProperties domainProperties;
     private final StompServerHandlerFactory stompServerHandlerFactory;
-    private final SignUpHandler signUpHandler;
     private final OrganizationLoginHandler organizationLoginHandler;
     private final OrganizationSignupHandler organizationSignupHandler;
     private final ApplicationLoginHandler applicationLoginHandler;
@@ -75,7 +74,6 @@ public class ApiGatewayVertcleFactory {
         router.route("/api/*").handler(sessionHandler);
 
         // REST endpoints under /api
-        signUpHandler.mountRoutes(router);
         organizationLoginHandler.mountRoutes(router);
         organizationSignupHandler.mountRoutes(router);
         applicationLoginHandler.mountRoutes(router);

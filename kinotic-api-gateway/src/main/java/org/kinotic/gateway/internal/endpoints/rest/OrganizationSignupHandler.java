@@ -22,22 +22,19 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
- * Signup-with-social routes — distinct from {@link OrganizationLoginHandler}'s login routes.
+ * All organization sign-up routes — the sign-up counterpart to {@link OrganizationLoginHandler},
+ * which likewise serves both password and OIDC for org login. Both paths here create a new
+ * {@link Organization} and its admin {@link IamUser}.
  * <ul>
- *   <li>{@code POST /api/signup/start/:provider} — initiates the IdP flow with signup
- *       intent. The user has no org yet; we redirect to the platform-wide social provider
- *       (Google, etc.) and stash the configId on the session.</li>
- *   <li>{@code GET /api/signup/callback/:configId} — handles the IdP response. Validates
- *       state, exchanges the code, checks {@code email_verified}, refuses if an
- *       {@link IamUser} already exists for {@code (sub, configId)}, otherwise stashes the
- *       verified identity in a {@link PendingSignUp} and redirects the browser to
- *       the org-name completion page.</li>
- *   <li>{@code POST /api/signup/complete-org} — consumes the pending registration token,
- *       creates the {@link Organization} with the supplied name,
- *       creates the admin {@link IamUser} (AuthType=OIDC), and returns a Kinotic JWT for
- *       the STOMP CONNECT.</li>
+ *   <li>Email/password: {@code POST /api/signup} stores a pending sign-up and emails a
+ *       verification link; {@code POST /api/signup/complete} then creates the org, admin, and
+ *       password credential once the user clicks the link and names the org.</li>
+ *   <li>Social (OIDC): {@code POST /api/signup/start/:provider} initiates the IdP flow;
+ *       {@code GET /api/signup/callback/:configId} validates the response, refuses if an
+ *       {@link IamUser} already exists for {@code (sub, configId)}, otherwise stashes the verified
+ *       identity in a {@link PendingSignUp} and redirects to the org-name completion page;
+ *       {@code POST /api/signup/complete-org} then creates the org + admin (AuthType=OIDC).</li>
  * </ul>
- * The basic email/password signup path stays in {@link SignUpHandler}.
  */
 @Slf4j
 @Component
@@ -51,9 +48,76 @@ public class OrganizationSignupHandler {
     private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
+        // Email/password sign-up
+        router.post("/api/signup").handler(this::handleSignUp);
+        router.post("/api/signup/complete").handler(this::handleSignUpComplete);
+        // Social (OIDC) sign-up
         router.post(OidcConstants.SIGNUP_BASE + "/start/:provider").handler(this::handleStart);
         router.get(OidcConstants.SIGNUP_BASE + "/callback/:configId").handler(this::handleCallback);
         router.post(OidcConstants.SIGNUP_BASE + "/complete-org").handler(this::handleCompleteOrg);
+    }
+
+    private void handleSignUp(RoutingContext ctx) {
+        try {
+            JsonObject body = ctx.body().asJsonObject();
+            String email = body.getString("email");
+            String displayName = body.getString("displayName");
+
+            signUpService.initiateLocalSignUp(email, displayName)
+                    .thenAccept(v -> ctx.response()
+                            .setStatusCode(200)
+                            .putHeader("Content-Type", "application/json")
+                            .end(new JsonObject().put("message", "Verification email sent. Please check your inbox.").encode()))
+                    .exceptionally(ex -> {
+                        Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                        log.warn("Sign-up failed: {}", cause.getMessage());
+                        ctx.response()
+                           .setStatusCode(400)
+                           .putHeader("Content-Type", "application/json")
+                           .end(new JsonObject().put("error", cause.getMessage()).encode());
+                        return null;
+                    });
+        } catch (Exception e) {
+            log.error("Failed to parse sign-up request", e);
+            ctx.response()
+               .setStatusCode(400)
+               .putHeader("Content-Type", "application/json")
+               .end(new JsonObject().put("error", "Invalid request body").encode());
+        }
+    }
+
+    private void handleSignUpComplete(RoutingContext ctx) {
+        try {
+            JsonObject body = ctx.body().asJsonObject();
+            String token = body.getString("token");
+            String orgName = body.getString("orgName");
+            String orgDescription = body.getString("orgDescription");
+            String password = body.getString("password");
+
+            signUpService.completeLocalSignUp(token, orgName, orgDescription, password)
+                    .thenAccept(orgId -> ctx.response()
+                            .setStatusCode(200)
+                            .putHeader("Content-Type", "application/json")
+                            .end(new JsonObject()
+                                    .put("message", "Account created successfully")
+                                    .put("orgId", orgId)
+                                    .encode()))
+                    .exceptionally(ex -> {
+                        Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                        log.warn("Sign-up completion failed: {}", cause.getMessage());
+                        ctx.response()
+                           .setStatusCode(400)
+                           .putHeader("Content-Type", "application/json")
+                           .end(new JsonObject().put("error", cause.getMessage()).encode());
+                        return null;
+                    });
+        } catch (Exception e) {
+            log.error("Failed to parse sign-up completion request", e);
+            ctx.response()
+               .setStatusCode(400)
+               .putHeader("Content-Type", "application/json")
+               .end(new JsonObject().put("error", "Invalid request body").encode());
+        }
     }
 
     private void handleStart(RoutingContext ctx) {
