@@ -7,12 +7,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
- * Drives every sign-up through one short-lived {@link PendingSignUp} record. Two phases:
- * <em>initiate</em> stashes the record and verifies the email (a link for local, the IdP callback
- * for OIDC); <em>complete</em> consumes the record and creates the {@link IamUser} — and, for a
- * brand-new organization, the organization too.
+ * Drives organization sign-up — creating a new organization and its admin {@link IamUser} —
+ * through a short-lived {@link PendingSignUp} record, for both email/password and OIDC. Two
+ * phases: <em>initiate</em> stashes the record and verifies the email (a link for local, the IdP
+ * callback for OIDC); <em>complete</em> consumes the record and creates the organization + admin.
+ * <p>
+ * Application end-user sign-up (a user within an existing application/tenant) is a separate
+ * concern with its own service.
  */
-public interface SignUpService {
+public interface OrganizationSignUpService {
 
     /**
      * Starts an email/password sign-up: validates and stores a pending record and emails a
