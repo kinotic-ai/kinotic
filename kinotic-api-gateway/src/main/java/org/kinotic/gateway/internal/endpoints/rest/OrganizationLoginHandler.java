@@ -19,7 +19,6 @@ import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
-import org.kinotic.domain.internal.api.model.IamCredential;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.springframework.stereotype.Component;
 
@@ -28,38 +27,9 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Login routes for the kinotic-server. Every browser path converges on a short-TTL,
- * Kinotic-signed JWT that the frontend uses as the {@code Bearer} on STOMP CONNECT —
- * the SPA never sends raw credentials over the WebSocket.
- *
- * <h3>Three entry points</h3>
- * <ul>
- *   <li><b>Social button</b>: {@code POST /api/login/start/:provider} — picks the
- *       Kinotic-curated {@link OrgSignupOidcConfiguration} for that provider key and
- *       redirects the browser to the IdP. Callback lands at
- *       {@code /api/login/callback/social/:configId}.</li>
- *   <li><b>Email lookup → SSO redirect</b>: {@code POST /api/login/lookup {email}} — when
- *       the user's org membership is OIDC and the org's {@code ORG_LOGIN}-scoped
- *       {@link OidcConfiguration} is live, returns {@code {type: "sso", redirect: "..."}}.
- *       Otherwise returns {@code {type: "password"}}. Deliberately ambiguous on unknown
- *       email / local user / dead SSO config to avoid leaking which orgs use SSO.
- *       Callback lands at {@code /api/login/callback/sso/:configId}.</li>
- *   <li><b>Email + password → session</b>: {@code POST /api/login {email, password}} —
- *       verifies bcrypt against {@link IamCredential} and establishes the browser session.
- *       Generic {@code 401} for any failure.</li>
- * </ul>
- *
- * <p>The OIDC dance itself (state/PKCE generation, callback validation, code exchange,
- * claim flattening, issuer validation) lives in {@link OidcFlowOrchestrator}; response
- * shaping (JWT minting, error/success redirects, JSON bodies) lives in
- * {@link AuthEndpointSupport}. This handler only wires routes, decides what config to start
- * with, and decides what to do with the resulting claims.
- *
- * <p>Callback paths are split per config type ({@code /sso/:id} vs {@code /social/:id})
- * so the resolver looks up an unambiguous service per route.
- *
- * <p>{@code GET /api/login/providers} returns the unique provider keys from the
- * Kinotic-curated social configs for rendering the social buttons.
+ * Login routes for an organization — email/password, email-first SSO redirect, and social-button
+ * (OIDC) login. Every path converges on a short-TTL, Kinotic-signed JWT that the frontend sends as
+ * the {@code Bearer} on STOMP CONNECT; raw credentials never travel over the WebSocket.
  */
 @Slf4j
 @Component
@@ -83,6 +53,10 @@ public class OrganizationLoginHandler {
         router.get(OidcConstants.ORG_LOGIN_BASE + "/callback/sso/:configId").handler(this::handleSsoCallback);
     }
 
+    /**
+     * {@code POST /api/login/lookup {email}} — decides how the user authenticates: an SSO redirect
+     * for an OIDC org member whose org has a live login config, otherwise "use password".
+     */
     private void handleLookup(RoutingContext ctx) {
         JsonObject body = ctx.body().asJsonObject();
         String email = body == null ? null : body.getString("email");
@@ -100,10 +74,9 @@ public class OrganizationLoginHandler {
     }
 
     /**
-     * Unique provider keys (e.g. {@code "google"}, {@code "microsoft-live"}) for rendering
-     * the social-button row. Distinct from {@link AuthEndpointSupport#respondProvidersList}
-     * which returns full config metadata — here multiple configs may share a provider
-     * kind, and the frontend just needs one button per kind.
+     * {@code GET /api/login/providers} — the unique provider keys (e.g. {@code "google"},
+     * {@code "microsoft-live"}) for rendering the social-button row: one key per provider kind,
+     * even when several configs share a kind.
      */
     private void handleProviders(RoutingContext ctx) {
         Future.fromCompletionStage(orgSignupOidcConfigurationService.findAllEnabled())
@@ -123,6 +96,10 @@ public class OrganizationLoginHandler {
               });
     }
 
+    /**
+     * {@code GET /api/login/callback/social/:configId} — the social IdP returns here; validates the
+     * callback and logs the user in. The identity may belong to any organization.
+     */
     private void handleSocialCallback(RoutingContext ctx) {
         String pathConfigId = ctx.pathParam("configId");
 
@@ -141,6 +118,10 @@ public class OrganizationLoginHandler {
                                      .thenApply(this::pickFirst));
     }
 
+    /**
+     * {@code POST /api/login/start/:provider} — begins social (OIDC) login by redirecting the
+     * browser to the chosen Kinotic-curated provider.
+     */
     private void handleSocialStart(RoutingContext ctx) {
         String provider = ctx.pathParam("provider");
         OidcProviderKind providerKind;
@@ -170,6 +151,10 @@ public class OrganizationLoginHandler {
               });
     }
 
+    /**
+     * {@code GET /api/login/callback/sso/:configId} — the org's SSO IdP returns here; validates the
+     * callback and logs the user into that organization.
+     */
     private void handleSsoCallback(RoutingContext ctx) {
         String pathConfigId = ctx.pathParam("configId");
 
@@ -189,6 +174,10 @@ public class OrganizationLoginHandler {
                 sub -> iamUserService.findByOidcIdentity(sub, result.config().getId(), result.orgId(), null));
     }
 
+    /**
+     * {@code POST /api/login {email, password}} — verifies the password and establishes the browser
+     * session. Generic {@code 401} on any failure.
+     */
     private void handleLogin(RoutingContext ctx) {
         authEndpointSupport.handlePasswordLogin(ctx, localAuthenticationService::authenticateLocal);
     }
