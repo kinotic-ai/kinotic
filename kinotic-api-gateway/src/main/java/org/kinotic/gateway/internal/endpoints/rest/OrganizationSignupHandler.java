@@ -22,16 +22,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
- * All organization sign-up routes — the sign-up counterpart to {@link OrganizationLoginHandler},
- * which likewise serves both password and OIDC for org login. Both flows here create a new
- * {@link Organization} and its admin {@link IamUser}, each in two steps:
- * <ul>
- *   <li><b>Email/password</b>: {@link #handleLocalSignUp} (store pending + email a link) →
- *       {@link #handleLocalComplete} (create org + admin + credential).</li>
- *   <li><b>Social (OIDC)</b>: {@link #handleSocialStart} → IdP → {@link #handleSocialCallback}
- *       (which stashes the verified identity via {@link #createPendingSignUp}) →
- *       {@link #handleSocialCompleteOrg} (create org + admin).</li>
- * </ul>
+ * Organization sign-up routes — the sign-up counterpart to {@link OrganizationLoginHandler}.
+ * Both email/password and social (OIDC) sign-up create a new {@link Organization} and its admin
+ * {@link IamUser}; each handler method documents its own step.
  */
 @Slf4j
 @Component
