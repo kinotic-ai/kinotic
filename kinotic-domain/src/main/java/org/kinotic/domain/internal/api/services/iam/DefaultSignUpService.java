@@ -8,7 +8,7 @@ import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.PendingSignUp;
 import org.kinotic.domain.api.services.OrganizationService;
-import org.kinotic.domain.api.services.iam.OrganizationSignUpService;
+import org.kinotic.domain.api.services.iam.SignUpService;
 import org.kinotic.domain.internal.api.model.IamCredential;
 import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
 import org.kinotic.domain.internal.api.repositories.IamUserRepository;
@@ -25,7 +25,7 @@ import java.util.function.Consumer;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DefaultOrganizationSignUpService implements OrganizationSignUpService {
+public class DefaultSignUpService implements SignUpService {
 
     private static final long LOCAL_TTL_MS = 24 * 60 * 60 * 1000L; // 24 hours
     private static final long OIDC_TTL_MS = 10 * 60 * 1000L;       // 10 minutes

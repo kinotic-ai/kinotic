@@ -19,7 +19,7 @@ import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
-import org.kinotic.domain.api.services.iam.OrganizationSignUpService;
+import org.kinotic.domain.api.services.iam.SignUpService;
 import org.kinotic.domain.internal.api.model.IamCredential;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.springframework.stereotype.Component;
@@ -76,7 +76,7 @@ public class OrganizationLoginHandler {
     private final OidcConfigurationService oidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
-    private final OrganizationSignUpService signUpService;
+    private final SignUpService signUpService;
     private final OidcConfigurationRepository oidcConfigurationRepository;
 
     public void mountRoutes(Router router) {

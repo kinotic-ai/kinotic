@@ -14,7 +14,7 @@ import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.iam.PendingSignUp;
 import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
-import org.kinotic.domain.api.services.iam.OrganizationSignUpService;
+import org.kinotic.domain.api.services.iam.SignUpService;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
@@ -43,7 +43,7 @@ public class OrganizationSignupHandler {
 
     private final IamUserService iamUserService;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
-    private final OrganizationSignUpService signUpService;
+    private final SignUpService signUpService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
 
