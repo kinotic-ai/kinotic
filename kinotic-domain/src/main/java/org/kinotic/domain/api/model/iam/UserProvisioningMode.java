@@ -1,28 +1,17 @@
 package org.kinotic.domain.api.model.iam;
 
 /**
- * Controls what happens when an OIDC callback produces a verified identity that has no
- * existing {@link IamUser} yet.
+ * The provisioning policy an {@link OidcConfiguration} can declare for a verified identity that
+ * has no existing {@link IamUser} — the intended handling for that provider's new identities.
  */
 public enum UserProvisioningMode {
 
-    /**
-     * Create an {@link IamUser} directly from the id_token claims on first login. Suitable
-     * for consumer-style signups ("Continue with Google just works").
-     */
+    /** Auto-create the {@link IamUser} from the id_token claims on first login (consumer-style). */
     AUTO,
 
-    /**
-     * Stash the verified identity in a short-lived {@code PendingSignUp} and redirect
-     * the user to a completion form so they can supply Kinotic-specific info (ToS, display
-     * name, etc.) before the account is created.
-     */
+    /** Require the user to complete a registration form before the account is created. */
     REGISTRATION_REQUIRED,
 
-    /**
-     * Reserved: admins invite users via a time-scoped token (email + org metadata); OIDC
-     * callbacks from non-invited identities are rejected. Not yet implemented — the
-     * provisioning service rejects this mode until the invite-token flow is built.
-     */
+    /** Reserved: only pre-invited identities may register. */
     INVITE_ONLY
 }

@@ -202,7 +202,6 @@ public class OrganizationSignupHandler {
                   pending.setOidcConfigId(config.getId());
                   pending.setEmail(email);
                   pending.setDisplayName(displayName);
-                  pending.setAdditionalClaims(claims);
                   return Future.fromCompletionStage(signUpService.createOidcPending(pending));
               })
               .onSuccess(pending -> redirectToCompleteOrg(ctx, pending.getVerificationToken()))

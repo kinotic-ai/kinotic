@@ -90,10 +90,8 @@ public class OidcConfiguration extends BaseOidcConfiguration implements Organiza
     private String additionalScopes;
 
     /**
-     * How new identities from this provider are handled on first successful OIDC callback.
-     * Defaults to {@link UserProvisioningMode#AUTO} — matches the "Continue with Google just
-     * works" UX. Set to {@link UserProvisioningMode#REGISTRATION_REQUIRED} when admins want
-     * users to accept ToS or pick options before their account is created.
+     * The provisioning policy configured for new identities from this provider (see
+     * {@link UserProvisioningMode}). Defaults to {@link UserProvisioningMode#AUTO}.
      */
     private UserProvisioningMode provisioningMode = UserProvisioningMode.AUTO;
 }
