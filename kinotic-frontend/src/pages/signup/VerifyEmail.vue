@@ -104,6 +104,7 @@ import IconField from 'primevue/iconfield'
 import InputText from 'primevue/inputtext'
 import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
+import type { SignUpCompleteRequest } from '@kinotic-ai/os-api'
 
 import loginBgDark from '@/assets/left_background_dark.png'
 import loginBgLight from '@/assets/left-background_light.png'
@@ -146,7 +147,7 @@ export default class VerifyEmail extends Vue {
         && this.request.password === this.confirmPassword
   }
 
-  request = {
+  request: SignUpCompleteRequest = {
     token: '',
     orgName: '',
     password: '',

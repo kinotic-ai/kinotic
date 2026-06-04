@@ -41,6 +41,7 @@ export * from '@/api/model/iam/AuthType'
 export * from '@/api/model/iam/IamUser'
 export * from '@/api/model/iam/SignUpRequest'
 export * from '@/api/model/iam/SignUpCompleteRequest'
+export * from '@/api/model/iam/CompleteOrgRequest'
 
 export * from '@/api/model/github/GitHubAppInstallation'
 export * from '@/api/model/github/GitHubToken'

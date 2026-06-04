@@ -85,6 +85,7 @@ import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
 import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
 import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
 import { apiUrl } from '@/util/helpers'
+import type { CompleteOrgRequest } from '@kinotic-ai/os-api'
 import '@/pages/auth-pages.css'
 
 /**
@@ -124,7 +125,8 @@ export default class CompleteOrg extends Vue {
   }
 
   async handleSubmit() {
-    if (!this.token) return
+    const token = this.token
+    if (!token) return
     const orgName = this.orgName.trim()
     if (!orgName) {
       this.displayError('Organization name is required')
@@ -133,15 +135,16 @@ export default class CompleteOrg extends Vue {
 
     this.loading = true
     try {
+      const req: CompleteOrgRequest = {
+        token,
+        orgName,
+        orgDescription: this.orgDescription.trim() || null,
+      }
       const res = await fetch(apiUrl('/api/signup/complete-org'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          token: this.token,
-          orgName,
-          orgDescription: this.orgDescription.trim() || null,
-        })
+        body: JSON.stringify(req)
       })
       if (!res.ok) {
         const message = await this.readError(res, 'Could not create organization')

@@ -100,6 +100,7 @@ import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
+import type { SignUpRequest } from '@kinotic-ai/os-api'
 
 import loginBgDark from '@/assets/left_background_dark.png'
 import loginBgLight from '@/assets/left-background_light.png'
@@ -126,7 +127,7 @@ export default class Signup extends Vue {
   get isDark() { return darkMode.value }
   toggleTheme() { toggleDark() }
 
-  request = {
+  request: SignUpRequest = {
     email: '',
     displayName: '',
   }
