@@ -28,8 +28,8 @@ import java.util.Set;
 
 /**
  * Login routes for an organization — email/password, email-first SSO redirect, and social-button
- * (OIDC) login. Every path converges on a short-TTL, Kinotic-signed JWT that the frontend sends as
- * the {@code Bearer} on STOMP CONNECT; raw credentials never travel over the WebSocket.
+ * (OIDC) login. On success each establishes the browser session; the STOMP WebSocket handshake then
+ * authenticates from that session cookie, so the browser never handles a token.
  */
 @Slf4j
 @Component

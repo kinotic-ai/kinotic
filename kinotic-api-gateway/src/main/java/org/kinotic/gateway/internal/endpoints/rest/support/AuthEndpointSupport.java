@@ -26,9 +26,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Shared response shaping + URL/route plumbing for every login/signup handler — JWT
- * minting, redirect construction, JSON error/payload writing, the standard
- * "after-callback" flow, session-handler installation, and absolute URL building.
+ * Shared response shaping + URL/route plumbing for every login/signup handler —
+ * browser-session establishment, redirect construction, JSON error/payload writing, the
+ * standard "after-callback" flow, and absolute URL building.
  * Each individual handler delegates the boilerplate here so its body keeps only the
  * route-specific decisions (which config to start with, which IamUser lookup to run).
  */
@@ -182,7 +182,7 @@ public class AuthEndpointSupport {
                   respondSuccess(ctx, user);
               })
               .onFailure(err -> {
-                  log.warn("Token endpoint error: {}", err.getMessage());
+                  log.warn("Password login error: {}", err.getMessage());
                   respondError(ctx, 401, "Invalid credentials");
               });
     }
