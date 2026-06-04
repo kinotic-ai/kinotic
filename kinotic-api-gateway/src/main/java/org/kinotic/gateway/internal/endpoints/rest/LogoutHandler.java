@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 public class LogoutHandler {
 
     public void mountRoutes(Router router) {
-        router.post(OidcConstants.LOGOUT_PATH).handler(this::handleLogout);
+        router.post("/api/logout").handler(this::handleLogout);
     }
 
     /** Destroys the browser session. */

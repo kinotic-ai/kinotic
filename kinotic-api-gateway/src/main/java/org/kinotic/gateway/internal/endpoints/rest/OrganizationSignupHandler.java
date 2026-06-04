@@ -42,9 +42,9 @@ public class OrganizationSignupHandler {
         router.post("/api/signup").handler(this::handleLocalSignUp);
         router.post("/api/signup/complete").handler(this::handleLocalComplete);
         // Social (OIDC): start → IdP → callback → org-naming form → complete.
-        router.post(OidcConstants.SIGNUP_BASE + "/start/:provider").handler(this::handleSocialStart);
-        router.get(OidcConstants.SIGNUP_BASE + "/callback/:configId").handler(this::handleSocialCallback);
-        router.post(OidcConstants.SIGNUP_BASE + "/complete-org").handler(this::handleSocialCompleteOrg);
+        router.post("/api/signup/start/:provider").handler(this::handleSocialStart);
+        router.get("/api/signup/callback/:configId").handler(this::handleSocialCallback);
+        router.post("/api/signup/complete-org").handler(this::handleSocialCompleteOrg);
     }
 
     /**
@@ -245,7 +245,7 @@ public class OrganizationSignupHandler {
     }
 
     private String callbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl(OidcConstants.SIGNUP_BASE + "/callback/" + configId);
+        return authEndpointSupport.absoluteUrl("/api/signup/callback/" + configId);
     }
 
     /** Sends the browser to the org-naming page with the pending sign-up token. */

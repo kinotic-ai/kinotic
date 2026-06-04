@@ -63,10 +63,10 @@ public class ApplicationLoginHandler {
     private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
-        router.get(OidcConstants.APP_LOGIN_BASE + "/providers").handler(this::handleProviders);
-        router.post(OidcConstants.APP_LOGIN_BASE + "/lookup").handler(this::handleLookup);
-        router.post(OidcConstants.APP_LOGIN_BASE).handler(this::handleLogin);
-        router.get(OidcConstants.APP_LOGIN_BASE + "/callback/:configId").handler(this::handleCallback);
+        router.get("/api/app/:orgId/:appId/login/providers").handler(this::handleProviders);
+        router.post("/api/app/:orgId/:appId/login/lookup").handler(this::handleLookup);
+        router.post("/api/app/:orgId/:appId/login").handler(this::handleLogin);
+        router.get("/api/app/:orgId/:appId/login/callback/:configId").handler(this::handleCallback);
     }
 
     private void handleProviders(RoutingContext ctx) {

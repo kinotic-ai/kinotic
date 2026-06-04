@@ -56,9 +56,9 @@ public class CliDeviceLoginHandler {
     private final KinoticJwtIssuer jwtIssuer;
 
     public void mountRoutes(Router router) {
-        router.post(OidcConstants.DEVICE_LOGIN_BASE + "/start").handler(this::handleStart);
-        router.post(OidcConstants.DEVICE_LOGIN_BASE + "/token").handler(this::handleToken);
-        router.post(OidcConstants.DEVICE_LOGIN_BASE + "/refresh").handler(this::handleRefresh);
+        router.post("/api/login/device/start").handler(this::handleStart);
+        router.post("/api/login/device/token").handler(this::handleToken);
+        router.post("/api/login/device/refresh").handler(this::handleRefresh);
     }
 
     private void handleStart(RoutingContext ctx) {

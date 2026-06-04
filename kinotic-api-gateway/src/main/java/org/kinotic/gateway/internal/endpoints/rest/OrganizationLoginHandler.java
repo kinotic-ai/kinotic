@@ -45,12 +45,12 @@ public class OrganizationLoginHandler {
     private final OidcConfigurationRepository oidcConfigurationRepository;
 
     public void mountRoutes(Router router) {
-        router.get(OidcConstants.ORG_LOGIN_BASE + "/providers").handler(this::handleProviders);
-        router.post(OidcConstants.ORG_LOGIN_BASE + "/lookup").handler(this::handleLookup);
-        router.post(OidcConstants.ORG_LOGIN_BASE).handler(this::handleLogin);
-        router.post(OidcConstants.ORG_LOGIN_BASE + "/start/:provider").handler(this::handleSocialStart);
-        router.get(OidcConstants.ORG_LOGIN_BASE + "/callback/social/:configId").handler(this::handleSocialCallback);
-        router.get(OidcConstants.ORG_LOGIN_BASE + "/callback/sso/:configId").handler(this::handleSsoCallback);
+        router.get("/api/login/providers").handler(this::handleProviders);
+        router.post("/api/login/lookup").handler(this::handleLookup);
+        router.post("/api/login").handler(this::handleLogin);
+        router.post("/api/login/start/:provider").handler(this::handleSocialStart);
+        router.get("/api/login/callback/social/:configId").handler(this::handleSocialCallback);
+        router.get("/api/login/callback/sso/:configId").handler(this::handleSsoCallback);
     }
 
     /**
@@ -218,10 +218,10 @@ public class OrganizationLoginHandler {
     }
 
     private String socialCallbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl(OidcConstants.ORG_LOGIN_BASE + "/callback/social/" + configId);
+        return authEndpointSupport.absoluteUrl("/api/login/callback/social/" + configId);
     }
 
     private String ssoCallbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl(OidcConstants.ORG_LOGIN_BASE + "/callback/sso/" + configId);
+        return authEndpointSupport.absoluteUrl("/api/login/callback/sso/" + configId);
     }
 }
