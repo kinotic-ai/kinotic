@@ -42,6 +42,7 @@ import javax.cache.event.CacheEntryListener;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Default implementation of {@link EventBusService} using the vertx {@link io.vertx.core.eventbus.EventBus} as a backend
@@ -60,6 +61,9 @@ public class DefaultEventBusService implements EventBusService {
     private Scheduler scheduler;
     // This is the cache used by the IgniteVertxCluster manager to track subscriptions
     private IgniteCache<String, Set<IgniteRegistrationInfo>> subscriptionsCache;
+    // Addresses this node currently has a local consumer for, reference counted. Populated only by
+    // listen() on this node, so it holds purely local registrations and lets sends prefer local delivery.
+    private final Map<String, Integer> localListenerCounts = new ConcurrentHashMap<>();
     @Autowired
     private Vertx vertx;
 
@@ -88,7 +92,9 @@ public class DefaultEventBusService implements EventBusService {
     public EventConsumer listen(String cri) {
         Validate.notEmpty(cri, "The cri must be provided");
         MessageConsumer<byte[]> consumer = vertx.eventBus().consumer(cri);
-        return new DefaultEventConsumer(consumer);
+        localListenerCounts.merge(cri, 1, Integer::sum);
+        return new DefaultEventConsumer(consumer,
+                                        () -> localListenerCounts.computeIfPresent(cri, (k, count) -> count == 1 ? null : count - 1));
     }
 
     @Override
@@ -153,8 +159,9 @@ public class DefaultEventBusService implements EventBusService {
 
     @Override
     public void send(Event<byte[]> event) {
-        DeliveryOptions deliveryOptions = createDeliveryOptions(event);
-        vertx.eventBus().send(event.cri().baseResource(),
+        String baseResource = event.cri().baseResource();
+        DeliveryOptions deliveryOptions = createDeliveryOptions(event, baseResource);
+        vertx.eventBus().send(baseResource,
                               event.data(),
                               deliveryOptions);
     }
@@ -162,15 +169,16 @@ public class DefaultEventBusService implements EventBusService {
     @Override
     public Future<Void> sendWithAck(Event<byte[]> event) {
         Validate.notNull(event, "Event must not be null");
-        DeliveryOptions deliveryOptions = createDeliveryOptions(event);
+        String baseResource = event.cri().baseResource();
+        DeliveryOptions deliveryOptions = createDeliveryOptions(event, baseResource);
         return vertx.eventBus()
-                    .request(event.cri().baseResource(),
+                    .request(baseResource,
                              event.data(),
                              deliveryOptions)
                     .mapEmpty();
     }
 
-    private DeliveryOptions createDeliveryOptions(Event<?> event){
+    private DeliveryOptions createDeliveryOptions(Event<?> event, String baseResource){
         DeliveryOptions deliveryOptions = new DeliveryOptions();
         deliveryOptions.setTracingPolicy(TracingPolicy.IGNORE);
         // fast path for MultiMapMetadataAdapter's
@@ -182,7 +190,21 @@ public class DefaultEventBusService implements EventBusService {
             }
         }
         deliveryOptions.addHeader(EventConstants.CRI_HEADER, event.cri().raw());
+        // When this node already hosts the target service, pin the request to the local handler rather
+        // than letting Vert.x round-robin to a remote node that would proxy the same backend.
+        if(shouldDeliverLocally(event, baseResource)){
+            deliveryOptions.setLocalOnly(true);
+        }
         return deliveryOptions;
+    }
+
+    /**
+     * Whether a send to the given address should be confined to a handler on this node.
+     * @return true only when the destination is a service invocation this node currently hosts
+     */
+    boolean shouldDeliverLocally(Event<?> event, String baseResource){
+        return EventConstants.SERVICE_DESTINATION_SCHEME.equals(event.cri().scheme())
+               && localListenerCounts.containsKey(baseResource);
     }
 
 }

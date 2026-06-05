@@ -9,6 +9,8 @@ import io.vertx.core.eventbus.MessageConsumer;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConsumer;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
  * Default implementation of {@link EventConsumer} that wraps a Vert.x {@link MessageConsumer}
  * and converts incoming messages to {@link Event} objects via {@link MessageEventAdapter}.
@@ -18,9 +20,20 @@ import org.kinotic.core.api.event.EventConsumer;
 public class DefaultEventConsumer implements EventConsumer {
 
     private final MessageConsumer<byte[]> delegate;
+    private final Runnable onUnregister;
+    private final AtomicBoolean unregistered = new AtomicBoolean(false);
 
     public DefaultEventConsumer(MessageConsumer<byte[]> delegate) {
+        this(delegate, null);
+    }
+
+    /**
+     * @param delegate the Vert.x consumer to wrap
+     * @param onUnregister run once when this consumer is first unregistered; may be null
+     */
+    public DefaultEventConsumer(MessageConsumer<byte[]> delegate, Runnable onUnregister) {
         this.delegate = delegate;
+        this.onUnregister = onUnregister;
     }
 
     @Override
@@ -61,6 +74,9 @@ public class DefaultEventConsumer implements EventConsumer {
 
     @Override
     public Future<Void> unregister() {
+        if (onUnregister != null && unregistered.compareAndSet(false, true)) {
+            onUnregister.run();
+        }
         return delegate.unregister();
     }
 
