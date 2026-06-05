@@ -12,11 +12,11 @@
     },
     "packages/core": {
       "name": "@kinotic-ai/core",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "dependencies": {
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/semantic-conventions": "^1.40.0",
-        "@stomp/rx-stomp": "^2.3.0",
+        "@stomp/rx-stomp": "^2.4.0",
         "@stomp/stompjs": "^7.3.0",
         "@types/debug": "^4.1.13",
         "debug": "^4.4.3",
