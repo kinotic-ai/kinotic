@@ -14,7 +14,7 @@
 
           <div class="login-form">
             <!-- Password form -->
-            <div v-if="!completed" class="login-form__step">
+            <div class="login-form__step">
               <div class="verify-header">
                 <span class="verify-icon-wrap verify-icon-wrap--primary">
                   <span class="pi pi-shield verify-header__icon"></span>
@@ -67,20 +67,6 @@
                 @click="handleSubmit"
               />
             </div>
-
-            <!-- Success state -->
-            <div v-else class="verify-state">
-              <span class="verify-icon-wrap verify-icon-wrap--success">
-                <span class="pi pi-check verify-header__icon"></span>
-              </span>
-              <h2 class="verify-title">Account created!</h2>
-              <p class="verify-text">Your organization is ready. You can now sign in.</p>
-              <Button
-                label="Sign in"
-                class="login-submit"
-                @click="$router.push('/login')"
-              />
-            </div>
           </div>
         </div>
 
@@ -112,6 +98,9 @@ import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
 import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
 import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
 import { apiUrl } from '@/util/helpers'
+import { CONTINUUM_UI } from '@/IContinuumUI'
+import { StructuresStates } from '@/states/index'
+import { type IUserState } from '@/states/IUserState'
 import '@/pages/auth-pages.css'
 
 @Component({
@@ -125,6 +114,7 @@ import '@/pages/auth-pages.css'
 })
 export default class VerifyEmail extends Vue {
   private toast = useToast()
+  private userState: IUserState = StructuresStates.getUserState()
 
   get loginBackgroundArt() { return darkMode.value ? loginBgDark : loginBgLight }
   get loginBrandMark() { return darkMode.value ? loginPageLogo : loginPageLogoLight }
@@ -154,7 +144,6 @@ export default class VerifyEmail extends Vue {
   }
   confirmPassword = ''
   loading = false
-  completed = false
 
   mounted() {
     this.request.token = (this.$route.query.token as string) || ''
@@ -201,21 +190,31 @@ export default class VerifyEmail extends Vue {
       const response = await fetch(apiUrl('/api/signup/complete'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(this.request),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        this.displayAlert(data.error || 'Account creation failed')
+        this.displayAlert(await this.readError(response, 'Account creation failed'))
         return
       }
 
-      this.completed = true
+      // The org, admin user, and browser session are created; connect with it and go to the app.
+      await this.userState.login()
+      await CONTINUUM_UI.navigate('/applications')
     } catch (error: unknown) {
       this.displayAlert(error instanceof Error ? error.message : 'Account creation failed')
     } finally {
       this.loading = false
+    }
+  }
+
+  private async readError(res: Response, fallback: string): Promise<string> {
+    try {
+      const body = await res.json()
+      return body?.error ?? fallback
+    } catch {
+      return fallback
     }
   }
 
@@ -251,11 +250,6 @@ export default class VerifyEmail extends Vue {
   margin-bottom: 1.5rem;
 }
 
-.verify-state {
-  text-align: center;
-  padding: 1rem 0 0.5rem;
-}
-
 .verify-icon-wrap {
   display: inline-flex;
   align-items: center;
@@ -270,20 +264,12 @@ export default class VerifyEmail extends Vue {
   background: color-mix(in srgb, var(--p-primary-color) 14%, transparent);
 }
 
-.verify-icon-wrap--success {
-  background: color-mix(in srgb, var(--p-green-500) 14%, transparent);
-}
-
 .verify-header__icon {
   font-size: 2rem;
 }
 
 .verify-icon-wrap--primary .verify-header__icon {
   color: var(--p-primary-color);
-}
-
-.verify-icon-wrap--success .verify-header__icon {
-  color: var(--p-green-500);
 }
 
 .verify-title {

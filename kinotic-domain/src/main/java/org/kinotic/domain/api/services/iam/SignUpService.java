@@ -31,9 +31,9 @@ public interface SignUpService {
      * given name (failing if it is taken), its admin user, and the password credential, then
      * deletes the pending record.
      *
-     * @return the new organization's id
+     * @return the new organization's admin user
      */
-    CompletableFuture<String> completeLocalSignUp(String token, String orgName, String orgDescription, String password);
+    CompletableFuture<IamUser> completeLocalSignUp(String token, String orgName, String orgDescription, String password);
 
     /**
      * Completes an OIDC sign-up by creating a new organization with the given name (failing if it

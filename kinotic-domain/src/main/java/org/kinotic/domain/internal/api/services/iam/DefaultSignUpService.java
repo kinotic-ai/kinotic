@@ -84,7 +84,7 @@ public class DefaultSignUpService implements SignUpService {
     }
 
     @Override
-    public CompletableFuture<String> completeLocalSignUp(String token, String orgName, String orgDescription, String password) {
+    public CompletableFuture<IamUser> completeLocalSignUp(String token, String orgName, String orgDescription, String password) {
         Validate.notBlank(token, "Verification token is required");
         Validate.notBlank(orgName, "Organization name is required");
         Validate.notBlank(password, "Password is required");
@@ -99,7 +99,7 @@ public class DefaultSignUpService implements SignUpService {
                                         .setPasswordHash(DomainUtil.hashPassword(password));
                                 return credentialRepository.save(credential)
                                         .thenCompose(c -> pendingSignUpRepository.deleteById(pending.getId())
-                                                .thenApply(v -> savedAdmin.getOrganizationId()));
+                                                .thenApply(v -> savedAdmin));
                             });
                 });
     }

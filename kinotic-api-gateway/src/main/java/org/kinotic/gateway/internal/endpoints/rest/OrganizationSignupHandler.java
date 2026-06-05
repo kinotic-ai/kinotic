@@ -84,7 +84,8 @@ public class OrganizationSignupHandler {
     /**
      * {@code POST /api/signup/complete} — finish email/password sign-up. Called when the user has
      * clicked the verification link and submitted an org name + password; creates the organization,
-     * its admin user, and the password credential.
+     * its admin user, and the password credential, then establishes the browser session so the
+     * user is logged in — same as the social completion at {@link #handleSocialCompleteOrg}.
      */
     private void handleLocalComplete(RoutingContext ctx) {
         try {
@@ -95,13 +96,7 @@ public class OrganizationSignupHandler {
             String password = body.getString("password");
 
             signUpService.completeLocalSignUp(token, orgName, orgDescription, password)
-                    .thenAccept(orgId -> ctx.response()
-                            .setStatusCode(200)
-                            .putHeader("Content-Type", "application/json")
-                            .end(new JsonObject()
-                                    .put("message", "Account created successfully")
-                                    .put("orgId", orgId)
-                                    .encode()))
+                    .thenAccept(user -> authEndpointSupport.respondSuccess(ctx, user))
                     .exceptionally(ex -> {
                         Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
                         log.warn("Sign-up completion failed: {}", cause.getMessage());
