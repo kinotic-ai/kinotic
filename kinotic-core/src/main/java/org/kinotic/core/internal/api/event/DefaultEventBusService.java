@@ -17,6 +17,7 @@ import jakarta.annotation.PostConstruct;
 import org.apache.commons.lang3.Validate;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
@@ -42,6 +43,7 @@ import javax.cache.event.CacheEntryListener;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Default implementation of {@link EventBusService} using the vertx {@link io.vertx.core.eventbus.EventBus} as a backend
@@ -60,6 +62,9 @@ public class DefaultEventBusService implements EventBusService {
     private Scheduler scheduler;
     // This is the cache used by the IgniteVertxCluster manager to track subscriptions
     private IgniteCache<String, Set<IgniteRegistrationInfo>> subscriptionsCache;
+    // Addresses this node currently has a local consumer for, reference counted. Populated only by
+    // listen() on this node, so it holds purely local registrations and lets sends prefer local delivery.
+    private final Map<String, Integer> localListenerCounts = new ConcurrentHashMap<>();
     @Autowired
     private Vertx vertx;
 
@@ -77,25 +82,29 @@ public class DefaultEventBusService implements EventBusService {
     }
 
     @Override
-    public Future<Boolean> isAnybodyListening(String cri) {
+    public Future<Boolean> isAnybodyListening(CRI cri) {
         if(ignite == null){
             throw new IllegalStateException("This method is not available when ignite is disabled");
         }
-        return IgniteUtil.futureToVertxFuture(() -> subscriptionsCache.containsKeyAsync(cri));
+        return IgniteUtil.futureToVertxFuture(() -> subscriptionsCache.containsKeyAsync(cri.baseResource()));
     }
 
     @Override
-    public EventConsumer listen(String cri) {
-        Validate.notEmpty(cri, "The cri must be provided");
-        MessageConsumer<byte[]> consumer = vertx.eventBus().consumer(cri);
-        return new DefaultEventConsumer(consumer);
+    public EventConsumer listen(CRI cri) {
+        Validate.notNull(cri, "The cri must be provided");
+        String address = cri.baseResource();
+        MessageConsumer<byte[]> consumer = vertx.eventBus().consumer(address);
+        localListenerCounts.merge(address, 1, Integer::sum);
+        return new DefaultEventConsumer(consumer,
+                                        () -> localListenerCounts.computeIfPresent(address, (k, count) -> count == 1 ? null : count - 1));
     }
 
     @Override
-    public Flux<ListenerStatus> monitorListenerStatus(String cri) {
+    public Flux<ListenerStatus> monitorListenerStatus(CRI cri) {
         if(ignite == null){
             throw new IllegalStateException("This method is not available when ignite is disabled");
         }
+        String address = cri.baseResource();
         Flux<ListenerStatus> ret = Flux.create(sink -> {
 
             Context vertxContext = vertx.getOrCreateContext();
@@ -111,13 +120,13 @@ public class DefaultEventBusService implements EventBusService {
                     FactoryBuilder.factoryOf(new SubscriptionInfoCacheEntryListener(sink, vertxContext));
 
             Factory<? extends CacheEntryEventFilter<IgniteRegistrationInfo, Boolean>> filterFactory =
-                    FactoryBuilder.factoryOf(new SubscriptionInfoCacheEntryEventFilter(cri));
+                    FactoryBuilder.factoryOf(new SubscriptionInfoCacheEntryEventFilter(address));
 
             MutableCacheEntryListenerConfiguration<IgniteRegistrationInfo, Boolean> cacheEntryListenerConfiguration =
                     new MutableCacheEntryListenerConfiguration<>(listenerFactory, filterFactory, false, false);
 
             sink.onDispose(() -> {
-                log.trace("Disposing of monitorListenerStatus for cri: {}", cri);
+                log.trace("Disposing of monitorListenerStatus for cri: {}", address);
                 vertxContext.executeBlocking(() -> {
                     cache.deregisterCacheEntryListener(cacheEntryListenerConfiguration);
                     return null;
@@ -128,7 +137,7 @@ public class DefaultEventBusService implements EventBusService {
 
             // Make sure we didn't miss a subscription ending while we were setting up the listener
             Promise<List<RegistrationInfo>> promise = Promise.promise();
-            clusterManager.getRegistrations(cri, promise);
+            clusterManager.getRegistrations(address, promise);
 
             promise.future().onComplete(ar -> {
                 if(ar.succeeded()){
@@ -139,7 +148,7 @@ public class DefaultEventBusService implements EventBusService {
                         vertxContext.executeBlocking(() -> sink.next(ListenerStatus.INACTIVE));
                     }
                 } else {
-                    log.trace("Failed getting subscriptions for monitorListenerStatus for cri: {}", cri);
+                    log.trace("Failed getting subscriptions for monitorListenerStatus for cri: {}", address);
                     vertxContext.executeBlocking(() -> {
                         sink.error(ar.cause());
                         return null;
@@ -153,8 +162,9 @@ public class DefaultEventBusService implements EventBusService {
 
     @Override
     public void send(Event<byte[]> event) {
-        DeliveryOptions deliveryOptions = createDeliveryOptions(event);
-        vertx.eventBus().send(event.cri().baseResource(),
+        String baseResource = event.cri().baseResource();
+        DeliveryOptions deliveryOptions = createDeliveryOptions(event, baseResource);
+        vertx.eventBus().send(baseResource,
                               event.data(),
                               deliveryOptions);
     }
@@ -162,15 +172,16 @@ public class DefaultEventBusService implements EventBusService {
     @Override
     public Future<Void> sendWithAck(Event<byte[]> event) {
         Validate.notNull(event, "Event must not be null");
-        DeliveryOptions deliveryOptions = createDeliveryOptions(event);
+        String baseResource = event.cri().baseResource();
+        DeliveryOptions deliveryOptions = createDeliveryOptions(event, baseResource);
         return vertx.eventBus()
-                    .request(event.cri().baseResource(),
+                    .request(baseResource,
                              event.data(),
                              deliveryOptions)
                     .mapEmpty();
     }
 
-    private DeliveryOptions createDeliveryOptions(Event<?> event){
+    DeliveryOptions createDeliveryOptions(Event<?> event, String baseResource){
         DeliveryOptions deliveryOptions = new DeliveryOptions();
         deliveryOptions.setTracingPolicy(TracingPolicy.IGNORE);
         // fast path for MultiMapMetadataAdapter's
@@ -182,6 +193,12 @@ public class DefaultEventBusService implements EventBusService {
             }
         }
         deliveryOptions.addHeader(EventConstants.CRI_HEADER, event.cri().raw());
+        // When this node already hosts the target service, pin the request to the local handler rather
+        // than letting Vert.x round-robin to a remote node that would proxy the same backend.
+        if(EventConstants.SERVICE_DESTINATION_SCHEME.equals(event.cri().scheme())
+               && localListenerCounts.containsKey(baseResource)){
+            deliveryOptions.setLocalOnly(true);
+        }
         return deliveryOptions;
     }
 

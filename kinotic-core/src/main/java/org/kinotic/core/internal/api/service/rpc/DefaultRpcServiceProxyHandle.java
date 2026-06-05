@@ -102,7 +102,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         /*
           Response handler logic to correlate response from remote service invocation's
          */
-        replyEventConsumer = eventBusService.listen(this.handlerCRI.raw());
+        replyEventConsumer = eventBusService.listen(this.handlerCRI);
         replyEventConsumer.handler(event -> {
 
                     String correlationId = event.metadata().get(EventConstants.CORRELATION_ID_HEADER);
