@@ -82,11 +82,11 @@ app.use(createStructuresUI(), { router })
 
 app.use(router)
 
-// Probe the cookie session, then mount. The probe opens the realtime connection, which currently
-// retries an unauthenticated socket forever and never settles — so race it against a short timer
-// so a hanging probe can't block the first paint. A failed or timed-out probe just means "not
-// signed in"; the router guard sends them to /login. (Proper fix: a fail-fast REST session check
-// — the /api/me pre-flight — so the WS is only opened once the cookie is known good.)
-const sessionProbe = StructuresStates.getUserState().login().catch(() => {})
-const mountDeadline = new Promise<void>((resolve) => setTimeout(resolve, 2000))
-Promise.race([sessionProbe, mountDeadline]).finally(() => app.mount('#app'))
+// Probe the cookie session, then mount. core pre-flights GET /api/me before opening the socket,
+// so the probe settles in one round-trip — a 401 fails it fast instead of hanging on an
+// unauthenticated socket. A failed probe just means "not signed in"; the router guard sends them
+// to /login, while a successful one leaves them authenticated so the guard lands them on the
+// default page.
+StructuresStates.getUserState().login()
+    .catch(() => {})
+    .finally(() => app.mount('#app'))
