@@ -178,7 +178,7 @@ public class DefaultEventBusService implements EventBusService {
                     .mapEmpty();
     }
 
-    private DeliveryOptions createDeliveryOptions(Event<?> event, String baseResource){
+    DeliveryOptions createDeliveryOptions(Event<?> event, String baseResource){
         DeliveryOptions deliveryOptions = new DeliveryOptions();
         deliveryOptions.setTracingPolicy(TracingPolicy.IGNORE);
         // fast path for MultiMapMetadataAdapter's
@@ -192,19 +192,11 @@ public class DefaultEventBusService implements EventBusService {
         deliveryOptions.addHeader(EventConstants.CRI_HEADER, event.cri().raw());
         // When this node already hosts the target service, pin the request to the local handler rather
         // than letting Vert.x round-robin to a remote node that would proxy the same backend.
-        if(shouldDeliverLocally(event, baseResource)){
+        if(EventConstants.SERVICE_DESTINATION_SCHEME.equals(event.cri().scheme())
+               && localListenerCounts.containsKey(baseResource)){
             deliveryOptions.setLocalOnly(true);
         }
         return deliveryOptions;
-    }
-
-    /**
-     * Whether a send to the given address should be confined to a handler on this node.
-     * @return true only when the destination is a service invocation this node currently hosts
-     */
-    boolean shouldDeliverLocally(Event<?> event, String baseResource){
-        return EventConstants.SERVICE_DESTINATION_SCHEME.equals(event.cri().scheme())
-               && localListenerCounts.containsKey(baseResource);
     }
 
 }

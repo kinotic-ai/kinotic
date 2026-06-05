@@ -45,20 +45,20 @@ public class DefaultEventBusServiceTests {
         String baseResource = request.cri().baseResource();
 
         // No local handler yet, so the request should route normally.
-        assertFalse(eventBusService.shouldDeliverLocally(request, baseResource));
+        assertFalse(eventBusService.createDeliveryOptions(request, baseResource).isLocalOnly());
 
         EventConsumer consumer = eventBusService.listen(baseResource);
 
         // This node now hosts the service, so the request should be pinned local.
-        assertTrue(eventBusService.shouldDeliverLocally(request, baseResource));
+        assertTrue(eventBusService.createDeliveryOptions(request, baseResource).isLocalOnly());
 
         // A service this node does not host must still route normally.
         Event<byte[]> otherRequest = serviceRequest("org.kinotic.tests.OtherService");
-        assertFalse(eventBusService.shouldDeliverLocally(otherRequest, otherRequest.cri().baseResource()));
+        assertFalse(eventBusService.createDeliveryOptions(otherRequest, otherRequest.cri().baseResource()).isLocalOnly());
 
         // Once the local handler is unregistered, the preference is dropped again.
         consumer.unregister();
-        assertFalse(eventBusService.shouldDeliverLocally(request, baseResource));
+        assertFalse(eventBusService.createDeliveryOptions(request, baseResource).isLocalOnly());
     }
 
     @Test
@@ -69,7 +69,7 @@ public class DefaultEventBusServiceTests {
         eventBusService.listen(baseResource);
 
         Event<byte[]> reply = Event.create(replyCri, Metadata.create(), new byte[0]);
-        assertFalse(eventBusService.shouldDeliverLocally(reply, baseResource));
+        assertFalse(eventBusService.createDeliveryOptions(reply, baseResource).isLocalOnly());
     }
 
     private static Event<byte[]> serviceRequest(String serviceName) {
