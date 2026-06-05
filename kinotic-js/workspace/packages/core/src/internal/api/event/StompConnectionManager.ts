@@ -7,6 +7,9 @@ import debug from 'debug'
 import {Observable, Subject, Subscription} from 'rxjs'
 import {v4 as uuidv4} from 'uuid'
 
+/** Fixed REST route the cookie-session pre-flight probes; identical in every environment. */
+const SESSION_CHECK_PATH = '/api/me'
+
 /**
  * Creates a new RxStomp client and manages it
  * This is here to simplify the logic needed for connection management and the usage of the client.
@@ -123,13 +126,18 @@ export class StompConnectionManager {
                 beforeConnect: async (): Promise<void> => {
 
                     // Cookie-auth clients (browser, no webSocketFactory) can't read a rejected WS
-                    // upgrade, so probe the session over a readable REST status first. A 401 means
-                    // the cookie isn't (or is no longer) valid — not retriable, so fail fast: this
-                    // rejects the initial connect and surfaces a fatal error on a later reconnect,
-                    // instead of looping on an unauthenticated socket.
-                    if(!userWebSocketFactory && connectionInfo.sessionCheckUrl){
+                    // upgrade, so probe the session over a readable REST status first — same host as
+                    // the socket, at the fixed SESSION_CHECK_PATH. A 401 means the cookie isn't (or is
+                    // no longer) valid — not retriable, so fail fast: this rejects the initial connect
+                    // and surfaces a fatal error on a later reconnect, instead of looping on an
+                    // unauthenticated socket. Other statuses (incl. a server without the route) proceed.
+                    if(!userWebSocketFactory){
+                        const sessionCheckUrl = 'http' + (connectionInfo.useSSL ? 's' : '')
+                            + '://' + connectionInfo.host
+                            + (connectionInfo.port ? ':' + connectionInfo.port : '')
+                            + SESSION_CHECK_PATH
                         try {
-                            const res = await fetch(connectionInfo.sessionCheckUrl, { credentials: 'include' })
+                            const res = await fetch(sessionCheckUrl, { credentials: 'include' })
                             if(res.status === 401){
                                 await this.signalFatal(new Error('Authentication required'))
                                 return
