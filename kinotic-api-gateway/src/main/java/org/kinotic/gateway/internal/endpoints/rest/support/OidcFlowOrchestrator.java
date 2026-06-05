@@ -15,11 +15,13 @@ import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
+import org.kinotic.gateway.internal.endpoints.JsonSessionCodec;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.HashMap;
 import java.util.List;
@@ -46,6 +48,7 @@ public class OidcFlowOrchestrator {
     private final ConcurrentMap<String, Future<OAuth2Auth>> oauth2AuthCache = new ConcurrentHashMap<>();
     private final SecretReferenceResolver secretReferenceResolver;
     private final Vertx vertx;
+    private final JsonMapper jsonMapper;
 
     /**
      * Validates the callback (state match, no IdP error), exchanges the code, validates
@@ -80,7 +83,8 @@ public class OidcFlowOrchestrator {
         }
 
         Session session = ctx.session();
-        OidcFlowSession flowSession = session.remove(OIDC_FLOW_SESSION_KEY);
+        OidcFlowSession flowSession = JsonSessionCodec.remove(session, jsonMapper,
+                                                              OIDC_FLOW_SESSION_KEY, OidcFlowSession.class);
 
         if (flowSession == null || !flowSession.state().equals(state)
                 || !flowSession.configId().equals(pathConfigId)) {
@@ -130,7 +134,8 @@ public class OidcFlowOrchestrator {
 
         Session session = ctx.session();
         session.regenerateId();
-        session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), orgId));
+        JsonSessionCodec.store(session, jsonMapper, OIDC_FLOW_SESSION_KEY,
+                               new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), orgId));
 
         return getOAuth2Auth(config)
                 .map(oauth2 -> oauth2.authorizeURL(

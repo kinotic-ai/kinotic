@@ -3,8 +3,11 @@ package org.kinotic.gateway.internal.endpoints.rest;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
+import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.gateway.internal.endpoints.JsonSessionCodec;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Browser session-lifecycle routes (named to avoid clashing with Vert.x's own {@code SessionHandler}):
@@ -18,7 +21,10 @@ import org.springframework.stereotype.Component;
  * </ul>
  */
 @Component
+@RequiredArgsConstructor
 public class SessionEndpointHandler {
+
+    private final JsonMapper jsonMapper;
 
     public void mountRoutes(Router router) {
         router.get("/api/me").handler(this::handleMe);
@@ -31,10 +37,9 @@ public class SessionEndpointHandler {
      * this runs, so the check is a session read.
      */
     private void handleMe(RoutingContext ctx) {
-        Session session = ctx.session();
-        Object value = session == null ? null : session.get(ConnectedInfo.SESSION_KEY);
-        boolean authenticated = value instanceof ConnectedInfo connectedInfo
-                && connectedInfo.getParticipant() != null;
+        ConnectedInfo connectedInfo = JsonSessionCodec.read(ctx.session(), jsonMapper,
+                                                            ConnectedInfo.SESSION_KEY, ConnectedInfo.class);
+        boolean authenticated = connectedInfo != null && connectedInfo.getParticipant() != null;
         ctx.response().setStatusCode(authenticated ? 204 : 401).end();
     }
 

@@ -11,6 +11,7 @@ import java.util.function.Function;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.gateway.internal.endpoints.JsonSessionCodec;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -24,6 +25,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Shared response shaping + URL/route plumbing for every login/signup handler —
@@ -38,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AuthEndpointSupport {
 
     private final KinoticDomainProperties domainProperties;
+    private final JsonMapper jsonMapper;
 
 
     /**
@@ -71,7 +74,7 @@ public class AuthEndpointSupport {
         Participant participant = DomainUtil.createParticipant(user);
         ConnectedInfo connectedInfo = new ConnectedInfo();
         connectedInfo.setParticipant(participant);
-        session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
+        JsonSessionCodec.store(session, jsonMapper, ConnectedInfo.SESSION_KEY, connectedInfo);
     }
 
     /** Establishes the browser session for {@code user} and writes {@code 204 No Content}. */

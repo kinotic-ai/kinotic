@@ -21,6 +21,7 @@ import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.internal.utils.EventUtil;
+import org.kinotic.gateway.internal.endpoints.JsonSessionCodec;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,7 +77,7 @@ public class EndpointConnectionHandler {
                                   connectedInfo = new ConnectedInfo();
                                   connectedInfo.setParticipant(participant);
                                   if (session != null) {
-                                      session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
+                                      JsonSessionCodec.store(session, services.jsonMapper, ConnectedInfo.SESSION_KEY, connectedInfo);
                                   }
                                   return MultiMap.caseInsensitiveMultiMap();
                               });
@@ -98,7 +99,7 @@ public class EndpointConnectionHandler {
                     connectedInfo.setReplyToId(UUID.randomUUID().toString());
                 }
                 if (session != null) {
-                    session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
+                    JsonSessionCodec.store(session, services.jsonMapper, ConnectedInfo.SESSION_KEY, connectedInfo);
                 }
                 stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
 
@@ -298,14 +299,7 @@ public class EndpointConnectionHandler {
     }
 
     private ConnectedInfo connectedInfoFromSession() {
-        if (session == null) {
-            return null;
-        }
-        Object value = session.get(ConnectedInfo.SESSION_KEY);
-        if (value instanceof ConnectedInfo storedConnectedInfo) {
-            return storedConnectedInfo;
-        }
-        return null;
+        return JsonSessionCodec.read(session, services.jsonMapper, ConnectedInfo.SESSION_KEY, ConnectedInfo.class);
     }
 
     private void signalActivity() {
