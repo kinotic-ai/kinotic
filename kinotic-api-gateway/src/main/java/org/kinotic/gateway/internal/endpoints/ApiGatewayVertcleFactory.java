@@ -39,7 +39,7 @@ public class ApiGatewayVertcleFactory {
     private final OrganizationSignupHandler organizationSignupHandler;
     private final ApplicationLoginHandler applicationLoginHandler;
     private final CliDeviceLoginHandler cliDeviceLoginHandler;
-    private final LogoutHandler logoutHandler;
+    private final SessionEndpointHandler sessionEndpointHandler;
     private final GitHubGatewayRoutes githubGatewayRoutes;
     private final HealthChecks healthChecks;
     private final Vertx vertx;
@@ -77,7 +77,7 @@ public class ApiGatewayVertcleFactory {
         organizationSignupHandler.mountRoutes(router);
         applicationLoginHandler.mountRoutes(router);
         cliDeviceLoginHandler.mountRoutes(router);
-        logoutHandler.mountRoutes(router);
+        sessionEndpointHandler.mountRoutes(router);
         githubGatewayRoutes.mountRoutes(router);
 
         StompServerOptions stompServerOptions = properties.getApiGateway().getStomp();
