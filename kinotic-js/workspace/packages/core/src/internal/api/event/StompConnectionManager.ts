@@ -122,6 +122,23 @@ export class StompConnectionManager {
                 webSocketFactory: userWebSocketFactory ? () => preparedSocket as IWebSocket : undefined,
                 beforeConnect: async (): Promise<void> => {
 
+                    // Cookie-auth clients (browser, no webSocketFactory) can't read a rejected WS
+                    // upgrade, so probe the session over a readable REST status first. A 401 means
+                    // the cookie isn't (or is no longer) valid — not retriable, so fail fast: this
+                    // rejects the initial connect and surfaces a fatal error on a later reconnect,
+                    // instead of looping on an unauthenticated socket.
+                    if(!userWebSocketFactory && connectionInfo.sessionCheckUrl){
+                        try {
+                            const res = await fetch(connectionInfo.sessionCheckUrl, { credentials: 'include' })
+                            if(res.status === 401){
+                                await this.signalFatal(new Error('Authentication required'))
+                                return
+                            }
+                        } catch {
+                            // Couldn't reach the check (network/CORS) — treat as transient and let the socket try.
+                        }
+                    }
+
                     // If max connections are set, then make sure we have not exceeded that threshold
                     if(connectionInfo?.maxConnectionAttempts){
                         this.connectionAttempts++

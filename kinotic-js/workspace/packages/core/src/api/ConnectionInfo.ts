@@ -55,6 +55,17 @@ export class ConnectionInfo extends ServerInfo {
     webSocketFactory?: WebSocketFactory
 
     /**
+     * Optional URL of a REST endpoint that reports, over a readable HTTP status, whether the
+     * caller's cookie session is authenticated (for example {@code GET /api/me} → {@code 204} when
+     * signed in, {@code 401} when not). Cookie-auth clients (browsers) set this so the connection
+     * can pre-flight the session before opening the socket: a rejected WebSocket upgrade is opaque
+     * to browsers, so a {@code 401} here lets the client fail fast instead of retrying an
+     * unauthenticated socket. Ignored when a {@link webSocketFactory} is supplied — those clients
+     * authenticate the upgrade themselves.
+     */
+    sessionCheckUrl?: string
+
+    /**
      * The maximum number of connection attempts to make during the {@link IEventBus} initial connection request.
      * If the limit is reached the {@link IEventBus} will return an error to the caller of {@link IEventBus#connect}
      * Set to 0, undefined, or null to try forever
