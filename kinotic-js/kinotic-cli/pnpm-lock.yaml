@@ -12,17 +12,17 @@ importers:
         specifier: ^8.3.2
         version: 8.3.2(@types/node@25.5.0)
       '@kinotic-ai/core':
-        specifier: ^1.4.0
-        version: 1.4.0(typescript@5.9.3)
+        specifier: ^1.4.1
+        version: 1.4.1(typescript@5.9.3)
       '@kinotic-ai/idl':
         specifier: ^1.0.9
         version: 1.0.9(typescript@5.9.3)
       '@kinotic-ai/os-api':
         specifier: ^1.7.0
-        version: 1.7.0(@kinotic-ai/core@1.4.0(typescript@5.9.3))(typescript@5.9.3)
+        version: 1.7.0(@kinotic-ai/core@1.4.1(typescript@5.9.3))(typescript@5.9.3)
       '@kinotic-ai/persistence':
         specifier: ^1.3.0
-        version: 1.3.0(@kinotic-ai/core@1.4.0(typescript@5.9.3))(typescript@5.9.3)
+        version: 1.3.0(@kinotic-ai/core@1.4.1(typescript@5.9.3))(typescript@5.9.3)
       '@oclif/core':
         specifier: ^4.9.0
         version: 4.9.0
@@ -477,8 +477,8 @@ packages:
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
     engines: {node: '>=12'}
 
-  '@kinotic-ai/core@1.4.0':
-    resolution: {integrity: sha512-qz29uEOuT6p/lUrT76lAbLIMOR0IgUHBgWGiF231Hd44w1mOQ/2lIPOxVaXs8+WslAEDpBKplrRLljLQ9w+Utg==}
+  '@kinotic-ai/core@1.4.1':
+    resolution: {integrity: sha512-ClueThmgS4y4DiL3nt9+CWcmmbkf1uarNIPgy60hxPUXQWQ58U4dSOHmzOppxkJV2trrQvPNfJATlQdatdnXOQ==}
     peerDependencies:
       typescript: '*'
     peerDependenciesMeta:
@@ -558,12 +558,12 @@ packages:
     resolution: {integrity: sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ==}
     engines: {node: '>=18'}
 
-  '@stomp/rx-stomp@2.3.0':
-    resolution: {integrity: sha512-Vt6CNHm0GuEeDz6iTb+fH1E1Vw8s5hEGqlhFMuqfkFdgoiJMVqsPUpIfF8POSYYjIHd/AJ/P55v6JgPsrFOKhA==}
+  '@stomp/rx-stomp@2.4.0':
+    resolution: {integrity: sha512-F6UI5W31Q4FNg8VYwBqbTIu8pFl5L1UP9vmg2TN4W7y7OZfbmcS2OXhht+qBwDG31tjn96Cq1zgeoz7lvrzKug==}
     peerDependencies:
       '@stomp/stompjs': ^7.2.0
       rxjs: ^7.2.0
-      uuid: '>=9.0.0 <12.0.0'
+      uuid: '>=9.0.0 <15.0.0'
 
   '@stomp/stompjs@7.3.0':
     resolution: {integrity: sha512-nKMLoFfJhrQAqkvvKd1vLq/cVBGCMwPRCD0LqW7UT1fecRx9C3GoKEIR2CYwVuErGeZu8w0kFkl2rlhPlqHVgQ==}
@@ -2071,11 +2071,11 @@ snapshots:
       wrap-ansi: 8.1.0
       wrap-ansi-cjs: wrap-ansi@7.0.0
 
-  '@kinotic-ai/core@1.4.0(typescript@5.9.3)':
+  '@kinotic-ai/core@1.4.1(typescript@5.9.3)':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.40.0
-      '@stomp/rx-stomp': 2.3.0(@stomp/stompjs@7.3.0)(rxjs@7.8.2)(uuid@13.0.0)
+      '@stomp/rx-stomp': 2.4.0(@stomp/stompjs@7.3.0)(rxjs@7.8.2)(uuid@13.0.0)
       '@stomp/stompjs': 7.3.0
       '@types/debug': 4.1.13
       debug: 4.4.3(supports-color@8.1.1)
@@ -2095,18 +2095,18 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
-  '@kinotic-ai/os-api@1.7.0(@kinotic-ai/core@1.4.0(typescript@5.9.3))(typescript@5.9.3)':
+  '@kinotic-ai/os-api@1.7.0(@kinotic-ai/core@1.4.1(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
-      '@kinotic-ai/core': 1.4.0(typescript@5.9.3)
+      '@kinotic-ai/core': 1.4.1(typescript@5.9.3)
       '@kinotic-ai/idl': 1.0.9(typescript@5.9.3)
-      '@kinotic-ai/persistence': 1.3.0(@kinotic-ai/core@1.4.0(typescript@5.9.3))(typescript@5.9.3)
+      '@kinotic-ai/persistence': 1.3.0(@kinotic-ai/core@1.4.1(typescript@5.9.3))(typescript@5.9.3)
       rxjs: 7.8.2
     optionalDependencies:
       typescript: 5.9.3
 
-  '@kinotic-ai/persistence@1.3.0(@kinotic-ai/core@1.4.0(typescript@5.9.3))(typescript@5.9.3)':
+  '@kinotic-ai/persistence@1.3.0(@kinotic-ai/core@1.4.1(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
-      '@kinotic-ai/core': 1.4.0(typescript@5.9.3)
+      '@kinotic-ai/core': 1.4.1(typescript@5.9.3)
       '@kinotic-ai/idl': 1.0.9(typescript@5.9.3)
       reflect-metadata: 0.2.2
       rxjs: 7.8.2
@@ -2171,7 +2171,7 @@ snapshots:
 
   '@sindresorhus/merge-streams@4.0.0': {}
 
-  '@stomp/rx-stomp@2.3.0(@stomp/stompjs@7.3.0)(rxjs@7.8.2)(uuid@13.0.0)':
+  '@stomp/rx-stomp@2.4.0(@stomp/stompjs@7.3.0)(rxjs@7.8.2)(uuid@13.0.0)':
     dependencies:
       '@stomp/stompjs': 7.3.0
       rxjs: 7.8.2
