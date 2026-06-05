@@ -161,7 +161,7 @@ public class OrganizationSignupHandler {
     private void handleSocialCallback(RoutingContext ctx) {
         String pathConfigId = ctx.pathParam("configId");
 
-        oidcFlowOrchestrator.<OrgSignupOidcConfiguration>handleCallback(
+        oidcFlowOrchestrator.handleCallback(
                 ctx, pathConfigId, callbackUrl(pathConfigId),
                 _ -> orgSignupOidcConfigurationService.findById(pathConfigId))
                 .onSuccess(result -> createPendingSignUp(ctx, result))
@@ -195,7 +195,7 @@ public class OrganizationSignupHandler {
               .compose(existing -> {
                   if (existing != null && !existing.isEmpty()) {
                       // Already have an account for this identity — push them to log in instead.
-                      return Future.<PendingSignUp>failedFuture(new AccountExistsException());
+                      return Future.failedFuture(new AccountExistsException());
                   }
                   PendingSignUp pending = new PendingSignUp();
                   pending.setOidcSubject(sub);

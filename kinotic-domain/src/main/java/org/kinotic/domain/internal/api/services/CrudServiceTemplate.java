@@ -529,7 +529,7 @@ public class CrudServiceTemplate {
         return bindToContext(esAsyncClient.index((IndexRequest.Builder<T> builder) ->
                 builder.index(indexName).id(id).document(document).opType(OpType.Create)))
                 .exceptionallyCompose(throwable -> isVersionConflict(throwable)
-                        ? CompletableFuture.<IndexResponse>failedFuture(new AlreadyExistsException(
+                        ? CompletableFuture.failedFuture(new AlreadyExistsException(
                                 "A document with id '" + id + "' already exists in index '" + indexName + "'"))
                         : CompletableFuture.<IndexResponse>failedFuture(throwable));
     }

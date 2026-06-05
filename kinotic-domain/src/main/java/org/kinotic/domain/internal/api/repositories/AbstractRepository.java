@@ -69,7 +69,7 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
 
     protected CompletableFuture<Void> deleteById(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
         return crudServiceTemplate.deleteById(indexName, id, builderConsumer)
-                                  .thenApply(response -> null);
+                                  .thenApply(_ -> null);
     }
 
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
@@ -90,7 +90,7 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
 
     protected CompletableFuture<T> save(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
         return crudServiceTemplate.save(indexName, value.getId(), value, builderConsumer)
-                                  .thenApply(indexResponse -> value);
+                                  .thenApply(_ -> value);
     }
 
     public CompletableFuture<T> saveSync(T value) {
@@ -99,7 +99,7 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
 
     protected CompletableFuture<T> saveSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
         return crudServiceTemplate.saveSync(indexName, value.getId(), value, builderConsumer)
-                                  .thenApply(indexResponse -> value);
+                                  .thenApply(_ -> value);
     }
 
     /**
@@ -109,7 +109,7 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
      */
     public CompletableFuture<T> create(T value) {
         return crudServiceTemplate.create(indexName, value.getId(), value)
-                                  .thenApply(indexResponse -> value);
+                                  .thenApply(_ -> value);
     }
 
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
@@ -122,7 +122,7 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     public CompletableFuture<Void> syncIndex() {
         return esAsyncClient.indices()
                             .refresh(b -> b.index(indexName))
-                            .thenApply(unused -> null);
+                            .thenApply(_ -> null);
     }
 
     protected Query composeFilter(Query... filters) {

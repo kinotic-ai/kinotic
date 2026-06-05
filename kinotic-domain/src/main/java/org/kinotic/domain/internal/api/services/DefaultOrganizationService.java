@@ -47,9 +47,9 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
               .setUpdated(now);
         return repository.create(entity)
                          .exceptionallyCompose(ex -> isAlreadyExists(ex)
-                                 ? CompletableFuture.<Organization>failedFuture(new AlreadyExistsException(
+                                 ? CompletableFuture.failedFuture(new AlreadyExistsException(
                                          "An organization named '" + entity.getName() + "' already exists"))
-                                 : CompletableFuture.<Organization>failedFuture(ex));
+                                 : CompletableFuture.failedFuture(ex));
     }
 
     private static boolean isAlreadyExists(Throwable ex) {
