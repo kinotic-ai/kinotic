@@ -47,7 +47,7 @@ public class DefaultEventBusServiceTests {
         // No local handler yet, so the request should route normally.
         assertFalse(eventBusService.createDeliveryOptions(request, baseResource).isLocalOnly());
 
-        EventConsumer consumer = eventBusService.listen(baseResource);
+        EventConsumer consumer = eventBusService.listen(request.cri());
 
         // This node now hosts the service, so the request should be pinned local.
         assertTrue(eventBusService.createDeliveryOptions(request, baseResource).isLocalOnly());
@@ -66,7 +66,7 @@ public class DefaultEventBusServiceTests {
         // Even though this node listens on the reply address, replies are never confined to local delivery.
         CRI replyCri = CRI.create(EventConstants.REPLY_DESTINATION_SCHEME, "node1", "ReplyHandler");
         String baseResource = replyCri.baseResource();
-        eventBusService.listen(baseResource);
+        eventBusService.listen(replyCri);
 
         Event<byte[]> reply = Event.create(replyCri, Metadata.create(), new byte[0]);
         assertFalse(eventBusService.createDeliveryOptions(reply, baseResource).isLocalOnly());

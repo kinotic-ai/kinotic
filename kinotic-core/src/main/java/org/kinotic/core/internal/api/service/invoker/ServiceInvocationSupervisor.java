@@ -118,7 +118,7 @@ public class ServiceInvocationSupervisor {
     public Future<Void> start(){
         if(active.compareAndSet(false, true)){
             // begin listening on the event bus for service invocation requests
-            methodInvocationEventConsumer = eventBusService.listen(serviceDescriptor.serviceIdentifier().cri().baseResource());
+            methodInvocationEventConsumer = eventBusService.listen(serviceDescriptor.serviceIdentifier().cri());
 
             methodInvocationEventConsumer
                     .handler(event -> vertx.executeBlocking(() -> {
@@ -328,7 +328,7 @@ public class ServiceInvocationSupervisor {
                     Flux<?> flux = Flux.from(reactiveAdapter.toPublisher(result));
 
                     CRI replyCRI = CRI.create(incomingEvent.metadata().get(EventConstants.REPLY_TO_HEADER));
-                    Flux<ListenerStatus> replyListenerStatus = eventBusService.monitorListenerStatus(replyCRI.baseResource());
+                    Flux<ListenerStatus> replyListenerStatus = eventBusService.monitorListenerStatus(replyCRI);
 
                     StreamSubscriber streamSubscriber = new StreamSubscriber(incomingMetadata, handlerMethod, replyListenerStatus);
                     flux.subscribe(streamSubscriber);

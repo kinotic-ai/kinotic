@@ -49,7 +49,7 @@ public class DefaultEventService implements EventService {
     public EventConsumer listen(String cri) {
         EventConsumer ret;
         if(cri.startsWith(EventConstants.SERVICE_DESTINATION_SCHEME)){
-            ret = eventBusService.listen(cri);
+            ret = eventBusService.listen(CRI.create(cri));
         }else if(cri.startsWith(EventConstants.STREAM_DESTINATION_SCHEME)){
             ret = eventStreamService.listen(CRI.create(cri));
         }else{

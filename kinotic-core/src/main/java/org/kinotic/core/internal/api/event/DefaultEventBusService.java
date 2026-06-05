@@ -17,6 +17,7 @@ import jakarta.annotation.PostConstruct;
 import org.apache.commons.lang3.Validate;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
@@ -81,27 +82,29 @@ public class DefaultEventBusService implements EventBusService {
     }
 
     @Override
-    public Future<Boolean> isAnybodyListening(String cri) {
+    public Future<Boolean> isAnybodyListening(CRI cri) {
         if(ignite == null){
             throw new IllegalStateException("This method is not available when ignite is disabled");
         }
-        return IgniteUtil.futureToVertxFuture(() -> subscriptionsCache.containsKeyAsync(cri));
+        return IgniteUtil.futureToVertxFuture(() -> subscriptionsCache.containsKeyAsync(cri.baseResource()));
     }
 
     @Override
-    public EventConsumer listen(String cri) {
-        Validate.notEmpty(cri, "The cri must be provided");
-        MessageConsumer<byte[]> consumer = vertx.eventBus().consumer(cri);
-        localListenerCounts.merge(cri, 1, Integer::sum);
+    public EventConsumer listen(CRI cri) {
+        Validate.notNull(cri, "The cri must be provided");
+        String address = cri.baseResource();
+        MessageConsumer<byte[]> consumer = vertx.eventBus().consumer(address);
+        localListenerCounts.merge(address, 1, Integer::sum);
         return new DefaultEventConsumer(consumer,
-                                        () -> localListenerCounts.computeIfPresent(cri, (k, count) -> count == 1 ? null : count - 1));
+                                        () -> localListenerCounts.computeIfPresent(address, (k, count) -> count == 1 ? null : count - 1));
     }
 
     @Override
-    public Flux<ListenerStatus> monitorListenerStatus(String cri) {
+    public Flux<ListenerStatus> monitorListenerStatus(CRI cri) {
         if(ignite == null){
             throw new IllegalStateException("This method is not available when ignite is disabled");
         }
+        String address = cri.baseResource();
         Flux<ListenerStatus> ret = Flux.create(sink -> {
 
             Context vertxContext = vertx.getOrCreateContext();
@@ -117,13 +120,13 @@ public class DefaultEventBusService implements EventBusService {
                     FactoryBuilder.factoryOf(new SubscriptionInfoCacheEntryListener(sink, vertxContext));
 
             Factory<? extends CacheEntryEventFilter<IgniteRegistrationInfo, Boolean>> filterFactory =
-                    FactoryBuilder.factoryOf(new SubscriptionInfoCacheEntryEventFilter(cri));
+                    FactoryBuilder.factoryOf(new SubscriptionInfoCacheEntryEventFilter(address));
 
             MutableCacheEntryListenerConfiguration<IgniteRegistrationInfo, Boolean> cacheEntryListenerConfiguration =
                     new MutableCacheEntryListenerConfiguration<>(listenerFactory, filterFactory, false, false);
 
             sink.onDispose(() -> {
-                log.trace("Disposing of monitorListenerStatus for cri: {}", cri);
+                log.trace("Disposing of monitorListenerStatus for cri: {}", address);
                 vertxContext.executeBlocking(() -> {
                     cache.deregisterCacheEntryListener(cacheEntryListenerConfiguration);
                     return null;
@@ -134,7 +137,7 @@ public class DefaultEventBusService implements EventBusService {
 
             // Make sure we didn't miss a subscription ending while we were setting up the listener
             Promise<List<RegistrationInfo>> promise = Promise.promise();
-            clusterManager.getRegistrations(cri, promise);
+            clusterManager.getRegistrations(address, promise);
 
             promise.future().onComplete(ar -> {
                 if(ar.succeeded()){
@@ -145,7 +148,7 @@ public class DefaultEventBusService implements EventBusService {
                         vertxContext.executeBlocking(() -> sink.next(ListenerStatus.INACTIVE));
                     }
                 } else {
-                    log.trace("Failed getting subscriptions for monitorListenerStatus for cri: {}", cri);
+                    log.trace("Failed getting subscriptions for monitorListenerStatus for cri: {}", address);
                     vertxContext.executeBlocking(() -> {
                         sink.error(ar.cause());
                         return null;
