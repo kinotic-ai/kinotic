@@ -31,6 +31,14 @@ public class ConnectedInfo implements ClusterSerializable {
      */
     public static final String SESSION_KEY = ConnectedInfo.class.getName();
 
+    /**
+     * -- SETTER --
+     *  Provides the Jackson mapper used to marshal into and out of a clustered session.
+     *  Must be supplied once during startup with a mapper that understands the polymorphic
+     *  subtypes (kinotic-domain configures one). A clustered store
+     *  reconstructs this type through its no-arg constructor, so the mapper cannot be injected.
+     */
+    @Setter
     private static volatile JsonMapper serializationMapper;
 
     /**
@@ -42,16 +50,6 @@ public class ConnectedInfo implements ClusterSerializable {
      * This id is the only valid "reply-to" scope that can be used by the client.
      */
     private String replyToId;
-
-    /**
-     * Provides the Jackson mapper used to marshal a {@code ConnectedInfo} into and out of a
-     * clustered session. Must be supplied once during startup with a mapper that understands the
-     * polymorphic {@link Participant} subtypes (kinotic-domain configures one). A clustered store
-     * reconstructs this type through its no-arg constructor, so the mapper cannot be injected.
-     */
-    public static void setSerializationMapper(JsonMapper mapper) {
-        serializationMapper = mapper;
-    }
 
     @Override
     public void writeToBuffer(Buffer buffer) {
