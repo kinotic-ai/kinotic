@@ -16,6 +16,20 @@ export default defineConfig(
                 ]
             })
         ],
+        // The class-component auth pages (Login/Signup/VerifyEmail/CompleteOrg) use
+        // vue-facing-decorator's @Component, i.e. TS legacy decorators. Vite's dev transform runs
+        // esbuild, which auto-discovers the root tsconfig.json — a solution-style file with no
+        // compilerOptions — and does NOT follow project references, so it never sees
+        // experimentalDecorators (declared only in tsconfig.app.json). Without it esbuild emits
+        // broken JS for those decorators ("Invalid or unexpected token"); declare it here so the
+        // dev transform matches the type-check config.
+        esbuild: {
+            tsconfigRaw: {
+                compilerOptions: {
+                    experimentalDecorators: true,
+                },
+            },
+        },
         resolve: {
             alias: {
                 "@": path.resolve(__dirname, "./src"),
