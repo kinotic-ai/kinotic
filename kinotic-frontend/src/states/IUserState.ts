@@ -1,4 +1,5 @@
 import { ConnectedInfo, Kinotic } from '@kinotic-ai/core'
+import { isApplicationParticipant, isOrganizationParticipant } from '@kinotic-ai/os-api'
 import { reactive } from 'vue'
 import { createDebug } from '@/util/debug'
 import { apiUrl, createConnectionInfo } from '../util/helpers'
@@ -11,9 +12,8 @@ export interface IUserState {
     isAuthenticated(): boolean
 
     /**
-     * Returns the organization id of the currently authenticated participant. Valid for both
-     * organization- and application-scoped logins, which each carry an organization id; throws
-     * for a system-scoped participant, which has none.
+     * Returns the organization id of the authenticated participant. This client admits only
+     * organization-scoped participants; it throws for application- and system-scoped participants.
      */
     getOrganizationId(): string
 
@@ -65,15 +65,13 @@ export class UserState implements IUserState {
     }
 
     public getOrganizationId(): string {
-        // The server sends a polymorphic participant that carries `organizationId` for both
-        // organization- and application-scoped logins (a system participant carries none). The
-        // published core `Participant` type predates that shape, so read the field through a
-        // narrowed view rather than the auth-scope fields the server no longer sends.
-        const organizationId = (this.connectedInfo?.participant as { organizationId?: string | null } | undefined)?.organizationId
-        if (!organizationId) {
-            throw new Error('No organization id available — the authenticated participant is not scoped to an organization')
+        const participant = this.connectedInfo?.participant
+        // This client admits organization administrators only. An application-scoped participant
+        // also carries an organizationId, so it is excluded explicitly rather than by absence.
+        if (!participant || !isOrganizationParticipant(participant) || isApplicationParticipant(participant)) {
+            throw new Error('No organization id available — this client requires an organization-scoped (non-application) session')
         }
-        return organizationId
+        return participant.organizationId
     }
 }
 
