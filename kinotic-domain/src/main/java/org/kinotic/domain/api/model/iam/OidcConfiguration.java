@@ -24,10 +24,9 @@ import lombok.experimental.Accessors;
  * The same config id may legitimately appear in both — e.g. an org uses the same Okta
  * tenant for org-admin SSO and for one of its customer-facing apps.
  *
- * <p>Kinotic-curated social configs (Google, Microsoft Live, etc.) live in
- * {@link OrgSignupOidcConfiguration}; platform-admin configs live in
- * {@link SystemOidcConfiguration} — both intentionally separate so the authorization
- * paths and lifecycle (admin UI vs. seeded migration) don't collide.
+ * <p>Kinotic-curated social configs (Google, Microsoft Live, etc.) live separately in
+ * {@link OrgSignupOidcConfiguration} — kept apart so the authorization paths and
+ * lifecycle (admin UI vs. seeded migration) don't collide.
  */
 @Getter
 @Setter
@@ -90,10 +89,8 @@ public class OidcConfiguration extends BaseOidcConfiguration implements Organiza
     private String additionalScopes;
 
     /**
-     * How new identities from this provider are handled on first successful OIDC callback.
-     * Defaults to {@link UserProvisioningMode#AUTO} — matches the "Continue with Google just
-     * works" UX. Set to {@link UserProvisioningMode#REGISTRATION_REQUIRED} when admins want
-     * users to accept ToS or pick options before their account is created.
+     * The provisioning policy configured for new identities from this provider (see
+     * {@link UserProvisioningMode}). Defaults to {@link UserProvisioningMode#AUTO}.
      */
     private UserProvisioningMode provisioningMode = UserProvisioningMode.AUTO;
 }

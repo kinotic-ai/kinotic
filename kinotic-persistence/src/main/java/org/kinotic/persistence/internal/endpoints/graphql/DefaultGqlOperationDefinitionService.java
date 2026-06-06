@@ -3,7 +3,6 @@ package org.kinotic.persistence.internal.endpoints.graphql;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.*;
 import tools.jackson.databind.ObjectMapper;
-import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import graphql.language.OperationDefinition;
 import graphql.scalars.ExtendedScalars;
 import graphql.schema.GraphQLFieldDefinition;
@@ -13,13 +12,11 @@ import org.kinotic.persistence.api.model.EntityOperation;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;
 import org.kinotic.persistence.api.model.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
-import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.utils.GqlUtils;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.util.List;
 
 import static graphql.Scalars.*;
@@ -36,19 +33,13 @@ import static graphql.schema.GraphQLNonNull.nonNull;
 public class DefaultGqlOperationDefinitionService implements GqlOperationDefinitionService {
 
     private final List<GqlOperationDefinition> builtInOperationDefinitions;
-    private final AsyncLoadingCache<String, List<GqlOperationDefinition>> namedQueryOperationDefinitionCache;
+    private final NamedQueryGqlOperationDefinitionCache namedQueryOperationDefinitionCache;
 
     public DefaultGqlOperationDefinitionService(EntitiesService entitiesService,
-                                                NamedQueryGqlOperationDefinitionCacheLoader namedQueryGqlOperationDefinitionCacheLoader,
-                                                ObjectMapper objectMapper,
-                                                DefaultCaffeineCacheFactory cacheFactory) {
+                                                NamedQueryGqlOperationDefinitionCache namedQueryGqlOperationDefinitionCache,
+                                                ObjectMapper objectMapper) {
 
-        namedQueryOperationDefinitionCache
-                = cacheFactory.<String, List<GqlOperationDefinition>>newBuilder()
-                              .name("namedQueryOperationDefinitionCache")
-                              .expireAfterAccess(Duration.ofHours(1))
-                              .maximumSize(2000)
-                              .buildAsync(namedQueryGqlOperationDefinitionCacheLoader);
+        this.namedQueryOperationDefinitionCache = namedQueryGqlOperationDefinitionCache;
 
         this.builtInOperationDefinitions = List.of(
 
@@ -282,7 +273,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
         try {
 
             if(cacheEvictionEvent.getEntityDefinitionId() != null){
-                namedQueryOperationDefinitionCache.asMap().remove(cacheEvictionEvent.getEntityDefinitionId());
+                namedQueryOperationDefinitionCache.evict(cacheEvictionEvent.getOrganizationId(), cacheEvictionEvent.getEntityDefinitionId());
             }
         } catch (Exception e) {
             log.error("Failed to handle cache eviction (source: {})",
@@ -297,7 +288,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
 
     @Override
     public List<GqlOperationDefinition> getNamedQueryOperationDefinitions(final EntityDefinition entityDefinition) {
-        return namedQueryOperationDefinitionCache.get(entityDefinition.getId()).join();
+        return namedQueryOperationDefinitionCache.get(entityDefinition.getOrganizationId(), entityDefinition.getId()).join();
     }
 
     private GraphQLFieldDefinition.Builder addPolicyIfPresent(GraphQLFieldDefinition.Builder builder,

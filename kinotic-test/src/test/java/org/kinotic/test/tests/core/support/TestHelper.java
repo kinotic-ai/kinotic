@@ -1,5 +1,6 @@
 package org.kinotic.test.tests.core.support;
 
+import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.persistence.api.model.EntityContext;
@@ -7,9 +8,9 @@ import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.internal.sample.Car;
-import org.kinotic.persistence.internal.sample.DummyParticipant;
 import org.kinotic.persistence.internal.sample.Person;
 import org.kinotic.persistence.internal.sample.TestDataService;
+import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -43,20 +44,23 @@ public class TestHelper {
     private SecurityContext securityContext;
 
     /**
-     * Runs the supplier on a Vert.x context with elevated access set so that
-     * org-scope enforcement on {@code OrganizationScoped} entities is skipped.
+     * Runs the supplier on a Vert.x context with
+     * {@link KinoticTestBase#TEST_ORGANIZATION_PARTICIPANT} bound, so that org-scoped
+     * services resolve {@link KinoticTestBase#TEST_ORG_ID} from the current participant.
      */
-    public <T> CompletableFuture<T> elevated(Supplier<CompletableFuture<T>> supplier) {
+    public <T> CompletableFuture<T> runAsOrganization(Supplier<CompletableFuture<T>> supplier) {
         CompletableFuture<T> result = new CompletableFuture<>();
-        vertx.getOrCreateContext().runOnContext(v ->
-                securityContext.withElevatedAccess(supplier)
-                               .whenComplete((value, error) -> {
-                                   if (error != null) {
-                                       result.completeExceptionally(error);
-                                   } else {
-                                       result.complete(value);
-                                   }
-                               }));
+        Context context = vertx.getOrCreateContext();
+        context.runOnContext(v -> {
+            securityContext.setParticipant(context, KinoticTestBase.TEST_ORGANIZATION_PARTICIPANT);
+            supplier.get().whenComplete((value, error) -> {
+                if (error != null) {
+                    result.completeExceptionally(error);
+                } else {
+                    result.complete(value);
+                }
+            });
+        });
         return result;
     }
 
@@ -64,7 +68,7 @@ public class TestHelper {
     public StructureAndPersonHolder createAndVerify(){
         return this.createAndVerify(1,
                                true,
-                               new DefaultEntityContext(new DummyParticipant()),
+                               new DefaultEntityContext(KinoticTestBase.applicationParticipant()),
                                "_" + System.currentTimeMillis());
     }
 
@@ -99,7 +103,7 @@ public class TestHelper {
         } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
-        return elevated(() -> entitiesService.bulkUpdate(entityDefinition.getId(), tokenBuffer, entityContext));
+        return runAsOrganization(() -> entitiesService.bulkUpdate(entityDefinition.getId(), tokenBuffer, entityContext));
     }
 
     public CompletableFuture<Void> bulkSaveCarsAsRawJson(List<Car> cars, EntityDefinition entityDefinition, EntityContext entityContext){
@@ -109,7 +113,7 @@ public class TestHelper {
         } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
-        return elevated(() -> entitiesService.bulkSave(entityDefinition.getId(), tokenBuffer, entityContext));
+        return runAsOrganization(() -> entitiesService.bulkSave(entityDefinition.getId(), tokenBuffer, entityContext));
     }
 
     public CompletableFuture<Car> saveCarAsRawJson(Car car, EntityDefinition entityDefinition, EntityContext entityContext){
@@ -119,7 +123,7 @@ public class TestHelper {
         } catch (JacksonException e) {
             return CompletableFuture.failedFuture(e);
         }
-        return elevated(() -> entitiesService.save(entityDefinition.getId(), tokenBuffer, entityContext))
+        return runAsOrganization(() -> entitiesService.save(entityDefinition.getId(), tokenBuffer, entityContext))
                                  .thenApply(saved -> {
                                   try (JsonParser parser = saved.asParser()) {
                                       return objectMapper.readValue(parser, Car.class);
@@ -138,7 +142,7 @@ public class TestHelper {
             return CompletableFuture.failedFuture(e);
         }
 
-        return elevated(() -> entitiesService.update(entityDefinition.getId(), tokenBuffer, entityContext))
+        return runAsOrganization(() -> entitiesService.update(entityDefinition.getId(), tokenBuffer, entityContext))
                                  .thenApply(saved -> {
                                   try (JsonParser parser = saved.asParser()) {
                                       return objectMapper.readValue(parser, Car.class);
@@ -160,7 +164,7 @@ public class TestHelper {
                                                                            boolean randomPeople,
                                                                            EntityContext entityContext,
                                                                            String structureNameSuffix){
-        return Mono.fromFuture(() -> elevated(() -> testDataService
+        return Mono.fromFuture(() -> runAsOrganization(() -> testDataService
                 .createPersonEntityDefinitionIfNotExists(structureNameSuffix)
                 .thenCompose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
                                              .thenCompose(people -> {
@@ -201,7 +205,7 @@ public class TestHelper {
                                                                                boolean randomPeople,
                                                                                EntityContext entityContext,
                                                                                String structureNameSuffix){
-        return Mono.fromFuture(() -> elevated(() -> testDataService
+        return Mono.fromFuture(() -> runAsOrganization(() -> testDataService
                 .createPersonEntityDefinitionIfNotExists(structureNameSuffix)
                 .thenCompose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
                                              .thenCompose(people -> {

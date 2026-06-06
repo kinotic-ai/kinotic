@@ -8,7 +8,7 @@ import org.kinotic.persistence.api.model.QueryParameter;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.security.Participant;
+import org.kinotic.domain.api.security.ApplicationParticipant;
 import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.List;
@@ -29,7 +29,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link CompletableFuture} that will complete when all entities have been saved
      */
-    CompletableFuture<Void> bulkSave(String entityDefinitionId, TokenBuffer entities, Participant participant);
+    CompletableFuture<Void> bulkSave(String entityDefinitionId, TokenBuffer entities, ApplicationParticipant participant);
 
     /**
      * Saves all given entities.
@@ -39,7 +39,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link CompletableFuture} that will complete when all entities have been saved
      */
-    CompletableFuture<Void> bulkUpdate(String entityDefinitionId, TokenBuffer entities, Participant participant);
+    CompletableFuture<Void> bulkUpdate(String entityDefinitionId, TokenBuffer entities, ApplicationParticipant participant);
 
     /**
      * Returns the number of entities available.
@@ -48,7 +48,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link CompletableFuture} emitting the number of entities.
      */
-    CompletableFuture<Long> count(String entityDefinitionId, Participant participant);
+    CompletableFuture<Long> count(String entityDefinitionId, ApplicationParticipant participant);
 
     /**
      * Returns the number of entities available for the given query.
@@ -58,7 +58,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link CompletableFuture} emitting the number of entities.
      */
-    CompletableFuture<Long> countByQuery(String entityDefinitionId, String query, Participant participant);
+    CompletableFuture<Long> countByQuery(String entityDefinitionId, String query, ApplicationParticipant participant);
 
     /**
      * Deletes the entity with the given id.
@@ -68,7 +68,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link CompletableFuture} emitting when delete is complete
      */
-    CompletableFuture<Void> deleteById(String entityDefinitionId, String id, Participant participant);
+    CompletableFuture<Void> deleteById(String entityDefinitionId, String id, ApplicationParticipant participant);
 
     /**
      * Deletes any entities that match the given query.
@@ -78,7 +78,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link CompletableFuture} emitting when delete is complete
      */
-    CompletableFuture<Void> deleteByQuery(String entityDefinitionId, String query, Participant participant);
+    CompletableFuture<Void> deleteByQuery(String entityDefinitionId, String query, ApplicationParticipant participant);
 
     /**
      * Returns a {@link Page} of entities meeting the paging restriction provided in the {@code Pageable} object.
@@ -88,7 +88,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a page of entities
      */
-    CompletableFuture<Page<FastestType>> findAll(String entityDefinitionId, Pageable pageable, Participant participant);
+    CompletableFuture<Page<FastestType>> findAll(String entityDefinitionId, Pageable pageable, ApplicationParticipant participant);
 
     /**
      * Retrieves an entity by its id.
@@ -98,7 +98,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link CompletableFuture} with the entity with the given id or {@link CompletableFuture} emitting null if none found
      */
-    CompletableFuture<FastestType> findById(String entityDefinitionId, String id, Participant participant);
+    CompletableFuture<FastestType> findById(String entityDefinitionId, String id, ApplicationParticipant participant);
 
     /**
      * Retrieves a list of entities by their id.
@@ -108,7 +108,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link CompletableFuture} with the list of matched entities with the given ids or {@link CompletableFuture} emitting an empty list if none found
      */
-    CompletableFuture<List<FastestType>> findByIds(String entityDefinitionId, List<String> ids, Participant participant);
+    CompletableFuture<List<FastestType>> findByIds(String entityDefinitionId, List<String> ids, ApplicationParticipant participant);
 
     /**
      * Executes a named query.
@@ -122,7 +122,7 @@ public interface JsonEntitiesRepository {
     CompletableFuture<List<RawJson>> namedQuery(String entityDefinitionId,
                                                 String queryName,
                                                 List<QueryParameter> queryParameters,
-                                                Participant participant);
+                                                ApplicationParticipant participant);
 
     /**
      * Executes a named query and returns a {@link Page} of results.
@@ -138,7 +138,7 @@ public interface JsonEntitiesRepository {
                                                     String queryName,
                                                     List<QueryParameter> queryParameters,
                                                     Pageable pageable,
-                                                    Participant participant);
+                                                    ApplicationParticipant participant);
 
     /**
      * Saves a given entity. Use the returned instance for further operations as the save operation might have changed the
@@ -149,7 +149,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link CompletableFuture} emitting the saved entity
      */
-    CompletableFuture<TokenBuffer> save(String entityDefinitionId, TokenBuffer entity, Participant participant);
+    CompletableFuture<TokenBuffer> save(String entityDefinitionId, TokenBuffer entity, ApplicationParticipant participant);
 
     /**
      * Returns a {@link Page} of entities matching the search text and paging restriction provided in the {@code Pageable} object.
@@ -162,7 +162,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a {@link CompletableFuture} of a page of entities
      */
-    CompletableFuture<Page<FastestType>> search(String entityDefinitionId, String searchText, Pageable pageable, Participant participant);
+    CompletableFuture<Page<FastestType>> search(String entityDefinitionId, String searchText, Pageable pageable, ApplicationParticipant participant);
 
     /**
      * This operation makes all the recent writes immediately available for search.
@@ -170,7 +170,7 @@ public interface JsonEntitiesRepository {
      * @param participant     the participant of the logged-in user
      * @return a {@link CompletableFuture} that will complete when the operation is complete
      */
-    CompletableFuture<Void> syncIndex(String entityDefinitionId, Participant participant);
+    CompletableFuture<Void> syncIndex(String entityDefinitionId, ApplicationParticipant participant);
 
     /**
      * Updates a given entity. This will only override the fields that are present in the given entity.
@@ -182,6 +182,6 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link CompletableFuture} emitting the saved entity
      */
-    CompletableFuture<TokenBuffer> update(String entityDefinitionId, TokenBuffer entity, Participant participant);
+    CompletableFuture<TokenBuffer> update(String entityDefinitionId, TokenBuffer entity, ApplicationParticipant participant);
 
 }

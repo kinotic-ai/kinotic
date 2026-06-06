@@ -10,9 +10,9 @@ import java.util.Date;
 
 /**
  * Baseline shape shared by every persisted OIDC provider configuration in the system.
- * Concrete subclasses ({@link OidcConfiguration}, {@link OrgSignupOidcConfiguration},
- * {@link SystemOidcConfiguration}) add the fields that distinguish their use case —
- * org-scope and link metadata, client secrets for confidential-client flows, etc.
+ * Concrete subclasses ({@link OidcConfiguration}, {@link OrgSignupOidcConfiguration})
+ * add the fields that distinguish their use case — org-scope and link metadata,
+ * client secrets for confidential-client flows, etc.
  *
  * <p>Subclasses each live in their own Elasticsearch index and are looked up via a
  * dedicated CRUD service; this class is never persisted directly.

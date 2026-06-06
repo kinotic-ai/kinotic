@@ -25,11 +25,9 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
     CompletableFuture<Project> createProjectIfNotExist(Project project);
 
     /**
-     * Looks up projects whose backing GitHub repo has the given {@code owner/repo}
-     * full name. Webhook handlers use this to map an inbound delivery to a project —
-     * the delivery has no Kinotic participant attached, so call this inside
-     * {@code SecurityContext.withElevatedAccess(...)}. Returns the empty list when no
-     * project is backed by the repo.
+     * Looks up projects in the current participant's organization whose backing GitHub repo
+     * has the given {@code owner/repo} full name. Returns the empty list when no project in
+     * that organization is backed by the repo.
      */
     CompletableFuture<List<Project>> findByRepoFullName(String repoFullName);
 

@@ -30,15 +30,6 @@
             <div class="login-form__step">
               <div class="login-field">
                 <InputText
-                  v-model="request.orgName"
-                  class="login-input"
-                  placeholder="Organization name"
-                  @keyup.enter="focusNext('displayName')"
-                />
-              </div>
-
-              <div class="login-field">
-                <InputText
                   ref="displayName"
                   v-model="request.displayName"
                   class="login-input"
@@ -82,7 +73,7 @@
               </p>
               <p class="signup-success__email">{{ request.email }}</p>
               <p class="signup-success__text">
-                Click the link to activate your organization.
+                Click the link to name your organization and finish setting up.
               </p>
               <p class="signup-success__text signup-success__text--muted">
                 The link expires in 24 hours.
@@ -137,7 +128,6 @@ export default class Signup extends Vue {
   toggleTheme() { toggleDark() }
 
   request: SignUpRequest = {
-    orgName: '',
     email: '',
     displayName: '',
   }
@@ -169,14 +159,9 @@ export default class Signup extends Vue {
   }
 
   async handleSubmit() {
-    this.request.orgName = this.request.orgName.trim()
     this.request.email = this.request.email.trim()
     this.request.displayName = this.request.displayName.trim()
 
-    if (!this.request.orgName) {
-      this.displayAlert('Organization name is required')
-      return
-    }
     if (!this.request.email || !this.request.email.includes('@')) {
       this.displayAlert('Please enter a valid email address')
       return

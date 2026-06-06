@@ -35,13 +35,11 @@ public class ApiGatewayVertcleFactory {
     private final KinoticApiGatewayProperties properties;
     private final KinoticDomainProperties domainProperties;
     private final StompServerHandlerFactory stompServerHandlerFactory;
-    private final SignUpHandler signUpHandler;
     private final OrganizationLoginHandler organizationLoginHandler;
     private final OrganizationSignupHandler organizationSignupHandler;
     private final ApplicationLoginHandler applicationLoginHandler;
-    private final SystemLoginHandler systemLoginHandler;
     private final CliDeviceLoginHandler cliDeviceLoginHandler;
-    private final LogoutHandler logoutHandler;
+    private final SessionEndpointHandler sessionEndpointHandler;
     private final GitHubGatewayRoutes githubGatewayRoutes;
     private final HealthChecks healthChecks;
     private final Vertx vertx;
@@ -75,13 +73,11 @@ public class ApiGatewayVertcleFactory {
         router.route("/api/*").handler(sessionHandler);
 
         // REST endpoints under /api
-        signUpHandler.mountRoutes(router);
         organizationLoginHandler.mountRoutes(router);
         organizationSignupHandler.mountRoutes(router);
         applicationLoginHandler.mountRoutes(router);
         cliDeviceLoginHandler.mountRoutes(router);
-        logoutHandler.mountRoutes(router);
-        //systemLoginHandler.mountRoutes(router);
+        sessionEndpointHandler.mountRoutes(router);
         githubGatewayRoutes.mountRoutes(router);
 
         StompServerOptions stompServerOptions = properties.getApiGateway().getStomp();

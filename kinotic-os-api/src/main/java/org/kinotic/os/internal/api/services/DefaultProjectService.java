@@ -77,10 +77,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     @Override
     public CompletableFuture<List<Project>> findByRepoFullName(String repoFullName) {
         Validate.notBlank(repoFullName, "repoFullName must not be blank");
-        String orgId = getOrganizationIdIfEnforced();
-        return orgId != null
-                ? projectRepository.findByRepoFullName(repoFullName, orgId)
-                : projectRepository.findByRepoFullName(repoFullName);
+        return projectRepository.findByRepoFullName(repoFullName, requireOrganizationId());
     }
 
     private CompletableFuture<Project> provisionAndSave(Project project) {

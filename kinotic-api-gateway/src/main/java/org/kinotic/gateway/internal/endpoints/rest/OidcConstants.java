@@ -1,12 +1,10 @@
 package org.kinotic.gateway.internal.endpoints.rest;
 
 /**
- * Single-source constants for the auth/OIDC HTTP surface: frontend redirect targets,
- * API route bases, well-known scope ids, and the error codes the various login flows
- * surface back to the frontend on failure.
- *
- * <p>Anything visible to the browser (frontend redirect paths, error codes the SPA
- * matches on) lives here so renames can be tracked across server + client in one place.
+ * The browser-facing auth/OIDC contract in one place: the frontend redirect targets the
+ * backend sends the browser to, and the {@code ?error=} codes the login flows surface
+ * back to the SPA on failure. The SPA matches on these same strings, so co-locating them
+ * keeps the cross-boundary contract scannable and easy to keep in step on a rename.
  */
 public final class OidcConstants {
 
@@ -17,7 +15,7 @@ public final class OidcConstants {
     /** Frontend path (resolved against {@code kinotic.domain.appBaseUrl}) the user is redirected to after successful authentication. */
     public static final String LOGIN_SUCCESS_PATH = "/";
 
-    /** Frontend path the user is redirected to for REGISTRATION_REQUIRED completion. The pending-registration token is appended as a query parameter (e.g. {@code /register?token=<verificationToken>}). */
+    /** Frontend path the user is redirected to in order to complete sign-up by naming their organization. The pending sign-up's verification token is appended as a query parameter (e.g. {@code /register?token=<verificationToken>}). */
     public static final String REGISTER_PATH = "/register";
 
     /** Frontend path the user is redirected to when login fails. The error code is appended as a query parameter (e.g. {@code /login?error=access_denied}). */
@@ -25,36 +23,6 @@ public final class OidcConstants {
 
     /** Frontend path where the user enters/confirms a CLI device {@code user_code} (the RFC 8628 verification URI). */
     public static final String DEVICE_VERIFICATION_PATH = "/device";
-
-    // ── API route bases ───────────────────────────────────────────────────────
-    // Each handler mounts its routes under one base. URL-building helpers use these
-    // same prefixes so route definitions and outbound redirect_uris stay in sync.
-
-    /** Org login surface — used by {@code OrganizationLoginHandler}. */
-    public static final String ORG_LOGIN_BASE = "/api/login";
-
-    /** Logout endpoint — destroys the browser session. */
-    public static final String LOGOUT_PATH = "/api/logout";
-
-    /** Org-signup completion endpoint that lives outside the {@link #SIGNUP_BASE} tree. */
-    public static final String ORG_REGISTER_COMPLETE = "/api/register/complete";
-
-    /** Org-signup surface — used by {@code OidcSignupHandler}. */
-    public static final String SIGNUP_BASE = "/api/signup";
-
-    /** Application-login surface — used by {@code ApplicationLoginHandler}. Includes the {@code :appId} path param. */
-    public static final String APP_LOGIN_BASE = "/api/app/:appId/login";
-
-    /** System-admin login surface — used by {@code SystemLoginHandler}. */
-    public static final String SYSTEM_LOGIN_BASE = "/api/system/login";
-
-    /** CLI device-authorization login surface (RFC 8628) — used by {@code CliDeviceLoginHandler}. Nested under {@link #ORG_LOGIN_BASE}. */
-    public static final String DEVICE_LOGIN_BASE = "/api/login/device";
-
-    // ── Well-known scope ids ──────────────────────────────────────────────────
-
-    /** Fixed {@code authScopeId} for SYSTEM-scoped IamUsers — Kinotic platform admins. */
-    public static final String SYSTEM_SCOPE_ID = "kinotic";
 
     // ── Error codes ───────────────────────────────────────────────────────────
     // Wire-stable strings the frontend matches on to render specific UX. Add new
@@ -90,6 +58,6 @@ public final class OidcConstants {
     /** Signup callback found an existing IamUser for the IdP identity — caller should log in instead. */
     public static final String ERR_ACCOUNT_EXISTS = "account_exists";
 
-    /** Signup failed during PendingRegistration creation. */
+    /** Signup failed during pending sign-up creation. */
     public static final String ERR_SIGNUP_FAILED = "signup_failed";
 }
