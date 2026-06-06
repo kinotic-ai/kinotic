@@ -1,34 +1,10 @@
-import type { IParticipant } from './IParticipant'
+import type {IApplicationParticipant} from './IApplicationParticipant'
+import type {IOrganizationParticipant} from './IOrganizationParticipant'
+import type {ISystemParticipant} from './ISystemParticipant'
 
 /**
- * Created by Navid Mitchell on 6/2/20
+ * A logged-in participant in one of its concrete scope shapes. Narrow with the
+ * {@code isSystemParticipant} / {@code isOrganizationParticipant} / {@code isApplicationParticipant}
+ * guards (or on the {@code type} discriminator) to access scope-specific fields.
  */
-export class Participant implements IParticipant {
-
-    public id: string;
-
-    public tenantId?: string | null;
-
-    public authScopeType?: string | null;
-
-    public authScopeId?: string | null;
-
-    public metadata: Map<string, string>;
-
-    public roles: string[];
-
-    constructor(id: string,
-                tenantId?: string,
-                authScopeType?: string,
-                authScopeId?: string,
-                metadata?: Map<string, string>,
-                roles?: string[]) {
-        this.id = id
-        this.tenantId = tenantId;
-        this.authScopeType = authScopeType;
-        this.authScopeId = authScopeId;
-        this.metadata = metadata || new Map();
-        this.roles = roles || [];
-    }
-
-}
+export type Participant = ISystemParticipant | IOrganizationParticipant | IApplicationParticipant
