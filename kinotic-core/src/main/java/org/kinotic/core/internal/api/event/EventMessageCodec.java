@@ -61,9 +61,7 @@ public class EventMessageCodec implements MessageCodec<Event<byte[]>, Event<byte
         byte[] data = dataLength < 0 ? null : buffer.getBytes(pos, pos + dataLength);
 
         Map<String, String> metadata = envelope.metadata() != null ? envelope.metadata() : new LinkedHashMap<>();
-        DefaultEvent<byte[]> event = new DefaultEvent<>(CRI.create(envelope.cri()), Metadata.create(metadata), data);
-        event.setSender(envelope.sender());
-        return event;
+        return new DefaultEvent<>(CRI.create(envelope.cri()), Metadata.create(metadata), data, envelope.sender());
     }
 
     @Override

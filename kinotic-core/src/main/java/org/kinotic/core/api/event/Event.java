@@ -88,5 +88,18 @@ public interface Event<T> {
         return new DefaultEvent<>(cri, metadata, data);
     }
 
+    /**
+     * Static method to create a default {@link Event} object with a sender
+     * @param cri that the event will be sent to
+     * @param metadata to be provided for the event
+     * @param data the object instance that will be the data
+     * @param sender the {@link Participant} that originated the event, may be null
+     * @param <Z> the type of the data
+     * @return the newly created {@link Event} object
+     */
+    static <Z> Event<Z> create(CRI cri, Metadata metadata, Z data, Participant sender){
+        return new DefaultEvent<>(cri, metadata, data, sender);
+    }
+
 
 }

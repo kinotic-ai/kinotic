@@ -29,6 +29,11 @@ public class DefaultEvent<T> implements Event<T>{
         this(cri, new DefaultMetadata(), data);
     }
 
+    public DefaultEvent(CRI cri, Metadata metadata, T data, Participant sender) {
+        this(cri, metadata, data);
+        this.sender = sender;
+    }
+
     @Override
     public CRI cri() {
         return cri;

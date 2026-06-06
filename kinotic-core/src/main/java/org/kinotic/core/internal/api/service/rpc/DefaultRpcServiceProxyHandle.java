@@ -193,11 +193,11 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                             "/" + method.getName(),
                                             serviceIdentifier.version());
 
+                // Propagate the participant active on the calling context so the callee sees the originator.
                 Event<byte[]> rpcOutboundEvent = Event.create(requestCri,
                                                               metadata,
-                                                              argumentData);
-                // Propagate the participant active on the calling context so the callee sees the originator.
-                rpcOutboundEvent.setSender(securityContext.currentParticipant());
+                                                              argumentData,
+                                                              securityContext.currentParticipant());
 
                 ret = handler.getReturnValue(new RpcRequest() {
                     @Override
