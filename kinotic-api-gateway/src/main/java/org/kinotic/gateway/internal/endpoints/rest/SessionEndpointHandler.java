@@ -31,11 +31,7 @@ public class SessionEndpointHandler {
      */
     private void handleMe(RoutingContext ctx) {
         boolean authenticated = false;
-        // Reading the session via ctx.session() flips the routing context's "accessed" flag, which
-        // makes the SessionHandler persist that session — a store write plus a Set-Cookie — even with
-        // lazy sessions enabled. So only touch it when the caller presents the session cookie (the
-        // SessionHandler's default name, which is what it's configured with); an unauthenticated probe
-        // carrying none would otherwise mint and store an empty session on every refresh.
+        // Reading the session via ctx.session() actually creates a session, so we avoid creating an unessarcy session by checking the cookie first.
         if (ctx.request().getCookie(SessionHandler.DEFAULT_SESSION_COOKIE_NAME) != null) {
             Session session = ctx.session();
             authenticated = session.get(ConnectedInfo.SESSION_KEY) instanceof ConnectedInfo connectedInfo
