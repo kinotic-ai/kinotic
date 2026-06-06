@@ -135,8 +135,7 @@ public class EndpointConnectionHandler {
 
             try {
 
-                // FIXME: when the invocation is local this happens for no reason. If the event stays on the local bus we shouldn't do this..
-                incomingEvent.metadata().put(EventConstants.SENDER_HEADER, services.jsonMapper.writeValueAsString(connectedInfo.getParticipant()));
+                incomingEvent.setSender(connectedInfo.getParticipant());
 
                 // make sure reply-to if present is scoped to sender
                 validateReplyToForServiceRequest(incomingEvent);

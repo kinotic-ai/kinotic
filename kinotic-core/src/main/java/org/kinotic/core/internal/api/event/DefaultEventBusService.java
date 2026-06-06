@@ -34,6 +34,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
+import tools.jackson.databind.json.JsonMapper;
 
 import javax.cache.configuration.Factory;
 import javax.cache.configuration.FactoryBuilder;
@@ -69,7 +70,8 @@ public class DefaultEventBusService implements EventBusService {
                                   ClusterManager clusterManager,
                                   @Autowired(required = false)
                                   Ignite ignite,
-                                  Vertx vertx) {
+                                  Vertx vertx,
+                                  JsonMapper jsonMapper) {
 
         this.clusterManager = clusterManager;
         this.ignite = ignite;
@@ -83,6 +85,9 @@ public class DefaultEventBusService implements EventBusService {
         if(ignite != null) {
             subscriptionsCache = ignite.cache("__vertx.subs");
         }
+
+        // Register once here so the codec is in place before any send sets its codec name.
+        vertx.eventBus().registerCodec(new EventMessageCodec(jsonMapper));
     }
 
     @Override
@@ -97,7 +102,7 @@ public class DefaultEventBusService implements EventBusService {
     public EventConsumer listen(CRI cri) {
         Validate.notNull(cri, "The cri must be provided");
         String address = cri.baseResource();
-        MessageConsumer<byte[]> consumer = vertx.eventBus().consumer(address);
+        MessageConsumer<Event<byte[]>> consumer = vertx.eventBus().consumer(address);
         localListenerCounts.merge(address, 1, Integer::sum);
         return new DefaultEventConsumer(consumer,
                                         () -> localListenerCounts.computeIfPresent(address, (k, count) -> count == 1 ? null : count - 1));
@@ -169,7 +174,7 @@ public class DefaultEventBusService implements EventBusService {
         String baseResource = event.cri().baseResource();
         DeliveryOptions deliveryOptions = createDeliveryOptions(event, baseResource);
         vertx.eventBus().send(baseResource,
-                              event.data(),
+                              event,
                               deliveryOptions);
     }
 
@@ -180,7 +185,7 @@ public class DefaultEventBusService implements EventBusService {
         DeliveryOptions deliveryOptions = createDeliveryOptions(event, baseResource);
         return vertx.eventBus()
                     .request(baseResource,
-                             event.data(),
+                             event,
                              deliveryOptions)
                     .mapEmpty();
     }
@@ -188,15 +193,9 @@ public class DefaultEventBusService implements EventBusService {
     DeliveryOptions createDeliveryOptions(Event<?> event, String baseResource){
         DeliveryOptions deliveryOptions = new DeliveryOptions();
         deliveryOptions.setTracingPolicy(TracingPolicy.IGNORE);
-        // fast path for MultiMapMetadataAdapter's
-        if(event.metadata() instanceof MultiMapMetadataAdapter){
-            deliveryOptions.setHeaders(((MultiMapMetadataAdapter)event.metadata()).getMultiMap());
-        }else{
-            for(Map.Entry<String, String> entry: event.metadata()){
-                deliveryOptions.addHeader(entry.getKey(), entry.getValue());
-            }
-        }
-        deliveryOptions.addHeader(EventConstants.CRI_HEADER, event.cri().raw());
+        // The whole Event (cri, sender, metadata, data) travels as the message body via this codec, so
+        // local delivery skips serialization entirely and only a remote hop pays the Jackson cost.
+        deliveryOptions.setCodecName(EventMessageCodec.NAME);
         // When this node already hosts the target service, pin the request to the local handler rather
         // than letting Vert.x round-robin to a remote node that would proxy the same backend.
         if(EventConstants.SERVICE_DESTINATION_SCHEME.equals(event.cri().scheme())

@@ -13,6 +13,7 @@ import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.RpcServiceProxy;
 import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.event.*;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.internal.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.MetaUtil;
@@ -47,6 +48,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     private final RpcArgumentConverter rpcArgumentConverter;
     private final RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory;
     private final EventBusService eventBusService;
+    private final SecurityContext securityContext;
 
     private final Map<Method, Integer> methodsWithScopeAnnotation = new HashMap<>();
     private final EventConsumer replyEventConsumer;
@@ -61,6 +63,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                         RpcArgumentConverter rpcArgumentConverter,
                                         RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory,
                                         EventBusService eventBusService,
+                                        SecurityContext securityContext,
                                         ClassLoader classLoader) {
 
         Validate.notNull(serviceIdentifier, "serviceIdentifier must not be null");
@@ -69,6 +72,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         Validate.notNull(rpcArgumentConverter, "argumentConverter must not be null");
         Validate.notNull(rpcReturnValueHandlerFactory, "returnValueHandlerFactory must not be null");
         Validate.notNull(eventBusService, "eventBusService must not be null");
+        Validate.notNull(securityContext, "securityContext must not be null");
         Validate.notNull(classLoader, "classLoader must not be null");
 
         this.serviceIdentifier = serviceIdentifier;
@@ -78,6 +82,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         this.rpcArgumentConverter = rpcArgumentConverter;
         this.rpcReturnValueHandlerFactory = rpcReturnValueHandlerFactory;
         this.eventBusService = eventBusService;
+        this.securityContext = securityContext;
 
         this.handlerCRI = CRI.create(EventConstants.REPLY_DESTINATION_SCHEME, encodedNodeName + ":" + UUID.randomUUID(), KinoticUtil.safeEncodeURI(serviceClass.getName())+"RpcProxyResponseHandler");
 
@@ -177,9 +182,6 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
 
                 // Create Event to be sent to remote end to cause service invocation
                 Metadata metadata = Metadata.create();
-                // For right now we just supply a fairly generic participant
-                // It is probably not really useful in production
-                metadata.put(EventConstants.SENDER_HEADER, "{\"tenantId\":\"continuum\",\"id\":\""+nodeName+"\",\"metadata\":{\"type\":\"node\"},\"roles\":[\"NODE\"]}");
                 metadata.put(EventConstants.REPLY_TO_HEADER, handlerCRI.raw());
                 metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
                 metadata.put(EventConstants.CONTENT_TYPE_HEADER, rpcArgumentConverter.producesContentType());
@@ -194,6 +196,8 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                 Event<byte[]> rpcOutboundEvent = Event.create(requestCri,
                                                               metadata,
                                                               argumentData);
+                // Propagate the participant active on the calling context so the callee sees the originator.
+                rpcOutboundEvent.setSender(securityContext.currentParticipant());
 
                 ret = handler.getReturnValue(new RpcRequest() {
                     @Override

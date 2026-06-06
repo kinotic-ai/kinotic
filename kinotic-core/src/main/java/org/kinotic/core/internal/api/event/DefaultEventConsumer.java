@@ -12,18 +12,19 @@ import org.kinotic.core.api.event.EventConsumer;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Default implementation of {@link EventConsumer} that wraps a Vert.x {@link MessageConsumer}
- * and converts incoming messages to {@link Event} objects via {@link MessageEventAdapter}.
+ * Default implementation of {@link EventConsumer} that wraps a Vert.x {@link MessageConsumer}.
+ * The message body is already an {@link Event} (produced by the registered event codec), so it is
+ * handed straight to the handler.
  *
  * Created by Navid Mitchell on 2024-01-01.
  */
 public class DefaultEventConsumer implements EventConsumer {
 
-    private final MessageConsumer<byte[]> delegate;
+    private final MessageConsumer<Event<byte[]>> delegate;
     private final Runnable onUnregister;
     private final AtomicBoolean unregistered = new AtomicBoolean(false);
 
-    public DefaultEventConsumer(MessageConsumer<byte[]> delegate) {
+    public DefaultEventConsumer(MessageConsumer<Event<byte[]>> delegate) {
         this(delegate, null);
     }
 
@@ -31,7 +32,7 @@ public class DefaultEventConsumer implements EventConsumer {
      * @param delegate the Vert.x consumer to wrap
      * @param onUnregister run once when this consumer is first unregistered; may be null
      */
-    public DefaultEventConsumer(MessageConsumer<byte[]> delegate, Runnable onUnregister) {
+    public DefaultEventConsumer(MessageConsumer<Event<byte[]>> delegate, Runnable onUnregister) {
         this.delegate = delegate;
         this.onUnregister = onUnregister;
     }
@@ -43,7 +44,7 @@ public class DefaultEventConsumer implements EventConsumer {
             if (message.replyAddress() != null) {
                 message.reply(null);
             }
-            handler.handle(new MessageEventAdapter<>(message));
+            handler.handle(message.body());
         });
         return this;
     }

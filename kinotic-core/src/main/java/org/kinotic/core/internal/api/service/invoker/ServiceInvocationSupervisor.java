@@ -263,16 +263,11 @@ public class ServiceInvocationSupervisor {
                 }
 
                 // Inject the Participant into the Vert.x context so service methods can access it via context.getLocal()
-                String participantJson = incomingEvent.metadata().get(EventConstants.SENDER_HEADER);
-                if (participantJson != null) {
-                    try {
-                        Participant participant = jsonMapper.readValue(participantJson, Participant.class);
-                        Context context = Vertx.currentContext();
-                        if (context != null) {
-                            securityContext.setParticipant(context, participant);
-                        }
-                    } catch (JacksonException e) {
-                        log.warn("Failed to deserialize Participant from event metadata", e);
+                Participant participant = incomingEvent.sender();
+                if (participant != null) {
+                    Context context = Vertx.currentContext();
+                    if (context != null) {
+                        securityContext.setParticipant(context, participant);
                     }
                 }
 
