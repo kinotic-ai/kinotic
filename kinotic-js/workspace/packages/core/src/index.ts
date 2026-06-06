@@ -27,14 +27,9 @@ export * from './api/event/EventBus'
 export * from './api/event/IEventBus'
 
 export * from './api/security/ConnectedInfo'
-export * from './api/security/IApplicationParticipant'
-export * from './api/security/IOrganizationParticipant'
 export * from './api/security/IParticipant'
-export * from './api/security/ISystemParticipant'
 export * from './api/security/Participant'
 export * from './api/security/ParticipantConstants'
-export * from './api/security/ParticipantGuards'
-export * from './api/security/ParticipantType'
 
 
 

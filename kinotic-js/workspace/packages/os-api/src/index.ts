@@ -50,6 +50,13 @@ export * from '@/api/model/github/GitHubInstallCompletion'
 
 export * from '@/api/model/KinoticProjectConfig'
 
+// Security
+export * from '@/api/security/ParticipantType'
+export * from '@/api/security/ISystemParticipant'
+export * from '@/api/security/IOrganizationParticipant'
+export * from '@/api/security/IApplicationParticipant'
+export * from '@/api/security/ParticipantGuards'
+
 // Services
 export * from '@/api/services/IApplicationService'
 export * from '@/api/services/IOrganizationService'

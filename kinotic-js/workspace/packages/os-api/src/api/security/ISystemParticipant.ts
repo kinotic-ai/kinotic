@@ -1,4 +1,4 @@
-import type {IParticipant} from './IParticipant'
+import type {IParticipant} from '@kinotic-ai/core'
 import type {ParticipantType} from './ParticipantType'
 
 /**

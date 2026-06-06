@@ -1,10 +1,7 @@
-import type {IApplicationParticipant} from './IApplicationParticipant'
-import type {IOrganizationParticipant} from './IOrganizationParticipant'
-import type {ISystemParticipant} from './ISystemParticipant'
+import type {IParticipant} from './IParticipant'
 
 /**
- * A logged-in participant in one of its concrete scope shapes. Narrow with the
- * {@code isSystemParticipant} / {@code isOrganizationParticipant} / {@code isApplicationParticipant}
- * guards (or on the {@code type} discriminator) to access scope-specific fields.
+ * A logged-in participant on the RPC layer. Alias of {@link IParticipant}; the Kinotic OS contract
+ * ({@code @kinotic-ai/os-api}) narrows this to scope-typed participants.
  */
-export type Participant = ISystemParticipant | IOrganizationParticipant | IApplicationParticipant
+export type Participant = IParticipant

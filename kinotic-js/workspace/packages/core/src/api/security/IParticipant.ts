@@ -1,23 +1,15 @@
 import type {Identifiable} from '@/api/crud/Identifiable'
-import type {ParticipantType} from './ParticipantType'
 
 /**
- * Identifying information about a logged-in participant.
+ * Identifying information about a logged-in participant on the RPC layer.
  *
- * The concrete shape is determined by {@link type}: a participant is one of
- * {@link ISystemParticipant}, {@link IOrganizationParticipant}, or {@link IApplicationParticipant}.
- * Code that needs scope context should narrow on {@link type} — most conveniently through the
- * {@code isSystemParticipant} / {@code isOrganizationParticipant} / {@code isApplicationParticipant}
- * guards — rather than reading scope fields off this base type.
+ * This is the base shape every participant shares, regardless of scope, and is what RPC-only
+ * consumers work with directly. The Kinotic OS contract layers scope-typed participants on top
+ * of it — see the participant types in {@code @kinotic-ai/os-api}.
  *
  * Mirrors the server {@code org.kinotic.core.api.security.Participant}.
  */
 export interface IParticipant extends Identifiable<string> {
-
-    /**
-     * The scope layer this participant authenticated against.
-     */
-    type: ParticipantType;
 
     /**
      * The identity of the participant.
