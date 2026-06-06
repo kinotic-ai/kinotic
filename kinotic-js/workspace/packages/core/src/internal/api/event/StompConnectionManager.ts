@@ -255,14 +255,20 @@ export class StompConnectionManager {
     }
 
     public async deactivate(force?: boolean): Promise<void> {
-        if(this.rxStomp){
-            await this.rxStomp.deactivate({force: force})
-            this.serverHeadersSubscription?.unsubscribe()
-            this.serverHeadersSubscription = null
-            this.stompErrorsSubscription?.unsubscribe()
-            this.stompErrorsSubscription = null
-            this.rxStomp = null
-            this._replyToCri = null
+        const rxStomp = this.rxStomp
+        if(rxStomp){
+            await rxStomp.deactivate({force: force})
+            // A concurrent activate() (a reconnect, or signalFatal racing an external disconnect) may
+            // have replaced the socket while we awaited this teardown, so only clear the shared state
+            // if rxStomp is still the one we tore down.
+            if(this.rxStomp === rxStomp){
+                this.serverHeadersSubscription?.unsubscribe()
+                this.serverHeadersSubscription = null
+                this.stompErrorsSubscription?.unsubscribe()
+                this.stompErrorsSubscription = null
+                this.rxStomp = null
+                this._replyToCri = null
+            }
         }
         return
     }
