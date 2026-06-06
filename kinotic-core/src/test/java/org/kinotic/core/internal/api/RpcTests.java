@@ -74,7 +74,7 @@ public class RpcTests {
             public List<String> getRoles() { return List.of(); }
         });
         CompletableFuture<T> future = new CompletableFuture<>();
-        context.runOnContext(v -> {
+        context.runOnContext(_ -> {
             try {
                 future.complete(proxyCall.get());
             } catch (Throwable t) {
