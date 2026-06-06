@@ -5,6 +5,21 @@ import { resolve } from 'path'
 const root = process.cwd()
 const packagesDir = resolve(root, 'packages')
 
+const registry = (process.env.npm_config_registry ?? 'https://registry.npmjs.org').replace(/\/$/, '')
+
+// True if name@version is already on the registry. Lets the publish loop skip versions that are
+// already out, instead of failing the whole run trying to publish over an existing version.
+async function isAlreadyPublished(name: string, version: string): Promise<boolean> {
+    try {
+        const res = await fetch(`${registry}/${name.replace('/', '%2F')}`)
+        if (!res.ok) return false
+        const data = await res.json() as { versions?: Record<string, unknown> }
+        return Boolean(data.versions?.[version])
+    } catch {
+        return false
+    }
+}
+
 // Delete bun.lock to ensure a fresh install
 const lockFile = resolve(root, 'bun.lock')
 if (existsSync(lockFile)) {
@@ -45,6 +60,11 @@ let failed = false
 
 for (const pkg of packages) {
     const pkgJson = JSON.parse(readFileSync(resolve(root, pkg, 'package.json'), 'utf-8'))
+
+    if (await isAlreadyPublished(pkgJson.name, pkgJson.version)) {
+        console.log(`\nSkipping ${pkgJson.name}@${pkgJson.version} — already on the registry`)
+        continue
+    }
 
     console.log(`\nPublishing ${pkgJson.name}@${pkgJson.version}...`)
 
