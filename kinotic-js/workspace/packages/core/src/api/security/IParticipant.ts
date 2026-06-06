@@ -8,6 +8,8 @@ import type {Identifiable} from '@/api/crud/Identifiable'
  * of it — see the participant types in {@code @kinotic-ai/os-api}.
  *
  * Mirrors the server {@code org.kinotic.core.api.security.Participant}.
+ *
+ * Created by Navíd Mitchell 🤪on 6/16/23.
  */
 export interface IParticipant extends Identifiable<string> {
 
