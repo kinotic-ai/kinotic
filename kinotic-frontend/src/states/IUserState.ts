@@ -32,8 +32,6 @@ export interface IUserState {
 export class UserState implements IUserState {
     public connectedInfo: ConnectedInfo | null = null
 
-    // Serializes login and logout: each chains onto this tail and runs to completion before the next
-    // begins, so their disconnect/connect steps never interleave and only one socket is ever open.
     private inFlight: Promise<unknown> = Promise.resolve()
 
     public login(): Promise<void> {
@@ -85,10 +83,8 @@ export class UserState implements IUserState {
     }
 
     private serialize<T>(operation: () => Promise<T>): Promise<T> {
-        // Wait for the queue to settle either way — a failed login still has to release its turn —
-        // then run, leaving a swallowed tail so the next caller queues behind us.
-        const result = this.inFlight.then(operation, operation)
-        this.inFlight = result.then(() => {}, () => {})
+        const result = this.inFlight.then(operation)
+        this.inFlight = result.catch(() => {})   // the next call waits for this one, pass or fail
         return result
     }
 }

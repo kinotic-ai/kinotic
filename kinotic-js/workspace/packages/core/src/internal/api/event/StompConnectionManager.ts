@@ -259,9 +259,8 @@ export class StompConnectionManager {
         if(rxStomp){
             await rxStomp.deactivate({force: force})
             // A concurrent activate() (a reconnect, or signalFatal racing an external disconnect) may
-            // have installed a newer socket while we awaited this teardown, so clear the shared state
-            // only when rxStomp is still the socket we just tore down, leaving any newer connection
-            // untouched.
+            // have replaced the socket while we awaited this teardown, so only clear the shared state
+            // if rxStomp is still the one we tore down.
             if(this.rxStomp === rxStomp){
                 this.serverHeadersSubscription?.unsubscribe()
                 this.serverHeadersSubscription = null

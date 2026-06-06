@@ -80,9 +80,8 @@ app.directive('styleclass', StyleClass)
 app.use(ToastService)
 app.use(createStructuresUI(), { router })
 
-// Probe the cookie session, then install the router. Installing it runs the initial navigation —
-// and the auth guard — against the now-resolved connectedInfo, so a returning user with a live
-// session lands on their page rather than being routed to /login.
+// Installing the router fires its initial navigation, which runs the auth guard. Do that after the
+// session probe resolves, so the guard sees the real auth state.
 StructuresStates.getUserState().login()
     .catch(() => {})
     .finally(() => {

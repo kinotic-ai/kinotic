@@ -73,9 +73,6 @@ export class EventBus implements IEventBus {
 
     public serverInfo: ServerInfo | null = null
     private stompConnectionManager: StompConnectionManager = new StompConnectionManager()
-    // Serializes connect and disconnect: each chains onto this tail and runs to completion before
-    // the next begins, so their activate/deactivate steps never interleave and only one socket is
-    // ever live.
     private connectionLifecycle: Promise<unknown> = Promise.resolve()
     private replyToCri: string  | null = null
     private requestRepliesObservable: ConnectableObservable<IEvent> | null = null
@@ -134,14 +131,10 @@ export class EventBus implements IEventBus {
         })
     }
 
-    /**
-     * Runs the given connect/disconnect operation only once everything already queued has settled,
-     * so two overlapping lifecycle calls can't interleave their activate/deactivate steps into more
-     * than one live socket.
-     */
+    /** Runs connect and disconnect one at a time so they never overlap on the shared socket. */
     private serializeLifecycle<T>(operation: () => Promise<T>): Promise<T> {
-        const result = this.connectionLifecycle.then(operation, operation)
-        this.connectionLifecycle = result.then(() => {}, () => {})
+        const result = this.connectionLifecycle.then(operation)
+        this.connectionLifecycle = result.catch(() => {})   // the next call waits for this one, pass or fail
         return result
     }
 
