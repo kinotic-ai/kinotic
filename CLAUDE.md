@@ -32,6 +32,24 @@ This flag has no effect on normal builds — omitting it uses the default Java 2
 Names suggest meaning but don't define it. Before using an annotation, framework hook, base class, or library helper you haven't used in this codebase before, read its source or docs and confirm what it actually does. Don't infer behaviour from a plausible-sounding name and ship it. If you can't verify the behaviour, ask — don't write a comment justifying the guess.
 
 
+## Terminology and prose
+
+Use precise technical, design, and programming terminology in all prose — chat replies, explanations, design discussion, code review, commit messages, and PR descriptions. State the mechanism and behaviour literally and name the actual construct.
+
+Do not use analogies, metaphors, idioms, figures of speech, or colloquialisms. Replace them with the precise term:
+
+- "belt and suspenders" → redundant check / precondition assertion
+- "can't happen" / "shouldn't happen" → unreachable state / invariant violation / illegal state
+- "shipped" / "land it" → committed / merged / released / published
+- "reach for" → use
+- "the whole point of" → the purpose of
+- "bridge" / "glue" → name the construct (type guard, adapter, facade, …)
+- "under the hood" → internally / in the implementation
+- "fail fast" → validate at the boundary and throw on an invalid precondition
+
+When a precise term exists, use it rather than paraphrasing it into prose: "user-defined type guard with a type predicate", "control-flow narrowing", "structural subtype", "discriminated union", "precondition asserted at the authentication boundary", "compile error (TS2339)", "semantic versioning floor". This applies to spoken-style explanation as much as to written artifacts.
+
+
 ## Java Conventions
 
 Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true)`, `@NoArgsConstructor`, `@RequiredArgsConstructor`, `@Slf4j`, `@Data`, `@Builder`. Prefer `@RequiredArgsConstructor` over hand-written constructors for dependency injection. Use `@Slf4j` instead of manual `LoggerFactory.getLogger()` calls.
@@ -64,6 +82,8 @@ Javadoc — block comments on classes, methods, fields, anything else — descri
 Inline comments inside method bodies are different: they're for implementation details that aren't obvious from reading the code, and only when they aren't. A subtle invariant, the reason for an unusual ordering, a workaround for a specific bug, a non-obvious choice between two valid approaches — those earn an inline comment. Self-evident code does not. If you find yourself writing a comment that restates what the next line does, delete it.
 
 The split is about audience, not formatting. Javadoc is for **consumers** of the API; inline is for **maintainers** of the body. Before writing a comment, ask which one needs it. The rationale for a defensive check, a workaround, or a tricky ordering belongs inline next to the code that does it — never in the Javadoc, even if it explains why the method behaves the way it does. The caller doesn't care that an org-mismatch returns null because of an ES shard-hashing edge case; they care that it returns null when there's no doc for that org. The "because" stays in the body.
+
+Never remove or alter an existing authorship comment — `Created by <name> on <date>`, `@author`, or similar attribution. Preserve it verbatim (name, accents, emoji, date, punctuation) when editing or refactoring a file, including when you rewrite the surrounding Javadoc/JSDoc, and carry it with the type if you move that type to another file.
 
 ## Properties
 Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant.

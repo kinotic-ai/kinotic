@@ -1,4 +1,5 @@
 import { ConnectedInfo, Kinotic } from '@kinotic-ai/core'
+import { isApplicationParticipant, isOrganizationParticipant } from '@kinotic-ai/os-api'
 import { reactive } from 'vue'
 import { createDebug } from '@/util/debug'
 import { apiUrl, createConnectionInfo } from '../util/helpers'
@@ -11,9 +12,8 @@ export interface IUserState {
     isAuthenticated(): boolean
 
     /**
-     * Returns the organization id of the currently authenticated participant. Only valid for
-     * ORGANIZATION-scoped logins, where the participant's authScopeId IS the org id; throws for
-     * SYSTEM- or APPLICATION-scoped participants (those need a separate resolution path — TODO).
+     * Returns the organization id of the authenticated participant. This client admits only
+     * organization-scoped participants; it throws for application- and system-scoped participants.
      */
     getOrganizationId(): string
 
@@ -73,13 +73,12 @@ export class UserState implements IUserState {
 
     public getOrganizationId(): string {
         const participant = this.connectedInfo?.participant
-        if (!participant?.authScopeId) {
-            throw new Error('No organization id available — user is not authenticated')
+        // This client admits organization administrators only. An application-scoped participant
+        // also carries an organizationId, so it is excluded explicitly rather than by absence.
+        if (!participant || !isOrganizationParticipant(participant) || isApplicationParticipant(participant)) {
+            throw new Error('No organization id available — this client requires an organization-scoped session')
         }
-        if (participant.authScopeType !== 'ORGANIZATION') {
-            throw new Error(`Cannot resolve organization id: participant is ${participant.authScopeType}-scoped, expected ORGANIZATION`)
-        }
-        return participant.authScopeId
+        return participant.organizationId
     }
 
     private serialize<T>(operation: () => Promise<T>): Promise<T> {
