@@ -6,15 +6,15 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
-import org.kinotic.domain.api.model.iam.SignUpRequest;
+import org.kinotic.domain.api.model.iam.PendingSignUp;
 import org.kinotic.domain.api.services.OrganizationService;
-import org.kinotic.domain.internal.api.repositories.IamUserRepository;
 import org.kinotic.domain.api.services.iam.SignUpService;
-import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
-import org.kinotic.domain.internal.api.repositories.SignUpRepository;
-import org.kinotic.domain.internal.utils.DomainUtil;
-import org.kinotic.domain.internal.api.services.EmailService;
 import org.kinotic.domain.internal.api.model.IamCredential;
+import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
+import org.kinotic.domain.internal.api.repositories.IamUserRepository;
+import org.kinotic.domain.internal.api.repositories.PendingSignUpRepository;
+import org.kinotic.domain.internal.api.services.EmailService;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -26,115 +26,125 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class DefaultSignUpService implements SignUpService {
 
-    private static final long VERIFICATION_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+    private static final long LOCAL_TTL_MS = 24 * 60 * 60 * 1000L; // 24 hours
+    private static final long OIDC_TTL_MS = 10 * 60 * 1000L;       // 10 minutes
 
-    private final SignUpRepository signUpRepository;
+    private final PendingSignUpRepository pendingSignUpRepository;
     private final IamUserRepository iamUserRepository;
     private final IamCredentialRepository credentialRepository;
     private final OrganizationService organizationService;
     private final EmailService emailService;
 
     @Override
-    public CompletableFuture<Void> initiateSignUp(SignUpRequest request) {
-        Validate.notBlank(request.getOrgName(), "Organization name is required");
-        Validate.notBlank(request.getEmail(), "Email is required");
-        Validate.notBlank(request.getDisplayName(), "Display name is required");
+    public CompletableFuture<Void> initiateLocalSignUp(String email, String displayName) {
+        Validate.notBlank(email, "Email is required");
+        Validate.notBlank(displayName, "Display name is required");
 
-        // Check if a sign-up is already pending for this email
-        return signUpRepository.findByEmail(request.getEmail())
+        return pendingSignUpRepository.findByEmail(email)
                 .thenCompose(existing -> {
                     if (existing != null) {
-                        return CompletableFuture.failedFuture(
-                                new IllegalArgumentException("A sign-up is already pending for this email. Check your inbox for the verification link."));
+                        return CompletableFuture.failedFuture(new IllegalArgumentException(
+                                "A sign-up is already pending for this email. Check your inbox for the verification link."));
                     }
-                    // Check if a user with this email already exists in any ORGANIZATION scope
-                    return iamUserRepository.findFirstByEmailInScopeType(request.getEmail(), "ORGANIZATION");
+                    return iamUserRepository.findFirstOrgUserByEmail(email);
                 })
                 .thenCompose(existingUser -> {
                     if (existingUser != null) {
-                        return CompletableFuture.failedFuture(
-                                new IllegalArgumentException("An account with this email already exists."));
+                        return CompletableFuture.failedFuture(new IllegalArgumentException(
+                                "An account with this email already exists."));
                     }
-                    return populateAndSave(request);
+                    String token = UUID.randomUUID().toString();
+                    Date now = new Date();
+                    PendingSignUp pending = new PendingSignUp()
+                            .setId(UUID.randomUUID().toString())
+                            .setEmail(email)
+                            .setDisplayName(displayName)
+                            .setAuthType(AuthType.LOCAL)
+                            .setVerificationToken(token)
+                            .setCreated(now)
+                            .setExpiresAt(new Date(now.getTime() + LOCAL_TTL_MS));
+                    return pendingSignUpRepository.save(pending)
+                            .thenCompose(saved -> emailService.sendVerificationEmail(email, displayName, token));
                 });
-    }
-
-    private CompletableFuture<Void> populateAndSave(SignUpRequest request) {
-        String verificationToken = UUID.randomUUID().toString();
-
-        request.setId(UUID.randomUUID().toString())
-               .setVerificationToken(verificationToken)
-               .setExpiresAt(new Date(System.currentTimeMillis() + VERIFICATION_EXPIRY_MS))
-               .setCreated(new Date());
-
-        return signUpRepository.save(request)
-                .thenCompose(saved -> emailService.sendVerificationEmail(
-                        request.getEmail(),
-                        request.getDisplayName(),
-                        verificationToken));
     }
 
     @Override
-    public CompletableFuture<String> completeSignUp(String verificationToken, String password) {
-        Validate.notBlank(verificationToken, "Verification token is required");
+    public CompletableFuture<PendingSignUp> createOidcPending(PendingSignUp pending) {
+        Validate.notBlank(pending.getOidcSubject(), "oidcSubject is required");
+        Validate.notBlank(pending.getOidcConfigId(), "oidcConfigId is required");
+        Validate.notBlank(pending.getEmail(), "email is required");
+
+        Date now = new Date();
+        pending.setId(UUID.randomUUID().toString())
+               .setAuthType(AuthType.OIDC)
+               .setVerificationToken(UUID.randomUUID().toString())
+               .setCreated(now)
+               .setExpiresAt(new Date(now.getTime() + OIDC_TTL_MS));
+        return pendingSignUpRepository.saveSync(pending);
+    }
+
+    @Override
+    public CompletableFuture<IamUser> completeLocalSignUp(String token, String orgName, String orgDescription, String password) {
+        Validate.notBlank(token, "Verification token is required");
+        Validate.notBlank(orgName, "Organization name is required");
         Validate.notBlank(password, "Password is required");
 
-        return signUpRepository.findByToken(verificationToken)
-                .thenCompose(request -> {
-                    if (request == null) {
-                        return CompletableFuture.failedFuture(
-                                new IllegalArgumentException("Invalid or already used verification token."));
-                    }
-                    if (request.getExpiresAt().before(new Date())) {
-                        // Clean up expired record
-                        return signUpRepository.deleteById(request.getId())
-                                .thenCompose(v -> CompletableFuture.failedFuture(
-                                        new IllegalArgumentException("Verification link has expired. Please sign up again.")));
-                    }
-                    return createOrgAndUser(request, password);
+        return pendingSignUpRepository.findValidByToken(token)
+                .thenCompose(pending -> {
+                    IamUser admin = newUser(pending);
+                    return createOrgWithAdmin(orgName, orgDescription, admin)
+                            .thenCompose(savedAdmin -> {
+                                IamCredential credential = new IamCredential()
+                                        .setId(savedAdmin.getId())
+                                        .setPasswordHash(DomainUtil.hashPassword(password));
+                                return credentialRepository.save(credential)
+                                        .thenCompose(c -> pendingSignUpRepository.deleteById(pending.getId())
+                                                .thenApply(v -> savedAdmin));
+                            });
                 });
     }
 
-    private CompletableFuture<String> createOrgAndUser(SignUpRequest request, String password) {
-        // Create the organization
-        Organization org = new Organization()
-                .setName(request.getOrgName())
-                .setDescription(request.getOrgDescription());
-
-        return organizationService.save(org)
-                .thenCompose(savedOrg -> {
-                    // Create the user scoped to the new organization
-                    IamUser user = new IamUser()
-                            .setId(UUID.randomUUID().toString())
-                            .setEmail(request.getEmail())
-                            .setDisplayName(request.getDisplayName())
-                            .setAuthType(AuthType.LOCAL)
-                            .setAuthScopeType("ORGANIZATION")
-                            .setAuthScopeId(savedOrg.getId())
-                            .setEnabled(true)
-                            .setCreated(new Date())
-                            .setUpdated(new Date());
-
-                    return iamUserRepository.save(user)
-                                            .thenCompose(savedUser -> {
-                                // Update org with createdBy
-                                savedOrg.setCreatedBy(savedUser.getId());
-                                return organizationService.save(savedOrg)
-                                        .thenApply(updatedOrg -> savedUser);
-                            })
-                                            .thenCompose(savedUser -> {
-                                // Create the credential with the user-supplied password
-                                IamCredential credential = new IamCredential()
-                                        .setId(savedUser.getId())
-                                        .setPasswordHash(DomainUtil.hashPassword(password));
-                                return credentialRepository.save(credential)
-                                        .thenApply(c -> savedOrg.getId());
-                            });
-                })
-                .thenCompose(orgId ->
-                    // Delete the pending record
-                    signUpRepository.deleteById(request.getId())
-                            .thenApply(v -> orgId));
+    @Override
+    public CompletableFuture<IamUser> completeOidcWithNewOrg(String token, String orgName, String orgDescription) {
+        Validate.notBlank(orgName, "Organization name is required");
+        return pendingSignUpRepository.findValidByToken(token)
+                .thenCompose(pending -> {
+                    IamUser admin = newUser(pending);
+                    return createOrgWithAdmin(orgName, orgDescription, admin)
+                            .thenCompose(savedAdmin -> pendingSignUpRepository.deleteById(pending.getId())
+                                    .thenApply(v -> savedAdmin));
+                });
     }
 
+    /** Creates the organization (failing if the name is taken), then makes {@code admin} its first member and creator. */
+    private CompletableFuture<IamUser> createOrgWithAdmin(String orgName, String orgDescription, IamUser admin) {
+        Organization org = new Organization().setName(orgName).setDescription(orgDescription);
+        return organizationService.create(org)
+                .thenCompose(savedOrg -> {
+                    admin.setOrganizationId(savedOrg.getId());
+                    return iamUserRepository.save(admin)
+                            .thenCompose(savedAdmin -> {
+                                savedOrg.setCreatedBy(savedAdmin.getId());
+                                return organizationService.save(savedOrg).thenApply(o -> savedAdmin);
+                            });
+                });
+    }
+
+    /** Builds an unsaved {@link IamUser} from the pending record's identity, auth-method aware. */
+    private IamUser newUser(PendingSignUp pending) {
+        Date now = new Date();
+        IamUser user = new IamUser()
+                .setId(UUID.randomUUID().toString())
+                .setEmail(pending.getEmail())
+                .setDisplayName(pending.getDisplayName())
+                .setAuthType(pending.getAuthType())
+                .setEnabled(true)
+                .setCreated(now)
+                .setUpdated(now);
+        if (pending.getAuthType() == AuthType.OIDC) {
+            user.setOidcSubject(pending.getOidcSubject())
+                .setOidcConfigId(pending.getOidcConfigId());
+        }
+        return user;
+    }
 }

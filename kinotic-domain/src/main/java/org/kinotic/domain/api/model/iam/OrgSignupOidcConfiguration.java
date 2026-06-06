@@ -11,9 +11,8 @@ import lombok.experimental.Accessors;
  * email-first org login fallback. Seeded via SQL migration; not editable through the
  * org admin UI.
  *
- * <p>Distinct from {@link OidcConfiguration} (per-org, referenced by
- * {@code Organization.ssoConfigId} or {@code Application.oidcConfigurationIds}) and from
- * {@link SystemOidcConfiguration} (which gates Kinotic platform admin access).
+ * <p>Distinct from {@link OidcConfiguration}, which is per-org and referenced by
+ * {@code Organization.ssoConfigId} or {@code Application.oidcConfigurationIds}.
  */
 @Getter
 @Setter

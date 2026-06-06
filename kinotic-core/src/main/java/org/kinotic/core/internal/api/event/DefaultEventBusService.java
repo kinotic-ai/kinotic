@@ -55,21 +55,26 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DefaultEventBusService implements EventBusService {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultEventBusService.class);
-    @Autowired(required = false) // this done so unit tests can complete faster. Kinda silly but hey that is unit tests.. I guess I could mock..
-    private Ignite ignite;
-    @Autowired(required = false)
-    private ClusterManager clusterManager;
-    private Scheduler scheduler;
-    // This is the cache used by the IgniteVertxCluster manager to track subscriptions
-    private IgniteCache<String, Set<IgniteRegistrationInfo>> subscriptionsCache;
+    private final Ignite ignite;
+    private final ClusterManager clusterManager;
+    private final Vertx vertx;
+    private final Scheduler scheduler;
     // Addresses this node currently has a local consumer for, reference counted. Populated only by
     // listen() on this node, so it holds purely local registrations and lets sends prefer local delivery.
     private final Map<String, Integer> localListenerCounts = new ConcurrentHashMap<>();
-    @Autowired
-    private Vertx vertx;
+    // This is the cache used by the IgniteVertxCluster manager to track subscriptions
+    private IgniteCache<String, Set<IgniteRegistrationInfo>> subscriptionsCache;
 
-    @PostConstruct
-    public void init(){
+    public DefaultEventBusService(@Autowired(required = false)
+                                  ClusterManager clusterManager,
+                                  @Autowired(required = false)
+                                  Ignite ignite,
+                                  Vertx vertx) {
+
+        this.clusterManager = clusterManager;
+        this.ignite = ignite;
+        this.vertx = vertx;
+
         scheduler = Schedulers.fromExecutor(command -> vertx.executeBlocking(() -> {
             command.run();
             return null;
@@ -78,7 +83,6 @@ public class DefaultEventBusService implements EventBusService {
         if(ignite != null) {
             subscriptionsCache = ignite.cache("__vertx.subs");
         }
-
     }
 
     @Override

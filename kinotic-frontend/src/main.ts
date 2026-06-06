@@ -82,8 +82,11 @@ app.use(createStructuresUI(), { router })
 
 app.use(router)
 
-// Restore the session from the cookie a prior REST login set, then mount. A failed probe just
-// means the user is not signed in — the router guard will send them to /login.
+// Probe the cookie session, then mount. core pre-flights GET /api/me before opening the socket,
+// so the probe settles in one round-trip — a 401 fails it fast instead of hanging on an
+// unauthenticated socket. A failed probe just means "not signed in"; the router guard sends them
+// to /login, while a successful one leaves them authenticated so the guard lands them on the
+// default page.
 StructuresStates.getUserState().login()
     .catch(() => {})
     .finally(() => app.mount('#app'))

@@ -15,7 +15,6 @@ import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
-import org.kinotic.domain.api.model.iam.SystemOidcConfiguration;
 import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
@@ -52,14 +51,15 @@ public class OidcFlowOrchestrator {
      * Validates the callback (state match, no IdP error), exchanges the code, validates
      * the issuer, and returns the configuration along with the verified id_token claims.
      * The handler decides what to do with the claims (look up an IamUser, create a
-     * {@code PendingRegistration}, etc.).
+     * {@code PendingSignUp}, etc.).
      *
      * <p>The session is consumed regardless of outcome — replay protection.
      *
-     * @param configResolver looks up the config by the {@code :configId} path param from
-     *                       the appropriate service for this route. Must return a
-     *                       {@link CompletableFuture} resolving to {@code null} when the
-     *                       id is unknown.
+     * @param configResolver loads the config for this route, scoped by the {@code orgId}
+     *                       recovered from the flow session (or {@code null} when the flow
+     *                       stashed none — non-org-scoped routes ignore the argument). Must
+     *                       return a {@link CompletableFuture} resolving to {@code null} when
+     *                       the config is unknown.
      */
     public <C extends BaseOidcConfiguration> Future<CallbackResult<C>> handleCallback(
             RoutingContext ctx,
@@ -88,7 +88,7 @@ public class OidcFlowOrchestrator {
             return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_STATE_MISMATCH));
         }
 
-        return Future.fromCompletionStage(configResolver.apply(pathConfigId))
+        return Future.fromCompletionStage(configResolver.apply(flowSession.orgId()))
                      .compose(config -> {
                          if (config == null) {
                              return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_CONFIG_NOT_FOUND));
@@ -107,7 +107,7 @@ public class OidcFlowOrchestrator {
                                                   config.getId(), config.getAudience(), claims.get("aud"));
                                          throw new OidcCallbackException(OidcConstants.ERR_INVALID_TOKEN);
                                      }
-                                     return new CallbackResult<>(config, claims, flowSession.extras());
+                                     return new CallbackResult<>(config, claims, flowSession.orgId());
                                  });
                      });
     }
@@ -116,13 +116,13 @@ public class OidcFlowOrchestrator {
      * Generates state/nonce/PKCE, stores them on the session, builds the IdP authorization
      * URL using the supplied callback URL, and returns the URL.
      *
-     * @param extras values to stash on the session for the callback to retrieve later
-     *               (e.g. {@code orgId} for SSO flows).
+     * @param orgId the organization id to stash on the session for the callback to scope its
+     *              config lookup by, or {@code null} for non-org-scoped flows.
      */
     public Future<String> startFlow(RoutingContext ctx,
                                     BaseOidcConfiguration config,
                                     String callbackUrl,
-                                    Map<String, String> extras) {
+                                    String orgId) {
         String state = OAuth2Util.randomUrlSafe(32);
         String nonce = OAuth2Util.randomUrlSafe(32);
         String pkceVerifier = OAuth2Util.randomUrlSafe(64);
@@ -130,7 +130,7 @@ public class OidcFlowOrchestrator {
 
         Session session = ctx.session();
         session.regenerateId();
-        session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), extras));
+        session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), orgId));
 
         return getOAuth2Auth(config)
                 .map(oauth2 -> oauth2.authorizeURL(
@@ -234,10 +234,9 @@ public class OidcFlowOrchestrator {
     }
 
     /**
-     * Decoupling point: only {@link OidcConfiguration} and {@link OrgSignupOidcConfiguration}
-     * carry a client secret — {@link SystemOidcConfiguration}
-     * is a public-client (PKCE only). Pattern-matching here keeps the signature
-     * uniform across all three subclasses.
+     * Resolves the Key Vault secret name for confidential-client configs. Both concrete
+     * config types carry one today; the {@code default} branch yields {@code null} so a
+     * future public-client (PKCE-only) subclass needs no change here.
      */
     private String secretNameOf(BaseOidcConfiguration config) {
         return switch (config) {

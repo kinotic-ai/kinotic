@@ -1,8 +1,7 @@
 package org.kinotic.persistence.internal.endpoints.graphql;
 
-import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
+import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import graphql.language.OperationDefinition;
-import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.text.WordUtils;
 import org.kinotic.core.api.crud.Pageable;
@@ -15,6 +14,7 @@ import org.kinotic.persistence.internal.api.repositories.EntityDefinitionReposit
 import org.kinotic.persistence.internal.api.repositories.NamedQueriesDefinitionRepository;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.services.sql.SqlQueryType;
+import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.PagedQueryDataFetcher;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.QueryDataFetcher;
 import org.kinotic.persistence.internal.utils.QueryUtils;
@@ -23,18 +23,20 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
+ * Owns the cache of named-query {@link GqlOperationDefinition}s, keyed by
+ * {@code (organizationId, entityDefinitionId)}, and builds them on a miss.
  * Created By Navíd Mitchell 🤪on 2/12/25
  */
 @Component
-@RequiredArgsConstructor
-public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLoader<String, List<GqlOperationDefinition>> {
-    private static final Logger log = LoggerFactory.getLogger(NamedQueryGqlOperationDefinitionCacheLoader.class);
+public class NamedQueryGqlOperationDefinitionCache {
+    private static final Logger log = LoggerFactory.getLogger(NamedQueryGqlOperationDefinitionCache.class);
     private static final Pageable CURSOR_PAGEABLE = Pageable.create(null, 25, null);
     private static final Pageable OFFSET_PAGEABLE = Pageable.create(0, 25, null);
 
@@ -42,12 +44,44 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
     private final NamedQueriesDefinitionRepository namedQueriesDefinitionRepository;
     private final ObjectMapper objectMapper;
     private final EntityDefinitionRepository entityDefinitionRepository;
+    private final AsyncLoadingCache<CacheKey, List<GqlOperationDefinition>> cache;
 
-    @Override
-    public CompletableFuture<? extends List<GqlOperationDefinition>> asyncLoad(String key, Executor executor) {
-        return entityDefinitionRepository.findById(key)
+    public NamedQueryGqlOperationDefinitionCache(EntitiesService entitiesService,
+                                                       NamedQueriesDefinitionRepository namedQueriesDefinitionRepository,
+                                                       ObjectMapper objectMapper,
+                                                       EntityDefinitionRepository entityDefinitionRepository,
+                                                       DefaultCaffeineCacheFactory cacheFactory) {
+        this.entitiesService = entitiesService;
+        this.namedQueriesDefinitionRepository = namedQueriesDefinitionRepository;
+        this.objectMapper = objectMapper;
+        this.entityDefinitionRepository = entityDefinitionRepository;
+
+        this.cache = cacheFactory.<CacheKey, List<GqlOperationDefinition>>newBuilder()
+                                 .name("namedQueryOperationDefinitionCache")
+                                 .expireAfterAccess(Duration.ofHours(1))
+                                 .maximumSize(2000)
+                                 .buildAsync(this::load);
+    }
+
+    /**
+     * Returns the named-query {@link GqlOperationDefinition}s for {@code entityDefinitionId}
+     * within {@code organizationId}, building and caching them on a miss.
+     */
+    public CompletableFuture<List<GqlOperationDefinition>> get(String organizationId, String entityDefinitionId) {
+        return cache.get(new CacheKey(organizationId, entityDefinitionId));
+    }
+
+    /**
+     * Evicts the cached operation definitions for {@code entityDefinitionId} within {@code organizationId}.
+     */
+    public void evict(String organizationId, String entityDefinitionId) {
+        cache.asMap().remove(new CacheKey(organizationId, entityDefinitionId));
+    }
+
+    private CompletableFuture<List<GqlOperationDefinition>> load(CacheKey key, Executor executor) {
+        return entityDefinitionRepository.findById(key.entityDefinitionId(), key.organizationId())
                 .thenApply(entityDefinition -> {
-                    Validate.notNull(entityDefinition, "No EntityDefinition found for key: " + key);
+                    Validate.notNull(entityDefinition, "No EntityDefinition found for %s", key);
                     return entityDefinition;
                 })
                 .thenComposeAsync(entityDefinition -> {
@@ -153,5 +187,6 @@ public class NamedQueryGqlOperationDefinitionCacheLoader implements AsyncCacheLo
         };
     }
 
+    private record CacheKey(String organizationId, String entityDefinitionId) {}
 
 }

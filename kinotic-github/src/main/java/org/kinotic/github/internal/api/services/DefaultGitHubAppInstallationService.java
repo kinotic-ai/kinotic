@@ -101,9 +101,6 @@ public class DefaultGitHubAppInstallationService
 
     @Override
     public CompletableFuture<GitHubAppInstallation> findByGithubInstallationId(long githubInstallationId) {
-        String orgId = getOrganizationIdIfEnforced();
-        return orgId != null
-                ? installationRepository.findByGithubInstallationId(githubInstallationId, orgId)
-                : installationRepository.findByGithubInstallationId(githubInstallationId);
+        return installationRepository.findByGithubInstallationId(githubInstallationId, requireOrganizationId());
     }
 }

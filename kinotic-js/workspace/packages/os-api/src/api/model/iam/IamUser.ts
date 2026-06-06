@@ -2,12 +2,12 @@ import type { Identifiable } from '@kinotic-ai/core'
 import { AuthType } from '@/api/model/iam/AuthType'
 
 /**
- * Represents an authenticated identity at any scope layer in the IAM system.
- * Each user is scoped to exactly one layer and is unique by email within that scope.
+ * Represents an authenticated identity in the IAM system. Scope is encoded structurally by
+ * which of {@link organizationId} / {@link applicationId} is set:
  *
- * - For SYSTEM and ORGANIZATION scopes, {@link tenantId} must be null.
- * - For APPLICATION scopes, {@link tenantId} is required and identifies the
- *   client tenant the user belongs to within the application's data.
+ * - both null → SYSTEM
+ * - {@link organizationId} only → ORGANIZATION
+ * - both set → APPLICATION, with {@link tenantId} identifying the end-user data slice
  */
 export class IamUser implements Identifiable<string> {
     public id: string | null = null
@@ -16,8 +16,8 @@ export class IamUser implements Identifiable<string> {
     public authType: AuthType | null = null
     public oidcSubject: string | null = null
     public oidcConfigId: string | null = null
-    public authScopeType: string = ''
-    public authScopeId: string = ''
+    public organizationId: string | null = null
+    public applicationId: string | null = null
     public tenantId: string | null = null
     public enabled: boolean = true
     public created: number | null = null

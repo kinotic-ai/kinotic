@@ -69,8 +69,10 @@ CREATE TABLE IF NOT EXISTS kinotic_entity_definition (
     timeReferenceFieldName KEYWORD NOT INDEXED
 );
 
--- IAM User: authenticated identities at each scope layer.
--- Uniqueness rule (enforced in service layer): one row per (email, authScopeType, authScopeId).
+-- IAM User: authenticated identities at each scope layer. Scope is encoded structurally by
+-- which of organizationId / applicationId is set: both null = SYSTEM, organizationId only =
+-- ORGANIZATION, both set = APPLICATION.
+-- Uniqueness rule (enforced in service layer): one row per (email, organizationId, applicationId).
 CREATE TABLE IF NOT EXISTS kinotic_iam_user (
     id KEYWORD,
     email KEYWORD,
@@ -78,8 +80,8 @@ CREATE TABLE IF NOT EXISTS kinotic_iam_user (
     authType KEYWORD,
     oidcSubject KEYWORD,
     oidcConfigId KEYWORD,
-    authScopeType KEYWORD,
-    authScopeId KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
     tenantId KEYWORD,
     enabled BOOLEAN,
     created DATE,
@@ -134,22 +136,6 @@ CREATE TABLE IF NOT EXISTS kinotic_org_signup_oidc_configuration (
     updated DATE
 );
 
--- Kinotic platform-admin OIDC configs. Separate Entra app from the social-signup configs
--- so the admin IdP can be rotated independently. Public-client flow (PKCE only) — Entra
--- owns the user lifecycle, so Kinotic doesn't authenticate to the token endpoint as a
--- confidential client and no client secret is stored. Singleton-shaped today; multi-row capable.
-CREATE TABLE IF NOT EXISTS kinotic_system_oidc_configuration (
-    id KEYWORD,
-    name KEYWORD,
-    provider KEYWORD,
-    clientId KEYWORD NOT INDEXED,
-    authority KEYWORD,
-    audience KEYWORD NOT INDEXED,
-    enabled BOOLEAN,
-    created DATE,
-    updated DATE
-);
-
 -- Organization: orgs developing applications on the platform.
 -- ssoConfigId points at the org's single OidcConfiguration used as its SSO provider for
 -- org-level Kinotic login (null when the org has no SSO). All other OidcConfigurations
@@ -164,31 +150,18 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     updated DATE
 );
 
--- Pending OIDC registrations awaiting completion form submission
-CREATE TABLE IF NOT EXISTS kinotic_pending_registration (
+-- Pending sign-ups (email-verification or OIDC) awaiting completion (PendingSignUp): the identity
+-- to create plus authType. The organization name is collected at completion, not stored here.
+CREATE TABLE IF NOT EXISTS kinotic_pending_signup (
     id KEYWORD,
     verificationToken KEYWORD,
     expiresAt DATE,
     created DATE,
+    email KEYWORD,
+    displayName KEYWORD,
+    authType KEYWORD,
     oidcSubject KEYWORD,
-    oidcConfigId KEYWORD,
-    email KEYWORD,
-    displayName KEYWORD,
-    authScopeType KEYWORD,
-    authScopeId KEYWORD,
-    additionalClaims JSON NOT INDEXED
-);
-
--- Sign-up requests awaiting email verification
-CREATE TABLE IF NOT EXISTS kinotic_signup_request (
-    id KEYWORD,
-    orgName KEYWORD,
-    orgDescription TEXT,
-    email KEYWORD,
-    displayName KEYWORD,
-    verificationToken KEYWORD,
-    expiresAt DATE,
-    created DATE
+    oidcConfigId KEYWORD
 );
 
 -- Create the vm_node table for tracking VmManager nodes

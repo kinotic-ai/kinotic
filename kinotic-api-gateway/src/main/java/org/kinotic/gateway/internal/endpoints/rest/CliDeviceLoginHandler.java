@@ -56,9 +56,9 @@ public class CliDeviceLoginHandler {
     private final KinoticJwtIssuer jwtIssuer;
 
     public void mountRoutes(Router router) {
-        router.post(OidcConstants.DEVICE_LOGIN_BASE + "/start").handler(this::handleStart);
-        router.post(OidcConstants.DEVICE_LOGIN_BASE + "/token").handler(this::handleToken);
-        router.post(OidcConstants.DEVICE_LOGIN_BASE + "/refresh").handler(this::handleRefresh);
+        router.post("/api/login/device/start").handler(this::handleStart);
+        router.post("/api/login/device/token").handler(this::handleToken);
+        router.post("/api/login/device/refresh").handler(this::handleRefresh);
     }
 
     private void handleStart(RoutingContext ctx) {
@@ -146,13 +146,17 @@ public class CliDeviceLoginHandler {
         return Math.max((when.getTime() - System.currentTimeMillis()) / 1000L, 0);
     }
 
-    /** Mints the short-TTL Kinotic JWT carrying {@code sub/email/authScopeType/authScopeId}. */
+    /** Mints the short-TTL Kinotic JWT carrying {@code sub/email/organizationId/applicationId}. */
     private String mintJwt(IamUser user) {
         JsonObject claims = new JsonObject()
                 .put("sub", user.getId())
-                .put("email", user.getEmail())
-                .put("authScopeType", user.getAuthScopeType())
-                .put("authScopeId", user.getAuthScopeId());
+                .put("email", user.getEmail());
+        if (user.getOrganizationId() != null) {
+            claims.put("organizationId", user.getOrganizationId());
+        }
+        if (user.getApplicationId() != null) {
+            claims.put("applicationId", user.getApplicationId());
+        }
         return jwtIssuer.sign(claims, new JWTOptions().setExpiresInSeconds(JWT_TTL_SECONDS));
     }
 

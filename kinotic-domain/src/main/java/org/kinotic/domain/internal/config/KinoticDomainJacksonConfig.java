@@ -2,7 +2,11 @@
 
 package org.kinotic.domain.internal.config;
 
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.RawJson;
+import org.kinotic.domain.api.security.DefaultApplicationParticipant;
+import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
+import org.kinotic.domain.api.security.DefaultSystemParticipant;
 import org.kinotic.domain.internal.serializer.RawJsonDeserializer;
 import org.kinotic.domain.internal.serializer.RawJsonSerializer;
 import org.springframework.context.annotation.Bean;
@@ -24,6 +28,11 @@ public class KinoticDomainJacksonConfig {
 
         ret.addDeserializer(RawJson.class, new RawJsonDeserializer(new ObjectMapper()));
         ret.addSerializer(RawJson.class, new RawJsonSerializer());
+
+        ret.setMixInAnnotation(Participant.class, ParticipantMixin.class);
+        ret.registerSubtypes(DefaultSystemParticipant.class,
+                             DefaultOrganizationParticipant.class,
+                             DefaultApplicationParticipant.class);
 
         return ret;
     }

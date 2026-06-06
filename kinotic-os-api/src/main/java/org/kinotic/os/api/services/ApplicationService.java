@@ -8,6 +8,7 @@ import org.kinotic.domain.api.model.iam.OidcConfiguration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+// FIXME: add an OrganizationScopedServiceInterface
 @Publish
 public interface ApplicationService extends IdentifiableCrudService<Application, String> {
 
