@@ -65,7 +65,14 @@ public class RpcTests {
      */
     private <T> T withParticipant(Supplier<T> proxyCall) {
         Context context = vertx.getOrCreateContext();
-        securityContext.setParticipant(context, participant(PARTICIPANT_ID));
+        securityContext.setParticipant(context, new Participant() {
+            @Override
+            public String getId() { return PARTICIPANT_ID; }
+            @Override
+            public Map<String, String> getMetadata() { return Map.of(); }
+            @Override
+            public List<String> getRoles() { return List.of(); }
+        });
         CompletableFuture<T> future = new CompletableFuture<>();
         context.runOnContext(v -> {
             try {
@@ -79,17 +86,6 @@ public class RpcTests {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private static Participant participant(String id) {
-        return new Participant() {
-            @Override
-            public String getId() { return id; }
-            @Override
-            public Map<String, String> getMetadata() { return Map.of(); }
-            @Override
-            public List<String> getRoles() { return List.of(); }
-        };
     }
 
     // TODO: test to few arguments, and too many arguments, also a variation with the participant. Participant variant error message may be misleading?
