@@ -80,13 +80,16 @@ app.directive('styleclass', StyleClass)
 app.use(ToastService)
 app.use(createStructuresUI(), { router })
 
-app.use(router)
-
-// Probe the cookie session, then mount. core pre-flights GET /api/me before opening the socket,
-// so the probe settles in one round-trip — a 401 fails it fast instead of hanging on an
-// unauthenticated socket. A failed probe just means "not signed in"; the router guard sends them
-// to /login, while a successful one leaves them authenticated so the guard lands them on the
-// default page.
+// Probe the cookie session, then bring up routing. core pre-flights GET /api/me before opening the
+// socket, so the probe settles in one round-trip — a 401 fails it fast instead of hanging on an
+// unauthenticated socket. Installing the router (app.use) is what triggers its initial navigation,
+// which runs the auth guard — so it must happen only after the probe settles. Do it earlier and the
+// guard reads auth state before /api/me answers, bounces an already-signed-in user to /login, and
+// that redundant sign-in opens a second socket. A failed probe just means "not signed in" — the
+// guard then sends them to /login as intended, while a successful one lands them on the default page.
 StructuresStates.getUserState().login()
     .catch(() => {})
-    .finally(() => app.mount('#app'))
+    .finally(() => {
+        app.use(router)
+        app.mount('#app')
+    })
