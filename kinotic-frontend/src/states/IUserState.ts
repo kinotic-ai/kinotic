@@ -11,9 +11,9 @@ export interface IUserState {
     isAuthenticated(): boolean
 
     /**
-     * Returns the organization id of the currently authenticated participant. Only valid for
-     * ORGANIZATION-scoped logins, where the participant's authScopeId IS the org id; throws for
-     * SYSTEM- or APPLICATION-scoped participants (those need a separate resolution path — TODO).
+     * Returns the organization id of the currently authenticated participant. Valid for both
+     * organization- and application-scoped logins, which each carry an organization id; throws
+     * for a system-scoped participant, which has none.
      */
     getOrganizationId(): string
 
@@ -65,14 +65,15 @@ export class UserState implements IUserState {
     }
 
     public getOrganizationId(): string {
-        const participant = this.connectedInfo?.participant
-        if (!participant?.authScopeId) {
-            throw new Error('No organization id available — user is not authenticated')
+        // The server sends a polymorphic participant that carries `organizationId` for both
+        // organization- and application-scoped logins (a system participant carries none). The
+        // published core `Participant` type predates that shape, so read the field through a
+        // narrowed view rather than the auth-scope fields the server no longer sends.
+        const organizationId = (this.connectedInfo?.participant as { organizationId?: string | null } | undefined)?.organizationId
+        if (!organizationId) {
+            throw new Error('No organization id available — the authenticated participant is not scoped to an organization')
         }
-        if (participant.authScopeType !== 'ORGANIZATION') {
-            throw new Error(`Cannot resolve organization id: participant is ${participant.authScopeType}-scoped, expected ORGANIZATION`)
-        }
-        return participant.authScopeId
+        return organizationId
     }
 }
 
