@@ -3,6 +3,7 @@ package org.kinotic.gateway.internal.endpoints.rest;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
+import io.vertx.ext.web.handler.SessionHandler;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.springframework.stereotype.Component;
 
@@ -26,15 +27,25 @@ public class SessionEndpointHandler {
     }
 
     /**
-     * {@code 204} when the session cookie authenticates the caller, {@code 401} otherwise. The
-     * SessionHandler on {@code /api/*} has already resolved the cookie into the session by the time
-     * this runs, so the check is a session read.
+     * {@code 204} when the session cookie authenticates the caller, {@code 401} otherwise.
      */
     private void handleMe(RoutingContext ctx) {
-        Session session = ctx.session();
-        Object value = session == null ? null : session.get(ConnectedInfo.SESSION_KEY);
-        boolean authenticated = value instanceof ConnectedInfo connectedInfo
-                && connectedInfo.getParticipant() != null;
+        boolean authenticated = false;
+        // Reading the session via ctx.session() flips the routing context's "accessed" flag, which
+        // makes the SessionHandler persist that session — a store write plus a Set-Cookie — even with
+        // lazy sessions enabled. So only touch it when the caller presents the session cookie (the
+        // SessionHandler's default name, which is what it's configured with); an unauthenticated probe
+        // carrying none would otherwise mint and store an empty session on every refresh.
+        if (ctx.request().getCookie(SessionHandler.DEFAULT_SESSION_COOKIE_NAME) != null) {
+            Session session = ctx.session();
+            authenticated = session.get(ConnectedInfo.SESSION_KEY) instanceof ConnectedInfo connectedInfo
+                    && connectedInfo.getParticipant() != null;
+            if (!authenticated) {
+                // Cookie present but no valid login behind it (stale, or freshly created because the
+                // prior session was gone): drop it so nothing empty is persisted and the cookie clears.
+                session.destroy();
+            }
+        }
         ctx.response().setStatusCode(authenticated ? 204 : 401).end();
     }
 
