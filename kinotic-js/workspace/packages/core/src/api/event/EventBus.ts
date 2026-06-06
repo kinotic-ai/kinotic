@@ -73,6 +73,10 @@ export class EventBus implements IEventBus {
 
     public serverInfo: ServerInfo | null = null
     private stompConnectionManager: StompConnectionManager = new StompConnectionManager()
+    // connect and disconnect both mutate the single shared rxStomp, so overlapping calls could
+    // interleave their activate/deactivate steps and orphan a socket. Chain each onto this tail so
+    // the connection lifecycle runs strictly one operation at a time.
+    private connectionLifecycle: Promise<unknown> = Promise.resolve()
     private replyToCri: string  | null = null
     private requestRepliesObservable: ConnectableObservable<IEvent> | null = null
     private requestRepliesSubject: Subject<IEvent> | null = null
@@ -100,30 +104,45 @@ export class EventBus implements IEventBus {
         return this.stompConnectionManager.connected
     }
 
-    public async connect(connectionInfo: ConnectionInfo): Promise<ConnectedInfo> {
-        if(!this.stompConnectionManager.active){
+    public connect(connectionInfo: ConnectionInfo): Promise<ConnectedInfo> {
+        return this.serializeLifecycle(async () => {
+            if(!this.stompConnectionManager.active){
 
-            // reset state in case connection ended due to max connection attempts
-            this.cleanup()
+                // reset state in case connection ended due to max connection attempts
+                this.cleanup()
 
-            const connectedInfo = await this.stompConnectionManager.activate(connectionInfo)
-            // manually copy so we don't store any sensitive info
-            this.serverInfo = new ServerInfo()
-            this.serverInfo.host = connectionInfo.host
-            this.serverInfo.port = connectionInfo.port
-            this.serverInfo.useSSL = connectionInfo.useSSL
+                const connectedInfo = await this.stompConnectionManager.activate(connectionInfo)
+                // manually copy so we don't store any sensitive info
+                this.serverInfo = new ServerInfo()
+                this.serverInfo.host = connectionInfo.host
+                this.serverInfo.port = connectionInfo.port
+                this.serverInfo.useSSL = connectionInfo.useSSL
 
-            this.replyToCri = this.stompConnectionManager.replyToCri
+                this.replyToCri = this.stompConnectionManager.replyToCri
 
-            return connectedInfo
-        }else{
-            throw new Error('Event Bus connection already active')
-        }
+                return connectedInfo
+            }else{
+                throw new Error('Event Bus connection already active')
+            }
+        })
     }
 
-    public async disconnect(force?: boolean): Promise<void> {
-        await this.stompConnectionManager.deactivate(force)
-        this.cleanup()
+    public disconnect(force?: boolean): Promise<void> {
+        return this.serializeLifecycle(async () => {
+            await this.stompConnectionManager.deactivate(force)
+            this.cleanup()
+        })
+    }
+
+    /**
+     * Runs the given connect/disconnect operation only once everything already queued has settled,
+     * so two overlapping lifecycle calls can't interleave their activate/deactivate steps into more
+     * than one live socket.
+     */
+    private serializeLifecycle<T>(operation: () => Promise<T>): Promise<T> {
+        const result = this.connectionLifecycle.then(operation, operation)
+        this.connectionLifecycle = result.then(() => {}, () => {})
+        return result
     }
 
     public send(event: IEvent): void {
