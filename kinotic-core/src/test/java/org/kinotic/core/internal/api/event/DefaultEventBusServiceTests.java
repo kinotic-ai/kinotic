@@ -11,7 +11,6 @@ import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.Metadata;
-import tools.jackson.databind.json.JsonMapper;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,7 +29,7 @@ public class DefaultEventBusServiceTests {
     @BeforeEach
     public void setUp() {
         vertx = Vertx.vertx();
-        eventBusService = new DefaultEventBusService(null, null, vertx, JsonMapper.builder().build());
+        eventBusService = new DefaultEventBusService(null, null, vertx);
     }
 
     @AfterEach

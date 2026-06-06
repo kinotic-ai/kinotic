@@ -11,10 +11,13 @@ import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.core.api.event.Event;
+import org.kinotic.core.internal.api.event.EventMessageCodec;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import tools.jackson.databind.json.JsonMapper;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -57,9 +60,11 @@ public class KinoticVertxConfig {
 
     @Bean
     public Vertx vertx(KinoticProperties properties,
+                       JsonMapper jsonMapper,
                        @Autowired(required = false) ClusterManager clusterManager) throws Throwable {
 
         VertxBuilder builder = Vertx.builder();
+        Vertx vertx;
 
         if (clusterManager != null) {
 
@@ -77,15 +82,21 @@ public class KinoticVertxConfig {
             VertxOptions options = new VertxOptions()
                     .setEventBusOptions(eventBusOptions);
 
-            return builder.with(options)
-                          .withClusterManager(clusterManager)
-                          .buildClustered()
-                          .toCompletionStage()
-                          .toCompletableFuture()
-                          .get(2, MINUTES);
+            vertx = builder.with(options)
+                           .withClusterManager(clusterManager)
+                           .buildClustered()
+                           .toCompletionStage()
+                           .toCompletableFuture()
+                           .get(2, MINUTES);
         }else{
-            return builder.build();
+            vertx = builder.build();
         }
+
+        // Register the Event codec and auto-select it for any Event body, so callers never set a codec
+        // name on delivery options. Local delivery still uses the codec's zero-copy transform().
+        vertx.eventBus().registerCodec(new EventMessageCodec(jsonMapper));
+        vertx.eventBus().codecSelector(body -> body instanceof Event ? EventMessageCodec.NAME : null);
+        return vertx;
     }
 
 }
