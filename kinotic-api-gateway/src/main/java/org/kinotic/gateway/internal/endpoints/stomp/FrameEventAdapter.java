@@ -5,6 +5,7 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.Metadata;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.internal.api.event.MapMetadataAdapter;
 import io.vertx.ext.stomp.lite.frame.Frame;
 
@@ -19,6 +20,7 @@ public class FrameEventAdapter implements Event<byte[]> {
     private final Frame frame;
     private final CRI cri;
     private final Metadata metadata;
+    private Participant sender;
 
 
     public FrameEventAdapter(Frame frame) {
@@ -40,5 +42,15 @@ public class FrameEventAdapter implements Event<byte[]> {
     @Override
     public byte[] data() {
         return frame.getBody().getBytes();
+    }
+
+    @Override
+    public Participant sender() {
+        return sender;
+    }
+
+    @Override
+    public void setSender(Participant sender) {
+        this.sender = sender;
     }
 }

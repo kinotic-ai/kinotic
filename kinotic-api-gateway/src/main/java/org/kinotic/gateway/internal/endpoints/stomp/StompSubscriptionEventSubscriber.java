@@ -4,10 +4,12 @@
 package org.kinotic.gateway.internal.endpoints.stomp;
 
 import org.kinotic.core.api.event.Event;
+import org.kinotic.core.api.event.EventConstants;
 import io.vertx.ext.stomp.lite.StompServerConnection;
 import io.vertx.ext.stomp.lite.frame.Frame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.databind.json.JsonMapper;
 
 
 /**
@@ -20,13 +22,16 @@ public class StompSubscriptionEventSubscriber implements StompSubscriptionHandle
     private final String destination;
     private final String subscriptionId;
     private final StompServerConnection connection;
+    private final JsonMapper jsonMapper;
 
     public StompSubscriptionEventSubscriber(String destination,
                                             String subscriptionId,
-                                            StompServerConnection connection) {
+                                            StompServerConnection connection,
+                                            JsonMapper jsonMapper) {
         this.destination = destination;
         this.subscriptionId = subscriptionId;
         this.connection = connection;
+        this.jsonMapper = jsonMapper;
     }
 
     @Override
@@ -35,6 +40,10 @@ public class StompSubscriptionEventSubscriber implements StompSubscriptionHandle
             Frame frame = GatewayUtils.eventToStompFrame(event);
             // Set Subscription ID header
             frame.getHeaders().put(Frame.SUBSCRIPTION, subscriptionId);
+            // Re-expose the typed sender as a header so external clients (e.g. device RPC) still see it.
+            if (event.sender() != null) {
+                frame.getHeaders().put(EventConstants.SENDER_HEADER, jsonMapper.writeValueAsString(event.sender()));
+            }
 
             if(log.isTraceEnabled()) {
                 log.trace("Sending Frame\n{}", frame);
