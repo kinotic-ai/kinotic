@@ -32,6 +32,24 @@ This flag has no effect on normal builds — omitting it uses the default Java 2
 Names suggest meaning but don't define it. Before using an annotation, framework hook, base class, or library helper you haven't used in this codebase before, read its source or docs and confirm what it actually does. Don't infer behaviour from a plausible-sounding name and ship it. If you can't verify the behaviour, ask — don't write a comment justifying the guess.
 
 
+## Terminology and prose
+
+Use precise technical, design, and programming terminology in all prose — chat replies, explanations, design discussion, code review, commit messages, and PR descriptions. State the mechanism and behaviour literally and name the actual construct.
+
+Do not use analogies, metaphors, idioms, figures of speech, or colloquialisms. Replace them with the precise term:
+
+- "belt and suspenders" → redundant check / precondition assertion
+- "can't happen" / "shouldn't happen" → unreachable state / invariant violation / illegal state
+- "shipped" / "land it" → committed / merged / released / published
+- "reach for" → use
+- "the whole point of" → the purpose of
+- "bridge" / "glue" → name the construct (type guard, adapter, facade, …)
+- "under the hood" → internally / in the implementation
+- "fail fast" → validate at the boundary and throw on an invalid precondition
+
+When a precise term exists, use it rather than paraphrasing it into prose: "user-defined type guard with a type predicate", "control-flow narrowing", "structural subtype", "discriminated union", "precondition asserted at the authentication boundary", "compile error (TS2339)", "semantic versioning floor". This applies to spoken-style explanation as much as to written artifacts.
+
+
 ## Java Conventions
 
 Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true)`, `@NoArgsConstructor`, `@RequiredArgsConstructor`, `@Slf4j`, `@Data`, `@Builder`. Prefer `@RequiredArgsConstructor` over hand-written constructors for dependency injection. Use `@Slf4j` instead of manual `LoggerFactory.getLogger()` calls.
