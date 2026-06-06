@@ -258,10 +258,10 @@ export class StompConnectionManager {
         const rxStomp = this.rxStomp
         if(rxStomp){
             await rxStomp.deactivate({force: force})
-            // A concurrent activate() (e.g. a reconnect, or signalFatal racing an external disconnect)
-            // may have installed a newer socket while we awaited this teardown. Only clear shared state
-            // when we're still the current connection, otherwise we'd unsubscribe the new socket's
-            // handlers and drop its reference — orphaning a live socket that nothing will ever close.
+            // A concurrent activate() (a reconnect, or signalFatal racing an external disconnect) may
+            // have installed a newer socket while we awaited this teardown, so clear the shared state
+            // only when rxStomp is still the socket we just tore down, leaving any newer connection
+            // untouched.
             if(this.rxStomp === rxStomp){
                 this.serverHeadersSubscription?.unsubscribe()
                 this.serverHeadersSubscription = null

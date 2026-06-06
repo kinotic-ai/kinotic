@@ -73,9 +73,9 @@ export class EventBus implements IEventBus {
 
     public serverInfo: ServerInfo | null = null
     private stompConnectionManager: StompConnectionManager = new StompConnectionManager()
-    // connect and disconnect both mutate the single shared rxStomp, so overlapping calls could
-    // interleave their activate/deactivate steps and orphan a socket. Chain each onto this tail so
-    // the connection lifecycle runs strictly one operation at a time.
+    // Serializes connect and disconnect: each chains onto this tail and runs to completion before
+    // the next begins, so their activate/deactivate steps never interleave and only one socket is
+    // ever live.
     private connectionLifecycle: Promise<unknown> = Promise.resolve()
     private replyToCri: string  | null = null
     private requestRepliesObservable: ConnectableObservable<IEvent> | null = null

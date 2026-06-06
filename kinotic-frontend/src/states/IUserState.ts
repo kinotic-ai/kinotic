@@ -32,9 +32,8 @@ export interface IUserState {
 export class UserState implements IUserState {
     public connectedInfo: ConnectedInfo | null = null
 
-    // login and logout each tear down and rebuild the single socket the Kinotic singleton owns, so
-    // overlapping calls could interleave their disconnect/connect steps and leak a second one. Every
-    // operation chains onto this tail, serializing them so only one runs at a time.
+    // Serializes login and logout: each chains onto this tail and runs to completion before the next
+    // begins, so their disconnect/connect steps never interleave and only one socket is ever open.
     private inFlight: Promise<unknown> = Promise.resolve()
 
     public login(): Promise<void> {
