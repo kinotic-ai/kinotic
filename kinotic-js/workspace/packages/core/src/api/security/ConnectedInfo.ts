@@ -1,4 +1,4 @@
-import {Participant} from '@/api/security/Participant'
+import type {Participant} from '@/api/security/Participant'
 
 /**
  * Contains information about the connection that was established
