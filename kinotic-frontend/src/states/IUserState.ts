@@ -20,7 +20,8 @@ export interface IUserState {
     /**
      * Opens the realtime connection, authenticated by the session cookie a prior REST login
      * established. Resolves once connected; rejects when there is no valid session — so on app
-     * start it doubles as the "is the browser still signed in?" check.
+     * start it doubles as the "is the browser still signed in?" check. Overlapping login/logout
+     * calls run one at a time, so only a single realtime connection is ever open.
      */
     login(): Promise<void>
 
@@ -31,33 +32,42 @@ export interface IUserState {
 export class UserState implements IUserState {
     public connectedInfo: ConnectedInfo | null = null
 
-    public async login(): Promise<void> {
-        try {
-            await Kinotic.disconnect()
-        } catch (error) {
-            debug('No existing connection to disconnect')
-        }
+    // login and logout each tear down and rebuild the single socket the Kinotic singleton owns, so
+    // overlapping calls could interleave their disconnect/connect steps and leak a second one. Every
+    // operation chains onto this tail, serializing them so only one runs at a time.
+    private inFlight: Promise<unknown> = Promise.resolve()
 
-        try {
-            this.connectedInfo = await Kinotic.connect(createConnectionInfo())
-        } catch (reason: any) {
-            this.connectedInfo = null
-            throw new Error(reason ? String(reason) : 'Session authentication failed')
-        }
+    public login(): Promise<void> {
+        return this.serialize(async () => {
+            try {
+                await Kinotic.disconnect()
+            } catch (error) {
+                debug('No existing connection to disconnect')
+            }
+
+            try {
+                this.connectedInfo = await Kinotic.connect(createConnectionInfo())
+            } catch (reason: any) {
+                this.connectedInfo = null
+                throw new Error(reason ? String(reason) : 'Session authentication failed')
+            }
+        })
     }
 
-    public async logout(): Promise<void> {
-        try {
-            await fetch(apiUrl('/api/logout'), { method: 'POST', credentials: 'include' })
-        } catch (error) {
-            debug('Logout request failed: %O', error)
-        }
-        try {
-            await Kinotic.disconnect()
-        } catch (error) {
-            debug('Error disconnecting from Kinotic: %O', error)
-        }
-        this.connectedInfo = null
+    public logout(): Promise<void> {
+        return this.serialize(async () => {
+            try {
+                await fetch(apiUrl('/api/logout'), { method: 'POST', credentials: 'include' })
+            } catch (error) {
+                debug('Logout request failed: %O', error)
+            }
+            try {
+                await Kinotic.disconnect()
+            } catch (error) {
+                debug('Error disconnecting from Kinotic: %O', error)
+            }
+            this.connectedInfo = null
+        })
     }
 
     public isAuthenticated(): boolean {
@@ -73,6 +83,14 @@ export class UserState implements IUserState {
             throw new Error(`Cannot resolve organization id: participant is ${participant.authScopeType}-scoped, expected ORGANIZATION`)
         }
         return participant.authScopeId
+    }
+
+    private serialize<T>(operation: () => Promise<T>): Promise<T> {
+        // Wait for the queue to settle either way — a failed login still has to release its turn —
+        // then run, leaving a swallowed tail so the next caller queues behind us.
+        const result = this.inFlight.then(operation, operation)
+        this.inFlight = result.then(() => {}, () => {})
+        return result
     }
 }
 
