@@ -69,7 +69,7 @@ export class UserState implements IUserState {
         // This client admits organization administrators only. An application-scoped participant
         // also carries an organizationId, so it is excluded explicitly rather than by absence.
         if (!participant || !isOrganizationParticipant(participant) || isApplicationParticipant(participant)) {
-            throw new Error('No organization id available — this client requires an organization-scoped (non-application) session')
+            throw new Error('No organization id available — this client requires an organization-scoped session')
         }
         return participant.organizationId
     }
