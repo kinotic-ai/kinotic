@@ -139,10 +139,9 @@ export class StompConnectionManager {
                         try {
                             const res = await fetch(sessionCheckUrl, { credentials: 'include' })
                             if(res.status === 401){
-                                // Not signed in (or the session expired) — expected, so fail the
-                                // connect without a console error; the app routes to /login from here.
-                                this.debugLogger('Session probe returned 401; not authenticated')
-                                await this.signalFatal(new Error('Authentication required'), false)
+                                // Not signed in (or the session expired) — an expected outcome, not a
+                                // failure; fail the connect and the app routes to /login from here.
+                                await this.signalFatal(new Error('Authentication required'))
                                 return
                             }
                         } catch {
@@ -290,14 +289,11 @@ export class StompConnectionManager {
     /**
      * Tears down the connection then publishes the failure to {@link fatalErrors}. Deactivating
      * first means subscribers see the error already in its terminal state — no further reconnection
-     * attempts, no live rxStomp — so they can react without racing the cleanup. Pass
-     * {@code logError = false} for an expected failure (an unauthenticated session probe) that
-     * should not surface as a console error.
+     * attempts, no live rxStomp — so they can react without racing the cleanup. The error is also
+     * available to subscribers via {@link fatalErrors}; this only traces it for local debugging.
      */
-    private async signalFatal(err: Error, logError: boolean = true): Promise<void> {
-        if(logError && console){
-            console.error('StompConnectionManager fatal error, deactivating connection', err)
-        }
+    private async signalFatal(err: Error): Promise<void> {
+        this.debugLogger('Fatal error, deactivating connection: %O', err)
         await this.deactivate()
         this.fatalErrorsSubject.next(err)
     }
