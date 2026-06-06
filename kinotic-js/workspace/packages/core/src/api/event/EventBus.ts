@@ -133,8 +133,15 @@ export class EventBus implements IEventBus {
 
     /** Runs connect and disconnect one at a time so they never overlap on the shared socket. */
     private serializeLifecycle<T>(operation: () => Promise<T>): Promise<T> {
+        // A one-at-a-time promise queue. `connectionLifecycle` always holds a promise that resolves
+        // when the previously queued operation finished, so running `operation` off it defers
+        // `operation` until that one is done. We then store this operation's own completion back
+        // into `connectionLifecycle`, so the next call defers behind this one — and so on.
         const result = this.connectionLifecycle.then(operation)
-        this.connectionLifecycle = result.catch(() => {})   // the next call waits for this one, pass or fail
+        // `result` is the operation's real outcome and goes to the caller. The copy we keep as the
+        // next "previous" swallows rejections, so one failed operation can't reject the chain and
+        // stall everything queued behind it.
+        this.connectionLifecycle = result.catch(() => {})
         return result
     }
 

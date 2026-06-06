@@ -139,6 +139,8 @@ export class StompConnectionManager {
                         try {
                             const res = await fetch(sessionCheckUrl, { credentials: 'include' })
                             if(res.status === 401){
+                                // Not signed in (or the session expired) — an expected outcome, not a
+                                // failure; fail the connect and the app routes to /login from here.
                                 await this.signalFatal(new Error('Authentication required'))
                                 return
                             }
@@ -287,12 +289,11 @@ export class StompConnectionManager {
     /**
      * Tears down the connection then publishes the failure to {@link fatalErrors}. Deactivating
      * first means subscribers see the error already in its terminal state — no further reconnection
-     * attempts, no live rxStomp — so they can react without racing the cleanup.
+     * attempts, no live rxStomp — so they can react without racing the cleanup. The error is also
+     * available to subscribers via {@link fatalErrors}; this only traces it for local debugging.
      */
     private async signalFatal(err: Error): Promise<void> {
-        if(console){
-            console.error('StompConnectionManager fatal error, deactivating connection', err)
-        }
+        this.debugLogger('Fatal error, deactivating connection: %O', err)
         await this.deactivate()
         this.fatalErrorsSubject.next(err)
     }
