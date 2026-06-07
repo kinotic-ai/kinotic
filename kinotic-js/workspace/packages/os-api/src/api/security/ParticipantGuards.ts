@@ -21,9 +21,8 @@ export function isSystemParticipant(participant: IParticipant): participant is I
 }
 
 /**
- * Narrows to an {@link IOrganizationParticipant}, which carries an {@code organizationId}. An
- * application-scoped participant does not satisfy this: holding the owning org's id does not
- * make it an org-scope participant.
+ * Narrows to an {@link IOrganizationParticipant}, which carries an {@code organizationId} and
+ * ORGANIZATION-scope authority.
  *
  * @return true if the participant authenticated against an Organization
  */
