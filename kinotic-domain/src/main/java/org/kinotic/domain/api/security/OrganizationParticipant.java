@@ -3,9 +3,10 @@ package org.kinotic.domain.api.security;
 import org.kinotic.core.api.security.Participant;
 
 /**
- * A participant authenticated against an Organization. {@link #getOrganizationId()} is the
- * id of the owning Organization and is never null. Org-scoped services read this value to
- * filter, route, and validate persistence operations on org-owned data.
+ * A participant authenticated against an Organization, carrying ORGANIZATION-scope authority
+ * over that Organization's resources. {@link #getOrganizationId()} is the id of the owning
+ * Organization and is never null. Org-scoped services read this value to filter, route, and
+ * validate persistence operations on org-owned data.
  * <p>
  * Use {@code securityContext.requireParticipant(OrganizationParticipant.class)} to obtain
  * the current participant narrowed to this type.
