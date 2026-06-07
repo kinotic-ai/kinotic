@@ -28,6 +28,9 @@ public class OidcFlowSession implements ClusterSerializable {
     private String configId;
     private String orgId;
 
+    /** Token of the member invitation this flow accepts, or {@code null} for sign-up/login flows. */
+    private String inviteToken;
+
     @Override
     public void writeToBuffer(Buffer buffer) {
         new JsonObject()
@@ -36,6 +39,7 @@ public class OidcFlowSession implements ClusterSerializable {
                 .put("pkceVerifier", pkceVerifier)
                 .put("configId", configId)
                 .put("orgId", orgId)
+                .put("inviteToken", inviteToken)
                 .writeToBuffer(buffer);
     }
 
@@ -48,6 +52,7 @@ public class OidcFlowSession implements ClusterSerializable {
         this.pkceVerifier = json.getString("pkceVerifier");
         this.configId = json.getString("configId");
         this.orgId = json.getString("orgId");
+        this.inviteToken = json.getString("inviteToken");
         return read;
     }
 }

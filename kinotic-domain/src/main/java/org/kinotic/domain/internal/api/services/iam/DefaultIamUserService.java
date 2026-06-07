@@ -1,6 +1,8 @@
 package org.kinotic.domain.internal.api.services.iam;
 
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.services.iam.IamUserService;
@@ -184,6 +186,27 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                 .setId(userId)
                 .setPasswordHash(DomainUtil.hashPassword(newPassword));
         return credentialRepository.save(credential).thenApply(c -> null);
+    }
+
+    @Override
+    public CompletableFuture<Page<IamUser>> findByScope(String organizationId, String applicationId, Pageable pageable) {
+        if (applicationId != null) {
+            Validate.notBlank(organizationId,
+                              "organizationId is required when applicationId is supplied");
+        }
+        return iamUserRepository.findByScope(organizationId, applicationId, pageable);
+    }
+
+    @Override
+    public CompletableFuture<Page<IamUser>> searchByScope(String searchText,
+                                                          String organizationId,
+                                                          String applicationId,
+                                                          Pageable pageable) {
+        if (applicationId != null) {
+            Validate.notBlank(organizationId,
+                              "organizationId is required when applicationId is supplied");
+        }
+        return iamUserRepository.searchByScope(searchText, organizationId, applicationId, pageable);
     }
 
     @Override

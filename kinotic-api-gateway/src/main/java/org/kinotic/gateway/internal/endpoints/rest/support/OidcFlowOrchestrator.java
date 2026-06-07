@@ -107,7 +107,7 @@ public class OidcFlowOrchestrator {
                                                   config.getId(), config.getAudience(), claims.get("aud"));
                                          throw new OidcCallbackException(OidcConstants.ERR_INVALID_TOKEN);
                                      }
-                                     return new CallbackResult<>(config, claims, flowSession.orgId());
+                                     return new CallbackResult<>(config, claims, flowSession.orgId(), flowSession.inviteToken());
                                  });
                      });
     }
@@ -123,6 +123,20 @@ public class OidcFlowOrchestrator {
                                     BaseOidcConfiguration config,
                                     String callbackUrl,
                                     String orgId) {
+        return startFlow(ctx, config, callbackUrl, orgId, null);
+    }
+
+    /**
+     * As {@link #startFlow(RoutingContext, BaseOidcConfiguration, String, String)}, additionally
+     * stashing {@code inviteToken} on the session so the callback can complete a member invitation.
+     *
+     * @param inviteToken the member-invitation token to carry through the flow, or {@code null}
+     */
+    public Future<String> startFlow(RoutingContext ctx,
+                                    BaseOidcConfiguration config,
+                                    String callbackUrl,
+                                    String orgId,
+                                    String inviteToken) {
         String state = OAuth2Util.randomUrlSafe(32);
         String nonce = OAuth2Util.randomUrlSafe(32);
         String pkceVerifier = OAuth2Util.randomUrlSafe(64);
@@ -130,7 +144,7 @@ public class OidcFlowOrchestrator {
 
         Session session = ctx.session();
         session.regenerateId();
-        session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), orgId));
+        session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), orgId, inviteToken));
 
         return getOAuth2Auth(config)
                 .map(oauth2 -> oauth2.authorizeURL(

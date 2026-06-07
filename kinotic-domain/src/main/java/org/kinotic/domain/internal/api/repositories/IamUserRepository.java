@@ -40,6 +40,23 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
         return findAll(pageable, b -> b.query(scopeFilter(organizationId, applicationId)));
     }
 
+    /**
+     * Full-text search over {@code email}/{@code displayName} within a scope. Blank
+     * {@code searchText} falls back to {@link #findByScope}; otherwise the query-string match is
+     * ANDed with the structural scope filter so results never cross scopes.
+     */
+    public CompletableFuture<Page<IamUser>> searchByScope(String searchText,
+                                                          String organizationId,
+                                                          String applicationId,
+                                                          Pageable pageable) {
+        if (searchText == null || searchText.isEmpty()) {
+            return findByScope(organizationId, applicationId, pageable);
+        }
+        return findAll(pageable, b -> b.query(Query.of(q -> q.bool(bq -> bq
+                .must(m -> m.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
+                .filter(scopeFilter(organizationId, applicationId))))));
+    }
+
     public CompletableFuture<IamUser> findByOidcIdentity(String oidcSubject,
                                                          String oidcConfigId,
                                                          String organizationId,

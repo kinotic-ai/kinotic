@@ -37,6 +37,7 @@ public class ApiGatewayVertcleFactory {
     private final StompServerHandlerFactory stompServerHandlerFactory;
     private final OrganizationLoginHandler organizationLoginHandler;
     private final OrganizationSignupHandler organizationSignupHandler;
+    private final InviteHandler inviteHandler;
     private final ApplicationLoginHandler applicationLoginHandler;
     private final CliDeviceLoginHandler cliDeviceLoginHandler;
     private final SessionEndpointHandler sessionEndpointHandler;
@@ -75,6 +76,7 @@ public class ApiGatewayVertcleFactory {
         // REST endpoints under /api
         organizationLoginHandler.mountRoutes(router);
         organizationSignupHandler.mountRoutes(router);
+        inviteHandler.mountRoutes(router);
         applicationLoginHandler.mountRoutes(router);
         cliDeviceLoginHandler.mountRoutes(router);
         sessionEndpointHandler.mountRoutes(router);
