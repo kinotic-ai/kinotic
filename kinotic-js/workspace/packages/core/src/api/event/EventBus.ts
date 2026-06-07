@@ -56,7 +56,7 @@ export class Event implements IEvent {
 
     public getDataString(): string {
         let ret = ''
-        this.data.ifPresent(( value ) => ret = new TextDecoder().decode(value))
+        this.data.ifPresent(( value: any ) => ret = new TextDecoder().decode(value))
         return ret
     }
 }

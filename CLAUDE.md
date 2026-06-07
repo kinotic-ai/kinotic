@@ -32,24 +32,6 @@ This flag has no effect on normal builds — omitting it uses the default Java 2
 Names suggest meaning but don't define it. Before using an annotation, framework hook, base class, or library helper you haven't used in this codebase before, read its source or docs and confirm what it actually does. Don't infer behaviour from a plausible-sounding name and ship it. If you can't verify the behaviour, ask — don't write a comment justifying the guess.
 
 
-## Terminology and prose
-
-Use precise technical, design, and programming terminology in all prose — chat replies, explanations, design discussion, code review, commit messages, and PR descriptions. State the mechanism and behaviour literally and name the actual construct.
-
-Do not use analogies, metaphors, idioms, figures of speech, or colloquialisms. Replace them with the precise term:
-
-- "belt and suspenders" → redundant check / precondition assertion
-- "can't happen" / "shouldn't happen" → unreachable state / invariant violation / illegal state
-- "shipped" / "land it" → committed / merged / released / published
-- "reach for" → use
-- "the whole point of" → the purpose of
-- "bridge" / "glue" → name the construct (type guard, adapter, facade, …)
-- "under the hood" → internally / in the implementation
-- "fail fast" → validate at the boundary and throw on an invalid precondition
-
-When a precise term exists, use it rather than paraphrasing it into prose: "user-defined type guard with a type predicate", "control-flow narrowing", "structural subtype", "discriminated union", "precondition asserted at the authentication boundary", "compile error (TS2339)", "semantic versioning floor". This applies to spoken-style explanation as much as to written artifacts.
-
-
 ## Java Conventions
 
 Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true)`, `@NoArgsConstructor`, `@RequiredArgsConstructor`, `@Slf4j`, `@Data`, `@Builder`. Prefer `@RequiredArgsConstructor` over hand-written constructors for dependency injection. Use `@Slf4j` instead of manual `LoggerFactory.getLogger()` calls.
@@ -87,14 +69,3 @@ Never remove or alter an existing authorship comment — `Created by <name> on <
 
 ## Properties
 Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant.
-
-## Tenant vs Organization
-
-These are distinct concepts — don't conflate them.
-
-- **Organization** owns **Applications**. An Application belongs to exactly one Org.
-- **Tenant** is an isolation scope for the **data that end users of an Application save** — i.e. instances of `Entity` types defined by an `EntityDefinition`. It exists so that Application developers can build multi-tenant applications where each end-user dataset is partitioned by `tenantId`.
-
-So the hierarchy is: **Org → Application → (end-user data, partitioned by tenant)**. Tenants live underneath an Application; they are not a layer above Organizations.
-
-Participant scope is encoded by subtype, not a flag: `SystemParticipant`, `OrganizationParticipant`, and `ApplicationParticipant` (which carries `organizationId`, `applicationId`, and an optional `tenantId`). For an entity operation, source the organization id from the bound participant — `context.getParticipant().getOrganizationId()` on the `EntityContext`'s `ApplicationParticipant` — never from `requireParticipant(OrganizationParticipant.class)` and never from a prefix baked into an entity id.
