@@ -22,14 +22,13 @@ export function isSystemParticipant(participant: IParticipant): participant is I
 
 /**
  * Narrows to an {@link IOrganizationParticipant}, which carries an {@code organizationId}. An
- * application-scoped participant satisfies this too, since every Application is owned by an
- * Organization.
+ * application-scoped participant does not satisfy this: holding the owning org's id does not
+ * make it an org-scope participant.
  *
- * @return true if the participant authenticated against an Organization or an Application
+ * @return true if the participant authenticated against an Organization
  */
 export function isOrganizationParticipant(participant: IParticipant): participant is IOrganizationParticipant {
-    const type = scopeType(participant)
-    return type === ParticipantType.ORGANIZATION || type === ParticipantType.APPLICATION
+    return scopeType(participant) === ParticipantType.ORGANIZATION
 }
 
 /**

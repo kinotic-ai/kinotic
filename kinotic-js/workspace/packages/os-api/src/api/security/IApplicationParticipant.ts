@@ -1,14 +1,23 @@
-import type {IOrganizationParticipant} from './IOrganizationParticipant'
+import type {IParticipant} from '@kinotic-ai/core'
 import type {ParticipantType} from './ParticipantType'
 
 /**
- * A participant authenticated against an Application. Extends {@link IOrganizationParticipant}
- * because every Application belongs to an Organization, so an application-scoped session
- * intrinsically carries the owning Organization's id as well. Mirrors the server
- * {@code ApplicationParticipant}.
+ * A participant authenticated against an Application. {@link organizationId} is the id of the
+ * Organization that owns the Application; it identifies the owning org for data ownership and
+ * routing of the Application's entity definitions and end-user data, and is never null.
+ *
+ * This type is deliberately not an {@link IOrganizationParticipant}: holding the owning org's
+ * id does not confer org-scoped authority, so an application participant does not satisfy
+ * {@link isOrganizationParticipant}. Mirrors the server {@code ApplicationParticipant}.
  */
-export interface IApplicationParticipant extends IOrganizationParticipant {
+export interface IApplicationParticipant extends IParticipant {
     type: ParticipantType.APPLICATION;
+
+    /**
+     * The id of the Organization that owns the Application this participant is authenticated
+     * under; never null.
+     */
+    organizationId: string;
 
     /**
      * The id of the Application this participant is authenticated under; never null.
