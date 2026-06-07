@@ -90,7 +90,22 @@ const pageRoutes: RouteRecordRaw[] = [
     ]
   },
 
-  organizationPlaceholderRoute('/members', 'organization-members', 'Members', 'Manage the people who can access this organization.'),
+  {
+    path: '/members',
+    component: () => import('@/layouts/LayoutForPage.vue'),
+    meta: {
+      showInMainNav: false,
+      label: 'Members',
+      sidebarItems: organizationSidebarItems
+    } as RouteMeta,
+    children: [
+      {
+        name: 'organization-members',
+        path: '',
+        component: () => import('@/pages/Members.vue'),
+      },
+    ]
+  },
   organizationPlaceholderRoute('/roles-permissions', 'organization-roles', 'Roles & permissions', 'Define roles and control access across your organization.'),
   organizationPlaceholderRoute('/authentication-providers', 'organization-auth-providers', 'Authentication providers', 'Configure the identity providers available to this organization.'),
   organizationPlaceholderRoute('/identity-mapping', 'organization-identity-mapping', 'Identity mapping', 'Map external identities to your organization users and roles.'),
@@ -315,6 +330,14 @@ const pageRoutes: RouteRecordRaw[] = [
   {
     path: '/register',
     component: () => import('@/pages/signup/CompleteOrg.vue'),
+    meta: {
+      showInMainNav: false,
+      authenticationRequired: false
+    } as RouteMeta,
+  },
+  {
+    path: '/invite/accept',
+    component: () => import('@/pages/signup/InviteAccept.vue'),
     meta: {
       showInMainNav: false,
       authenticationRequired: false

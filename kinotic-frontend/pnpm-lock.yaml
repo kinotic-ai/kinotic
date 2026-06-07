@@ -15,17 +15,17 @@ importers:
         specifier: ^2.2.0
         version: 2.2.0(vue@3.5.34(typescript@5.8.3))
       '@kinotic-ai/core':
-        specifier: ^1.6.1
-        version: 1.6.1(typescript@5.8.3)
+        specifier: link:../kinotic-js/workspace/packages/core
+        version: link:../kinotic-js/workspace/packages/core
       '@kinotic-ai/idl':
-        specifier: ^1.0.9
-        version: 1.0.9(typescript@5.8.3)
+        specifier: link:../kinotic-js/workspace/packages/idl
+        version: link:../kinotic-js/workspace/packages/idl
       '@kinotic-ai/os-api':
-        specifier: ^1.8.0
-        version: 1.8.0(@kinotic-ai/core@1.6.1(typescript@5.8.3))(typescript@5.8.3)
+        specifier: link:../kinotic-js/workspace/packages/os-api
+        version: link:../kinotic-js/workspace/packages/os-api
       '@kinotic-ai/persistence':
-        specifier: ^1.3.1
-        version: 1.3.1(@kinotic-ai/core@1.6.1(typescript@5.8.3))(typescript@5.8.3)
+        specifier: link:../kinotic-js/workspace/packages/persistence
+        version: link:../kinotic-js/workspace/packages/persistence
       '@mdi/js':
         specifier: ^7.4.47
         version: 7.4.47
@@ -363,50 +363,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@kinotic-ai/core@1.6.1':
-    resolution: {integrity: sha512-64XwoiBLRQbh3exj8+kH6/tASZmY/QhDjZZ8jBPXkcIPOm3/nrxfIEN8MV+zZ8mM9YRTsyN7JfafB5Fx+2IvaA==}
-    peerDependencies:
-      typescript: '*'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-
-  '@kinotic-ai/idl@1.0.9':
-    resolution: {integrity: sha512-YcUNlUeTlv8YavhFNDVgQgDmTPBEKGMRaRjr5p92WPACH52l/ZuFGOyE7kJZqjfe0lQhUEGolADwnYkwVxSBVg==}
-    peerDependencies:
-      typescript: '*'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-
-  '@kinotic-ai/os-api@1.8.0':
-    resolution: {integrity: sha512-MtkoZVES8LDgsyPgpDvSdWiyw+vqYZsn7bwY06pfOrL3ebzVYyaM5Q69mpLXt/SHVNiyhJOS/ThJOaxyhtlg2g==}
-    peerDependencies:
-      '@kinotic-ai/core': '>=1.6.0'
-      typescript: '*'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-
-  '@kinotic-ai/persistence@1.3.1':
-    resolution: {integrity: sha512-IOqoeOkk9z0adfzJ9CWjvnOonlrp1BwzJTwSMQCwnrajK2e27BhygDxseSPn4ZSw3JgFcI6xuECr4x4OingfCA==}
-    peerDependencies:
-      '@kinotic-ai/core': '>=1.6.0'
-      typescript: '*'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-
   '@mdi/js@7.4.47':
     resolution: {integrity: sha512-KPnNOtm5i2pMabqZxpUz7iQf+mfrYZyKCZ8QNz85czgEt7cuHcGorWfdzUMWYA0SD+a6Hn4FmJ+YhzzzjkTZrQ==}
-
-  '@opentelemetry/api@1.9.1':
-    resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
-    engines: {node: '>=8.0.0'}
-
-  '@opentelemetry/semantic-conventions@1.40.0':
-    resolution: {integrity: sha512-cifvXDhcqMwwTlTK04GBNeIe7yyo28Mfby85QXFe1Yk8nmi36Ab/5UQwptOx84SsoGNRg+EVSjwzfSZMy6pmlw==}
-    engines: {node: '>=14'}
 
   '@primeuix/styled@0.7.4':
     resolution: {integrity: sha512-QSO/NpOQg8e9BONWRBx9y8VGMCMYz0J/uKfNJEya/RGEu7ARx0oYW0ugI1N3/KB1AAvyGxzKBzGImbwg0KUiOQ==}
@@ -577,16 +535,6 @@ packages:
     resolution: {integrity: sha512-X+zaP2x+j4RXGfbp/seSoRHWnPxzApilDszisZxbYH5C/jTxFhCtDNdPGZb9lJyYPs24wGxruPF7Y+sIXt9Gzw==}
     cpu: [x64]
     os: [win32]
-
-  '@stomp/rx-stomp@2.4.0':
-    resolution: {integrity: sha512-F6UI5W31Q4FNg8VYwBqbTIu8pFl5L1UP9vmg2TN4W7y7OZfbmcS2OXhht+qBwDG31tjn96Cq1zgeoz7lvrzKug==}
-    peerDependencies:
-      '@stomp/stompjs': ^7.2.0
-      rxjs: ^7.2.0
-      uuid: '>=9.0.0 <15.0.0'
-
-  '@stomp/stompjs@7.3.0':
-    resolution: {integrity: sha512-nKMLoFfJhrQAqkvvKd1vLq/cVBGCMwPRCD0LqW7UT1fecRx9C3GoKEIR2CYwVuErGeZu8w0kFkl2rlhPlqHVgQ==}
 
   '@tailwindcss/node@4.3.0':
     resolution: {integrity: sha512-aFb4gUhFOgdh9AXo4IzBEOzBkkAxm9VigwDJnMIYv3lcfXCJVesNfbEaBl4BNgVRyid92AmdviqwBUBRKSeY3g==}
@@ -1309,10 +1257,6 @@ packages:
   ohash@2.0.11:
     resolution: {integrity: sha512-RdR9FQrFwNBNXAr4GixM8YaRZRJ5PUWbKYbE5eOsrwAjJW0q2REGcf79oYPsLyskQCZG1PLN+S/K1V00joZAoQ==}
 
-  p-tap@4.0.0:
-    resolution: {integrity: sha512-G7GTcera93GkIIt5iM57ITilyMR1nSlGKjwSEifhP7F8I2QtOsHbokoRulAgHW2V5JxLS5Tg/7ToX2YHkPjlFA==}
-    engines: {node: '>=12'}
-
   path-browserify@1.0.1:
     resolution: {integrity: sha512-b7uo2UCUOYZcnF/3ID0lulOJi/bafxa1xPe7ZPsammBSpjSWQkjNxlt635YGS2MiR9GjvuXCtz2emr3jbsz98g==}
 
@@ -1383,9 +1327,6 @@ packages:
     resolution: {integrity: sha512-9u/XQ1pvrQtYyMpZe7DXKv2p5CNvyVwzUB6uhLAnQwHMSgKMBR62lc7AHljaeteeHXn11XTAaLLUVZYVZyuRBQ==}
     engines: {node: '>= 20.19.0'}
 
-  reflect-metadata@0.2.2:
-    resolution: {integrity: sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q==}
-
   resolve@1.22.10:
     resolution: {integrity: sha512-NPRy+/ncIMeDlTAsuqwKIiferiawhefFJtkNSW0qZJEqMEb+qBt/77B/jGeeek+F0uOeN05CDa6HXbbIgtVX4w==}
     engines: {node: '>= 0.4'}
@@ -1395,9 +1336,6 @@ packages:
     resolution: {integrity: sha512-I4KW6iuRpuu2uHBLraZ1wNZe0DP7lnRha+VJ9tNaYVaVgKhW0aI3h4RYnoRPeql0flHm/Co55b7snEDcOfOJrA==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
-
-  rxjs@7.8.2:
-    resolution: {integrity: sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==}
 
   sax@1.6.0:
     resolution: {integrity: sha512-6R3J5M4AcbtLUdZmRv2SygeVaM7IhrLXu9BmnOGmmACak8fiUtOsYNWUS4uK7upbmHIBbLBeFeI//477BKLBzA==}
@@ -1439,14 +1377,8 @@ packages:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
 
-  tslib@2.8.1:
-    resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
-
   type@2.7.3:
     resolution: {integrity: sha512-8j+1QmAbPvLZow5Qpi6NCaN8FB60p/6x8/vfNqOk/hC+HuvFZhL4+WfekuhQLiqFZXOgQdrs3B+XxEmCc6b3FQ==}
-
-  typescript-optional@3.0.0-alpha.3:
-    resolution: {integrity: sha512-X2JbUQA+WK0P8gwiickO6s8yZnX/ufov6zx4hbvdYVqHFTz8fAYoh+8JMKxVzQuh2/aMUvF9KSNqXi4p6pNxuA==}
 
   typescript@5.8.3:
     resolution: {integrity: sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==}
@@ -1493,10 +1425,6 @@ packages:
     hasBin: true
     peerDependencies:
       browserslist: '>= 4.21.0'
-
-  uuid@13.0.1:
-    resolution: {integrity: sha512-9ezox2roIft6ExBVTVqibSd5dc5/47Sw/uY6b4SjQUT2TzQ0tltNquWA46y4xPQmdZYqvnio22SgWd41M86+jw==}
-    hasBin: true
 
   vite-svg-loader@5.1.1:
     resolution: {integrity: sha512-RPzcXA/EpKJA0585x58DBgs7my2VfeJ+j2j1EoHY4Zh82Y7hV4cR1fElgy2aZi85+QSrcLLoTStQ5uZjD68u+Q==}
@@ -1745,53 +1673,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
 
-  '@kinotic-ai/core@1.6.1(typescript@5.8.3)':
-    dependencies:
-      '@opentelemetry/api': 1.9.1
-      '@opentelemetry/semantic-conventions': 1.40.0
-      '@stomp/rx-stomp': 2.4.0(@stomp/stompjs@7.3.0)(rxjs@7.8.2)(uuid@13.0.1)
-      '@stomp/stompjs': 7.3.0
-      '@types/debug': 4.1.13
-      debug: 4.4.3
-      p-tap: 4.0.0
-      reflect-metadata: 0.2.2
-      rxjs: 7.8.2
-      typescript-optional: 3.0.0-alpha.3
-      uuid: 13.0.1
-    optionalDependencies:
-      typescript: 5.8.3
-    transitivePeerDependencies:
-      - supports-color
-
-  '@kinotic-ai/idl@1.0.9(typescript@5.8.3)':
-    dependencies:
-      reflect-metadata: 0.2.2
-    optionalDependencies:
-      typescript: 5.8.3
-
-  '@kinotic-ai/os-api@1.8.0(@kinotic-ai/core@1.6.1(typescript@5.8.3))(typescript@5.8.3)':
-    dependencies:
-      '@kinotic-ai/core': 1.6.1(typescript@5.8.3)
-      '@kinotic-ai/idl': 1.0.9(typescript@5.8.3)
-      '@kinotic-ai/persistence': 1.3.1(@kinotic-ai/core@1.6.1(typescript@5.8.3))(typescript@5.8.3)
-      rxjs: 7.8.2
-    optionalDependencies:
-      typescript: 5.8.3
-
-  '@kinotic-ai/persistence@1.3.1(@kinotic-ai/core@1.6.1(typescript@5.8.3))(typescript@5.8.3)':
-    dependencies:
-      '@kinotic-ai/core': 1.6.1(typescript@5.8.3)
-      '@kinotic-ai/idl': 1.0.9(typescript@5.8.3)
-      reflect-metadata: 0.2.2
-      rxjs: 7.8.2
-    optionalDependencies:
-      typescript: 5.8.3
-
   '@mdi/js@7.4.47': {}
-
-  '@opentelemetry/api@1.9.1': {}
-
-  '@opentelemetry/semantic-conventions@1.40.0': {}
 
   '@primeuix/styled@0.7.4':
     dependencies:
@@ -1900,14 +1782,6 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.61.1':
     optional: true
-
-  '@stomp/rx-stomp@2.4.0(@stomp/stompjs@7.3.0)(rxjs@7.8.2)(uuid@13.0.1)':
-    dependencies:
-      '@stomp/stompjs': 7.3.0
-      rxjs: 7.8.2
-      uuid: 13.0.1
-
-  '@stomp/stompjs@7.3.0': {}
 
   '@tailwindcss/node@4.3.0':
     dependencies:
@@ -2622,8 +2496,6 @@ snapshots:
 
   ohash@2.0.11: {}
 
-  p-tap@4.0.0: {}
-
   path-browserify@1.0.1: {}
 
   path-parse@1.0.7: {}
@@ -2696,8 +2568,6 @@ snapshots:
 
   readdirp@5.0.0: {}
 
-  reflect-metadata@0.2.2: {}
-
   resolve@1.22.10:
     dependencies:
       is-core-module: 2.16.1
@@ -2735,10 +2605,6 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.61.1
       fsevents: 2.3.3
 
-  rxjs@7.8.2:
-    dependencies:
-      tslib: 2.8.1
-
   sax@1.6.0: {}
 
   scule@1.3.0: {}
@@ -2774,11 +2640,7 @@ snapshots:
     dependencies:
       is-number: 7.0.0
 
-  tslib@2.8.1: {}
-
   type@2.7.3: {}
-
-  typescript-optional@3.0.0-alpha.3: {}
 
   typescript@5.8.3: {}
 
@@ -2830,8 +2692,6 @@ snapshots:
       browserslist: 4.28.2
       escalade: 3.2.0
       picocolors: 1.1.1
-
-  uuid@13.0.1: {}
 
   vite-svg-loader@5.1.1(vue@3.5.34(typescript@5.8.3)):
     dependencies:
