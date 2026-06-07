@@ -9,7 +9,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Loads system migrations from the filesystem and applies them after the Elasticsearch client is configured
@@ -21,10 +25,17 @@ public class SystemMigrator {
 
     private final MigrationExecutor migrationExecutor;
     private final MigrationParser migrationParser;
+    private final Set<String> activeEnvironments;
 
-    public SystemMigrator(MigrationExecutor migrationExecutor, MigrationParser migrationParser) {
+    public SystemMigrator(MigrationExecutor migrationExecutor,
+                          MigrationParser migrationParser,
+                          Collection<String> activeEnvironments) {
         this.migrationExecutor = migrationExecutor;
         this.migrationParser = migrationParser;
+        this.activeEnvironments = activeEnvironments.stream()
+                                                    .filter(e -> e != null && !e.isBlank())
+                                                    .map(e -> e.trim().toLowerCase(Locale.ROOT))
+                                                    .collect(Collectors.toUnmodifiableSet());
     }
 
     public void execute() {
@@ -43,26 +54,22 @@ public class SystemMigrator {
 
             log.info("Found {} system migration files", resources.length);
 
-            // Get the last applied migration version for the system project
-            Integer lastAppliedVersion = migrationExecutor.getLastAppliedMigrationVersion(MigrationExecutor.SYSTEM_PROJECT).get();
-
-            // Load only migrations that need to be applied
+            // Select migrations applicable to the active environments; the executor's per-version check handles idempotency.
             List<Migration> migrationsToApply = new java.util.ArrayList<>();
             for (Resource resource : resources) {
                 Migration migration = new ResourceMigration(resource, migrationParser);
-                if (lastAppliedVersion == null || migration.getVersion() > lastAppliedVersion) {
+                if (appliesToActiveEnvironments(migration)) {
                     migrationsToApply.add(migration);
                 }
             }
 
             if (migrationsToApply.isEmpty()) {
-                log.info("All system migrations are already applied (last applied version: {})", lastAppliedVersion);
+                log.info("No system migrations apply to the active environments {}", activeEnvironments);
                 return;
             }
 
-            log.info("Applying {} new system migrations (starting from version {})",
-                     migrationsToApply.size(),
-                     lastAppliedVersion != null ? lastAppliedVersion + 1 : "1");
+            log.info("Applying {} candidate system migrations for active environments {}",
+                     migrationsToApply.size(), activeEnvironments);
 
             migrationExecutor.executeSystemMigrations(migrationsToApply).get();
             log.info("System migrations processing complete");
@@ -71,5 +78,13 @@ public class SystemMigrator {
             throw new IllegalStateException("Failed to initialize system migrations", e);
         }
     }
-    
+
+    boolean appliesToActiveEnvironments(Migration migration) {
+        Set<String> environments = migration.getEnvironments();
+        if (environments.isEmpty()) {
+            return true;
+        }
+        return environments.stream().anyMatch(activeEnvironments::contains);
+    }
+
 }
