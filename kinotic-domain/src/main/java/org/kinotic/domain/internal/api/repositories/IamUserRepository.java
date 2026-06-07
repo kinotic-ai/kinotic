@@ -40,6 +40,20 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
         return findAll(pageable, b -> b.query(scopeFilter(organizationId, applicationId)));
     }
 
+    public CompletableFuture<Page<IamUser>> searchByScope(String searchText,
+                                                          String organizationId,
+                                                          String applicationId,
+                                                          Pageable pageable) {
+        if (searchText == null || searchText.isEmpty()) {
+            return findByScope(organizationId, applicationId, pageable);
+        }
+        return findAll(pageable, b -> b.query(Query.of(q -> q.bool(bq -> bq
+                .must(m -> m.queryString(qs -> qs.query(searchText)
+                                                 .fields("email", "displayName")
+                                                 .analyzeWildcard(true)))
+                .filter(scopeFilter(organizationId, applicationId))))));
+    }
+
     public CompletableFuture<IamUser> findByOidcIdentity(String oidcSubject,
                                                          String oidcConfigId,
                                                          String organizationId,

@@ -8,13 +8,10 @@ import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.PendingSignUp;
 import org.kinotic.domain.api.services.OrganizationService;
+import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.SignUpService;
-import org.kinotic.domain.internal.api.model.IamCredential;
-import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
-import org.kinotic.domain.internal.api.repositories.IamUserRepository;
 import org.kinotic.domain.internal.api.repositories.PendingSignUpRepository;
 import org.kinotic.domain.internal.api.services.EmailService;
-import org.kinotic.domain.internal.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -30,8 +27,7 @@ public class DefaultSignUpService implements SignUpService {
     private static final long OIDC_TTL_MS = 10 * 60 * 1000L;       // 10 minutes
 
     private final PendingSignUpRepository pendingSignUpRepository;
-    private final IamUserRepository iamUserRepository;
-    private final IamCredentialRepository credentialRepository;
+    private final IamUserService iamUserService;
     private final OrganizationService organizationService;
     private final EmailService emailService;
 
@@ -46,7 +42,7 @@ public class DefaultSignUpService implements SignUpService {
                         return CompletableFuture.failedFuture(new IllegalArgumentException(
                                 "A sign-up is already pending for this email. Check your inbox for the verification link."));
                     }
-                    return iamUserRepository.findFirstOrgUserByEmail(email);
+                    return iamUserService.findFirstOrgUserByEmail(email);
                 })
                 .thenCompose(existingUser -> {
                     if (existingUser != null) {
@@ -90,39 +86,31 @@ public class DefaultSignUpService implements SignUpService {
         Validate.notBlank(password, "Password is required");
 
         return pendingSignUpRepository.findValidByToken(token)
-                .thenCompose(pending -> {
-                    IamUser admin = newUser(pending);
-                    return createOrgWithAdmin(orgName, orgDescription, admin)
-                            .thenCompose(savedAdmin -> {
-                                IamCredential credential = new IamCredential()
-                                        .setId(savedAdmin.getId())
-                                        .setPasswordHash(DomainUtil.hashPassword(password));
-                                return credentialRepository.save(credential)
-                                        .thenCompose(c -> pendingSignUpRepository.deleteById(pending.getId())
-                                                .thenApply(v -> savedAdmin));
-                            });
-                });
+                .thenCompose(pending -> createOrgWithAdmin(orgName, orgDescription, newUser(pending), password)
+                        .thenCompose(savedAdmin -> pendingSignUpRepository.deleteById(pending.getId())
+                                .thenApply(v -> savedAdmin)));
     }
 
     @Override
     public CompletableFuture<IamUser> completeOidcWithNewOrg(String token, String orgName, String orgDescription) {
         Validate.notBlank(orgName, "Organization name is required");
         return pendingSignUpRepository.findValidByToken(token)
-                .thenCompose(pending -> {
-                    IamUser admin = newUser(pending);
-                    return createOrgWithAdmin(orgName, orgDescription, admin)
-                            .thenCompose(savedAdmin -> pendingSignUpRepository.deleteById(pending.getId())
-                                    .thenApply(v -> savedAdmin));
-                });
+                .thenCompose(pending -> createOrgWithAdmin(orgName, orgDescription, newUser(pending), null)
+                        .thenCompose(savedAdmin -> pendingSignUpRepository.deleteById(pending.getId())
+                                .thenApply(v -> savedAdmin)));
     }
 
-    /** Creates the organization (failing if the name is taken), then makes {@code admin} its first member and creator. */
-    private CompletableFuture<IamUser> createOrgWithAdmin(String orgName, String orgDescription, IamUser admin) {
+    /**
+     * Creates the organization (failing if the name is taken), then makes {@code admin} its first
+     * member and creator. The admin (and its credential, when {@code password} is non-null) is
+     * created through {@link IamUserService#createUser} so member creation has a single code path.
+     */
+    private CompletableFuture<IamUser> createOrgWithAdmin(String orgName, String orgDescription, IamUser admin, String password) {
         Organization org = new Organization().setName(orgName).setDescription(orgDescription);
         return organizationService.create(org)
                 .thenCompose(savedOrg -> {
                     admin.setOrganizationId(savedOrg.getId());
-                    return iamUserRepository.save(admin)
+                    return iamUserService.createUser(admin, password)
                             .thenCompose(savedAdmin -> {
                                 savedOrg.setCreatedBy(savedAdmin.getId());
                                 return organizationService.save(savedOrg).thenApply(o -> savedAdmin);
@@ -130,17 +118,15 @@ public class DefaultSignUpService implements SignUpService {
                 });
     }
 
-    /** Builds an unsaved {@link IamUser} from the pending record's identity, auth-method aware. */
+    /**
+     * Builds an unsaved {@link IamUser} carrying the pending record's identity. Id, dates, the
+     * enabled flag and the credential are applied by {@link IamUserService#createUser}.
+     */
     private IamUser newUser(PendingSignUp pending) {
-        Date now = new Date();
         IamUser user = new IamUser()
-                .setId(UUID.randomUUID().toString())
                 .setEmail(pending.getEmail())
                 .setDisplayName(pending.getDisplayName())
-                .setAuthType(pending.getAuthType())
-                .setEnabled(true)
-                .setCreated(now)
-                .setUpdated(now);
+                .setAuthType(pending.getAuthType());
         if (pending.getAuthType() == AuthType.OIDC) {
             user.setOidcSubject(pending.getOidcSubject())
                 .setOidcConfigId(pending.getOidcConfigId());

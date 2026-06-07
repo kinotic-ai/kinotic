@@ -1,6 +1,8 @@
 package org.kinotic.domain.api.services.iam;
 
 import org.kinotic.core.api.crud.IdentifiableCrudService;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.IamUser;
 
 import java.util.List;
@@ -57,6 +59,22 @@ public interface IamUserService extends IdentifiableCrudService<IamUser, String>
      */
     CompletableFuture<List<IamUser>> findAllByOidcIdentity(String oidcSubject, String oidcConfigId);
 
+    /**
+     * Finds all users within the given scope, identified structurally by
+     * {@code (organizationId, applicationId)} with the same null conventions as
+     * {@link #findByEmail(String, String, String)}.
+     */
+    CompletableFuture<Page<IamUser>> findByScope(String organizationId, String applicationId, Pageable pageable);
+
+    /**
+     * Searches users within the given scope by free text over email and display name. A blank
+     * {@code searchText} returns every user in scope, equivalent to
+     * {@link #findByScope(String, String, Pageable)}.
+     */
+    CompletableFuture<Page<IamUser>> searchByScope(String searchText,
+                                                   String organizationId,
+                                                   String applicationId,
+                                                   Pageable pageable);
 
     CompletableFuture<IamUser> createUser(IamUser user, String password);
 

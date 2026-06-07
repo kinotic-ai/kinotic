@@ -4,7 +4,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.core.api.crud.Identifiable;
 
 import java.util.Date;
 
@@ -21,7 +20,7 @@ import java.util.Date;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class PendingSignUp implements Identifiable<String> {
+public class PendingSignUp implements PendingVerification {
 
     private String id;
 
