@@ -24,9 +24,6 @@ public final class OidcConstants {
     /** Frontend path where the user enters/confirms a CLI device {@code user_code} (the RFC 8628 verification URI). */
     public static final String DEVICE_VERIFICATION_PATH = "/device";
 
-    /** Frontend path of the unauthenticated invitation-accept page. Accepts {@code ?token=}, {@code ?error=}, and post-OIDC {@code ?accepted=app} query parameters. */
-    public static final String INVITE_ACCEPT_PATH = "/invite/accept";
-
     // ── Error codes ───────────────────────────────────────────────────────────
     // Wire-stable strings the frontend matches on to render specific UX. Add new
     // codes here rather than inlining string literals so the catalog stays scannable.

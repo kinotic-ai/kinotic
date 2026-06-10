@@ -30,6 +30,9 @@ import java.util.function.Predicate;
 @RequiredArgsConstructor
 public class InviteAcceptSupport {
 
+    /** Frontend path of the unauthenticated invitation-accept page. */
+    private static final String INVITE_ACCEPT_PATH = "/invite/accept";
+
     private final InviteService inviteService;
     private final AuthEndpointSupport authEndpointSupport;
 
@@ -56,7 +59,7 @@ public class InviteAcceptSupport {
                  invite -> appId.equals(invite.getApplicationId()) && orgId.equals(invite.getOrganizationId()),
                  user -> ctx.response().setStatusCode(302)
                             .putHeader("Location", authEndpointSupport.appUrl(
-                                    OidcConstants.INVITE_ACCEPT_PATH + "?accepted=app&application="
+                                    INVITE_ACCEPT_PATH + "?accepted=app&application="
                                             + URLEncoder.encode(appId, StandardCharsets.UTF_8)))
                             .end());
     }
@@ -71,7 +74,7 @@ public class InviteAcceptSupport {
      * invitation and let the invitee try another method.
      */
     public void redirectInviteError(RoutingContext ctx, String errorCode, String token) {
-        String location = authEndpointSupport.appUrl(OidcConstants.INVITE_ACCEPT_PATH)
+        String location = authEndpointSupport.appUrl(INVITE_ACCEPT_PATH)
                 + "?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8);
         if (token != null) {
             location += "&token=" + URLEncoder.encode(token, StandardCharsets.UTF_8);
