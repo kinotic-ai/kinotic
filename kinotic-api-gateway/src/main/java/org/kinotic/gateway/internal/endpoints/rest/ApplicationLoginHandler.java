@@ -7,6 +7,7 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
+import org.kinotic.gateway.internal.endpoints.rest.support.CallbackResult;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -37,9 +38,8 @@ import java.util.concurrent.CompletableFuture;
  *   <li>{@code POST /api/app/:orgId/:appId/login {email, password}} — local password
  *       auth, scoped to the application so a stray cross-scope match (dev SYSTEM admin,
  *       etc.) can't authenticate against an app endpoint.</li>
+ *   <li>{@code GET /api/app/:orgId/:appId/login/callback/:configId} — IdP returns here.</li>
  * </ul>
- *
- * <p>OIDC flows started here complete in {@link OidcCallbackHandler}.</p>
  *
  * <p>The {@code :orgId} path param disambiguates between orgs that happen to share an
  * appId — every IamUser/OidcConfiguration lookup carries both ids so the auth path can
@@ -61,12 +61,12 @@ public class ApplicationLoginHandler {
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
-    private final OidcCallbackHandler oidcCallbackHandler;
 
     public void mountRoutes(Router router) {
         router.get("/api/app/:orgId/:appId/login/providers").handler(this::handleProviders);
         router.post("/api/app/:orgId/:appId/login/lookup").handler(this::handleLookup);
         router.post("/api/app/:orgId/:appId/login").handler(this::handleLogin);
+        router.get("/api/app/:orgId/:appId/login/callback/:configId").handler(this::handleCallback);
     }
 
     private void handleProviders(RoutingContext ctx) {
@@ -121,8 +121,7 @@ public class ApplicationLoginHandler {
                          if (match == null || !match.isEnabled()) {
                              return authEndpointSupport.respondPasswordPath(ctx);
                          }
-                         return oidcFlowOrchestrator.startFlow(ctx, match,
-                                         oidcCallbackHandler.appCallbackUrl(orgId, appId, match.getId()), null)
+                         return oidcFlowOrchestrator.startFlow(ctx, match, callbackUrl(orgId, appId, match.getId()), null)
                                  .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
                      });
     }
@@ -135,4 +134,27 @@ public class ApplicationLoginHandler {
                         email, password, orgId, appId));
     }
 
+    private void handleCallback(RoutingContext ctx) {
+        String orgId = ctx.pathParam("orgId");
+        String appId = ctx.pathParam("appId");
+        String pathConfigId = ctx.pathParam("configId");
+
+        oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
+                ctx, pathConfigId, callbackUrl(orgId, appId, pathConfigId),
+                _ -> oidcConfigurationRepository.findById(pathConfigId, orgId))
+                .onSuccess(result -> completeAppLogin(ctx, result, orgId, appId))
+                .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
+    }
+
+    private void completeAppLogin(RoutingContext ctx,
+                                  CallbackResult<OidcConfiguration> result,
+                                  String orgId,
+                                  String appId) {
+        authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
+                sub -> iamUserService.findByOidcIdentity(sub, result.config().getId(), orgId, appId));
+    }
+
+    private String callbackUrl(String orgId, String appId, String configId) {
+        return authEndpointSupport.absoluteUrl("/api/app/" + orgId + "/" + appId + "/login/callback/" + configId);
+    }
 }

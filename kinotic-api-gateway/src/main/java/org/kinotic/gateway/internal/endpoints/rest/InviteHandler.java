@@ -9,24 +9,31 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.PendingInvite;
 import org.kinotic.domain.api.services.OrganizationService;
+import org.kinotic.domain.api.services.iam.InviteEmailMismatchException;
 import org.kinotic.domain.api.services.iam.InviteService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
+import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
-import org.kinotic.gateway.internal.endpoints.rest.support.InviteAcceptSupport;
+import org.kinotic.gateway.internal.endpoints.rest.support.CallbackResult;
+import org.kinotic.gateway.internal.endpoints.rest.support.OAuth2Util;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcCallbackException;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Unauthenticated invitation-accept routes. The invitee arrives from the emailed accept
- * link; the page these routes serve shows who invited them and into what, then lets them
- * accept with a password or any OIDC provider configured for the target scope.
+ * Unauthenticated invitation-accept routes — the complete invite flow, self-contained. The
+ * invitee arrives from the emailed accept link; the page these routes serve shows who
+ * invited them and into what, then lets them accept with a password or any OIDC provider
+ * configured for the target scope.
  *
  * <ul>
  *   <li>{@code GET /api/invite?token=} — invitation details + the scope's live provider
@@ -35,10 +42,11 @@ import java.util.concurrent.CompletableFuture;
  *       setting a password. Org invitees get a console session; app invitees get a
  *       confirmation payload and no session.</li>
  *   <li>{@code POST /api/invite/start/:configId} (form, {@code token}) — begins an OIDC
- *       accept. The chosen config must be in the invite's scope's allowed set; the IdP
- *       returns to the matching <em>existing</em> callback in {@link OidcCallbackHandler}
- *       with the token riding the flow session, so no new redirect URI is ever registered
- *       with an IdP.</li>
+ *       accept. The chosen config must be in the invite's scope's allowed set.</li>
+ *   <li>{@code GET /api/invite/callback/:configId} — the IdP returns here for every
+ *       invite acceptance (org social, org SSO, and app providers alike), with the accept
+ *       token riding the flow session. This URL must be registered as a redirect URI on
+ *       each provider, alongside the login/signup callbacks.</li>
  * </ul>
  */
 @Slf4j
@@ -46,20 +54,23 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class InviteHandler {
 
+    /** Frontend path of the unauthenticated invitation-accept page. */
+    private static final String INVITE_ACCEPT_PATH = "/invite/accept";
+
     private final InviteService inviteService;
     private final OrganizationService organizationService;
     private final ApplicationRepository applicationRepository;
     private final OidcConfigurationService oidcConfigurationService;
+    private final OidcConfigurationRepository oidcConfigurationRepository;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
-    private final OidcCallbackHandler oidcCallbackHandler;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
-    private final InviteAcceptSupport inviteAcceptSupport;
 
     public void mountRoutes(Router router) {
         router.get("/api/invite").handler(this::handleDetails);
         router.post("/api/invite/accept").handler(this::handleLocalAccept);
         router.post("/api/invite/start/:configId").handler(this::handleOidcStart);
+        router.get("/api/invite/callback/:configId").handler(this::handleOidcCallback);
     }
 
     private void handleDetails(RoutingContext ctx) {
@@ -129,7 +140,7 @@ public class InviteHandler {
         String formToken = ctx.request().getFormAttribute("token");
         String token = formToken != null && !formToken.isBlank() ? formToken : ctx.request().getParam("token");
         if (token == null || token.isBlank()) {
-            inviteAcceptSupport.redirectInviteError(ctx, OidcConstants.ERR_INVITE_INVALID);
+            redirectInviteError(ctx, OidcConstants.ERR_INVITE_INVALID, null);
             return;
         }
 
@@ -141,14 +152,87 @@ public class InviteHandler {
                   log.warn("Invite OIDC start failed for config {}: {}", configId, cause.getMessage());
                   String code = cause instanceof OidcCallbackException oce
                           ? oce.getErrorCode() : OidcConstants.ERR_INVITE_INVALID;
-                  inviteAcceptSupport.redirectInviteError(ctx, code, token);
+                  redirectInviteError(ctx, code, token);
+              });
+    }
+
+    /**
+     * {@code GET /api/invite/callback/:configId} — completes an OIDC acceptance. The accept
+     * token was stashed on the flow session at start; the config may be a platform social
+     * config or an org-scoped one (SSO or app), so resolution tries both tables — the flow
+     * session's configId binding guarantees it is the config the flow started with.
+     */
+    private void handleOidcCallback(RoutingContext ctx) {
+        String pathConfigId = ctx.pathParam("configId");
+
+        oidcFlowOrchestrator.<BaseOidcConfiguration>handleCallback(
+                ctx, pathConfigId, inviteCallbackUrl(pathConfigId),
+                orgId -> resolveCallbackConfig(pathConfigId, orgId))
+                .onSuccess(result -> completeOidcAccept(ctx, result))
+                .onFailure(ex -> {
+                    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                    String code = cause instanceof OidcCallbackException oce
+                            ? oce.getErrorCode() : OidcConstants.ERR_EXCHANGE_FAILED;
+                    redirectInviteError(ctx, code, null);
+                });
+    }
+
+    /**
+     * The post-IdP completion: validates the identity with the same prologue as login
+     * (sub present, email verified), creates the member via the domain service (which
+     * enforces the invited-email match), then routes by the invite's stored scope — org
+     * invitees get a console session and land in the SPA, app invitees are sent to the
+     * accept page's confirmation state without a session.
+     */
+    private void completeOidcAccept(RoutingContext ctx, CallbackResult<BaseOidcConfiguration> result) {
+        String token = result.inviteToken();
+        Map<String, Object> claims = result.claims();
+
+        if (token == null) {
+            // Only the start route above targets this callback, and it always stashes a token.
+            redirectInviteError(ctx, OidcConstants.ERR_INVITE_INVALID, null);
+            return;
+        }
+        String sub = OAuth2Util.stringClaim(claims, "sub");
+        String email = OAuth2Util.stringClaim(claims, "email");
+        if (sub == null || email == null) {
+            redirectInviteError(ctx, OidcConstants.ERR_INVALID_TOKEN, token);
+            return;
+        }
+        if (!OAuth2Util.isEmailVerified(claims, result.config().getProvider())) {
+            redirectInviteError(ctx, OidcConstants.ERR_EMAIL_NOT_VERIFIED, token);
+            return;
+        }
+
+        Future.fromCompletionStage(inviteService.acceptOidcInvite(token, sub, result.config().getId(), email))
+              .onSuccess(user -> {
+                  if (user.getApplicationId() != null) {
+                      // An app-scope user is not a console user — confirm without a session.
+                      ctx.response().setStatusCode(302)
+                         .putHeader("Location", authEndpointSupport.appUrl(
+                                 INVITE_ACCEPT_PATH + "?accepted=app&application="
+                                         + URLEncoder.encode(user.getApplicationId(), StandardCharsets.UTF_8)))
+                         .end();
+                  } else {
+                      authEndpointSupport.redirectSuccess(ctx, user);
+                  }
+              })
+              .onFailure(err -> {
+                  Throwable cause = err.getCause() != null ? err.getCause() : err;
+                  if (cause instanceof InviteEmailMismatchException) {
+                      // The invite is NOT consumed on mismatch — keep the token so the
+                      // invitee can retry with another provider or a password.
+                      redirectInviteError(ctx, OidcConstants.ERR_EMAIL_MISMATCH, token);
+                  } else {
+                      log.warn("Invite acceptance failed: {}", cause.getMessage());
+                      redirectInviteError(ctx, OidcConstants.ERR_INVITE_INVALID, null);
+                  }
               });
     }
 
     /**
      * Starts the OIDC flow for the chosen config, resolved strictly within the invite's
-     * scope's allowed provider set, targeting the matching existing callback in
-     * {@link OidcCallbackHandler} — so no new redirect URI is ever registered with an IdP.
+     * scope's allowed provider set, returning to this handler's own callback.
      */
     private Future<String> startFlowForInvite(RoutingContext ctx, PendingInvite invite, String configId, String token) {
         String orgId = invite.getOrganizationId();
@@ -166,19 +250,15 @@ public class InviteHandler {
                          })
                          .compose(configs -> configs.isEmpty()
                                  ? Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_CONFIG_NOT_FOUND))
-                                 : oidcFlowOrchestrator.startFlow(
-                                         ctx, configs.getFirst(),
-                                         oidcCallbackHandler.appCallbackUrl(orgId, appId, configId),
-                                         orgId, token));
+                                 : oidcFlowOrchestrator.startFlow(ctx, configs.getFirst(),
+                                                                  inviteCallbackUrl(configId), orgId, token));
         }
 
         return Future.fromCompletionStage(orgSignupOidcConfigurationService.findById(configId))
                      .compose(social -> {
                          if (social != null && social.isEnabled()) {
-                             return oidcFlowOrchestrator.startFlow(
-                                     ctx, social,
-                                     oidcCallbackHandler.socialCallbackUrl(configId),
-                                     orgId, token);
+                             return oidcFlowOrchestrator.startFlow(ctx, social,
+                                                                   inviteCallbackUrl(configId), orgId, token);
                          }
                          return Future.fromCompletionStage(oidcConfigurationService.findOrgLoginConfig(orgId))
                                       .compose(sso -> {
@@ -186,10 +266,8 @@ public class InviteHandler {
                                               return Future.failedFuture(
                                                       new OidcCallbackException(OidcConstants.ERR_CONFIG_NOT_FOUND));
                                           }
-                                          return oidcFlowOrchestrator.startFlow(
-                                                  ctx, sso,
-                                                  oidcCallbackHandler.ssoCallbackUrl(configId),
-                                                  orgId, token);
+                                          return oidcFlowOrchestrator.startFlow(ctx, sso,
+                                                                                inviteCallbackUrl(configId), orgId, token);
                                       });
                      });
     }
@@ -221,6 +299,43 @@ public class InviteHandler {
                                  }
                                  return providers;
                              });
+    }
+
+    /**
+     * Resolves the callback config across both tables — platform social configs are
+     * unscoped, SSO and app configs are org-scoped by the orgId recovered from the flow
+     * session.
+     */
+    private CompletableFuture<BaseOidcConfiguration> resolveCallbackConfig(String configId, String orgId) {
+        return orgSignupOidcConfigurationService.findById(configId)
+                .thenCompose(social -> {
+                    if (social != null) {
+                        return CompletableFuture.<BaseOidcConfiguration>completedFuture(social);
+                    }
+                    if (orgId == null) {
+                        return CompletableFuture.completedFuture(null);
+                    }
+                    return oidcConfigurationRepository.findById(configId, orgId)
+                                                      .thenApply(c -> (BaseOidcConfiguration) c);
+                });
+    }
+
+    private String inviteCallbackUrl(String configId) {
+        return authEndpointSupport.absoluteUrl("/api/invite/callback/" + configId);
+    }
+
+    /**
+     * {@code 302 Location: <appBaseUrl>/invite/accept?error=<code>}. A non-null token is
+     * kept in the URL so the page can reload the invitation and let the invitee try
+     * another method.
+     */
+    private void redirectInviteError(RoutingContext ctx, String errorCode, String token) {
+        String location = authEndpointSupport.appUrl(INVITE_ACCEPT_PATH)
+                + "?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8);
+        if (token != null) {
+            location += "&token=" + URLEncoder.encode(token, StandardCharsets.UTF_8);
+        }
+        ctx.response().setStatusCode(302).putHeader("Location", location).end();
     }
 
     /**
