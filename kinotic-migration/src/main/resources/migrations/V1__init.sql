@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS kinotic_application (
     organizationId KEYWORD,
     description TEXT,
     oidcConfigurationIds KEYWORD,
+    tenantPerUser BOOLEAN,
     updated DATE
 );
 
