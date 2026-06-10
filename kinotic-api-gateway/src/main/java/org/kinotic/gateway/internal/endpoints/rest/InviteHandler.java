@@ -36,9 +36,9 @@ import java.util.concurrent.CompletableFuture;
  *       confirmation payload and no session.</li>
  *   <li>{@code POST /api/invite/start/:configId} (form, {@code token}) — begins an OIDC
  *       accept. The chosen config must be in the invite's scope's allowed set; the IdP
- *       returns to the matching <em>existing</em> login callback (social/SSO/app) with the
- *       token riding the flow session, so no new redirect URI is ever registered with an
- *       IdP.</li>
+ *       returns to the matching <em>existing</em> callback in {@link OidcCallbackHandler}
+ *       with the token riding the flow session, so no new redirect URI is ever registered
+ *       with an IdP.</li>
  * </ul>
  */
 @Slf4j
@@ -51,6 +51,7 @@ public class InviteHandler {
     private final ApplicationRepository applicationRepository;
     private final OidcConfigurationService oidcConfigurationService;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
+    private final OidcCallbackHandler oidcCallbackHandler;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
     private final InviteAcceptSupport inviteAcceptSupport;
@@ -146,9 +147,8 @@ public class InviteHandler {
 
     /**
      * Starts the OIDC flow for the chosen config, resolved strictly within the invite's
-     * scope's allowed provider set, targeting the matching EXISTING login callback. The
-     * callback URL strings must mirror the owning login handlers' constructions exactly —
-     * the IdP requires the exchange redirect_uri to equal the one the flow started with.
+     * scope's allowed provider set, targeting the matching existing callback in
+     * {@link OidcCallbackHandler} — so no new redirect URI is ever registered with an IdP.
      */
     private Future<String> startFlowForInvite(RoutingContext ctx, PendingInvite invite, String configId, String token) {
         String orgId = invite.getOrganizationId();
@@ -168,8 +168,7 @@ public class InviteHandler {
                                  ? Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_CONFIG_NOT_FOUND))
                                  : oidcFlowOrchestrator.startFlow(
                                          ctx, configs.getFirst(),
-                                         authEndpointSupport.absoluteUrl(
-                                                 "/api/app/" + orgId + "/" + appId + "/login/callback/" + configId),
+                                         oidcCallbackHandler.appCallbackUrl(orgId, appId, configId),
                                          orgId, token));
         }
 
@@ -178,7 +177,7 @@ public class InviteHandler {
                          if (social != null && social.isEnabled()) {
                              return oidcFlowOrchestrator.startFlow(
                                      ctx, social,
-                                     authEndpointSupport.absoluteUrl("/api/login/callback/social/" + configId),
+                                     oidcCallbackHandler.socialCallbackUrl(configId),
                                      orgId, token);
                          }
                          return Future.fromCompletionStage(oidcConfigurationService.findOrgLoginConfig(orgId))
@@ -189,7 +188,7 @@ public class InviteHandler {
                                           }
                                           return oidcFlowOrchestrator.startFlow(
                                                   ctx, sso,
-                                                  authEndpointSupport.absoluteUrl("/api/login/callback/sso/" + configId),
+                                                  oidcCallbackHandler.ssoCallbackUrl(configId),
                                                   orgId, token);
                                       });
                      });

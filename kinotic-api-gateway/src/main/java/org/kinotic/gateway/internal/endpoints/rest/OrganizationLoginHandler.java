@@ -8,19 +8,15 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
-import org.kinotic.gateway.internal.endpoints.rest.support.CallbackResult;
-import org.kinotic.gateway.internal.endpoints.rest.support.InviteAcceptSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
-import org.kinotic.domain.api.model.iam.OidcConfiguration;
 import org.kinotic.domain.api.model.iam.OidcProviderKind;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
 import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
-import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
@@ -29,7 +25,8 @@ import java.util.Set;
 /**
  * Login routes for an organization — email/password, email-first SSO redirect, and social-button
  * (OIDC) login. On success each establishes the browser session; the STOMP WebSocket handshake then
- * authenticates from that session cookie, so the browser never handles a token.
+ * authenticates from that session cookie, so the browser never handles a token. OIDC flows started
+ * here complete in {@link OidcCallbackHandler}.
  */
 @Slf4j
 @Component
@@ -37,21 +34,18 @@ import java.util.Set;
 public class OrganizationLoginHandler {
 
     private final AuthEndpointSupport authEndpointSupport;
-    private final InviteAcceptSupport inviteAcceptSupport;
     private final IamUserService iamUserService;
     private final LocalAuthenticationService localAuthenticationService;
+    private final OidcCallbackHandler oidcCallbackHandler;
     private final OidcConfigurationService oidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
-    private final OidcConfigurationRepository oidcConfigurationRepository;
 
     public void mountRoutes(Router router) {
         router.get("/api/login/providers").handler(this::handleProviders);
         router.post("/api/login/lookup").handler(this::handleLookup);
         router.post("/api/login").handler(this::handleLogin);
         router.post("/api/login/start/:provider").handler(this::handleSocialStart);
-        router.get("/api/login/callback/social/:configId").handler(this::handleSocialCallback);
-        router.get("/api/login/callback/sso/:configId").handler(this::handleSsoCallback);
     }
 
     /**
@@ -98,30 +92,6 @@ public class OrganizationLoginHandler {
     }
 
     /**
-     * {@code GET /api/login/callback/social/:configId} — the social IdP returns here; validates the
-     * callback and logs the user in. The identity may belong to any organization.
-     */
-    private void handleSocialCallback(RoutingContext ctx) {
-        String pathConfigId = ctx.pathParam("configId");
-
-        oidcFlowOrchestrator.handleCallback(ctx,
-                                            pathConfigId,
-                                            socialCallbackUrl(pathConfigId),
-                                            _ -> orgSignupOidcConfigurationService.findById(pathConfigId))
-                            .onSuccess(result -> completeSocialLogin(ctx, result))
-                            .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
-    }
-
-    private void completeSocialLogin(RoutingContext ctx, CallbackResult<OrgSignupOidcConfiguration> result) {
-        if (result.inviteToken() != null) {
-            inviteAcceptSupport.completeOrgInviteAccept(ctx, result);
-            return;
-        }
-        authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
-                sub -> iamUserService.findOrgUserByOidcIdentity(sub, result.config().getId()));
-    }
-
-    /**
      * {@code POST /api/login/start/:provider} — begins social (OIDC) login by redirecting the
      * browser to the chosen Kinotic-curated provider.
      */
@@ -141,7 +111,9 @@ public class OrganizationLoginHandler {
                       authEndpointSupport.respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
                       return Future.succeededFuture();
                   }
-                  return oidcFlowOrchestrator.startFlow(ctx, config, socialCallbackUrl(config.getId()), null);
+                  return oidcFlowOrchestrator.startFlow(ctx, config,
+                                                        oidcCallbackHandler.socialCallbackUrl(config.getId()),
+                                                        null);
               })
               .onSuccess(url -> {
                   if (url != null) {
@@ -152,33 +124,6 @@ public class OrganizationLoginHandler {
                   log.error("Social login start failed for {}", provider, ex);
                   authEndpointSupport.respondError(ctx, 500, "Provider initialization failed");
               });
-    }
-
-    /**
-     * {@code GET /api/login/callback/sso/:configId} — the org's SSO IdP returns here; validates the
-     * callback and logs the user into that organization.
-     */
-    private void handleSsoCallback(RoutingContext ctx) {
-        String pathConfigId = ctx.pathParam("configId");
-
-        // OidcConfiguration is OrganizationScoped; the pre-auth callback has no participant
-        // bound, so the lookup is scoped by the orgId stashed on the flow session at startFlow.
-        // The configId is trusted — it came from the IdP redirect we issued ourselves.
-        oidcFlowOrchestrator.handleCallback(ctx,
-                                            pathConfigId,
-                                            ssoCallbackUrl(pathConfigId),
-                                            orgId -> oidcConfigurationRepository.findById(pathConfigId, orgId))
-                            .onSuccess(result -> completeSsoLogin(ctx, result))
-                            .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
-    }
-
-    private void completeSsoLogin(RoutingContext ctx, CallbackResult<OidcConfiguration> result) {
-        if (result.inviteToken() != null) {
-            inviteAcceptSupport.completeOrgInviteAccept(ctx, result);
-            return;
-        }
-        authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
-                sub -> iamUserService.findByOidcIdentity(sub, result.config().getId(), result.orgId(), null));
     }
 
     /**
@@ -214,17 +159,9 @@ public class OrganizationLoginHandler {
                          }
                          return oidcFlowOrchestrator.startFlow(ctx,
                                                                match,
-                                                               ssoCallbackUrl(match.getId()),
+                                                               oidcCallbackHandler.ssoCallbackUrl(match.getId()),
                                                                orgId)
                                                     .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
                      });
-    }
-
-    private String socialCallbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl("/api/login/callback/social/" + configId);
-    }
-
-    private String ssoCallbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl("/api/login/callback/sso/" + configId);
     }
 }
