@@ -156,10 +156,8 @@ public class InviteHandler {
     }
 
     /**
-     * {@code GET /api/invite/callback/:configId} — completes an OIDC acceptance. The accept
-     * token was stashed on the flow session at start; the config may be a platform social
-     * config or an org-scoped one (SSO or app), so resolution tries both tables — the flow
-     * session's configId binding guarantees it is the config the flow started with.
+     * {@code GET /api/invite/callback/:configId} — the IdP returns here for every invite
+     * acceptance; the accept token was stashed on the flow session at start.
      */
     private void handleOidcCallback(RoutingContext ctx) {
         String pathConfigId = ctx.pathParam("configId");
@@ -301,19 +299,26 @@ public class InviteHandler {
     }
 
     /**
-     * Resolves the callback config across both tables — platform social configs are
-     * unscoped, SSO and app configs are org-scoped by the orgId recovered from the flow
-     * session.
+     * Resolves the callback's config, which may live in either table: platform social
+     * configs (unscoped) or org SSO / app configs (org-scoped by the flow session's orgId).
      */
     private CompletableFuture<BaseOidcConfiguration> resolveCallbackConfig(String configId, String orgId) {
+        // Searching both tables by bare id is safe here: the orchestrator only calls this
+        // resolver after matching the path configId against the flow session, and the
+        // session value was written by handleOidcStart, which vets the config against the
+        // invite's allowed provider set. So this can only ever load the row the start leg
+        // already approved (ids are per-row UUIDs — no cross-table collisions).
         return orgSignupOidcConfigurationService.findById(configId)
                 .thenCompose(social -> {
                     if (social != null) {
                         return CompletableFuture.<BaseOidcConfiguration>completedFuture(social);
                     }
+                    // Invite flows always stash an orgId; this guard only turns a corrupted
+                    // session into config_not_found instead of a repository exception.
                     if (orgId == null) {
                         return CompletableFuture.completedFuture(null);
                     }
+                    // The cast widens the future's element type — CompletableFuture is invariant.
                     return oidcConfigurationRepository.findById(configId, orgId)
                                                       .thenApply(c -> (BaseOidcConfiguration) c);
                 });
