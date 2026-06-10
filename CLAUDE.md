@@ -74,7 +74,7 @@ Properties should never be created for something that will not need to be config
 
 ## Avoid these code smells
 
-These are the named smells from Martin Fowler and Kent Beck's catalog in *Refactoring: Improving the Design of Existing Code*, grouped by Mäntylä's taxonomy — decades of industry consensus on what makes code hard to change, not house style or one reviewer's taste. That is why they bind: each one is a pattern the field has repeatedly watched turn into maintenance cost. Check every diff against this list before presenting it; the bar for a new abstraction is that it carries information or removes duplication **today** — not that it might someday.
+These are the named smells from Martin Fowler and Kent Beck's catalog in *Refactoring: Improving the Design of Existing Code*, grouped by Mäntylä's taxonomy — decades of industry consensus on what makes code hard to change, not house style or one reviewer's taste. That is why they bind: each one is a pattern the field has repeatedly watched turn into maintenance cost. Check every diff against this list before presenting it. The bar for any new abstraction is YAGNI (Beck and Jeffries, Extreme Programming) and the Rule of Three (Don Roberts, in Refactoring): it must carry information or remove duplication **today** — not that it might someday.
 
 **Dispensables — code that should not exist**
 
