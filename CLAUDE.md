@@ -71,3 +71,15 @@ Never remove or alter an existing authorship comment — `Created by <name> on <
 
 ## Properties
 Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant.
+
+## Avoid these code smells
+
+Check every diff against this list before presenting it. These are the standard smells from Fowler's Refactoring; the bar for a new abstraction is that it carries information or removes duplication **today** — not that it might someday.
+
+- **Speculative Generality.** No one-value enums, no parameters every call site passes the same constant to, no "seam for a future toggle," no interface with a single implementation created "just in case," no config nobody asked for. Build for the current requirement; introduce the discriminator or abstraction when the second concrete case exists to design against.
+- **Middle Man / needless indirection.** No support class, wrapper, or dispatch layer with a single consumer — inline it until at least two real consumers exist. A flow's logic should be followable inside one class; if understanding it requires hopping between classes, the indirection is the smell. Same rule for constants: used in one class → declared in that class; shared catalogs only for genuine cross-class or cross-boundary contracts.
+- **Junk-drawer classes and names.** No `Constants`/`Utils`/`Helper`/`Manager` grab bags accumulating unrelated members. Name a class for the one thing it holds (`OidcErrorCodes`, not `OidcConstants`); if you can't name it honestly, split it. The same applies to entities: a class holding one kind of thing must not carry a name claiming generality it doesn't have.
+- **Dead code.** No defensive branches every caller already makes impossible, no unused parameters, no commented-out code, no "kept for later" methods without an owner's explicit say-so. If a guard is genuinely load-bearing against a corrupted state, it earns an inline comment saying so — otherwise delete it.
+- **Duplicated Code.** The inverse failure: before writing new logic, find the existing seam and compose it (one logic path). Two near-identical blocks in sibling classes means the shared piece was never extracted — extract it to the nearest common layer, not to a new grab bag.
+- **Long Parameter List / flag arguments.** A boolean or mode parameter that forks a method's whole behavior is two methods. Parameters that always travel together are a type.
+- **Primitive Obsession.** Covered by the enum rule in Java Conventions — applies equally to ids, keys, and wire codes used across boundaries.
