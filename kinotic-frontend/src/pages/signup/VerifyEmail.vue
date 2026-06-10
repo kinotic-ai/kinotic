@@ -1,134 +1,70 @@
 <template>
-  <div class="login-page">
-    <div class="login-shell">
-      <aside class="login-art" aria-hidden="true">
-        <img :src="loginBackgroundArt" alt="" class="login-art__image" />
-      </aside>
-
-      <main class="login-panel">
-        <button type="button" class="login-theme-toggle" @click="toggleTheme" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
-          <span :class="isDark ? 'pi pi-sun' : 'pi pi-moon'"></span>
-        </button>
-        <div class="login-panel__content">
-          <img :src="loginBrandMark" alt="Kinotic" class="login-brand" />
-
-          <div class="login-form">
-            <!-- Password form -->
-            <div class="login-form__step">
-              <div class="verify-header">
-                <span class="verify-icon-wrap verify-icon-wrap--primary">
-                  <span class="pi pi-shield verify-header__icon"></span>
-                </span>
-                <h2 class="verify-title">Email verified</h2>
-                <p class="verify-text">Name your organization and set a password to finish.</p>
-              </div>
-
-              <div class="login-field">
-                <InputText
-                  ref="orgNameInput"
-                  v-model="request.orgName"
-                  class="login-input"
-                  placeholder="Organization name"
-                  @keyup.enter="focusPassword"
-                />
-              </div>
-
-              <IconField class="login-field">
-                <Password
-                  ref="passwordInput"
-                  v-model="request.password"
-                  class="login-password"
-                  input-class="login-password-input"
-                  placeholder="Password"
-                  :feedback="false"
-                  toggleMask
-                  @keyup.enter="focusConfirm"
-                />
-              </IconField>
-
-              <IconField class="login-field">
-                <Password
-                  ref="confirmPasswordInput"
-                  v-model="confirmPassword"
-                  :class="['login-password', confirmStateClass]"
-                  input-class="login-password-input"
-                  placeholder="Confirm password"
-                  :feedback="false"
-                  toggleMask
-                  @keyup.enter="handleSubmit"
-                />
-              </IconField>
-
-              <Button
-                label="Create account"
-                class="login-submit"
-                :loading="loading"
-                :disabled="!canSubmit"
-                @click="handleSubmit"
-              />
-            </div>
-          </div>
+  <AuthPageShell>
+    <div class="login-form">
+      <!-- Password form -->
+      <div class="login-form__step">
+        <div class="verify-header">
+          <span class="verify-icon-wrap verify-icon-wrap--primary">
+            <span class="pi pi-shield verify-header__icon"></span>
+          </span>
+          <h2 class="verify-title">Email verified</h2>
+          <p class="verify-text">Name your organization and set a password to finish.</p>
         </div>
 
-        <footer class="login-footer">
-          <a href="#" class="login-footer__link">Terms of use</a>
-          <span class="login-footer__divider">|</span>
-          <a href="#" class="login-footer__link">Privacy policy</a>
-        </footer>
-      </main>
-    </div>
+        <div class="login-field">
+          <InputText
+            ref="orgNameInput"
+            v-model="request.orgName"
+            class="login-input"
+            placeholder="Organization name"
+            @keyup.enter="focusPassword"
+          />
+        </div>
 
-    <Toast />
-  </div>
+        <SetPasswordFields
+          ref="passwordFields"
+          v-model:password="request.password"
+          v-model:confirm="confirmPassword"
+          @submit="handleSubmit"
+        />
+
+        <Button
+          label="Create account"
+          class="login-submit"
+          :loading="loading"
+          :disabled="!canSubmit"
+          @click="handleSubmit"
+        />
+      </div>
+    </div>
+  </AuthPageShell>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-facing-decorator';
-import Password from 'primevue/password'
 import Button from 'primevue/button'
-import IconField from 'primevue/iconfield'
 import InputText from 'primevue/inputtext'
-import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
 import type { SignUpCompleteRequest } from '@kinotic-ai/os-api'
 
-import loginBgDark from '@/assets/left_background_dark.png'
-import loginBgLight from '@/assets/left-background_light.png'
-import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
-import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
-import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
+import AuthPageShell from '@/components/auth/AuthPageShell.vue'
+import SetPasswordFields from '@/components/auth/SetPasswordFields.vue'
 import { apiUrl } from '@/util/helpers'
 import { CONTINUUM_UI } from '@/IContinuumUI'
 import { StructuresStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
-import '@/pages/auth-pages.css'
 
 @Component({
   components: {
-    Password,
+    AuthPageShell,
+    SetPasswordFields,
     Button,
-    IconField,
     InputText,
-    Toast,
   }
 })
 export default class VerifyEmail extends Vue {
   private toast = useToast()
   private userState: IUserState = StructuresStates.getUserState()
-
-  get loginBackgroundArt() { return darkMode.value ? loginBgDark : loginBgLight }
-  get loginBrandMark() { return darkMode.value ? loginPageLogo : loginPageLogoLight }
-  get isDark() { return darkMode.value }
-  toggleTheme() { toggleDark() }
-
-  // Stays empty (no border tint) until the user types into the confirm field.
-  // Once non-empty: green if it matches the password, red otherwise.
-  get confirmStateClass(): string {
-    if (!this.confirmPassword) return ''
-    return this.request.password === this.confirmPassword
-      ? 'login-password--match'
-      : 'login-password--mismatch'
-  }
 
   get canSubmit(): boolean {
     return !!this.request.orgName
@@ -153,17 +89,8 @@ export default class VerifyEmail extends Vue {
   }
 
   private focusPassword() {
-    const el = this.$refs.passwordInput as any
-    if (el?.$el) {
-      el.$el.querySelector('input')?.focus()
-    }
-  }
-
-  private focusConfirm() {
-    const el = this.$refs.confirmPasswordInput as any
-    if (el?.$el) {
-      el.$el.querySelector('input')?.focus()
-    }
+    const fields = this.$refs.passwordFields as InstanceType<typeof SetPasswordFields> | undefined
+    fields?.focus()
   }
 
   async handleSubmit() {
@@ -230,21 +157,6 @@ export default class VerifyEmail extends Vue {
 </script>
 
 <style scoped>
-/* Confirm-password border tint: red while passwords don't match, green once they do.
- * Empty state stays neutral so the user isn't yelled at before they've typed anything. */
-.login-password--mismatch :deep(.login-password-input),
-.login-password--match :deep(.login-password-input) {
-  transition: border-color 0.18s ease;
-}
-
-.login-password--mismatch :deep(.login-password-input) {
-  border-color: var(--p-red-500);
-}
-
-.login-password--match :deep(.login-password-input) {
-  border-color: var(--p-green-500);
-}
-
 .verify-header {
   text-align: center;
   margin-bottom: 1.5rem;

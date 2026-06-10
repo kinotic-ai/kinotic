@@ -8,7 +8,7 @@ import lombok.experimental.Accessors;
 import java.util.Date;
 
 /**
- * Console view of a pending invitation. Deliberately excludes the accept token — anyone who
+ * View of a pending invitation for listing in the web app. Deliberately excludes the accept token — anyone who
  * can list invitations must not be able to redeem them.
  */
 @Getter

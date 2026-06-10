@@ -94,7 +94,7 @@ public class InviteHandler {
 
     /**
      * {@code POST /api/invite/accept {token, password, displayName?}} — accept by setting a
-     * password. Org invitees get a console session ({@code 204}); app invitees get a
+     * password. Org invitees get a browser session ({@code 204}); app invitees get a
      * confirmation payload and no session.
      */
     private void handleLocalAccept(RoutingContext ctx) {
@@ -116,7 +116,7 @@ public class InviteHandler {
         Future.fromCompletionStage(inviteService.acceptLocalInvite(token, password, displayName))
               .onSuccess(user -> {
                   if (user.getApplicationId() != null) {
-                      // An app-scope user is not a console user — confirm without a session.
+                      // An app-scope user signs in through their application, not the web app — confirm without a session.
                       ctx.response().putHeader("Content-Type", "application/json")
                          .end(new JsonObject()
                                  .put("scope", "APPLICATION")
@@ -186,8 +186,8 @@ public class InviteHandler {
      * {@link InviteService#acceptOidcInvite} to create the member; it also rejects the
      * acceptance when the IdP-verified email is not the email that was invited. Third,
      * send the browser onward based on who they just became: an organization member is a
-     * console user, so they get a browser session and land in the console; an application
-     * member is not a console user, so they are sent to the accept page's confirmation
+     * web-app user, so they get a browser session and land in the web app; an application
+     * member is not, so they are sent to the accept page's confirmation
      * state with no session and will sign in through their application instead.
      */
     private void completeOidcAccept(RoutingContext ctx, CallbackResult<BaseOidcConfiguration> result) {
@@ -213,7 +213,7 @@ public class InviteHandler {
         Future.fromCompletionStage(inviteService.acceptOidcInvite(token, sub, result.config().getId(), email))
               .onSuccess(user -> {
                   if (user.getApplicationId() != null) {
-                      // An app-scope user is not a console user — confirm without a session.
+                      // An app-scope user signs in through their application, not the web app — confirm without a session.
                       ctx.response().setStatusCode(302)
                          .putHeader("Location", authEndpointSupport.appUrl(
                                  INVITE_ACCEPT_PATH + "?accepted=app&application="

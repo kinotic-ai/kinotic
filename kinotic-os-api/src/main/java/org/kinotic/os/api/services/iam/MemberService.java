@@ -9,7 +9,7 @@ import org.kinotic.os.api.model.iam.PendingInviteSummary;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Console-facing member management for the caller's organization and its applications. Every
+ * Member management for the caller's organization and its applications, used by the web app. Every
  * method derives the organization from the authenticated participant — only org members may
  * call, and a supplied {@code applicationId} must belong to that organization. Members and
  * invitations are scoped: {@code applicationId} null addresses org members, set addresses

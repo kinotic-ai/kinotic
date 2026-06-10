@@ -1,7 +1,7 @@
 import type { Identifiable } from '@kinotic-ai/core'
 
 /**
- * Console view of a pending invitation. Deliberately excludes the accept token — anyone who
+ * View of a pending invitation for listing in the web app. Deliberately excludes the accept token — anyone who
  * can list invitations must not be able to redeem them.
  */
 export class PendingInviteSummary implements Identifiable<string> {

@@ -1,71 +1,47 @@
 <template>
-  <div class="login-page">
-    <div class="login-shell">
-      <aside class="login-art" aria-hidden="true">
-        <img :src="loginBackgroundArt" alt="" class="login-art__image" />
-      </aside>
+  <AuthPageShell :art="loginBackgroundArt" :show-theme-toggle="false">
+    <div class="login-form">
+      <div v-if="!userCode" class="device-message">
+        <span class="pi pi-exclamation-triangle device-message__icon"></span>
+        <h2 class="signup-title">Missing device code</h2>
+        <p class="login-form__subtitle">
+          Open the verification link shown in your command line.
+        </p>
+      </div>
 
-      <main class="login-panel">
-        <div class="login-panel__content">
-          <img :src="loginBrandMark" alt="Kinotic" class="login-brand" />
+      <div v-else-if="approved" class="device-message">
+        <span class="pi pi-check-circle device-message__icon"></span>
+        <h2 class="signup-title">Device approved</h2>
+        <p class="login-form__subtitle">
+          You can close this tab and return to your command line.
+        </p>
+      </div>
 
-          <div class="login-form">
-            <div v-if="!userCode" class="device-message">
-              <span class="pi pi-exclamation-triangle device-message__icon"></span>
-              <h2 class="signup-title">Missing device code</h2>
-              <p class="login-form__subtitle">
-                Open the verification link shown in your command line.
-              </p>
-            </div>
-
-            <div v-else-if="approved" class="device-message">
-              <span class="pi pi-check-circle device-message__icon"></span>
-              <h2 class="signup-title">Device approved</h2>
-              <p class="login-form__subtitle">
-                You can close this tab and return to your command line.
-              </p>
-            </div>
-
-            <div v-else class="login-form__step">
-              <h2 class="signup-title">Authorize the CLI</h2>
-              <p class="login-form__subtitle">
-                Confirm this code matches the one shown in your command line.
-              </p>
-              <div class="device-code">{{ userCode }}</div>
-              <Button
-                label="Approve"
-                class="login-submit"
-                :loading="loading"
-                @click="handleApprove"
-              />
-            </div>
-          </div>
-        </div>
-
-        <footer class="login-footer">
-          <a href="#" class="login-footer__link">Terms of use</a>
-          <span class="login-footer__divider">|</span>
-          <a href="#" class="login-footer__link">Privacy policy</a>
-        </footer>
-      </main>
+      <div v-else class="login-form__step">
+        <h2 class="signup-title">Authorize the CLI</h2>
+        <p class="login-form__subtitle">
+          Confirm this code matches the one shown in your command line.
+        </p>
+        <div class="device-code">{{ userCode }}</div>
+        <Button
+          label="Approve"
+          class="login-submit"
+          :loading="loading"
+          @click="handleApprove"
+        />
+      </div>
     </div>
-
-    <Toast />
-  </div>
+  </AuthPageShell>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-facing-decorator'
 import { Kinotic } from '@kinotic-ai/core'
 import Button from 'primevue/button'
-import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
 
 import loginPageLeft from '@/assets/login-page-left.svg'
-import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
-import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
-import { isDark as darkMode } from '@/composables/useTheme'
-import '@/pages/auth-pages.css'
+import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 
 /**
  * The RFC 8628 device-verification page. The CLI sends the user here
@@ -73,7 +49,7 @@ import '@/pages/auth-pages.css'
  * account to the pending CLI authorization grant.
  */
 @Component({
-  components: { Button, Toast }
+  components: { AuthPageShell, Button }
 })
 export default class DeviceVerification extends Vue {
   loading = false
@@ -81,8 +57,6 @@ export default class DeviceVerification extends Vue {
 
   private readonly loginBackgroundArt = loginPageLeft
   private toast = useToast()
-
-  get loginBrandMark() { return darkMode.value ? loginPageLogo : loginPageLogoLight }
 
   get userCode(): string | null {
     const code = this.$route.query.user_code

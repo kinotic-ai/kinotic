@@ -9,6 +9,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     ApplicationSidebar: typeof import('./src/components/ApplicationSidebar.vue')['default']
+    AuthPageShell: typeof import('./src/components/auth/AuthPageShell.vue')['default']
     Breadcrumb: typeof import('./src/components/Breadcrumb.vue')['default']
     Button: typeof import('primevue/button')['default']
     Calendar: typeof import('primevue/calendar')['default']
@@ -50,6 +51,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     SavedWidgetItem: typeof import('./src/components/SavedWidgetItem.vue')['default']
     SelectButton: typeof import('primevue/selectbutton')['default']
+    SetPasswordFields: typeof import('./src/components/auth/SetPasswordFields.vue')['default']
     SideBar: typeof import('./src/components/SideBar.vue')['default']
     SidebarItem: typeof import('./src/components/SidebarItem.vue')['default']
     SideNav: typeof import('./src/components/SideNav.vue')['default']
