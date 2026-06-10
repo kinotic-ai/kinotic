@@ -36,8 +36,6 @@ Names suggest meaning but don't define it. Before using an annotation, framework
 
 Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true)`, `@NoArgsConstructor`, `@RequiredArgsConstructor`, `@Slf4j`, `@Data`, `@Builder`. Prefer `@RequiredArgsConstructor` over hand-written constructors for dependency injection. Use `@Slf4j` instead of manual `LoggerFactory.getLogger()` calls.
 
-Scope is encoded structurally by the nullable `organizationId`/`applicationId` pair: both null = SYSTEM, `organizationId` only = ORGANIZATION, both set = APPLICATION. The pair stays as two nullable fields/parameters everywhere — entities, paths, published signatures. Do not wrap it in a type; the null-shape of the pair is the information.
-
 Use `enum` for any field whose value is constrained to a known set — never `String` with magic-string constants. Spring and Vert.x both auto-coerce JSON strings to enum values when deserializing into typed POJOs (Jackson's `@JsonCreator` / case-insensitive matching is built-in), so the wire contract stays string-friendly while the in-process type catches typos at compile time. Examples: `AuthScopeType`, `AuthType`, `OidcProviderKind`. If a field is `String authScopeType` accepting `"ORGANIZATION"`/`"APPLICATION"`/`"SYSTEM"`, that's a special case — not a pattern to repeat.
 
 ## Package Structure (Crucial!!)
