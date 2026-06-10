@@ -203,10 +203,10 @@ public class OrganizationSignupHandler {
               .onFailure(ex -> {
                   Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
                   if (cause instanceof AccountExistsException) {
-                      authEndpointSupport.redirectError(ctx, OidcConstants.ERR_ACCOUNT_EXISTS);
+                      authEndpointSupport.redirectError(ctx, "account_exists");
                   } else {
                       log.warn("Signup resolution failed: {}", cause.getMessage());
-                      authEndpointSupport.redirectError(ctx, OidcConstants.ERR_SIGNUP_FAILED);
+                      authEndpointSupport.redirectError(ctx, "signup_failed");
                   }
               });
     }
@@ -246,7 +246,7 @@ public class OrganizationSignupHandler {
     /** Sends the browser to the org-naming page with the pending sign-up token. */
     private void redirectToCompleteOrg(RoutingContext ctx, String token) {
         ctx.response().setStatusCode(302)
-           .putHeader("Location", authEndpointSupport.appUrl(OidcConstants.REGISTER_PATH)
+           .putHeader("Location", authEndpointSupport.appUrl("/register")
                    + "?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8))
            .end();
     }

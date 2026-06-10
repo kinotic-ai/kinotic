@@ -91,14 +91,14 @@ public class AuthEndpointSupport {
     public void redirectSuccess(RoutingContext ctx, IamUser user) {
         establishSession(ctx, user);
         ctx.response().setStatusCode(302)
-           .putHeader("Location", appUrl(OidcConstants.LOGIN_SUCCESS_PATH))
+           .putHeader("Location", appUrl("/"))
            .end();
     }
 
     /** {@code 302 Location: <appBaseUrl><errorPath>?error=<code>}. */
     public void redirectError(RoutingContext ctx, String errorCode) {
         ctx.response().setStatusCode(302)
-           .putHeader("Location", appUrl(OidcConstants.LOGIN_ERROR_PATH)
+           .putHeader("Location", appUrl("/login")
                    + "?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8))
            .end();
     }
@@ -218,16 +218,16 @@ public class AuthEndpointSupport {
         Future.fromCompletionStage(userLookup.apply(sub))
               .onSuccess(user -> {
                   if (user == null) {
-                      redirectError(ctx, OidcConstants.ERR_NO_ACCOUNT);
+                      redirectError(ctx, "no_account");
                   } else if (!user.isEnabled()) {
-                      redirectError(ctx, OidcConstants.ERR_ACCOUNT_DISABLED);
+                      redirectError(ctx, "account_disabled");
                   } else {
                       redirectSuccess(ctx, user);
                   }
               })
               .onFailure(err -> {
                   log.warn("Login resolution failed: {}", err.getMessage());
-                  redirectError(ctx, OidcConstants.ERR_LOOKUP_FAILED);
+                  redirectError(ctx, "lookup_failed");
               });
     }
 }
