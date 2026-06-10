@@ -65,6 +65,8 @@ Inline comments inside method bodies are different: they're for implementation d
 
 The split is about audience, not formatting. Javadoc is for **consumers** of the API; inline is for **maintainers** of the body. Before writing a comment, ask which one needs it. The rationale for a defensive check, a workaround, or a tricky ordering belongs inline next to the code that does it — never in the Javadoc, even if it explains why the method behaves the way it does. The caller doesn't care that an org-mismatch returns null because of an ES shard-hashing edge case; they care that it returns null when there's no doc for that org. The "because" stays in the body.
 
+Write comments in the plain English working programmers use — this is code, not a story. No literary or showy vocabulary ("prologue", "dance", "journey", "saga", "born in"), no invented shorthand a reader must decode. Say "validation", "checks", "steps", "flow". Assume the reader does not already understand the code: name the methods involved instead of alluding to them, and spell out cause and effect instead of compressing it into a clever phrase. If someone has to parse the prose before they can parse the code, the comment failed.
+
 Never remove or alter an existing authorship comment — `Created by <name> on <date>`, `@author`, or similar attribution. Preserve it verbatim (name, accents, emoji, date, punctuation) when editing or refactoring a file, including when you rewrite the surrounding Javadoc/JSDoc, and carry it with the type if you move that type to another file.
 
 ## Properties

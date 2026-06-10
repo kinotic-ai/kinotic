@@ -30,7 +30,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 
 /**
- * Owns the OAuth 2.0 / OIDC dance shared by every handler that bounces the user out to
+ * Owns the OAuth 2.0 / OIDC flow shared by every handler that bounces the user out to
  * an IdP and back: state/nonce/PKCE generation, session storage, callback validation,
  * code exchange, claim extraction, issuer validation. Handlers compose it with their
  * own per-route config resolver — the orchestrator itself knows nothing about IamUser
