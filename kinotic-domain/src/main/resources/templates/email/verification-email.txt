@@ -1,8 +1,8 @@
-Hi {{ displayName }},
+Hi {{displayName}},
 
 Welcome to Kinotic. Verify your email address to activate your account:
 
-{{ verificationUrl }}
+{{verificationUrl}}
 
 This link expires in 24 hours. If you didn't sign up for Kinotic,
 you can safely ignore this email.

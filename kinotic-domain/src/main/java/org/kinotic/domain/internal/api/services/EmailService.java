@@ -8,7 +8,12 @@ import com.azure.communication.email.models.EmailSendResult;
 import com.azure.communication.email.models.EmailSendStatus;
 import com.azure.core.util.polling.SyncPoller;
 import com.azure.identity.DefaultAzureCredentialBuilder;
-import com.hubspot.jinjava.Jinjava;
+import com.github.jknack.handlebars.Context;
+import com.github.jknack.handlebars.EscapingStrategy;
+import com.github.jknack.handlebars.Handlebars;
+import com.github.jknack.handlebars.Template;
+import com.github.jknack.handlebars.context.MapValueResolver;
+import com.github.jknack.handlebars.io.ClassPathTemplateLoader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
@@ -16,16 +21,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Sends transactional emails via Azure Communication Services. Bodies are rendered
- * from Jinja-style templates (jinjava).
+ * from Handlebars templates.
  * <p>
  * When {@code kinotic.email.enabled=false}, sends are skipped and the action
  * URL is logged instead — useful for local development.
@@ -38,11 +41,17 @@ public class EmailService {
     private static final String VERIFICATION_SUBJECT = "Verify your Kinotic email";
     private static final String VERIFICATION_PATH = "/signup/verify?token=";
 
-    private static final String VERIFICATION_HTML = loadTemplate("templates/email/verification-email.html");
-    private static final String VERIFICATION_TEXT = loadTemplate("templates/email/verification-email.txt");
+    // Two engines differing by template suffix and escaping: HTML bodies HTML-escape
+    // {{var}} by default (templates opt out with {{{var}}} for system-constructed URLs);
+    // plain-text bodies must not be escaped at all.
+    private static final Handlebars HTML_TEMPLATES =
+            new Handlebars(new ClassPathTemplateLoader("/templates/email", ".html"));
+    private static final Handlebars TEXT_TEMPLATES =
+            new Handlebars(new ClassPathTemplateLoader("/templates/email", ".txt"))
+                    .with(EscapingStrategy.NOOP);
 
-    // Thread-safe and intended to be created once and shared across renders.
-    private static final Jinjava JINJAVA = new Jinjava();
+    private static final Template VERIFICATION_HTML = compileTemplate(HTML_TEMPLATES, "verification-email");
+    private static final Template VERIFICATION_TEXT = compileTemplate(TEXT_TEMPLATES, "verification-email");
 
     private final KinoticDomainProperties properties;
 
@@ -77,8 +86,19 @@ public class EmailService {
                     render(VERIFICATION_TEXT, variables));
     }
 
-    private String render(String templateSource, Map<String, Object> variables) {
-        return JINJAVA.render(templateSource, variables);
+    private static String render(Template template, Map<String, Object> variables) {
+        // Map-only resolution: no reflective bean/method traversal of context objects,
+        // which is the known handlebars.java template-injection vector.
+        Context context = Context.newBuilder(variables)
+                                 .resolver(MapValueResolver.INSTANCE)
+                                 .build();
+        try {
+            return template.apply(context);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed rendering email template", e);
+        } finally {
+            context.destroy();
+        }
     }
 
     private CompletableFuture<Void> send(String toEmail,
@@ -137,17 +157,14 @@ public class EmailService {
     }
 
     /**
-     * Reads a built-in template off the classpath at class initialization, so a missing
-     * resource fails fast at startup rather than on the first send.
+     * Compiles a built-in template at class initialization, so a missing or broken
+     * template fails fast at startup rather than on the first send.
      */
-    private static String loadTemplate(String resourcePath) {
-        try (InputStream in = EmailService.class.getClassLoader().getResourceAsStream(resourcePath)) {
-            if (in == null) {
-                throw new IllegalStateException("Missing email template on classpath: " + resourcePath);
-            }
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+    private static Template compileTemplate(Handlebars handlebars, String name) {
+        try {
+            return handlebars.compile(name);
         } catch (IOException e) {
-            throw new UncheckedIOException("Failed reading email template: " + resourcePath, e);
+            throw new UncheckedIOException("Failed compiling email template: " + name, e);
         }
     }
 
