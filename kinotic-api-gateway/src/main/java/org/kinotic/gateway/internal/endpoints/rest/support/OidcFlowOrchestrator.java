@@ -76,7 +76,7 @@ public class OidcFlowOrchestrator {
             return Future.failedFuture(new OidcCallbackException(idpError));
         }
         if (code == null || state == null) {
-            return Future.failedFuture(new OidcCallbackException("invalid_callback"));
+            return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_INVALID_CALLBACK));
         }
 
         Session session = ctx.session();
@@ -85,7 +85,7 @@ public class OidcFlowOrchestrator {
         if (flowSession == null || !flowSession.state().equals(state)
                 || !flowSession.configId().equals(pathConfigId)) {
             log.warn("OIDC callback state mismatch for configId={}", pathConfigId);
-            return Future.failedFuture(new OidcCallbackException("state_mismatch"));
+            return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_STATE_MISMATCH));
         }
 
         return Future.fromCompletionStage(configResolver.apply(flowSession.orgId()))

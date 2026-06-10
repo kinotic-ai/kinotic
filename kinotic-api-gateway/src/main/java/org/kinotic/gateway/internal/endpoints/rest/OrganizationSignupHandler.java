@@ -203,10 +203,10 @@ public class OrganizationSignupHandler {
               .onFailure(ex -> {
                   Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
                   if (cause instanceof AccountExistsException) {
-                      authEndpointSupport.redirectError(ctx, "account_exists");
+                      authEndpointSupport.redirectError(ctx, OidcConstants.ERR_ACCOUNT_EXISTS);
                   } else {
                       log.warn("Signup resolution failed: {}", cause.getMessage());
-                      authEndpointSupport.redirectError(ctx, "signup_failed");
+                      authEndpointSupport.redirectError(ctx, OidcConstants.ERR_SIGNUP_FAILED);
                   }
               });
     }

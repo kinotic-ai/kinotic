@@ -218,16 +218,16 @@ public class AuthEndpointSupport {
         Future.fromCompletionStage(userLookup.apply(sub))
               .onSuccess(user -> {
                   if (user == null) {
-                      redirectError(ctx, "no_account");
+                      redirectError(ctx, OidcConstants.ERR_NO_ACCOUNT);
                   } else if (!user.isEnabled()) {
-                      redirectError(ctx, "account_disabled");
+                      redirectError(ctx, OidcConstants.ERR_ACCOUNT_DISABLED);
                   } else {
                       redirectSuccess(ctx, user);
                   }
               })
               .onFailure(err -> {
                   log.warn("Login resolution failed: {}", err.getMessage());
-                  redirectError(ctx, "lookup_failed");
+                  redirectError(ctx, OidcConstants.ERR_LOOKUP_FAILED);
               });
     }
 }

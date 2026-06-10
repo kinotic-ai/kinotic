@@ -43,9 +43,6 @@ public class InviteHandler {
     /** Frontend path of the unauthenticated invitation-accept page. */
     private static final String INVITE_ACCEPT_PATH = "/invite/accept";
 
-    /** {@code ?error=} code for an unknown, expired, or already consumed invitation token. */
-    private static final String ERR_INVITE_INVALID = "invite_invalid";
-
     private final InviteService inviteService;
     private final OrganizationService organizationService;
     private final ApplicationRepository applicationRepository;
@@ -145,7 +142,7 @@ public class InviteHandler {
         String formToken = ctx.request().getFormAttribute("token");
         String token = formToken != null && !formToken.isBlank() ? formToken : ctx.request().getParam("token");
         if (token == null || token.isBlank()) {
-            redirectInviteError(ctx, ERR_INVITE_INVALID, null);
+            redirectInviteError(ctx, OidcConstants.ERR_INVITE_INVALID, null);
             return;
         }
 
@@ -156,7 +153,7 @@ public class InviteHandler {
                   Throwable cause = err.getCause() != null ? err.getCause() : err;
                   log.warn("Invite OIDC start failed for config {}: {}", configId, cause.getMessage());
                   String code = cause instanceof OidcCallbackException oce
-                          ? oce.getErrorCode() : ERR_INVITE_INVALID;
+                          ? oce.getErrorCode() : OidcConstants.ERR_INVITE_INVALID;
                   redirectInviteError(ctx, code, token);
               });
     }
@@ -202,7 +199,7 @@ public class InviteHandler {
 
         if (token == null) {
             // Only the start route above targets this callback, and it always stashes a token.
-            redirectInviteError(ctx, ERR_INVITE_INVALID, null);
+            redirectInviteError(ctx, OidcConstants.ERR_INVITE_INVALID, null);
             return;
         }
         String sub = OAuth2Util.stringClaim(claims, "sub");
@@ -236,10 +233,10 @@ public class InviteHandler {
                   if (cause instanceof InviteEmailMismatchException) {
                       // The invite is NOT consumed on mismatch — keep the token so the
                       // invitee can retry with another provider or a password.
-                      redirectInviteError(ctx, "email_mismatch", token);
+                      redirectInviteError(ctx, OidcConstants.ERR_EMAIL_MISMATCH, token);
                   } else {
                       log.warn("Invite acceptance failed: {}", cause.getMessage());
-                      redirectInviteError(ctx, ERR_INVITE_INVALID, null);
+                      redirectInviteError(ctx, OidcConstants.ERR_INVITE_INVALID, null);
                   }
               });
     }
