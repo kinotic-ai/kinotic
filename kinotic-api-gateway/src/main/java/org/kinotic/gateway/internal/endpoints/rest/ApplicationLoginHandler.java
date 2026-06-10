@@ -26,28 +26,9 @@ import java.util.concurrent.CompletableFuture;
  * Login routes for end-users of an application built on Kinotic. Distinct from the
  * org-login handler: the user is logging into an application's own user base (an
  * APP-scope {@link IamUser} — {@code organizationId} + {@code applicationId} both set),
- * not into the platform-managed org admin surface.
- *
- * <ul>
- *   <li>{@code GET /api/app/:orgId/:appId/login/providers} — lists the enabled
- *       {@link OidcConfiguration} rows the app references via
- *       {@code Application.oidcConfigurationIds}.</li>
- *   <li>{@code POST /api/app/:orgId/:appId/login/lookup {email}} — email-first SSO/password
- *       decision. If the IamUser is OIDC and their config is live, returns
- *       {@code {type: "sso", redirect: "..."}}. Otherwise {@code {type: "password"}}.</li>
- *   <li>{@code POST /api/app/:orgId/:appId/login {email, password}} — local password
- *       auth, scoped to the application so a stray cross-scope match (dev SYSTEM admin,
- *       etc.) can't authenticate against an app endpoint.</li>
- *   <li>{@code GET /api/app/:orgId/:appId/login/callback/:configId} — IdP returns here.</li>
- * </ul>
- *
- * <p>The {@code :orgId} path param disambiguates between orgs that happen to share an
- * appId — every IamUser/OidcConfiguration lookup carries both ids so the auth path can
- * never collide cross-org.
- *
- * <p>The pre-auth login flow has no participant bound to filter against, so OIDC config
- * lookups go directly through the org-scoped repositories, scoped by the {@code :orgId}
- * path param.
+ * not into the platform-managed org admin surface. Every lookup carries both path ids so
+ * the auth path can never collide cross-org, and OIDC flows started here return to this
+ * handler's own callback.
  */
 @Slf4j
 @Component
@@ -69,6 +50,11 @@ public class ApplicationLoginHandler {
         router.get("/api/app/:orgId/:appId/login/callback/:configId").handler(this::handleCallback);
     }
 
+    /**
+     * {@code GET /api/app/:orgId/:appId/login/providers} — lists the enabled
+     * {@link OidcConfiguration} rows the app references via
+     * {@code Application.oidcConfigurationIds}.
+     */
     private void handleProviders(RoutingContext ctx) {
         String orgId = ctx.pathParam("orgId");
         String appId = ctx.pathParam("appId");
@@ -90,6 +76,11 @@ public class ApplicationLoginHandler {
               });
     }
 
+    /**
+     * {@code POST /api/app/:orgId/:appId/login/lookup {email}} — email-first SSO/password
+     * decision: {@code {type:"sso", redirect:"…"}} when the user is OIDC with a live
+     * config, otherwise {@code {type:"password"}}.
+     */
     private void handleLookup(RoutingContext ctx) {
         String orgId = ctx.pathParam("orgId");
         String appId = ctx.pathParam("appId");
@@ -126,6 +117,10 @@ public class ApplicationLoginHandler {
                      });
     }
 
+    /**
+     * {@code POST /api/app/:orgId/:appId/login {email, password}} — local password auth,
+     * scoped to the application so a stray cross-scope match can't authenticate here.
+     */
     private void handleLogin(RoutingContext ctx) {
         String orgId = ctx.pathParam("orgId");
         String appId = ctx.pathParam("appId");
@@ -134,6 +129,11 @@ public class ApplicationLoginHandler {
                         email, password, orgId, appId));
     }
 
+    /**
+     * {@code GET /api/app/:orgId/:appId/login/callback/:configId} — the IdP returns here;
+     * validates the callback and logs the user into the application. The pre-auth flow has
+     * no participant bound, so the config lookup is scoped by the {@code :orgId} path param.
+     */
     private void handleCallback(RoutingContext ctx) {
         String orgId = ctx.pathParam("orgId");
         String appId = ctx.pathParam("appId");

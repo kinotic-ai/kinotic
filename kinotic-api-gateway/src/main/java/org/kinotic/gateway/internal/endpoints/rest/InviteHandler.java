@@ -31,23 +31,9 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Unauthenticated invitation-accept routes — the complete invite flow, self-contained. The
- * invitee arrives from the emailed accept link; the page these routes serve shows who
- * invited them and into what, then lets them accept with a password or any OIDC provider
- * configured for the target scope.
- *
- * <ul>
- *   <li>{@code GET /api/invite?token=} — invitation details + the scope's live provider
- *       list for the accept page.</li>
- *   <li>{@code POST /api/invite/accept {token, password, displayName?}} — accept by
- *       setting a password. Org invitees get a console session; app invitees get a
- *       confirmation payload and no session.</li>
- *   <li>{@code POST /api/invite/start/:configId} (form, {@code token}) — begins an OIDC
- *       accept. The chosen config must be in the invite's scope's allowed set.</li>
- *   <li>{@code GET /api/invite/callback/:configId} — the IdP returns here for every
- *       invite acceptance (org social, org SSO, and app providers alike), with the accept
- *       token riding the flow session. This URL must be registered as a redirect URI on
- *       each provider, alongside the login/signup callbacks.</li>
- * </ul>
+ * invitee arrives from the emailed accept link and accepts with a password or any OIDC
+ * provider configured for the target scope; OIDC flows return to this handler's own
+ * callback.
  */
 @Slf4j
 @Component
@@ -73,6 +59,10 @@ public class InviteHandler {
         router.get("/api/invite/callback/:configId").handler(this::handleOidcCallback);
     }
 
+    /**
+     * {@code GET /api/invite?token=} — invitation details plus the scope's live provider
+     * list, for rendering the accept page.
+     */
     private void handleDetails(RoutingContext ctx) {
         String token = ctx.request().getParam("token");
         if (token == null || token.isBlank()) {
@@ -102,6 +92,11 @@ public class InviteHandler {
               .onFailure(err -> respondInviteFailure(ctx, err, "Failed to load invitation"));
     }
 
+    /**
+     * {@code POST /api/invite/accept {token, password, displayName?}} — accept by setting a
+     * password. Org invitees get a console session ({@code 204}); app invitees get a
+     * confirmation payload and no session.
+     */
     private void handleLocalAccept(RoutingContext ctx) {
         JsonObject body;
         try {
@@ -135,6 +130,10 @@ public class InviteHandler {
               .onFailure(err -> respondInviteFailure(ctx, err, "Failed to accept invitation"));
     }
 
+    /**
+     * {@code POST /api/invite/start/:configId} (form, {@code token}) — begins an OIDC accept
+     * with one of the providers offered by {@link #handleDetails}, redirecting to the IdP.
+     */
     private void handleOidcStart(RoutingContext ctx) {
         String configId = ctx.pathParam("configId");
         String formToken = ctx.request().getFormAttribute("token");

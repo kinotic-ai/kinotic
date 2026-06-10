@@ -28,11 +28,8 @@ import java.util.Set;
 /**
  * Login routes for an organization — email/password, email-first SSO redirect, and social-button
  * (OIDC) login. On success each establishes the browser session; the STOMP WebSocket handshake then
- * authenticates from that session cookie, so the browser never handles a token.
- *
- * <p>Self-contained: OIDC login flows started here return to this handler's own callbacks. The
- * callback URLs are registered as redirect URIs in IdPs; signup and invitation flows register
- * their own callbacks and never pass through here.
+ * authenticates from that session cookie, so the browser never handles a token. OIDC flows started
+ * here return to this handler's own callbacks.
  */
 @Slf4j
 @Component
