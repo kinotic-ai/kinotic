@@ -36,6 +36,8 @@ Names suggest meaning but don't define it. Before using an annotation, framework
 
 Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true)`, `@NoArgsConstructor`, `@RequiredArgsConstructor`, `@Slf4j`, `@Data`, `@Builder`. Prefer `@RequiredArgsConstructor` over hand-written constructors for dependency injection. Use `@Slf4j` instead of manual `LoggerFactory.getLogger()` calls.
 
+Scope is encoded structurally by the nullable `organizationId`/`applicationId` pair: both null = SYSTEM, `organizationId` only = ORGANIZATION, both set = APPLICATION. The pair stays as two nullable fields/parameters everywhere — entities, paths, published signatures. Do not wrap it in a type; the null-shape of the pair is the information.
+
 Use `enum` for any field whose value is constrained to a known set — never `String` with magic-string constants. Spring and Vert.x both auto-coerce JSON strings to enum values when deserializing into typed POJOs (Jackson's `@JsonCreator` / case-insensitive matching is built-in), so the wire contract stays string-friendly while the in-process type catches typos at compile time. Examples: `AuthScopeType`, `AuthType`, `OidcProviderKind`. If a field is `String authScopeType` accepting `"ORGANIZATION"`/`"APPLICATION"`/`"SYSTEM"`, that's a special case — not a pattern to repeat.
 
 ## Package Structure (Crucial!!)
@@ -89,7 +91,7 @@ Check every diff against this list before presenting it. These are the standard 
 - **Long Function.** A method that does several things at different levels of abstraction gets decomposed, each piece named for what it does.
 - **Large Class / junk drawers.** No `Constants`/`Utils`/`Helper`/`Manager` grab bags accumulating unrelated members. Name a class for the one thing it holds; if you can't name it honestly, split it. Entities too: a class holding one kind of thing must not carry a name claiming generality it doesn't have.
 - **Long Parameter List / flag arguments.** A boolean or mode parameter that forks a method's whole behavior is two methods. More than ~4 parameters is a sign some of them are a missing type.
-- **Data Clumps.** Values that always travel together belong in one type, not loose parameter pairs repeated across signatures. Exception by convention: the `organizationId`/`applicationId` pair stays as two nullable parameters everywhere, because the null-shape of the pair is what encodes scope (SYSTEM/ORGANIZATION/APPLICATION) on entities, paths, and published signatures — do not "fix" it into a wrapper type.
+- **Data Clumps.** Values that always travel together belong in one type, not loose parameter pairs repeated across signatures.
 - **Primitive Obsession.** Covered by the enum rule in Java Conventions — applies equally to ids, keys, and wire codes used across boundaries.
 
 **Couplers — classes that know too much about each other**
