@@ -74,7 +74,7 @@ Properties should never be created for something that will not need to be config
 
 ## Avoid these code smells
 
-Check every diff against this list before presenting it. These are the standard smells from Fowler's Refactoring (grouped by the usual taxonomy); the bar for a new abstraction is that it carries information or removes duplication **today** — not that it might someday.
+These are the named smells from Martin Fowler and Kent Beck's catalog in *Refactoring: Improving the Design of Existing Code*, grouped by Mäntylä's taxonomy — decades of industry consensus on what makes code hard to change, not house style or one reviewer's taste. That is why they bind: each one is a pattern the field has repeatedly watched turn into maintenance cost. Check every diff against this list before presenting it; the bar for a new abstraction is that it carries information or removes duplication **today** — not that it might someday.
 
 **Dispensables — code that should not exist**
 
