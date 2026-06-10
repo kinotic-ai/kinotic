@@ -87,9 +87,9 @@ Check every diff against this list before presenting it. These are the standard 
 **Bloaters — things that have grown past one responsibility**
 
 - **Long Function.** A method that does several things at different levels of abstraction gets decomposed — each piece named for what it does, not `doStep2`.
-- **Large Class / junk drawers.** No `Constants`/`Utils`/`Helper`/`Manager` grab bags accumulating unrelated members. Name a class for the one thing it holds (`OidcErrorCodes`, not `OidcConstants`); if you can't name it honestly, split it. Entities too: a class holding one kind of thing must not carry a name claiming generality it doesn't have.
+- **Large Class / junk drawers.** No `Constants`/`Utils`/`Helper`/`Manager` grab bags accumulating unrelated members. Name a class for the one thing it holds (`RetryPolicy`, not `NetworkUtils`); if you can't name it honestly, split it. Entities too: a class holding one kind of thing must not carry a name claiming generality it doesn't have.
 - **Long Parameter List / flag arguments.** A boolean or mode parameter that forks a method's whole behavior is two methods. More than ~4 parameters is a sign some of them are a missing type.
-- **Data Clumps.** Values that always travel together belong in one type — page/size/sort is `Pageable`, never three loose parameters. Exception by convention: the `organizationId`/`applicationId` pair stays as two nullable parameters everywhere, because the null-shape of the pair is what encodes scope (SYSTEM/ORGANIZATION/APPLICATION) on entities, paths, and published signatures — do not "fix" it into a wrapper type.
+- **Data Clumps.** Values that always travel together belong in one type — a start/end date pair is a `DateRange`, an amount with its currency is a `Money`, never loose parameter pairs repeated across signatures. Exception by convention: the `organizationId`/`applicationId` pair stays as two nullable parameters everywhere, because the null-shape of the pair is what encodes scope (SYSTEM/ORGANIZATION/APPLICATION) on entities, paths, and published signatures — do not "fix" it into a wrapper type.
 - **Primitive Obsession.** Covered by the enum rule in Java Conventions — applies equally to ids, keys, and wire codes used across boundaries.
 
 **Couplers — classes that know too much about each other**
@@ -107,7 +107,7 @@ Check every diff against this list before presenting it. These are the standard 
 
 **Object-orientation abusers**
 
-- **Alternative Classes with Different Interfaces.** Two classes doing the same job must share a shape (same method names, same parameter order) — like the paired HTML/text template engines or the org/app login handlers.
+- **Alternative Classes with Different Interfaces.** Two classes doing the same job must share a shape — if one repository exposes `findByEmail(email, scope)` its sibling must not call the same operation `getForEmail(scope, email)`.
 - **Refused Bequest.** Don't extend a base class to use one method while ignoring or overriding-to-nothing the rest — compose instead.
 - **Temporary Field.** A field only meaningful during one operation is a missing parameter or a missing small object, not state.
 - **Data Class with leaked logic.** Entities/DTOs stay dumb (this codebase's convention), but the logic operating on them must then live in ONE service — not spread across every caller.
