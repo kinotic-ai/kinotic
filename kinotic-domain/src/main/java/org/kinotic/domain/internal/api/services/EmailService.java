@@ -8,27 +8,26 @@ import com.azure.communication.email.models.EmailSendResult;
 import com.azure.communication.email.models.EmailSendStatus;
 import com.azure.core.util.polling.SyncPoller;
 import com.azure.identity.DefaultAzureCredentialBuilder;
+import liqp.TemplateParser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.thymeleaf.context.Context;
-import org.thymeleaf.spring6.SpringTemplateEngine;
-import org.thymeleaf.templatemode.TemplateMode;
-import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Sends transactional emails via Azure Communication Services. Templates are
- * rendered through Thymeleaf — the HTML body uses Spring Boot's auto-configured
- * {@link SpringTemplateEngine}; the plain-text body is rendered with an engine
- * built and owned by this service.
+ * Sends transactional emails via Azure Communication Services. Bodies are rendered
+ * from Liquid templates.
  * <p>
- * When {@code kinotic.email.enabled=false}, sends are skipped and the verification
+ * When {@code kinotic.email.enabled=false}, sends are skipped and the action
  * URL is logged instead — useful for local development.
  */
 @Slf4j
@@ -39,11 +38,12 @@ public class EmailService {
     private static final String VERIFICATION_SUBJECT = "Verify your Kinotic email";
     private static final String VERIFICATION_PATH = "/signup/verify?token=";
 
+    private static final String VERIFICATION_HTML = loadTemplate("templates/email/verification-email.html");
+    private static final String VERIFICATION_TEXT = loadTemplate("templates/email/verification-email.txt");
+
     private final KinoticDomainProperties properties;
-    private final ObjectProvider<SpringTemplateEngine> htmlTemplateEngineProvider;
 
     private volatile EmailClient emailClient;
-    private volatile SpringTemplateEngine textTemplateEngine;
 
     /**
      * Sends a verification email to the given address.
@@ -64,20 +64,36 @@ public class EmailService {
             return CompletableFuture.completedFuture(null);
         }
 
+        Map<String, Object> variables = Map.of("displayName", displayName,
+                                               "verificationUrl", verificationUrl);
+
+        return send(email,
+                    displayName,
+                    VERIFICATION_SUBJECT,
+                    render(VERIFICATION_HTML, variables),
+                    render(VERIFICATION_TEXT, variables));
+    }
+
+    /**
+     * Renders a Liquid template with the given variables. Parses per render — sends are
+     * infrequent, and a fresh parse sidesteps any question of {@code Template} reuse
+     * across threads.
+     */
+    private String render(String templateSource, Map<String, Object> variables) {
+        return TemplateParser.DEFAULT.parse(templateSource).render(variables);
+    }
+
+    private CompletableFuture<Void> send(String toEmail,
+                                         String toName,
+                                         String subject,
+                                         String htmlBody,
+                                         String textBody) {
         EmailClient client = getOrBuildEmailClient();
-        SpringTemplateEngine htmlTemplateEngine = htmlTemplateEngineProvider.getObject();
-
-        Context ctx = new Context();
-        ctx.setVariable("displayName", displayName);
-        ctx.setVariable("verificationUrl", verificationUrl);
-
-        String htmlBody = htmlTemplateEngine.process("email/verification-email", ctx);
-        String textBody = getOrBuildTextTemplateEngine().process("verification-email", ctx);
 
         EmailMessage message = new EmailMessage()
                 .setSenderAddress(properties.getDomain().getEmail().getSenderAddress())
-                .setToRecipients(List.of(new EmailAddress(email).setDisplayName(displayName)))
-                .setSubject(VERIFICATION_SUBJECT)
+                .setToRecipients(List.of(new EmailAddress(toEmail).setDisplayName(toName)))
+                .setSubject(subject)
                 .setBodyHtml(htmlBody)
                 .setBodyPlainText(textBody);
 
@@ -87,7 +103,7 @@ public class EmailService {
             EmailSendResult result = poller.getFinalResult();
 
             if (result.getStatus() == EmailSendStatus.SUCCEEDED) {
-                log.info("Sent verification email to {} (messageId={})", email, result.getId());
+                log.info("Sent '{}' email to {} (messageId={})", subject, toEmail, result.getId());
                 return null;
             }
             throw new IllegalStateException("Azure Communication Services rejected the send: status="
@@ -123,29 +139,18 @@ public class EmailService {
     }
 
     /**
-     * Lazily builds a Thymeleaf engine in {@link TemplateMode#TEXT} mode for the
-     * plain-text email body. The HTML body uses Spring Boot's auto-configured engine.
+     * Reads a built-in template off the classpath at class initialization, so a missing
+     * resource fails fast at startup rather than on the first send.
      */
-    private SpringTemplateEngine getOrBuildTextTemplateEngine() {
-        SpringTemplateEngine engine = textTemplateEngine;
-        if (engine == null) {
-            synchronized (this) {
-                engine = textTemplateEngine;
-                if (engine == null) {
-                    ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
-                    resolver.setPrefix("templates/email/");
-                    resolver.setSuffix(".txt");
-                    resolver.setTemplateMode(TemplateMode.TEXT);
-                    resolver.setCharacterEncoding("UTF-8");
-                    resolver.setCacheable(true);
-
-                    engine = new SpringTemplateEngine();
-                    engine.setTemplateResolver(resolver);
-                    textTemplateEngine = engine;
-                }
+    private static String loadTemplate(String resourcePath) {
+        try (InputStream in = EmailService.class.getClassLoader().getResourceAsStream(resourcePath)) {
+            if (in == null) {
+                throw new IllegalStateException("Missing email template on classpath: " + resourcePath);
             }
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed reading email template: " + resourcePath, e);
         }
-        return engine;
     }
 
 }

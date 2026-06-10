@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.utils;
 
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -56,15 +57,19 @@ public class DomainUtil {
     }
 
     /**
-     * Normalizes an email address to its canonical stored form: trimmed and lowercased.
-     * Emails are matched with exact-match term filters, so every write and every lookup
-     * must agree on this one form.
+     * Normalizes an email address to its canonical stored form: trimmed and lowercased
+     * with {@link Locale#ROOT} (locale-sensitive lowercasing corrupts emails under e.g.
+     * a Turkish default locale). Emails are matched with exact-match term filters, so
+     * every write and every lookup must agree on this one form.
      *
-     * @param email to normalize, may be null
-     * @return the normalized email, or null when {@code email} is null
+     * @param email to normalize, must not be blank
+     * @return the normalized email
+     * @throws IllegalArgumentException if {@code email} is blank
+     * @throws NullPointerException if {@code email} is null
      */
     public static String normalizeEmail(String email) {
-        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+        Validate.notBlank(email, "email cannot be blank");
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 
     /**
