@@ -17,11 +17,13 @@ import com.github.jknack.handlebars.io.ClassPathTemplateLoader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.model.iam.PendingInvite;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -40,6 +42,7 @@ public class EmailService {
 
     private static final String VERIFICATION_SUBJECT = "Verify your Kinotic email";
     private static final String VERIFICATION_PATH = "/signup/verify?token=";
+    private static final String INVITE_PATH = "/invite/accept?token=";
 
     // Two engines differing by template suffix and escaping: HTML bodies HTML-escape
     // {{var}} by default (templates opt out with {{{var}}} for system-constructed URLs);
@@ -52,6 +55,8 @@ public class EmailService {
 
     private static final Template VERIFICATION_HTML = compileTemplate(HTML_TEMPLATES, "verification-email");
     private static final Template VERIFICATION_TEXT = compileTemplate(TEXT_TEMPLATES, "verification-email");
+    private static final Template INVITE_HTML = compileTemplate(HTML_TEMPLATES, "invite-email");
+    private static final Template INVITE_TEXT = compileTemplate(TEXT_TEMPLATES, "invite-email");
 
     private final KinoticDomainProperties properties;
 
@@ -84,6 +89,48 @@ public class EmailService {
                     VERIFICATION_SUBJECT,
                     render(VERIFICATION_HTML, variables),
                     render(VERIFICATION_TEXT, variables));
+    }
+
+    /**
+     * Sends an invitation email carrying the accept link for the given invite.
+     *
+     * @param invite           the saved invitation (token, recipient, scope, inviter attribution)
+     * @param organizationName display name of the inviting organization
+     * @return a future that completes once the send has finished (or fails if ACS rejects it)
+     */
+    public CompletableFuture<Void> sendInviteEmail(PendingInvite invite, String organizationName) {
+        String acceptUrl = properties.getDomain().getAppBaseUrl() + INVITE_PATH + invite.getVerificationToken();
+        String toName = invite.getDisplayName() != null ? invite.getDisplayName() : invite.getEmail();
+
+        if (!properties.getDomain().getEmail().isEnabled()) {
+            log.warn("Email sending is disabled; invite accept URL for {} <{}>: {}",
+                    toName, invite.getEmail(), acceptUrl);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        String subject = invite.getApplicationId() != null
+                ? "You're invited to join " + invite.getApplicationId()
+                : "You're invited to join " + organizationName + " on Kinotic";
+
+        long expiresInDays = Math.max(1, Math.round(
+                (invite.getExpiresAt().getTime() - System.currentTimeMillis()) / 86_400_000.0));
+
+        // HashMap rather than Map.of: applicationName is omitted (not null) for org invites
+        // so the templates' {{#if applicationName}} branch sees it as falsy.
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("inviterName", invite.getInvitedByName());
+        variables.put("organizationName", organizationName);
+        if (invite.getApplicationId() != null) {
+            variables.put("applicationName", invite.getApplicationId());
+        }
+        variables.put("acceptUrl", acceptUrl);
+        variables.put("expiresInDays", expiresInDays);
+
+        return send(invite.getEmail(),
+                    toName,
+                    subject,
+                    render(INVITE_HTML, variables),
+                    render(INVITE_TEXT, variables));
     }
 
     private static String render(Template template, Map<String, Object> variables) {
