@@ -8,26 +8,23 @@ import lombok.experimental.Accessors;
 import java.util.Date;
 
 /**
- * An application's customized version of a built-in email. Subject and bodies are
- * Handlebars sources rendered with the same variables as the built-in template they
- * replace; when no template exists for an application and key, the built-in is used.
+ * An application's customized invitation email — at most one per application. Subject and
+ * bodies are Handlebars sources rendered with the same variables as the built-in
+ * invitation template; when an application has no row here, the built-in is used.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class EmailTemplate implements ApplicationScoped<String> {
+public class InviteEmailTemplate implements ApplicationScoped<String> {
 
     private String id;
 
     /** The organization that owns {@link #applicationId}. */
     private String organizationId;
 
-    /** The application whose email this template customizes. Always set. */
+    /** The application whose invitation email this template customizes. Always set. */
     private String applicationId;
-
-    /** Which built-in email this template replaces. */
-    private EmailTemplateKey templateKey;
 
     /** Handlebars source for the subject line (rendered as plain text). */
     private String subject;

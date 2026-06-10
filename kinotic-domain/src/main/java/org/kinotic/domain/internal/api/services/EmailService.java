@@ -17,10 +17,9 @@ import com.github.jknack.handlebars.io.ClassPathTemplateLoader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.domain.api.model.EmailTemplate;
-import org.kinotic.domain.api.model.EmailTemplateKey;
+import org.kinotic.domain.api.model.InviteEmailTemplate;
 import org.kinotic.domain.api.model.iam.PendingInvite;
-import org.kinotic.domain.internal.api.repositories.EmailTemplateRepository;
+import org.kinotic.domain.internal.api.repositories.InviteEmailTemplateRepository;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -62,7 +61,7 @@ public class EmailService {
     private static final Template INVITE_TEXT = compileTemplate(TEXT_TEMPLATES, "invite-email");
 
     private final KinoticDomainProperties properties;
-    private final EmailTemplateRepository emailTemplateRepository;
+    private final InviteEmailTemplateRepository inviteEmailTemplateRepository;
 
     private volatile EmailClient emailClient;
 
@@ -97,8 +96,8 @@ public class EmailService {
 
     /**
      * Sends an invitation email carrying the accept link for the given invite. An
-     * application invite is rendered with the application's {@link EmailTemplate} when one
-     * exists; org invites and apps without a template use the built-in template.
+     * application invite is rendered with the application's {@link InviteEmailTemplate}
+     * when one exists; org invites and apps without a template use the built-in template.
      *
      * @param invite           the saved invitation (token, recipient, scope, inviter attribution)
      * @param organizationName display name of the inviting organization
@@ -137,9 +136,8 @@ public class EmailService {
                         render(INVITE_HTML, variables),
                         render(INVITE_TEXT, variables));
         }
-        return emailTemplateRepository.findByKey(invite.getApplicationId(),
-                                                 EmailTemplateKey.INVITATION,
-                                                 invite.getOrganizationId())
+        return inviteEmailTemplateRepository.findByApplication(invite.getApplicationId(),
+                                                               invite.getOrganizationId())
                 .thenCompose(template -> {
                     if (template == null) {
                         return send(invite.getEmail(), toName, defaultSubject,

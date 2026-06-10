@@ -182,13 +182,12 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_invite (
     invitedByName KEYWORD
 );
 
--- An application's customized email templates (EmailTemplate): Handlebars sources replacing
--- a built-in email, one row per (applicationId, templateKey).
-CREATE TABLE IF NOT EXISTS kinotic_email_template (
+-- An application's customized invitation email (InviteEmailTemplate): Handlebars sources
+-- replacing the built-in invitation template, at most one row per application.
+CREATE TABLE IF NOT EXISTS kinotic_invite_email_template (
     id KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
-    templateKey KEYWORD,
     subject TEXT,
     htmlBody TEXT,
     textBody TEXT,
