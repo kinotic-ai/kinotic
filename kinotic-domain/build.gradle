@@ -27,7 +27,7 @@ dependencies {
     implementation 'org.springframework:spring-core'
     implementation 'org.springframework:spring-context'
     implementation 'org.springframework.security:spring-security-crypto'
-    implementation 'nl.big-o:liqp:0.9.2.3'
+    implementation 'com.hubspot.jinjava:jinjava:2.8.3'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
     implementation 'tools.jackson.core:jackson-core'

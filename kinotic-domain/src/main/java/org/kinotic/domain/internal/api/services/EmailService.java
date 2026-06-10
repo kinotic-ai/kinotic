@@ -8,7 +8,7 @@ import com.azure.communication.email.models.EmailSendResult;
 import com.azure.communication.email.models.EmailSendStatus;
 import com.azure.core.util.polling.SyncPoller;
 import com.azure.identity.DefaultAzureCredentialBuilder;
-import liqp.TemplateParser;
+import com.hubspot.jinjava.Jinjava;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
@@ -25,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Sends transactional emails via Azure Communication Services. Bodies are rendered
- * from Liquid templates.
+ * from Jinja-style templates (jinjava).
  * <p>
  * When {@code kinotic.email.enabled=false}, sends are skipped and the action
  * URL is logged instead — useful for local development.
@@ -40,6 +40,9 @@ public class EmailService {
 
     private static final String VERIFICATION_HTML = loadTemplate("templates/email/verification-email.html");
     private static final String VERIFICATION_TEXT = loadTemplate("templates/email/verification-email.txt");
+
+    // Thread-safe and intended to be created once and shared across renders.
+    private static final Jinjava JINJAVA = new Jinjava();
 
     private final KinoticDomainProperties properties;
 
@@ -74,13 +77,8 @@ public class EmailService {
                     render(VERIFICATION_TEXT, variables));
     }
 
-    /**
-     * Renders a Liquid template with the given variables. Parses per render — sends are
-     * infrequent, and a fresh parse sidesteps any question of {@code Template} reuse
-     * across threads.
-     */
     private String render(String templateSource, Map<String, Object> variables) {
-        return TemplateParser.DEFAULT.parse(templateSource).render(variables);
+        return JINJAVA.render(templateSource, variables);
     }
 
     private CompletableFuture<Void> send(String toEmail,
