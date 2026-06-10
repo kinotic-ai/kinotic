@@ -152,6 +152,11 @@ const pageRoutes: RouteRecordRaw[] = [
           path: `/application/${route.params.applicationId}/members`
         },
         {
+          label: 'Invitation email',
+          icon: 'pi pi-envelope',
+          path: `/application/${route.params.applicationId}/invite-email`
+        },
+        {
           label: 'Application settings',
           icon: 'pi pi-cog',
           path: `/application/${route.params.applicationId}/settings`
@@ -217,6 +222,12 @@ const pageRoutes: RouteRecordRaw[] = [
         name: 'application-members',
         path: 'members',
         component: () => import('@/pages/MembersPage.vue'),
+        props: (route) => ({ applicationId: route.params.applicationId })
+      },
+      {
+        name: 'application-invite-email',
+        path: 'invite-email',
+        component: () => import('@/pages/InviteEmailTemplatePage.vue'),
         props: (route) => ({ applicationId: route.params.applicationId })
       },
       {
