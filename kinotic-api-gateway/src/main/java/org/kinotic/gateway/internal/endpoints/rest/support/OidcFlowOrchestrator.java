@@ -15,7 +15,7 @@ import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
-import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
+import org.kinotic.gateway.internal.endpoints.rest.OidcErrorCodes;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
@@ -76,7 +76,7 @@ public class OidcFlowOrchestrator {
             return Future.failedFuture(new OidcCallbackException(idpError));
         }
         if (code == null || state == null) {
-            return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_INVALID_CALLBACK));
+            return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.INVALID_CALLBACK));
         }
 
         Session session = ctx.session();
@@ -85,13 +85,13 @@ public class OidcFlowOrchestrator {
         if (flowSession == null || !flowSession.state().equals(state)
                 || !flowSession.configId().equals(pathConfigId)) {
             log.warn("OIDC callback state mismatch for configId={}", pathConfigId);
-            return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_STATE_MISMATCH));
+            return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.STATE_MISMATCH));
         }
 
         return Future.fromCompletionStage(configResolver.apply(flowSession.orgId()))
                      .compose(config -> {
                          if (config == null) {
-                             return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_CONFIG_NOT_FOUND));
+                             return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
                          }
                          return getOAuth2Auth(config)
                                  .compose(oauth2 -> exchangeCode(oauth2, code, callbackUrl, flowSession.pkceVerifier()))
@@ -100,12 +100,12 @@ public class OidcFlowOrchestrator {
                                      if (!OAuth2Util.isIssuerValid(claims, config.getAuthority())) {
                                          log.warn("OIDC issuer validation failed for config {}: iss={}, tid={}",
                                                   config.getId(), claims.get("iss"), claims.get("tid"));
-                                         throw new OidcCallbackException(OidcConstants.ERR_INVALID_TOKEN);
+                                         throw new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN);
                                      }
                                      if (!OAuth2Util.isAudienceValid(claims, config.getAudience())) {
                                          log.warn("OIDC audience validation failed for config {}: expected={}, aud={}",
                                                   config.getId(), config.getAudience(), claims.get("aud"));
-                                         throw new OidcCallbackException(OidcConstants.ERR_INVALID_TOKEN);
+                                         throw new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN);
                                      }
                                      return new CallbackResult<>(config, claims, flowSession.orgId(), flowSession.inviteToken());
                                  });

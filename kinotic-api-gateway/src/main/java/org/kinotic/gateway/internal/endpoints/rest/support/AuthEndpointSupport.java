@@ -11,7 +11,7 @@ import java.util.function.Function;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
+import org.kinotic.gateway.internal.endpoints.rest.OidcErrorCodes;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.internal.utils.DomainUtil;
@@ -106,14 +106,14 @@ public class AuthEndpointSupport {
     /**
      * Maps an OIDC callback failure to the right error redirect. {@link OidcCallbackException}
      * carries a typed code; everything else gets logged and falls through to
-     * {@link OidcConstants#ERR_EXCHANGE_FAILED}.
+     * {@link OidcErrorCodes#EXCHANGE_FAILED}.
      */
     public void redirectCallbackFailure(RoutingContext ctx, Throwable ex) {
         if (ex instanceof OidcCallbackException oce) {
             redirectError(ctx, oce.getErrorCode());
         } else {
             log.warn("OIDC callback failed: {}", ex.getMessage());
-            redirectError(ctx, OidcConstants.ERR_EXCHANGE_FAILED);
+            redirectError(ctx, OidcErrorCodes.EXCHANGE_FAILED);
         }
     }
 
@@ -208,26 +208,26 @@ public class AuthEndpointSupport {
                                   Function<String, CompletionStage<IamUser>> userLookup) {
         String sub = OAuth2Util.stringClaim(claims, "sub");
         if (sub == null) {
-            redirectError(ctx, OidcConstants.ERR_INVALID_TOKEN);
+            redirectError(ctx, OidcErrorCodes.INVALID_TOKEN);
             return;
         }
         if (!OAuth2Util.isEmailVerified(claims, config.getProvider())) {
-            redirectError(ctx, OidcConstants.ERR_EMAIL_NOT_VERIFIED);
+            redirectError(ctx, OidcErrorCodes.EMAIL_NOT_VERIFIED);
             return;
         }
         Future.fromCompletionStage(userLookup.apply(sub))
               .onSuccess(user -> {
                   if (user == null) {
-                      redirectError(ctx, OidcConstants.ERR_NO_ACCOUNT);
+                      redirectError(ctx, OidcErrorCodes.NO_ACCOUNT);
                   } else if (!user.isEnabled()) {
-                      redirectError(ctx, OidcConstants.ERR_ACCOUNT_DISABLED);
+                      redirectError(ctx, OidcErrorCodes.ACCOUNT_DISABLED);
                   } else {
                       redirectSuccess(ctx, user);
                   }
               })
               .onFailure(err -> {
                   log.warn("Login resolution failed: {}", err.getMessage());
-                  redirectError(ctx, OidcConstants.ERR_LOOKUP_FAILED);
+                  redirectError(ctx, OidcErrorCodes.LOOKUP_FAILED);
               });
     }
 }

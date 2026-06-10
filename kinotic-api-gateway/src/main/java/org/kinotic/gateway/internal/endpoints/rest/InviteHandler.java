@@ -142,7 +142,7 @@ public class InviteHandler {
         String formToken = ctx.request().getFormAttribute("token");
         String token = formToken != null && !formToken.isBlank() ? formToken : ctx.request().getParam("token");
         if (token == null || token.isBlank()) {
-            redirectInviteError(ctx, OidcConstants.ERR_INVITE_INVALID, null);
+            redirectInviteError(ctx, OidcErrorCodes.INVITE_INVALID, null);
             return;
         }
 
@@ -153,7 +153,7 @@ public class InviteHandler {
                   Throwable cause = err.getCause() != null ? err.getCause() : err;
                   log.warn("Invite OIDC start failed for config {}: {}", configId, cause.getMessage());
                   String code = cause instanceof OidcCallbackException oce
-                          ? oce.getErrorCode() : OidcConstants.ERR_INVITE_INVALID;
+                          ? oce.getErrorCode() : OidcErrorCodes.INVITE_INVALID;
                   redirectInviteError(ctx, code, token);
               });
     }
@@ -172,7 +172,7 @@ public class InviteHandler {
                 .onFailure(ex -> {
                     Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
                     String code = cause instanceof OidcCallbackException oce
-                            ? oce.getErrorCode() : OidcConstants.ERR_EXCHANGE_FAILED;
+                            ? oce.getErrorCode() : OidcErrorCodes.EXCHANGE_FAILED;
                     redirectInviteError(ctx, code, null);
                 });
     }
@@ -199,17 +199,17 @@ public class InviteHandler {
 
         if (token == null) {
             // Only the start route above targets this callback, and it always stashes a token.
-            redirectInviteError(ctx, OidcConstants.ERR_INVITE_INVALID, null);
+            redirectInviteError(ctx, OidcErrorCodes.INVITE_INVALID, null);
             return;
         }
         String sub = OAuth2Util.stringClaim(claims, "sub");
         String email = OAuth2Util.stringClaim(claims, "email");
         if (sub == null || email == null) {
-            redirectInviteError(ctx, OidcConstants.ERR_INVALID_TOKEN, token);
+            redirectInviteError(ctx, OidcErrorCodes.INVALID_TOKEN, token);
             return;
         }
         if (!OAuth2Util.isEmailVerified(claims, result.config().getProvider())) {
-            redirectInviteError(ctx, OidcConstants.ERR_EMAIL_NOT_VERIFIED, token);
+            redirectInviteError(ctx, OidcErrorCodes.EMAIL_NOT_VERIFIED, token);
             return;
         }
 
@@ -233,10 +233,10 @@ public class InviteHandler {
                   if (cause instanceof InviteEmailMismatchException) {
                       // The invite is NOT consumed on mismatch — keep the token so the
                       // invitee can retry with another provider or a password.
-                      redirectInviteError(ctx, OidcConstants.ERR_EMAIL_MISMATCH, token);
+                      redirectInviteError(ctx, OidcErrorCodes.EMAIL_MISMATCH, token);
                   } else {
                       log.warn("Invite acceptance failed: {}", cause.getMessage());
-                      redirectInviteError(ctx, OidcConstants.ERR_INVITE_INVALID, null);
+                      redirectInviteError(ctx, OidcErrorCodes.INVITE_INVALID, null);
                   }
               });
     }
@@ -258,13 +258,13 @@ public class InviteHandler {
                          .compose(app -> {
                              if (app == null || app.getOidcConfigurationIds() == null
                                      || !app.getOidcConfigurationIds().contains(configId)) {
-                                 return Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_CONFIG_NOT_FOUND));
+                                 return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
                              }
                              return Future.fromCompletionStage(
                                      oidcConfigurationService.findEnabledByIds(List.of(configId), orgId));
                          })
                          .compose(configs -> configs.isEmpty()
-                                 ? Future.failedFuture(new OidcCallbackException(OidcConstants.ERR_CONFIG_NOT_FOUND))
+                                 ? Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND))
                                  : oidcFlowOrchestrator.startFlow(ctx, configs.getFirst(),
                                                                   inviteCallbackUrl(configId), orgId, token));
         }
@@ -279,7 +279,7 @@ public class InviteHandler {
                                       .compose(sso -> {
                                           if (sso == null || !sso.isEnabled() || !sso.getId().equals(configId)) {
                                               return Future.failedFuture(
-                                                      new OidcCallbackException(OidcConstants.ERR_CONFIG_NOT_FOUND));
+                                                      new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
                                           }
                                           return oidcFlowOrchestrator.startFlow(ctx, sso,
                                                                                 inviteCallbackUrl(configId), orgId, token);

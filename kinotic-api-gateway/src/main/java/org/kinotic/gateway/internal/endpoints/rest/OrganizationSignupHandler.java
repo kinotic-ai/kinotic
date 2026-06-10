@@ -178,11 +178,11 @@ public class OrganizationSignupHandler {
         String displayName = OAuth2Util.firstPresent(claims, "name", "preferred_username", "email");
 
         if (sub == null || email == null) {
-            authEndpointSupport.redirectError(ctx, OidcConstants.ERR_INVALID_TOKEN);
+            authEndpointSupport.redirectError(ctx, OidcErrorCodes.INVALID_TOKEN);
             return;
         }
         if (!OAuth2Util.isEmailVerified(claims, config.getProvider())) {
-            authEndpointSupport.redirectError(ctx, OidcConstants.ERR_EMAIL_NOT_VERIFIED);
+            authEndpointSupport.redirectError(ctx, OidcErrorCodes.EMAIL_NOT_VERIFIED);
             return;
         }
 
@@ -203,10 +203,10 @@ public class OrganizationSignupHandler {
               .onFailure(ex -> {
                   Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
                   if (cause instanceof AccountExistsException) {
-                      authEndpointSupport.redirectError(ctx, OidcConstants.ERR_ACCOUNT_EXISTS);
+                      authEndpointSupport.redirectError(ctx, OidcErrorCodes.ACCOUNT_EXISTS);
                   } else {
                       log.warn("Signup resolution failed: {}", cause.getMessage());
-                      authEndpointSupport.redirectError(ctx, OidcConstants.ERR_SIGNUP_FAILED);
+                      authEndpointSupport.redirectError(ctx, OidcErrorCodes.SIGNUP_FAILED);
                   }
               });
     }
