@@ -182,6 +182,20 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_invite (
     invitedByName KEYWORD
 );
 
+-- An application's customized email templates (EmailTemplate): Handlebars sources replacing
+-- a built-in email, one row per (applicationId, templateKey).
+CREATE TABLE IF NOT EXISTS kinotic_email_template (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    templateKey KEYWORD,
+    subject TEXT,
+    htmlBody TEXT,
+    textBody TEXT,
+    created DATE,
+    updated DATE
+);
+
 -- Create the vm_node table for tracking VmManager nodes
 CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     id KEYWORD,

@@ -17,7 +17,10 @@ import com.github.jknack.handlebars.io.ClassPathTemplateLoader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.model.EmailTemplate;
+import org.kinotic.domain.api.model.EmailTemplateKey;
 import org.kinotic.domain.api.model.iam.PendingInvite;
+import org.kinotic.domain.internal.api.repositories.EmailTemplateRepository;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -59,6 +62,7 @@ public class EmailService {
     private static final Template INVITE_TEXT = compileTemplate(TEXT_TEMPLATES, "invite-email");
 
     private final KinoticDomainProperties properties;
+    private final EmailTemplateRepository emailTemplateRepository;
 
     private volatile EmailClient emailClient;
 
@@ -92,7 +96,9 @@ public class EmailService {
     }
 
     /**
-     * Sends an invitation email carrying the accept link for the given invite.
+     * Sends an invitation email carrying the accept link for the given invite. An
+     * application invite is rendered with the application's {@link EmailTemplate} when one
+     * exists; org invites and apps without a template use the built-in template.
      *
      * @param invite           the saved invitation (token, recipient, scope, inviter attribution)
      * @param organizationName display name of the inviting organization
@@ -108,10 +114,6 @@ public class EmailService {
             return CompletableFuture.completedFuture(null);
         }
 
-        String subject = invite.getApplicationId() != null
-                ? "You're invited to join " + invite.getApplicationId()
-                : "You're invited to join " + organizationName + " on Kinotic";
-
         long expiresInDays = Math.max(1, Math.round(
                 (invite.getExpiresAt().getTime() - System.currentTimeMillis()) / 86_400_000.0));
 
@@ -126,11 +128,65 @@ public class EmailService {
         variables.put("acceptUrl", acceptUrl);
         variables.put("expiresInDays", expiresInDays);
 
-        return send(invite.getEmail(),
-                    toName,
-                    subject,
-                    render(INVITE_HTML, variables),
-                    render(INVITE_TEXT, variables));
+        String defaultSubject = invite.getApplicationId() != null
+                ? "You're invited to join " + invite.getApplicationId()
+                : "You're invited to join " + organizationName + " on Kinotic";
+
+        if (invite.getApplicationId() == null) {
+            return send(invite.getEmail(), toName, defaultSubject,
+                        render(INVITE_HTML, variables),
+                        render(INVITE_TEXT, variables));
+        }
+        return emailTemplateRepository.findByKey(invite.getApplicationId(),
+                                                 EmailTemplateKey.INVITATION,
+                                                 invite.getOrganizationId())
+                .thenCompose(template -> {
+                    if (template == null) {
+                        return send(invite.getEmail(), toName, defaultSubject,
+                                    render(INVITE_HTML, variables),
+                                    render(INVITE_TEXT, variables));
+                    }
+                    return send(invite.getEmail(), toName,
+                                renderInline(TEXT_TEMPLATES, template.getSubject(), variables),
+                                renderInline(HTML_TEMPLATES, template.getHtmlBody(), variables),
+                                renderInline(TEXT_TEMPLATES, template.getTextBody(), variables));
+                });
+    }
+
+    /**
+     * Parses and test-renders invitation template sources, so a broken template fails at
+     * save time rather than when the next invitation is sent.
+     *
+     * @throws IllegalArgumentException carrying the Handlebars message when a source does
+     *                                  not compile or render
+     */
+    public void validateInviteTemplate(String subject, String htmlBody, String textBody) {
+        Map<String, Object> sample = new HashMap<>();
+        sample.put("inviterName", "Inviter Name");
+        sample.put("organizationName", "Organization Name");
+        sample.put("applicationName", "application-id");
+        sample.put("acceptUrl", "https://example.invalid/invite/accept?token=sample");
+        sample.put("expiresInDays", 7L);
+        try {
+            renderInline(TEXT_TEMPLATES, subject, sample);
+            renderInline(HTML_TEMPLATES, htmlBody, sample);
+            renderInline(TEXT_TEMPLATES, textBody, sample);
+        } catch (RuntimeException e) {
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            throw new IllegalArgumentException("Invalid email template: " + cause.getMessage(), e);
+        }
+    }
+
+    /**
+     * Renders a stored (user-authored) template source with the same map-only resolution
+     * as the built-ins. Compiled per send — stored templates can change between sends.
+     */
+    private static String renderInline(Handlebars engine, String source, Map<String, Object> variables) {
+        try {
+            return render(engine.compileInline(source), variables);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed compiling stored email template", e);
+        }
     }
 
     private static String render(Template template, Map<String, Object> variables) {
