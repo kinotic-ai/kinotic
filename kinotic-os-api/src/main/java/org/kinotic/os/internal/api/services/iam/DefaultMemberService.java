@@ -6,23 +6,16 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Application;
-import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.PendingInvite;
 import org.kinotic.domain.api.security.OrganizationParticipant;
 import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.InviteService;
-import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
-import org.kinotic.os.api.model.iam.InviteOptions;
-import org.kinotic.os.api.model.iam.OidcProviderOption;
 import org.kinotic.os.api.model.iam.PendingInviteSummary;
 import org.kinotic.os.api.services.iam.MemberService;
-import org.kinotic.os.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -32,8 +25,6 @@ public class DefaultMemberService implements MemberService {
     private final SecurityContext securityContext;
     private final IamUserService iamUserService;
     private final InviteService inviteService;
-    private final OidcConfigurationService oidcConfigurationService;
-    private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final ApplicationRepository applicationRepository;
 
     @Override
@@ -53,14 +44,6 @@ public class DefaultMemberService implements MemberService {
                                                                  participant.getOrganizationId(),
                                                                  applicationId,
                                                                  pageable));
-    }
-
-    @Override
-    public CompletableFuture<InviteOptions> inviteOptions(String applicationId) {
-        OrganizationParticipant participant = requireOrgParticipant();
-        return requireOwnedApplication(applicationId, participant.getOrganizationId())
-                .thenCompose(app -> resolveScopeProviders(participant.getOrganizationId(), app, applicationId))
-                .thenApply(providers -> new InviteOptions(true, providers));
     }
 
     @Override
@@ -157,41 +140,6 @@ public class DefaultMemberService implements MemberService {
                     }
                     return user;
                 });
-    }
-
-    /**
-     * The providers an invitee into the scope can accept with: for an org invite the platform
-     * social providers plus the org's SSO config when one is set; for an app invite the
-     * application's enabled OIDC configurations.
-     */
-    private CompletableFuture<List<OidcProviderOption>> resolveScopeProviders(String organizationId,
-                                                                              Application app,
-                                                                              String applicationId) {
-        if (applicationId == null) {
-            return orgSignupOidcConfigurationService.findAllEnabled()
-                    .thenCombine(oidcConfigurationService.findOrgLoginConfig(organizationId),
-                                 (social, sso) -> {
-                                     List<OidcProviderOption> providers = new ArrayList<>(social.stream()
-                                                                                                .map(DefaultMemberService::toOption)
-                                                                                                .toList());
-                                     if (sso != null && sso.isEnabled()) {
-                                         providers.add(toOption(sso));
-                                     }
-                                     return providers;
-                                 });
-        }
-        List<String> configIds = app.getOidcConfigurationIds();
-        if (configIds == null || configIds.isEmpty()) {
-            return CompletableFuture.completedFuture(List.of());
-        }
-        return oidcConfigurationService.findEnabledByIds(configIds, organizationId)
-                .thenApply(configs -> configs.stream()
-                                             .map(DefaultMemberService::toOption)
-                                             .toList());
-    }
-
-    private static OidcProviderOption toOption(BaseOidcConfiguration config) {
-        return new OidcProviderOption(config.getId(), config.getName(), config.getProvider());
     }
 
     private static PendingInviteSummary toSummary(PendingInvite invite) {

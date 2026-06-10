@@ -4,7 +4,6 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.IamUser;
-import org.kinotic.os.api.model.iam.InviteOptions;
 import org.kinotic.os.api.model.iam.PendingInviteSummary;
 
 import java.util.concurrent.CompletableFuture;
@@ -27,9 +26,6 @@ public interface MemberService {
      * {@code searchText} is equivalent to {@link #findMembers}.
      */
     CompletableFuture<Page<IamUser>> searchMembers(String searchText, String applicationId, Pageable pageable);
-
-    /** The accept methods an invitee into the scope would be offered. */
-    CompletableFuture<InviteOptions> inviteOptions(String applicationId);
 
     /**
      * Invites someone into the scope by email. Sends the invitation email and returns the
