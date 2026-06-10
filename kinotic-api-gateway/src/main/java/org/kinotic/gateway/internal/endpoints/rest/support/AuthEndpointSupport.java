@@ -61,9 +61,11 @@ public class AuthEndpointSupport {
     /**
      * Authenticates the browser by placing the logged-in user's {@link Participant} into the
      * Vert.x session. The subsequent STOMP WebSocket handshake reads it back from the session,
-     * so the browser is authenticated by its session cookie and never handles a token.
+     * so the browser is authenticated by its session cookie and never handles a token. The
+     * participant type follows the user's scope (org users get an OrganizationParticipant,
+     * app users an ApplicationParticipant), which is what scopes their authority.
      */
-    private void establishSession(RoutingContext ctx, IamUser user) {
+    public void establishSession(RoutingContext ctx, IamUser user) {
         Session session = ctx.session();
         // Rotate the session id on the privilege change so a pre-auth (possibly fixed)
         // id cannot be reused to ride the now-authenticated session.

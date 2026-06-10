@@ -94,8 +94,9 @@ public class InviteHandler {
 
     /**
      * {@code POST /api/invite/accept {token, password, displayName?}} — accept by setting a
-     * password. Org invitees get a browser session ({@code 204}); app invitees get a
-     * confirmation payload and no session.
+     * password. Both scopes get a browser session, same as logging in. Org invitees get a
+     * {@code 204}; app invitees get a payload identifying the application, which the accept
+     * page uses for its confirmation state since the web app is not their UI.
      */
     private void handleLocalAccept(RoutingContext ctx) {
         JsonObject body;
@@ -116,7 +117,9 @@ public class InviteHandler {
         Future.fromCompletionStage(inviteService.acceptLocalInvite(token, password, displayName))
               .onSuccess(user -> {
                   if (user.getApplicationId() != null) {
-                      // An app-scope user signs in through their application, not the web app — confirm without a session.
+                      // Session established like any login (ApplicationParticipant); the payload
+                      // tells the accept page which application to point the invitee at.
+                      authEndpointSupport.establishSession(ctx, user);
                       ctx.response().putHeader("Content-Type", "application/json")
                          .end(new JsonObject()
                                  .put("scope", "APPLICATION")
@@ -185,10 +188,10 @@ public class InviteHandler {
      * id and a verified email (the same checks a normal OIDC login performs). Second, ask
      * {@link InviteService#acceptOidcInvite} to create the member; it also rejects the
      * acceptance when the IdP-verified email is not the email that was invited. Third,
-     * send the browser onward based on who they just became: an organization member is a
-     * web-app user, so they get a browser session and land in the web app; an application
-     * member is not, so they are sent to the accept page's confirmation
-     * state with no session and will sign in through their application instead.
+     * establish the browser session (same as logging in — the participant type follows the
+     * member's scope) and send the browser onward: an organization member lands in the web
+     * app; an application member is sent to the accept page's confirmation state, since the
+     * web app is not their UI.
      */
     private void completeOidcAccept(RoutingContext ctx, CallbackResult<BaseOidcConfiguration> result) {
         String token = result.inviteToken();
@@ -213,7 +216,9 @@ public class InviteHandler {
         Future.fromCompletionStage(inviteService.acceptOidcInvite(token, sub, result.config().getId(), email))
               .onSuccess(user -> {
                   if (user.getApplicationId() != null) {
-                      // An app-scope user signs in through their application, not the web app — confirm without a session.
+                      // Session established like any login (ApplicationParticipant); the redirect
+                      // shows the confirmation state since the web app is not an app user's UI.
+                      authEndpointSupport.establishSession(ctx, user);
                       ctx.response().setStatusCode(302)
                          .putHeader("Location", authEndpointSupport.appUrl(
                                  INVITE_ACCEPT_PATH + "?accepted=app&application="
