@@ -18,6 +18,8 @@ import {
 
 const TEST_ORG_ID = 'kinotic-test'
 const APP_TENANT = 'kinotic'
+// Seeded by the V5__e2e_app_fixtures migration, with the matching app user for APP_TENANT.
+const APP_ID = 'e2e-versioned'
 
 interface LocalTestContext {
     entityDefinition: EntityDefinition
@@ -38,7 +40,7 @@ describe('End To End Tests', () => {
     }, 60000)
 
     beforeEach<LocalTestContext>(async (context) => {
-        context.entityDefinition = await createVehicleEntityDefinitionIfNotExist(TEST_ORG_ID, generateRandomString(10), generateRandomString(5))
+        context.entityDefinition = await createVehicleEntityDefinitionIfNotExist(TEST_ORG_ID, APP_ID, generateRandomString(5))
         expect(context.entityDefinition).toBeDefined()
         context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT)
         context.entityService = new EntityRepository(
@@ -56,7 +58,6 @@ describe('End To End Tests', () => {
         await expect(Kinotic.entityDefinitions.syncIndex()).resolves.toBeNull()
         await Kinotic.projects.deleteById(context.entityDefinition.projectId)
         await expect(Kinotic.projects.syncIndex()).resolves.toBeNull()
-        await Kinotic.applications.deleteById(context.entityDefinition.applicationId)
     })
 
     it<LocalTestContext>('Test Basic CRUD',
