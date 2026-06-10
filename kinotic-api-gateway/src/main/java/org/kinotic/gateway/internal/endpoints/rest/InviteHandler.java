@@ -175,11 +175,20 @@ public class InviteHandler {
     }
 
     /**
-     * The post-IdP completion: validates the identity with the same prologue as login
-     * (sub present, email verified), creates the member via the domain service (which
-     * enforces the invited-email match), then routes by the invite's stored scope — org
-     * invitees get a console session and land in the SPA, app invitees are sent to the
-     * accept page's confirmation state without a session.
+     * Finishes an OIDC invitation acceptance after the browser returns from the identity
+     * provider. How we got here: the invitee clicked a provider button on the accept page,
+     * {@link #handleOidcStart} checked their invite token and redirected them to the IdP to
+     * sign in, and the IdP sent them back to {@link #handleOidcCallback}, which verified
+     * the OIDC exchange and recovered the invite token from the flow session.
+     *
+     * <p>Three steps remain. First, confirm the IdP gave us a usable identity — a subject
+     * id and a verified email (the same checks a normal OIDC login performs). Second, ask
+     * {@link InviteService#acceptOidcInvite} to create the member; it also rejects the
+     * acceptance when the IdP-verified email is not the email that was invited. Third,
+     * send the browser onward based on who they just became: an organization member is a
+     * console user, so they get a browser session and land in the console; an application
+     * member is not a console user, so they are sent to the accept page's confirmation
+     * state with no session and will sign in through their application instead.
      */
     private void completeOidcAccept(RoutingContext ctx, CallbackResult<BaseOidcConfiguration> result) {
         String token = result.inviteToken();
@@ -228,8 +237,12 @@ public class InviteHandler {
     }
 
     /**
-     * Starts the OIDC flow for the chosen config, resolved strictly within the invite's
-     * scope's allowed provider set, returning to this handler's own callback.
+     * Builds the IdP authorization redirect for the provider the invitee chose. The chosen
+     * configId must be one the invite's target scope actually offers — for an app invite,
+     * one of that application's enabled OIDC configs; for an org invite, an enabled
+     * platform social config or the organization's own SSO config. Anything else fails
+     * with config_not_found. The flow carries the accept token on the session and returns
+     * to {@link #handleOidcCallback}.
      */
     private Future<String> startFlowForInvite(RoutingContext ctx, PendingInvite invite, String configId, String token) {
         String orgId = invite.getOrganizationId();
@@ -303,11 +316,11 @@ public class InviteHandler {
      * configs (unscoped) or org SSO / app configs (org-scoped by the flow session's orgId).
      */
     private CompletableFuture<BaseOidcConfiguration> resolveCallbackConfig(String configId, String orgId) {
-        // Searching both tables by bare id is safe here: the orchestrator only calls this
-        // resolver after matching the path configId against the flow session, and the
-        // session value was written by handleOidcStart, which vets the config against the
-        // invite's allowed provider set. So this can only ever load the row the start leg
-        // already approved (ids are per-row UUIDs — no cross-table collisions).
+        // Searching both tables by bare id is safe: we only get here after the orchestrator
+        // matched the path's configId against the flow session, and that session value was
+        // written by handleOidcStart, which only accepts configs the invite's target scope
+        // offers. So whatever this finds is a config the start leg already approved (ids
+        // are per-row UUIDs, so the same id cannot exist in both tables).
         return orgSignupOidcConfigurationService.findById(configId)
                 .thenCompose(social -> {
                     if (social != null) {
