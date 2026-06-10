@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.CallbackResult;
+import org.kinotic.gateway.internal.endpoints.rest.support.InviteAcceptSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -61,6 +62,7 @@ public class ApplicationLoginHandler {
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
+    private final InviteAcceptSupport inviteAcceptSupport;
 
     public void mountRoutes(Router router) {
         router.get("/api/app/:orgId/:appId/login/providers").handler(this::handleProviders);
@@ -150,6 +152,10 @@ public class ApplicationLoginHandler {
                                   CallbackResult<OidcConfiguration> result,
                                   String orgId,
                                   String appId) {
+        if (result.inviteToken() != null) {
+            inviteAcceptSupport.completeAppInviteAccept(ctx, result, orgId, appId);
+            return;
+        }
         authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
                 sub -> iamUserService.findByOidcIdentity(sub, result.config().getId(), orgId, appId));
     }

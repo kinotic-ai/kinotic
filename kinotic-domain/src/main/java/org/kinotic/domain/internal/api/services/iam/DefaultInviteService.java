@@ -11,6 +11,7 @@ import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.PendingInvite;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.iam.IamUserService;
+import org.kinotic.domain.api.services.iam.InviteEmailMismatchException;
 import org.kinotic.domain.api.services.iam.InviteService;
 import org.kinotic.domain.internal.api.repositories.PendingInviteRepository;
 import org.kinotic.domain.internal.api.services.EmailService;
@@ -125,7 +126,7 @@ public class DefaultInviteService implements InviteService {
         return pendingInviteRepository.findValidByToken(token)
                 .thenCompose(invite -> {
                     if (!invite.getEmail().equals(DomainUtil.normalizeEmail(verifiedEmail))) {
-                        return CompletableFuture.failedFuture(new IllegalArgumentException(
+                        return CompletableFuture.failedFuture(new InviteEmailMismatchException(
                                 "This invitation was sent to a different email address."));
                     }
                     return acceptInvite(invite, null, null, oidcSubject, oidcConfigId);

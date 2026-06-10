@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.CallbackResult;
+import org.kinotic.gateway.internal.endpoints.rest.support.InviteAcceptSupport;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -36,6 +37,7 @@ import java.util.Set;
 public class OrganizationLoginHandler {
 
     private final AuthEndpointSupport authEndpointSupport;
+    private final InviteAcceptSupport inviteAcceptSupport;
     private final IamUserService iamUserService;
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcConfigurationService oidcConfigurationService;
@@ -111,6 +113,10 @@ public class OrganizationLoginHandler {
     }
 
     private void completeSocialLogin(RoutingContext ctx, CallbackResult<OrgSignupOidcConfiguration> result) {
+        if (result.inviteToken() != null) {
+            inviteAcceptSupport.completeOrgInviteAccept(ctx, result);
+            return;
+        }
         authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
                 sub -> iamUserService.findOrgUserByOidcIdentity(sub, result.config().getId()));
     }
@@ -167,6 +173,10 @@ public class OrganizationLoginHandler {
     }
 
     private void completeSsoLogin(RoutingContext ctx, CallbackResult<OidcConfiguration> result) {
+        if (result.inviteToken() != null) {
+            inviteAcceptSupport.completeOrgInviteAccept(ctx, result);
+            return;
+        }
         authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
                 sub -> iamUserService.findByOidcIdentity(sub, result.config().getId(), result.orgId(), null));
     }

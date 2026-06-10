@@ -139,6 +139,11 @@ public class AuthEndpointSupport {
 
     /** Standard {@code [{id, name, provider}]} shape for "list of OIDC configs to choose from". */
     public void respondProvidersList(RoutingContext ctx, List<? extends BaseOidcConfiguration> configs) {
+        ctx.response().putHeader("Content-Type", "application/json").end(providersJson(configs).encode());
+    }
+
+    /** The {@code [{id, name, provider}]} array behind {@link #respondProvidersList}, for embedding in larger payloads. */
+    public JsonArray providersJson(List<? extends BaseOidcConfiguration> configs) {
         JsonArray arr = new JsonArray();
         for (BaseOidcConfiguration c : configs) {
             arr.add(new JsonObject()
@@ -146,7 +151,7 @@ public class AuthEndpointSupport {
                     .put("name", c.getName())
                     .put("provider", c.getProvider() == null ? null : c.getProvider().key()));
         }
-        ctx.response().putHeader("Content-Type", "application/json").end(arr.encode());
+        return arr;
     }
 
     // ── Composite flows ───────────────────────────────────────────────────────

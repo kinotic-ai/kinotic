@@ -24,6 +24,9 @@ public final class OidcConstants {
     /** Frontend path where the user enters/confirms a CLI device {@code user_code} (the RFC 8628 verification URI). */
     public static final String DEVICE_VERIFICATION_PATH = "/device";
 
+    /** Frontend path of the unauthenticated invitation-accept page. Accepts {@code ?token=}, {@code ?error=}, and post-OIDC {@code ?accepted=app} query parameters. */
+    public static final String INVITE_ACCEPT_PATH = "/invite/accept";
+
     // ── Error codes ───────────────────────────────────────────────────────────
     // Wire-stable strings the frontend matches on to render specific UX. Add new
     // codes here rather than inlining string literals so the catalog stays scannable.
@@ -60,4 +63,10 @@ public final class OidcConstants {
 
     /** Signup failed during pending sign-up creation. */
     public static final String ERR_SIGNUP_FAILED = "signup_failed";
+
+    /** Invitation-accept OIDC identity carries a verified email that doesn't match the invited email. The invite is not consumed. */
+    public static final String ERR_EMAIL_MISMATCH = "email_mismatch";
+
+    /** Invitation token is unknown, expired, already consumed, or doesn't fit the route's scope. */
+    public static final String ERR_INVITE_INVALID = "invite_invalid";
 }
