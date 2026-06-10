@@ -15,6 +15,7 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -52,6 +53,18 @@ public class DomainUtil {
             throw new IllegalArgumentException("Kinotic Project Id Invalid, first character must be a " +
                                                        "letter. And contain only letters, numbers, periods, underscores or dashes. Got "+ projectId);
         }
+    }
+
+    /**
+     * Normalizes an email address to its canonical stored form: trimmed and lowercased.
+     * Emails are matched with exact-match term filters, so every write and every lookup
+     * must agree on this one form.
+     *
+     * @param email to normalize, may be null
+     * @return the normalized email, or null when {@code email} is null
+     */
+    public static String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 
     /**

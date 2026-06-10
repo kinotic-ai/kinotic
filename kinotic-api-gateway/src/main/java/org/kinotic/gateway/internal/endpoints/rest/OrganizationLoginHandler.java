@@ -23,7 +23,6 @@ import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -113,9 +112,7 @@ public class OrganizationLoginHandler {
 
     private void completeSocialLogin(RoutingContext ctx, CallbackResult<OrgSignupOidcConfiguration> result) {
         authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
-                // Social login: identity might exist in any org; pick the first match.
-                sub -> iamUserService.findAllByOidcIdentity(sub, result.config().getId())
-                                     .thenApply(this::pickFirst));
+                sub -> iamUserService.findOrgUserByOidcIdentity(sub, result.config().getId()));
     }
 
     /**
@@ -180,10 +177,6 @@ public class OrganizationLoginHandler {
      */
     private void handleLogin(RoutingContext ctx) {
         authEndpointSupport.handlePasswordLogin(ctx, localAuthenticationService::authenticateLocal);
-    }
-
-    private IamUser pickFirst(List<IamUser> candidates) {
-        return (candidates == null || candidates.isEmpty()) ? null : candidates.getFirst();
     }
 
     /**

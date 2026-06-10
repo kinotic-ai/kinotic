@@ -33,6 +33,8 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     @Override
     public CompletableFuture<IamUser> save(IamUser entity) {
         Validate.notNull(entity.getEmail(), "IamUser email cannot be null");
+        // Canonical form at the single write chokepoint; lookups normalize in the repository.
+        entity.setEmail(DomainUtil.normalizeEmail(entity.getEmail()));
         validateScopeFields(entity);
         if (entity.getId() == null) {
             entity.setId(UUID.randomUUID().toString());
@@ -120,10 +122,10 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     }
 
     @Override
-    public CompletableFuture<java.util.List<IamUser>> findAllByOidcIdentity(String oidcSubject, String oidcConfigId) {
+    public CompletableFuture<IamUser> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId) {
         Validate.notBlank(oidcSubject, "oidcSubject cannot be blank");
         Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
-        return iamUserRepository.findAllByOidcIdentity(oidcSubject, oidcConfigId);
+        return iamUserRepository.findOrgUserByOidcIdentity(oidcSubject, oidcConfigId);
     }
 
     @Override

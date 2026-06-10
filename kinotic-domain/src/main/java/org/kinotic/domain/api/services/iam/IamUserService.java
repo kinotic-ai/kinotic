@@ -5,7 +5,6 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.IamUser;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public interface IamUserService extends IdentifiableCrudService<IamUser, String> {
@@ -54,10 +53,12 @@ public interface IamUserService extends IdentifiableCrudService<IamUser, String>
                                                   String applicationId);
 
     /**
-     * Finds all {@link IamUser} records across scopes for a given OIDC identity. Used by the
-     * post-login org switcher to enumerate the orgs this identity can access.
+     * Finds the ORGANIZATION-scope user (if any) for the given OIDC identity, across all
+     * organizations. Org-tier social login and sign-up resolve identities with this lookup;
+     * it is unambiguous because an email may belong to at most one organization, so a given
+     * {@code (oidcSubject, oidcConfigId)} identity maps to at most one org-scope user.
      */
-    CompletableFuture<List<IamUser>> findAllByOidcIdentity(String oidcSubject, String oidcConfigId);
+    CompletableFuture<IamUser> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId);
 
     /**
      * Finds all users within the given scope, identified structurally by
