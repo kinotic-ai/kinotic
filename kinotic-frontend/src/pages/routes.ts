@@ -90,7 +90,23 @@ const pageRoutes: RouteRecordRaw[] = [
     ]
   },
 
-  organizationPlaceholderRoute('/members', 'organization-members', 'Members', 'Manage the people who can access this organization.'),
+  {
+    path: '/members',
+    component: () => import('@/layouts/LayoutForPage.vue'),
+    meta: {
+      showInMainNav: false,
+      label: 'Members',
+      sidebarItems: organizationSidebarItems
+    } as RouteMeta,
+    children: [
+      {
+        name: 'organization-members',
+        path: '',
+        component: () => import('@/pages/MembersPage.vue'),
+        props: { applicationId: null }
+      }
+    ]
+  },
   organizationPlaceholderRoute('/roles-permissions', 'organization-roles', 'Roles & permissions', 'Define roles and control access across your organization.'),
   organizationPlaceholderRoute('/authentication-providers', 'organization-auth-providers', 'Authentication providers', 'Configure the identity providers available to this organization.'),
   organizationPlaceholderRoute('/identity-mapping', 'organization-identity-mapping', 'Identity mapping', 'Map external identities to your organization users and roles.'),
@@ -129,6 +145,11 @@ const pageRoutes: RouteRecordRaw[] = [
           label: 'Data Insights Widgets',
           icon: 'pi pi-bookmark',
           path: `/application/${route.params.applicationId}/saved-widgets`
+        },
+        {
+          label: 'Members',
+          icon: 'pi pi-users',
+          path: `/application/${route.params.applicationId}/members`
         },
         {
           label: 'Application settings',
@@ -190,6 +211,12 @@ const pageRoutes: RouteRecordRaw[] = [
         name: 'application-saved-widgets',
         path: 'saved-widgets',
         component: () => import('@/pages/SavedWidgets.vue'),
+        props: (route) => ({ applicationId: route.params.applicationId })
+      },
+      {
+        name: 'application-members',
+        path: 'members',
+        component: () => import('@/pages/MembersPage.vue'),
         props: (route) => ({ applicationId: route.params.applicationId })
       },
       {
@@ -315,6 +342,14 @@ const pageRoutes: RouteRecordRaw[] = [
   {
     path: '/register',
     component: () => import('@/pages/signup/CompleteOrg.vue'),
+    meta: {
+      showInMainNav: false,
+      authenticationRequired: false
+    } as RouteMeta,
+  },
+  {
+    path: '/invite/accept',
+    component: () => import('@/pages/signup/AcceptInvitation.vue'),
     meta: {
       showInMainNav: false,
       authenticationRequired: false

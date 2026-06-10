@@ -6,6 +6,7 @@ import StyleClass from 'primevue/styleclass'
 import { StructuresPreset } from '@/StructuresPreset'
 import router from '@/router'
 import ToastService from 'primevue/toastservice'
+import ConfirmationService from 'primevue/confirmationservice'
 import { CONTINUUM_UI } from '@/IContinuumUI'
 import 'primeicons/primeicons.css'
 import { createApp } from 'vue'
@@ -78,6 +79,7 @@ CONTINUUM_UI.initialize(router);
 
 app.directive('styleclass', StyleClass)
 app.use(ToastService)
+app.use(ConfirmationService)
 app.use(createStructuresUI(), { router })
 
 // Installing the router fires its initial navigation, which runs the auth guard. Do that after the

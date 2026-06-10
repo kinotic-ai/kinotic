@@ -61,6 +61,7 @@ async function handleSubmit(): Promise<void> {
       id: sanitizeId(form.name),
       organizationId: USER_STATE.getOrganizationId(),
       description: form.description,
+      tenantPerUser: false,
       updated: null
     }
 

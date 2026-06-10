@@ -30,6 +30,16 @@
                       rows="3"
                     />
                   </div>
+                  <div class="application-settings__field">
+                    <label class="application-settings__label">Tenant per user</label>
+                    <div class="flex items-center gap-3">
+                      <ToggleSwitch v-model="tenantPerUser" />
+                      <span class="text-sm text-muted-color">
+                        Each user of this application gets their own isolated tenant.
+                        Applies to users created after enabling.
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <div class="application-settings__actions">
                   <Button 
@@ -145,7 +155,7 @@
 <script setup lang="ts">
 // @ts-ignore
 import { ref, defineProps, onMounted, watch, computed } from 'vue'
-import { InputText, Textarea, Button, Tabs, TabList, Tab, TabPanels, TabPanel, Dialog, IconField, InputIcon } from 'primevue'
+import { InputText, Textarea, Button, Tabs, TabList, Tab, TabPanels, TabPanel, Dialog, IconField, InputIcon, ToggleSwitch } from 'primevue'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 import { Kinotic } from '@kinotic-ai/core'
@@ -165,6 +175,7 @@ defineProps({
 const toast = useToast()
 const appName = ref('')
 const appDescription = ref('')
+const tenantPerUser = ref(false)
 const loading = ref(false)
 const activeTab = ref(0)
 
@@ -180,6 +191,7 @@ watch(() => APPLICATION_STATE.currentApplication, (newApp) => {
   if (newApp) {
     appName.value = newApp.id || ''
     appDescription.value = newApp.description || ''
+    tenantPerUser.value = Boolean(newApp.tenantPerUser)
   }
 }, { immediate: true })
 
@@ -188,6 +200,7 @@ onMounted(() => {
     const app = APPLICATION_STATE.currentApplication
     appName.value = app.id || ''
     appDescription.value = app.description || ''
+    tenantPerUser.value = Boolean(app.tenantPerUser)
   }
 })
 
@@ -207,7 +220,8 @@ const saveSettings = async () => {
     const updatedApplication = {
       ...APPLICATION_STATE.currentApplication,
       organizationId: USER_STATE.getOrganizationId(),
-      description: appDescription.value
+      description: appDescription.value,
+      tenantPerUser: tenantPerUser.value
     }
 
     await Kinotic.applications.save(updatedApplication)
