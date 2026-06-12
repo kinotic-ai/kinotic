@@ -34,22 +34,11 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
     }
 
     @Override
-    public CompletableFuture<VmNode> save(VmNode entity) {
-        prepareForWrite(entity);
-        return super.save(entity);
-    }
-
-    @Override
-    public CompletableFuture<VmNode> saveSync(VmNode entity) {
-        prepareForWrite(entity);
-        return super.saveSync(entity);
-    }
-
-    /** Shared by save and saveSync so neither write path skips validation. */
-    private void prepareForWrite(VmNode entity) {
+    protected CompletableFuture<Void> beforeSave(VmNode entity) {
         Validate.notNull(entity, "VmNode cannot be null");
         Validate.notNull(entity.getId(), "VmNode id cannot be null");
         entity.setLastSeen(new Date());
+        return CompletableFuture.completedFuture(null);
     }
 
 }

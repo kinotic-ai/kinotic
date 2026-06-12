@@ -26,19 +26,7 @@ public class DefaultOrgSignupOidcConfigurationService
     }
 
     @Override
-    public CompletableFuture<OrgSignupOidcConfiguration> save(OrgSignupOidcConfiguration entity) {
-        prepareForWrite(entity);
-        return super.save(entity);
-    }
-
-    @Override
-    public CompletableFuture<OrgSignupOidcConfiguration> saveSync(OrgSignupOidcConfiguration entity) {
-        prepareForWrite(entity);
-        return super.saveSync(entity);
-    }
-
-    /** Shared by save and saveSync so neither write path skips validation. */
-    private void prepareForWrite(OrgSignupOidcConfiguration entity) {
+    protected CompletableFuture<Void> beforeSave(OrgSignupOidcConfiguration entity) {
         Validate.notNull(entity.getName(), "OrgSignupOidcConfiguration name cannot be null");
         Validate.notNull(entity.getProvider(), "OrgSignupOidcConfiguration provider cannot be null");
         if (entity.getId() == null) {
@@ -46,6 +34,7 @@ public class DefaultOrgSignupOidcConfigurationService
             entity.setCreated(new Date());
         }
         entity.setUpdated(new Date());
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

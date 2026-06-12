@@ -67,21 +67,10 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     }
 
     @Override
-    public CompletableFuture<Application> save(Application entity) {
-        prepareForWrite(entity);
-        return super.save(entity);
-    }
-
-    @Override
-    public CompletableFuture<Application> saveSync(Application entity) {
-        prepareForWrite(entity);
-        return super.saveSync(entity);
-    }
-
-    /** Shared by save and saveSync so neither write path skips validation. */
-    private void prepareForWrite(Application entity) {
+    protected CompletableFuture<Void> beforeSave(Application entity) {
         DomainUtil.validateApplicationId(entity.getId());
         entity.setUpdated(new Date());
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

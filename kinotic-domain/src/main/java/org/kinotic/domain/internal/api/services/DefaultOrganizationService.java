@@ -21,19 +21,7 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
     }
 
     @Override
-    public CompletableFuture<Organization> save(Organization entity) {
-        prepareForWrite(entity);
-        return super.save(entity);
-    }
-
-    @Override
-    public CompletableFuture<Organization> saveSync(Organization entity) {
-        prepareForWrite(entity);
-        return super.saveSync(entity);
-    }
-
-    /** Shared by save and saveSync so neither write path skips validation. */
-    private void prepareForWrite(Organization entity) {
+    protected CompletableFuture<Void> beforeSave(Organization entity) {
         Validate.notNull(entity.getName(), "Organization name cannot be null");
 
         if (entity.getId() == null) {
@@ -42,6 +30,7 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
         }
 
         entity.setUpdated(new Date());
+        return CompletableFuture.completedFuture(null);
     }
 
     /**

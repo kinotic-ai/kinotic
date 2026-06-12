@@ -35,17 +35,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     }
 
     @Override
-    public CompletableFuture<IamUser> save(IamUser entity) {
-        return prepareForWrite(entity).thenCompose(v -> super.save(entity));
-    }
-
-    @Override
-    public CompletableFuture<IamUser> saveSync(IamUser entity) {
-        return prepareForWrite(entity).thenCompose(v -> super.saveSync(entity));
-    }
-
-    /** Shared by save and saveSync so neither write path skips validation. */
-    private CompletableFuture<Void> prepareForWrite(IamUser entity) {
+    protected CompletableFuture<Void> beforeSave(IamUser entity) {
         Validate.notNull(entity.getEmail(), "IamUser email cannot be null");
         // Canonical form at the single write chokepoint; lookups normalize in the repository.
         entity.setEmail(DomainUtil.normalizeEmail(entity.getEmail()));

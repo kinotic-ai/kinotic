@@ -33,19 +33,7 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
     }
 
     @Override
-    public CompletableFuture<Workload> save(Workload entity) {
-        prepareForWrite(entity);
-        return super.save(entity);
-    }
-
-    @Override
-    public CompletableFuture<Workload> saveSync(Workload entity) {
-        prepareForWrite(entity);
-        return super.saveSync(entity);
-    }
-
-    /** Shared by save and saveSync so neither write path skips validation. */
-    private void prepareForWrite(Workload entity) {
+    protected CompletableFuture<Void> beforeSave(Workload entity) {
         Validate.notNull(entity, "Workload cannot be null");
         Validate.notNull(entity.getName(), "Workload name cannot be null");
         Validate.notNull(entity.getImage(), "Workload image cannot be null");
@@ -57,6 +45,7 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
         if (entity.getCreated() == null) {
             entity.setCreated(new Date());
         }
+        return CompletableFuture.completedFuture(null);
     }
 
 }

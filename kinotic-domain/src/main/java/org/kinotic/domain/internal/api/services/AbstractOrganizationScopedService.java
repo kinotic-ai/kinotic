@@ -59,14 +59,28 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
 
     @Override
     public CompletableFuture<T> save(T value) {
-        enforceOrgOnSave(value);
-        return scopedRepository.save(value, resolveWriteOrgId(value));
+        return beforeSave(value).thenCompose(v -> {
+            enforceOrgOnSave(value);
+            return scopedRepository.save(value, resolveWriteOrgId(value));
+        });
     }
 
     @Override
     public CompletableFuture<T> saveSync(T value) {
-        enforceOrgOnSave(value);
-        return scopedRepository.saveSync(value, resolveWriteOrgId(value));
+        return beforeSave(value).thenCompose(v -> {
+            enforceOrgOnSave(value);
+            return scopedRepository.saveSync(value, resolveWriteOrgId(value));
+        });
+    }
+
+    /**
+     * Hook run before every write — {@link #save} and {@link #saveSync} both call it, so a
+     * subclass cannot accidentally guard one write path and not the other. Override to
+     * validate and prepare the entity (defaults, ids, timestamps); org enforcement and the
+     * write proceed when the returned future completes.
+     */
+    protected CompletableFuture<Void> beforeSave(T entity) {
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
