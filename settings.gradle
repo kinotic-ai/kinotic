@@ -1,11 +1,12 @@
 rootProject.name = 'kinotic'
 
-// When CLAUDE_CLOUD_COMPILE=true, exclude kinotic-frontend to avoid resolving node-gradle plugin
-def skipFrontend = Boolean.parseBoolean(System.getenv('CLAUDE_CLOUD_COMPILE'))
+// When CLAUDE_CLOUD_COMPILE=true, exclude the JS-building projects to avoid resolving node-gradle plugin
+def skipNodeProjects = Boolean.parseBoolean(System.getenv('CLAUDE_CLOUD_COMPILE'))
+def nodeProjects = ['kinotic-frontend', 'kinotic-spawn-renderer']
 
 rootDir.listFiles().each {
     if (it.directory && new File(it, 'settings.gradle').exists()) {
-        if (skipFrontend && it.name == 'kinotic-frontend') {
+        if (skipNodeProjects && nodeProjects.contains(it.name)) {
             return // skip
         }
         include ":${it.name}"
