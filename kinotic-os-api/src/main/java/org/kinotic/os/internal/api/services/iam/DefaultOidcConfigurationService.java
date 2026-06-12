@@ -31,13 +31,24 @@ public class DefaultOidcConfigurationService extends AbstractOrganizationScopedS
 
     @Override
     public CompletableFuture<OidcConfiguration> save(OidcConfiguration entity) {
+        prepareForWrite(entity);
+        return super.save(entity);
+    }
+
+    @Override
+    public CompletableFuture<OidcConfiguration> saveSync(OidcConfiguration entity) {
+        prepareForWrite(entity);
+        return super.saveSync(entity);
+    }
+
+    /** Shared by save and saveSync so neither write path skips validation. */
+    private void prepareForWrite(OidcConfiguration entity) {
         Validate.notNull(entity.getName(), "OidcConfiguration name cannot be null");
         if (entity.getId() == null) {
             entity.setId(UUID.randomUUID().toString());
             entity.setCreated(new Date());
         }
         entity.setUpdated(new Date());
-        return super.save(entity);
     }
 
     @Override
