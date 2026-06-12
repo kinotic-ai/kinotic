@@ -440,72 +440,73 @@ export default toNative(CrudTable);
         />
       </div>
 
-      <div
-        v-if="isBurgerView"
-        :class="[
-          'crud-table__table-shell flex flex-1 flex-col rounded-[14px] border px-4 pt-2 pb-0 transition-colors',
-          isDark ? 'border-surface-700 bg-transparent text-surface-0 shadow-[0_0_0_1px_rgba(58,58,64,0.15)]' : 'border-surface-200 bg-transparent text-surface-950'
-        ]"
-      >
-        <DataTable
-          class="crud-table__datatable"
-          :pt="dataTablePt"
-          :value="items"
-          :loading="loading"
-          dataKey="id"
-          @row-click="onRowClick"
-          sortMode="multiple"
-          :rowClass="getRowClass"
+      <div v-if="isBurgerView" class="flex flex-1 flex-col">
+        <div
+          :class="[
+            'crud-table__table-shell flex flex-1 flex-col rounded-[14px] border px-4 py-2 transition-colors',
+            isDark ? 'border-surface-700 bg-transparent text-surface-0 shadow-[0_0_0_1px_rgba(58,58,64,0.15)]' : 'border-surface-200 bg-transparent text-surface-950'
+          ]"
         >
-          <Column
-            v-for="col in computedHeaders"
-            :key="col.field"
-            :field="col.field"
-            :header="col.header"
-            :sortable="col.sortable !== false"
-            :headerStyle="col.centered ? { textAlign: 'center' } : {}"
+          <DataTable
+            class="crud-table__datatable"
+            :pt="dataTablePt"
+            :value="items"
+            :loading="loading"
+            dataKey="id"
+            @row-click="onRowClick"
+            sortMode="multiple"
+            :rowClass="getRowClass"
           >
-            <template #body="slotProps">
-              <div
-                v-if="col.centered"
-                class="flex items-center justify-center w-full min-h-[64px]"
-              >
-                <slot :name="`item.${col.field}`" :item="slotProps.data">
-                  {{ slotProps.data[col.field] }}
-                </slot>
-              </div>
-              <template v-else>
-                <div class="flex min-h-[64px] items-center">
+            <Column
+              v-for="col in computedHeaders"
+              :key="col.field"
+              :field="col.field"
+              :header="col.header"
+              :sortable="col.sortable !== false"
+              :headerStyle="col.centered ? { textAlign: 'center' } : {}"
+            >
+              <template #body="slotProps">
+                <div
+                  v-if="col.centered"
+                  class="flex items-center justify-center w-full min-h-[64px]"
+                >
                   <slot :name="`item.${col.field}`" :item="slotProps.data">
                     {{ slotProps.data[col.field] }}
                   </slot>
                 </div>
+                <template v-else>
+                  <div class="flex min-h-[64px] items-center">
+                    <slot :name="`item.${col.field}`" :item="slotProps.data">
+                      {{ slotProps.data[col.field] }}
+                    </slot>
+                  </div>
+                </template>
               </template>
-            </template>
-          </Column>
+            </Column>
 
-          <Column v-if="editable || $slots['additional-actions']" header="">
-            <template #body="slotProps">
-              <div class="flex min-h-[64px] w-full items-center justify-center">
-                <slot name="additional-actions" :item="slotProps.data" />
+            <Column v-if="editable || $slots['additional-actions']" header="">
+              <template #body="slotProps">
+                <div class="flex min-h-[64px] w-full items-center justify-center">
+                  <slot name="additional-actions" :item="slotProps.data" />
+                </div>
+              </template>
+            </Column>
+            <template #loading>
+              <div
+                :class="['flex h-full w-full items-center justify-center py-20', isDark ? 'bg-transparent text-surface-400' : 'bg-transparent text-surface-500']"
+              >
+                <i class="pi pi-spin pi-spinner text-2xl text-primary" />
               </div>
             </template>
-          </Column>
-          <template #loading>
-            <div
-              :class="['flex h-full w-full items-center justify-center py-20', isDark ? 'bg-transparent text-surface-400' : 'bg-transparent text-surface-500']"
-            >
-              <i class="pi pi-spin pi-spinner text-2xl text-primary" />
-            </div>
-          </template>
-        </DataTable>
+          </DataTable>
 
-        <!-- Filler between the rows and the paginator: absorbs leftover shell height so
-             the paginator stays at the bottom, and hosts the centered empty state. -->
-        <div
-          :class="['flex flex-1 items-center justify-center', isDark ? 'text-surface-400' : 'text-surface-500']"
-        >
-          <span v-if="!loading && items.length === 0" class="py-20">{{ emptyStateText }}</span>
+          <!-- Filler between the rows and the bottom border: absorbs leftover shell height
+               so the shell can stretch, and hosts the centered empty state. -->
+          <div
+            :class="['flex flex-1 items-center justify-center', isDark ? 'text-surface-400' : 'text-surface-500']"
+          >
+            <span v-if="!loading && items.length === 0" class="py-20">{{ emptyStateText }}</span>
+          </div>
         </div>
 
         <Paginator

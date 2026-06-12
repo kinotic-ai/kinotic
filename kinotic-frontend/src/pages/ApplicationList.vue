@@ -154,7 +154,6 @@ export default class NamespaceList extends Vue {
         @edit-item="onEditItem"
         @onRowClick="toApplicationPage"
         class="application-list__table !text-sm"
-        :show-pagination="false"
       >
       <template #item.id="{ item }">
         <span>{{ item.id }}</span>
