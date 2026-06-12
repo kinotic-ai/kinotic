@@ -1,10 +1,30 @@
 import {Liquid} from 'liquidjs'
-import {SpawnConfigSchema} from './SpawnConfig'
-import type {GlobalsType, PropertySchemaType, SpawnConfig} from './SpawnConfig'
+import {z} from 'zod'
+import type {PropertySchema} from './PropertySchema'
 import type {PropertyResolver} from './PropertyResolver'
 import type {RenderSpawnOptions} from './RenderSpawnOptions'
 import type {SpawnRenderResult} from './SpawnRenderResult'
 import type {SpawnTree} from './SpawnTree'
+
+// The schemas stay module-private so their types can be inferred (the
+// workspace's isolatedDeclarations setting forbids inferred types on exports)
+// and spawn.json validation has a single source of truth. PropertySchemaSchema
+// is annotated against the public PropertySchema interface so the two cannot
+// diverge on a required field.
+const PropertySchemaSchema: z.ZodType<PropertySchema> = z.object({
+  type: z.enum(['string', 'number', 'integer', 'boolean']).optional(),
+  description: z.string().optional(),
+  default: z.union([z.string(), z.number(), z.boolean()]).optional(),
+  enum: z.array(z.string()).optional(),
+})
+
+const SpawnConfigSchema = z.object({
+  inherits: z.string().optional(),
+  globals: z.record(z.string(), z.unknown()).optional(),
+  propertySchema: z.record(z.string(), PropertySchemaSchema).optional(),
+})
+
+type SpawnConfig = z.infer<typeof SpawnConfigSchema>
 
 const IGNORED_FILE_NAMES: string[] = ['spawn.json', '.DS_Store']
 
@@ -81,8 +101,8 @@ export class SpawnEngine {
     }
 
     // Merge base-first so derived spawns override inherited globals and schema entries.
-    let globals: GlobalsType = {}
-    let propertySchemas: PropertySchemaType = {}
+    let globals: Record<string, unknown> = {}
+    let propertySchemas: Record<string, PropertySchema> = {}
     for (const config of [...configs].reverse()) {
       if (config.globals) {
         globals = {...globals, ...config.globals}
@@ -134,7 +154,7 @@ export class SpawnEngine {
     return SpawnConfigSchema.parse(JSON.parse(text))
   }
 
-  private async resolveMissingProperties(propertySchemas: PropertySchemaType,
+  private async resolveMissingProperties(propertySchemas: Record<string, PropertySchema>,
                                          context: Record<string, unknown>,
                                          resolver?: PropertyResolver): Promise<Record<string, unknown>> {
     const ret: Record<string, unknown> = {...context}
@@ -145,7 +165,7 @@ export class SpawnEngine {
           throw new Error(`No value provided for required property '${key}'`)
         }
 
-        const schema = propertySchemas[key] as PropertySchemaType[string]
+        const schema = propertySchemas[key] as PropertySchema
 
         let message: string
         if (schema.description?.includes('{{')) {

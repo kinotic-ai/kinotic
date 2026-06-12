@@ -1,4 +1,4 @@
-import type {PropertySchema} from './SpawnConfig'
+import type {PropertySchema} from './PropertySchema'
 
 /**
  * Supplies values for properties declared in a spawn's propertySchema that are
