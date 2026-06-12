@@ -37,7 +37,7 @@ The maintainers of this repo read code faster than English. When explaining anyt
 
 - Lead with the relevant snippet, quoted from the actual repo with `path:line` references — not a paragraph describing it.
 - Present options and trade-offs as side-by-side code blocks the reader can compare directly, with a short comment marking the line where they differ. Let the code carry the comparison; one sentence per option for what the code can't show.
-- Never describe code indirectly when you can show it. "The annotation erases the schema's composition methods" means nothing; `SpawnConfigSchema.extend({...}) // ❌ TS error — annotation widened ZodObject to ZodType` is immediately legible.
+- Never describe code indirectly when you can show it. A sentence about what a change does to an API is opaque; the call site that now compiles (or no longer compiles), with a one-line comment, is immediately legible.
 - Show failure modes as code that compiles-but-misbehaves (or the verbatim compiler/test error), not as an abstract description of the risk.
 - Keep prose for what code cannot express: intent, constraints, and consequences — one or two sentences placed next to the snippet they explain.
 
