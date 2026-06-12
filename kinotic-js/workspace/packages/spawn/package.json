@@ -30,7 +30,7 @@
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "build:renderer": "bun build ./src/graalEntry.ts --outfile ./dist/spawn-renderer.global.js --format=iife --target=browser"
+    "build:renderer": "bun build ./src/spawnRendererEntry.ts --outfile ./dist/spawn-renderer.global.js --format=iife --target=browser"
   },
   "dependencies": {
     "liquidjs": "10.25.7",
