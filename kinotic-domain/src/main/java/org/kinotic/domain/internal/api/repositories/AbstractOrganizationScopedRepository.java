@@ -80,6 +80,19 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
                                   .thenApply(response -> null);
     }
 
+    /**
+     * Deletes the document with the given {@code id} that belongs to {@code orgId}, waiting
+     * for the deletion to be visible in search results before returning. No-op if no such
+     * document exists.
+     */
+    public CompletableFuture<Void> deleteByIdSync(String id, String orgId) {
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        return crudServiceTemplate.deleteByIdSync(indexName,
+                                                  composeDocumentId(id, orgId),
+                                                  b -> b.routing(orgId))
+                                  .thenApply(response -> null);
+    }
+
     public CompletableFuture<Page<T>> findAll(String orgId, Pageable pageable) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         return crudServiceTemplate.search(indexName, pageable, type,

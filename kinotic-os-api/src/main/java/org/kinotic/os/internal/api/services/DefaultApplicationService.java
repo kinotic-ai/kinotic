@@ -50,11 +50,20 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
 
     @Override
     public CompletableFuture<Void> deleteById(String id) {
+        return requireNoProjects(id).thenCompose(v -> super.deleteById(id));
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteByIdSync(String id) {
+        return requireNoProjects(id).thenCompose(v -> super.deleteByIdSync(id));
+    }
+
+    private CompletableFuture<Void> requireNoProjects(String id) {
         return projectService.countForApplication(id).thenAccept(count -> {
             if(count > 0){
                 throw new IllegalStateException("Cannot delete an application with projects in it.");
             }
-        }).thenCompose(v -> super.deleteById(id));
+        });
     }
 
     @Override

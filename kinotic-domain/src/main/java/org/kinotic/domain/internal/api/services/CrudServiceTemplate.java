@@ -224,6 +224,26 @@ public class CrudServiceTemplate {
     }
 
     /**
+     * Deletes a document by id using {@link Refresh#WaitFor}, guaranteeing read-your-write
+     * semantics for subsequent queries. Also allows for customization of the {@link DeleteRequest}.
+     *
+     * @param indexName       name of the index to delete from
+     * @param id              of the document to delete
+     * @param builderConsumer to customize the {@link DeleteRequest}, or null if no customization is needed
+     * @return a {@link CompletableFuture} that will complete with the {@link DeleteResponse}
+     */
+    public CompletableFuture<DeleteResponse> deleteByIdSync(String indexName,
+                                                            String id,
+                                                            Consumer<DeleteRequest.Builder> builderConsumer) {
+        return deleteById(indexName, id, builder -> {
+            if (builderConsumer != null) {
+                builderConsumer.accept(builder);
+            }
+            builder.refresh(Refresh.WaitFor);
+        });
+    }
+
+    /**
      * Deletes a list of documents by provided query. Also allows for customization of the {@link DeleteRequest}.
      *
      * @param indexName       name of the index to delete from

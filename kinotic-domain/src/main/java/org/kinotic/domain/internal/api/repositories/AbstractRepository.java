@@ -72,6 +72,15 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
                                   .thenApply(_ -> null);
     }
 
+    public CompletableFuture<Void> deleteByIdSync(String id) {
+        return deleteByIdSync(id, null);
+    }
+
+    protected CompletableFuture<Void> deleteByIdSync(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.deleteByIdSync(indexName, id, builderConsumer)
+                                  .thenApply(_ -> null);
+    }
+
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
         return findAll(pageable, null);
     }

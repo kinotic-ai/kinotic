@@ -38,6 +38,11 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     }
 
     @Override
+    public CompletableFuture<Void> deleteByIdSync(String id) {
+        return repository.deleteByIdSync(id);
+    }
+
+    @Override
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
         return repository.findAll(pageable);
     }

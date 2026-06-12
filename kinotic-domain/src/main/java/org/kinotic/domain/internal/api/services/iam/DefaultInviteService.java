@@ -184,9 +184,8 @@ public class DefaultInviteService implements InviteService {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("Invitation not found."));
                     }
-                    // syncIndex so the console's immediate re-query no longer sees the row.
-                    return pendingInviteRepository.deleteById(inviteId)
-                                                  .thenCompose(v -> pendingInviteRepository.syncIndex());
+                    // Sync delete so the console's immediate re-query no longer sees the row.
+                    return pendingInviteRepository.deleteByIdSync(inviteId);
                 });
     }
 }

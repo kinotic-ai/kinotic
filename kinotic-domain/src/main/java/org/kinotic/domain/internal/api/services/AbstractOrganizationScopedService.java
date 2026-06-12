@@ -48,6 +48,11 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
     }
 
     @Override
+    public CompletableFuture<Void> deleteByIdSync(String id) {
+        return scopedRepository.deleteByIdSync(id, requireOrganizationId());
+    }
+
+    @Override
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
         return scopedRepository.findAll(requireOrganizationId(), pageable);
     }
