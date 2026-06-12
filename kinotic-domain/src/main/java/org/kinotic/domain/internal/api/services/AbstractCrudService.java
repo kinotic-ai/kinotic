@@ -78,10 +78,10 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     }
 
     /**
-     * Hook run before every write — {@link #save} and {@link #saveSync} both call it, so a
-     * subclass cannot accidentally guard one write path and not the other. Override to
-     * validate and prepare the entity (defaults, ids, timestamps); the write proceeds when
-     * the returned future completes.
+     * Hook run before every write — {@link #save}, {@link #saveSync}, {@link #create}, and
+     * {@link #createSync} all call it, so a subclass cannot accidentally guard one write
+     * path and not the others. Override to validate and prepare the entity (defaults, ids,
+     * timestamps); the write proceeds when the returned future completes.
      */
     protected CompletableFuture<Void> beforeSave(T entity) {
         return CompletableFuture.completedFuture(null);

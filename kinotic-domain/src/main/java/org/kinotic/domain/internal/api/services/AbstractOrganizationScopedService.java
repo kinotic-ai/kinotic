@@ -100,10 +100,10 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
     }
 
     /**
-     * Hook run before every write — {@link #save} and {@link #saveSync} both call it, so a
-     * subclass cannot accidentally guard one write path and not the other. Override to
-     * validate and prepare the entity (defaults, ids, timestamps); org enforcement and the
-     * write proceed when the returned future completes.
+     * Hook run before every write — {@link #save}, {@link #saveSync}, {@link #create}, and
+     * {@link #createSync} all call it, so a subclass cannot accidentally guard one write
+     * path and not the others. Override to validate and prepare the entity (defaults, ids,
+     * timestamps); org enforcement and the write proceed when the returned future completes.
      */
     protected CompletableFuture<Void> beforeSave(T entity) {
         return CompletableFuture.completedFuture(null);
