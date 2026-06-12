@@ -2,6 +2,8 @@
 -- through an application client. One application per suite: EntityDefinition ids derive from
 -- organizationId.applicationId.entityName, so suites running in parallel need distinct
 -- applications to avoid colliding on the same entity name. Password for every user: kinotic.
+-- Applies only when the migration app runs with the 'test' profile — the e2e compose stack
+-- sets it; a local stack must add it to seed these fixtures.
 
 INSERT INTO kinotic_application (id, organizationId, description) VALUES ('e2e-datastream', 'kinotic-test', 'e2e fixture application for the DataStream suite') WITH REFRESH;
 INSERT INTO kinotic_application (id, organizationId, description) VALUES ('e2e-admin-entity', 'kinotic-test', 'e2e fixture application for the AdminEntityService suite') WITH REFRESH;

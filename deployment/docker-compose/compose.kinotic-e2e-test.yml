@@ -7,6 +7,10 @@ include:
 services:
   kinotic-elasticsearch:
     volumes: !reset []
+  kinotic-migration:
+    environment:
+      # 'test' activates the e2e fixture migrations (V5__e2e_app_fixtures.test.sql).
+      SPRING_PROFILES_ACTIVE: development,test,compose
   kinotic-server:
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m # remove otel javaagent for test
