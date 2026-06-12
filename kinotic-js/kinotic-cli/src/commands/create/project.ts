@@ -4,7 +4,7 @@ import chalk from 'chalk'
 import ora from 'ora'
 import path from 'node:path'
 import process from 'node:process'
-import {spawnEngine} from '@/internal/spawn/SpawnEngine'
+import {fileSystemSpawnEngine} from '@/internal/spawn/FileSystemSpawnEngine'
 import {createFrontEnd} from '@/internal/CommandHelper'
 
 export class Project extends Command {
@@ -28,7 +28,7 @@ export class Project extends Command {
 
     const spinner = ora('Generating project...').start()
     try {
-      context = (await spawnEngine.renderSpawn('project', projectDir, context)) ?? context
+      context = await fileSystemSpawnEngine.renderSpawn('project', projectDir, context)
       spinner.succeed(chalk.green('Project generated'))
     } catch (err) {
       spinner.fail('Project generation failed')
@@ -69,6 +69,6 @@ export class Project extends Command {
       throw new Error(`Module dir ${dir} must be within ${projectDir}`)
     }
 
-    await spawnEngine.renderSpawn(spawn, dir, context)
+    await fileSystemSpawnEngine.renderSpawn(spawn, dir, context)
   }
 }
