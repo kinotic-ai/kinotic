@@ -159,7 +159,7 @@ export default class ProjectList extends Vue {
 </script>
 
 <template>
-  <div>
+  <div class="flex flex-1 flex-col">
     <CrudTable
       v-if="!selectedProjectId"
       ref="crudTable"

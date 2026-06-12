@@ -135,8 +135,8 @@ export default class NamespaceList extends Vue {
 </script>
 
 <template>
-  <ContainerMedium>
-    <div :class="['application-list transition-colors', isDark ? 'application-list--dark text-surface-0' : 'text-surface-950']">
+  <ContainerMedium class="flex min-h-full flex-col">
+    <div :class="['application-list flex flex-1 flex-col transition-colors', isDark ? 'application-list--dark text-surface-0' : 'text-surface-950']">
       <h1 :class="['mb-5 text-2xl font-semibold', isDark ? 'text-white' : 'text-surface-950']">Applications</h1>
       <CrudTable
         ref="crudTable"
