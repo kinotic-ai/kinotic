@@ -343,14 +343,12 @@ export default class ProjectStructuresTable extends Vue {
         </span>
       </template>
       <template #item.published="{ item }">
-        <div class="w-full h-full min-h-[64px] flex items-center justify-center text-center">
-          <Tag
-            :value="item.published ? 'Published' : 'Unpublished'"
-            :severity="item.published ? 'success' : 'secondary'"
-            class="px-2 py-1 text-sm"
-            rounded
-          />
-        </div>
+        <Tag
+          :value="item.published ? 'Published' : 'Unpublished'"
+          :severity="item.published ? 'success' : 'secondary'"
+          class="px-2 py-1 text-sm"
+          rounded
+        />
       </template>
       <template #item.description="{ item }">
         <span>{{ item.description }}</span>

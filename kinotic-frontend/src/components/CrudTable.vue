@@ -158,7 +158,7 @@ class CrudTable extends Vue {
       },
       bodyCell: {
         class: [
-          'bg-transparent px-[14px] py-4 text-sm align-middle',
+          'bg-transparent px-[14px] py-2 text-sm align-middle',
           this.isDark ? 'border-surface-700 text-surface-200' : 'border-surface-200 text-surface-950'
         ]
       },
@@ -468,14 +468,14 @@ export default toNative(CrudTable);
               <template #body="slotProps">
                 <div
                   v-if="col.centered"
-                  class="flex items-center justify-center w-full min-h-[64px]"
+                  class="flex items-center justify-center w-full min-h-[48px]"
                 >
                   <slot :name="`item.${col.field}`" :item="slotProps.data">
                     {{ slotProps.data[col.field] }}
                   </slot>
                 </div>
                 <template v-else>
-                  <div class="flex min-h-[64px] items-center">
+                  <div class="flex min-h-[48px] items-center">
                     <slot :name="`item.${col.field}`" :item="slotProps.data">
                       {{ slotProps.data[col.field] }}
                     </slot>
@@ -486,7 +486,7 @@ export default toNative(CrudTable);
 
             <Column v-if="editable || $slots['additional-actions']" header="">
               <template #body="slotProps">
-                <div class="flex min-h-[64px] w-full items-center justify-center">
+                <div class="flex min-h-[48px] w-full items-center justify-center">
                   <slot name="additional-actions" :item="slotProps.data" />
                 </div>
               </template>
