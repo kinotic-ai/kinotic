@@ -54,6 +54,17 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     @WithSpan
     @Override
     public CompletableFuture<EntityDefinition> create(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
+        return validateAndCreate(entityDefinition, super::create);
+    }
+
+    @WithSpan
+    @Override
+    public CompletableFuture<EntityDefinition> createSync(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
+        return validateAndCreate(entityDefinition, super::createSync);
+    }
+
+    private CompletableFuture<EntityDefinition> validateAndCreate(EntityDefinition entityDefinition,
+                                                                  Function<EntityDefinition, CompletableFuture<EntityDefinition>> createOp) {
         try {
             // will throw an exception if invalid
             PersistenceUtil.validateEntityDefinition(entityDefinition);
@@ -91,10 +102,10 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             return CompletableFuture.failedFuture(e);
         }
 
-        // super.create uses the ES create op-type, so the uniqueness check is atomic at the
-        // shard — a concurrent duplicate fails instead of overwriting the way the previous
-        // findById-then-save did.
-        return super.create(entityDefinition)
+        // The base create uses the ES create op-type, so the uniqueness check is atomic at
+        // the shard — a concurrent duplicate fails instead of overwriting the way the
+        // previous findById-then-save did.
+        return createOp.apply(entityDefinition)
                 .exceptionallyCompose(ex -> AlreadyExistsException.isCause(ex)
                         ? CompletableFuture.failedFuture(new IllegalArgumentException(
                                 "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
@@ -104,17 +115,16 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     @WithSpan
     @Override
     public CompletableFuture<Void> deleteById(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
-        return deleteAndEvict(entityDefinitionId, super::deleteById);
+        return deleteAndEvict(entityDefinitionId);
     }
 
     @WithSpan
     @Override
     public CompletableFuture<Void> deleteByIdSync(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
-        return deleteAndEvict(entityDefinitionId, super::deleteByIdSync);
+        return deleteAndEvict(entityDefinitionId);
     }
 
-    private CompletableFuture<Void> deleteAndEvict(String entityDefinitionId,
-                                                   Function<String, CompletableFuture<Void>> deleteOp) {
+    private CompletableFuture<Void> deleteAndEvict(String entityDefinitionId) {
         return findById(entityDefinitionId)
                 .thenCompose(entityDefinition -> {
 
@@ -127,10 +137,10 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                 .failedFuture(new IllegalStateException("EntityDefinition must be Un-Published before Deleting"));
                     }
 
-                    // Evict after the delete: an eviction fired first could be undone by a
-                    // concurrent read re-caching the not-yet-deleted row, with no eviction
-                    // left to clear it.
-                    return deleteOp.apply(entityDefinitionId)
+                    // Sync delete, then evict: the deletion must be searchable before the
+                    // eviction fires, and the eviction must fire last — either way around,
+                    // a concurrent read could re-cache the old row with no eviction behind it.
+                    return super.deleteByIdSync(entityDefinitionId)
                             .thenApply(v -> {
                                 this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId(), entityDefinition.getId()));
                                 return null;
@@ -177,7 +187,8 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         entityDefinition.setPublished(true);
                         entityDefinition.setPublishedTimestamp(new Date());
                         entityDefinition.setUpdated(entityDefinition.getPublishedTimestamp());
-                        return super.save(entityDefinition)
+                        // saveSync so the published state is searchable before the eviction fires
+                        return super.saveSync(entityDefinition)
                                 .thenApply(entityDefinition1 -> {
                                     this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(),
                                                                                                                      entityDefinition1.getId()));
@@ -185,6 +196,17 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                 });
                     });
                 });
+    }
+
+    /**
+     * Saves like {@link #save} — the writes behind every save path already wait for search
+     * visibility, because the cache loaders read through searches and the eviction events
+     * fire only after the write is searchable.
+     */
+    @WithSpan
+    @Override
+    public CompletableFuture<EntityDefinition> saveSync(EntityDefinition entityDefinition) {
+        return save(entityDefinition);
     }
 
     @WithSpan
@@ -255,13 +277,16 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                             updateFuture = crudServiceTemplate.updateIndexMapping(entityDefinition.getItemIndex(), mappings);
                         }
 
-                        return updateFuture.thenCompose(v -> super.save(entityDefinition)
+                        // saveSync so the new definition is searchable before the eviction
+                        // fires — a reload racing the index refresh would re-cache the old
+                        // row with no eviction left to clear it.
+                        return updateFuture.thenCompose(v -> super.saveSync(entityDefinition)
                                 .thenApply(entityDefinition1 -> {
                                     this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
                                     return entityDefinition1;
                                 }));
                     } else {
-                        return super.save(entityDefinition);
+                        return super.saveSync(entityDefinition);
                     }
                 });
     }
@@ -296,7 +321,8 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         entityDefinition.setPublished(false);
                         entityDefinition.setPublishedTimestamp(null);
                         entityDefinition.setUpdated(new Date());
-                        return super.save(entityDefinition)
+                        // saveSync so the unpublished state is searchable before the eviction fires
+                        return super.saveSync(entityDefinition)
                                 .thenApply(entityDefinition1 -> {
                                     this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
                                     return null;

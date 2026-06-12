@@ -11,7 +11,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/23/24.
@@ -37,11 +36,16 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
         return namedQueriesRepository.findByApplicationAndEntityDefinition(applicationId, entityDefinitionName, requireOrganizationId());
     }
 
+    // Every mutation below uses the Refresh.WaitFor write/delete variant and evicts after
+    // it completes. The cache loader reads through a search, so the mutation must be
+    // searchable before the eviction fires — otherwise a reload between the eviction and
+    // the index refresh re-caches the old row with no eviction left to clear it.
+
     @Override
     public CompletableFuture<NamedQueriesDefinition> save(NamedQueriesDefinition definition) {
         // TODO: preprocess queries to correct index name and add Metadata about query type to be used by other parts of the system
         //       The Query type information will speed up other areas the need this as well
-        return super.save(definition).thenApply(this::publishModifiedEvent);
+        return saveSync(definition);
     }
 
     @Override
@@ -49,7 +53,17 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
         return super.saveSync(definition).thenApply(this::publishModifiedEvent);
     }
 
-    /** Evicts cached queries after a successful write; shared by save and saveSync. */
+    @Override
+    public CompletableFuture<NamedQueriesDefinition> create(NamedQueriesDefinition definition) {
+        return createSync(definition);
+    }
+
+    @Override
+    public CompletableFuture<NamedQueriesDefinition> createSync(NamedQueriesDefinition definition) {
+        return super.createSync(definition).thenApply(this::publishModifiedEvent);
+    }
+
+    /** Evicts cached queries after a successful write; shared by every save/create path. */
     private NamedQueriesDefinition publishModifiedEvent(NamedQueriesDefinition definition) {
         this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedNamedQuery(definition.getOrganizationId(),
                                                                                     definition.getApplicationId(),
@@ -60,25 +74,22 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
 
     @Override
     public CompletableFuture<Void> deleteById(String id) {
-        return deleteAndEvict(id, super::deleteById);
+        return deleteAndEvict(id);
     }
 
     @Override
     public CompletableFuture<Void> deleteByIdSync(String id) {
-        return deleteAndEvict(id, super::deleteByIdSync);
+        return deleteAndEvict(id);
     }
 
-    private CompletableFuture<Void> deleteAndEvict(String id, Function<String, CompletableFuture<Void>> deleteOp) {
+    private CompletableFuture<Void> deleteAndEvict(String id) {
         return findById(id)
                 .thenCompose(namedQuery -> {
                     if (namedQuery == null) {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("NamedQuery cannot be found for id: " + id));
                     }
-                    // Evict after the delete: an eviction fired first could be undone by a
-                    // concurrent read re-caching the not-yet-deleted row, with no eviction
-                    // left to clear it.
-                    return deleteOp.apply(id)
+                    return super.deleteByIdSync(id)
                             .thenApply(v -> {
                                 this.eventPublisher.publishEvent(
                                         CacheEvictionEvent.localDeletedNamedQuery(
