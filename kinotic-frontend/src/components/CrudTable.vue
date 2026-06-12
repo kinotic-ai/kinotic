@@ -430,7 +430,7 @@ export default toNative(CrudTable);
         </div>
         <div
           v-else
-          :class="['flex flex-col items-center justify-center py-20 h-[calc(100vh-300px)]', isDark ? 'text-surface-400' : 'text-surface-500']"
+          :class="['flex flex-col items-center justify-center py-20', isDark ? 'text-surface-400' : 'text-surface-500']"
         >
           <p class="text-sm">{{ emptyStateText }}</p>
         </div>
@@ -511,7 +511,7 @@ export default toNative(CrudTable);
           </template>
           <template #empty>
             <div
-              :class="['flex h-[calc(100vh-450px)] w-full items-center justify-center py-8', isDark ? 'text-surface-400' : 'text-surface-500']"
+              :class="['flex w-full items-center justify-center py-20', isDark ? 'text-surface-400' : 'text-surface-500']"
             >
               {{ emptyStateText }}
             </div>
