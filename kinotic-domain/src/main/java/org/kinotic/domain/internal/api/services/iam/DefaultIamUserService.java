@@ -243,17 +243,10 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     }
 
     @Override
-    public CompletableFuture<Void> deleteById(String id) {
-        return credentialRepository.deleteById(id)
-                .thenCompose(v -> super.deleteById(id));
-    }
-
-    @Override
-    public CompletableFuture<Void> deleteByIdSync(String id) {
-        // Credential lookups are by id (realtime GETs), so only the user delete needs to
-        // wait for search visibility.
-        return credentialRepository.deleteById(id)
-                .thenCompose(v -> super.deleteByIdSync(id));
+    protected CompletableFuture<Void> beforeDelete(String id) {
+        // Cascade the IamCredential. Credential lookups are by id (realtime GETs), so the
+        // credential delete never needs to wait for search visibility.
+        return credentialRepository.deleteById(id);
     }
 
 }

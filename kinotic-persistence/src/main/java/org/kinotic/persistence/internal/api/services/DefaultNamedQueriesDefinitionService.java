@@ -40,32 +40,39 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
     public CompletableFuture<NamedQueriesDefinition> save(NamedQueriesDefinition definition) {
         // TODO: preprocess queries to correct index name and add Metadata about query type to be used by other parts of the system
         //       The Query type information will speed up other areas the need this as well
-        return super.save(definition)
-                    .thenApply(namedQueriesDefinition -> {
-                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedNamedQuery(definition.getOrganizationId(), definition.getApplicationId(), definition.getEntityDefinitionName(), definition.getId()));
-                        return namedQueriesDefinition;
-                    });
+        return super.save(definition).thenApply(this::publishModifiedEvent);
     }
 
     @Override
-    public CompletableFuture<Void> deleteById(String id) {
-        return findById(id)
-                .thenCompose(namedQuery -> {
-                    if (namedQuery == null) {
-                        return CompletableFuture.failedFuture(
-                                new IllegalArgumentException("NamedQuery cannot be found for id: " + id));
-                    }
+    public CompletableFuture<NamedQueriesDefinition> saveSync(NamedQueriesDefinition definition) {
+        return super.saveSync(definition).thenApply(this::publishModifiedEvent);
+    }
 
-                    return super.deleteById(id)
-                            .thenApply(v -> {
-                                this.eventPublisher.publishEvent(
-                                        CacheEvictionEvent.localDeletedNamedQuery(
-                                                namedQuery.getOrganizationId(),
-                                                namedQuery.getApplicationId(),
-                                                namedQuery.getEntityDefinitionName(),
-                                                namedQuery.getId()));
-                                return null;
-                            });
+    /** Evicts cached queries after a successful write; shared by save and saveSync. */
+    private NamedQueriesDefinition publishModifiedEvent(NamedQueriesDefinition definition) {
+        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedNamedQuery(definition.getOrganizationId(),
+                                                                                    definition.getApplicationId(),
+                                                                                    definition.getEntityDefinitionName(),
+                                                                                    definition.getId()));
+        return definition;
+    }
+
+    @Override
+    protected CompletableFuture<Void> beforeDelete(String id) {
+        return findById(id)
+                .thenApply(namedQuery -> {
+                    if (namedQuery == null) {
+                        throw new IllegalArgumentException("NamedQuery cannot be found for id: " + id);
+                    }
+                    // Evicting before the delete is safe: a spurious eviction just reloads,
+                    // while a missed eviction would keep serving the deleted query.
+                    this.eventPublisher.publishEvent(
+                            CacheEvictionEvent.localDeletedNamedQuery(
+                                    namedQuery.getOrganizationId(),
+                                    namedQuery.getApplicationId(),
+                                    namedQuery.getEntityDefinitionName(),
+                                    namedQuery.getId()));
+                    return null;
                 });
     }
 

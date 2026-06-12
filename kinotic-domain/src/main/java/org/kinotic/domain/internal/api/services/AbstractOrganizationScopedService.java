@@ -44,12 +44,22 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
 
     @Override
     public CompletableFuture<Void> deleteById(String id) {
-        return scopedRepository.deleteById(id, requireOrganizationId());
+        return beforeDelete(id).thenCompose(v -> scopedRepository.deleteById(id, requireOrganizationId()));
     }
 
     @Override
     public CompletableFuture<Void> deleteByIdSync(String id) {
-        return scopedRepository.deleteByIdSync(id, requireOrganizationId());
+        return beforeDelete(id).thenCompose(v -> scopedRepository.deleteByIdSync(id, requireOrganizationId()));
+    }
+
+    /**
+     * Hook run before every delete — {@link #deleteById} and {@link #deleteByIdSync} both
+     * call it, so a subclass cannot accidentally guard one delete path and not the other.
+     * Override to validate the delete or cascade dependent data; the org-scoped delete
+     * proceeds when the returned future completes.
+     */
+    protected CompletableFuture<Void> beforeDelete(String id) {
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

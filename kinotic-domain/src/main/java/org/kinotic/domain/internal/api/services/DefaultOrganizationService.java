@@ -44,18 +44,9 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
         // Force the id to derive from the name; beforeSave mints it from the slug.
         entity.setId(null);
         return super.create(entity)
-                    .exceptionallyCompose(ex -> isAlreadyExists(ex)
+                    .exceptionallyCompose(ex -> AlreadyExistsException.isCause(ex)
                             ? CompletableFuture.failedFuture(new AlreadyExistsException(
                                     "An organization named '" + entity.getName() + "' already exists"))
                             : CompletableFuture.failedFuture(ex));
-    }
-
-    private static boolean isAlreadyExists(Throwable ex) {
-        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
-            if (cause instanceof AlreadyExistsException) {
-                return true;
-            }
-        }
-        return false;
     }
 }

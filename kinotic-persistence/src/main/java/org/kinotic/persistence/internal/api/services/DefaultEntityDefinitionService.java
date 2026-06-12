@@ -7,6 +7,7 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -52,7 +53,6 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     @WithSpan
     @Override
     public CompletableFuture<EntityDefinition> create(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
-        String logicalIndexName;
         try {
             // will throw an exception if invalid
             PersistenceUtil.validateEntityDefinition(entityDefinition);
@@ -60,52 +60,49 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             entityDefinition.setApplicationId(entityDefinition.getApplicationId().trim());
             entityDefinition.setProjectId(entityDefinition.getProjectId().trim());
             entityDefinition.setName(entityDefinition.getName().trim());
-            logicalIndexName = PersistenceUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
-                                                                        entityDefinition.getApplicationId(),
-                                                                        entityDefinition.getName());
+            String logicalIndexName = PersistenceUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
+                                                                               entityDefinition.getApplicationId(),
+                                                                               entityDefinition.getName());
 
             if(logicalIndexName.length() > 255){
                 throw new IllegalArgumentException("EntityDefinition Id is too long, 'applicationId.name' must be less than 256 characters");
             }
 
+            // TODO: how to ensure EntityDefinition application name match the C3Type name
+            // Should we just use the EntityDefinition one?
+
+            entityDefinition.setId(logicalIndexName);
+            entityDefinition.setCreated(new Date());
+            entityDefinition.setUpdated(entityDefinition.getCreated());
+            // Store name of the elastic search index for items
+            entityDefinition.setItemIndex(this.persistenceProperties.getIndexPrefix() + logicalIndexName);
+
+            ElasticConversionResult result = entityDefinitionConversionService.convertToElasticMapping(entityDefinition);
+
+            entityDefinition.setDecoratedProperties(result.decoratedProperties());
+            entityDefinition.setMultiTenancyType(result.entityDecorator().getMultiTenancyType());
+            entityDefinition.setEntityType(result.entityDecorator().getEntityType());
+            entityDefinition.setVersionFieldName(result.versionFieldName());
+            entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
+            entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());
+
         } catch (IllegalArgumentException e) {
             return CompletableFuture.failedFuture(e);
         }
 
-        return findById(logicalIndexName)
-                .thenCompose(existingEntityDefinition -> {
-
-                    // Check if this is an existing EntityDefinition or new one
-                    if (existingEntityDefinition != null) {
-                        return CompletableFuture.failedFuture(new IllegalArgumentException(
-                                "EntityDefinition Application+Name must be unique, '" + logicalIndexName + "' already exists."));
-                    }
-
-                    // TODO: how to ensure EntityDefinition application name match the C3Type name
-                    // Should we just use the EntityDefinition one?
-
-                    entityDefinition.setId(logicalIndexName);
-                    entityDefinition.setCreated(new Date());
-                    entityDefinition.setUpdated(entityDefinition.getCreated());
-                    // Store name of the elastic search index for items
-                    entityDefinition.setItemIndex(this.persistenceProperties.getIndexPrefix() + logicalIndexName);
-
-                    ElasticConversionResult result = entityDefinitionConversionService.convertToElasticMapping(entityDefinition);
-
-                    entityDefinition.setDecoratedProperties(result.decoratedProperties());
-                    entityDefinition.setMultiTenancyType(result.entityDecorator().getMultiTenancyType());
-                    entityDefinition.setEntityType(result.entityDecorator().getEntityType());
-                    entityDefinition.setVersionFieldName(result.versionFieldName());
-                    entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
-                    entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());
-
-                    return super.save(entityDefinition);
-                });
+        // super.create uses the ES create op-type, so the uniqueness check is atomic at the
+        // shard — a concurrent duplicate fails instead of overwriting the way the previous
+        // findById-then-save did.
+        return super.create(entityDefinition)
+                .exceptionallyCompose(ex -> AlreadyExistsException.isCause(ex)
+                        ? CompletableFuture.failedFuture(new IllegalArgumentException(
+                                "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
+                        : CompletableFuture.failedFuture(ex));
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Void> deleteById(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
+    protected CompletableFuture<Void> beforeDelete(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
         return findById(entityDefinitionId)
                 .thenCompose(entityDefinition -> {
 
@@ -120,7 +117,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
 
                     this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId(), entityDefinition.getId()));
 
-                    return super.deleteById(entityDefinitionId);
+                    return CompletableFuture.completedFuture(null);
                 });
     }
 
