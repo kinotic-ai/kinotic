@@ -11,6 +11,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/23/24.
@@ -58,21 +59,35 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
     }
 
     @Override
-    protected CompletableFuture<Void> beforeDelete(String id) {
+    public CompletableFuture<Void> deleteById(String id) {
+        return deleteAndEvict(id, super::deleteById);
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteByIdSync(String id) {
+        return deleteAndEvict(id, super::deleteByIdSync);
+    }
+
+    private CompletableFuture<Void> deleteAndEvict(String id, Function<String, CompletableFuture<Void>> deleteOp) {
         return findById(id)
-                .thenApply(namedQuery -> {
+                .thenCompose(namedQuery -> {
                     if (namedQuery == null) {
-                        throw new IllegalArgumentException("NamedQuery cannot be found for id: " + id);
+                        return CompletableFuture.failedFuture(
+                                new IllegalArgumentException("NamedQuery cannot be found for id: " + id));
                     }
-                    // Evicting before the delete is safe: a spurious eviction just reloads,
-                    // while a missed eviction would keep serving the deleted query.
-                    this.eventPublisher.publishEvent(
-                            CacheEvictionEvent.localDeletedNamedQuery(
-                                    namedQuery.getOrganizationId(),
-                                    namedQuery.getApplicationId(),
-                                    namedQuery.getEntityDefinitionName(),
-                                    namedQuery.getId()));
-                    return null;
+                    // Evict after the delete: an eviction fired first could be undone by a
+                    // concurrent read re-caching the not-yet-deleted row, with no eviction
+                    // left to clear it.
+                    return deleteOp.apply(id)
+                            .thenApply(v -> {
+                                this.eventPublisher.publishEvent(
+                                        CacheEvictionEvent.localDeletedNamedQuery(
+                                                namedQuery.getOrganizationId(),
+                                                namedQuery.getApplicationId(),
+                                                namedQuery.getEntityDefinitionName(),
+                                                namedQuery.getId()));
+                                return null;
+                            });
                 });
     }
 

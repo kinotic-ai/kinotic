@@ -24,6 +24,7 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 
 @Component
@@ -102,7 +103,18 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
 
     @WithSpan
     @Override
-    protected CompletableFuture<Void> beforeDelete(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
+    public CompletableFuture<Void> deleteById(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
+        return deleteAndEvict(entityDefinitionId, super::deleteById);
+    }
+
+    @WithSpan
+    @Override
+    public CompletableFuture<Void> deleteByIdSync(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
+        return deleteAndEvict(entityDefinitionId, super::deleteByIdSync);
+    }
+
+    private CompletableFuture<Void> deleteAndEvict(String entityDefinitionId,
+                                                   Function<String, CompletableFuture<Void>> deleteOp) {
         return findById(entityDefinitionId)
                 .thenCompose(entityDefinition -> {
 
@@ -115,9 +127,14 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                 .failedFuture(new IllegalStateException("EntityDefinition must be Un-Published before Deleting"));
                     }
 
-                    this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId(), entityDefinition.getId()));
-
-                    return CompletableFuture.completedFuture(null);
+                    // Evict after the delete: an eviction fired first could be undone by a
+                    // concurrent read re-caching the not-yet-deleted row, with no eviction
+                    // left to clear it.
+                    return deleteOp.apply(entityDefinitionId)
+                            .thenApply(v -> {
+                                this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId(), entityDefinition.getId()));
+                                return null;
+                            });
                 });
     }
 
