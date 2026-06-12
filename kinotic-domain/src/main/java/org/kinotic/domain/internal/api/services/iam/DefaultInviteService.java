@@ -58,7 +58,9 @@ public class DefaultInviteService implements InviteService {
                           .setExpiresAt(new Date(now.getTime() + INVITE_TTL_MS));
                     // Save before sending, mirroring sign-up: a failed send leaves a pending
                     // record that simply expires, never an emailed link with no record behind it.
-                    return pendingInviteRepository.save(invite)
+                    // saveSync because the console re-queries pending invites as soon as this
+                    // returns — a plain save races the ES index refresh and the new row is missed.
+                    return pendingInviteRepository.saveSync(invite)
                             .thenCompose(saved -> emailService.sendInviteEmail(saved, org.getName())
                                                               .thenApply(v -> saved));
                 });
@@ -182,7 +184,9 @@ public class DefaultInviteService implements InviteService {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("Invitation not found."));
                     }
-                    return pendingInviteRepository.deleteById(inviteId);
+                    // syncIndex so the console's immediate re-query no longer sees the row.
+                    return pendingInviteRepository.deleteById(inviteId)
+                                                  .thenCompose(v -> pendingInviteRepository.syncIndex());
                 });
     }
 }

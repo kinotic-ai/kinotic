@@ -69,7 +69,8 @@ public class DefaultMemberService implements MemberService {
         OrganizationParticipant participant = requireOrgParticipant();
         return loadOwnedMember(userId, participant)
                 .thenCompose(user -> iamUserService.save(user.setEnabled(enabled)))
-                .thenApply(u -> null);
+                // syncIndex so the console's immediate re-query sees the change (ES near-real-time)
+                .thenCompose(u -> iamUserService.syncIndex());
     }
 
     @Override
@@ -77,7 +78,9 @@ public class DefaultMemberService implements MemberService {
         OrganizationParticipant participant = requireOrgParticipant();
         return loadOwnedMember(userId, participant)
                 // deleteById cascades the IamCredential
-                .thenCompose(user -> iamUserService.deleteById(user.getId()));
+                .thenCompose(user -> iamUserService.deleteById(user.getId()))
+                // syncIndex so the console's immediate re-query sees the change (ES near-real-time)
+                .thenCompose(v -> iamUserService.syncIndex());
     }
 
     @Override

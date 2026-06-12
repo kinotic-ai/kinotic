@@ -197,6 +197,12 @@ class CrudTable extends Vue {
 
   @Watch("search", { immediate: true })
   onSearchPropChange(newVal: string) {
+    // Parents that two-way bind echo every update:search emit back into this prop;
+    // without this guard each keystroke triggers an immediate find() on top of the
+    // debounced one from the searchText watch.
+    if (newVal === this.searchText) {
+      return;
+    }
     this.searchText = newVal;
     this.options.page = 0;
     this.options.first = 0;
@@ -325,6 +331,8 @@ export default toNative(CrudTable);
           v-model="searchText"
           placeholder="Search"
           size="small"
+          name="search"
+          autocomplete="off"
           @input="onSearchChange"
           @keyup.enter="find"
         />

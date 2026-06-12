@@ -4,8 +4,10 @@
       ref="crudTable"
       :headers="headers"
       :data-source="dataSource"
+      :search="tableSearch"
       create-new-button-text="Invite member"
       empty-state-text="No members yet"
+      @update:search="tableSearch = $event"
       @add-item="openInviteDialog"
     >
       <template #item.displayName="{ item }">
@@ -55,11 +57,11 @@
       <div class="flex flex-col gap-4">
         <div class="flex flex-col gap-1">
           <label for="invite-email" class="text-sm font-medium">Email</label>
-          <InputText id="invite-email" v-model="inviteEmail" type="email" placeholder="person@example.com" autofocus />
+          <InputText id="invite-email" v-model="inviteEmail" type="email" placeholder="person@example.com" autocomplete="off" autofocus />
         </div>
         <div class="flex flex-col gap-1">
           <label for="invite-name" class="text-sm font-medium">Display name (optional)</label>
-          <InputText id="invite-name" v-model="inviteDisplayName" placeholder="Their name" @keyup.enter="sendInvite" />
+          <InputText id="invite-name" v-model="inviteDisplayName" placeholder="Their name" autocomplete="off" @keyup.enter="sendInvite" />
         </div>
         <p class="text-sm text-muted-color m-0">
           They'll be able to accept by setting a password{{ providersHint }}.
@@ -117,7 +119,7 @@ interface MemberRow extends DescriptiveIdentifiable {
 /**
  * Members of the organization (applicationId null) or of one application. Pending
  * invitations render inline ahead of the members with an Invited badge; searching
- * addresses members only.
+ * matches members on the server and pending invitations client-side.
  */
 @Component({
   components: { CrudTable, Button, Dialog, InputText, Tag }
@@ -138,6 +140,7 @@ export default class MembersPage extends Vue {
   inviteDisplayName = ''
   inviting = false
   socialProviderKeys: string[] = []
+  tableSearch = ''
 
   private toast = useToast()
   private confirm = useConfirm()
@@ -181,15 +184,21 @@ export default class MembersPage extends Vue {
       ? await Kinotic.members.searchMembers(searchText, this.applicationId, pageable)
       : await Kinotic.members.findMembers(this.applicationId, pageable)
 
-    let inviteRows: MemberRow[] = []
-    let inviteTotal = 0
-    if (!searchText) {
-      const invites = await Kinotic.members.findPendingInvites(this.applicationId, Pageable.create(0, 100, null))
-      inviteTotal = invites.totalElements ?? invites.content?.length ?? 0
-      // Prepended on the first page only, so deeper pages stay pure member pages.
-      if (this.pageNumberOf(pageable) === 0) {
-        inviteRows = (invites.content ?? []).map(invite => this.toInviteRow(invite))
-      }
+    const invites = await Kinotic.members.findPendingInvites(this.applicationId, Pageable.create(0, 100, null))
+    let inviteRows = (invites.content ?? []).map(invite => this.toInviteRow(invite))
+    let inviteTotal = invites.totalElements ?? inviteRows.length
+    if (searchText) {
+      // Invite search is client-side over the fetched page — there's no server-side
+      // invite search, and hiding a just-invited address behind a filter is worse.
+      const needle = searchText.trim().toLowerCase()
+      inviteRows = inviteRows.filter(row =>
+        row.email.toLowerCase().includes(needle) ||
+        (row.displayName ?? '').toLowerCase().includes(needle))
+      inviteTotal = inviteRows.length
+    }
+    // Prepended on the first page only, so deeper pages stay pure member pages.
+    if (this.pageNumberOf(pageable) !== 0) {
+      inviteRows = []
     }
 
     const page: Page<DescriptiveIdentifiable> = {
@@ -271,7 +280,13 @@ export default class MembersPage extends Vue {
       await Kinotic.members.inviteMember(email, this.inviteDisplayName.trim() || null, this.applicationId)
       this.inviteDialogVisible = false
       this.toast.add({ severity: 'success', summary: 'Invitation sent', detail: `Invited ${email}`, life: 5000 })
-      this.refreshTable()
+      // A leftover filter would hide the new Invited row; clearing it reloads the
+      // table through CrudTable's search-prop watch, so refresh only when empty.
+      if (this.tableSearch) {
+        this.tableSearch = ''
+      } else {
+        this.refreshTable()
+      }
     } catch (err) {
       this.toast.add({ severity: 'error', summary: 'Error', detail: this.errorMessage(err, 'Failed to send invitation'), life: 8000 })
     } finally {
