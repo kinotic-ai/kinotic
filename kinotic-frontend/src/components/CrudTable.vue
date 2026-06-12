@@ -17,6 +17,7 @@ import ConfirmDialog from "primevue/confirmdialog";
 import Card from "primevue/card";
 import Paginator, { type PageState } from "primevue/paginator";
 import SelectButton from "primevue/selectbutton";
+import ProgressBar from "primevue/progressbar";
 import { useToast } from "primevue/usetoast";
 
 import {
@@ -47,6 +48,7 @@ const debug = createDebug('crud-table');
     Card,
     Paginator,
     SelectButton,
+    ProgressBar,
   },
 })
 class CrudTable extends Vue {
@@ -443,15 +445,19 @@ export default toNative(CrudTable);
       <div v-if="isBurgerView" class="flex flex-1 flex-col">
         <div
           :class="[
-            'crud-table__table-shell flex flex-1 flex-col rounded-[14px] border px-4 py-2 transition-colors',
+            'crud-table__table-shell relative flex flex-1 flex-col overflow-hidden rounded-[14px] border px-4 py-2 transition-colors',
             isDark ? 'border-surface-700 bg-transparent text-surface-0 shadow-[0_0_0_1px_rgba(58,58,64,0.15)]' : 'border-surface-200 bg-transparent text-surface-950'
           ]"
         >
+          <ProgressBar
+            v-if="loading"
+            class="crud-table__loading-bar"
+            mode="indeterminate"
+          />
           <DataTable
             class="crud-table__datatable"
             :pt="dataTablePt"
             :value="items"
-            :loading="loading"
             dataKey="id"
             @row-click="onRowClick"
             sortMode="multiple"
@@ -491,13 +497,6 @@ export default toNative(CrudTable);
                 </div>
               </template>
             </Column>
-            <template #loading>
-              <div
-                :class="['flex h-full w-full items-center justify-center py-20', isDark ? 'bg-transparent text-surface-400' : 'bg-transparent text-surface-500']"
-              >
-                <i class="pi pi-spin pi-spinner text-2xl text-primary" />
-              </div>
-            </template>
           </DataTable>
 
           <!-- Filler between the rows and the bottom border: absorbs leftover shell height
@@ -526,6 +525,17 @@ export default toNative(CrudTable);
 </template>
 
 <style>
+/* Pinned to the shell's top edge; the shell's overflow-hidden clips it to the rounded corners. */
+.crud-table__loading-bar.p-progressbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 0;
+  background: transparent;
+}
+
 .p-datatable-paginator-bottom {
   border: none !important;
   box-shadow: none !important;
