@@ -105,6 +105,7 @@ const pageRoutes: RouteRecordRaw[] = [
       {
         name: 'dashboard-view',
         path: 'dashboards/:dashboardId',
+        meta: { fullWidth: true } as RouteMeta,
         component: () => import('@/pages/DashboardDetails.vue'),
         props: (route) => ({ 
           applicationId: route.params.applicationId,
@@ -115,6 +116,7 @@ const pageRoutes: RouteRecordRaw[] = [
       {
         name: 'dashboard-edit',
         path: 'dashboards/:dashboardId/edit',
+        meta: { fullWidth: true } as RouteMeta,
         component: () => import('@/pages/DashboardDetails.vue'),
         props: (route) => ({ 
           applicationId: route.params.applicationId,
@@ -125,6 +127,7 @@ const pageRoutes: RouteRecordRaw[] = [
       {
         name: 'dashboard-new',
         path: 'dashboards/new',
+        meta: { fullWidth: true } as RouteMeta,
         component: () => import('@/pages/DashboardDetails.vue'),
         props: (route) => ({ 
           applicationId: route.params.applicationId,
@@ -136,6 +139,7 @@ const pageRoutes: RouteRecordRaw[] = [
         name: 'application-data-insights',
         path: 'data-insights',
         meta: {
+          fullWidth: true,
           sidebar: { group: 'application', label: 'Data Insights', icon: 'pi pi-lightbulb', order: 30 } as SidebarItemMeta
         } as RouteMeta,
         component: () => import('@/pages/DataInsights.vue'),
