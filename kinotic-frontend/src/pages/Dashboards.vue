@@ -200,7 +200,7 @@ watch(() => router.currentRoute.value.query.refresh, () => {
 </script>
 
 <template>
-  <div :class="['h-full p-6 transition-colors', isDark ? 'text-surface-0' : 'text-surface-950']">
+  <div :class="['transition-colors', isDark ? 'text-surface-0' : 'text-surface-950']">
     <div :class="['mb-6 flex items-center justify-between border-b pb-6', isDark ? 'border-surface-800' : 'border-surface-200']">
       <h1 :class="['text-2xl font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">{{ title }}</h1>
     </div>

@@ -91,9 +91,9 @@ export default class ApplicationDetails extends Vue {
 </script>
 
 <template>
-  <!-- min-h-full + the flex column chain down through the tabs lets the CrudTable shell
-       stretch to the bottom of the viewport, keeping its paginator in a fixed position. -->
-  <div :class="['flex min-h-full flex-col transition-colors', isDark ? 'text-surface-0' : 'text-surface-950']">
+  <!-- The flex column chain down through the tabs lets the CrudTable shell stretch to the
+       bottom of the viewport, keeping its paginator in a fixed position. -->
+  <div :class="['flex flex-col transition-colors', isDark ? 'text-surface-0' : 'text-surface-950']">
     <div class="flex justify-between items-center mb-6 h-[58px]">
       <div>
         <h1 :class="['mb-3 text-2xl font-semibold', isDark ? 'text-white' : 'text-surface-950']">{{ applicationId }}</h1>
