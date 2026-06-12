@@ -23,7 +23,7 @@ watch(applicationId, (newId) => {
 </script>
 
 <template>
-  <div class="p-6">
+  <div class="flex min-h-full flex-col p-6">
     <h1 :class="['mb-4 text-2xl font-semibold', isDark ? 'text-white' : 'text-surface-950']">
       {{ projectId }}
     </h1>

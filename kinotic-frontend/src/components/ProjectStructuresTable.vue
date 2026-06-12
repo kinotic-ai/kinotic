@@ -311,7 +311,7 @@ export default class ProjectStructuresTable extends Vue {
 </script>
 
 <template>
-  <div>
+  <div class="flex flex-1 flex-col">
     <CrudTable
       ref="crudTable"
       :data-source="dataSource"

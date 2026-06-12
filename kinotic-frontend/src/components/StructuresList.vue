@@ -266,7 +266,7 @@ export default defineComponent({
 </script>
 
 <template>
-  <div>
+  <div class="flex flex-1 flex-col">
     <CrudTable
       ref="crudTable"
       rowHoverColor=""

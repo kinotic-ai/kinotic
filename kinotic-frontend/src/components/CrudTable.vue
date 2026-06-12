@@ -8,7 +8,7 @@ import {
   Watch,
 } from "vue-facing-decorator";
 
-import DataTable, { type DataTablePageEvent } from "primevue/datatable";
+import DataTable from "primevue/datatable";
 import Column from "primevue/column";
 import Button from "primevue/button";
 import Toolbar from "primevue/toolbar";
@@ -162,10 +162,10 @@ class CrudTable extends Vue {
           this.isDark ? 'border-surface-700 text-surface-200' : 'border-surface-200 text-surface-950'
         ]
       },
-      pcPaginator: {
-        root: {
-          class: 'justify-end border-0 bg-transparent px-0 pb-[0.875rem] pt-3 shadow-none'
-        }
+      // The empty state renders outside the DataTable (in the flex filler below it),
+      // so suppress the built-in empty-message row.
+      emptyMessage: {
+        class: 'hidden'
       }
     };
   }
@@ -233,13 +233,6 @@ class CrudTable extends Vue {
       this.find();
     }, 400);
   }
-  onDataTablePage(event: DataTablePageEvent) {
-    this.options.page = event.page;
-    this.options.rows = event.rows;
-    this.options.first = event.first;
-    this.find();
-  }
-
   onPaginatorPage(event: PageState) {
     this.options.page = event.page;
     this.options.rows = event.rows;
@@ -317,7 +310,9 @@ export default toNative(CrudTable);
 </script>
 
 <template>
-  <div class="crud-table" :class="isDark ? 'crud-table--dark' : 'crud-table--light'" :style="{ '--row-hover-color': rowHoverColor }">
+  <!-- flex-1 lets the table fill the remaining height when a page provides a flex column
+       chain down to here; in a plain block parent the flex classes are inert. -->
+  <div class="crud-table flex flex-1 flex-col" :class="isDark ? 'crud-table--dark' : 'crud-table--light'" :style="{ '--row-hover-color': rowHoverColor }">
     <div class="crud-table__toolbar flex items-center justify-between mb-6 gap-4">
       <IconField class="crud-table__search w-[236px] max-w-sm">
         <InputIcon class="pi pi-search" />
@@ -361,8 +356,8 @@ export default toNative(CrudTable);
       </div>
     </div>
 
-    <div class="mb-6">
-      <div v-if="isColumnView">
+    <div class="mb-6 flex flex-1 flex-col">
+      <div v-if="isColumnView" class="flex flex-1 flex-col">
         <div
           v-if="items.length > 0"
           class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
@@ -430,7 +425,7 @@ export default toNative(CrudTable);
         </div>
         <div
           v-else
-          :class="['flex flex-col items-center justify-center py-20', isDark ? 'text-surface-400' : 'text-surface-500']"
+          :class="['flex flex-1 flex-col items-center justify-center py-20', isDark ? 'text-surface-400' : 'text-surface-500']"
         >
           <p class="text-sm">{{ emptyStateText }}</p>
         </div>
@@ -440,7 +435,7 @@ export default toNative(CrudTable);
           :totalRecords="totalItems"
           :rowsPerPageOptions="paginationOptions"
           @page="onPaginatorPage"
-          class="mt-4"
+          class="mt-auto pt-4"
           v-if="showPagination"
         />
       </div>
@@ -448,7 +443,7 @@ export default toNative(CrudTable);
       <div
         v-if="isBurgerView"
         :class="[
-          'crud-table__table-shell rounded-[14px] border px-4 pt-2 pb-0 transition-colors',
+          'crud-table__table-shell flex flex-1 flex-col rounded-[14px] border px-4 pt-2 pb-0 transition-colors',
           isDark ? 'border-surface-700 bg-transparent text-surface-0 shadow-[0_0_0_1px_rgba(58,58,64,0.15)]' : 'border-surface-200 bg-transparent text-surface-950'
         ]"
       >
@@ -456,14 +451,8 @@ export default toNative(CrudTable);
           class="crud-table__datatable"
           :pt="dataTablePt"
           :value="items"
-          :rows="options.rows"
-          :totalRecords="totalItems"
           :loading="loading"
-          :paginator="showPagination"
-          :first="options.first"
-          :rowsPerPageOptions="paginationOptions"
           dataKey="id"
-          @page="onDataTablePage"
           @row-click="onRowClick"
           sortMode="multiple"
           :rowClass="getRowClass"
@@ -509,14 +498,25 @@ export default toNative(CrudTable);
               <i class="pi pi-spin pi-spinner text-2xl text-primary" />
             </div>
           </template>
-          <template #empty>
-            <div
-              :class="['flex w-full items-center justify-center py-20', isDark ? 'text-surface-400' : 'text-surface-500']"
-            >
-              {{ emptyStateText }}
-            </div>
-          </template>
         </DataTable>
+
+        <!-- Filler between the rows and the paginator: absorbs leftover shell height so
+             the paginator stays at the bottom, and hosts the centered empty state. -->
+        <div
+          :class="['flex flex-1 items-center justify-center', isDark ? 'text-surface-400' : 'text-surface-500']"
+        >
+          <span v-if="!loading && items.length === 0" class="py-20">{{ emptyStateText }}</span>
+        </div>
+
+        <Paginator
+          v-if="showPagination"
+          :rows="options.rows"
+          :first="options.first"
+          :totalRecords="totalItems"
+          :rowsPerPageOptions="paginationOptions"
+          @page="onPaginatorPage"
+          class="justify-end border-0 bg-transparent px-0 pb-[0.875rem] pt-3 shadow-none"
+        />
       </div>
     </div>
 

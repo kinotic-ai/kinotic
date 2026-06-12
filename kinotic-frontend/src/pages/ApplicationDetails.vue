@@ -91,7 +91,9 @@ export default class ApplicationDetails extends Vue {
 </script>
 
 <template>
-  <div :class="['p-10 transition-colors', isDark ? 'text-surface-0' : 'text-surface-950']">
+  <!-- min-h-full + the flex column chain down through the tabs lets the CrudTable shell
+       stretch to the bottom of the viewport, keeping its paginator in a fixed position. -->
+  <div :class="['flex min-h-full flex-col p-10 transition-colors', isDark ? 'text-surface-0' : 'text-surface-950']">
     <div class="flex justify-between items-center mb-6 h-[58px]">
       <div>
         <h1 :class="['mb-3 text-2xl font-semibold', isDark ? 'text-white' : 'text-surface-950']">{{ applicationId }}</h1>
@@ -99,7 +101,7 @@ export default class ApplicationDetails extends Vue {
       </div>
     </div>
 
-    <Tabs :value="activeTab" @update:value="activeTab = $event">
+    <Tabs class="flex-1" :value="activeTab" @update:value="activeTab = $event">
       <TabList>
         <Tab :value="0">
           <span class="flex items-center gap-2">
@@ -118,17 +120,17 @@ export default class ApplicationDetails extends Vue {
           </span>
         </Tab>
       </TabList>
-      <TabPanels>
-        <TabPanel :value="0">
-          <div v-show="activeTab === 0">
+      <TabPanels class="flex flex-1 flex-col">
+        <TabPanel class="flex flex-1 flex-col" :value="0">
+          <div v-show="activeTab === 0" class="flex flex-1 flex-col">
             <ProjectList
               :applicationId="applicationId"
               :initialSearch="searchProduct"
             />
           </div>
         </TabPanel>
-        <TabPanel :value="1">
-          <div v-show="activeTab === 1">
+        <TabPanel class="flex flex-1 flex-col" :value="1">
+          <div v-show="activeTab === 1" class="flex flex-1 flex-col">
             <StructuresList
               :applicationId="applicationId"
               :initialSearch="searchStructure"
