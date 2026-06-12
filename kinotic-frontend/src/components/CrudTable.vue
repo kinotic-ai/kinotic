@@ -17,7 +17,6 @@ import ConfirmDialog from "primevue/confirmdialog";
 import Card from "primevue/card";
 import Paginator, { type PageState } from "primevue/paginator";
 import SelectButton from "primevue/selectbutton";
-import ProgressBar from "primevue/progressbar";
 import { useToast } from "primevue/usetoast";
 
 import {
@@ -48,7 +47,6 @@ const debug = createDebug('crud-table');
     Card,
     Paginator,
     SelectButton,
-    ProgressBar,
   },
 })
 class CrudTable extends Vue {
@@ -445,17 +443,12 @@ export default toNative(CrudTable);
       <div v-if="isBurgerView" class="flex flex-1 flex-col">
         <div
           :class="[
-            'crud-table__table-shell relative flex flex-1 flex-col overflow-hidden rounded-[14px] border px-4 py-2 transition-colors',
+            'crud-table__table-shell flex flex-1 flex-col rounded-[14px] border px-4 py-2 transition-colors',
             isDark ? 'border-surface-700 bg-transparent text-surface-0 shadow-[0_0_0_1px_rgba(58,58,64,0.15)]' : 'border-surface-200 bg-transparent text-surface-950'
           ]"
         >
-          <ProgressBar
-            v-if="loading"
-            class="crud-table__loading-bar"
-            mode="indeterminate"
-          />
           <DataTable
-            class="crud-table__datatable"
+            :class="['crud-table__datatable', { 'crud-table__datatable--loading': loading }]"
             :pt="dataTablePt"
             :value="items"
             dataKey="id"
@@ -525,15 +518,31 @@ export default toNative(CrudTable);
 </template>
 
 <style>
-/* Pinned to the shell's top edge; the shell's overflow-hidden clips it to the rounded corners. */
-.crud-table__loading-bar.p-progressbar {
+/* While loading, an indeterminate line overlays the header row's bottom divider. */
+.crud-table__datatable--loading .p-datatable-thead {
+  position: relative;
+}
+
+.crud-table__datatable--loading .p-datatable-thead::after {
+  content: "";
   position: absolute;
-  top: 0;
   left: 0;
   right: 0;
+  bottom: 0;
   height: 3px;
-  border-radius: 0;
-  background: transparent;
+  background: linear-gradient(90deg, transparent, var(--p-primary-500), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: crud-table-loading-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes crud-table-loading-slide {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .p-datatable-paginator-bottom {

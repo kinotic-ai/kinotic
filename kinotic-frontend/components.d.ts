@@ -42,7 +42,6 @@ declare module 'vue' {
     Paginator: typeof import('primevue/paginator')['default']
     Password: typeof import('primevue/password')['default']
     Popover: typeof import('primevue/popover')['default']
-    ProgressBar: typeof import('primevue/progressbar')['default']
     ProjectList: typeof import('./src/components/ProjectList.vue')['default']
     ProjectStructuresTable: typeof import('./src/components/ProjectStructuresTable.vue')['default']
     PropertyType: typeof import('./src/components/structures/flow-components/PropertyType.vue')['default']
