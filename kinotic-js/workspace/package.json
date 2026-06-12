@@ -2,7 +2,7 @@
   "name": "kinotic-js-monorepo",
   "license": "Elastic License 2.0",
   "scripts": {
-    "build": "bunup",
+    "build": "bunup && bun run --filter '@kinotic-ai/spawn' build:renderer",
     "dev": "bunup --watch",
     "type-check": "bun run --filter '*' type-check",
     "publish": "bun run scripts/publish.ts"

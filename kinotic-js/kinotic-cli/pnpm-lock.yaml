@@ -24,8 +24,8 @@ importers:
         specifier: ^1.3.0
         version: 1.3.0(@kinotic-ai/core@1.4.1(typescript@5.9.3))(typescript@5.9.3)
       '@kinotic-ai/spawn':
-        specifier: file:../workspace/packages/spawn
-        version: file:../workspace/packages/spawn(typescript@5.9.3)
+        specifier: ^0.1.0
+        version: 0.1.0(typescript@5.9.3)
       '@oclif/core':
         specifier: ^4.9.0
         version: 4.9.0
@@ -514,8 +514,8 @@ packages:
       typescript:
         optional: true
 
-  '@kinotic-ai/spawn@file:../workspace/packages/spawn':
-    resolution: {directory: ../workspace/packages/spawn, type: directory}
+  '@kinotic-ai/spawn@0.1.0':
+    resolution: {integrity: sha512-neQqfBOVY4rdadKcC0JWtlGhtBXzStaMZktQMg1x7beyRKiFllI2db1Ftcv+HgShPw4w5Bgfh2Jg4ZaY5D1xEw==}
     peerDependencies:
       typescript: '*'
     peerDependenciesMeta:
@@ -2124,7 +2124,7 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
-  '@kinotic-ai/spawn@file:../workspace/packages/spawn(typescript@5.9.3)':
+  '@kinotic-ai/spawn@0.1.0(typescript@5.9.3)':
     dependencies:
       liquidjs: 10.25.7
       zod: 4.3.6
