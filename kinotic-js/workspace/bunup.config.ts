@@ -19,6 +19,10 @@ export default defineWorkspace(
 		{
 			name: 'persistence',
 			root: 'packages/persistence'
+		},
+		{
+			name: 'spawn',
+			root: 'packages/spawn'
 		}
 	],
 	{
