@@ -1,111 +1,87 @@
 <template>
-  <div class="login-page">
-    <div class="login-shell">
-      <aside class="login-art" aria-hidden="true">
-        <img :src="loginBackgroundArt" alt="" class="login-art__image" />
-      </aside>
+  <AuthPageShell>
+    <div class="login-form">
+      <!-- Platform social buttons (Google, Microsoft, etc.) — fetched from /api/login/providers -->
+      <div v-if="providers.length > 0" class="login-providers">
+        <SocialAuthButton
+          v-for="provider in providers"
+          :key="provider"
+          :provider="provider"
+          :action="apiUrl('/api/login/start/' + provider)"
+          intent="sign-in"
+        />
+        <div class="login-divider"><span>or</span></div>
+      </div>
 
-      <main class="login-panel">
-        <button type="button" class="login-theme-toggle" @click="toggleTheme"
-                :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
-          <span :class="isDark ? 'pi pi-sun' : 'pi pi-moon'"></span>
+      <!-- Email field — first step -->
+      <div v-if="step === 'email'" class="login-form__step">
+        <IconField class="login-field">
+          <InputText
+            ref="emailInput"
+            v-model="email"
+            class="login-input"
+            placeholder="Email"
+            @keyup.enter="handleEmailSubmit"
+          />
+        </IconField>
+
+        <Button
+          label="Continue"
+          class="login-submit"
+          :loading="loading"
+          @click="handleEmailSubmit"
+        />
+      </div>
+
+      <!-- Password field — shown after lookup says "password" -->
+      <div v-else-if="step === 'password'" class="login-password-step">
+        <IconField class="login-field">
+          <InputText
+            :value="email"
+            disabled
+            class="login-input login-input--disabled"
+            placeholder="Email"
+          />
+        </IconField>
+
+        <IconField class="login-field">
+          <Password
+            ref="passwordInput"
+            v-model="password"
+            input-class="login-password-input"
+            class="login-password"
+            placeholder="Password"
+            toggleMask
+            :feedback="false"
+            @keyup.enter="handlePasswordSubmit"
+          />
+        </IconField>
+
+        <Button
+          label="Sign in"
+          class="login-submit"
+          :loading="loading"
+          @click="handlePasswordSubmit"
+        />
+
+        <button type="button" class="login-back-link" @click="resetToEmail">
+          <span class="pi pi-angle-left login-back-link__icon" aria-hidden="true"></span>
+          <span>Back</span>
         </button>
-        <div class="login-panel__content">
-          <img :src="loginBrandMark" alt="Kinotic" class="login-brand" />
+      </div>
 
-          <div class="login-form">
-            <!-- Platform social buttons (Google, Microsoft, etc.) — fetched from /api/login/providers -->
-            <div v-if="providers.length > 0" class="login-providers">
-              <SocialAuthButton
-                v-for="provider in providers"
-                :key="provider"
-                :provider="provider"
-                :action="apiUrl('/api/login/start/' + provider)"
-                intent="sign-in"
-              />
-              <div class="login-divider"><span>or</span></div>
-            </div>
+      <!-- SSO redirect spinner — brief moment before window.location changes -->
+      <div v-else-if="step === 'redirecting'" class="login-loading-state">
+        <div class="login-spinner login-spinner--small"></div>
+        <p class="login-loading-state__text">Redirecting to your identity provider…</p>
+      </div>
 
-            <!-- Email field — first step -->
-            <div v-if="step === 'email'" class="login-form__step">
-              <IconField class="login-field">
-                <InputText
-                  ref="emailInput"
-                  v-model="email"
-                  class="login-input"
-                  placeholder="Email"
-                  @keyup.enter="handleEmailSubmit"
-                />
-              </IconField>
-
-              <Button
-                label="Continue"
-                class="login-submit"
-                :loading="loading"
-                @click="handleEmailSubmit"
-              />
-            </div>
-
-            <!-- Password field — shown after lookup says "password" -->
-            <div v-else-if="step === 'password'" class="login-password-step">
-              <IconField class="login-field">
-                <InputText
-                  :value="email"
-                  disabled
-                  class="login-input login-input--disabled"
-                  placeholder="Email"
-                />
-              </IconField>
-
-              <IconField class="login-field">
-                <Password
-                  ref="passwordInput"
-                  v-model="password"
-                  input-class="login-password-input"
-                  class="login-password"
-                  placeholder="Password"
-                  toggleMask
-                  :feedback="false"
-                  @keyup.enter="handlePasswordSubmit"
-                />
-              </IconField>
-
-              <Button
-                label="Sign in"
-                class="login-submit"
-                :loading="loading"
-                @click="handlePasswordSubmit"
-              />
-
-              <button type="button" class="login-back-link" @click="resetToEmail">
-                <span class="pi pi-angle-left login-back-link__icon" aria-hidden="true"></span>
-                <span>Back</span>
-              </button>
-            </div>
-
-            <!-- SSO redirect spinner — brief moment before window.location changes -->
-            <div v-else-if="step === 'redirecting'" class="login-loading-state">
-              <div class="login-spinner login-spinner--small"></div>
-              <p class="login-loading-state__text">Redirecting to your identity provider…</p>
-            </div>
-
-            <div class="login-signup-link">
-              <span>New to Kinotic?</span>
-              <router-link to="/signup">Create an organization</router-link>
-            </div>
-          </div>
-        </div>
-
-        <footer class="login-footer">
-          <a href="#" class="login-footer__link">Terms of use</a>
-          <span class="login-footer__divider">|</span>
-          <a href="#" class="login-footer__link">Privacy policy</a>
-        </footer>
-      </main>
+      <div class="login-signup-link">
+        <span>New to Kinotic?</span>
+        <router-link to="/signup">Create an organization</router-link>
+      </div>
     </div>
-
-    <Toast />
-  </div>
+  </AuthPageShell>
 </template>
 
 <script lang="ts">
@@ -113,7 +89,6 @@ import { Component, Vue } from 'vue-facing-decorator'
 import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
 import Button from 'primevue/button'
-import Toast from 'primevue/toast'
 import IconField from 'primevue/iconfield'
 import { useToast } from 'primevue/usetoast'
 
@@ -122,13 +97,8 @@ import { StructuresStates } from '@/states'
 import { type IUserState } from '@/states/IUserState'
 import { createDebug } from '@/util/debug'
 import { apiUrl } from '@/util/helpers'
-import loginBgDark from '@/assets/left_background_dark.png'
-import loginBgLight from '@/assets/left-background_light.png'
-import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
-import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
-import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
+import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
-import '@/pages/auth-pages.css'
 
 const debug = createDebug('login')
 
@@ -140,7 +110,7 @@ interface LookupResponse {
 }
 
 @Component({
-  components: { InputText, Password, Button, Toast, IconField, SocialAuthButton }
+  components: { AuthPageShell, InputText, Password, Button, IconField, SocialAuthButton }
 })
 export default class Login extends Vue {
   email: string = ''
@@ -151,11 +121,6 @@ export default class Login extends Vue {
 
   private toast = useToast()
   private userState: IUserState = StructuresStates.getUserState()
-
-  get loginBackgroundArt() { return darkMode.value ? loginBgDark : loginBgLight }
-  get loginBrandMark() { return darkMode.value ? loginPageLogo : loginPageLogoLight }
-  get isDark() { return darkMode.value }
-  toggleTheme() { toggleDark() }
 
   async mounted() {
     this.consumeUrlError()

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -58,7 +58,7 @@
                         </h1>
 
                         <p style="margin:0 0 32px; font-family:'Inter','Helvetica Neue',Arial,sans-serif; font-size:17px; line-height:140%; color:#AFAFB4;">
-                            Hi <span th:text="${displayName}">there</span>, welcome to Kinotic.
+                            Hi {{displayName}}, welcome to Kinotic.
                             Confirm your email address to activate your account.
                         </p>
 
@@ -66,8 +66,7 @@
                         <!--[if mso]>
                         <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml"
                                      xmlns:w="urn:schemas-microsoft-com:office:word"
-                                     th:attr="href=${verificationUrl}"
-                                     href="#"
+                                     href="{{{verificationUrl}}}"
                                      style="height:44px; v-text-anchor:middle; width:220px;"
                                      arcsize="100%" stroke="f" fillcolor="#FF2D7A">
                             <w:anchorlock/>
@@ -84,8 +83,7 @@
                                     bgcolor="#FF2D7A"
                                     style="border-radius:9999px; background-color:#FF2D7A; background-image:linear-gradient(135deg,#FF2D7A 0%,#FF2A55 100%); box-shadow:0 20px 50px rgba(255,45,122,0.28);">
                                     <a class="cta-link"
-                                       th:href="${verificationUrl}"
-                                       href="#"
+                                       href="{{{verificationUrl}}}"
                                        style="display:inline-block; padding:0 24px; height:44px; line-height:44px; font-family:'Inter','Helvetica Neue',Arial,sans-serif; font-size:14px; font-weight:500; color:#FFFFFF; text-decoration:none; border-radius:9999px;">
                                         Verify email
                                     </a>
@@ -99,10 +97,8 @@
                             Button not working? Paste this URL into your browser:
                         </p>
                         <p style="margin:0; font-family:'Inter',Arial,sans-serif; font-size:13px; line-height:150%; word-break:break-all;">
-                            <a th:href="${verificationUrl}"
-                               th:text="${verificationUrl}"
-                               href="#"
-                               style="color:#28FEB4; text-decoration:underline;">https://…</a>
+                            <a href="{{{verificationUrl}}}"
+                               style="color:#28FEB4; text-decoration:underline;">{{{verificationUrl}}}</a>
                         </p>
                     </td>
                 </tr>

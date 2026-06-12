@@ -1,10 +1,13 @@
 package org.kinotic.domain.internal.api.services.iam;
 
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.internal.api.model.IamCredential;
+import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
 import org.kinotic.domain.internal.api.repositories.IamUserRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
@@ -20,17 +23,22 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
 
     private final IamUserRepository iamUserRepository;
     private final IamCredentialRepository credentialRepository;
+    private final ApplicationRepository applicationRepository;
 
     public DefaultIamUserService(IamUserRepository repository,
-                                 IamCredentialRepository credentialRepository) {
+                                 IamCredentialRepository credentialRepository,
+                                 ApplicationRepository applicationRepository) {
         super(repository);
         this.iamUserRepository = repository;
         this.credentialRepository = credentialRepository;
+        this.applicationRepository = applicationRepository;
     }
 
     @Override
     public CompletableFuture<IamUser> save(IamUser entity) {
         Validate.notNull(entity.getEmail(), "IamUser email cannot be null");
+        // Canonical form at the single write chokepoint; lookups normalize in the repository.
+        entity.setEmail(DomainUtil.normalizeEmail(entity.getEmail()));
         validateScopeFields(entity);
         if (entity.getId() == null) {
             entity.setId(UUID.randomUUID().toString());
@@ -118,10 +126,31 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     }
 
     @Override
-    public CompletableFuture<java.util.List<IamUser>> findAllByOidcIdentity(String oidcSubject, String oidcConfigId) {
+    public CompletableFuture<IamUser> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId) {
         Validate.notBlank(oidcSubject, "oidcSubject cannot be blank");
         Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
-        return iamUserRepository.findAllByOidcIdentity(oidcSubject, oidcConfigId);
+        return iamUserRepository.findOrgUserByOidcIdentity(oidcSubject, oidcConfigId);
+    }
+
+    @Override
+    public CompletableFuture<Page<IamUser>> findByScope(String organizationId, String applicationId, Pageable pageable) {
+        if (applicationId != null) {
+            Validate.notBlank(organizationId,
+                              "organizationId is required when applicationId is supplied");
+        }
+        return iamUserRepository.findByScope(organizationId, applicationId, pageable);
+    }
+
+    @Override
+    public CompletableFuture<Page<IamUser>> searchByScope(String searchText,
+                                                          String organizationId,
+                                                          String applicationId,
+                                                          Pageable pageable) {
+        if (applicationId != null) {
+            Validate.notBlank(organizationId,
+                              "organizationId is required when applicationId is supplied");
+        }
+        return iamUserRepository.searchByScope(searchText, organizationId, applicationId, pageable);
     }
 
     @Override
@@ -142,7 +171,8 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
             user.setAuthType(password != null ? AuthType.LOCAL : AuthType.OIDC);
         }
 
-        return save(user)
+        return applyTenantPolicy(user)
+                .thenCompose(this::save)
                 .thenCompose(savedUser -> {
                     if (password != null) {
                         IamCredential credential = new IamCredential()
@@ -151,6 +181,32 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
                         return credentialRepository.save(credential).thenApply(c -> savedUser);
                     }
                     return CompletableFuture.completedFuture(savedUser);
+                });
+    }
+
+    /**
+     * Applies the owning application's tenant policy to a new APPLICATION-scope user: when the
+     * app has {@code tenantPerUser} enabled and no explicit tenantId was supplied, a fresh UUID
+     * becomes the user's tenantId. Deliberately NOT the user's id — the tenantId is an ES
+     * routing key and part of the immutable _id of every SHARED entity the user writes, while
+     * createUser accepts caller-supplied ids of any shape; a dedicated UUID keeps tenant
+     * identity decoupled from id semantics.
+     */
+    private CompletableFuture<IamUser> applyTenantPolicy(IamUser user) {
+        if (user.getApplicationId() == null || user.getTenantId() != null) {
+            return CompletableFuture.completedFuture(user);
+        }
+        return applicationRepository.findById(user.getApplicationId(), user.getOrganizationId())
+                .thenApply(app -> {
+                    if (app == null) {
+                        throw new IllegalArgumentException(
+                                "Application " + user.getApplicationId() + " not found in organization "
+                                + user.getOrganizationId());
+                    }
+                    if (app.isTenantPerUser()) {
+                        user.setTenantId(UUID.randomUUID().toString());
+                    }
+                    return user;
                 });
     }
 

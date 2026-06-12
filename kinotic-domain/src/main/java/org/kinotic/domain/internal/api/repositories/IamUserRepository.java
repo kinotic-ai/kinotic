@@ -6,9 +6,9 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -21,23 +21,37 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
 
     public CompletableFuture<IamUser> findByEmail(String email, String organizationId, String applicationId) {
         return findFirst(b -> b.query(composeFilter(
-                termFilter("email", email),
+                termFilter("email", DomainUtil.normalizeEmail(email)),
                 scopeFilter(organizationId, applicationId))));
     }
 
     public CompletableFuture<IamUser> findFirstOrgUserByEmail(String email) {
         return findFirst(b -> b.query(composeFilter(
-                termFilter("email", email),
+                termFilter("email", DomainUtil.normalizeEmail(email)),
                 existsFilter("organizationId"),
                 missingFilter("applicationId"))));
     }
 
     public CompletableFuture<IamUser> findByEmail(String email) {
-        return findFirst(b -> b.query(termFilter("email", email)));
+        return findFirst(b -> b.query(termFilter("email", DomainUtil.normalizeEmail(email))));
     }
 
     public CompletableFuture<Page<IamUser>> findByScope(String organizationId, String applicationId, Pageable pageable) {
         return findAll(pageable, b -> b.query(scopeFilter(organizationId, applicationId)));
+    }
+
+    public CompletableFuture<Page<IamUser>> searchByScope(String searchText,
+                                                          String organizationId,
+                                                          String applicationId,
+                                                          Pageable pageable) {
+        if (searchText == null || searchText.isEmpty()) {
+            return findByScope(organizationId, applicationId, pageable);
+        }
+        return findAll(pageable, b -> b.query(Query.of(q -> q.bool(bq -> bq
+                .must(m -> m.queryString(qs -> qs.query(searchText)
+                                                 .fields("email", "displayName")
+                                                 .analyzeWildcard(true)))
+                .filter(scopeFilter(organizationId, applicationId))))));
     }
 
     public CompletableFuture<IamUser> findByOidcIdentity(String oidcSubject,
@@ -50,11 +64,12 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
                 scopeFilter(organizationId, applicationId))));
     }
 
-    public CompletableFuture<List<IamUser>> findAllByOidcIdentity(String oidcSubject, String oidcConfigId) {
-        return findAll(Pageable.ofSize(100), b -> b.query(composeFilter(
+    public CompletableFuture<IamUser> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId) {
+        return findFirst(b -> b.query(composeFilter(
                 termFilter("oidcSubject", oidcSubject),
-                termFilter("oidcConfigId", oidcConfigId))))
-                .thenApply(Page::getContent);
+                termFilter("oidcConfigId", oidcConfigId),
+                existsFilter("organizationId"),
+                missingFilter("applicationId"))));
     }
 
     /**

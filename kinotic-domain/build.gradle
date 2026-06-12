@@ -27,7 +27,10 @@ dependencies {
     implementation 'org.springframework:spring-core'
     implementation 'org.springframework:spring-context'
     implementation 'org.springframework.security:spring-security-crypto'
-    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    implementation('com.github.jknack:handlebars:4.5.1') {
+        // Nashorn is only used by handlebars for server-side JS precompilation, which we never do.
+        exclude group: 'org.openjdk.nashorn', module: 'nashorn-core'
+    }
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
     implementation 'tools.jackson.core:jackson-core'

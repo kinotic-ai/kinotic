@@ -1,92 +1,62 @@
 <template>
-  <div class="login-page">
-    <div class="login-shell">
-      <aside class="login-art" aria-hidden="true">
-        <img :src="loginBackgroundArt" alt="" class="login-art__image" />
-      </aside>
-
-      <main class="login-panel">
-        <button type="button" class="login-theme-toggle" @click="toggleTheme"
-                :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
-          <span :class="isDark ? 'pi pi-sun' : 'pi pi-moon'"></span>
-        </button>
-        <div class="login-panel__content">
-          <img :src="loginBrandMark" alt="Kinotic" class="login-brand" />
-
-          <div v-if="!token" class="login-form">
-            <div class="signup-error">
-              <span class="pi pi-exclamation-triangle signup-error__icon"></span>
-              <h2 class="signup-title">Missing registration token</h2>
-              <p class="signup-success__text">
-                Open this page from the link your identity provider sent you, or
-                <router-link to="/signup" class="login-link">start a new sign-up</router-link>.
-              </p>
-            </div>
-          </div>
-
-          <div v-else class="login-form">
-            <h2 class="signup-title">Name your organization</h2>
-            <p class="login-form__subtitle">
-              Welcome! Pick a name for your new organization to finish creating your account.
-            </p>
-
-            <div class="login-form__step">
-              <InputText
-                ref="orgName"
-                v-model="orgName"
-                class="login-input"
-                placeholder="Organization name"
-                @keyup.enter="focusNext('orgDescription')"
-              />
-
-              <InputText
-                ref="orgDescription"
-                v-model="orgDescription"
-                class="login-input"
-                placeholder="Description (optional)"
-                @keyup.enter="handleSubmit"
-              />
-
-              <Button
-                label="Create organization"
-                class="login-submit"
-                :loading="loading"
-                @click="handleSubmit"
-              />
-            </div>
-          </div>
-        </div>
-
-        <footer class="login-footer">
-          <a href="#" class="login-footer__link">Terms of use</a>
-          <span class="login-footer__divider">|</span>
-          <a href="#" class="login-footer__link">Privacy policy</a>
-        </footer>
-      </main>
+  <AuthPageShell>
+    <div v-if="!token" class="login-form">
+      <div class="signup-error">
+        <span class="pi pi-exclamation-triangle signup-error__icon"></span>
+        <h2 class="signup-title">Missing registration token</h2>
+        <p class="signup-success__text">
+          Open this page from the link your identity provider sent you, or
+          <router-link to="/signup" class="login-link">start a new sign-up</router-link>.
+        </p>
+      </div>
     </div>
 
-    <Toast />
-  </div>
+    <div v-else class="login-form">
+      <h2 class="signup-title">Name your organization</h2>
+      <p class="login-form__subtitle">
+        Welcome! Pick a name for your new organization to finish creating your account.
+      </p>
+
+      <div class="login-form__step">
+        <InputText
+          ref="orgName"
+          v-model="orgName"
+          class="login-input"
+          placeholder="Organization name"
+          @keyup.enter="focusNext('orgDescription')"
+        />
+
+        <InputText
+          ref="orgDescription"
+          v-model="orgDescription"
+          class="login-input"
+          placeholder="Description (optional)"
+          @keyup.enter="handleSubmit"
+        />
+
+        <Button
+          label="Create organization"
+          class="login-submit"
+          :loading="loading"
+          @click="handleSubmit"
+        />
+      </div>
+    </div>
+  </AuthPageShell>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-facing-decorator'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
-import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
 
 import { CONTINUUM_UI } from '@/IContinuumUI'
 import { StructuresStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
-import loginBgDark from '@/assets/left_background_dark.png'
-import loginBgLight from '@/assets/left-background_light.png'
-import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
-import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
-import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
 import { apiUrl } from '@/util/helpers'
+import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 import type { CompleteOrgRequest } from '@kinotic-ai/os-api'
-import '@/pages/auth-pages.css'
 
 /**
  * Lands here after `/api/signup/callback/:configId` redirects with `?token=<verificationToken>`
@@ -95,7 +65,7 @@ import '@/pages/auth-pages.css'
  * establishes the browser session, which we then use to open the realtime connection.
  */
 @Component({
-  components: { InputText, Button, Toast }
+  components: { AuthPageShell, InputText, Button }
 })
 export default class CompleteOrg extends Vue {
   orgName = ''
@@ -104,11 +74,6 @@ export default class CompleteOrg extends Vue {
 
   private toast = useToast()
   private userState: IUserState = StructuresStates.getUserState()
-
-  get loginBackgroundArt() { return darkMode.value ? loginBgDark : loginBgLight }
-  get loginBrandMark() { return darkMode.value ? loginPageLogo : loginPageLogoLight }
-  get isDark() { return darkMode.value }
-  toggleTheme() { toggleDark() }
 
   get token(): string | null {
     const t = this.$route.query.token ?? new URLSearchParams(window.location.search).get('token')

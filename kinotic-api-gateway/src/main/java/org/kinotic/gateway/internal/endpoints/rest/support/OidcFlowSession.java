@@ -28,6 +28,13 @@ public class OidcFlowSession implements ClusterSerializable {
     private String configId;
     private String orgId;
 
+    /**
+     * Accept token of the invitation this flow is accepting, or {@code null} for a plain
+     * login flow. Carried through the session because IdP redirect URIs are registered
+     * exactly, so the token cannot ride in the callback URL.
+     */
+    private String inviteToken;
+
     @Override
     public void writeToBuffer(Buffer buffer) {
         new JsonObject()
@@ -36,6 +43,7 @@ public class OidcFlowSession implements ClusterSerializable {
                 .put("pkceVerifier", pkceVerifier)
                 .put("configId", configId)
                 .put("orgId", orgId)
+                .put("inviteToken", inviteToken)
                 .writeToBuffer(buffer);
     }
 
@@ -48,6 +56,7 @@ public class OidcFlowSession implements ClusterSerializable {
         this.pkceVerifier = json.getString("pkceVerifier");
         this.configId = json.getString("configId");
         this.orgId = json.getString("orgId");
+        this.inviteToken = json.getString("inviteToken");
         return read;
     }
 }

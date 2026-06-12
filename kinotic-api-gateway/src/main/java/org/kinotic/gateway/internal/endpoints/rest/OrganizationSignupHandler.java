@@ -178,17 +178,17 @@ public class OrganizationSignupHandler {
         String displayName = OAuth2Util.firstPresent(claims, "name", "preferred_username", "email");
 
         if (sub == null || email == null) {
-            authEndpointSupport.redirectError(ctx, OidcConstants.ERR_INVALID_TOKEN);
+            authEndpointSupport.redirectError(ctx, OidcErrorCodes.INVALID_TOKEN);
             return;
         }
         if (!OAuth2Util.isEmailVerified(claims, config.getProvider())) {
-            authEndpointSupport.redirectError(ctx, OidcConstants.ERR_EMAIL_NOT_VERIFIED);
+            authEndpointSupport.redirectError(ctx, OidcErrorCodes.EMAIL_NOT_VERIFIED);
             return;
         }
 
-        Future.fromCompletionStage(iamUserService.findAllByOidcIdentity(sub, config.getId()))
+        Future.fromCompletionStage(iamUserService.findOrgUserByOidcIdentity(sub, config.getId()))
               .compose(existing -> {
-                  if (existing != null && !existing.isEmpty()) {
+                  if (existing != null) {
                       // Already have an account for this identity — push them to log in instead.
                       return Future.failedFuture(new AccountExistsException());
                   }
@@ -203,10 +203,10 @@ public class OrganizationSignupHandler {
               .onFailure(ex -> {
                   Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
                   if (cause instanceof AccountExistsException) {
-                      authEndpointSupport.redirectError(ctx, OidcConstants.ERR_ACCOUNT_EXISTS);
+                      authEndpointSupport.redirectError(ctx, OidcErrorCodes.ACCOUNT_EXISTS);
                   } else {
                       log.warn("Signup resolution failed: {}", cause.getMessage());
-                      authEndpointSupport.redirectError(ctx, OidcConstants.ERR_SIGNUP_FAILED);
+                      authEndpointSupport.redirectError(ctx, OidcErrorCodes.SIGNUP_FAILED);
                   }
               });
     }
@@ -246,7 +246,7 @@ public class OrganizationSignupHandler {
     /** Sends the browser to the org-naming page with the pending sign-up token. */
     private void redirectToCompleteOrg(RoutingContext ctx, String token) {
         ctx.response().setStatusCode(302)
-           .putHeader("Location", authEndpointSupport.appUrl(OidcConstants.REGISTER_PATH)
+           .putHeader("Location", authEndpointSupport.appUrl("/register")
                    + "?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8))
            .end();
     }

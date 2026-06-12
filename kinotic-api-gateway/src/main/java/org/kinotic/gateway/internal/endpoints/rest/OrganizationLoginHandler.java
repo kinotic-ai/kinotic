@@ -23,13 +23,13 @@ import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
  * Login routes for an organization — email/password, email-first SSO redirect, and social-button
  * (OIDC) login. On success each establishes the browser session; the STOMP WebSocket handshake then
- * authenticates from that session cookie, so the browser never handles a token.
+ * authenticates from that session cookie, so the browser never handles a token. OIDC flows started
+ * here return to this handler's own callbacks.
  */
 @Slf4j
 @Component
@@ -113,9 +113,7 @@ public class OrganizationLoginHandler {
 
     private void completeSocialLogin(RoutingContext ctx, CallbackResult<OrgSignupOidcConfiguration> result) {
         authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
-                // Social login: identity might exist in any org; pick the first match.
-                sub -> iamUserService.findAllByOidcIdentity(sub, result.config().getId())
-                                     .thenApply(this::pickFirst));
+                sub -> iamUserService.findOrgUserByOidcIdentity(sub, result.config().getId()));
     }
 
     /**
@@ -180,10 +178,6 @@ public class OrganizationLoginHandler {
      */
     private void handleLogin(RoutingContext ctx) {
         authEndpointSupport.handlePasswordLogin(ctx, localAuthenticationService::authenticateLocal);
-    }
-
-    private IamUser pickFirst(List<IamUser> candidates) {
-        return (candidates == null || candidates.isEmpty()) ? null : candidates.getFirst();
     }
 
     /**

@@ -65,7 +65,49 @@ Inline comments inside method bodies are different: they're for implementation d
 
 The split is about audience, not formatting. Javadoc is for **consumers** of the API; inline is for **maintainers** of the body. Before writing a comment, ask which one needs it. The rationale for a defensive check, a workaround, or a tricky ordering belongs inline next to the code that does it — never in the Javadoc, even if it explains why the method behaves the way it does. The caller doesn't care that an org-mismatch returns null because of an ES shard-hashing edge case; they care that it returns null when there's no doc for that org. The "because" stays in the body.
 
+Use standard programming vocabulary in comments — the terms from GoF, Fowler's Refactoring, and the JDK/framework docs: delegate, factory, guard clause, invariant, idempotent, race condition, callback, dispatch. Never literary metaphors or coined phrases ("prologue", "dance", "journey", "saga"). Reference the actual method and class names involved rather than describing them indirectly. State cause and effect directly.
+
 Never remove or alter an existing authorship comment — `Created by <name> on <date>`, `@author`, or similar attribution. Preserve it verbatim (name, accents, emoji, date, punctuation) when editing or refactoring a file, including when you rewrite the surrounding Javadoc/JSDoc, and carry it with the type if you move that type to another file.
 
 ## Properties
 Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant.
+
+## Avoid these code smells
+
+These are the named smells from Martin Fowler and Kent Beck's catalog in *Refactoring: Improving the Design of Existing Code*, grouped by Mäntylä's taxonomy — decades of industry consensus on what makes code hard to change, not house style or one reviewer's taste. That is why they bind: each one is a pattern the field has repeatedly watched turn into maintenance cost. Check every diff against this list before presenting it. The bar for any new abstraction is YAGNI (Beck and Jeffries, Extreme Programming) and the Rule of Three (Don Roberts, in Refactoring): it must carry information or remove duplication **today** — not that it might someday.
+
+**Dispensables — code that should not exist**
+
+- **Speculative Generality.** No one-value enums, no parameters every call site passes the same constant to, no "seam for a future toggle," no interface with a single implementation created "just in case," no config nobody asked for. Build for the current requirement; introduce the discriminator or abstraction when the second concrete case exists to design against.
+- **Dead Code.** No defensive branches every caller already makes impossible, no unused parameters or imports, no commented-out code, no "kept for later" methods without an owner's explicit say-so. A guard that is genuinely load-bearing against a corrupted state earns an inline comment saying so — otherwise delete it.
+- **Lazy Element.** A class, method, or package that no longer pulls its weight after a refactor gets inlined or deleted, not left behind.
+- **Duplicated Code.** Before writing new logic, find the existing seam and compose it (one logic path). Two near-identical blocks in sibling classes means the shared piece was never extracted — extract it to the nearest common layer, not to a new grab bag.
+- **Comments as deodorant.** A comment explaining confusing code is a signal to fix the code. The Comments section above governs what comments are for.
+
+**Bloaters — things that have grown past one responsibility**
+
+- **Long Function.** A method that does several things at different levels of abstraction gets decomposed, each piece named for what it does.
+- **Large Class / junk drawers.** No `Constants`/`Utils`/`Helper`/`Manager` grab bags accumulating unrelated members. Name a class for the one thing it holds; if you can't name it honestly, split it. Entities too: a class holding one kind of thing must not carry a name claiming generality it doesn't have.
+- **Long Parameter List / flag arguments.** A boolean or mode parameter that forks a method's whole behavior is two methods. More than ~4 parameters is a sign some of them are a missing type.
+- **Data Clumps.** Values that always travel together belong in one type, not loose parameter pairs repeated across signatures.
+- **Primitive Obsession.** Covered by the enum rule in Java Conventions — applies equally to ids, keys, and wire codes used across boundaries.
+
+**Couplers — classes that know too much about each other**
+
+- **Middle Man / needless indirection.** No support class, wrapper, or dispatch layer with a single consumer — inline it until at least two real consumers exist. A flow's logic should be followable inside one class; if understanding it requires hopping between classes, the indirection is the smell. Same rule for constants: used in one class → declared in that class; shared catalogs only for genuine cross-class or cross-boundary contracts.
+- **Feature Envy.** A method that mostly reads and combines another class's data belongs on that class. If a handler keeps reaching into an entity to make a decision the entity could make, move the decision.
+- **Inappropriate Intimacy.** Don't reach through another class's internals (its repository, its private collaborators) — go through its interface. Crossing the `api`/`internal` boundary from another module is this smell by definition.
+- **Message Chains.** `a.getB().getC().getD()` couples the caller to the whole path. Ask the nearest object for what you actually need.
+
+**Change preventers — structure that makes edits expensive**
+
+- **Shotgun Surgery.** When one logical change forces edits in many files (a wire code, a route, a field name), the knowledge is scattered — give it a single home first, then change it.
+- **Divergent Change.** When one class keeps changing for unrelated reasons, it has multiple responsibilities — split along the reasons it changes.
+- **Repeated Switches.** The same `switch`/`if-else` chain over the same discriminator in more than one place means polymorphism or a map is missing. One occurrence is fine; the second copy is the smell.
+
+**Object-orientation abusers**
+
+- **Alternative Classes with Different Interfaces.** Two classes doing the same job must share a shape: same method names, same parameter order.
+- **Refused Bequest.** Don't extend a base class to use one method while ignoring or overriding-to-nothing the rest — compose instead.
+- **Temporary Field.** A field only meaningful during one operation is a missing parameter or a missing small object, not state.
+- **Data Class with leaked logic.** Entities/DTOs stay dumb (this codebase's convention), but the logic operating on them must then live in ONE service — not spread across every caller.

@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS kinotic_application (
     organizationId KEYWORD,
     description TEXT,
     oidcConfigurationIds KEYWORD,
+    tenantPerUser BOOLEAN,
     updated DATE
 );
 
@@ -162,6 +163,36 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_signup (
     authType KEYWORD,
     oidcSubject KEYWORD,
     oidcConfigId KEYWORD
+);
+
+-- Pending member invitations (PendingInvite) awaiting acceptance: the invitee's identity, the
+-- scope they join (organizationId always set; applicationId only for app-member invites), and
+-- inviter attribution for the email/accept page. No authType — the invitee chooses password or
+-- OIDC at accept. Single-use: consumed and deleted when accepted, cancelled, or found expired.
+CREATE TABLE IF NOT EXISTS kinotic_pending_invite (
+    id KEYWORD,
+    verificationToken KEYWORD,
+    expiresAt DATE,
+    created DATE,
+    email KEYWORD,
+    displayName KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    invitedById KEYWORD,
+    invitedByName KEYWORD
+);
+
+-- An application's customized invitation email (InviteEmailTemplate): Handlebars sources
+-- replacing the built-in invitation template, at most one row per application.
+CREATE TABLE IF NOT EXISTS kinotic_invite_email_template (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    subject TEXT,
+    htmlBody TEXT,
+    textBody TEXT,
+    created DATE,
+    updated DATE
 );
 
 -- Create the vm_node table for tracking VmManager nodes

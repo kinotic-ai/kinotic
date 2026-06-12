@@ -1,6 +1,7 @@
 package org.kinotic.sql.parsers;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,7 +33,9 @@ public class MigrationParser {
 
     public MigrationContent parse(Resource resource) throws IOException {
         byte[] bytes = resource.getInputStream().readAllBytes();
-        return parse(bytes);
+        // The filename rides the CharStream as its ANTLR source name so log statements
+        // produced during parsing can attribute their output to the migration file.
+        return parse(CharStreams.fromString(new String(bytes, StandardCharsets.UTF_8), resource.getFilename()));
     }
 
     public MigrationContent parse(String sql) {
@@ -61,7 +64,8 @@ public class MigrationParser {
         @Override
         public MigrationContent visitMigrations(KinoticSQLParser.MigrationsContext ctx) {
             List<KinoticSQLParser.StatementContext> statements = ctx.statement();
-            log.debug("Found {} statements in migration file", statements.size());
+            log.debug("Found {} statements in migration file {}",
+                      statements.size(), ctx.getStart().getTokenSource().getSourceName());
             List<Statement> parsedStatements = new java.util.ArrayList<>();
             for (KinoticSQLParser.StatementContext stmtCtx : statements) {
                 Statement stmt = parseStatement(stmtCtx);

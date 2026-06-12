@@ -11,7 +11,7 @@ import java.util.function.Function;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.gateway.internal.endpoints.rest.OidcConstants;
+import org.kinotic.gateway.internal.endpoints.rest.OidcErrorCodes;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.internal.utils.DomainUtil;
@@ -61,9 +61,11 @@ public class AuthEndpointSupport {
     /**
      * Authenticates the browser by placing the logged-in user's {@link Participant} into the
      * Vert.x session. The subsequent STOMP WebSocket handshake reads it back from the session,
-     * so the browser is authenticated by its session cookie and never handles a token.
+     * so the browser is authenticated by its session cookie and never handles a token. The
+     * participant type follows the user's scope (org users get an OrganizationParticipant,
+     * app users an ApplicationParticipant), which is what scopes their authority.
      */
-    private void establishSession(RoutingContext ctx, IamUser user) {
+    public void establishSession(RoutingContext ctx, IamUser user) {
         Session session = ctx.session();
         // Rotate the session id on the privilege change so a pre-auth (possibly fixed)
         // id cannot be reused to ride the now-authenticated session.
@@ -89,14 +91,14 @@ public class AuthEndpointSupport {
     public void redirectSuccess(RoutingContext ctx, IamUser user) {
         establishSession(ctx, user);
         ctx.response().setStatusCode(302)
-           .putHeader("Location", appUrl(OidcConstants.LOGIN_SUCCESS_PATH))
+           .putHeader("Location", appUrl("/"))
            .end();
     }
 
     /** {@code 302 Location: <appBaseUrl><errorPath>?error=<code>}. */
     public void redirectError(RoutingContext ctx, String errorCode) {
         ctx.response().setStatusCode(302)
-           .putHeader("Location", appUrl(OidcConstants.LOGIN_ERROR_PATH)
+           .putHeader("Location", appUrl("/login")
                    + "?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8))
            .end();
     }
@@ -104,14 +106,14 @@ public class AuthEndpointSupport {
     /**
      * Maps an OIDC callback failure to the right error redirect. {@link OidcCallbackException}
      * carries a typed code; everything else gets logged and falls through to
-     * {@link OidcConstants#ERR_EXCHANGE_FAILED}.
+     * {@link OidcErrorCodes#EXCHANGE_FAILED}.
      */
     public void redirectCallbackFailure(RoutingContext ctx, Throwable ex) {
         if (ex instanceof OidcCallbackException oce) {
             redirectError(ctx, oce.getErrorCode());
         } else {
             log.warn("OIDC callback failed: {}", ex.getMessage());
-            redirectError(ctx, OidcConstants.ERR_EXCHANGE_FAILED);
+            redirectError(ctx, OidcErrorCodes.EXCHANGE_FAILED);
         }
     }
 
@@ -139,6 +141,11 @@ public class AuthEndpointSupport {
 
     /** Standard {@code [{id, name, provider}]} shape for "list of OIDC configs to choose from". */
     public void respondProvidersList(RoutingContext ctx, List<? extends BaseOidcConfiguration> configs) {
+        ctx.response().putHeader("Content-Type", "application/json").end(providersJson(configs).encode());
+    }
+
+    /** The {@code [{id, name, provider}]} array behind {@link #respondProvidersList}, for embedding in larger payloads. */
+    public JsonArray providersJson(List<? extends BaseOidcConfiguration> configs) {
         JsonArray arr = new JsonArray();
         for (BaseOidcConfiguration c : configs) {
             arr.add(new JsonObject()
@@ -146,7 +153,7 @@ public class AuthEndpointSupport {
                     .put("name", c.getName())
                     .put("provider", c.getProvider() == null ? null : c.getProvider().key()));
         }
-        ctx.response().putHeader("Content-Type", "application/json").end(arr.encode());
+        return arr;
     }
 
     // ── Composite flows ───────────────────────────────────────────────────────
@@ -201,26 +208,26 @@ public class AuthEndpointSupport {
                                   Function<String, CompletionStage<IamUser>> userLookup) {
         String sub = OAuth2Util.stringClaim(claims, "sub");
         if (sub == null) {
-            redirectError(ctx, OidcConstants.ERR_INVALID_TOKEN);
+            redirectError(ctx, OidcErrorCodes.INVALID_TOKEN);
             return;
         }
         if (!OAuth2Util.isEmailVerified(claims, config.getProvider())) {
-            redirectError(ctx, OidcConstants.ERR_EMAIL_NOT_VERIFIED);
+            redirectError(ctx, OidcErrorCodes.EMAIL_NOT_VERIFIED);
             return;
         }
         Future.fromCompletionStage(userLookup.apply(sub))
               .onSuccess(user -> {
                   if (user == null) {
-                      redirectError(ctx, OidcConstants.ERR_NO_ACCOUNT);
+                      redirectError(ctx, OidcErrorCodes.NO_ACCOUNT);
                   } else if (!user.isEnabled()) {
-                      redirectError(ctx, OidcConstants.ERR_ACCOUNT_DISABLED);
+                      redirectError(ctx, OidcErrorCodes.ACCOUNT_DISABLED);
                   } else {
                       redirectSuccess(ctx, user);
                   }
               })
               .onFailure(err -> {
                   log.warn("Login resolution failed: {}", err.getMessage());
-                  redirectError(ctx, OidcConstants.ERR_LOOKUP_FAILED);
+                  redirectError(ctx, OidcErrorCodes.LOOKUP_FAILED);
               });
     }
 }
