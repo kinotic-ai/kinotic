@@ -126,7 +126,7 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
      * in search results before returning.
      */
     public CompletableFuture<T> createSync(T value) {
-        return crudServiceTemplate.createSync(indexName, value.getId(), value)
+        return crudServiceTemplate.createSync(indexName, value.getId(), value, null)
                                   .thenApply(_ -> value);
     }
 

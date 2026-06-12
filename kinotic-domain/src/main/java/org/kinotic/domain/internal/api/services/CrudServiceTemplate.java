@@ -583,17 +583,24 @@ public class CrudServiceTemplate {
      * to guarantee read-your-write semantics for subsequent queries. Fails with
      * {@link AlreadyExistsException} when a document with the same id already exists.
      *
-     * @param indexName name of the index
-     * @param id        id the document must be created under
-     * @param document  the document to index
+     * @param indexName       name of the index
+     * @param id              id the document must be created under
+     * @param document        the document to index
+     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
      * @return a {@link CompletableFuture} completing with the {@link IndexResponse} after the
      *         document is searchable, or failing with {@link AlreadyExistsException} if the id
      *         is already taken
      */
     public <T> CompletableFuture<IndexResponse> createSync(String indexName,
                                                            String id,
-                                                           T document) {
-        return create(indexName, id, document, builder -> builder.refresh(Refresh.WaitFor));
+                                                           T document,
+                                                           Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return create(indexName, id, document, builder -> {
+            if (builderConsumer != null) {
+                builderConsumer.accept(builder);
+            }
+            builder.refresh(Refresh.WaitFor);
+        });
     }
 
     public CompletableFuture<Void> updateIndexMapping(String indexName,

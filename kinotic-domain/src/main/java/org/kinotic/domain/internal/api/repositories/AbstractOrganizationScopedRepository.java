@@ -1,7 +1,6 @@
 package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.CountRequest;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
@@ -146,10 +145,10 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     public CompletableFuture<T> createSync(T value, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         requireOrgMatchesEntity(value, orgId);
-        return crudServiceTemplate.create(indexName,
-                                          composeDocumentId(value.getId(), orgId),
-                                          value,
-                                          b -> b.routing(orgId).refresh(Refresh.WaitFor))
+        return crudServiceTemplate.createSync(indexName,
+                                              composeDocumentId(value.getId(), orgId),
+                                              value,
+                                              b -> b.routing(orgId))
                                   .thenApply(indexResponse -> value);
     }
 
