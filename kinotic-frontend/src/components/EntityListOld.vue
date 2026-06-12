@@ -231,7 +231,7 @@ export default EntityList
   </div>
 </template>
 <style>
-.p-datatable .p-button {
+.entity-list-old .p-datatable .p-button {
   margin-top: 1rem;
 }
 .p-toolbar-start {
