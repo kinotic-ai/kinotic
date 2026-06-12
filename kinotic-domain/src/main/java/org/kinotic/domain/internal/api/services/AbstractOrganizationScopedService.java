@@ -73,6 +73,22 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
         });
     }
 
+    @Override
+    public CompletableFuture<T> create(T value) {
+        return beforeSave(value).thenCompose(v -> {
+            enforceOrgOnSave(value);
+            return scopedRepository.create(value, resolveWriteOrgId(value));
+        });
+    }
+
+    @Override
+    public CompletableFuture<T> createSync(T value) {
+        return beforeSave(value).thenCompose(v -> {
+            enforceOrgOnSave(value);
+            return scopedRepository.createSync(value, resolveWriteOrgId(value));
+        });
+    }
+
     /**
      * Hook run before every write — {@link #save} and {@link #saveSync} both call it, so a
      * subclass cannot accidentally guard one write path and not the other. Override to

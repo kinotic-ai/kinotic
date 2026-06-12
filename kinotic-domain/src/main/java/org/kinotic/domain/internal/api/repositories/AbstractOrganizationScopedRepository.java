@@ -1,6 +1,7 @@
 package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.CountRequest;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
@@ -120,6 +121,35 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
                                             composeDocumentId(value.getId(), orgId),
                                             value,
                                             b -> b.routing(orgId))
+                                  .thenApply(indexResponse -> value);
+    }
+
+    /**
+     * Persists a new entity belonging to {@code orgId}, failing with
+     * {@link org.kinotic.core.api.exceptions.AlreadyExistsException} if the id is already
+     * taken within that organization, instead of overwriting the way {@link #save} would.
+     */
+    public CompletableFuture<T> create(T value, String orgId) {
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        requireOrgMatchesEntity(value, orgId);
+        return crudServiceTemplate.create(indexName,
+                                          composeDocumentId(value.getId(), orgId),
+                                          value,
+                                          b -> b.routing(orgId))
+                                  .thenApply(indexResponse -> value);
+    }
+
+    /**
+     * Persists a new entity like {@link #create}, additionally waiting for it to be visible
+     * in search results before returning.
+     */
+    public CompletableFuture<T> createSync(T value, String orgId) {
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        requireOrgMatchesEntity(value, orgId);
+        return crudServiceTemplate.create(indexName,
+                                          composeDocumentId(value.getId(), orgId),
+                                          value,
+                                          b -> b.routing(orgId).refresh(Refresh.WaitFor))
                                   .thenApply(indexResponse -> value);
     }
 

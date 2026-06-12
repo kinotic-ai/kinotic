@@ -41,15 +41,13 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
     @Override
     public CompletableFuture<Organization> create(Organization entity) {
         Validate.notBlank(entity.getName(), "Organization name cannot be null");
-        Date now = new Date();
-        entity.setId(slg.slugify(entity.getName()).toLowerCase())
-              .setCreated(now)
-              .setUpdated(now);
-        return repository.create(entity)
-                         .exceptionallyCompose(ex -> isAlreadyExists(ex)
-                                 ? CompletableFuture.failedFuture(new AlreadyExistsException(
-                                         "An organization named '" + entity.getName() + "' already exists"))
-                                 : CompletableFuture.failedFuture(ex));
+        // Force the id to derive from the name; beforeSave mints it from the slug.
+        entity.setId(null);
+        return super.create(entity)
+                    .exceptionallyCompose(ex -> isAlreadyExists(ex)
+                            ? CompletableFuture.failedFuture(new AlreadyExistsException(
+                                    "An organization named '" + entity.getName() + "' already exists"))
+                            : CompletableFuture.failedFuture(ex));
     }
 
     private static boolean isAlreadyExists(Throwable ex) {

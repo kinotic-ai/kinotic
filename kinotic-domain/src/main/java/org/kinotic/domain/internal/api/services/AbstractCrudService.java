@@ -57,6 +57,16 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
         return beforeSave(value).thenCompose(v -> repository.saveSync(value));
     }
 
+    @Override
+    public CompletableFuture<T> create(T value) {
+        return beforeSave(value).thenCompose(v -> repository.create(value));
+    }
+
+    @Override
+    public CompletableFuture<T> createSync(T value) {
+        return beforeSave(value).thenCompose(v -> repository.createSync(value));
+    }
+
     /**
      * Hook run before every write — {@link #save} and {@link #saveSync} both call it, so a
      * subclass cannot accidentally guard one write path and not the other. Override to

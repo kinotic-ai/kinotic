@@ -546,12 +546,54 @@ public class CrudServiceTemplate {
     public <T> CompletableFuture<IndexResponse> create(String indexName,
                                                        String id,
                                                        T document) {
-        return bindToContext(esAsyncClient.index((IndexRequest.Builder<T> builder) ->
-                builder.index(indexName).id(id).document(document).opType(OpType.Create)))
+        return create(indexName, id, document, null);
+    }
+
+    /**
+     * Indexes a document only if its id is not already present, using Elasticsearch's
+     * {@code create} op-type, with full {@link IndexRequest} customization. Fails with
+     * {@link AlreadyExistsException} when a document with the same id already exists.
+     *
+     * @param indexName       name of the index
+     * @param id              id the document must be created under
+     * @param document        the document to index
+     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
+     * @return a {@link CompletableFuture} completing with the {@link IndexResponse}, or failing
+     *         with {@link AlreadyExistsException} if the id is already taken
+     */
+    public <T> CompletableFuture<IndexResponse> create(String indexName,
+                                                       String id,
+                                                       T document,
+                                                       Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return bindToContext(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
+                    builder.index(indexName).id(id).document(document).opType(OpType.Create);
+                    if (builderConsumer != null) {
+                        builderConsumer.accept(builder);
+                    }
+                    return builder;
+                }))
                 .exceptionallyCompose(throwable -> isVersionConflict(throwable)
                         ? CompletableFuture.failedFuture(new AlreadyExistsException(
                                 "A document with id '" + id + "' already exists in index '" + indexName + "'"))
                         : CompletableFuture.<IndexResponse>failedFuture(throwable));
+    }
+
+    /**
+     * Indexes a document only if its id is not already present, using {@link Refresh#WaitFor}
+     * to guarantee read-your-write semantics for subsequent queries. Fails with
+     * {@link AlreadyExistsException} when a document with the same id already exists.
+     *
+     * @param indexName name of the index
+     * @param id        id the document must be created under
+     * @param document  the document to index
+     * @return a {@link CompletableFuture} completing with the {@link IndexResponse} after the
+     *         document is searchable, or failing with {@link AlreadyExistsException} if the id
+     *         is already taken
+     */
+    public <T> CompletableFuture<IndexResponse> createSync(String indexName,
+                                                           String id,
+                                                           T document) {
+        return create(indexName, id, document, builder -> builder.refresh(Refresh.WaitFor));
     }
 
     public CompletableFuture<Void> updateIndexMapping(String indexName,

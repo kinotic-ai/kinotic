@@ -121,6 +121,15 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
                                   .thenApply(_ -> value);
     }
 
+    /**
+     * Persists a new entity like {@link #create}, additionally waiting for it to be visible
+     * in search results before returning.
+     */
+    public CompletableFuture<T> createSync(T value) {
+        return crudServiceTemplate.createSync(indexName, value.getId(), value)
+                                  .thenApply(_ -> value);
+    }
+
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
         if (searchText == null || searchText.isEmpty()) {
             return findAll(pageable);
