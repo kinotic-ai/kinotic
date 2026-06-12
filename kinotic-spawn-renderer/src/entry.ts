@@ -1,8 +1,4 @@
-// Bundled from the engine's TypeScript source rather than its dist so the
-// bundle builds without a prior workspace build. liquidjs and zod resolve from
-// this project's node_modules via NODE_PATH (see the build script); their
-// versions must match the ones declared by @kinotic-ai/spawn.
-import {SpawnEngine} from '../../kinotic-js/workspace/packages/spawn/src/index'
+import {SpawnEngine} from '@kinotic-ai/spawn'
 
 const engine = new SpawnEngine()
 

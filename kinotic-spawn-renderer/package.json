@@ -6,11 +6,10 @@
     "license": "Elastic License 2.0",
     "type": "module",
     "scripts": {
-        "build": "NODE_PATH=node_modules esbuild src/entry.ts --bundle --platform=browser --format=iife --global-name=KinoticSpawn --outfile=dist/spawn-renderer.js --log-level=warning"
+        "build": "esbuild src/entry.ts --bundle --platform=browser --format=iife --global-name=KinoticSpawn --outfile=dist/spawn-renderer.js --log-level=warning"
     },
     "dependencies": {
-        "liquidjs": "10.25.7",
-        "zod": "^4.3.6"
+        "@kinotic-ai/spawn": "file:../kinotic-js/workspace/packages/spawn"
     },
     "devDependencies": {
         "esbuild": "^0.27.4"

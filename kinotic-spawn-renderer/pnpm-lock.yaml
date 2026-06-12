@@ -8,12 +8,9 @@ importers:
 
   .:
     dependencies:
-      liquidjs:
-        specifier: 10.25.7
-        version: 10.25.7
-      zod:
-        specifier: ^4.3.6
-        version: 4.4.3
+      '@kinotic-ai/spawn':
+        specifier: file:../kinotic-js/workspace/packages/spawn
+        version: file:../kinotic-js/workspace/packages/spawn
     devDependencies:
       esbuild:
         specifier: ^0.27.4
@@ -177,6 +174,14 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@kinotic-ai/spawn@file:../kinotic-js/workspace/packages/spawn':
+    resolution: {directory: ../kinotic-js/workspace/packages/spawn, type: directory}
+    peerDependencies:
+      typescript: '*'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   commander@10.0.1:
     resolution: {integrity: sha512-y4Mg2tXshplEbSGzx7amzPwKKOCGuoSRP/CjEdwwk0FOGlUbq6lKuoyDZTNZkmxHdJtp54hdfY/JUrdL7Xfdug==}
     engines: {node: '>=14'}
@@ -273,6 +278,11 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.7':
     optional: true
+
+  '@kinotic-ai/spawn@file:../kinotic-js/workspace/packages/spawn':
+    dependencies:
+      liquidjs: 10.25.7
+      zod: 4.4.3
 
   commander@10.0.1: {}
 
