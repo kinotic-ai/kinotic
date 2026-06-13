@@ -35,4 +35,10 @@ public class MockProjectRepoProvisioner implements ProjectRepoProvisioner {
                   project.getRepoFullName(), project.getId());
         return CompletableFuture.completedFuture(project);
     }
+
+    @Override
+    public CompletableFuture<Project> reinitialize(Project project) {
+        project.setRepositoryConnectionStatus(RepositoryConnectionStatus.CONNECTED);
+        return CompletableFuture.completedFuture(project);
+    }
 }

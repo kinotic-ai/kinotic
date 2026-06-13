@@ -30,11 +30,13 @@ import java.util.zip.GZIPOutputStream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -120,6 +122,41 @@ class GitHubProjectRepoProvisionerTest {
 
         assertEquals(RepositoryConnectionStatus.CONNECTED, project.getRepositoryConnectionStatus());
         verify(apiClient, times(2)).downloadTarball(eq("repo-token"), eq("acme/demo"), eq("main"));
+    }
+
+    @Test
+    void adoptsTheRepoWhenInitializationFails() throws Exception {
+        when(apiClient.downloadTarball(eq("repo-token"), eq("acme/demo"), eq("main")))
+                .thenReturn(Future.succeededFuture(templateTarball()));
+        when(apiClient.updateRef(eq("repo-token"), eq("acme/demo"), eq("heads/main"), eq("commit-sha"), eq(true)))
+                .thenReturn(Future.failedFuture(new GitHubApiException("updateRef failed: HTTP 500")));
+
+        // provision succeeds even though initialization failed: the repo was created,
+        // so the project is adopted with a retryable status rather than orphaned.
+        Project project = provisioner.provision(project()).get();
+
+        assertEquals("acme/demo", project.getRepoFullName());
+        assertEquals(99L, project.getRepoId());
+        assertEquals(RepositoryConnectionStatus.INITIALIZATION_FAILED, project.getRepositoryConnectionStatus());
+    }
+
+    @Test
+    void reinitializeRendersWithoutCreatingANewRepo() throws Exception {
+        when(apiClient.downloadTarball(eq("repo-token"), eq("acme/demo"), eq("main")))
+                .thenReturn(Future.succeededFuture(templateTarball()));
+
+        Project failed = project();
+        failed.setRepoFullName("acme/demo");
+        failed.setRepoId(99L);
+        failed.setDefaultBranch("main");
+        failed.setRepositoryConnectionStatus(RepositoryConnectionStatus.INITIALIZATION_FAILED);
+
+        Project project = provisioner.reinitialize(failed).get();
+
+        assertEquals(RepositoryConnectionStatus.CONNECTED, project.getRepositoryConnectionStatus());
+        verify(apiClient, never()).createRepoFromTemplate(anyString(), anyString(), anyString(),
+                                                          anyString(), any(), anyBoolean());
+        verify(apiClient).updateRef(eq("repo-token"), eq("acme/demo"), eq("heads/main"), eq("commit-sha"), eq(true));
     }
 
     private static Project project() {

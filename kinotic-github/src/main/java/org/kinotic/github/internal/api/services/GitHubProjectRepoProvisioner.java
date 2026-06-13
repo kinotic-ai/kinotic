@@ -5,7 +5,9 @@ import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.github.api.config.KinoticGithubProperties;
+import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.internal.api.services.client.CreatedRepository;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
@@ -65,12 +67,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
             return CompletableFuture.failedFuture(new IllegalArgumentException(
                     "Project name '" + project.getName() + "' produces an empty GitHub repository name"));
         }
-        return installationService.findForCurrentOrg().thenCompose(install -> {
-            if (install == null) {
-                throw new IllegalStateException(
-                        "GitHub is not linked for this organization. "
-                        + "Link GitHub before creating a project.");
-            }
+        return requireInstallation().compose(install -> {
             long installationId = install.getGithubInstallationId();
             // repoId is null — the repo doesn't exist yet, so we mint an
             // installation-wide WRITE_CONTENTS token to create it.
@@ -83,9 +80,36 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
                                     project.getDescription(),
                                     project.isRepoPrivate()))
                             .map(repo -> stamp(project, repo))
-                            .compose(p -> initializeRepo(installationId, p))
-                            .toCompletionStage().toCompletableFuture();
-        });
+                            // Adopt-not-orphan: the repo exists now, so a baseline failure
+                            // marks the project for retry instead of failing the create and
+                            // leaving an untracked repo behind.
+                            .compose(p -> initializeRepo(installationId, p).recover(err -> {
+                                log.error("Baseline initialization failed for {}; repository created, "
+                                          + "marking project {} {}", p.getRepoFullName(), p.getId(),
+                                          RepositoryConnectionStatus.INITIALIZATION_FAILED, err);
+                                p.setRepositoryConnectionStatus(RepositoryConnectionStatus.INITIALIZATION_FAILED);
+                                return Future.succeededFuture(p);
+                            }));
+        }).toCompletionStage().toCompletableFuture();
+    }
+
+    @Override
+    public CompletableFuture<Project> reinitialize(Project project) {
+        Validate.notNull(project.getRepoId(), "Project repoId must be set to reinitialize");
+        Validate.notBlank(project.getRepoFullName(), "Project repoFullName must be set to reinitialize");
+        Validate.notBlank(project.getDefaultBranch(), "Project defaultBranch must be set to reinitialize");
+        return requireInstallation()
+                .compose(install -> initializeRepo(install.getGithubInstallationId(), project))
+                .toCompletionStage().toCompletableFuture();
+    }
+
+    private Future<GitHubAppInstallation> requireInstallation() {
+        return Future.fromCompletionStage(installationService.findForCurrentOrg())
+                     .compose(install -> install == null
+                             ? Future.failedFuture(new IllegalStateException(
+                                     "GitHub is not linked for this organization. "
+                                     + "Link GitHub before creating a project."))
+                             : Future.succeededFuture(install));
     }
 
     /**
@@ -125,6 +149,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
                                                                "heads/" + project.getDefaultBranch(),
                                                                commitSha, true))
                      .map(v -> {
+                         project.setRepositoryConnectionStatus(RepositoryConnectionStatus.CONNECTED);
                          log.info("Initialized {} with rendered baseline for project {}",
                                   project.getRepoFullName(), project.getId());
                          return project;
@@ -210,7 +235,6 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
         project.setRepoFullName(repo.fullName());
         project.setRepoId(repo.id());
         project.setDefaultBranch(repo.defaultBranch());
-        project.setRepositoryConnectionStatus(RepositoryConnectionStatus.CONNECTED);
         log.info("Provisioned GitHub repo {} for project {} (org {})",
                  project.getRepoFullName(), project.getId(), project.getOrganizationId());
         return project;
