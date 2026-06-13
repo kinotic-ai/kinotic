@@ -101,10 +101,6 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         });
     }
 
-    private CompletableFuture<Project> provisionAndSave(Project project) {
-        return repoProvisioner.provision(project).thenCompose(this::save);
-    }
-
     private void validateAndDeriveId(Project project) {
         Validate.notNull(project, "Project cannot be null");
         Validate.notNull(project.getName(), "Project name cannot be null");
