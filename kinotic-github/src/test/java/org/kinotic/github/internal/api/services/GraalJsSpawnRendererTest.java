@@ -21,12 +21,16 @@ class GraalJsSpawnRendererTest {
                 ".gitignore", "node_modules\n",
                 "spawn.json", "{\"globals\": {\"kinoticApiVersion\": \"^1.0.9\"}}");
 
-        Map<String, String> result = renderer.render(files, Map.of("projectName", "my-app"));
+        SpawnRenderResult result = renderer.render(files, Map.of("projectName", "my-app"));
 
-        assertEquals("{\"name\": \"my-app\", \"core\": \"^1.0.9\"}", result.get("package.json"));
-        assertEquals("export class MyApp {}", result.get("src/MyApp.ts"));
-        assertEquals("node_modules\n", result.get(".gitignore"));
-        assertFalse(result.containsKey("spawn.json"));
+        assertEquals("{\"name\": \"my-app\", \"core\": \"^1.0.9\"}", result.files().get("package.json"));
+        assertEquals("export class MyApp {}", result.files().get("src/MyApp.ts"));
+        assertEquals("node_modules\n", result.files().get(".gitignore"));
+        assertFalse(result.files().containsKey("spawn.json"));
+        // sources traces each rendered file back to its template path
+        assertEquals("package.json.liquid", result.sources().get("package.json"));
+        assertEquals("src/{{ projectName | camelCase | upperFirst }}.ts.liquid",
+                     result.sources().get("src/MyApp.ts"));
     }
 
     @Test
@@ -35,9 +39,9 @@ class GraalJsSpawnRendererTest {
                 "out.txt.liquid", "{{ flavor }}",
                 "spawn.json", "{\"globals\": {\"flavor\": \"from-globals\"}}");
 
-        Map<String, String> result = renderer.render(files, Map.of("flavor", "from-context"));
+        SpawnRenderResult result = renderer.render(files, Map.of("flavor", "from-context"));
 
-        assertEquals("from-context", result.get("out.txt"));
+        assertEquals("from-context", result.files().get("out.txt"));
     }
 
     @Test
@@ -58,7 +62,7 @@ class GraalJsSpawnRendererTest {
         String[] results = new String[threads.length];
         for (int i = 0; i < threads.length; i++) {
             final int n = i;
-            threads[i] = new Thread(() -> results[n] = renderer.render(files, Map.of("value", "v" + n)).get("out.txt"));
+            threads[i] = new Thread(() -> results[n] = renderer.render(files, Map.of("value", "v" + n)).files().get("out.txt"));
             threads[i].start();
         }
         for (Thread thread : threads) {

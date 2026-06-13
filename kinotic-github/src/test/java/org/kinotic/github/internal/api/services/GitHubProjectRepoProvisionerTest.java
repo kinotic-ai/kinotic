@@ -105,6 +105,9 @@ class GitHubProjectRepoProvisionerTest {
         assertTrue(!tree.containsKey("spawn.json"));
         // executable bit survives for untemplated text files
         assertEquals(TreeEntry.MODE_EXECUTABLE, tree.get("gradlew").mode());
+        // ...and for templated paths, traced back through the render source map
+        assertEquals("#!/bin/sh\necho demo\n", tree.get("bin/demo.sh").content());
+        assertEquals(TreeEntry.MODE_EXECUTABLE, tree.get("bin/demo.sh").mode());
         // binary files ride as blobs created out of band
         assertEquals("blob-sha", tree.get("assets/logo.png").sha());
 
@@ -179,6 +182,8 @@ class GitHubProjectRepoProvisionerTest {
             addEntry(tar, "root/src/{{ projectName | camelCase | upperFirst }}.ts.liquid",
                      "export class {{ projectName | camelCase | upperFirst }} {}".getBytes(StandardCharsets.UTF_8), false);
             addEntry(tar, "root/gradlew", "#!/bin/sh\n".getBytes(StandardCharsets.UTF_8), true);
+            addEntry(tar, "root/bin/{{ projectName }}.sh.liquid",
+                     "#!/bin/sh\necho {{ projectName }}\n".getBytes(StandardCharsets.UTF_8), true);
             addEntry(tar, "root/assets/logo.png", new byte[]{(byte) 0x89, 'P', 'N', 'G', 0, 1}, false);
         }
         return Buffer.buffer(out.toByteArray());

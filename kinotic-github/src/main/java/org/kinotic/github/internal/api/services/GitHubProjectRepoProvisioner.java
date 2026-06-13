@@ -172,9 +172,9 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
             }
         }
 
-        Map<String, String> rendered = spawnRenderer.render(textFiles, contextFor(project));
+        SpawnRenderResult rendered = spawnRenderer.render(textFiles, contextFor(project));
 
-        return new RenderedBaseline(rendered, binaryFiles, entries);
+        return new RenderedBaseline(rendered.files(), rendered.sources(), binaryFiles, entries);
     }
 
     private Future<List<TreeEntry>> uploadBinaries(String token, Project project, RenderedBaseline baseline) {
@@ -195,12 +195,13 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     }
 
     /**
-     * The executable bit survives only for files whose path is unchanged by the
-     * render (e.g. gradlew); a templated path can't be traced back to its source
-     * tarball entry, so it defaults to a regular file.
+     * Carries the executable bit from the source tarball entry to the rendered
+     * file, tracing through the render's source map so it survives a templated
+     * path (e.g. {@code bin/{{projectName}}.sh.liquid}), not just an unchanged one.
      */
     private String modeFor(String renderedPath, RenderedBaseline baseline) {
-        TarballFile source = baseline.tarballEntries().get(renderedPath);
+        String sourcePath = baseline.sources().get(renderedPath);
+        TarballFile source = sourcePath != null ? baseline.tarballEntries().get(sourcePath) : null;
         return source != null && source.executable() ? TreeEntry.MODE_EXECUTABLE : TreeEntry.MODE_FILE;
     }
 
@@ -248,6 +249,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     }
 
     private record RenderedBaseline(Map<String, String> renderedFiles,
+                                    Map<String, String> sources,
                                     Map<String, TarballFile> binaryFiles,
                                     Map<String, TarballFile> tarballEntries) {
     }

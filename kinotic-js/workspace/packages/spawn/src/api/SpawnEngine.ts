@@ -116,6 +116,7 @@ export class SpawnEngine {
     context = await this.resolveMissingProperties(propertySchemas, context, options?.propertyResolver)
 
     const files: SpawnTree = {}
+    const sources: Record<string, string> = {}
     // Render base-first so derived spawns overwrite same-destination files.
     for (const tree of [...trees].reverse()) {
       for (const source of Object.keys(tree).sort()) {
@@ -139,10 +140,11 @@ export class SpawnEngine {
         }
 
         files[destination] = content
+        sources[destination] = source
       }
     }
 
-    return {files, context}
+    return {files, sources, context}
   }
 
   private parseConfig(tree: SpawnTree): SpawnConfig | undefined {

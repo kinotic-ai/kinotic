@@ -33,15 +33,16 @@ public class GraalJsSpawnRenderer {
     private volatile Source bundleSource;
 
     /**
-     * Renders {@code files} with {@code context} and returns the rendered tree
-     * keyed by destination path. Files named spawn.json are consumed as
-     * configuration and excluded from the result. This call is CPU-bound and
-     * blocking; invoke it from a worker thread, never an event loop.
+     * Renders {@code files} with {@code context}, returning the rendered files
+     * keyed by destination path along with each file's originating template
+     * path. Files named spawn.json are consumed as configuration and excluded
+     * from the result. This call is CPU-bound and blocking; invoke it from a
+     * worker thread, never an event loop.
      *
      * @throws IllegalStateException when the spawn requires a property missing
      *         from {@code context} or the render fails
      */
-    public Map<String, String> render(Map<String, String> files, Map<String, Object> context) {
+    public SpawnRenderResult render(Map<String, String> files, Map<String, Object> context) {
         ensureInitialized();
 
         JsonObject filesJson = new JsonObject();
@@ -83,12 +84,18 @@ public class GraalJsSpawnRenderer {
                 throw new IllegalStateException("Spawn render did not complete synchronously");
             }
 
-            Map<String, String> result = new LinkedHashMap<>();
-            for (Map.Entry<String, Object> entry : new JsonObject(rendered.get())) {
-                result.put(entry.getKey(), (String) entry.getValue());
-            }
-            return result;
+            JsonObject result = new JsonObject(rendered.get());
+            return new SpawnRenderResult(toStringMap(result.getJsonObject("files")),
+                                         toStringMap(result.getJsonObject("sources")));
         }
+    }
+
+    private static Map<String, String> toStringMap(JsonObject json) {
+        Map<String, String> map = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : json) {
+            map.put(entry.getKey(), (String) entry.getValue());
+        }
+        return map;
     }
 
     // Initialized lazily rather than at construction: the bundle is extracted from
