@@ -20,13 +20,7 @@
       }
     },
     {
-      "route": "/signup/verify",
-      "headers": {
-        "X-Robots-Tag": "noindex, nofollow"
-      }
-    },
-    {
-      "route": "/api/login/callback/*",
+      "route": "/api/auth/*",
       "headers": {
         "X-Robots-Tag": "noindex, nofollow"
       }

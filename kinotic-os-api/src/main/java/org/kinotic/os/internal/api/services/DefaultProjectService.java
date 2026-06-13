@@ -2,6 +2,7 @@ package org.kinotic.os.internal.api.services;
 
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.internal.api.repositories.ProjectRepository;
@@ -34,14 +35,21 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     @Override
     public CompletableFuture<Project> create(Project project) {
         validateAndDeriveId(project);
+        // Fail fast on a known duplicate before provisioning a repo; the atomic super.create
+        // catches the race where another create lands between this check and the write.
         return findById(project.getId())
                 .thenCompose(existing -> {
                     if (existing != null) {
                         return CompletableFuture.failedFuture(new IllegalArgumentException(
                                 "Project for id " + project.getId() + " already exists"));
                     }
-                    return provisionAndSave(project);
-                });
+                    return repoProvisioner.provision(project)
+                                          .thenCompose(super::create);
+                })
+                .exceptionallyCompose(ex -> AlreadyExistsException.isCause(ex)
+                        ? CompletableFuture.failedFuture(new IllegalArgumentException(
+                                "Project for id " + project.getId() + " already exists"))
+                        : CompletableFuture.failedFuture(ex));
     }
 
     @Override
@@ -52,17 +60,12 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                     if (existing != null) {
                         return CompletableFuture.completedFuture(existing);
                     }
-                    return provisionAndSave(project);
+                    return repoProvisioner.provision(project).thenCompose(this::save);
                 });
     }
 
     @Override
-    public CompletableFuture<Void> deleteById(String id) {
-        return super.deleteById(id);
-    }
-
-    @Override
-    public CompletableFuture<Project> save(Project project) {
+    protected CompletableFuture<Void> beforeSave(Project project) {
         Validate.notNull(project, "Project cannot be null");
         Validate.notNull(project.getApplicationId(), "Project applicationId cannot be null");
         Validate.notNull(project.getName(), "Project name cannot be null");
@@ -71,17 +74,13 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
             project.setId(deriveId(project));
         }
         project.setUpdated(new Date());
-        return super.save(project);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public CompletableFuture<List<Project>> findByRepoFullName(String repoFullName) {
         Validate.notBlank(repoFullName, "repoFullName must not be blank");
         return projectRepository.findByRepoFullName(repoFullName, requireOrganizationId());
-    }
-
-    private CompletableFuture<Project> provisionAndSave(Project project) {
-        return repoProvisioner.provision(project).thenCompose(this::save);
     }
 
     private void validateAndDeriveId(Project project) {

@@ -34,11 +34,11 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
     }
 
     @Override
-    public CompletableFuture<VmNode> save(VmNode entity) {
+    protected CompletableFuture<Void> beforeSave(VmNode entity) {
         Validate.notNull(entity, "VmNode cannot be null");
         Validate.notNull(entity.getId(), "VmNode id cannot be null");
         entity.setLastSeen(new Date());
-        return super.save(entity);
+        return CompletableFuture.completedFuture(null);
     }
 
 }

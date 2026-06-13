@@ -158,7 +158,7 @@ export default class AcceptInvitation extends Vue {
 
   private async loadDetails() {
     try {
-      const res = await fetch(apiUrl('/api/invite?token=' + encodeURIComponent(this.token)), { credentials: 'include' })
+      const res = await fetch(apiUrl('/api/auth/invite/details?token=' + encodeURIComponent(this.token)), { credentials: 'include' })
       if (!res.ok) {
         this.invalidMessage = await this.readError(res, this.invalidMessage)
         this.phase = 'invalid'
@@ -183,7 +183,7 @@ export default class AcceptInvitation extends Vue {
 
   startUrl(configId: string): string {
     // The token rides as a query param; the start route reads form attributes or params.
-    return apiUrl('/api/invite/start/' + encodeURIComponent(configId) + '?token=' + encodeURIComponent(this.token))
+    return apiUrl('/api/auth/invite/oidc/start/' + encodeURIComponent(configId) + '?token=' + encodeURIComponent(this.token))
   }
 
   focusPassword() {
@@ -198,7 +198,7 @@ export default class AcceptInvitation extends Vue {
     }
     this.accepting = true
     try {
-      const res = await fetch(apiUrl('/api/invite/accept'), {
+      const res = await fetch(apiUrl('/api/auth/invite/accept'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

@@ -45,16 +45,16 @@ public class OrganizationLoginHandler {
     private final OidcConfigurationRepository oidcConfigurationRepository;
 
     public void mountRoutes(Router router) {
-        router.get("/api/login/providers").handler(this::handleProviders);
-        router.post("/api/login/lookup").handler(this::handleLookup);
-        router.post("/api/login").handler(this::handleLogin);
-        router.post("/api/login/start/:provider").handler(this::handleSocialStart);
-        router.get("/api/login/callback/social/:configId").handler(this::handleSocialCallback);
-        router.get("/api/login/callback/sso/:configId").handler(this::handleSsoCallback);
+        router.get("/api/auth/org/login/providers").handler(this::handleProviders);
+        router.post("/api/auth/org/login/lookup").handler(this::handleLookup);
+        router.post("/api/auth/org/login").handler(this::handleLogin);
+        router.post("/api/auth/org/login/social/start/:provider").handler(this::handleSocialStart);
+        router.get("/api/auth/org/login/social/callback/:configId").handler(this::handleSocialCallback);
+        router.get("/api/auth/org/login/sso/callback/:configId").handler(this::handleSsoCallback);
     }
 
     /**
-     * {@code POST /api/login/lookup {email}} — decides how the user authenticates: an SSO redirect
+     * {@code POST /api/auth/org/login/lookup {email}} — decides how the user authenticates: an SSO redirect
      * for an OIDC org member whose org has a live login config, otherwise "use password".
      */
     private void handleLookup(RoutingContext ctx) {
@@ -74,7 +74,7 @@ public class OrganizationLoginHandler {
     }
 
     /**
-     * {@code GET /api/login/providers} — the unique provider keys (e.g. {@code "google"},
+     * {@code GET /api/auth/org/login/providers} — the unique provider keys (e.g. {@code "google"},
      * {@code "microsoft-live"}) for rendering the social-button row: one key per provider kind,
      * even when several configs share a kind.
      */
@@ -97,7 +97,7 @@ public class OrganizationLoginHandler {
     }
 
     /**
-     * {@code GET /api/login/callback/social/:configId} — the social IdP returns here; validates the
+     * {@code GET /api/auth/org/login/social/callback/:configId} — the social IdP returns here; validates the
      * callback and logs the user in. The identity may belong to any organization.
      */
     private void handleSocialCallback(RoutingContext ctx) {
@@ -117,7 +117,7 @@ public class OrganizationLoginHandler {
     }
 
     /**
-     * {@code POST /api/login/start/:provider} — begins social (OIDC) login by redirecting the
+     * {@code POST /api/auth/org/login/social/start/:provider} — begins social (OIDC) login by redirecting the
      * browser to the chosen Kinotic-curated provider.
      */
     private void handleSocialStart(RoutingContext ctx) {
@@ -150,7 +150,7 @@ public class OrganizationLoginHandler {
     }
 
     /**
-     * {@code GET /api/login/callback/sso/:configId} — the org's SSO IdP returns here; validates the
+     * {@code GET /api/auth/org/login/sso/callback/:configId} — the org's SSO IdP returns here; validates the
      * callback and logs the user into that organization.
      */
     private void handleSsoCallback(RoutingContext ctx) {
@@ -173,7 +173,7 @@ public class OrganizationLoginHandler {
     }
 
     /**
-     * {@code POST /api/login {email, password}} — verifies the password and establishes the browser
+     * {@code POST /api/auth/org/login {email, password}} — verifies the password and establishes the browser
      * session. Generic {@code 401} on any failure.
      */
     private void handleLogin(RoutingContext ctx) {
@@ -212,10 +212,10 @@ public class OrganizationLoginHandler {
     }
 
     private String socialCallbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl("/api/login/callback/social/" + configId);
+        return authEndpointSupport.absoluteUrl("/api/auth/org/login/social/callback/" + configId);
     }
 
     private String ssoCallbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl("/api/login/callback/sso/" + configId);
+        return authEndpointSupport.absoluteUrl("/api/auth/org/login/sso/callback/" + configId);
     }
 }

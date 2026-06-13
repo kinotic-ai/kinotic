@@ -33,7 +33,7 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
     }
 
     @Override
-    public CompletableFuture<Workload> save(Workload entity) {
+    protected CompletableFuture<Void> beforeSave(Workload entity) {
         Validate.notNull(entity, "Workload cannot be null");
         Validate.notNull(entity.getName(), "Workload name cannot be null");
         Validate.notNull(entity.getImage(), "Workload image cannot be null");
@@ -45,7 +45,7 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
         if (entity.getCreated() == null) {
             entity.setCreated(new Date());
         }
-        return super.save(entity);
+        return CompletableFuture.completedFuture(null);
     }
 
 }

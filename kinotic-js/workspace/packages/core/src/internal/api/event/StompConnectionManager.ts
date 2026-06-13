@@ -8,7 +8,7 @@ import {Observable, Subject, Subscription} from 'rxjs'
 import {v4 as uuidv4} from 'uuid'
 
 /** Fixed REST route the cookie-session pre-flight probes; identical in every environment. */
-const SESSION_CHECK_PATH = '/api/me'
+const SESSION_CHECK_PATH = '/api/auth/me'
 
 /**
  * Creates a new RxStomp client and manages it

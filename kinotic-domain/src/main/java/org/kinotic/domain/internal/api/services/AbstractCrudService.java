@@ -34,7 +34,22 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @Override
     public CompletableFuture<Void> deleteById(String id) {
-        return repository.deleteById(id);
+        return beforeDelete(id).thenCompose(v -> repository.deleteById(id));
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteByIdSync(String id) {
+        return beforeDelete(id).thenCompose(v -> repository.deleteByIdSync(id));
+    }
+
+    /**
+     * Hook run before every delete — {@link #deleteById} and {@link #deleteByIdSync} both
+     * call it, so a subclass cannot accidentally guard one delete path and not the other.
+     * Override to validate the delete or cascade dependent data; the delete proceeds when
+     * the returned future completes.
+     */
+    protected CompletableFuture<Void> beforeDelete(String id) {
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
@@ -44,12 +59,32 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
 
     @Override
     public CompletableFuture<T> save(T value) {
-        return repository.save(value);
+        return beforeSave(value).thenCompose(v -> repository.save(value));
     }
 
     @Override
     public CompletableFuture<T> saveSync(T value) {
-        return repository.saveSync(value);
+        return beforeSave(value).thenCompose(v -> repository.saveSync(value));
+    }
+
+    @Override
+    public CompletableFuture<T> create(T value) {
+        return beforeSave(value).thenCompose(v -> repository.create(value));
+    }
+
+    @Override
+    public CompletableFuture<T> createSync(T value) {
+        return beforeSave(value).thenCompose(v -> repository.createSync(value));
+    }
+
+    /**
+     * Hook run before every write — {@link #save}, {@link #saveSync}, {@link #create}, and
+     * {@link #createSync} all call it, so a subclass cannot accidentally guard one write
+     * path and not the others. Override to validate and prepare the entity (defaults, ids,
+     * timestamps); the write proceeds when the returned future completes.
+     */
+    protected CompletableFuture<Void> beforeSave(T entity) {
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

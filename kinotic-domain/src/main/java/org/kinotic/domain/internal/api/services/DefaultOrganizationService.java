@@ -21,7 +21,7 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
     }
 
     @Override
-    public CompletableFuture<Organization> save(Organization entity) {
+    protected CompletableFuture<Void> beforeSave(Organization entity) {
         Validate.notNull(entity.getName(), "Organization name cannot be null");
 
         if (entity.getId() == null) {
@@ -30,7 +30,7 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
         }
 
         entity.setUpdated(new Date());
-        return super.save(entity);
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -41,23 +41,12 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
     @Override
     public CompletableFuture<Organization> create(Organization entity) {
         Validate.notBlank(entity.getName(), "Organization name cannot be null");
-        Date now = new Date();
-        entity.setId(slg.slugify(entity.getName()).toLowerCase())
-              .setCreated(now)
-              .setUpdated(now);
-        return repository.create(entity)
-                         .exceptionallyCompose(ex -> isAlreadyExists(ex)
-                                 ? CompletableFuture.failedFuture(new AlreadyExistsException(
-                                         "An organization named '" + entity.getName() + "' already exists"))
-                                 : CompletableFuture.failedFuture(ex));
-    }
-
-    private static boolean isAlreadyExists(Throwable ex) {
-        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
-            if (cause instanceof AlreadyExistsException) {
-                return true;
-            }
-        }
-        return false;
+        // Force the id to derive from the name; beforeSave mints it from the slug.
+        entity.setId(null);
+        return super.create(entity)
+                    .exceptionallyCompose(ex -> AlreadyExistsException.isCause(ex)
+                            ? CompletableFuture.failedFuture(new AlreadyExistsException(
+                                    "An organization named '" + entity.getName() + "' already exists"))
+                            : CompletableFuture.failedFuture(ex));
     }
 }

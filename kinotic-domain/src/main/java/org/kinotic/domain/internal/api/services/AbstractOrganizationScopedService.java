@@ -44,7 +44,22 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
 
     @Override
     public CompletableFuture<Void> deleteById(String id) {
-        return scopedRepository.deleteById(id, requireOrganizationId());
+        return beforeDelete(id).thenCompose(v -> scopedRepository.deleteById(id, requireOrganizationId()));
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteByIdSync(String id) {
+        return beforeDelete(id).thenCompose(v -> scopedRepository.deleteByIdSync(id, requireOrganizationId()));
+    }
+
+    /**
+     * Hook run before every delete — {@link #deleteById} and {@link #deleteByIdSync} both
+     * call it, so a subclass cannot accidentally guard one delete path and not the other.
+     * Override to validate the delete or cascade dependent data; the org-scoped delete
+     * proceeds when the returned future completes.
+     */
+    protected CompletableFuture<Void> beforeDelete(String id) {
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
@@ -54,14 +69,44 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
 
     @Override
     public CompletableFuture<T> save(T value) {
-        enforceOrgOnSave(value);
-        return scopedRepository.save(value, resolveWriteOrgId(value));
+        return beforeSave(value).thenCompose(v -> {
+            enforceOrgOnSave(value);
+            return scopedRepository.save(value, resolveWriteOrgId(value));
+        });
     }
 
     @Override
     public CompletableFuture<T> saveSync(T value) {
-        enforceOrgOnSave(value);
-        return scopedRepository.saveSync(value, resolveWriteOrgId(value));
+        return beforeSave(value).thenCompose(v -> {
+            enforceOrgOnSave(value);
+            return scopedRepository.saveSync(value, resolveWriteOrgId(value));
+        });
+    }
+
+    @Override
+    public CompletableFuture<T> create(T value) {
+        return beforeSave(value).thenCompose(v -> {
+            enforceOrgOnSave(value);
+            return scopedRepository.create(value, resolveWriteOrgId(value));
+        });
+    }
+
+    @Override
+    public CompletableFuture<T> createSync(T value) {
+        return beforeSave(value).thenCompose(v -> {
+            enforceOrgOnSave(value);
+            return scopedRepository.createSync(value, resolveWriteOrgId(value));
+        });
+    }
+
+    /**
+     * Hook run before every write — {@link #save}, {@link #saveSync}, {@link #create}, and
+     * {@link #createSync} all call it, so a subclass cannot accidentally guard one write
+     * path and not the others. Override to validate and prepare the entity (defaults, ids,
+     * timestamps); org enforcement and the write proceed when the returned future completes.
+     */
+    protected CompletableFuture<Void> beforeSave(T entity) {
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

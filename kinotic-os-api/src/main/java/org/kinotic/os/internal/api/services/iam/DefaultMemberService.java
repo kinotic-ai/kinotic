@@ -68,7 +68,8 @@ public class DefaultMemberService implements MemberService {
     public CompletableFuture<Void> setMemberEnabled(String userId, boolean enabled) {
         OrganizationParticipant participant = requireOrgParticipant();
         return loadOwnedMember(userId, participant)
-                .thenCompose(user -> iamUserService.save(user.setEnabled(enabled)))
+                // saveSync so the console's immediate re-query sees the change
+                .thenCompose(user -> iamUserService.saveSync(user.setEnabled(enabled)))
                 .thenApply(u -> null);
     }
 
@@ -76,8 +77,9 @@ public class DefaultMemberService implements MemberService {
     public CompletableFuture<Void> removeMember(String userId) {
         OrganizationParticipant participant = requireOrgParticipant();
         return loadOwnedMember(userId, participant)
-                // deleteById cascades the IamCredential
-                .thenCompose(user -> iamUserService.deleteById(user.getId()));
+                // Cascades the IamCredential; sync so the console's immediate re-query
+                // no longer shows the member.
+                .thenCompose(user -> iamUserService.deleteByIdSync(user.getId()));
     }
 
     @Override

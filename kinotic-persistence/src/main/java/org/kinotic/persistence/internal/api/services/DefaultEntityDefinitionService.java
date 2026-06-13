@@ -7,6 +7,7 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 
 @Component
@@ -52,7 +54,17 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     @WithSpan
     @Override
     public CompletableFuture<EntityDefinition> create(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
-        String logicalIndexName;
+        return validateAndCreate(entityDefinition, super::create);
+    }
+
+    @WithSpan
+    @Override
+    public CompletableFuture<EntityDefinition> createSync(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
+        return validateAndCreate(entityDefinition, super::createSync);
+    }
+
+    private CompletableFuture<EntityDefinition> validateAndCreate(EntityDefinition entityDefinition,
+                                                                  Function<EntityDefinition, CompletableFuture<EntityDefinition>> createOp) {
         try {
             // will throw an exception if invalid
             PersistenceUtil.validateEntityDefinition(entityDefinition);
@@ -60,52 +72,59 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             entityDefinition.setApplicationId(entityDefinition.getApplicationId().trim());
             entityDefinition.setProjectId(entityDefinition.getProjectId().trim());
             entityDefinition.setName(entityDefinition.getName().trim());
-            logicalIndexName = PersistenceUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
-                                                                        entityDefinition.getApplicationId(),
-                                                                        entityDefinition.getName());
+            String logicalIndexName = PersistenceUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
+                                                                               entityDefinition.getApplicationId(),
+                                                                               entityDefinition.getName());
 
             if(logicalIndexName.length() > 255){
                 throw new IllegalArgumentException("EntityDefinition Id is too long, 'applicationId.name' must be less than 256 characters");
             }
 
+            // TODO: how to ensure EntityDefinition application name match the C3Type name
+            // Should we just use the EntityDefinition one?
+
+            entityDefinition.setId(logicalIndexName);
+            entityDefinition.setCreated(new Date());
+            entityDefinition.setUpdated(entityDefinition.getCreated());
+            // Store name of the elastic search index for items
+            entityDefinition.setItemIndex(this.persistenceProperties.getIndexPrefix() + logicalIndexName);
+
+            ElasticConversionResult result = entityDefinitionConversionService.convertToElasticMapping(entityDefinition);
+
+            entityDefinition.setDecoratedProperties(result.decoratedProperties());
+            entityDefinition.setMultiTenancyType(result.entityDecorator().getMultiTenancyType());
+            entityDefinition.setEntityType(result.entityDecorator().getEntityType());
+            entityDefinition.setVersionFieldName(result.versionFieldName());
+            entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
+            entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());
+
         } catch (IllegalArgumentException e) {
             return CompletableFuture.failedFuture(e);
         }
 
-        return findById(logicalIndexName)
-                .thenCompose(existingEntityDefinition -> {
-
-                    // Check if this is an existing EntityDefinition or new one
-                    if (existingEntityDefinition != null) {
-                        return CompletableFuture.failedFuture(new IllegalArgumentException(
-                                "EntityDefinition Application+Name must be unique, '" + logicalIndexName + "' already exists."));
-                    }
-
-                    // TODO: how to ensure EntityDefinition application name match the C3Type name
-                    // Should we just use the EntityDefinition one?
-
-                    entityDefinition.setId(logicalIndexName);
-                    entityDefinition.setCreated(new Date());
-                    entityDefinition.setUpdated(entityDefinition.getCreated());
-                    // Store name of the elastic search index for items
-                    entityDefinition.setItemIndex(this.persistenceProperties.getIndexPrefix() + logicalIndexName);
-
-                    ElasticConversionResult result = entityDefinitionConversionService.convertToElasticMapping(entityDefinition);
-
-                    entityDefinition.setDecoratedProperties(result.decoratedProperties());
-                    entityDefinition.setMultiTenancyType(result.entityDecorator().getMultiTenancyType());
-                    entityDefinition.setEntityType(result.entityDecorator().getEntityType());
-                    entityDefinition.setVersionFieldName(result.versionFieldName());
-                    entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
-                    entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());
-
-                    return super.save(entityDefinition);
-                });
+        // The base create uses the ES create op-type, so the uniqueness check is atomic at
+        // the shard — a concurrent duplicate fails instead of overwriting the way the
+        // previous findById-then-save did.
+        return createOp.apply(entityDefinition)
+                .exceptionallyCompose(ex -> AlreadyExistsException.isCause(ex)
+                        ? CompletableFuture.failedFuture(new IllegalArgumentException(
+                                "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
+                        : CompletableFuture.failedFuture(ex));
     }
 
     @WithSpan
     @Override
     public CompletableFuture<Void> deleteById(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
+        return deleteAndEvict(entityDefinitionId);
+    }
+
+    @WithSpan
+    @Override
+    public CompletableFuture<Void> deleteByIdSync(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
+        return deleteAndEvict(entityDefinitionId);
+    }
+
+    private CompletableFuture<Void> deleteAndEvict(String entityDefinitionId) {
         return findById(entityDefinitionId)
                 .thenCompose(entityDefinition -> {
 
@@ -118,9 +137,14 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                 .failedFuture(new IllegalStateException("EntityDefinition must be Un-Published before Deleting"));
                     }
 
-                    this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId(), entityDefinition.getId()));
-
-                    return super.deleteById(entityDefinitionId);
+                    // Sync delete, then evict: the deletion must be searchable before the
+                    // eviction fires, and the eviction must fire last — either way around,
+                    // a concurrent read could re-cache the old row with no eviction behind it.
+                    return super.deleteByIdSync(entityDefinitionId)
+                            .thenApply(v -> {
+                                this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId(), entityDefinition.getId()));
+                                return null;
+                            });
                 });
     }
 
@@ -163,7 +187,8 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         entityDefinition.setPublished(true);
                         entityDefinition.setPublishedTimestamp(new Date());
                         entityDefinition.setUpdated(entityDefinition.getPublishedTimestamp());
-                        return super.save(entityDefinition)
+                        // saveSync so the published state is searchable before the eviction fires
+                        return super.saveSync(entityDefinition)
                                 .thenApply(entityDefinition1 -> {
                                     this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(),
                                                                                                                      entityDefinition1.getId()));
@@ -171,6 +196,17 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                 });
                     });
                 });
+    }
+
+    /**
+     * Saves like {@link #save} — the writes behind every save path already wait for search
+     * visibility, because the cache loaders read through searches and the eviction events
+     * fire only after the write is searchable.
+     */
+    @WithSpan
+    @Override
+    public CompletableFuture<EntityDefinition> saveSync(EntityDefinition entityDefinition) {
+        return save(entityDefinition);
     }
 
     @WithSpan
@@ -241,13 +277,16 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                             updateFuture = crudServiceTemplate.updateIndexMapping(entityDefinition.getItemIndex(), mappings);
                         }
 
-                        return updateFuture.thenCompose(v -> super.save(entityDefinition)
+                        // saveSync so the new definition is searchable before the eviction
+                        // fires — a reload racing the index refresh would re-cache the old
+                        // row with no eviction left to clear it.
+                        return updateFuture.thenCompose(v -> super.saveSync(entityDefinition)
                                 .thenApply(entityDefinition1 -> {
                                     this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
                                     return entityDefinition1;
                                 }));
                     } else {
-                        return super.save(entityDefinition);
+                        return super.saveSync(entityDefinition);
                     }
                 });
     }
@@ -282,7 +321,8 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         entityDefinition.setPublished(false);
                         entityDefinition.setPublishedTimestamp(null);
                         entityDefinition.setUpdated(new Date());
-                        return super.save(entityDefinition)
+                        // saveSync so the unpublished state is searchable before the eviction fires
+                        return super.saveSync(entityDefinition)
                                 .thenApply(entityDefinition1 -> {
                                     this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
                                     return null;

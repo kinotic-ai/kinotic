@@ -72,6 +72,15 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
                                   .thenApply(_ -> null);
     }
 
+    public CompletableFuture<Void> deleteByIdSync(String id) {
+        return deleteByIdSync(id, null);
+    }
+
+    protected CompletableFuture<Void> deleteByIdSync(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.deleteByIdSync(indexName, id, builderConsumer)
+                                  .thenApply(_ -> null);
+    }
+
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
         return findAll(pageable, null);
     }
@@ -109,6 +118,19 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
      */
     public CompletableFuture<T> create(T value) {
         return crudServiceTemplate.create(indexName, value.getId(), value)
+                                  .thenApply(_ -> value);
+    }
+
+    /**
+     * Persists a new entity like {@link #create}, additionally waiting for it to be visible
+     * in search results before returning.
+     */
+    public CompletableFuture<T> createSync(T value) {
+        return createSync(value, null);
+    }
+
+    protected CompletableFuture<T> createSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return crudServiceTemplate.createSync(indexName, value.getId(), value, builderConsumer)
                                   .thenApply(_ -> value);
     }
 

@@ -39,16 +39,16 @@ public class OrganizationSignupHandler {
 
     public void mountRoutes(Router router) {
         // Email/password: form submit, then completion after the user clicks the email link.
-        router.post("/api/signup").handler(this::handleLocalSignUp);
-        router.post("/api/signup/complete").handler(this::handleLocalComplete);
+        router.post("/api/auth/org/signup").handler(this::handleLocalSignUp);
+        router.post("/api/auth/org/signup/complete").handler(this::handleLocalComplete);
         // Social (OIDC): start → IdP → callback → org-naming form → complete.
-        router.post("/api/signup/start/:provider").handler(this::handleSocialStart);
-        router.get("/api/signup/callback/:configId").handler(this::handleSocialCallback);
-        router.post("/api/signup/complete-org").handler(this::handleSocialCompleteOrg);
+        router.post("/api/auth/org/signup/social/start/:provider").handler(this::handleSocialStart);
+        router.get("/api/auth/org/signup/social/callback/:configId").handler(this::handleSocialCallback);
+        router.post("/api/auth/org/signup/social/complete").handler(this::handleSocialCompleteOrg);
     }
 
     /**
-     * {@code POST /api/signup} — start email/password sign-up. Validates the request, stores a
+     * {@code POST /api/auth/org/signup} — start email/password sign-up. Validates the request, stores a
      * pending sign-up, and emails a verification link. The org name and password are collected
      * later, at {@link #handleLocalComplete}.
      */
@@ -82,7 +82,7 @@ public class OrganizationSignupHandler {
     }
 
     /**
-     * {@code POST /api/signup/complete} — finish email/password sign-up. Called when the user has
+     * {@code POST /api/auth/org/signup/complete} — finish email/password sign-up. Called when the user has
      * clicked the verification link and submitted an org name + password; creates the organization,
      * its admin user, and the password credential, then establishes the browser session so the
      * user is logged in — same as the social completion at {@link #handleSocialCompleteOrg}.
@@ -116,7 +116,7 @@ public class OrganizationSignupHandler {
     }
 
     /**
-     * {@code POST /api/signup/start/:provider} — start social (OIDC) sign-up by redirecting the
+     * {@code POST /api/auth/org/signup/social/start/:provider} — start social (OIDC) sign-up by redirecting the
      * browser to the chosen Kinotic-curated social IdP.
      */
     private void handleSocialStart(RoutingContext ctx) {
@@ -149,7 +149,7 @@ public class OrganizationSignupHandler {
     }
 
     /**
-     * {@code GET /api/signup/callback/:configId} — the social IdP returns here. Validates the
+     * {@code GET /api/auth/org/signup/social/callback/:configId} — the social IdP returns here. Validates the
      * callback (state, code exchange, issuer) via {@link OidcFlowOrchestrator}, then hands the
      * verified claims to {@link #createPendingSignUp}.
      */
@@ -212,7 +212,7 @@ public class OrganizationSignupHandler {
     }
 
     /**
-     * {@code POST /api/signup/complete-org} — finish social sign-up. The user has named their org;
+     * {@code POST /api/auth/org/signup/social/complete} — finish social sign-up. The user has named their org;
      * creates the organization and its admin {@link IamUser} (AuthType=OIDC) from the pending
      * sign-up identified by the token.
      */
@@ -240,7 +240,7 @@ public class OrganizationSignupHandler {
     }
 
     private String callbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl("/api/signup/callback/" + configId);
+        return authEndpointSupport.absoluteUrl("/api/auth/org/signup/social/callback/" + configId);
     }
 
     /** Sends the browser to the org-naming page with the pending sign-up token. */

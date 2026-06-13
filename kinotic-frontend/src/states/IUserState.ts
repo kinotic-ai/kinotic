@@ -54,7 +54,7 @@ export class UserState implements IUserState {
     public logout(): Promise<void> {
         return this.serialize(async () => {
             try {
-                await fetch(apiUrl('/api/logout'), { method: 'POST', credentials: 'include' })
+                await fetch(apiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' })
             } catch (error) {
                 debug('Logout request failed: %O', error)
             }

@@ -117,24 +117,23 @@ resource "azuread_application" "kinotic_platform" {
   }
 
   # Web-platform redirect URIs — used by the server-side OIDC flow. Login and signup
-  # are separate handlers (OrganizationLoginHandler / OidcSignupHandler) on distinct
-  # paths. Login callback is namespaced under /social/ so the gateway can disambiguate
-  # social vs per-org SSO callbacks at the same handler. Signup has only the social
-  # path. Microsoft permits http://localhost:* for dev without HTTPS. The portal.* URI
-  # is for production; the others cover bare-local Java (9090), the Vite dev server
-  # (5173), and KinD with mkcert (https://localhost). The configId "entra-platform"
-  # in the path matches the row seeded by V2__kinotic_data_inserts.sql into
-  # kinotic_org_signup_oidc_configuration.
+  # are separate handlers (OrganizationLoginHandler / OrganizationSignupHandler) on distinct
+  # paths under /api/auth/org. Each flow's social callback is namespaced under /social/ so the
+  # gateway can disambiguate social vs per-org SSO callbacks at the same handler. Microsoft
+  # permits http://localhost:* for dev without HTTPS. The portal.* URI is for production; the
+  # others cover bare-local Java (9090), the Vite dev server (5173), and KinD with mkcert
+  # (https://localhost). The configId "entra-platform" in the path matches the row seeded by
+  # V2__kinotic_data_inserts.sql into kinotic_org_signup_oidc_configuration.
   web {
     redirect_uris = [
-      "https://portal.${var.domain_name}/api/login/callback/social/entra-platform",
-      "https://portal.${var.domain_name}/api/signup/callback/entra-platform",
-      "http://localhost:9090/api/login/callback/social/entra-platform",
-      "http://localhost:9090/api/signup/callback/entra-platform",
-      "http://localhost:5173/api/login/callback/social/entra-platform",
-      "http://localhost:5173/api/signup/callback/entra-platform",
-      "https://localhost/api/login/callback/social/entra-platform",
-      "https://localhost/api/signup/callback/entra-platform",
+      "https://portal.${var.domain_name}/api/auth/org/login/social/callback/entra-platform",
+      "https://portal.${var.domain_name}/api/auth/org/signup/social/callback/entra-platform",
+      "http://localhost:9090/api/auth/org/login/social/callback/entra-platform",
+      "http://localhost:9090/api/auth/org/signup/social/callback/entra-platform",
+      "http://localhost:5173/api/auth/org/login/social/callback/entra-platform",
+      "http://localhost:5173/api/auth/org/signup/social/callback/entra-platform",
+      "https://localhost/api/auth/org/login/social/callback/entra-platform",
+      "https://localhost/api/auth/org/signup/social/callback/entra-platform",
     ]
     implicit_grant {
       access_token_issuance_enabled = false
