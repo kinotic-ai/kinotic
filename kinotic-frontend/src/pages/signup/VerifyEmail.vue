@@ -114,7 +114,7 @@ export default class VerifyEmail extends Vue {
 
     this.loading = true
     try {
-      const response = await fetch(apiUrl('/api/signup/complete'), {
+      const response = await fetch(apiUrl('/api/auth/org/signup/complete'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

@@ -168,7 +168,7 @@ export default class MembersPage extends Vue {
     // Same source the login page uses for its social buttons; org invitees are offered these.
     if (this.applicationId === null) {
       try {
-        const res = await fetch(apiUrl('/api/login/providers'), { credentials: 'same-origin' })
+        const res = await fetch(apiUrl('/api/auth/org/login/providers'), { credentials: 'same-origin' })
         if (res.ok) {
           const data = await res.json()
           if (Array.isArray(data)) this.socialProviderKeys = data

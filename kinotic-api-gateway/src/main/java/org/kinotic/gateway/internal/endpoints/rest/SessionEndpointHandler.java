@@ -10,11 +10,11 @@ import org.springframework.stereotype.Component;
 /**
  * Browser session-lifecycle routes (named to avoid clashing with Vert.x's own {@code SessionHandler}):
  * <ul>
- *   <li>{@code GET /api/me} — reports whether the session cookie still authenticates the caller.
+ *   <li>{@code GET /api/auth/me} — reports whether the session cookie still authenticates the caller.
  *       A cookie-auth client (the browser) uses this to decide whether to open the realtime
  *       WebSocket: a rejected WS upgrade is opaque to browsers, whereas this HTTP status is
  *       readable, so the SPA can fail fast instead of dialing an unauthenticated socket.</li>
- *   <li>{@code POST /api/logout} — destroys the browser session, ending the login for every scope
+ *   <li>{@code POST /api/auth/logout} — destroys the browser session, ending the login for every scope
  *       (one cookie regardless of org/app/system).</li>
  * </ul>
  */
@@ -22,8 +22,8 @@ import org.springframework.stereotype.Component;
 public class SessionEndpointHandler {
 
     public void mountRoutes(Router router) {
-        router.get("/api/me").handler(this::handleMe);
-        router.post("/api/logout").handler(this::handleLogout);
+        router.get("/api/auth/me").handler(this::handleMe);
+        router.post("/api/auth/logout").handler(this::handleLogout);
     }
 
     /**

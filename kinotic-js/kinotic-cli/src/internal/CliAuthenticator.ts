@@ -119,7 +119,7 @@ export class CliAuthenticator {
         if (this.accessToken !== null && Date.now() < this.accessTokenExpiresAt - 10_000) {
             return this.accessToken
         }
-        const res = await fetch(restBaseUrl + '/api/login/device/refresh', {
+        const res = await fetch(restBaseUrl + '/api/auth/device/refresh', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({refresh_token: this.refreshToken}),
@@ -165,7 +165,7 @@ export class CliAuthenticator {
 
     /** Runs the RFC 8628 device flow: start, browser approval, then poll for tokens. */
     private async deviceLogin(restBaseUrl: string): Promise<DeviceTokens | null> {
-        const startRes = await fetch(restBaseUrl + '/api/login/device/start', {
+        const startRes = await fetch(restBaseUrl + '/api/auth/device/start', {
             method: 'POST',
             signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
         })
@@ -194,7 +194,7 @@ export class CliAuthenticator {
         let intervalMs = Math.max(start.interval, 1) * 1000
         while (Date.now() < deadline) {
             await delay(intervalMs)
-            const tokenRes = await fetch(restBaseUrl + '/api/login/device/token', {
+            const tokenRes = await fetch(restBaseUrl + '/api/auth/device/token', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({device_code: start.device_code}),

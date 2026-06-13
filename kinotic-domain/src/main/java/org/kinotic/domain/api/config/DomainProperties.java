@@ -24,7 +24,7 @@ public class DomainProperties {
     /**
      * Public-facing base URL the backend serves its REST endpoints under (scheme + host + optional
      * port, no trailing slash). Used as the OIDC {@code redirect_uri} so the IdP returns the
-     * browser to {@code /api/login/callback/<id>} on the backend, not on the SPA.
+     * browser to {@code /api/auth/org/login/social/callback/<id>} on the backend, not on the SPA.
      * <p>
      * Set this when the SPA and backend live on different origins (Azure Static Web Apps + AKS).
      * When left null the platform falls back to {@link #appBaseUrl} — fine for dev and any deploy

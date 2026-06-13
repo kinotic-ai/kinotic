@@ -27,11 +27,11 @@ import java.util.Date;
  * token from which it mints the short-lived access tokens used on STOMP CONNECT.
  *
  * <ul>
- *   <li>{@code POST /api/login/device/start} — begins a flow; returns the device/user codes
+ *   <li>{@code POST /api/auth/device/start} — begins a flow; returns the device/user codes
  *       and the browser verification URL.</li>
- *   <li>{@code POST /api/login/device/token} — polled by the CLI; returns
+ *   <li>{@code POST /api/auth/device/token} — polled by the CLI; returns
  *       {@code authorization_pending} until approved, then an access/refresh token pair.</li>
- *   <li>{@code POST /api/login/device/refresh} — exchanges a refresh token for a new
+ *   <li>{@code POST /api/auth/device/refresh} — exchanges a refresh token for a new
  *       access/refresh token pair (rotation).</li>
  * </ul>
  *
@@ -56,9 +56,9 @@ public class CliDeviceLoginHandler {
     private final KinoticJwtIssuer jwtIssuer;
 
     public void mountRoutes(Router router) {
-        router.post("/api/login/device/start").handler(this::handleStart);
-        router.post("/api/login/device/token").handler(this::handleToken);
-        router.post("/api/login/device/refresh").handler(this::handleRefresh);
+        router.post("/api/auth/device/start").handler(this::handleStart);
+        router.post("/api/auth/device/token").handler(this::handleToken);
+        router.post("/api/auth/device/refresh").handler(this::handleRefresh);
     }
 
     private void handleStart(RoutingContext ctx) {
