@@ -3,7 +3,7 @@ kinotic:
   github:
     appId: 3584018
     appSlug: kinotic-ai
-    repoTemplate: "-"
+    repoTemplate: kinotic-ai/kinotic-tpl-isomorphic-ts
   persistence:
     openApiSecurityType: BASIC
 
