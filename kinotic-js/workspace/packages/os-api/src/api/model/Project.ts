@@ -1,5 +1,6 @@
 import type { Identifiable } from '@kinotic-ai/core'
 import { ProjectType } from '@/api/model/ProjectType'
+import { RepositoryConnectionStatus } from '@/api/model/RepositoryConnectionStatus'
 
 export class Project implements Identifiable<string> {
     /**
@@ -57,6 +58,13 @@ export class Project implements Identifiable<string> {
      * this before save; the platform passes it through to GitHub.
      */
     public repoPrivate: boolean = true
+
+    /**
+     * Connection state of the backing repository. A project left
+     * {@link RepositoryConnectionStatus.INITIALIZATION_FAILED} by creation can have its
+     * repository initialization retried.
+     */
+    public repositoryConnectionStatus: RepositoryConnectionStatus | null = null
 
     /**
      * The date and time the project was updated.
