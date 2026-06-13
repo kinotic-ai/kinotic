@@ -89,10 +89,10 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                 return CompletableFuture.failedFuture(new IllegalArgumentException(
                         "Project for id " + projectId + " does not exist"));
             }
-            if (project.getRepositoryConnectionStatus() != RepositoryConnectionStatus.INITIALIZATION_FAILED) {
+            if (project.getRepoConnectionStatus() != RepositoryConnectionStatus.INITIALIZATION_FAILED) {
                 return CompletableFuture.failedFuture(new IllegalStateException(
                         "Project " + projectId + " is not awaiting initialization retry (status "
-                        + project.getRepositoryConnectionStatus() + ")"));
+                        + project.getRepoConnectionStatus() + ")"));
             }
             return repoProvisioner.reinitialize(project).thenCompose(this::save);
         });

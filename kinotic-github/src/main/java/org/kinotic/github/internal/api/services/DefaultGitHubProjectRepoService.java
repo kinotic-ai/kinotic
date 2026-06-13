@@ -36,7 +36,7 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
                                  base.getToken(),
                                  base.getExpiresAt(),
                                  "https://github.com/" + ctx.project().getRepoFullName() + ".git",
-                                 ctx.project().getDefaultBranch()))
+                                 ctx.project().getRepoDefaultBranch()))
                          .toCompletionStage().toCompletableFuture());
     }
 

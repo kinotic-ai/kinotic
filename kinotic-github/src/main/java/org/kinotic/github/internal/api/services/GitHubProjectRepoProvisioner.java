@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit;
  * (liquid in paths and {@code .liquid} files) with the project's values, and
  * rewrites the default branch to a single root commit containing the rendered
  * baseline. Honours the caller-supplied {@code repoPrivate} flag and stamps the
- * resulting {@code repoFullName}, {@code repoId}, and {@code defaultBranch} on
+ * resulting {@code repoFullName}, {@code repoId}, and {@code repoDefaultBranch} on
  * the project before it is persisted.
  * <p>
  * Slugifies the project name with the same {@link Slugify} configuration used by
@@ -87,7 +87,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
                                 log.error("Baseline initialization failed for {}; repository created, "
                                           + "marking project {} {}", p.getRepoFullName(), p.getId(),
                                           RepositoryConnectionStatus.INITIALIZATION_FAILED, err);
-                                p.setRepositoryConnectionStatus(RepositoryConnectionStatus.INITIALIZATION_FAILED);
+                                p.setRepoConnectionStatus(RepositoryConnectionStatus.INITIALIZATION_FAILED);
                                 return Future.succeededFuture(p);
                             }));
         }).toCompletionStage().toCompletableFuture();
@@ -97,7 +97,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     public CompletableFuture<Project> reinitialize(Project project) {
         Validate.notNull(project.getRepoId(), "Project repoId must be set to reinitialize");
         Validate.notBlank(project.getRepoFullName(), "Project repoFullName must be set to reinitialize");
-        Validate.notBlank(project.getDefaultBranch(), "Project defaultBranch must be set to reinitialize");
+        Validate.notBlank(project.getRepoDefaultBranch(), "Project repoDefaultBranch must be set to reinitialize");
         return requireInstallation()
                 .compose(install -> initializeRepo(install.getGithubInstallationId(), project))
                 .toCompletionStage().toCompletableFuture();
@@ -123,7 +123,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     }
 
     private Future<Buffer> downloadTarballWithRetry(String token, Project project, int attemptsLeft) {
-        return apiClient.downloadTarball(token, project.getRepoFullName(), project.getDefaultBranch())
+        return apiClient.downloadTarball(token, project.getRepoFullName(), project.getRepoDefaultBranch())
                         .recover(err -> {
                             if (attemptsLeft <= 1) {
                                 return Future.failedFuture(err);
@@ -146,10 +146,10 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
                      .compose(treeSha -> apiClient.createCommit(token, project.getRepoFullName(),
                                                                 "Initialize " + project.getName(), treeSha))
                      .compose(commitSha -> apiClient.updateRef(token, project.getRepoFullName(),
-                                                               "heads/" + project.getDefaultBranch(),
+                                                               "heads/" + project.getRepoDefaultBranch(),
                                                                commitSha, true))
                      .map(v -> {
-                         project.setRepositoryConnectionStatus(RepositoryConnectionStatus.CONNECTED);
+                         project.setRepoConnectionStatus(RepositoryConnectionStatus.CONNECTED);
                          log.info("Initialized {} with rendered baseline for project {}",
                                   project.getRepoFullName(), project.getId());
                          return project;
@@ -235,7 +235,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     private Project stamp(Project project, CreatedRepository repo) {
         project.setRepoFullName(repo.fullName());
         project.setRepoId(repo.id());
-        project.setDefaultBranch(repo.defaultBranch());
+        project.setRepoDefaultBranch(repo.defaultBranch());
         log.info("Provisioned GitHub repo {} for project {} (org {})",
                  project.getRepoFullName(), project.getId(), project.getOrganizationId());
         return project;

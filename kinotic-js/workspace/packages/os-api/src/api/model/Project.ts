@@ -51,7 +51,7 @@ export class Project implements Identifiable<string> {
     /**
      * Default branch of the backing repository at the time it was provisioned.
      */
-    public defaultBranch!: string
+    public repoDefaultBranch!: string
 
     /**
      * Visibility chosen for the backing repository at create time. The SPA sets
@@ -64,7 +64,7 @@ export class Project implements Identifiable<string> {
      * {@link RepositoryConnectionStatus.INITIALIZATION_FAILED} by creation can have its
      * repository initialization retried.
      */
-    public repositoryConnectionStatus: RepositoryConnectionStatus | null = null
+    public repoConnectionStatus: RepositoryConnectionStatus | null = null
 
     /**
      * The date and time the project was updated.

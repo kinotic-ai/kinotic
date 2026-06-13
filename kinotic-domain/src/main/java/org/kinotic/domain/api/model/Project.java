@@ -55,7 +55,7 @@ public class Project implements ApplicationScoped<String> {
      * Default branch of the backing repository at the time it was provisioned
      * (e.g. {@code main}).
      */
-    private String defaultBranch;
+    private String repoDefaultBranch;
 
     /**
      * Visibility chosen for the backing repository at create time. The SPA sets
@@ -69,7 +69,7 @@ public class Project implements ApplicationScoped<String> {
      * webhook handlers flip to {@link RepositoryConnectionStatus#DISCONNECTED}
      * when GitHub revokes access to the repo.
      */
-    private RepositoryConnectionStatus repositoryConnectionStatus;
+    private RepositoryConnectionStatus repoConnectionStatus;
 
     /**
      * The date and time the project was updated.

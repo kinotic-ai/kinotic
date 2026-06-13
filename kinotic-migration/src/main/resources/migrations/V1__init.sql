@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS kinotic_named_query_service_definition (
 );
 
 -- Create the project table if it does not exist.
--- repoFullName / repoId / defaultBranch are stamped by the GitHub repo provisioner
+-- repoFullName / repoId / repoDefaultBranch are stamped by the GitHub repo provisioner
 -- when the project is created; every project is backed by a GitHub repo.
 CREATE TABLE IF NOT EXISTS kinotic_project (
     id KEYWORD,
@@ -30,9 +30,9 @@ CREATE TABLE IF NOT EXISTS kinotic_project (
     sourceOfTruth KEYWORD,
     repoFullName KEYWORD,
     repoId LONG,
-    defaultBranch KEYWORD,
+    repoDefaultBranch KEYWORD,
     repoPrivate BOOLEAN,
-    repositoryConnectionStatus KEYWORD,
+    repoConnectionStatus KEYWORD,
     updated DATE
 );
 

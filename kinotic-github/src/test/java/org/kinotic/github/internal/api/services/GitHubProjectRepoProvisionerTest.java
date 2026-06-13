@@ -87,8 +87,8 @@ class GitHubProjectRepoProvisionerTest {
 
         assertEquals("acme/demo", project.getRepoFullName());
         assertEquals(99L, project.getRepoId());
-        assertEquals("main", project.getDefaultBranch());
-        assertEquals(RepositoryConnectionStatus.CONNECTED, project.getRepositoryConnectionStatus());
+        assertEquals("main", project.getRepoDefaultBranch());
+        assertEquals(RepositoryConnectionStatus.CONNECTED, project.getRepoConnectionStatus());
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<TreeEntry>> captor = ArgumentCaptor.forClass(List.class);
@@ -123,7 +123,7 @@ class GitHubProjectRepoProvisionerTest {
 
         Project project = provisioner.provision(project()).get();
 
-        assertEquals(RepositoryConnectionStatus.CONNECTED, project.getRepositoryConnectionStatus());
+        assertEquals(RepositoryConnectionStatus.CONNECTED, project.getRepoConnectionStatus());
         verify(apiClient, times(2)).downloadTarball(eq("repo-token"), eq("acme/demo"), eq("main"));
     }
 
@@ -140,7 +140,7 @@ class GitHubProjectRepoProvisionerTest {
 
         assertEquals("acme/demo", project.getRepoFullName());
         assertEquals(99L, project.getRepoId());
-        assertEquals(RepositoryConnectionStatus.INITIALIZATION_FAILED, project.getRepositoryConnectionStatus());
+        assertEquals(RepositoryConnectionStatus.INITIALIZATION_FAILED, project.getRepoConnectionStatus());
     }
 
     @Test
@@ -151,12 +151,12 @@ class GitHubProjectRepoProvisionerTest {
         Project failed = project();
         failed.setRepoFullName("acme/demo");
         failed.setRepoId(99L);
-        failed.setDefaultBranch("main");
-        failed.setRepositoryConnectionStatus(RepositoryConnectionStatus.INITIALIZATION_FAILED);
+        failed.setRepoDefaultBranch("main");
+        failed.setRepoConnectionStatus(RepositoryConnectionStatus.INITIALIZATION_FAILED);
 
         Project project = provisioner.reinitialize(failed).get();
 
-        assertEquals(RepositoryConnectionStatus.CONNECTED, project.getRepositoryConnectionStatus());
+        assertEquals(RepositoryConnectionStatus.CONNECTED, project.getRepoConnectionStatus());
         verify(apiClient, never()).createRepoFromTemplate(anyString(), anyString(), anyString(),
                                                           anyString(), any(), anyBoolean());
         verify(apiClient).updateRef(eq("repo-token"), eq("acme/demo"), eq("heads/main"), eq("commit-sha"), eq(true));
