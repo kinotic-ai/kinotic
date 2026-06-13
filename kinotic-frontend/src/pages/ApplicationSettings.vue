@@ -1,5 +1,5 @@
 <template>
-  <div :class="['application-settings min-h-full p-4', isDark ? 'application-settings--dark' : 'application-settings--light']">
+  <div :class="['application-settings', isDark ? 'application-settings--dark' : 'application-settings--light']">
     <h1 class="application-settings__title">Application settings</h1>
 
     <Tabs class="application-settings__tabs" :value="activeTab" @update:value="(value: string | number) => activeTab = Number(value)">

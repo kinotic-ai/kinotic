@@ -1,7 +1,6 @@
 <script lang="ts">
 import { Component, Vue, Ref, Watch } from "vue-facing-decorator";
 import CrudTable from "@/components/CrudTable.vue";
-import ContainerMedium from "@/components/ContainerMedium.vue";
 import ApplicationSidebar from "@/components/ApplicationSidebar.vue";
 import { Kinotic } from "@kinotic-ai/core";
 import {
@@ -22,7 +21,6 @@ const debug = createDebug('application-list');
 @Component({
   components: {
     CrudTable,
-    ContainerMedium,
     ApplicationSidebar,
   },
 })
@@ -135,56 +133,53 @@ export default class NamespaceList extends Vue {
 </script>
 
 <template>
-  <ContainerMedium>
-    <div :class="['application-list transition-colors', isDark ? 'application-list--dark text-surface-0' : 'text-surface-950']">
-      <h1 :class="['mb-5 text-2xl font-semibold', isDark ? 'text-white' : 'text-surface-950']">Applications</h1>
-      <CrudTable
-        ref="crudTable"
-        createNewButtonText="New application"
-        rowHoverColor=""
-        transparent-dark-cards
-        :data-source="dataSource"
-        :headers="headers"
-        :singleExpand="false"
-        :enableViewSwitcher="true"
-        emptyStateText="No applications yet"
-        :search="searchText"
-        @update:search="updateRouteQuery"
-        @add-item="onAddItem"
-        @edit-item="onEditItem"
-        @onRowClick="toApplicationPage"
-        class="application-list__table !text-sm"
-        :show-pagination="false"
+  <div :class="['application-list flex flex-col transition-colors', isDark ? 'application-list--dark text-surface-0' : 'text-surface-950']">
+    <h1 :class="['mb-5 text-2xl font-semibold', isDark ? 'text-white' : 'text-surface-950']">Applications</h1>
+    <CrudTable
+      ref="crudTable"
+      createNewButtonText="New application"
+      rowHoverColor=""
+      transparent-dark-cards
+      :data-source="dataSource"
+      :headers="headers"
+      :singleExpand="false"
+      :enableViewSwitcher="true"
+      emptyStateText="No applications yet"
+      :search="searchText"
+      @update:search="updateRouteQuery"
+      @add-item="onAddItem"
+      @edit-item="onEditItem"
+      @onRowClick="toApplicationPage"
+      class="application-list__table !text-sm"
+    >
+    <template #item.id="{ item }">
+      <span>{{ item.id }}</span>
+    </template>
+    <template #item.description="{ item }">
+      <span
+        class="block max-w-[300px] sm:max-w-[500px] md:max-w-[190px] lg:max-w-[390px] xl:max-w-[590px] truncate"
       >
-      <template #item.id="{ item }">
-        <span>{{ item.id }}</span>
-      </template>
-      <template #item.description="{ item }">
-        <span
-          class="block max-w-[300px] sm:max-w-[500px] md:max-w-[190px] lg:max-w-[390px] xl:max-w-[590px] truncate"
-        >
-          {{ item.description }}
-        </span>
-      </template>
-      <template #item.created="{ item }">
-        <span>
-          {{ DatetimeUtil.formatMonthDayYear(item.created) }}
-        </span>
-      </template>
-      <template #item.updated="{ item }">
-        <span>
-          {{ DatetimeUtil.formatRelativeDate(item.updated) }}
-        </span>
-      </template>
-      </CrudTable>
+        {{ item.description }}
+      </span>
+    </template>
+    <template #item.created="{ item }">
+      <span>
+        {{ DatetimeUtil.formatMonthDayYear(item.created) }}
+      </span>
+    </template>
+    <template #item.updated="{ item }">
+      <span>
+        {{ DatetimeUtil.formatRelativeDate(item.updated) }}
+      </span>
+    </template>
+    </CrudTable>
 
-      <div v-show="showSidebar" ref="sidebarWrapper">
-        <ApplicationSidebar
-          :visible="showSidebar"
-          @close="onSidebarClose"
-          @submit="onApplicationSubmit"
-        />
-      </div>
+    <div v-show="showSidebar" ref="sidebarWrapper">
+      <ApplicationSidebar
+        :visible="showSidebar"
+        @close="onSidebarClose"
+        @submit="onApplicationSubmit"
+      />
     </div>
-  </ContainerMedium>
+  </div>
 </template>

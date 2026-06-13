@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-4">
+  <div class="flex flex-col">
     <CrudTable
       ref="crudTable"
       :headers="headers"

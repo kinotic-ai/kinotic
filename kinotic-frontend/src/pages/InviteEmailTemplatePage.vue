@@ -1,5 +1,5 @@
 <template>
-  <div class="invite-email-page min-h-full p-4">
+  <div class="invite-email-page">
     <h1 class="invite-email-page__title">Invitation email</h1>
 
     <div v-if="loading" class="flex justify-center py-12">

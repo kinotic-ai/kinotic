@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import SideBar from '@/components/SideBar.vue'
 import Header from './Header.vue'
 import { isDark as darkMode } from '@/composables/useTheme'
 
 const sidebarRef = ref<InstanceType<typeof SideBar> | null>(null)
+const route = useRoute()
 
 const isSidebarCollapsed = computed(() => {
     return sidebarRef.value?.collapsed ?? false
 })
 
 const isDark = computed(() => darkMode.value)
+
+const isFullWidth = computed(() => route.meta.fullWidth === true)
 
 </script>
 
@@ -27,7 +31,12 @@ const isDark = computed(() => darkMode.value)
             ]"
         >
             <div :class="['h-[calc(100vh-64px)] overflow-y-auto px-8 py-6 transition-colors', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
-                <router-view />
+                <router-view v-if="isFullWidth" />
+                <!-- flex + flex-1 (rather than min-h-full on the page root) so short pages still
+                     stretch to the bottom of the viewport inside this auto-height wrapper. -->
+                <div v-else class="mx-auto flex min-h-full w-full max-w-[1200px] flex-col">
+                    <router-view class="flex-1" />
+                </div>
             </div>
         </div>
     </div>
