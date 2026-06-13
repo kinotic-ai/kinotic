@@ -3,9 +3,9 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { GridStack } from 'gridstack'
 import 'gridstack/dist/gridstack.min.css'
-import { DashboardEntityService } from '@/services/DashboardEntityService'
+import { DashboardEntityRepository } from '@/services/DashboardEntityRepository'
 import { Dashboard } from '@/domain/Dashboard'
-import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEntityService'
+import { DataInsightsWidgetEntityRepository } from '@/services/DataInsightsWidgetEntityRepository'
 import { DataInsightsWidget } from '@/domain/DataInsightsWidget'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
@@ -14,6 +14,7 @@ import { useToast } from 'primevue/usetoast'
 import SavedWidgetItem from '@/components/SavedWidgetItem.vue'
 import { DateRangeObservable } from '../observables/DateRangeObservable'
 import { createDebug } from '@/util/debug'
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('dashboard-details');
 
@@ -26,8 +27,8 @@ const props = defineProps<{
   mode?: 'view' | 'edit'
 }>()  
 
-const dashboardService = new DashboardEntityService()
-const widgetService = new DataInsightsWidgetEntityService()
+const dashboardService = new DashboardEntityRepository()
+const widgetService = new DataInsightsWidgetEntityRepository()
 
 const dashboard = ref<Dashboard | null>(null)
 const dashboardTitle = ref('')
@@ -45,6 +46,7 @@ const dateRange = ref<{ startDate: Date | null, endDate: Date | null }>({
   endDate: null
 })
 const showDateRangePicker = ref(false)
+const isDark = darkMode
 
 const isEditMode = computed(() => {
   if (props.mode) {
@@ -179,7 +181,7 @@ const addResizeIcons = () => {
     const icon = document.createElement('i')
     icon.className = 'pi pi-arrow-up-right-and-arrow-down-left-from-center'
     icon.style.fontSize = '14px'
-    icon.style.color = '#6b7280'
+    icon.style.color = 'var(--p-surface-500)'
     icon.style.display = 'block'
     icon.style.lineHeight = '1'
     
@@ -564,18 +566,25 @@ const addWidgetToGrid = async (widget: DataInsightsWidget, x?: number, y?: numbe
   const escapedTitle = widgetTitle.replace(/"/g, '&quot;').replace(/'/g, '&#39;')
   const escapedSubtitle = widgetSubtitle.replace(/"/g, '&quot;').replace(/'/g, '&#39;')
   
+  const cardBg = isDark.value ? 'var(--p-surface-900)' : 'var(--p-surface-0)'
+  const cardBorder = isDark.value ? 'var(--p-surface-800)' : 'var(--p-surface-200)'
+  const overlayBg = isDark.value ? 'var(--p-surface-900)' : 'var(--p-surface-0)'
+  const titleColor = isDark.value ? 'var(--p-surface-0)' : 'var(--p-surface-950)'
+  const subtitleColor = isDark.value ? 'var(--p-surface-400)' : 'var(--p-surface-600)'
+  const loadingColor = isDark.value ? 'var(--p-surface-300)' : 'var(--p-surface-700)'
+
   el.innerHTML = `
-    <div class="grid-stack-item-content bg-white rounded-lg border border-surface-200 h-full flex flex-col p-4 relative">
-      <div class="widget-loading-overlay absolute inset-0 flex items-center justify-center bg-white z-20 rounded-lg">
+    <div class="grid-stack-item-content rounded-lg border h-full flex flex-col p-4 relative" style="background:${cardBg}; border-color:${cardBorder};">
+      <div class="widget-loading-overlay absolute inset-0 flex items-center justify-center z-20 rounded-lg" style="background:${overlayBg};">
           <div class="text-center">
           <i class="pi pi-spin pi-spinner text-blue-500 text-3xl mb-3"></i>
-          <div class="text-sm font-medium text-gray-700">Loading widget...</div>
+          <div class="text-sm font-medium" style="color:${loadingColor};">Loading widget...</div>
           </div>
         </div>
       
       <div class="widget-header mb-2 pb-2">
-        <h4 class="text-base font-semibold text-gray-900 mb-1">${escapedTitle}</h4>
-        ${widgetSubtitle ? `<p class="text-xs text-gray-600 line-clamp-2">${escapedSubtitle}</p>` : ''}
+        <h4 class="text-base font-semibold mb-1" style="color:${titleColor};">${escapedTitle}</h4>
+        ${widgetSubtitle ? `<p class="text-xs line-clamp-2" style="color:${subtitleColor};">${escapedSubtitle}</p>` : ''}
       </div>
       <div class="widget-chart-area flex-1 relative">
         <div class="widget-body h-full w-full" data-instance-id="${widgetInstanceId}"></div>
@@ -1018,12 +1027,12 @@ onMounted(async () => {
 <template>
   <div class="h-full flex">
     <div class="flex-1 flex flex-col">
-      <div class="flex justify-between items-center p-4 bg-white border-b border-surface-200">
+      <div :class="['flex items-center justify-between border-b p-4', isDark ? 'border-surface-800 bg-surface-900' : 'bg-surface-0 border-surface-200']">
         <div class="flex items-center gap-4">
           <Button @click="goBack" icon="pi pi-arrow-left" class="p-button-text p-button-sm" />
           <div v-if="!isEditMode">
-            <h1 class="text-xl font-semibold text-surface-900">{{ headerTitle }}</h1>
-            <p class="text-sm text-surface-500">{{ headerSubtitle }}</p>
+            <h1 :class="['text-xl font-semibold', isDark ? 'text-surface-0' : 'text-surface-900']">{{ headerTitle }}</h1>
+            <p :class="['text-sm', isDark ? 'text-surface-400' : 'text-surface-500']">{{ headerSubtitle }}</p>
           </div>
           <InputText v-if="isEditMode" v-model="dashboardTitle" placeholder="Dashboard Title" class="text-xl font-semibold" />
         </div>
@@ -1031,15 +1040,15 @@ onMounted(async () => {
           <div v-if="!isEditMode" class="flex items-center gap-2">
             <Button
               @click="toggleDateRangePicker"
-              :class="showDateRangePicker ? '!bg-blue-600 !border-blue-600 !text-white !hover:bg-blue-700 !hover:border-blue-700 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px] [&_.pi]:!w-[14px] [&_.pi]:!h-[14px]' : '!bg-white !border !border-gray-300 !text-gray-700 !hover:bg-gray-50 !hover:border-gray-400 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px] [&_.pi]:!w-[14px] [&_.pi]:!h-[14px]'"
+              :class="showDateRangePicker ? '!bg-blue-600 !border-blue-600 !text-white !hover:bg-blue-700 !hover:border-blue-700 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px] [&_.pi]:!w-[14px] [&_.pi]:!h-[14px]' : 'app-neutral-button app-neutral-button-sm'"
               icon="pi pi-calendar"
               size="small"
               :label="showDateRangePicker ? 'Hide Date Range' : 'Set Date Range'"
             />
             
-            <div v-if="showDateRangePicker" class="flex items-center gap-2 bg-white p-2 rounded border">
+            <div v-if="showDateRangePicker" :class="['flex items-center gap-2 rounded border p-2', isDark ? 'border-surface-700 bg-surface-900' : 'bg-surface-0']">
               <div class="flex items-center gap-2">
-                <label class="text-sm font-medium text-surface-700">From:</label>
+                <label :class="['text-sm font-medium', isDark ? 'text-surface-300' : 'text-surface-700']">From:</label>
                 <Calendar
                   v-model="dateRange.startDate"
                   @date-select="updateDateRange"
@@ -1050,7 +1059,7 @@ onMounted(async () => {
               </div>
               
               <div class="flex items-center gap-2">
-                <label class="text-sm font-medium text-surface-700">To:</label>
+                <label :class="['text-sm font-medium', isDark ? 'text-surface-300' : 'text-surface-700']">To:</label>
                 <Calendar
                   v-model="dateRange.endDate"
                   @date-select="updateDateRange"
@@ -1070,50 +1079,47 @@ onMounted(async () => {
             </div>
           </div>
           
-          <Button v-if="!isEditMode" @click="enterEditMode" label="Edit" icon="pi pi-pencil" 
-                  class="!bg-white !border !border-gray-300 !text-gray-700 !hover:bg-gray-50 !hover:border-gray-400 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px] [&_.pi]:!w-[14px] [&_.pi]:!h-[14px]" />
+            <Button v-if="!isEditMode" @click="enterEditMode" label="Edit" icon="pi pi-pencil" class="app-neutral-button app-neutral-button-sm" />
           <template v-if="isEditMode">
-            <Button @click="goBack" label="Cancel" 
-                    class="!bg-gray-200 !border-gray-200 !text-gray-700 !hover:bg-gray-300 !hover:border-gray-300 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px]" />
+              <Button @click="goBack" label="Cancel" class="app-tonal-button app-tonal-button-sm" />
             <Button @click="saveDashboard" :label="saveButtonLabel" 
                     class="!bg-blue-600 !border-blue-600 !text-white !hover:bg-blue-700 !hover:border-blue-700 !rounded-md !px-4 !h-[33px] !font-medium !text-[14px]" />
           </template>
         </div>
       </div>
 
-       <div class="flex-1 p-4 flex flex-col">
+       <div :class="['flex flex-1 flex-col p-4', isDark ? 'bg-surface-900' : 'bg-transparent']">
          <div v-if="loading" class="flex items-center justify-center flex-1">
            <i class="pi pi-spin pi-spinner text-3xl"></i>
          </div>
          <div v-else :class="['grid-stack flex-1 overflow-y-auto relative', { 'view-mode': !isEditMode, 'edit-mode': isEditMode }]">
            <div v-if="!hasWidgetsInGrid && isEditMode" class="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-             <div class="text-center text-gray-500 bg-white bg-opacity-90 p-6 rounded-lg">
-               <p class="text-sm text-gray-500">Drag and drop widgets from the sidebar to start building your dashboard</p>
+             <div :class="['rounded-lg p-6 text-center', isDark ? 'bg-surface-900/90 text-surface-400' : 'bg-surface-0 bg-opacity-90 text-surface-500']">
+               <p class="text-sm">Drag and drop widgets from the sidebar to start building your dashboard</p>
              </div>
            </div>
            <div v-if="!hasWidgetsInGrid && !isEditMode" class="flex items-center justify-center flex-1">
-             <div class="text-center text-surface-500">
+             <div :class="['text-center', isDark ? 'text-surface-400' : 'text-surface-500']">
                <i class="pi pi-chart-bar text-6xl mb-4"></i>
                <h3 class="text-lg font-semibold mb-2">No widgets yet</h3>
-               <p class="text-surface-400 mb-4">This dashboard doesn't have any widgets configured.</p>
-               <Button @click="enterEditMode" label="Add Widgets" 
-                       class="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 rounded-md px-3 py-2 font-medium" />
+               <p :class="['mb-4', isDark ? 'text-surface-500' : 'text-surface-400']">This dashboard doesn't have any widgets configured.</p>
+                     <Button @click="enterEditMode" label="Add Widgets" class="app-neutral-button" />
              </div>
            </div>
          </div>
        </div>
     </div>
 
-    <div v-if="isEditMode" class="w-80 border-l border-surface-200 flex flex-col h-full overflow-y-auto">
-      <div class="p-4 bg-white flex-shrink-0">
+    <div v-if="isEditMode" :class="['flex h-full w-80 flex-col overflow-y-auto border-l', isDark ? 'border-surface-800 bg-surface-900' : 'border-surface-200']">
+      <div :class="['flex-shrink-0 p-4', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0']">
         <h3 class="text-lg font-semibold mb-3">Widgets</h3>
         <InputText v-model="widgetSearchText" placeholder="Search..." class="w-full mb-3" />
       </div>
-      <div class="flex-1 p-4 overflow-y-auto">
+      <div :class="['flex-1 overflow-y-auto p-4', isDark ? 'bg-surface-900' : 'bg-transparent']">
         <div v-if="loadingSidebarWidgets" class="flex items-center justify-center h-32">
           <div class="text-center">
             <i class="pi pi-spin pi-spinner text-blue-500 text-2xl mb-2"></i>
-            <div class="text-sm text-gray-600">Loading widgets...</div>
+            <div :class="['text-sm', isDark ? 'text-surface-400' : 'text-surface-600']">Loading widgets...</div>
           </div>
         </div>
         <div v-else class="space-y-2 sidebar-widgets">

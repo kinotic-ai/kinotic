@@ -21,6 +21,10 @@ export class CrudServiceProxy<T extends Identifiable<string>> implements ICrudSe
         return this.serviceProxy.invoke('create', [entity])
     }
 
+    public createSync(entity: T): Promise<T> {
+        return this.serviceProxy.invoke('createSync', [entity])
+    }
+
     public deleteById(id: string): Promise<void> {
         return this.serviceProxy.invoke('deleteById', [id])
     }
@@ -40,6 +44,10 @@ export class CrudServiceProxy<T extends Identifiable<string>> implements ICrudSe
 
     public save(entity: T): Promise<T> {
         return this.serviceProxy.invoke('save', [entity])
+    }
+
+    public saveSync(entity: T): Promise<T> {
+        return this.serviceProxy.invoke('saveSync', [entity])
     }
 
     public findByIdNotIn(ids: string[], page: Pageable): Promise<Page<Identifiable<string>>> {

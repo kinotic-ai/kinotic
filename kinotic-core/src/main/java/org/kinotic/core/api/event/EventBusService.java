@@ -1,9 +1,10 @@
 
 
+
 package org.kinotic.core.api.event;
 
+import io.vertx.core.Future;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 /**
  * Provides functionality for non-persistent {@link Event}'s
@@ -23,41 +24,32 @@ public interface EventBusService {
      * This is a special form of send that requires the receiver to acknowledge receipt of the message.
      * An exception will be signaled if no acknowledgement is sent.
      * @param event to send
+     * @return a {@link Future} that completes when the acknowledgement is received or fails on error
      */
-    Mono<Void> sendWithAck(Event<byte[]> event);
+    Future<Void> sendWithAck(Event<byte[]> event);
 
     /**
-     * Returns a "Cold" {@link Flux} that will emit {@link Event<byte[]>} from the given cri when subscribed to
-     * @param cri to subscribe to
-     * @return the newly created {@link Flux} for the given cri
+     * Creates a new {@link EventConsumer} that will receive {@link Event<byte[]>} sent to the
+     * {@link CRI#baseResource()} of the given {@link CRI}.
+     * The consumer is not registered with the event bus until {@link EventConsumer#handler} is called.
+     * Use {@link EventConsumer#completion()} to wait for registration to complete.
+     * @param cri whose base resource will be subscribed to
+     * @return the newly created {@link EventConsumer}
      */
-    Flux<Event<byte[]>> listen(String cri);
+    EventConsumer listen(CRI cri);
 
     /**
-     * Returns a {@link Mono} that when subscribed to will produce a "Hot" flux {@link Flux} that will emit {@link Event}'s from the given cri.
-     * Because this returns a "Hot" flux some messages can be lost before you can subscribe to the {@link Flux} provided by the {@link Mono}
-     *
-     * NOTE: the {@link Mono} will not complete until the listener is published cluster wide.
-     *       This is handy if you want to know that a listener will receive a message from a remote node before sending it.
-     *       Which ultimately precludes the problem of this being a hot flux
-     *
-     * @param cri to subscribe to
-     * @return the newly created {@link Flux<byte[]>} for the given cri
-     */
-    Mono<Flux<Event<byte[]>>> listenWithAck(String cri);
-
-    /**
-     * Checks if any listeners have been registered for the given {@link CRI}
+     * Checks if any listeners are registered for the {@link CRI#baseResource()} of the given {@link CRI}
      * @param cri to check if any listeners are active for
-     * @return a {@link Mono} that contains true if listeners are active false if not
+     * @return a {@link Future} that contains true if listeners are active false if not
      */
-    Mono<Boolean> isAnybodyListening(String cri);
+    Future<Boolean> isAnybodyListening(CRI cri);
 
     /**
-     * Monitors the status of listeners for the given cri
+     * Monitors the status of listeners for the {@link CRI#baseResource()} of the given {@link CRI}
      * @param cri to check for registered listeners
-     * @return a {@link Flux} that returns a stream of statuses for the given listener cri
+     * @return a {@link Flux} that returns a stream of statuses for the given listener
      */
-    Flux<ListenerStatus> monitorListenerStatus(String cri);
+    Flux<ListenerStatus> monitorListenerStatus(CRI cri);
 
 }

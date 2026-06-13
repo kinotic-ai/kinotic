@@ -1,6 +1,6 @@
-import { CodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/CodeGenerationService.js'
+import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import { KinoticProjectConfig } from '@kinotic-ai/core'
+import { KinoticProjectConfig } from '@kinotic-ai/os-api'
 import path from 'path'
 import fs from 'fs/promises'
 
@@ -12,13 +12,17 @@ async function buildEntityDefinitions() {
     async function buildEcommerceDefinitions() {
         const logger = new ConsoleLogger()
         const namespace = 'ecommerce'
-        const codeGenerationService = new CodeGenerationService(namespace, '.js', logger)
+        const codeGenerationService = new EntityCodeGenerationService(namespace, '.js', logger)
 
         const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
+        namespaceConfig.organization = 'kinotic-test'
         namespaceConfig.application = namespace
         namespaceConfig.validate = false
-        namespaceConfig.entitiesPaths = [path.resolve(__dirname, '../entity/domain/ecommerce')]
-        namespaceConfig.generatedPath = path.resolve(__dirname, '../services/ecommerce')
+        namespaceConfig.entitiesPaths = [{
+            path: path.resolve(__dirname, '../entity/domain/ecommerce'),
+            repositoryPath: path.resolve(__dirname, '../repository/ecommerce'),
+            mirrorFolderStructure: false
+        }]
 
         // Ensure output directory exists
         await fs.mkdir(outputDir, { recursive: true })
@@ -30,20 +34,25 @@ async function buildEntityDefinitions() {
                 const outputPath = path.join(outputDir, `${entityInfo.entity.name.toLowerCase()}.json`)
                 await fs.writeFile(outputPath, JSON.stringify(entityInfo.entity, null, 2))
                 logger.log(`Generated entity definition for ${entityInfo.entity.name} at ${outputPath}`)
-            }
+            },
+            true
         )
     }
 
     async function buildHealthDefinitions() {
         const logger = new ConsoleLogger()
         const namespace = 'healthcare'
-        const codeGenerationService = new CodeGenerationService(namespace, '.js', logger)
+        const codeGenerationService = new EntityCodeGenerationService(namespace, '.js', logger)
 
         const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
+        namespaceConfig.organization = 'kinotic-test'
         namespaceConfig.application = namespace
         namespaceConfig.validate = false
-        namespaceConfig.entitiesPaths = [path.resolve(__dirname, '../entity/domain/health')]
-        namespaceConfig.generatedPath = path.resolve(__dirname, '../services/health')
+        namespaceConfig.entitiesPaths = [{
+            path: path.resolve(__dirname, '../entity/domain/health'),
+            repositoryPath: path.resolve(__dirname, '../repository/health'),
+            mirrorFolderStructure: false
+        }]
 
         // Ensure output directory exists
         await fs.mkdir(outputDir, { recursive: true })
@@ -55,7 +64,8 @@ async function buildEntityDefinitions() {
                 const outputPath = path.join(outputDir, `${entityInfo.entity.name.toLowerCase()}.json`)
                 await fs.writeFile(outputPath, JSON.stringify(entityInfo.entity, null, 2))
                 logger.log(`Generated entity definition for ${entityInfo.entity.name} at ${outputPath}`)
-            }
+            },
+            true
         )
     }
 

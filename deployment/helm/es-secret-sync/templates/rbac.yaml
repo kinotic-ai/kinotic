@@ -1,0 +1,66 @@
+# Read the ES secret from the source namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: es-secret-sync-reader
+  namespace: {{ .Values.source.namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-20"
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ .Values.source.secretName | quote }}]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: es-secret-sync-reader
+  namespace: {{ .Values.source.namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-20"
+subjects:
+  - kind: ServiceAccount
+    name: es-secret-sync
+    namespace: {{ .Values.target.namespace }}
+roleRef:
+  kind: Role
+  name: es-secret-sync-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+# Write the secret to the target namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: es-secret-sync-writer
+  namespace: {{ .Values.target.namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-20"
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ .Values.source.secretName | quote }}]
+    verbs: ["get", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: es-secret-sync-writer
+  namespace: {{ .Values.target.namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-20"
+subjects:
+  - kind: ServiceAccount
+    name: es-secret-sync
+    namespace: {{ .Values.target.namespace }}
+roleRef:
+  kind: Role
+  name: es-secret-sync-writer
+  apiGroup: rbac.authorization.k8s.io

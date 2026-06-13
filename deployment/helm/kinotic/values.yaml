@@ -4,143 +4,136 @@ nameOverride: ""
 image:
   repository: kinoticai/kinotic-server
   pullPolicy: Always
-  tag: "3.5.2"
+  tag: "4.2.0-SNAPSHOT"
   sha: ""
 
-# Resource requests and limits for kinotic-server containers
 resources: {}
 
-# Migration configuration
-# Runs as a Helm pre-install/pre-upgrade hook Job.
-# The migration must complete successfully before the Deployment is rolled out.
 migration:
   backoffLimit: 3
   activeDeadlineSeconds: 300
   image:
     repository: kinoticai/kinotic-migration
-    tag: "3.5.2"
+    tag: "4.2.0-SNAPSHOT"
     pullPolicy: Always
     sha: ""
 
+# JVM / Buildpack
 properties:
   springActiveProfiles: "production,debug"
-  corsAllowedOriginPattern: "*"
   enableJmx: true
   enableNmt: true
-  javaToolOptions: "-Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m" ## -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar 
-
+  javaToolOptions: "-Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m"
+  # JPMS opens/exports required by Apache Ignite (java.base reflection) and
+  # Calcite/Janino runtime code generation (jdk.compiler internals).
+  # Concatenated onto JAVA_TOOL_OPTIONS in the kinotic-server ConfigMap.
+  javaModuleAccess: "--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
   bplJvmHeadRoom: 10
-  structures:
-    tenantIdFieldName: "tenantId"
-    indexPrefix: "struct_"
-    openApiSecurityType: "BASIC"
-    openApiPort: 8080
-    openApiPath: "/api/"
-    openApiServerUrl: "http://127.0.0.1:8080"
-    graphqlPort: 4000
-    graphqlPath: "/graphql/"
-    webServerPort: 9090
-    healthCheckPath: "/health"
-    enableStaticFileServer: true
-    initializeWithSampleData: false
-    elastic:
-      connections:
-        - host: "minds-test-elasticsearch.es.centralus.azure.elastic-cloud.com"
-          port: 443
-          scheme: "https"
-      connectionTimeout: "1M"
-      socketTimeout: "1M"
-      username: "elastic"
-      # Kubernetes secret containing the ES password (required).
-      # ECK creates a secret named <cluster>-es-elastic-user with key "elastic".
-      secretName: ""   # e.g., "kinotic-es-es-elastic-user"
-      secretKey: "elastic"
-    ai:
-      apiKey: "noop"
-      baseUrl: "https://api.x.ai"
-      model: "grok-4"
 
-continuum_gateway:
+# Kinotic platform — mirrors the Spring property structure:
+#   kinotic.persistence.*  → ports, ES, health
+#   kinotic.apiGateway.*   → STOMP, static web server
+#   kinotic.domain.*       → public URLs, TLS, email, platform OIDC providers
+#   kinotic.cors.*         → CORS (allowed origins, credentials)
+#   kinotic.ignite.*       → cluster (set in application-kubernetes.yml)
+kinotic:
+  # kinotic.domain.* — domain-layer configuration (public URLs, TLS, email).
+  domain:
+    # Public base URL of the SPA (no trailing slash) — used for verification email links
+    # and post-OIDC SPA redirects. Must be set per-environment.
+    appBaseUrl: "http://localhost:9090"
+    # Public base URL of the backend REST endpoints (no trailing slash) — used as the OIDC
+    # redirect_uri. Set this when the SPA and backend live on different origins (e.g. SPA on
+    # Azure Static Web Apps, backend on AKS). Leave empty to fall back to appBaseUrl, which
+    # is correct for any same-origin deploy.
+    apiBaseUrl: ""
+    # kinotic.domain.email.* — outbound mail via Azure Communication Services
+    email:
+      # When false, EmailService logs verification URLs instead of sending. Required for
+      # local/dev environments without a real ACS resource.
+      enabled: false
+      endpoint: ""
+      senderAddress: ""
+      managedIdentityClientId: ""
+  # kinotic.webServer.* — static-file server for the SPA. Disabled in deployments
+  # where the SPA is hosted outside the cluster (e.g. Azure Storage).
+  # Bound to kinotic.apiGateway.webServer.* on the Spring side.
+  webServer:
+    port: 9090
+    enabled: true
+  openApiPort: 8080
+  graphqlPort: 4000
+  restPort: 58504
+  elastic:
+    connections:
+      - host: "kinotic-es-es-http.elastic.svc"
+        port: 9200
+        scheme: "http"
+    connectionTimeout: "5s"
+    socketTimeout: "60s"
+    username: "elastic"
+    secretName: "kinotic-es-es-elastic-user"
+    secretKey: "elastic"
+  # kinotic.apiGateway.stomp.*
   stomp:
     port: 58503
     websocketPath: /v1
-
-continuum:
-  debug: true
-  disableClustering: false
-  maxNumberOfCoresToUse: 4
-  maxOffHeapMemory: "419430400"
+  # kinotic.ignite.cluster.* — used by ignite-service template
   cluster:
-    discoveryType: LOCAL ## SHAREDFS or KUBERNETES
-    joinTimeoutMs: 0
-    # Test instance local address: bind to 0.0.0.0 (all interfaces) so containers can reach it
-    # Containers connect via host.docker.internal:47500
-    localAddress: 0.0.0.0
-    # Test instance ports (must be unique from container nodes)
-    discoveryPort: 47500      
-    communicationPort: 47100 
-    # Static IP addresses for all nodes in the cluster
-    # Format: host:port,host:port,...
-    localAddresses: null
-    # Note: sharedFsPath is still used for Structure data sharing, not for Ignite discovery
-    sharedFsPath: /sharedfs  # Shared with containers via bind mount
-    kubernetesNamespace: default
-    kubernetesServiceName: kinotic
-    kubernetesIncludeNotReadyAddresses: false
-    kubernetesMasterUrl: ""
-    kubernetesAccountToken: ""
+    discoveryPort: 47500
+    communicationPort: 47100
 
-# TODO: adjust for this later
-# OIDC security service configuration
-oidc:
+# TLS (kinotic.domain.ssl.*)
+tls:
   enabled: false
-  debug: true
-  frontendConfigurationPath: "/app-config.override.json"
-  oidcProviders:
-    - provider: "keycloak"
-      displayName: "Keycloak"
-      enabled: true
-      rolesClaimPath: "realm_access.roles"
-      domains:
-        - "example.com"
-      roles:
-        - "admin"
-      audience: "kinotic-client"
-      clientId: "kinotic-client"
-      authority: "http://keycloak:8888/auth/realms/test"
-      redirectUri: "http://localhost:9090/login"
-      postLogoutRedirectUri: "http://localhost:9090"
-      silentRedirectUri: "http://localhost:9090/login/silent-renew"
-    
+  secretName: kinotic-tls
 
-# Eviction tracking configuration
-# When enabled, cache evictions are written to CSV files for testing/analysis
 evictionTracking:
   enabled: false
-  # Mount path inside the container for eviction data
   mountPath: "/eviction-data"
-  # Host path on the Kubernetes node (for hostPath volume)
   hostPath: "/tmp/kinotic-eviction-data"
 
 nodeSelector: {}
 
-# Service configuration
 service:
-  # Service type: ClusterIP (default), NodePort, or LoadBalancer
   type: ClusterIP
+  nodePorts:
+    ui: null
+    uiDirect: null
+    openApi: null
+    graphql: null
+    stomp: null
+  # External ports for LoadBalancer (remap external → internal)
+  externalPorts:
+    ui: null
+    stomp: null
 
-# Ingress configuration
-ingress:
+# Workload identity (Azure) — enables keyless auth to Azure services
+workloadIdentity:
   enabled: false
-  className: nginx
-  # Hostnames for ingress rules and TLS certificate
-  hosts:
-    - localhost
-  # TLS configuration
-  tls:
-    enabled: false
-    # Secret name for TLS certificate
-    secretName: kinotic-tls-secret
-    # Set to true if TLS secret is created externally (e.g., by mkcert)
-    # When false, cert-manager will create a self-signed certificate
-    existingSecret: false
+  clientId: ""
+
+# Platform secrets — JWT signing keys and secret-storage master keys mounted as files at
+# platformSecrets.mountPath. The app watches these files for in-place rotation. Always
+# required in clustered environments: Azure projects them via the Secrets Store CSI driver
+# from the global Key Vault (keyVault.* must be set); KinD mounts a k8s Secret generated
+# by local terraform. Chart rendering fails fast if keyVault.name / tenantId are missing.
+platformSecrets:
+  mountPath: /etc/kinotic/platform-secrets
+  # Source — exactly one of `keyVault` (Azure CSI) or `secretName` (KinD k8s Secret) is used.
+  keyVault:
+    name: ""        # from global/ terraform output: platform_key_vault_name
+    tenantId: ""    # from global/ terraform output: tenant_id
+  secretName: ""    # KinD: name of a k8s Secret in the release namespace holding the same keys
+  objects:
+    jwtSigningKeys: kinotic-jwt-signing-keys
+    secretStorageMasterKeys: kinotic-secret-storage-master-keys
+
+# OIDC client secrets are now resolved at runtime by SecretReferenceResolver — Azure Key
+# Vault in production (kinotic.secretStorage.azure.vaultUrl) or KINOTIC_AKV_<sanitizedName>
+# env vars in dev/local. The secret name on each OidcConfiguration row points at the AKV
+# entry; nothing is mounted into the pod.
+
+# Extra environment variables — override any Spring property via env var convention.
+# Example: KINOTIC_APIGATEWAY_WEBSERVER_PORT: "443"
+extraEnv: {}

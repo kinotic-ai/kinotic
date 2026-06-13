@@ -10,8 +10,8 @@ import lombok.experimental.Accessors;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.idl.api.schema.ObjectC3Type;
+import org.kinotic.domain.api.model.ProjectScoped;
 import org.kinotic.persistence.api.model.idl.decorators.EntityType;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 
@@ -23,21 +23,23 @@ import java.util.List;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class EntityDefinition implements Identifiable<String> {
+public class EntityDefinition implements ProjectScoped<String> {
 
     private String id = null; // do not ever set, system managed
 
     private String name = null;
 
+    private String organizationId = null;
+
     /**
      * The id of the application that this {@link EntityDefinition} belongs to.
-     * All application ids are unique throughout the entire system.
+     * All application ids are unique throughout the entire organization.
      */
     private String applicationId = null;
 
     /**
      * The id of the project that this {@link EntityDefinition} belongs to.
-     * All project ids are unique throughout the entire system.
+     * All project ids are unique throughout the entire organization.
      */
     private String projectId = null;
 

@@ -11,7 +11,7 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.core.util.ByteArrayBuilder;
 import tools.jackson.databind.json.JsonMapper;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.os.api.model.RawJson;
+import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.*;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
@@ -156,7 +156,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         }else if(objectDepth == 1 && decorator instanceof TenantIdDecorator){
 
                             if(currentTenantId != null){ // should never happen, because the EntityDefinition is validated when published
-                                throw new IllegalArgumentException("Found multiple id fields in entity");
+                                throw new IllegalArgumentException("Found multiple tenant id fields in entity");
                             }
                             // field exists but is null so we can throw early
                             if(value == null){

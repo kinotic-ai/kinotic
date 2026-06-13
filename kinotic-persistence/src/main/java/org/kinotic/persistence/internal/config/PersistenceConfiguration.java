@@ -1,7 +1,5 @@
 package org.kinotic.persistence.internal.config;
 
-import io.vertx.core.Vertx;
-import io.vertx.ext.healthchecks.HealthChecks;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.persistence.api.config.KinoticPersistenceProperties;
 import org.kinotic.persistence.api.config.PersistenceProperties;
@@ -13,11 +11,6 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class PersistenceConfiguration {
-
-    @Bean
-    public HealthChecks healthChecks(Vertx vertx){
-        return HealthChecks.create(vertx);
-    }
 
     @Bean
     @ConditionalOnMissingBean

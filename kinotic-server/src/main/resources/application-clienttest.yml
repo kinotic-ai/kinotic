@@ -1,2 +1,3 @@
 kinotic:
   disablePersistence: true
+  disableGithub: true

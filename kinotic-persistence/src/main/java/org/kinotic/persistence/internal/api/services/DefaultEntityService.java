@@ -13,11 +13,11 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.ObjectUtils;
-import org.kinotic.os.api.model.RawJson;
+import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.os.internal.api.services.CrudServiceTemplate;
+import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.*;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
@@ -63,7 +63,7 @@ public class DefaultEntityService implements EntityService {
                              EntityOperation.BULK_SAVE,
                              context,
                              entityHolder -> BulkOperation.of(b -> {
-                                 // When optimistic locking is enabled and no version is present we use create
+                                 // When optimistic locking is enabled and no version is present, we use create
                                  // We do this since there is no way to set an initial primary_term / seq_no combination
                                  // Or if using streams since this is the only supported operation
                                  ElasticVersion elasticVersion = entityHolder.getElasticVersionIfPresent();

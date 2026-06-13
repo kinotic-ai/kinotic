@@ -54,6 +54,14 @@ spec:
           value: {{ .Values.keycloak.httpPort | quote }}
         - name: KC_HTTP_RELATIVE_PATH
           value: {{ .Values.keycloak.relativePath | quote }}
+        {{- if .Values.tls.enabled }}
+        - name: KC_HTTPS_CERTIFICATE_FILE
+          value: "/certs/tls.crt"
+        - name: KC_HTTPS_CERTIFICATE_KEY_FILE
+          value: "/certs/tls.key"
+        - name: KC_HTTPS_PORT
+          value: {{ .Values.keycloak.httpsPort | default "8443" | quote }}
+        {{- end }}
         - name: KC_METRICS_ENABLED
           value: "true"
         - name: KC_HEALTH_ENABLED
@@ -67,10 +75,19 @@ spec:
         ports:
         - containerPort: {{ .Values.keycloak.httpPort }}
           name: http
-        {{- if .Values.realmImport.enabled }}
+        {{- if .Values.tls.enabled }}
+        - containerPort: {{ .Values.keycloak.httpsPort | default 8443 }}
+          name: https
+        {{- end }}
         volumeMounts:
+        {{- if .Values.realmImport.enabled }}
         - name: realm-config
           mountPath: /opt/keycloak/data/import
+          readOnly: true
+        {{- end }}
+        {{- if .Values.tls.enabled }}
+        - name: tls-certs
+          mountPath: /certs
           readOnly: true
         {{- end }}
         resources:
@@ -91,9 +108,14 @@ spec:
           periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
           timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
           failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
-      {{- if .Values.realmImport.enabled }}
       volumes:
+      {{- if .Values.realmImport.enabled }}
       - name: realm-config
         configMap:
           name: {{ .Values.realmImport.configMapName }}
+      {{- end }}
+      {{- if .Values.tls.enabled }}
+      - name: tls-certs
+        secret:
+          secretName: {{ .Values.tls.secretName }}
       {{- end }}

@@ -1,0 +1,330 @@
+/* Shared styles for authentication-flow pages: Login, Signup, VerifyEmail, CompleteOrg.
+ * Imported by each page's component; not scoped — selectors apply globally to the
+ * .login-* / .signup-* class names used in those templates.
+ */
+
+.login-page {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  background: var(--lp-page-bg);
+  color: var(--lp-text);
+  overflow: hidden;
+}
+
+.login-shell {
+  display: grid;
+  height: 100%;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.login-art {
+  display: none;
+  overflow: hidden;
+  background: #171717;
+}
+
+.login-art__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+}
+
+.login-panel {
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  height: 100%;
+  align-items: center;
+  justify-items: center;
+  background: var(--lp-panel-bg);
+  overflow: hidden;
+  padding: 2rem 0 1.25rem;
+}
+
+.login-panel::before {
+  display: none;
+}
+
+.login-panel__content {
+  width: min(100%, 26rem);
+  padding: 1.5rem 2rem;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.login-brand {
+  width: 9.5rem;
+  max-width: 100%;
+  margin-bottom: 2.25rem;
+}
+
+.login-form,
+.login-form__step,
+.login-password-step,
+.login-providers {
+  width: min(100%, 20rem);
+}
+
+.login-form__subtitle {
+  margin: -0.5rem 0 1rem;
+  font-size: 0.9rem;
+  color: var(--lp-text-muted);
+  text-align: center;
+}
+
+.login-providers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0.5rem 0 1.5rem;
+}
+
+.login-provider-form {
+  margin: 0 0 0.75rem;
+}
+
+/* IconField wrapper used in Login.vue — provides spacing between fields. */
+.login-field {
+  display: flex;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+/* Unwrapped inputs (Signup, CompleteOrg, VerifyEmail) need their own spacing. */
+.login-form__step > .login-input.p-inputtext,
+.login-form__step > .login-password.p-password {
+  margin-bottom: 1rem;
+}
+
+.login-input.p-inputtext,
+.login-password.p-password,
+.login-password .p-inputtext,
+.login-password-input {
+  width: 100%;
+}
+
+.login-password.p-password {
+  display: flex;
+}
+
+.login-input.p-inputtext,
+.login-password .p-inputtext,
+.login-password-input {
+  height: 3.5rem;
+  min-height: 3.5rem;
+  border-radius: 5px;
+  border: 1px solid var(--lp-input-border);
+  background: var(--lp-input-bg);
+  color: var(--lp-input-color);
+  box-shadow: none;
+  outline: none;
+}
+
+.login-input.p-inputtext::placeholder,
+.login-password .p-inputtext::placeholder,
+.login-password-input::placeholder {
+  color: var(--lp-input-placeholder);
+  opacity: 1;
+}
+
+.login-input.p-inputtext:enabled:focus,
+.login-password .p-inputtext:enabled:focus,
+.login-password-input:enabled:focus {
+  border-color: var(--lp-input-focus-border);
+}
+
+.login-input--disabled.p-inputtext {
+  color: var(--lp-input-disabled-color);
+  background: var(--lp-input-disabled-bg);
+  border-color: var(--lp-input-disabled-border);
+  opacity: 1;
+}
+
+.login-submit,
+.login-submit.p-button {
+  width: 100%;
+}
+
+.login-submit.p-button {
+  height: 3.5rem;
+  min-height: 3.5rem;
+  border-radius: 5px;
+  border: none;
+  background: var(--p-primary-500);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.login-submit.p-button:hover {
+  background: var(--p-primary-600);
+}
+
+.login-provider__button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border: 1px solid var(--lp-provider-border);
+  border-radius: 5px;
+  background: var(--lp-provider-bg);
+  color: var(--lp-provider-color);
+  padding: 1rem 1.25rem;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.login-provider__button:hover {
+  border-color: var(--lp-provider-border-hover);
+  background: var(--lp-provider-bg-hover);
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.75rem 0 1.25rem;
+  color: var(--lp-text-muted);
+  font-size: 0.85rem;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--lp-input-border);
+}
+
+.login-back-link {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem 0;
+  border: none;
+  background: transparent;
+  color: var(--p-primary-500);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-back-link:hover { color: var(--p-primary-600); }
+
+.login-signup-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--lp-text-muted);
+}
+
+.login-signup-link a {
+  color: var(--p-primary-500);
+  font-weight: 600;
+}
+
+.login-link {
+  color: var(--p-primary-500);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-link:hover {
+  color: var(--p-primary-600);
+  text-decoration: underline;
+}
+
+.login-theme-toggle {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 1px solid var(--lp-input-border);
+  background: transparent;
+  color: var(--lp-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.login-spinner,
+.login-spinner--small {
+  display: inline-block;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--p-primary-500);
+  animation: login-spin 0.9s linear infinite;
+}
+
+.login-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+}
+
+.login-loading-state__text { color: var(--lp-overlay-muted); }
+
+.login-footer {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 1;
+  padding-inline: 1rem;
+}
+
+.login-footer__link,
+.login-footer__divider { font-size: 0.75rem; }
+
+.login-footer__link {
+  color: var(--lp-footer-link);
+  text-decoration: underline;
+}
+
+.login-footer__divider { color: var(--lp-footer-divider); }
+
+/* Shared heading used by signup-flow pages (Signup, CompleteOrg). */
+.signup-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+@keyframes login-spin { to { transform: rotate(360deg); } }
+
+@media (min-width: 960px) {
+  .login-shell {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .login-art { display: block; }
+  .login-brand { width: 12rem; }
+}
+
+@media (max-width: 959px) {
+  .login-panel__content { padding-inline: 1.5rem; }
+}

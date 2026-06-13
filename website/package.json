@@ -6,8 +6,9 @@
     "generate": "nuxt generate"
   },
   "dependencies": {
-    "docus": "latest",
+    "@microsoft/clarity": "^1.0.2",
     "better-sqlite3": "^12.6.2",
+    "docus": "latest",
     "nuxt": "^4.3.1"
   }
 }

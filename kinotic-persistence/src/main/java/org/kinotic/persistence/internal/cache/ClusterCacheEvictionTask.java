@@ -38,9 +38,13 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
     @SpringResource(resourceClass = ProcessedEvictionsCache.class)
     private transient ProcessedEvictionsCache processedEvictionsCache;
 
-
+    /**
+     * Spring-managed ApplicationEventPublisher injected by Ignite.
+     * This bean is provided by CacheEvictionConfiguration.applicationEventPublisher().
+     * Marked as transient to prevent serialization (injection happens on each node).
+     */
     @SpringApplicationContextResource
-    private transient ApplicationContext applicationContext;
+    private ApplicationContext eventPublisher;
 
 
     /**
@@ -48,6 +52,7 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
      */
     private final EvictionSourceType evictionSourceType; // "ENTITY_DEFINITION" or "NAMED_QUERY"
     private final EvictionSourceOperation evictionOperation; // "MODIFY" or "DELETE"
+    private final String organizationId;
     private final String applicationId;
     private final String entityDefinitionId;
     private final String namedQueryId;
@@ -66,7 +71,7 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
 
         try {
             // Verify Spring resource injection is working
-            if (applicationContext == null) {
+            if (eventPublisher == null) {
                 throw new IllegalStateException("ApplicationEventPublisher was not injected by Spring. " +
                         "Ensure Ignite is started with IgniteSpring.start() and Spring ApplicationContext is available.");
             }
@@ -88,10 +93,10 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                 if (entityDefinitionId != null) {
 
                     if(evictionOperation == EvictionSourceOperation.MODIFY){
-                        applicationContext.publishEvent(CacheEvictionEvent.clusterModifiedEntityDefinition(applicationId,
+                        eventPublisher.publishEvent(CacheEvictionEvent.clusterModifiedEntityDefinition(organizationId, applicationId,
                                                                                                        entityDefinitionId));
                     } else if(evictionOperation == EvictionSourceOperation.DELETE){
-                        applicationContext.publishEvent(CacheEvictionEvent.clusterDeletedEntityDefinition(applicationId,
+                        eventPublisher.publishEvent(CacheEvictionEvent.clusterDeletedEntityDefinition(organizationId, applicationId,
                                                                                                       entityDefinitionId));
                     } else {
                         throw new IllegalArgumentException("Invalid eviction operation for key: " + evictionKey);
@@ -111,10 +116,10 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                 if (namedQueryId != null) {
 
                     if(evictionOperation == EvictionSourceOperation.MODIFY){
-                        applicationContext.publishEvent(CacheEvictionEvent.clusterModifiedNamedQuery(applicationId,
+                        eventPublisher.publishEvent(CacheEvictionEvent.clusterModifiedNamedQuery(organizationId, applicationId,
                                                                                                  entityDefinitionId, namedQueryId));
                     } else if(evictionOperation == EvictionSourceOperation.DELETE){
-                        applicationContext.publishEvent(CacheEvictionEvent.clusterDeletedNamedQuery(applicationId,
+                        eventPublisher.publishEvent(CacheEvictionEvent.clusterDeletedNamedQuery(organizationId, applicationId,
                                                                                                 entityDefinitionId, namedQueryId));
                     } else {
                         throw new IllegalArgumentException("Invalid eviction operation: " + evictionOperation);

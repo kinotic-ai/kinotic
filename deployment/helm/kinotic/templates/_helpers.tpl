@@ -31,3 +31,16 @@ Create chart name and version as used by the chart label.
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{/*
+Name of the k8s Secret holding platform secrets (JWT signing keys, masterKeys).
+Defaults to "<fullname>-platform-secrets"; can be overridden via platformSecrets.secretName
+when an externally-managed Secret must be mounted instead.
+*/}}
+{{- define "kinotic-server.platformSecretsSecretName" -}}
+{{- if .Values.platformSecrets.secretName -}}
+{{- .Values.platformSecrets.secretName -}}
+{{- else -}}
+{{- printf "%s-platform-secrets" (include "kinotic-server.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+

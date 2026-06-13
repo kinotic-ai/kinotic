@@ -1,5 +1,6 @@
 package org.kinotic.core.api.security;
 
+import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
@@ -19,10 +20,14 @@ import java.util.Map;
 public class AuthenticationHandler implements Handler<RoutingContext> {
 
     private final SecurityService securityService;
+    private final SecurityContext securityContext;
     private final Vertx vertx;
 
-    public AuthenticationHandler(SecurityService securityService, Vertx vertx) {
+    public AuthenticationHandler(SecurityService securityService,
+                                 SecurityContext securityContext,
+                                 Vertx vertx) {
         this.securityService = securityService;
+        this.securityContext = securityContext;
         this.vertx = vertx;
     }
 
@@ -44,6 +49,13 @@ public class AuthenticationHandler implements Handler<RoutingContext> {
                       .onComplete(event -> {
                           if(event.succeeded()){
                               ctx.put(EventConstants.SENDER_HEADER, event.result());
+                              // Bind the Participant to the current Vert.x context so downstream
+                              // handlers (and anything they call) can read it via
+                              // SecurityContext.currentParticipant().
+                              Context vertxContext = Vertx.currentContext();
+                              if (vertxContext != null) {
+                                  securityContext.setParticipant(vertxContext, event.result());
+                              }
                               ctx.request().resume();
                               ctx.next();
                           }else{

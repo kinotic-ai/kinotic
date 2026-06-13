@@ -6,6 +6,8 @@ import org.kinotic.core.api.event.StreamData;
 import org.kinotic.core.api.event.StreamOperation;
 import org.kinotic.core.internal.api.aignite.Observer;
 import io.vertx.core.Context;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
 import org.apache.ignite.Ignite;
@@ -59,6 +61,23 @@ public class IgniteUtil {
                 sink.error(e);
             }
         });
+    }
+
+    public static <T> Future<T> futureToVertxFuture(Supplier<IgniteFuture<T>> futureSupplier){
+        Promise<T> promise = Promise.promise();
+        try {
+            IgniteFuture<T> igniteFuture = futureSupplier.get();
+            igniteFuture.listen((IgniteInClosure<IgniteFuture<T>>) future -> {
+                try {
+                    promise.complete(future.get());
+                } catch (Exception ex) {
+                    promise.fail(ex);
+                }
+            });
+        } catch (Exception e) {
+            promise.fail(e);
+        }
+        return promise.future();
     }
 
     public static <T> CompletableFuture<T> futureToCompletableFuture(IgniteFuture<T> igniteFuture){

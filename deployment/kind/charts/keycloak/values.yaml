@@ -15,7 +15,7 @@ auth:
 
 # Keycloak configuration
 keycloak:
-  hostname: kinotic.local
+  hostname: localhost
   httpPort: 8888
   relativePath: /auth
   logLevel: INFO
@@ -28,10 +28,16 @@ database:
   user: keycloak
   password: keycloak
 
+# TLS configuration
+tls:
+  enabled: false
+  secretName: kinotic-tls
+
 # Service configuration
 service:
   type: ClusterIP
   port: 8888
+  nodePort: null
 
 # Resource limits
 resources:

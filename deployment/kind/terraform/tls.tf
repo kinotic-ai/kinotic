@@ -1,14 +1,14 @@
 # ── mkcert TLS for local development ─────────────────────
 #
 # Generates browser-trusted certificates using mkcert and
-# creates the Kubernetes TLS secret that the ingress expects.
+# creates a Kubernetes TLS secret mounted into kinotic-server
+# pods. Vert.x reads the PEM files directly for TLS.
 #
 # Prerequisites:
 #   brew install mkcert
 #   mkcert -install          # one-time CA setup
 #
-# When use_mkcert = false, the Helm chart falls back to
-# cert-manager self-signed certificates (browser will warn).
+# When use_mkcert = false, Vert.x runs without TLS (plain HTTP).
 
 variable "use_mkcert" {
   description = "Generate browser-trusted certs with mkcert (requires mkcert installed + CA set up)"
@@ -54,13 +54,13 @@ data "local_file" "tls_key" {
   depends_on = [terraform_data.mkcert]
 }
 
-# Create the TLS secret the ingress expects
+# Create the TLS secret that kinotic-server pods mount at /certs
 resource "kubernetes_secret" "kinotic_tls" {
   count = var.use_mkcert ? 1 : 0
 
   metadata {
-    name      = "kinotic-tls-secret"
-    namespace = "default"
+    name      = "kinotic-tls"
+    namespace = kubernetes_namespace.kinotic.metadata[0].name
   }
 
   type = "kubernetes.io/tls"
@@ -70,5 +70,5 @@ resource "kubernetes_secret" "kinotic_tls" {
     "tls.key" = data.local_file.tls_key[0].content
   }
 
-  depends_on = [terraform_data.mkcert]
+  depends_on = [terraform_data.mkcert, kubernetes_namespace.kinotic]
 }

@@ -180,7 +180,7 @@ export default class Glitch extends Vue {
         top: 0;
         right: 0;
         bottom: 0;
-        color: #fff;
+        color: var(--p-surface-0);
         text-align: center;
         text-transform: uppercase;
         font: 24px "Michroma", helvetica, sans-serif;

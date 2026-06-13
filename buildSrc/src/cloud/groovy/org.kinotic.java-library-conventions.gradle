@@ -1,0 +1,23 @@
+plugins {
+    // Apply the common convention plugin for shared build configuration between library and application projects.
+    id 'org.kinotic.java-common-conventions'
+    id 'java-library'
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-autoconfigure'
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+javadoc {
+    // suppress warnings
+    options.addStringOption('Xdoclint:none', '-quiet')
+
+    if(JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
+}

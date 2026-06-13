@@ -1,13 +1,14 @@
 
 
+
 package org.kinotic.core.api;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
 import org.kinotic.core.api.service.ServiceFunction;
 import org.kinotic.core.api.service.ServiceIdentifier;
-import reactor.core.publisher.Mono;
 
 /**
  * Provides the functionality to register services as well as access proxies for those services
@@ -23,10 +24,10 @@ public interface ServiceRegistry {
      * @param serviceIdentifier the identifier that is used to access this service remotely
      * @param serviceInterface the Interface that this service implements
      * @param instance the instance of this service that will respond to service invocations
-     * @return {@link Mono} that will be completed on success or failed on an error
-     *         NOTE: {@link Mono} will fail with an IllegalArgumentException if the service identifier is already registered with the registry
+     * @return {@link Future} that will be completed on success or failed on an error
+     *         NOTE: {@link Future} will fail with an IllegalArgumentException if the service identifier is already registered with the registry
      */
-    Mono<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance);
+    Future<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance);
 
     /**
      * Registers a new service with the service registry.
@@ -34,18 +35,18 @@ public interface ServiceRegistry {
      *
      * @param serviceDescriptor describes the service to be registered
      * @param instanceProvider to use when determining which object instance each {@link ServiceFunction} will be invoked on
-     * @return {@link Mono} that will be completed on success or failed on an error
-     *         NOTE: {@link Mono} will fail with an IllegalArgumentException if the service identifier is already registered with the registry
+     * @return {@link Future} that will be completed on success or failed on an error
+     *         NOTE: {@link Future} will fail with an IllegalArgumentException if the service identifier is already registered with the registry
      */
-    Mono<Void> register(ServiceDescriptor serviceDescriptor, ServiceFunctionInstanceProvider instanceProvider);
+    Future<Void> register(ServiceDescriptor serviceDescriptor, ServiceFunctionInstanceProvider instanceProvider);
 
     /**
      * Remove a service from the service registry.
      *
      * @param serviceIdentifier the identifier that is used to identify the service
-     * @return a {@link Mono} that will be completed when the service is unregistered
+     * @return a {@link Future} that will be completed when the service is unregistered
      */
-    Mono<Void> unregister(ServiceIdentifier serviceIdentifier);
+    Future<Void> unregister(ServiceIdentifier serviceIdentifier);
 
     /**
      * Creates a new service proxy that can be used to access the desired service.

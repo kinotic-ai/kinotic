@@ -13,8 +13,8 @@ export class CreateComplexEntitiesTaskGenerator implements ITaskGenerator {
 
     constructor(connectionInfoSupplier: () => Promise<ConnectionInfo>) {
         this.connectionInfoSupplier = connectionInfoSupplier
-        this.ecommerceFactory = new EcommerceTaskFactory()
-        this.healthFactory = new HealthTaskFactory()
+        this.ecommerceFactory = new EcommerceTaskFactory(connectionInfoSupplier)
+        this.healthFactory = new HealthTaskFactory(connectionInfoSupplier)
         this.initialize()
     }
 

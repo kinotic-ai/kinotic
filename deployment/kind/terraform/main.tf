@@ -19,7 +19,7 @@ terraform {
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.17"
+      version = "~> 3.0"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
@@ -28,6 +28,10 @@ terraform {
     local = {
       source  = "hashicorp/local"
       version = "~> 2.5"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
     }
   }
 }
@@ -46,14 +50,46 @@ resource "kind_cluster" "kinotic" {
     node {
       role = "control-plane"
 
+      # Web UI on 443 (TLS via Vert.x, same as Azure)
       extra_port_mappings {
-        container_port = 80
-        host_port      = 80
+        container_port = 30443
+        host_port      = 443
         protocol       = "TCP"
       }
+      # Web UI on default port (9090) for non-TLS access
       extra_port_mappings {
-        container_port = 443
-        host_port      = 443
+        container_port = 30090
+        host_port      = 9090
+        protocol       = "TCP"
+      }
+      # OpenAPI
+      extra_port_mappings {
+        container_port = 30080
+        host_port      = 8080
+        protocol       = "TCP"
+      }
+      # GraphQL
+      extra_port_mappings {
+        container_port = 30400
+        host_port      = 4000
+        protocol       = "TCP"
+      }
+      # STOMP / WebSocket
+      extra_port_mappings {
+        container_port = 30503
+        host_port      = 58503
+        protocol       = "TCP"
+      }
+      # Keycloak (conditional, but port mapping is harmless if unused)
+      extra_port_mappings {
+        container_port = 30888
+        host_port      = 8888
+        protocol       = "TCP"
+      }
+      # Grafana
+      extra_port_mappings {
+        container_port = 30300
+        host_port      = 3000
         protocol       = "TCP"
       }
     }
@@ -76,7 +112,7 @@ resource "kind_cluster" "kinotic" {
 # ── Providers configured from cluster output ──────────────
 
 provider "helm" {
-  kubernetes {
+  kubernetes = {
     host                   = kind_cluster.kinotic.endpoint
     cluster_ca_certificate = kind_cluster.kinotic.cluster_ca_certificate
     client_certificate     = kind_cluster.kinotic.client_certificate
@@ -91,19 +127,3 @@ provider "kubernetes" {
   client_key             = kind_cluster.kinotic.client_key
 }
 
-# ── Control-plane node label for ingress scheduling ───────
-
-resource "kubernetes_labels" "control_plane_ingress_ready" {
-  api_version = "v1"
-  kind        = "Node"
-
-  metadata {
-    name = "${var.cluster_name}-control-plane"
-  }
-
-  labels = {
-    "ingress-ready" = "true"
-  }
-
-  depends_on = [kind_cluster.kinotic]
-}

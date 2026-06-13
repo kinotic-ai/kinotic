@@ -2,6 +2,8 @@
 
 package org.kinotic.core.api.event;
 
+import org.kinotic.core.api.security.Participant;
+
 /**
  * Event that contains both {@link Metadata} and an object instance
  *
@@ -27,6 +29,18 @@ public interface Event<T> {
      * @return the data object for this event or null if there is no data
      */
     T data();
+
+    /**
+     * The {@link Participant} that originated this event, or null if there is no associated sender.
+     * @return the originating participant, or null
+     */
+    Participant sender();
+
+    /**
+     * Sets the {@link Participant} that originated this event.
+     * @param sender the originating participant, may be null
+     */
+    void setSender(Participant sender);
 
     /**
      * Static method to create a default {@link Event} object
@@ -72,6 +86,19 @@ public interface Event<T> {
      */
     static <Z> Event<Z> create(CRI cri, Metadata metadata, Z data){
         return new DefaultEvent<>(cri, metadata, data);
+    }
+
+    /**
+     * Static method to create a default {@link Event} object with a sender
+     * @param cri that the event will be sent to
+     * @param metadata to be provided for the event
+     * @param data the object instance that will be the data
+     * @param sender the {@link Participant} that originated the event, may be null
+     * @param <Z> the type of the data
+     * @return the newly created {@link Event} object
+     */
+    static <Z> Event<Z> create(CRI cri, Metadata metadata, Z data, Participant sender){
+        return new DefaultEvent<>(cri, metadata, data, sender);
     }
 
 

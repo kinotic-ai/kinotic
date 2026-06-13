@@ -1,21 +1,8 @@
-import {
-    ConnectedInfo,
-    ConnectionInfo,
-    Kinotic,
-    Event,
-    EventConstants,
-    IEvent,
-    ParticipantConstants
-} from '@kinotic-ai/core'
 import {C3Type, FunctionDefinition, ObjectC3Type} from '@kinotic-ai/idl'
 import fs from 'fs'
 import fsPromises from 'fs/promises'
-import { confirm } from '@inquirer/prompts'
-import open from 'open'
-import pTimeout from 'p-timeout'
 import path from 'path'
 import {IndentationText, Node, Project} from 'ts-morph'
-import {v4 as uuidv4} from 'uuid'
 import {createConversionContext} from './converter/IConversionContext'
 import {TypescriptConversionState} from './converter/typescript/TypescriptConversionState'
 import {TypescriptConverterStrategy} from './converter/typescript/TypescriptConverterStrategy'
@@ -24,14 +11,6 @@ import {Logger} from './Logger'
 export type GeneratedServiceInfo = {
     entityServiceName: string
     namedQueries: FunctionDefinition[]
-}
-export class SessionMetadata {
-    public sessionId!: string
-    public replyToId!: string
-    constructor(sessionId: string, replyToId: string) {
-        this.sessionId = sessionId
-        this.replyToId = replyToId
-    }
 }
 
 function isEmpty(value: any): boolean {
@@ -53,140 +32,6 @@ export function jsonStringifyReplacer(key: any, value: any) {
     return isEmpty(value)
            ? undefined
            : value;
-}
-
-/**
- * Connects to the server and upgrades the session to a CLI session
- * Currently this works by connecting and waiting for the clients session id on the event bus
- * The cli then disconnects and reconnects using the clients' session.
- * This will be replaced when the server supports a session upgrade command
- * @param server the server to connect to
- * @param logger the logger to use
- * @param authHeadersFile path to a file containing the auth headers
- * @return true if the session was upgraded successfully
- */
-export async function connectAndUpgradeSession(server: string, logger: Logger, authHeadersFile?: string): Promise<boolean>{
-    try {
-        const serverURL: URL = new URL(server)
-
-        if(serverURL.protocol !== 'http:' && serverURL.protocol !== 'https:'){
-            logger.log('Invalid server URL, only http and https are supported')
-            return false
-        }
-
-        let connectionInfo: ConnectionInfo = {host: ''}
-        if (serverURL.hostname === 'localhost' || serverURL.hostname === '127.0.0.1') {
-            connectionInfo.host = serverURL.hostname
-            connectionInfo.port = 58503
-        } else {
-            connectionInfo.host = serverURL.hostname
-            if(serverURL.protocol === 'https:'){
-                connectionInfo.useSSL = true
-                connectionInfo.port = 443
-            }
-            if(serverURL.port){
-                connectionInfo.port = Number(serverURL.port)
-            }else if(!connectionInfo.useSSL){
-                connectionInfo.port = 58503
-            }
-        }
-
-        if(authHeadersFile){
-            if(!fs.existsSync(authHeadersFile)){
-                logger.log(`Authentication header file ${authHeadersFile} does not exist. Please provide a valid file.`)
-                return false
-            }else{
-                logger.log(`Authentication header file ${authHeadersFile} loaded successfully. Using authentication headers to connect to the Kinotic Server.`)
-            }
-            const authHeaders = JSON.parse(fs.readFileSync(authHeadersFile, 'utf8'))
-            connectionInfo.connectHeaders = authHeaders
-            const connectedInfo: ConnectedInfo = await pTimeout(Kinotic.connect(connectionInfo), {
-                milliseconds: 60000,
-                message: 'Connection timeout trying to connect to the Kinotic Server'
-            })
-            if(connectedInfo){
-                return true
-            }else{
-                return false
-            }
-        }else{
-
-            connectionInfo.connectHeaders = {
-                login: ParticipantConstants.CLI_PARTICIPANT_ID
-            }
-            const connectedInfo: ConnectedInfo = await pTimeout(Kinotic.connect(connectionInfo), {
-                milliseconds: 60000,
-                message: 'Connection timeout trying to connect to the Kinotic Server'
-            })
-
-            if (connectedInfo) {
-                // This works because any client can subscribe to a destination that is scoped to the connectedInfo.replyToId
-                const scope = connectedInfo.replyToId + ':' + uuidv4()
-                const url = server + (server.endsWith('/') ? '' : '/') + '#/sessionUpgrade/' + encodeURIComponent(scope)
-                logger.log('Authenticate your account at:')
-                logger.log(url)
-
-                const answer = await confirm({
-                    message: 'Open in browser?',
-                    default: true,
-                })
-                if(answer) {
-                    await open(url)
-                }else{
-                    logger.log('Browser will not be opened. You must authenticate your account before continuing.')
-                }
-
-                const sessionMetadata = await receiveSessionId(scope)
-
-                await Kinotic.disconnect()
-
-                connectionInfo.connectHeaders = {
-                    session: sessionMetadata.sessionId
-                }
-                // Provide this so the continuum client will use the same replyToId as the session
-                connectionInfo.connectHeaders[EventConstants.REPLY_TO_ID_HEADER] = sessionMetadata.replyToId
-
-                await Kinotic.connect(connectionInfo)
-                logger.log('Authenticated successfully\n')
-                return true
-            }else{
-                logger.log("Could not connect to the Kinotic Server. Please check the server is running and the URL is correct.")
-                return false
-            }
-        }
-    } catch (e) {
-        logger.log("Could not connect to the Kinotic Server. Please check the server is running and the URL is correct.", e)
-        return false
-    }
-}
-
-function receiveSessionId(scope: string): Promise<SessionMetadata> {
-    const subscribeCRI = EventConstants.SERVICE_DESTINATION_PREFIX + scope + '@continuum.cli.SessionUpgradeService'
-
-    return new Promise<SessionMetadata>((resolve, reject) => {
-        const subscription = Kinotic.eventBus.observe(subscribeCRI).subscribe((value: IEvent) => {
-            // send reply to user
-            const replyTo = value.getHeader(EventConstants.REPLY_TO_HEADER)
-            if (replyTo) {
-                const replyEvent = new Event(replyTo)
-                const correlationId = value.getHeader(EventConstants.CORRELATION_ID_HEADER)
-                if (correlationId) {
-                    replyEvent.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
-                }
-                replyEvent.setHeader(EventConstants.CONTENT_TYPE_HEADER, EventConstants.CONTENT_JSON)
-                Kinotic.eventBus.send(replyEvent)
-            }
-
-            subscription.unsubscribe()
-
-            const jsonObj: Array<SessionMetadata> = JSON.parse(value.getDataString())
-            if(jsonObj?.length > 0){
-                resolve(jsonObj[0])
-            }else {
-                reject('No Session Id found in data')
-            }
-        })
-    })
 }
 
 export type EntityInfo = {
@@ -242,7 +87,12 @@ export function createTsMorphProject(): Project {
     })
 }
 
-export function convertAllEntities(config: ConversionConfiguration): EntityInfo[]{
+/**
+ * Converts all entities found in the given path configuration.
+ * @param config the conversion configuration
+ * @param changedFiles optional set of absolute file paths to limit processing to. If null, all files are processed.
+ */
+export function convertAllEntities(config: ConversionConfiguration, changedFiles?: Set<string> | null): EntityInfo[]{
     const entities: EntityInfo[] = []
 
     const project = createTsMorphProject()
@@ -264,6 +114,11 @@ export function convertAllEntities(config: ConversionConfiguration): EntityInfo[
 
         // make sure this file is in our configured paths and not just introduced by the ts-config
         if(absSourcePath.startsWith(absEntitiesPath)) {
+
+            // Skip files that haven't changed if incremental mode is active
+            if(changedFiles && !changedFiles.has(absSourcePath)) {
+                continue
+            }
 
             const conversionContext =
                       createConversionContext(new TypescriptConverterStrategy(new TypescriptConversionState(config.application),

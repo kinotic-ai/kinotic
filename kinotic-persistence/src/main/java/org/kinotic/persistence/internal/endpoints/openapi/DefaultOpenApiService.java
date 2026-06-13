@@ -468,9 +468,10 @@ public class DefaultOpenApiService implements OpenApiService {
 
         String lowercaseApplication = entityDefinition.getApplicationId().toLowerCase();
         String lowercaseName = entityDefinition.getName().toLowerCase();
-        NamedQueriesDefinition namedQueriesDefinition = namedQueriesDefinitionService.findByApplicationAndEntityDefinition(entityDefinition.getApplicationId(),
-                                                                                                                           entityDefinition.getName())
-                                                                                     .join();
+        NamedQueriesDefinition namedQueriesDefinition = namedQueriesDefinitionService
+                .findByApplicationAndEntityDefinition(entityDefinition.getApplicationId(),
+                                                      entityDefinition.getName())
+                .join();
         if(namedQueriesDefinition != null){
 
             // For any FunctionDefinition create a Named Query path item

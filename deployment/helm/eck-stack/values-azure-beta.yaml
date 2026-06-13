@@ -1,0 +1,101 @@
+# Azure AKS beta overrides for eck-stack.
+# Dedicated master + data topology on the shared system node pool.
+# Swap to values-azure.yaml when ready for production (dedicated ES node pool).
+
+eck-elasticsearch:
+  # HTTP TLS disabled — ES is cluster-internal only
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: true
+    service:
+      spec:
+        type: ClusterIP
+
+  nodeSets:
+    # -- Master node -- cluster coordination only
+    - name: master
+      count: 1
+      config:
+        node.roles: ["master"]
+        node.store.allow_mmap: false
+
+      podTemplate:
+        spec:
+          initContainers:
+            - name: sysctl
+              securityContext:
+                privileged: true
+                runAsUser: 0
+              command: ["sh", "-c", "sysctl -w vm.max_map_count=262144"]
+          containers:
+            - name: elasticsearch
+              resources:
+                requests:
+                  memory: "2Gi"
+                  cpu: "500m"
+                limits:
+                  memory: "2Gi"
+                  cpu: "1000m"
+              env:
+                - name: ES_JAVA_OPTS
+                  value: "-Xms1g -Xmx1g"
+
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            storageClassName: es-premium-zrs
+            resources:
+              requests:
+                storage: 16Gi
+
+    # -- Data nodes -- store and serve all index data
+    - name: data
+      count: 3
+      config:
+        node.roles: ["data", "ingest", "transform"]
+        node.store.allow_mmap: false
+
+      podTemplate:
+        spec:
+          # Spread data pods across nodes where possible
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    labelSelector:
+                      matchLabels:
+                        elasticsearch.k8s.elastic.co/cluster-name: kinotic-es
+                        elasticsearch.k8s.elastic.co/statefulset-name: kinotic-es-es-data
+                    topologyKey: kubernetes.io/hostname
+          initContainers:
+            - name: sysctl
+              securityContext:
+                privileged: true
+                runAsUser: 0
+              command: ["sh", "-c", "sysctl -w vm.max_map_count=262144"]
+          containers:
+            - name: elasticsearch
+              resources:
+                requests:
+                  memory: "6Gi"
+                  cpu: "1000m"
+                limits:
+                  memory: "6Gi"
+                  cpu: "2000m"
+              env:
+                - name: ES_JAVA_OPTS
+                  value: "-Xms3g -Xmx3g"
+
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            storageClassName: es-premium-zrs
+            resources:
+              requests:
+                storage: 64Gi

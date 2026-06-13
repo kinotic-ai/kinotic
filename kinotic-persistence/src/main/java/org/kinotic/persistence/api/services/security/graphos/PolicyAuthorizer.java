@@ -1,6 +1,6 @@
 package org.kinotic.persistence.api.services.security.graphos;
 
-import org.kinotic.persistence.api.model.SecurityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -10,6 +10,6 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface PolicyAuthorizer {
 
-    CompletableFuture<Void> authorize(List<PolicyAuthorizationRequest> requests, SecurityContext securityContext);
+    CompletableFuture<Void> authorize(List<PolicyAuthorizationRequest> requests, EntityContext entityContext);
 
 }

@@ -8,7 +8,7 @@ import {
   Watch,
 } from "vue-facing-decorator";
 
-import DataTable, { type DataTablePageEvent } from "primevue/datatable";
+import DataTable from "primevue/datatable";
 import Column from "primevue/column";
 import Button from "primevue/button";
 import Toolbar from "primevue/toolbar";
@@ -32,6 +32,7 @@ import {
 import type { CrudHeader } from "@/types/CrudHeader";
 import type { DescriptiveIdentifiable } from "@/types/DescriptiveIdentifiable";
 import { createDebug } from "@/util/debug";
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('crud-table');
 
@@ -66,6 +67,7 @@ class CrudTable extends Vue {
   @Prop({ default: true }) showPagination!: boolean
   @Prop({ default: true }) enableRowHover!: boolean
   @Prop({ default: 10 }) defaultPageSize!: number
+  @Prop({ default: false }) transparentDarkCards!: boolean
 
   private toast = useToast()
 
@@ -124,6 +126,50 @@ class CrudTable extends Vue {
     return options;
   }
 
+  get isDark(): boolean {
+    return darkMode.value;
+  }
+  
+  get dataTablePt() {
+    return {
+      root: {
+        class: 'bg-transparent'
+      },
+      tableContainer: {
+        class: 'bg-transparent'
+      },
+      table: {
+        class: 'bg-transparent border-separate border-spacing-0'
+      },
+      header: {
+        class: 'hidden'
+      },
+      headerCell: {
+        class: [
+          'bg-transparent px-[14px] pb-[0.9rem] pt-4 text-sm font-semibold',
+          this.isDark ? 'border-surface-700 text-surface-100' : 'border-surface-200 text-surface-950'
+        ]
+      },
+      bodyRow: {
+        class: [
+          'bg-transparent',
+          this.isDark ? 'border-surface-800 text-surface-200' : 'border-surface-100 text-surface-950'
+        ]
+      },
+      bodyCell: {
+        class: [
+          'bg-transparent px-[14px] py-2 text-sm align-middle',
+          this.isDark ? 'border-surface-700 text-surface-200' : 'border-surface-200 text-surface-950'
+        ]
+      },
+      // The empty state renders outside the DataTable (in the flex filler below it),
+      // so suppress the built-in empty-message row.
+      emptyMessage: {
+        class: 'hidden'
+      }
+    };
+  }
+
   mounted() {
     const urlSearch = (this.$route.query.search as string) || ''
     this.loading = true
@@ -151,6 +197,12 @@ class CrudTable extends Vue {
 
   @Watch("search", { immediate: true })
   onSearchPropChange(newVal: string) {
+    // Parents that two-way bind echo every update:search emit back into this prop;
+    // without this guard each keystroke triggers an immediate find() on top of the
+    // debounced one from the searchText watch.
+    if (newVal === this.searchText) {
+      return;
+    }
     this.searchText = newVal;
     this.options.page = 0;
     this.options.first = 0;
@@ -187,13 +239,6 @@ class CrudTable extends Vue {
       this.find();
     }, 400);
   }
-  onDataTablePage(event: DataTablePageEvent) {
-    this.options.page = event.page;
-    this.options.rows = event.rows;
-    this.options.first = event.first;
-    this.find();
-  }
-
   onPaginatorPage(event: PageState) {
     this.options.page = event.page;
     this.options.rows = event.rows;
@@ -271,25 +316,31 @@ export default toNative(CrudTable);
 </script>
 
 <template>
-  <div :style="{ '--row-hover-color': rowHoverColor }">
-    <div class="flex justify-between items-center mb-6">
-      <IconField class="max-w-sm">
+  <!-- flex-1 lets the table fill the remaining height when a page provides a flex column
+       chain down to here; in a plain block parent the flex classes are inert. -->
+  <div class="crud-table flex flex-1 flex-col" :class="isDark ? 'crud-table--dark' : 'crud-table--light'" :style="{ '--row-hover-color': rowHoverColor }">
+    <div class="crud-table__toolbar flex items-center justify-between mb-6 gap-4">
+      <IconField class="crud-table__search w-[236px] max-w-sm">
         <InputIcon class="pi pi-search" />
         <InputText
           v-model="searchText"
           placeholder="Search"
           size="small"
+          name="search"
+          autocomplete="off"
           @input="onSearchChange"
           @keyup.enter="find"
         />
       </IconField>
 
-      <div class="flex items-center gap-2 h-[33px]">
+      <div class="crud-table__actions flex items-center gap-2 h-[36px]">
         <SelectButton
+          class="crud-table__view-switcher"
           size="small"
           v-if="enableViewSwitcher"
           v-model="activeView"
           :options="viewOptions"
+          optionLabel="value"
           optionValue="value"
           dataKey="value"
         >
@@ -298,6 +349,12 @@ export default toNative(CrudTable);
           </template>
         </SelectButton>
         <Button
+          :class="[
+            '!border-transparent !shadow-none',
+            isDark
+              ? 'hover:!bg-primary-600'
+              : 'hover:!bg-primary-600'
+          ]"
           size="small"
           v-if="!disableModifications && isShowAddNew"
           @click="addItem"
@@ -307,8 +364,8 @@ export default toNative(CrudTable);
       </div>
     </div>
 
-    <div class="mb-6">
-      <div v-if="isColumnView">
+    <div class="mb-6 flex flex-1 flex-col">
+      <div v-if="isColumnView" class="flex flex-1 flex-col">
         <div
           v-if="items.length > 0"
           class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
@@ -316,15 +373,23 @@ export default toNative(CrudTable);
           <Card
             v-for="(item, index) in items"
             :key="item.id || index"
-            class="cursor-pointer relative hover:shadow-md transition-shadow h-[170px] flex flex-col justify-between"
+            :class="[
+              'relative flex h-[170px] cursor-pointer flex-col justify-between border transition-shadow',
+              isDark
+                ? [
+                    transparentDarkCards ? 'border-surface-700 bg-transparent text-surface-0 shadow-none' : 'border-surface-700 bg-surface-900 text-surface-0 shadow-none',
+                    'hover:shadow-[0_8px_28px_rgba(0,0,0,0.35)]'
+                  ]
+                : 'border-surface-200 bg-surface-0 text-surface-950 hover:shadow-md'
+            ]"
             @click="handleCardClick(item, index)"
           >
             <template #title>
-              <h3 class="">{{ item?.id }}</h3>
+              <h3 :class="isDark ? 'text-surface-0 font-semibold' : ''">{{ item?.id }}</h3>
             </template>
 
             <template #content>
-              <p class="truncate-multiline max-h-[46px]">
+              <p :class="['max-h-[46px] overflow-hidden text-sm [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]', isDark ? 'text-surface-400' : 'text-surface-500']">
                 {{ item?.description }}
               </p>
             </template>
@@ -368,7 +433,7 @@ export default toNative(CrudTable);
         </div>
         <div
           v-else
-          class="flex flex-col items-center justify-center text-gray-500 py-20 h-[calc(100vh-300px)]"
+          :class="['flex flex-1 flex-col items-center justify-center py-20', isDark ? 'text-surface-400' : 'text-surface-500']"
         >
           <p class="text-sm">{{ emptyStateText }}</p>
         </div>
@@ -378,76 +443,81 @@ export default toNative(CrudTable);
           :totalRecords="totalItems"
           :rowsPerPageOptions="paginationOptions"
           @page="onPaginatorPage"
-          class="mt-4"
+          class="mt-auto pt-4"
           v-if="showPagination"
         />
       </div>
 
-      <div
-        v-if="isBurgerView"
-        class="p-4 border text-[color:var(--surface-200)] rounded-xl"
-      >
-        <DataTable
-          :value="items"
-          :rows="options.rows"
-          :totalRecords="totalItems"
-          :loading="loading"
-          :paginator="showPagination"
-          :first="options.first"
-          :rowsPerPageOptions="paginationOptions"
-          dataKey="id"
-          @page="onDataTablePage"
-          @row-click="onRowClick"
-          sortMode="multiple"
-          :rowClass="getRowClass"
+      <div v-if="isBurgerView" class="flex flex-1 flex-col">
+        <div
+          :class="[
+            'crud-table__table-shell flex flex-1 flex-col rounded-[14px] border px-4 py-2 transition-colors',
+            isDark ? 'border-surface-700 bg-transparent text-surface-0 shadow-[0_0_0_1px_rgba(58,58,64,0.15)]' : 'border-surface-200 bg-transparent text-surface-950'
+          ]"
         >
-          <Column
-            v-for="col in computedHeaders"
-            :key="col.field"
-            :field="col.field"
-            :header="col.header"
-            :sortable="col.sortable !== false"
-            :headerStyle="col.centered ? { textAlign: 'center' } : {}"
+          <DataTable
+            :class="['crud-table__datatable', { 'crud-table__datatable--loading': loading }]"
+            :pt="dataTablePt"
+            :value="items"
+            dataKey="id"
+            @row-click="onRowClick"
+            sortMode="multiple"
+            :rowClass="getRowClass"
           >
-            <template #body="slotProps">
-              <div
-                v-if="col.centered"
-                class="flex items-center justify-center w-full min-h-[64px]"
-              >
-                <slot :name="`item.${col.field}`" :item="slotProps.data">
-                  {{ slotProps.data[col.field] }}
-                </slot>
-              </div>
-              <template v-else>
-                <slot :name="`item.${col.field}`" :item="slotProps.data">
-                  {{ slotProps.data[col.field] }}
-                </slot>
+            <Column
+              v-for="col in computedHeaders"
+              :key="col.field"
+              :field="col.field"
+              :header="col.header"
+              :sortable="col.sortable !== false"
+              :headerStyle="col.centered ? { textAlign: 'center' } : {}"
+            >
+              <template #body="slotProps">
+                <div
+                  v-if="col.centered"
+                  class="flex items-center justify-center w-full min-h-[48px]"
+                >
+                  <slot :name="`item.${col.field}`" :item="slotProps.data">
+                    {{ slotProps.data[col.field] }}
+                  </slot>
+                </div>
+                <template v-else>
+                  <div class="flex min-h-[48px] items-center">
+                    <slot :name="`item.${col.field}`" :item="slotProps.data">
+                      {{ slotProps.data[col.field] }}
+                    </slot>
+                  </div>
+                </template>
               </template>
-            </template>
-          </Column>
+            </Column>
 
-          <Column v-if="editable || $slots['additional-actions']" header="">
-            <template #body="slotProps">
-              <div class="flex justify-center">
-                <slot name="additional-actions" :item="slotProps.data" />
-              </div>
-            </template>
-          </Column>
-          <template #loading>
-            <div
-              class="flex justify-center bg-white h-full items-center py-20 text-gray-500 w-full"
-            >
-              <i class="pi pi-spin pi-spinner text-2xl text-primary" />
-            </div>
-          </template>
-          <template #empty>
-            <div
-              class="flex justify-center items-center text-gray-500 py-8 h-[calc(100vh-450px)] w-full"
-            >
-              {{ emptyStateText }}
-            </div>
-          </template>
-        </DataTable>
+            <Column v-if="editable || $slots['additional-actions']" header="">
+              <template #body="slotProps">
+                <div class="flex min-h-[48px] w-full items-center justify-center">
+                  <slot name="additional-actions" :item="slotProps.data" />
+                </div>
+              </template>
+            </Column>
+          </DataTable>
+
+          <!-- Filler between the rows and the bottom border: absorbs leftover shell height
+               so the shell can stretch, and hosts the centered empty state. -->
+          <div
+            :class="['flex flex-1 items-center justify-center', isDark ? 'text-surface-400' : 'text-surface-500']"
+          >
+            <span v-if="!loading && items.length === 0" class="py-20">{{ emptyStateText }}</span>
+          </div>
+        </div>
+
+        <Paginator
+          v-if="showPagination"
+          :rows="options.rows"
+          :first="options.first"
+          :totalRecords="totalItems"
+          :rowsPerPageOptions="paginationOptions"
+          @page="onPaginatorPage"
+          class="justify-end border-0 bg-transparent px-0 pb-[0.875rem] pt-3 shadow-none"
+        />
       </div>
     </div>
 
@@ -456,30 +526,111 @@ export default toNative(CrudTable);
 </template>
 
 <style>
+/* While loading, an indeterminate line overlays the header row's bottom divider. */
+.crud-table__datatable--loading .p-datatable-thead {
+  position: relative;
+}
+
+.crud-table__datatable--loading .p-datatable-thead::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--p-primary-500), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: crud-table-loading-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes crud-table-loading-slide {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
 .p-datatable-paginator-bottom {
   border: none !important;
   box-shadow: none !important;
 }
 
-.p-datatable .p-datatable-tbody > tr > td {
-  vertical-align: middle;
+.crud-table--light .crud-table__view-switcher.p-selectbutton {
+  border-radius: 0.625rem;
+  border: 1px solid var(--p-surface-200);
+  background: var(--p-surface-50);
 }
 
-.p-datatable .p-datatable-tbody > tr > td > * {
-  vertical-align: middle;
+.crud-table--light .crud-table__view-switcher .p-togglebutton {
+  border: none;
+  background: transparent;
+  color: var(--p-surface-500);
 }
 
-.truncate-multiline {
-  display: -webkit-box;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.crud-table--light .crud-table__view-switcher .p-togglebutton.p-togglebutton-checked {
+  background: var(--p-surface-0);
+  color: var(--p-surface-950);
+}
+
+.crud-table--light .crud-table__add-button.p-button {
+  border: none;
+  background: var(--p-primary-500);
+  color: var(--p-surface-0);
+  box-shadow: none;
+}
+
+.crud-table--light .crud-table__add-button.p-button:hover {
+  background: var(--p-primary-600);
+}
+
+html.dark .p-selectbutton {
+  border-radius: 0.625rem;
+  border: 1px solid var(--p-surface-700);
+  background: var(--p-surface-900);
+}
+
+html.dark .p-selectbutton .p-togglebutton {
+  border: none;
+  background: transparent;
+  color: var(--p-surface-400);
+}
+
+html.dark .p-selectbutton .p-togglebutton.p-togglebutton-checked {
+  background: var(--p-surface-800);
+  color: var(--p-surface-0);
+}
+
+html.dark .crud-table .p-button {
+  border-color: transparent;
+}
+
+html.dark .crud-table .p-button.p-button-sm:not(.p-button-text):not(.p-selectbutton-button) {
+  background: var(--p-primary-500);
+  color: var(--p-surface-0);
+}
+
+html.dark .crud-table .p-button.p-button-sm:not(.p-button-text):not(.p-selectbutton-button):hover {
+  background: var(--p-primary-600);
+}
+
+html.dark .p-paginator .p-paginator-page,
+html.dark .p-paginator .p-paginator-next,
+html.dark .p-paginator .p-paginator-prev,
+html.dark .p-paginator .p-paginator-first,
+html.dark .p-paginator .p-paginator-last {
+  color: var(--p-surface-300) !important;
 }
 
 .dynamic-hover:hover {
   cursor: pointer;
   background-color: var(--row-hover-color, #eff6ff) !important;
   transition: background-color 0.3s ease !important;
+}
+
+html.dark .dynamic-hover:hover {
+  background-color: var(--p-surface-800) !important;
 }
 </style>

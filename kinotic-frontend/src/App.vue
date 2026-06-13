@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import Toast from 'primevue/toast'
+import '@/composables/useTheme'
 </script>
 
 <template>
@@ -7,6 +9,3 @@
         <router-view />
     </main>
 </template>
-
-<style scoped>
-</style>

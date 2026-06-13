@@ -21,21 +21,24 @@ public class EventConstants {
     public static final String REPLY_TO_HEADER = "reply-to";
 
     /**
-     * This is the replyToId that was supplied to the client
-     */
-    public static final String REPLY_TO_ID_HEADER = "reply-to-id";
-
-
-    /**
      * Header provided by the sever on connection to represent the users session id
      */
     public static final String SESSION_HEADER = "session";
 
     /**
-     * Header provided by the client on connection request to represent that the server
-     * should not keep the session alive after any network disconnection.
+     * Cookie name used by browser clients to provide the session id during WebSocket handshake.
      */
-    public static final String DISABLE_STICKY_SESSION_HEADER = "disable-sticky-session";
+    public static final String SESSION_COOKIE_NAME = "kinotic-session";
+
+    /**
+     * Browser-readable cookie that indicates whether a session may be available.
+     */
+    public static final String SESSION_AVAILABLE_COOKIE_NAME = "sessionAvailable";
+
+    /**
+     * Header provided by the client on connection request to choose how the session is kept alive.
+     */
+    public static final String SESSION_KEEP_ALIVE_HEADER = "session-keep-alive";
 
     /**
      * Header provided by the server on connection to provide the {@link ConnectedInfo}
@@ -73,6 +76,20 @@ public class EventConstants {
     public static final String SERVICE_DESTINATION_SCHEME = "srv";
 
     public static final String STREAM_DESTINATION_SCHEME = "stream";
+
+    /**
+     * Scheme for RPC reply destinations. A reply destination is a one-way sink scoped to a
+     * single connected client: it receives responses to requests that client made, is never
+     * itself invoked, and a reply event never carries its own reply-to.
+     */
+    public static final String REPLY_DESTINATION_SCHEME = "reply";
+
+    /**
+     * Scheme for non-persistent broadcast events (no request/response, no acknowledgement).
+     * Used for republishing external system events (webhooks, etc.) onto the bus where
+     * any number of subscribers may listen on a CRI like {@code evt://github/push/<org>/<project>}.
+     */
+    public static final String EVENT_DESTINATION_SCHEME = "evt";
 
     /**
      * Event data format that is pretty much a stomp frame.

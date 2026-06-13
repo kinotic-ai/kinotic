@@ -16,17 +16,17 @@ docker logs keycloak --tail 20
 # Check if port is accessible
 echo ""
 echo "3. Checking if port 8888 is accessible..."
-curl -v http://localhost:8888/auth/health/ready 2>&1 | head -10
+curl -v http://keycloak:8888/auth/health/ready 2>&1 | head -10
 
 # Check if the health endpoint exists
 echo ""
 echo "4. Checking if health endpoint exists..."
-curl -v http://localhost:8888/auth/health/ 2>&1 | head -10
+curl -v http://keycloak:8888/auth/health/ 2>&1 | head -10
 
 # Check if Keycloak is responding at all
 echo ""
 echo "5. Checking if Keycloak responds..."
-curl -v http://localhost:8888/ 2>&1 | head -10
+curl -v http://keycloak:8888/ 2>&1 | head -10
 
 # Check container network
 echo ""

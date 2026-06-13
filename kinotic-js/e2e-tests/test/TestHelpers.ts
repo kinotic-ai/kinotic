@@ -1,7 +1,8 @@
 import {faker} from '@faker-js/faker/locale/en'
-import {CodeGenerationService} from '@kinotic-ai/kinotic-cli/dist/internal/CodeGenerationService.js'
+import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import {Kinotic, Direction, Order, Pageable, IterablePage, KinoticProjectConfig} from '@kinotic-ai/core'
+import {ConnectionInfo, IWebSocket, Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, SessionKeepAliveMode, WebSocketFactory} from '@kinotic-ai/core'
+import {WebSocket} from 'ws'
 import {
     ObjectC3Type,
     FunctionDefinition
@@ -11,18 +12,19 @@ import {expect} from 'vitest'
 import {
     OsApiPlugin,
     EntityDefinition,
+    KinoticProjectConfig,
     NamedQueriesDefinition,
     QueryDecorator,
     Project
 } from '@kinotic-ai/os-api'
 import {
-    IEntityService,
-    IAdminEntityService
+    IEntityRepository,
+    IAdminEntityRepository,
+    PersistencePlugin
 } from '@kinotic-ai/persistence'
 import {Alert} from './domain/Alert.js'
 import {Person} from './domain/Person.js'
 import {inject} from 'vitest'
-// @ts-ignore
 import path from 'path'
 import {PersonWithTenant} from './domain/PersonWithTenant.js'
 import {Cat, Dog} from './domain/Pet.js'
@@ -36,20 +38,51 @@ type SchemaCreationResult ={
 }
 let schemas: Map<string, SchemaCreationResult> = new Map<string, SchemaCreationResult>()
 
+/**
+ * Credentials passed as WebSocket upgrade headers; the gateway's
+ * {@link KinoticSecurityService} authenticates the participant from these
+ * before the STOMP CONNECT frame is processed.
+ */
+export interface AuthHeaders {
+    login: string
+    passcode: string
+    authScopeType: 'SYSTEM' | 'ORGANIZATION' | 'APPLICATION'
+    authScopeId: string
+}
+
+function buildWsUrl(host: string, port: number, useSSL: boolean = false): string {
+    return `${useSSL ? 'wss' : 'ws'}://${host}:${port}/v1`
+}
+
+function authedWebSocketFactory(wsUrl: string, headers: AuthHeaders): WebSocketFactory {
+    return () => new WebSocket(wsUrl, { headers: headers as unknown as Record<string, string> }) as unknown as IWebSocket
+}
+
+function buildConnectionInfo(host: string, port: number, headers: AuthHeaders): ConnectionInfo {
+    const ci = new ConnectionInfo()
+    ci.host = host
+    ci.port = port
+    ci.useSSL = false
+    ci.sessionKeepAlive = SessionKeepAliveMode.NONE
+    ci.webSocketFactory = authedWebSocketFactory(buildWsUrl(host, port), headers)
+    return ci
+}
+
 export async function initKinoticClient(): Promise<void> {
     try {
         // @ts-ignore
-        const host = inject('KINOTIC_HOST')
+        const host = inject('KINOTIC_HOST') as string
         // @ts-ignore
-        const port = inject('KINOTIC_PORT')
+        const port = inject('KINOTIC_PORT') as number
 
         console.log('Connecting to Kinotic at ' + host)
 
-        await Kinotic.connect({
-                                    host:host,
-                                    port:port,
-                                    connectHeaders:{login: 'kinotic', passcode: 'kinotic'}
-                                })
+        await Kinotic.connect(buildConnectionInfo(host, port, {
+            login: 'kinotic@kinotic.local',
+            passcode: 'kinotic',
+            authScopeType: 'ORGANIZATION',
+            authScopeId: 'kinotic-test'
+        }))
 
         console.log('Connected to Kinotic')
     } catch (e) {
@@ -67,24 +100,55 @@ export async function shutdownKinoticClient(): Promise<void> {
     }
 }
 
-export async function createPersonSchema(applicationId: string, projectId: string, withTenant: boolean = false): Promise<SchemaCreationResult> {
-    return createSchema(applicationId, projectId, 'Person'+(withTenant ? 'WithTenant' : ''))
+/**
+ * Creates a fresh {@link KinoticSingleton} connected as the APPLICATION-scoped user seeded for
+ * the given (applicationId, tenantId) pair by the V5__e2e_app_fixtures migration (email
+ * convention app-<applicationId>-<tenantId>@test.local, password kinotic). The caller is
+ * responsible for disconnecting it when done. The instance has {@code OsApiPlugin} and
+ * {@code PersistencePlugin} installed so it can back {@code EntityRepository} /
+ * {@code AdminEntityRepository} used to act on SHARED entity data.
+ */
+export async function initKinoticAppClient(applicationId: string, tenantId: string): Promise<KinoticSingleton> {
+    const email = `app-${applicationId}-${tenantId}@test.local`
+    // @ts-ignore
+    const host = inject('KINOTIC_HOST') as string
+    // @ts-ignore
+    const port = inject('KINOTIC_PORT') as number
+
+    const appKinotic = new KinoticSingleton()
+    appKinotic.use(OsApiPlugin).use(PersistencePlugin)
+
+    await appKinotic.connect(buildConnectionInfo(host, port, {
+        login: email,
+        passcode: 'kinotic',
+        authScopeType: 'APPLICATION',
+        authScopeId: applicationId
+    }))
+    return appKinotic
 }
 
-export async function createVehicleSchema(applicationId: string, projectId: string): Promise<SchemaCreationResult> {
-    return createSchema(applicationId, projectId, 'Vehicle')
+export async function createPersonSchema(organizationId: string, applicationId: string, projectId: string, withTenant: boolean = false): Promise<SchemaCreationResult> {
+    return createSchema(organizationId, applicationId, projectId, 'Person'+(withTenant ? 'WithTenant' : ''))
 }
 
-export async function createSchema(applicationId: string, projectId: string, entityName: string): Promise<SchemaCreationResult> {
+export async function createVehicleSchema(organizationId: string, applicationId: string, projectId: string): Promise<SchemaCreationResult> {
+    return createSchema(organizationId, applicationId, projectId, 'Vehicle')
+}
+
+export async function createSchema(organizationId: string, applicationId: string, projectId: string, entityName: string): Promise<SchemaCreationResult> {
     if(!schemas.has(entityName)){
-        const codeGenerationService = new CodeGenerationService(applicationId,
+        const codeGenerationService = new EntityCodeGenerationService(applicationId,
                                                                 '.js',
                                                                 new ConsoleLogger())
 
         const config = new KinoticProjectConfig()
+        config.organization = organizationId
         config.application = applicationId
-        config.entitiesPaths = [path.resolve(__dirname, './domain')]
-        config.generatedPath = path.resolve(__dirname, './services')
+        config.entitiesPaths = [{
+            path: path.resolve(__dirname, './domain'),
+            repositoryPath: path.resolve(__dirname, './repository'),
+            mirrorFolderStructure: false
+        }]
         config.validate = false
         config.fileExtensionForImports = ''
         
@@ -97,17 +161,18 @@ export async function createSchema(applicationId: string, projectId: string, ent
                                      for(let serviceInfo of serviceInfos){
                                             namedQueries.push(...serviceInfo.namedQueries)
                                      }
-                                     const id = (applicationId + '.' + entityName).toLowerCase()
+                                     const id = (organizationId + '.' + applicationId + '.' + entityName).toLowerCase()
                                      const result: SchemaCreationResult = {
                                         entityDefinitionSchema: entityInfo.entity,
                                         namedQueriesDefinition: new NamedQueriesDefinition(id,
+                                                                                           organizationId,
                                                                                            applicationId,
                                                                                            projectId,
                                                                                            entityName,
                                                                                            namedQueries)
                                      }
                                      schemas.set(entityInfo.entity.name, result)
-                                 })
+                                 },true)
     }
     const result = schemas.get(entityName)
     if(!result){
@@ -119,9 +184,10 @@ export async function createSchema(applicationId: string, projectId: string, ent
     }
 
     ret.entityDefinitionSchema.name = entityName
-    ret.namedQueriesDefinition.id = (applicationId + '.' + entityName).toLowerCase()
+    ret.namedQueriesDefinition.id = (organizationId + '.' + applicationId + '.' + entityName).toLowerCase()
+    ret.namedQueriesDefinition.organizationId = organizationId
     ret.namedQueriesDefinition.entityDefinitionName = entityName
-    replaceAllQueryPlaceholdersWithId(applicationId + '.' + entityName, ret.namedQueriesDefinition.namedQueries)
+    replaceAllQueryPlaceholdersWithId(organizationId + '.' + applicationId + '.' + entityName, ret.namedQueriesDefinition.namedQueries)
     return ret
 }
 
@@ -146,24 +212,26 @@ function replaceAllQueryPlaceholdersWithId(structureId: string, functionDefiniti
 
 // Add these new functions to your existing TestHelpers.ts file
 
-export async function createAlertEntityDefinitionIfNotExist(applicationId: string, projectName: string): Promise<EntityDefinition> {
-    const entityDefinitionId = applicationId + '.alert'
+export async function createAlertEntityDefinitionIfNotExist(organizationId: string, applicationId: string, projectName: string): Promise<EntityDefinition> {
+    const entityDefinitionId = organizationId + '.' + applicationId + '.alert'
     let entityDefinition = await Kinotic.entityDefinitions.findById(entityDefinitionId)
     if (entityDefinition == null) {
-        entityDefinition = await createAlertEntityDefinition(applicationId, projectName)
+        entityDefinition = await createAlertEntityDefinition(organizationId, applicationId, projectName)
     }
     return entityDefinition
 }
 
-export async function createAlertEntityDefinition(applicationId: string, projectName: string): Promise<EntityDefinition> {
+export async function createAlertEntityDefinition(organizationId: string, applicationId: string, projectName: string): Promise<EntityDefinition> {
 
     await Kinotic.applications.createApplicationIfNotExist(applicationId, 'Application')
 
     let project: Project = new Project(null, applicationId, projectName, 'Project')
+    project.organizationId = organizationId
     project = await Kinotic.projects.createProjectIfNotExist(project)
 
-    const {entityDefinitionSchema} = await createAlertSchema(applicationId, project.id as string)
+    const {entityDefinitionSchema} = await createAlertSchema(organizationId, applicationId, project.id as string)
     const alertEntityDefinition = new EntityDefinition(
+        organizationId,
         applicationId,
         project.id as string,
         'Alert',
@@ -182,8 +250,8 @@ export async function createAlertEntityDefinition(applicationId: string, project
     return savedEntityDefinition
 }
 
-export async function createAlertSchema(applicationId: string, projectId: string): Promise<SchemaCreationResult> {
-    return createSchema(applicationId, projectId, 'Alert')
+export async function createAlertSchema(organizationId: string, applicationId: string, projectId: string): Promise<SchemaCreationResult> {
+    return createSchema(organizationId, applicationId, projectId, 'Alert')
 }
 
 // Add this helper function to create test Alert instances
@@ -208,24 +276,26 @@ export function createTestAlerts(numberToCreate: number): Alert[] {
     return ret
 }
 
-export async function createPersonEntityDefinitionIfNotExist(applicationId: string, projectName: string, withTenant: boolean = false): Promise<EntityDefinition>{
-    const structureId = applicationId + '.person' + ( withTenant ? 'withtenant' : '')
+export async function createPersonEntityDefinitionIfNotExist(organizationId: string, applicationId: string, projectName: string, withTenant: boolean = false): Promise<EntityDefinition>{
+    const structureId = organizationId + '.' + applicationId + '.person' + ( withTenant ? 'withtenant' : '')
     let entityDefinition = await Kinotic.entityDefinitions.findById(structureId)
     if(entityDefinition == null){
-        entityDefinition = await createPersonEntityDefinition(applicationId, projectName, withTenant)
+        entityDefinition = await createPersonEntityDefinition(organizationId, applicationId, projectName, withTenant)
     }
     return entityDefinition
 }
 
-export async function createPersonEntityDefinition(applicationId: string, projectName: string, withTenant: boolean = false): Promise<EntityDefinition>{
+export async function createPersonEntityDefinition(organizationId: string, applicationId: string, projectName: string, withTenant: boolean = false): Promise<EntityDefinition>{
 
     await Kinotic.applications.createApplicationIfNotExist(applicationId, 'Application')
 
     let project: Project = new Project(null, applicationId, projectName, 'Project')
+    project.organizationId = organizationId
     project = await Kinotic.projects.createProjectIfNotExist(project)
 
-    const {entityDefinitionSchema} = await createPersonSchema(applicationId, project.id as string, withTenant)
-    const personEntityDefinition = new EntityDefinition(applicationId,
+    const {entityDefinitionSchema} = await createPersonSchema(organizationId, applicationId, project.id as string, withTenant)
+    const personEntityDefinition = new EntityDefinition(organizationId,
+                                                        applicationId,
                                                         project.id as string,
                                                         'Person' + (withTenant ? 'WithTenant' : ''),
                                                         entityDefinitionSchema,
@@ -242,25 +312,27 @@ export async function createPersonEntityDefinition(applicationId: string, projec
     return savedEntityDefinition
 }
 
-export async function createVehicleEntityDefinitionIfNotExist(applicationId: string, projectName: string): Promise<EntityDefinition>{
-    const entityDefinitionId = applicationId + '.vehicle'
+export async function createVehicleEntityDefinitionIfNotExist(organizationId: string, applicationId: string, projectName: string): Promise<EntityDefinition>{
+    const entityDefinitionId = organizationId + '.' + applicationId + '.vehicle'
     let entityDefinition = await Kinotic.entityDefinitions.findById(entityDefinitionId)
     if(entityDefinition == null){
-        entityDefinition = await createVehicleEntityDefinition(applicationId, projectName)
+        entityDefinition = await createVehicleEntityDefinition(organizationId, applicationId, projectName)
     }
     return entityDefinition
 }
 
-export async function createVehicleEntityDefinition(applicationId: string, projectName: string): Promise<EntityDefinition>{
+export async function createVehicleEntityDefinition(organizationId: string, applicationId: string, projectName: string): Promise<EntityDefinition>{
 
     await Kinotic.applications.createApplicationIfNotExist(applicationId, 'Application')
     console.log('Created application', applicationId);
     let project: Project = new Project(null, applicationId, projectName, 'Project')
+    project.organizationId = organizationId
     project = await Kinotic.projects.createProjectIfNotExist(project)
     console.log('Created project', project.id);
-    const {entityDefinitionSchema} = await createVehicleSchema(applicationId, project.id as string)
+    const {entityDefinitionSchema} = await createVehicleSchema(organizationId, applicationId, project.id as string)
     console.log('Created entity definition', entityDefinitionSchema);
-    const vehicleEntityDefinition = new EntityDefinition(applicationId,
+    const vehicleEntityDefinition = new EntityDefinition(organizationId,
+                                                         applicationId,
                                                          project.id as string,
                                                          'Vehicle',
                                                          entityDefinitionSchema,
@@ -292,7 +364,7 @@ export function createTestPeople(numberToCreate: number): Person[] {
     return ret
 }
 
-export async function createTestPeopleAndVerify(entityService: IEntityService<Person>,
+export async function createTestPeopleAndVerify(entityService: IEntityRepository<Person>,
                                                 numberToCreate: number): Promise<void> {
     // Create people
     const people: Person[] = createTestPeople(numberToCreate)
@@ -311,8 +383,8 @@ export function createTestPeopleWithTenant(numberToCreate: number, tenantId: str
     return ret
 }
 
-export async function createTestPeopleWithTenantAndVerify(adminEntityService: IAdminEntityService<PersonWithTenant>,
-                                                          entityService: IEntityService<PersonWithTenant>,
+export async function createTestPeopleWithTenantAndVerify(adminEntityService: IAdminEntityRepository<PersonWithTenant>,
+                                                          entityService: IEntityRepository<PersonWithTenant>,
                                                           tenantId: string,
                                                           numberToCreate: number): Promise<void> {
     // Create people
@@ -324,7 +396,7 @@ export async function createTestPeopleWithTenantAndVerify(adminEntityService: IA
     await expect(adminEntityService.count([tenantId])).resolves.toBe(numberToCreate)
 }
 
-export async function findAndVerifyPeopleWithCursorPaging(entityService: IEntityService<Person>,
+export async function findAndVerifyPeopleWithCursorPaging(entityService: IEntityRepository<Person>,
                                                           numberToExpect: number){
     let elementsFound = 0
     const pageable = Pageable.createWithCursor(null,
@@ -342,7 +414,7 @@ export async function findAndVerifyPeopleWithCursorPaging(entityService: IEntity
     expect(elementsFound, `Should have found ${numberToExpect} Entities`).toBe(numberToExpect)
 }
 
-export async function findAndVerifyPeopleWithOffsetPaging(entityService: IEntityService<Person>,
+export async function findAndVerifyPeopleWithOffsetPaging(entityService: IEntityRepository<Person>,
                                                           numberToExpect: number){
     let elementsFound = 0
     const pageable = Pageable.create(0,

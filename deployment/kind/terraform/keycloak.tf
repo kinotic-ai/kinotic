@@ -4,7 +4,7 @@ resource "helm_release" "postgresql" {
   count = var.enable_keycloak ? 1 : 0
 
   name       = "keycloak-db"
-  namespace  = "default"
+  namespace  = kubernetes_namespace.kinotic.metadata[0].name
   repository = "oci://registry-1.docker.io/bitnamicharts"
   chart      = "postgresql"
   version    = "18.5.11"
@@ -14,18 +14,11 @@ resource "helm_release" "postgresql" {
   values = [file("${path.module}/../config/postgresql/values.yaml")]
 
   # Override credentials from variables (not hardcoded in values.yaml)
-  set_sensitive {
-    name  = "global.postgresql.auth.postgresPassword"
-    value = var.keycloak_db_password
-  }
-  set_sensitive {
-    name  = "global.postgresql.auth.username"
-    value = var.keycloak_db_username
-  }
-  set_sensitive {
-    name  = "global.postgresql.auth.password"
-    value = var.keycloak_db_password
-  }
+  set_sensitive = [
+    { name = "global.postgresql.auth.postgresPassword", value = var.keycloak_db_password },
+    { name = "global.postgresql.auth.username", value = var.keycloak_db_username },
+    { name = "global.postgresql.auth.password", value = var.keycloak_db_password },
+  ]
 
   depends_on = [kind_cluster.kinotic]
 }
@@ -37,7 +30,7 @@ resource "kubernetes_config_map" "keycloak_realm" {
 
   metadata {
     name      = "keycloak-realm"
-    namespace = "default"
+    namespace = kubernetes_namespace.kinotic.metadata[0].name
   }
 
   data = {
@@ -53,25 +46,26 @@ resource "helm_release" "keycloak" {
   count = var.enable_keycloak ? 1 : 0
 
   name      = "keycloak"
-  namespace = "default"
+  namespace = kubernetes_namespace.kinotic.metadata[0].name
   chart     = "${path.module}/../charts/keycloak"
   wait      = true
   timeout   = var.deploy_timeout
 
   values = [file("${path.module}/../config/keycloak/values.yaml")]
 
-  set_sensitive {
-    name  = "auth.adminPassword"
-    value = var.keycloak_admin_password
-  }
+  set_sensitive = [
+    { name = "auth.adminPassword", value = var.keycloak_admin_password },
+    { name = "database.password", value = var.keycloak_db_password },
+  ]
 
-  set_sensitive {
-    name  = "database.password"
-    value = var.keycloak_db_password
-  }
+  # TLS — use mkcert cert when available
+  set = [
+    { name = "tls.enabled", value = var.use_mkcert ? "true" : "false" },
+  ]
 
   depends_on = [
     helm_release.postgresql,
     kubernetes_config_map.keycloak_realm,
+    kubernetes_secret.kinotic_tls,
   ]
 }

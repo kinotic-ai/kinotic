@@ -1,0 +1,40 @@
+
+
+package org.kinotic.gateway.internal.endpoints;
+
+import io.vertx.core.Vertx;
+import org.kinotic.core.api.event.EventBusService;
+import org.kinotic.core.api.event.EventStreamService;
+import org.kinotic.core.api.security.SecurityService;
+import org.kinotic.core.internal.api.service.ExceptionConverter;
+import org.kinotic.gateway.api.config.ApiGatewayProperties;
+import org.kinotic.gateway.internal.endpoints.stomp.DefaultStompServerHandler;
+import org.kinotic.gateway.internal.endpoints.stomp.StompAuthorizerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
+
+/**
+ * Facade class to make it easier to get necessary services into {@link DefaultStompServerHandler}
+ * To keep the constructor args small and adding new service dependencies can just be done here...
+ * Created by navid on 1/23/20
+ */
+@Component
+public class Services {
+    @Autowired
+    public ApiGatewayProperties apiGatewayProperties;
+    @Autowired
+    public EventBusService eventBusService;
+    @Autowired
+    public EventStreamService eventStreamService;
+    @Autowired
+    public ExceptionConverter exceptionConverter;
+    @Autowired
+    public JsonMapper jsonMapper;
+    @Autowired
+    public SecurityService securityService;
+    @Autowired
+    public StompAuthorizerFactory stompAuthorizerFactory;
+    @Autowired
+    public Vertx vertx;
+}

@@ -41,6 +41,7 @@ describe('Migration Service End To End Tests', () => {
         await Kinotic.applications.createApplicationIfNotExist(context.applicationId, 'Test Application')
         
         const project = new Project(null, context.applicationId, generateRandomString(5), 'Test Project')
+        project.organizationId = 'kinotic-test'
         context.project = await Kinotic.projects.createProjectIfNotExist(project)
         expect(context.project).toBeDefined()
         expect(context.project.id).toBeDefined()

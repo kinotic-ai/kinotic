@@ -1,7 +1,7 @@
-import {Kinotic, Pageable} from '@kinotic-ai/core'
+import {Kinotic, KinoticSingleton, Pageable} from '@kinotic-ai/core'
 import {PropertyDefinition, StringC3Type} from '@kinotic-ai/idl'
 import {EntityDefinition} from '@kinotic-ai/os-api'
-import {EntityService, IEntityService} from '@kinotic-ai/persistence'
+import {EntitiesRepository, EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
@@ -12,6 +12,7 @@ import {
     createTestAlerts,
     deleteEntityDefinition,
     generateRandomString,
+    initKinoticAppClient,
     initKinoticClient,
     logFailure,
     shutdownKinoticClient
@@ -19,9 +20,15 @@ import {
 
 Object.assign(global, { WebSocket })
 
+const TEST_ORG_ID = 'kinotic-test'
+const APP_TENANT = 'kinotic'
+// Seeded by the V5__e2e_app_fixtures migration, with the matching app user for APP_TENANT.
+const APP_ID = 'e2e-datastream'
+
 interface LocalTestContext {
     entityDefinition: EntityDefinition
-    entityService: IEntityService<Alert>
+    appKinotic: KinoticSingleton
+    entityService: IEntityRepository<Alert>
 }
 
 describe('End To End Tests', () => {
@@ -36,18 +43,24 @@ describe('End To End Tests', () => {
     }, 60000)
 
     beforeEach<LocalTestContext>(async (context) => {
-        context.entityDefinition = await createAlertEntityDefinitionIfNotExist(generateRandomString(10), generateRandomString(5))
+        context.entityDefinition = await createAlertEntityDefinitionIfNotExist(TEST_ORG_ID, APP_ID, generateRandomString(5))
         expect(context.entityDefinition).toBeDefined()
-        context.entityService = new EntityService(context.entityDefinition.applicationId, context.entityDefinition.name)
+        context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT)
+        context.entityService = new EntityRepository(
+            context.entityDefinition.organizationId,
+            context.entityDefinition.applicationId,
+            context.entityDefinition.name,
+            new EntitiesRepository(context.appKinotic)
+        )
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
+        await context.appKinotic.disconnect()
         await expect(deleteEntityDefinition(context.entityDefinition.id as string)).resolves.toBeUndefined()
         await expect(Kinotic.entityDefinitions.syncIndex()).resolves.toBeNull()
         await Kinotic.projects.deleteById(context.entityDefinition.projectId)
         await expect(Kinotic.projects.syncIndex()).resolves.toBeNull()
-        await Kinotic.applications.deleteById(context.entityDefinition.applicationId)
     })
 
     it<LocalTestContext>('Test Basic Stream Write and Search', async ({entityService}) => {

@@ -13,7 +13,7 @@ import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.PropertyDefinition;
 import org.kinotic.idl.api.schema.decorators.NotNullC3Decorator;
 import org.kinotic.persistence.api.model.idl.decorators.*;
-import org.kinotic.persistence.internal.endpoints.graphql.DiscriminatorTypeResolver;
+import org.kinotic.persistence.internal.converters.graphql.resolvers.DiscriminatorTypeResolver;
 import org.kinotic.persistence.internal.utils.GqlUtils;
 
 import static graphql.schema.GraphQLFieldDefinition.newFieldDefinition;

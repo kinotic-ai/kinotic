@@ -11,9 +11,15 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/kinotic-server-config-map.yaml") . | sha256sum }}
+        {{- if .Values.tls.enabled }}
+        secret.reloader.stakater.com/reload: {{ .Values.tls.secretName | quote }}
+        {{- end }}
       labels:
         app: {{ include "kinotic-server.name" . }}
         release: {{ .Release.Name }}
+        {{- if .Values.workloadIdentity.enabled }}
+        azure.workload.identity/use: "true"
+        {{- end }}
     spec:
       serviceAccountName: {{ include "kinotic-server.fullname" . }}
       terminationGracePeriodSeconds: 60  # Allow time for WebSocket connections to close gracefully
@@ -28,36 +34,47 @@ spec:
                 command: ["/bin/sh", "-c", "sleep 15"]
           readinessProbe:
             httpGet:
-              path: "{{ .Values.properties.structures.healthCheckPath }}"
-              port: {{ .Values.properties.structures.webServerPort }}
+              path: "/health"
+              port: {{ .Values.kinotic.stomp.port | default 58503 }}
+              {{- if .Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
             initialDelaySeconds: 10
             failureThreshold: 15
             periodSeconds: 10
             timeoutSeconds: 7
           startupProbe:
             httpGet:
-              path: "{{ .Values.properties.structures.healthCheckPath }}"
-              port: {{ .Values.properties.structures.webServerPort }}
+              path: "/health"
+              port: {{ .Values.kinotic.stomp.port | default 58503 }}
+              {{- if .Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
             initialDelaySeconds: 30
             failureThreshold: 15
             periodSeconds: 10
             timeoutSeconds: 7
           livenessProbe:
             httpGet:
-              path: "{{ .Values.properties.structures.healthCheckPath }}"
-              port: {{ .Values.properties.structures.webServerPort }}
+              path: "/health"
+              port: {{ .Values.kinotic.stomp.port | default 58503 }}
+              {{- if .Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
             initialDelaySeconds: 30
             failureThreshold: 30
             periodSeconds: 30
             timeoutSeconds: 7
           ports:
-            - containerPort: {{ .Values.properties.structures.webServerPort| default 9090 }} # UI PORT
-            - containerPort: {{ .Values.properties.structures.graphqlPort| default 4000 }} # GraphQL Port
-            - containerPort: {{ .Values.properties.structures.openApiPort| default 8080 }} # OpenAPI Port
-            - containerPort: {{ .Values.continuum_gateway.stomp.port| default 58503 }} # Continuum Stomp Port
-            - containerPort: {{ .Values.properties.structures.restPort| default 58504 }} # Continuum REST Port
-            - containerPort: {{ .Values.continuum.cluster.discoveryPort | default 47500 }} # Ignite Discovery Port
-            - containerPort: {{ .Values.continuum.cluster.communicationPort | default 47100 }} # Ignite Communication Port
+            {{- if .Values.kinotic.webServer.enabled }}
+            - containerPort: {{ .Values.kinotic.webServer.port | default 9090 }} # SPA static server
+            {{- end }}
+            - containerPort: {{ .Values.kinotic.graphqlPort| default 4000 }} # GraphQL Port
+            - containerPort: {{ .Values.kinotic.openApiPort| default 8080 }} # OpenAPI Port
+            - containerPort: {{ .Values.kinotic.stomp.port| default 58503 }} # STOMP Port
+            - containerPort: {{ .Values.kinotic.restPort| default 58504 }} # REST Port
+            - containerPort: {{ .Values.kinotic.cluster.discoveryPort | default 47500 }} # Ignite Discovery Port
+            - containerPort: {{ .Values.kinotic.cluster.communicationPort | default 47100 }} # Ignite Communication Port
           {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -72,28 +89,62 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: KINOTIC_PERSISTENCE_ELASTICUSERNAME
-              value: "{{ .Values.properties.structures.elastic.username }}"
+              value: "{{ .Values.kinotic.elastic.username }}"
             - name: KINOTIC_PERSISTENCE_ELASTICPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.properties.structures.elastic.secretName }}
-                  key: {{ .Values.properties.structures.elastic.secretKey }}
+                  name: {{ .Values.kinotic.elastic.secretName }}
+                  key: {{ .Values.kinotic.elastic.secretKey }}
+            - name: KINOTIC_PLATFORMSECRETS_JWTSIGNINGKEYSPATH
+              value: "{{ .Values.platformSecrets.mountPath }}/{{ .Values.platformSecrets.objects.jwtSigningKeys }}"
+            - name: KINOTIC_PLATFORMSECRETS_SECRETSTORAGEMASTERKEYSPATH
+              value: "{{ .Values.platformSecrets.mountPath }}/{{ .Values.platformSecrets.objects.secretStorageMasterKeys }}"
           volumeMounts:
             - name: tmp-work
               mountPath: /workspace/ignite/work
+            {{- if .Values.tls.enabled }}
+            - name: tls-certs
+              mountPath: /certs
+              readOnly: true
+            {{- end }}
             {{- if .Values.evictionTracking.enabled }}
             - name: eviction-data
               mountPath: {{ .Values.evictionTracking.mountPath | default "/eviction-data" }}
             {{- end }}
+            - name: platform-secrets
+              mountPath: {{ .Values.platformSecrets.mountPath }}
+              readOnly: true
       restartPolicy: Always
       nodeSelector: {{ toYaml .Values.nodeSelector | nindent 8 }}
       volumes:
         - name: tmp-work
           emptyDir:
             sizeLimit: 1Gi
+        {{- if .Values.tls.enabled }}
+        - name: tls-certs
+          secret:
+            secretName: {{ .Values.tls.secretName }}
+        {{- end }}
         {{- if .Values.evictionTracking.enabled }}
         - name: eviction-data
           hostPath:
             path: {{ .Values.evictionTracking.hostPath | default "/tmp/kinotic-eviction-data" }}
             type: DirectoryOrCreate
         {{- end }}
+        - name: platform-secrets
+          {{- if .Values.platformSecrets.keyVault.name }}
+          # Azure: CSI driver syncs Key Vault → K8s Secret (via SecretProviderClass.secretObjects).
+          # The Secret is projected onto the pod via the volume below. Mounting the CSI
+          # driver directly would also work, but using the synced Secret keeps the pod
+          # spec identical to the KinD path (same volume type, same mount path).
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ include "kinotic-server.fullname" . }}-platform-secrets
+          {{- else }}
+          # KinD / other: a K8s Secret (created by external terraform or tooling) holds the
+          # same keys. Mounted directly — files refresh when the Secret is updated.
+          secret:
+            secretName: {{ include "kinotic-server.platformSecretsSecretName" . }}
+          {{- end }}

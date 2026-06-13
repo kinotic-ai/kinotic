@@ -155,6 +155,12 @@ public interface KinoticSQLVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitColumnDefinition(KinoticSQLParser.ColumnDefinitionContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#unionVariant}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitUnionVariant(KinoticSQLParser.UnionVariantContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link KinoticSQLParser#type}.
 	 * @param ctx the parse tree
 	 * @return the visitor result

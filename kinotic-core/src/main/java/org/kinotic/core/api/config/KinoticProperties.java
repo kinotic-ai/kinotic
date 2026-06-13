@@ -6,6 +6,7 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
+import org.springframework.validation.annotation.Validated;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -18,12 +19,11 @@ import lombok.experimental.Accessors;
 @Component
 @ConfigurationProperties(prefix = "kinotic")
 @Primary
+@Validated
 @Getter
 @Setter
 @Accessors(chain = true)
 public class KinoticProperties {
-
-    public static long DEFAULT_SESSION_TIMEOUT = 1000 * 60 * 30;
 
     /**
      * If true, additional information will be provided to clients,
@@ -69,6 +69,11 @@ public class KinoticProperties {
      */
     private IgniteProperties ignite = new IgniteProperties();
 
+    /**
+     * CORS configuration applied to all Vert.x HTTP servers that expose browser-facing routes.
+     */
+    private CorsProperties cors = new CorsProperties();
+
     private int maxEventPayloadSize = 1024 * 1024 * 100; // 100MB
 
     /**
@@ -81,22 +86,23 @@ public class KinoticProperties {
      */
     private long maxOffHeapMemory = DataStorageConfiguration.DFLT_DATA_REGION_MAX_SIZE;
 
-    private long sessionTimeout = DEFAULT_SESSION_TIMEOUT;
+    /**
+     * Secret storage configuration. If null, an in-memory backend is used.
+     */
+    private SecretStorageProperties secretStorage;
+
+    /**
+     * Paths to platform-level secret files (JWT signing keys, secret-storage master keys).
+     * Files are mounted into the pod by the Azure Key Vault CSI driver in production or
+     * by a Kubernetes Secret volume locally, and watched for changes so rotation flows
+     * through without a restart.
+     */
+    private PlatformSecretsProperties platformSecrets = new PlatformSecretsProperties();
+
 
     public void setMaxNumberOfCoresToUse(int maxNumberOfCoresToUse) {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         this.maxNumberOfCoresToUse = maxNumberOfCoresToUse > 0 ? Math.min(availableProcessors, maxNumberOfCoresToUse) : Math.max(availableProcessors, 1);
-    }
-
-    @Override
-    public String toString() {
-        ToStringBuilder sb = new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
-                .append("debug", debug)
-                .append("disableClustering", disableClustering)
-                .append("sessionTimeout", sessionTimeout)
-                .append("maxOffHeapMemory", maxOffHeapMemory);
-
-        return sb.toString();
     }
 
 }

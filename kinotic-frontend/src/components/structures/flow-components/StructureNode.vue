@@ -214,7 +214,7 @@ export default class StructureNode extends Vue {
         { 'text-white !bg-black': data.type === 'structure' },
         ]"
     >
-      <i v-if="data.type === 'structure'" class="pi pi-table" style="color: #C8FB39"/>
+      <i v-if="data.type === 'structure'" class="pi pi-table" style="color: var(--p-lime-300)"/>
       <span>{{ data.label }}</span>
     </div>
 

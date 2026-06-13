@@ -1,11 +1,15 @@
-import type { KinoticProjectConfig } from '@kinotic-ai/core'
+import type { KinoticProjectConfig } from '@kinotic-ai/os-api'
 
 const config: KinoticProjectConfig = {
+  organization: "kinotic-test",
   application: "load-testing",
   entitiesPaths: [
-    "src/entity/domain/ecommerce"
+    {
+      path: "src/entity/domain",
+      repositoryPath: "src/repository",
+      mirrorFolderStructure: true
+    }
   ],
-  generatedPath: "src/entity/services/ecommerce",
   fileExtensionForImports: ".js",
   validate: false
 }

@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.utils;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.os.api.utils.CoreUtil;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.persistence.api.model.EntityDefinition;
 
 import java.util.LinkedHashMap;
@@ -16,12 +16,13 @@ public class PersistenceUtil {
 
     /**
      * Function will convert a {@link EntityDefinition} applicationId and name to a valid
+     * @param organizationId to converty
      * @param applicationId to convert
      * @param entityDefinitionName to convert
      * @return a valid {@link EntityDefinition} id
      */
-    public static String entityDefinitionNameToId(String applicationId, String entityDefinitionName){
-        return (applicationId + "." + entityDefinitionName).toLowerCase();
+    public static String createEntityDefinitionId(String organizationId, String applicationId, String entityDefinitionName){
+        return (organizationId + "." + applicationId + "." + entityDefinitionName).toLowerCase();
     }
 
     /**
@@ -34,9 +35,9 @@ public class PersistenceUtil {
 
         validateEntityDefinitionName(entityDefinition.getName());
 
-        CoreUtil.validateApplicationId(entityDefinition.getApplicationId());
+        DomainUtil.validateApplicationId(entityDefinition.getApplicationId());
 
-        CoreUtil.validateProjectId(entityDefinition.getProjectId());
+        DomainUtil.validateProjectId(entityDefinition.getProjectId());
 
         if (entityDefinition.getSchema() == null) {
             throw new IllegalArgumentException("EntityDefinition schema must not be null");

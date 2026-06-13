@@ -1,5 +1,6 @@
 package org.kinotic.persistence.internal.endpoints.graphql.datafetchers;
 
+import org.kinotic.persistence.internal.api.services.EntitiesService;
 import tools.jackson.databind.ObjectMapper;
 import graphql.ExecutionResult;
 import graphql.schema.DataFetcher;
@@ -12,7 +13,6 @@ import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.PageableC3Type;
-import org.kinotic.persistence.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.services.sql.MapParameterHolder;
 import org.kinotic.persistence.internal.endpoints.openapi.RoutingContextToEntityContextAdapter;
 import org.kinotic.persistence.internal.utils.GqlUtils;

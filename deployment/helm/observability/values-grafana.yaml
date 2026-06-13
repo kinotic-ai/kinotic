@@ -1,0 +1,29 @@
+# Shared Grafana base values.
+
+replicas: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+persistence:
+  enabled: true
+  size: 1Gi
+
+# Auto-configure Loki as a datasource
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://loki:3100
+        isDefault: true
+
+# Admin credentials (override in environment-specific values or secrets)
+adminUser: admin
+adminPassword: admin

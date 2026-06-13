@@ -12,13 +12,15 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.Nullable;
-import org.kinotic.os.api.model.RawJson;
+import org.kinotic.domain.api.model.RawJson;
+import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.AuthenticationHandler;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.*;
-import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.services.sql.MapParameterHolder;
 import org.kinotic.persistence.internal.utils.VertxWebUtil;
 import org.springframework.stereotype.Component;
@@ -52,7 +54,9 @@ public class OpenApiVertxRouterFactory {
     private final EntitiesService entitiesService;
     private final ObjectMapper objectMapper;
     private final OpenApiService openApiService;
+    private final SecurityContext securityContext;
     private final PersistenceProperties properties;
+    private final KinoticProperties kinoticProperties;
     private final SecurityService securityService;
     private final JavaType stringListType;
     private final JavaType tenantSpecificListType;
@@ -61,13 +65,17 @@ public class OpenApiVertxRouterFactory {
     public OpenApiVertxRouterFactory(EntitiesService entitiesService,
                                      ObjectMapper objectMapper,
                                      OpenApiService openApiService,
+                                     SecurityContext securityContext,
                                      PersistenceProperties properties,
+                                     KinoticProperties kinoticProperties,
                                      SecurityService securityService,
                                      Vertx vertx) {
         this.entitiesService = entitiesService;
         this.objectMapper = objectMapper;
         this.openApiService = openApiService;
+        this.securityContext = securityContext;
         this.properties = properties;
+        this.kinoticProperties = kinoticProperties;
         this.securityService = securityService;
         this.vertx = vertx;
 
@@ -94,7 +102,7 @@ public class OpenApiVertxRouterFactory {
     }
 
     public Router createRouter() {
-        Router router = VertxWebUtil.createRouterWithCors(vertx, properties);
+        Router router = VertxWebUtil.createRouterWithCors(vertx, kinoticProperties.getCors());
 
         BodyHandler bodyHandler = BodyHandler.create(false);
         bodyHandler.setBodyLimit(properties.getMaxHttpBodySize());
@@ -124,7 +132,7 @@ public class OpenApiVertxRouterFactory {
               });
 
         if (securityService != null) {
-            router.route().handler(new AuthenticationHandler(securityService, vertx));
+            router.route().handler(new AuthenticationHandler(securityService, securityContext, vertx));
         }
 
         addDeleteRoutes(router, bodyHandler, true);

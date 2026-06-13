@@ -1,7 +1,4 @@
 
 export enum ProjectType {
-    TYPESCRIPT,
-    GRAPHQL,
-    GRAPHICAL,
-    ELASTICSEARCH
+    TYPESCRIPT = 'TYPESCRIPT',
 }

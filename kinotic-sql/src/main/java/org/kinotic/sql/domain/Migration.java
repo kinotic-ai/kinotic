@@ -1,5 +1,8 @@
 package org.kinotic.sql.domain;
 
+import java.util.Collections;
+import java.util.Set;
+
 /**
  * Represents a migration file abstraction for the migration system.
  * <p>
@@ -26,4 +29,14 @@ public interface Migration {
      * @return the parsed MigrationContent object for this migration. May be lazily loaded or parsed.
      */
     MigrationContent getContent();
+
+    /**
+     * The set of environments this migration applies to. An empty set means the migration is common
+     * and applies to every environment.
+     *
+     * @return the environments this migration applies to, or an empty set if it applies to all environments
+     */
+    default Set<String> getEnvironments() {
+        return Collections.emptySet();
+    }
 } 

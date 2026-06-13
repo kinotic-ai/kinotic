@@ -6,9 +6,14 @@ plugins {
 dependencies {
 	implementation project(':kinotic-core')
 	implementation project(':kinotic-domain')
+	implementation project(':kinotic-os-api')
 	implementation project(':kinotic-idl')
 	implementation project(':kinotic-persistence')
 	implementation project(':kinotic-sql')
+
+	// SecurityContext lives in kinotic-core but its API surface (Vertx) is hidden by `implementation`.
+	// kinotic-test uses Vertx + SecurityContext to wrap test calls in withElevatedAccess.
+	implementation 'io.vertx:vertx-core'
 
 	implementation 'io.jsonwebtoken:jjwt-api'
 	implementation 'io.jsonwebtoken:jjwt-impl'

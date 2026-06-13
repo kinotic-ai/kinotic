@@ -1,175 +1,90 @@
-import { ConnectedInfo, ConnectionInfo, Kinotic } from '@kinotic-ai/core'
+import { ConnectedInfo, Kinotic } from '@kinotic-ai/core'
+import { isApplicationParticipant, isOrganizationParticipant } from '@kinotic-ai/os-api'
 import { reactive } from 'vue'
-import Cookies from 'js-cookie'
-import { User } from 'oidc-client-ts'
 import { createDebug } from '@/util/debug'
+import { apiUrl, createConnectionInfo } from '../util/helpers'
 
-const debug = createDebug('user-state');
-import { oidcSessionManager } from '@/util/OidcSessionManager'
-import { createConnectionInfo } from '../util/helpers'
+const debug = createDebug('user-state')
 
 export interface IUserState {
     connectedInfo: ConnectedInfo | null
-    oidcUser: User | null
 
-    isAccessDenied(): boolean
     isAuthenticated(): boolean
-    authenticate(login: string, passcode: string): Promise<void>
-    handleOidcLogin(user: User, provider: string): Promise<void>
+
+    /**
+     * Returns the organization id of the authenticated participant. This client admits only
+     * organization-scoped participants; it throws for application- and system-scoped participants.
+     */
+    getOrganizationId(): string
+
+    /**
+     * Opens the realtime connection, authenticated by the session cookie a prior REST login
+     * established. Resolves once connected; rejects when there is no valid session — so on app
+     * start it doubles as the "is the browser still signed in?" check. Overlapping login/logout
+     * calls run one at a time, so only a single realtime connection is ever open.
+     */
+    login(): Promise<void>
+
+    /** Destroys the server session and closes the realtime connection. */
     logout(): Promise<void>
 }
 
 export class UserState implements IUserState {
     public connectedInfo: ConnectedInfo | null = null
-    public oidcUser: User | null = null
-    private authenticated: boolean = false
-    private accessDenied: boolean = false
 
-    public async authenticate(login: string, passcode: string): Promise<void> {
-        try {
-            await Kinotic.disconnect()
-        } catch (error) {
-            debug('No existing connection to disconnect')
-        }
+    private inFlight: Promise<unknown> = Promise.resolve()
 
-        const connectionInfo: ConnectionInfo = createConnectionInfo()
-        connectionInfo.connectHeaders = {
-            login,
-            passcode
-        }
-
-        try {
-            this.connectedInfo = await Kinotic.connect(connectionInfo)
-            this.authenticated = true
-            this.accessDenied = false
-            // Note: We intentionally do NOT store basic auth credentials in cookies
-            // This is more secure - users must re-login on page refresh
-        } catch (reason: any) {
-            this.accessDenied = true
-            if (reason) {
-                throw new Error(reason)
-            } else {
-                throw new Error('Credentials invalid')
-            }
-        }
-    }
-
-    public async handleOidcLogin(user: User, provider: string): Promise<void> {
-        try {
-            await Kinotic.disconnect()
-        } catch (error) {
-            debug('No existing connection to disconnect')
-        }
-
-        const connectionInfo: ConnectionInfo = createConnectionInfo()
-
-        let tokenToUse = user.access_token;
-
-        if (user.access_token && !this.isValidJWT(user.access_token)) {
-            debug('Access token is not a valid JWT, using ID token for Microsoft social login');
-            tokenToUse = user.id_token || user.access_token;
-        }
-
-        connectionInfo.connectHeaders = {
-            Authorization: `Bearer ${tokenToUse}`
-        }
-
-        try {
-            this.connectedInfo = await Kinotic.connect(connectionInfo)
-            this.authenticated = true
-            this.accessDenied = false
-            this.oidcUser = user
-
-            const useSecureCookies = window.location.protocol === 'https:'
-
-            Cookies.set('token', tokenToUse, {
-                sameSite: 'strict',
-                secure: useSecureCookies,
-                expires: new Date(user.expires_at! * 1000)
-            })
-
-            if (user.refresh_token) {
-                const refreshExpiry = this.parseJwtExpiry(user.refresh_token)
-                Cookies.set('oidc_refresh_token', user.refresh_token, {
-                    sameSite: 'strict',
-                    secure: true,
-                    expires: refreshExpiry ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-                })
+    public login(): Promise<void> {
+        return this.serialize(async () => {
+            try {
+                await Kinotic.disconnect()
+            } catch (error) {
+                debug('No existing connection to disconnect')
             }
 
-            // Initialize session manager for automatic token refresh
-            await oidcSessionManager.initialize(provider, async () => {
-                console.warn('Token refresh failed, logging out')
-                await this.logout()
-            })
-        } catch (reason: any) {
-            this.accessDenied = true
-            if (reason) {
-                throw new Error(reason)
-            } else {
-                throw new Error('OIDC authentication failed')
+            try {
+                this.connectedInfo = await Kinotic.connect(createConnectionInfo())
+            } catch (reason: any) {
+                this.connectedInfo = null
+                throw new Error(reason ? String(reason) : 'Session authentication failed')
             }
-        }
+        })
     }
 
-    /**
-     * Parse the expiry date from a JWT token
-     */
-    private parseJwtExpiry(token: string): Date | null {
-        try {
-            const parts = token.split('.')
-            if (parts.length !== 3) return null
-            const payload = JSON.parse(atob(parts[1]))
-            return payload.exp ? new Date(payload.exp * 1000) : null
-        } catch {
-            return null
-        }
-    }
-
-    public async logout(): Promise<void> {
-        // Cleanup OIDC session manager first
-        await oidcSessionManager.cleanup()
-
-        if (this.connectedInfo) {
+    public logout(): Promise<void> {
+        return this.serialize(async () => {
+            try {
+                await fetch(apiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' })
+            } catch (error) {
+                debug('Logout request failed: %O', error)
+            }
             try {
                 await Kinotic.disconnect()
             } catch (error) {
                 debug('Error disconnecting from Kinotic: %O', error)
             }
-        }
-
-        Cookies.remove('token')
-        Cookies.remove('oidc_refresh_token')
-
-        this.connectedInfo = null
-        this.oidcUser = null
-        this.authenticated = false
-        this.accessDenied = false
-    }
-
-    public isAccessDenied(): boolean {
-        return this.accessDenied
+            this.connectedInfo = null
+        })
     }
 
     public isAuthenticated(): boolean {
-        // Check if we have an active Kinotic connection
-        return this.authenticated && this.connectedInfo !== null
+        return this.connectedInfo !== null
     }
 
-    private isValidJWT(token: string): boolean {
-        try {
-            const parts = token.split('.');
-            if (parts.length !== 3) {
-                return false;
-            }
-
-            const header = JSON.parse(atob(parts[0]));
-            const payload = JSON.parse(atob(parts[1]));
-
-            return !!(header.alg && payload.iss && payload.aud);
-        } catch (error) {
-            return false;
+    public getOrganizationId(): string {
+        const participant = this.connectedInfo?.participant
+        // This client admits organization administrators only. An application-scoped participant
+        // also carries an organizationId, so it is excluded explicitly rather than by absence.
+        if (!participant || !isOrganizationParticipant(participant) || isApplicationParticipant(participant)) {
+            throw new Error('No organization id available — this client requires an organization-scoped session')
         }
+        return participant.organizationId
+    }
+
+    private serialize<T>(operation: () => Promise<T>): Promise<T> {
+        const result = this.inFlight.then(operation)
+        this.inFlight = result.catch(() => {})   // the next call waits for this one, pass or fail
+        return result
     }
 }
 

@@ -1,18 +1,21 @@
 package org.kinotic.persistence.internal.api.services;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch.indices.DataStreamVisibility;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
-import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.os.internal.api.services.CrudServiceTemplate;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
+import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
+import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.services.EntityDefinitionService;
+import org.kinotic.persistence.internal.api.repositories.EntityDefinitionRepository;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.springframework.context.ApplicationEventPublisher;
@@ -21,42 +24,47 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 
 @Component
-@RequiredArgsConstructor
-public class DefaultEntityDefinitionService implements EntityDefinitionService {
+public class DefaultEntityDefinitionService extends AbstractProjectScopedService<EntityDefinition>
+        implements EntityDefinitionService {
 
     private final ApplicationEventPublisher eventPublisher;
     private final CrudServiceTemplate crudServiceTemplate;
-    private final ElasticsearchAsyncClient esAsyncClient;
     private final EntityDefinitionConversionService entityDefinitionConversionService;
-    private final EntityDefinitionDAO entityDefinitionDAO;
+    private final EntityDefinitionRepository entityDefinitionRepository;
     private final PersistenceProperties persistenceProperties;
 
-
-    @WithSpan
-    @Override
-    public CompletableFuture<Long> count() {
-        return entityDefinitionDAO.count();
-    }
-
-    @WithSpan
-    @Override
-    public CompletableFuture<Long> countForApplication(@SpanAttribute("applicationId") String applicationId) {
-        return entityDefinitionDAO.countForApplication(applicationId);
-    }
-
-    @WithSpan
-    @Override
-    public CompletableFuture<Long> countForProject(@SpanAttribute("projectId") String projectId) {
-        return entityDefinitionDAO.countForProject(projectId);
+    public DefaultEntityDefinitionService(ApplicationEventPublisher eventPublisher,
+                                          CrudServiceTemplate crudServiceTemplate,
+                                          EntityDefinitionConversionService entityDefinitionConversionService,
+                                          EntityDefinitionRepository entityDefinitionRepository,
+                                          PersistenceProperties persistenceProperties,
+                                          SecurityContext securityContext) {
+        super(entityDefinitionRepository, securityContext);
+        this.eventPublisher = eventPublisher;
+        this.crudServiceTemplate = crudServiceTemplate;
+        this.entityDefinitionConversionService = entityDefinitionConversionService;
+        this.entityDefinitionRepository = entityDefinitionRepository;
+        this.persistenceProperties = persistenceProperties;
     }
 
     @WithSpan
     @Override
     public CompletableFuture<EntityDefinition> create(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
-        String logicalIndexName;
+        return validateAndCreate(entityDefinition, super::create);
+    }
+
+    @WithSpan
+    @Override
+    public CompletableFuture<EntityDefinition> createSync(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
+        return validateAndCreate(entityDefinition, super::createSync);
+    }
+
+    private CompletableFuture<EntityDefinition> validateAndCreate(EntityDefinition entityDefinition,
+                                                                  Function<EntityDefinition, CompletableFuture<EntityDefinition>> createOp) {
         try {
             // will throw an exception if invalid
             PersistenceUtil.validateEntityDefinition(entityDefinition);
@@ -64,50 +72,59 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
             entityDefinition.setApplicationId(entityDefinition.getApplicationId().trim());
             entityDefinition.setProjectId(entityDefinition.getProjectId().trim());
             entityDefinition.setName(entityDefinition.getName().trim());
-            logicalIndexName = PersistenceUtil.entityDefinitionNameToId(entityDefinition.getApplicationId(), entityDefinition.getName());
+            String logicalIndexName = PersistenceUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
+                                                                               entityDefinition.getApplicationId(),
+                                                                               entityDefinition.getName());
 
             if(logicalIndexName.length() > 255){
                 throw new IllegalArgumentException("EntityDefinition Id is too long, 'applicationId.name' must be less than 256 characters");
             }
 
+            // TODO: how to ensure EntityDefinition application name match the C3Type name
+            // Should we just use the EntityDefinition one?
+
+            entityDefinition.setId(logicalIndexName);
+            entityDefinition.setCreated(new Date());
+            entityDefinition.setUpdated(entityDefinition.getCreated());
+            // Store name of the elastic search index for items
+            entityDefinition.setItemIndex(this.persistenceProperties.getIndexPrefix() + logicalIndexName);
+
+            ElasticConversionResult result = entityDefinitionConversionService.convertToElasticMapping(entityDefinition);
+
+            entityDefinition.setDecoratedProperties(result.decoratedProperties());
+            entityDefinition.setMultiTenancyType(result.entityDecorator().getMultiTenancyType());
+            entityDefinition.setEntityType(result.entityDecorator().getEntityType());
+            entityDefinition.setVersionFieldName(result.versionFieldName());
+            entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
+            entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());
+
         } catch (IllegalArgumentException e) {
             return CompletableFuture.failedFuture(e);
         }
 
-        return findById(logicalIndexName)
-                .thenCompose(existingEntityDefinition -> {
-
-                    // Check if this is an existing EntityDefinition or new one
-                    if (existingEntityDefinition != null) {
-                        return CompletableFuture.failedFuture(new IllegalArgumentException(
-                                "EntityDefinition Application+Name must be unique, '" + logicalIndexName + "' already exists."));
-                    }
-
-                    // TODO: how to ensure EntityDefinition application name match the C3Type name
-                    // Should we just use the EntityDefinition one?
-
-                    entityDefinition.setId(logicalIndexName);
-                    entityDefinition.setCreated(new Date());
-                    entityDefinition.setUpdated(entityDefinition.getCreated());
-                    // Store name of the elastic search index for items
-                    entityDefinition.setItemIndex(this.persistenceProperties.getIndexPrefix() + logicalIndexName);
-
-                    ElasticConversionResult result = entityDefinitionConversionService.convertToElasticMapping(entityDefinition);
-
-                    entityDefinition.setDecoratedProperties(result.decoratedProperties());
-                    entityDefinition.setMultiTenancyType(result.entityDecorator().getMultiTenancyType());
-                    entityDefinition.setEntityType(result.entityDecorator().getEntityType());
-                    entityDefinition.setVersionFieldName(result.versionFieldName());
-                    entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
-                    entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());
-
-                    return  entityDefinitionDAO.save(entityDefinition);
-                });
+        // The base create uses the ES create op-type, so the uniqueness check is atomic at
+        // the shard — a concurrent duplicate fails instead of overwriting the way the
+        // previous findById-then-save did.
+        return createOp.apply(entityDefinition)
+                .exceptionallyCompose(ex -> AlreadyExistsException.isCause(ex)
+                        ? CompletableFuture.failedFuture(new IllegalArgumentException(
+                                "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
+                        : CompletableFuture.failedFuture(ex));
     }
 
     @WithSpan
     @Override
     public CompletableFuture<Void> deleteById(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
+        return deleteAndEvict(entityDefinitionId);
+    }
+
+    @WithSpan
+    @Override
+    public CompletableFuture<Void> deleteByIdSync(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
+        return deleteAndEvict(entityDefinitionId);
+    }
+
+    private CompletableFuture<Void> deleteAndEvict(String entityDefinitionId) {
         return findById(entityDefinitionId)
                 .thenCompose(entityDefinition -> {
 
@@ -120,40 +137,21 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                                 .failedFuture(new IllegalStateException("EntityDefinition must be Un-Published before Deleting"));
                     }
 
-                    this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getApplicationId(), entityDefinition.getId()));
-
-                    return entityDefinitionDAO.deleteById(entityDefinitionId);
+                    // Sync delete, then evict: the deletion must be searchable before the
+                    // eviction fires, and the eviction must fire last — either way around,
+                    // a concurrent read could re-cache the old row with no eviction behind it.
+                    return super.deleteByIdSync(entityDefinitionId)
+                            .thenApply(v -> {
+                                this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId(), entityDefinition.getId()));
+                                return null;
+                            });
                 });
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Page<EntityDefinition>> findAll(Pageable pageable) {
-        return entityDefinitionDAO.findAll(pageable);
-    }
-
-    @WithSpan
-    @Override
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(@SpanAttribute("applicationId") String applicationId, Pageable pageable) {
-        return entityDefinitionDAO.findAllPublishedForApplication(applicationId, pageable);
-    }
-
-    @WithSpan
-    @Override
-    public CompletableFuture<Page<EntityDefinition>> findAllForApplication(@SpanAttribute("applicationId") String applicationId, Pageable pageable) {
-        return entityDefinitionDAO.findAllForApplication(applicationId, pageable);
-    }
-
-    @WithSpan
-    @Override
-    public CompletableFuture<Page<EntityDefinition>> findAllForProject(@SpanAttribute("projectId") String projectId, Pageable pageable) {
-        return entityDefinitionDAO.findAllForProject(projectId, pageable);
-    }
-
-    @WithSpan
-    @Override
-    public CompletableFuture<EntityDefinition> findById(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
-        return entityDefinitionDAO.findById(entityDefinitionId);
+        return entityDefinitionRepository.findAllPublishedForApplication(applicationId, requireOrganizationId(), pageable);
     }
 
     @WithSpan
@@ -189,23 +187,33 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                         entityDefinition.setPublished(true);
                         entityDefinition.setPublishedTimestamp(new Date());
                         entityDefinition.setUpdated(entityDefinition.getPublishedTimestamp());
-                        return entityDefinitionDAO.save(entityDefinition)
-                                                  .thenApply(entityDefinition1 -> {
-                                               this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getApplicationId(),
-                                                                                                                                 entityDefinition1.getId()));
-                                               return null;
-                                           });
+                        // saveSync so the published state is searchable before the eviction fires
+                        return super.saveSync(entityDefinition)
+                                .thenApply(entityDefinition1 -> {
+                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(),
+                                                                                                                     entityDefinition1.getId()));
+                                    return null;
+                                });
                     });
                 });
+    }
+
+    /**
+     * Saves like {@link #save} — the writes behind every save path already wait for search
+     * visibility, because the cache loaders read through searches and the eviction events
+     * fire only after the write is searchable.
+     */
+    @WithSpan
+    @Override
+    public CompletableFuture<EntityDefinition> saveSync(EntityDefinition entityDefinition) {
+        return save(entityDefinition);
     }
 
     @WithSpan
     @Override
     public CompletableFuture<EntityDefinition> save(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
         try {
-            if (entityDefinition.getId() == null || entityDefinition.getId().isBlank()) {
-                throw new IllegalArgumentException("EntityDefinition Id Invalid");
-            }
+            Validate.notBlank(entityDefinition.getId(), "EntityDefinition Id Invalid");
             PersistenceUtil.validateEntityDefinition(entityDefinition);
         } catch (IllegalArgumentException e) {
             return CompletableFuture.failedFuture(e);
@@ -269,23 +277,18 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                             updateFuture = crudServiceTemplate.updateIndexMapping(entityDefinition.getItemIndex(), mappings);
                         }
 
-                        return updateFuture.thenCompose(v -> entityDefinitionDAO
-                                .save(entityDefinition)
+                        // saveSync so the new definition is searchable before the eviction
+                        // fires — a reload racing the index refresh would re-cache the old
+                        // row with no eviction left to clear it.
+                        return updateFuture.thenCompose(v -> super.saveSync(entityDefinition)
                                 .thenApply(entityDefinition1 -> {
-                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getApplicationId(), entityDefinition1.getId()));
+                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
                                     return entityDefinition1;
                                 }));
                     } else {
-                        return entityDefinitionDAO.save(entityDefinition);
+                        return super.saveSync(entityDefinition);
                     }
                 });
-    }
-
-
-    @WithSpan
-    @Override
-    public CompletableFuture<Page<EntityDefinition>> search(@SpanAttribute("searchText") String searchText, Pageable pageable) {
-        return entityDefinitionDAO.search(searchText, pageable);
     }
 
     @WithSpan
@@ -311,27 +314,20 @@ public class DefaultEntityDefinitionService implements EntityDefinitionService {
                                                                  .thenCompose(v -> crudServiceTemplate.deleteIndexTemplate(templateName));
                     } else {
                         // Delete the regular index
-                        deleteStorageFuture = esAsyncClient.indices()
-                                                           .delete(builder -> builder.index(entityDefinition.getItemIndex()))
-                                                           .thenApply(response -> null);
+                        deleteStorageFuture = crudServiceTemplate.deleteIndex(entityDefinition.getItemIndex());
                     }
 
                     return deleteStorageFuture.thenCompose(v -> {
                         entityDefinition.setPublished(false);
                         entityDefinition.setPublishedTimestamp(null);
                         entityDefinition.setUpdated(new Date());
-                        return entityDefinitionDAO.save(entityDefinition)
-                                                  .thenApply(entityDefinition1 -> {
-                                               this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getApplicationId(), entityDefinition1.getId()));
-                                               return null;
-                                           });
+                        // saveSync so the unpublished state is searchable before the eviction fires
+                        return super.saveSync(entityDefinition)
+                                .thenApply(entityDefinition1 -> {
+                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
+                                    return null;
+                                });
                     });
                 });
     }
-
-    @Override
-    public CompletableFuture<Void> syncIndex() {
-        return entityDefinitionDAO.syncIndex();
-    }
-
 }

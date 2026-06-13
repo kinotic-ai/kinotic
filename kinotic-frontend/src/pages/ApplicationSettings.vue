@@ -1,8 +1,8 @@
 <template>
-  <div class="application-settings p-4">
-    <h1 class="text-2xl font-semibold mb-4">Application Settings</h1>
+  <div :class="['application-settings', isDark ? 'application-settings--dark' : 'application-settings--light']">
+    <h1 class="application-settings__title">Application settings</h1>
 
-    <Tabs :value="activeTab" @update:value="(value: string | number) => activeTab = Number(value)">
+    <Tabs class="application-settings__tabs" :value="activeTab" @update:value="(value: string | number) => activeTab = Number(value)">
       <TabList>
         <Tab :value="0">General</Tab>
         <Tab :value="1">Saved widgets</Tab>
@@ -10,59 +10,44 @@
       <TabPanels class="!p-0">
         <TabPanel :value="0">
           <div v-show="activeTab === 0">
-            <div class="max-w-[400px] mx-auto">
-              <form @submit.prevent="saveSettings" class="flex flex-col gap-4">
-                <div>
-                  <div class="mb-5">
-                    <label class="block text-sm text-[#101010] mb-3 font-semibold">Name</label>
+            <div class="application-settings__general-shell">
+              <form @submit.prevent="saveSettings" class="application-settings__form">
+                <div class="application-settings__fields">
+                  <div class="application-settings__field">
+                    <label class="application-settings__label">Name</label>
                     <InputText 
                       v-model="appName" 
                       type="text" 
-                      class="w-full" 
+                      class="application-settings__input w-full" 
                       disabled
                     />
                   </div>
-                  <div class="mb-5">
-                    <label class="block text-sm text-[#101010] mb-3 font-semibold">Description</label>
-                    <Textarea 
-                      v-model="appDescription" 
-                      class="w-full h-[100px]"
-                      rows="3" 
+                  <div class="application-settings__field">
+                    <label class="application-settings__label">Description</label>
+                    <Textarea
+                      v-model="appDescription"
+                      class="application-settings__input application-settings__textarea w-full h-[100px]"
+                      rows="3"
                     />
                   </div>
-                  <div>
-                    <label class="block text-sm text-[#101010] mb-3 font-semibold">API configuration</label>
-                    <div class="border border-[#E6E7EB] rounded-2xl w-full divide-y divide-[#E6E7EB]">
-                      <div class="flex items-center justify-between p-4">
-                        <div class="flex items-center gap-2">
-                          <img src="@/assets/graphql.svg" />
-                          <span class="text-[#3F424D] text-sm font-normal">GraphQL</span>
-                        </div>
-                        <ToggleButton v-model="enableGraphQL" onLabel="On" offLabel="Off" />
-                      </div>
-                      <div class="flex items-center justify-between p-4">
-                        <div class="flex items-center gap-2">
-                          <img src="@/assets/scalar.svg" />
-                          <span class="text-[#3F424D] text-sm font-normal">OpenAPI</span>
-                        </div>
-                        <ToggleButton v-model="enableOpenAPI" onLabel="On" offLabel="Off" />
-                      </div>
-                      <div class="flex items-center justify-between p-4">
-                        <div class="flex items-center gap-2">
-                          <img src="@/assets/mcp.svg" />
-                          <span class="text-[#3F424D] text-sm font-normal">MCP (Model Context Protocol)</span>
-                        </div>
-                        <ToggleButton v-model="enableMCP" onLabel="On" offLabel="Off" />
-                      </div>
+                  <div class="application-settings__field">
+                    <label class="application-settings__label">Tenant per user</label>
+                    <div class="flex items-center gap-3">
+                      <ToggleSwitch v-model="tenantPerUser" />
+                      <span class="text-sm text-muted-color">
+                        Each user of this application gets their own isolated tenant.
+                        Applies to users created after enabling.
+                      </span>
                     </div>
                   </div>
                 </div>
-                <div class="flex justify-end gap-2 mt-6">
+                <div class="application-settings__actions">
                   <Button 
+                    class="application-settings__save-btn"
                     type="submit" 
                     :disabled="loading" 
                     severity="primary" 
-                    label="Save Settings" 
+                    label="Save changes" 
                   />
                 </div>
               </form>
@@ -170,13 +155,15 @@
 <script setup lang="ts">
 // @ts-ignore
 import { ref, defineProps, onMounted, watch, computed } from 'vue'
-import { InputText, Textarea, Button, ToggleButton, Tabs, TabList, Tab, TabPanels, TabPanel, Dialog, IconField, InputIcon } from 'primevue'
+import { InputText, Textarea, Button, Tabs, TabList, Tab, TabPanels, TabPanel, Dialog, IconField, InputIcon, ToggleSwitch } from 'primevue'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
+import { USER_STATE } from '@/states/IUserState'
 import { Kinotic } from '@kinotic-ai/core'
 import { useToast } from 'primevue/usetoast'
-import { DataInsightsWidgetEntityService } from '@/services/DataInsightsWidgetEntityService'
+import { DataInsightsWidgetEntityRepository } from '@/services/DataInsightsWidgetEntityRepository'
 import type { DataInsightsWidget } from '@/domain/DataInsightsWidget'
 import SavedWidgetItem from '@/components/SavedWidgetItem.vue'
+import { isDark as darkMode } from '@/composables/useTheme'
 
 defineProps({
   applicationId: {
@@ -188,26 +175,23 @@ defineProps({
 const toast = useToast()
 const appName = ref('')
 const appDescription = ref('')
-const enableGraphQL = ref(false)
-const enableOpenAPI = ref(false)
-const enableMCP = ref(false)
+const tenantPerUser = ref(false)
 const loading = ref(false)
 const activeTab = ref(0)
 
-const widgetService = new DataInsightsWidgetEntityService()
+const widgetService = new DataInsightsWidgetEntityRepository()
 const savedWidgets = ref<DataInsightsWidget[]>([])
 const loadingWidgets = ref(false)
 const showDeleteDialog = ref(false)
 const widgetToDelete = ref<string | null>(null)
 const widgetSearchText = ref('')
+const isDark = darkMode
 
 watch(() => APPLICATION_STATE.currentApplication, (newApp) => {
   if (newApp) {
     appName.value = newApp.id || ''
     appDescription.value = newApp.description || ''
-    enableGraphQL.value = newApp.enableGraphQL || false
-    enableOpenAPI.value = newApp.enableOpenAPI || false
-    enableMCP.value = (newApp as any).enableMCP || false
+    tenantPerUser.value = Boolean(newApp.tenantPerUser)
   }
 }, { immediate: true })
 
@@ -216,9 +200,7 @@ onMounted(() => {
     const app = APPLICATION_STATE.currentApplication
     appName.value = app.id || ''
     appDescription.value = app.description || ''
-    enableGraphQL.value = app.enableGraphQL || false
-    enableOpenAPI.value = app.enableOpenAPI || false
-    enableMCP.value = (app as any).enableMCP || false
+    tenantPerUser.value = Boolean(app.tenantPerUser)
   }
 })
 
@@ -237,10 +219,9 @@ const saveSettings = async () => {
   try {
     const updatedApplication = {
       ...APPLICATION_STATE.currentApplication,
+      organizationId: USER_STATE.getOrganizationId(),
       description: appDescription.value,
-      enableGraphQL: enableGraphQL.value,
-      enableOpenAPI: enableOpenAPI.value,
-      enableMCP: enableMCP.value
+      tenantPerUser: tenantPerUser.value
     }
 
     await Kinotic.applications.save(updatedApplication)
@@ -357,3 +338,206 @@ const filteredWidgets = computed(() => {
   })
 })
 </script>
+
+<style scoped>
+.application-settings {
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.application-settings--dark {
+  color: #ffffff;
+}
+
+.application-settings--light {
+  color: #101010;
+}
+
+.application-settings__title {
+  margin: 0 0 1.25rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.application-settings--dark .application-settings__title,
+.application-settings--dark .application-settings__label {
+  color: #ffffff;
+}
+
+.application-settings--light .application-settings__title,
+.application-settings--light .application-settings__label {
+  color: #101010;
+}
+
+.application-settings__general-shell {
+  display: flex;
+  justify-content: center;
+  padding-top: 1.75rem;
+}
+
+.application-settings__form {
+  width: 100%;
+  max-width: 304px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.application-settings__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.application-settings__field {
+  margin-bottom: 0;
+}
+
+.application-settings__label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0;
+}
+
+.application-settings__actions {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 1.5rem;
+}
+
+.application-settings--dark :deep(.p-tablist) {
+  border-bottom: 1px solid #525252;
+  background: transparent;
+}
+
+.application-settings--light :deep(.p-tablist) {
+  border-bottom: 1px solid #e6e7eb;
+  background: transparent;
+}
+
+.application-settings :deep(.p-tablist-tab-list) {
+  background: transparent;
+}
+
+.application-settings--dark :deep(.p-tab) {
+  min-height: 47px;
+  padding: 14px 15px;
+  color: #a3a3a3;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.application-settings--light :deep(.p-tab) {
+  min-height: 47px;
+  padding: 14px 15px;
+  color: #71717a;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.application-settings :deep(.p-tab-active) {
+  color: #ffffff;
+}
+
+.application-settings--light :deep(.p-tab-active) {
+  color: #101010;
+}
+
+.application-settings :deep(.p-tablist-active-bar) {
+  height: 2px;
+  background: var(--p-primary-500);
+}
+
+.application-settings--dark :deep(.p-inputtext),
+.application-settings--dark :deep(.p-textarea) {
+  border: 1px solid #525252;
+  background: transparent;
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(18, 18, 23, 0.05);
+}
+
+.application-settings--dark :deep(.p-inputtext) {
+  min-height: 33px;
+  padding: 8px 12px;
+  background: #262626;
+}
+
+.application-settings--dark :deep(.p-textarea) {
+  padding: 8px 12px;
+  resize: none;
+  box-shadow: none;
+}
+
+.application-settings--dark :deep(.p-inputtext:disabled) {
+  border-color: #525252;
+  background: #262626;
+  color: #a3a3a3;
+  -webkit-text-fill-color: #a3a3a3;
+  opacity: 1;
+}
+
+.application-settings--dark :deep(.p-inputtext::placeholder),
+.application-settings--dark :deep(.p-textarea::placeholder) {
+  color: #a3a3a3;
+}
+
+.application-settings--light :deep(.p-inputtext),
+.application-settings--light :deep(.p-textarea) {
+  border: 1px solid #d9dce4;
+  background: transparent;
+  color: #101010;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(18, 18, 23, 0.05);
+}
+
+.application-settings--light :deep(.p-inputtext) {
+  background: #ffffff;
+}
+
+.application-settings--light :deep(.p-inputtext:disabled) {
+  background: #e8eaf0;
+  color: #71717a;
+  opacity: 1;
+}
+
+.application-settings :deep(.p-inputtext:focus),
+.application-settings :deep(.p-textarea:focus) {
+  border-color: #52525b;
+  box-shadow: none;
+}
+
+.application-settings :deep(.p-button.application-settings__save-btn) {
+  min-width: 12.25rem;
+  width: 100%;
+  justify-content: center;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--p-primary-500);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.application-settings :deep(.p-button.application-settings__save-btn:hover),
+.application-settings :deep(.p-button.application-settings__save-btn:focus),
+.application-settings :deep(.p-button.application-settings__save-btn:focus-visible) {
+  border: none;
+  background: var(--p-primary-600);
+  box-shadow: none;
+}
+</style>

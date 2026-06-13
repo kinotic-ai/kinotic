@@ -3,7 +3,6 @@ package org.kinotic.persistence.internal.endpoints.graphql;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.*;
 import tools.jackson.databind.ObjectMapper;
-import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import graphql.language.OperationDefinition;
 import graphql.scalars.ExtendedScalars;
 import graphql.schema.GraphQLFieldDefinition;
@@ -12,14 +11,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.persistence.api.model.EntityOperation;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;
 import org.kinotic.persistence.api.model.idl.decorators.PolicyDecorator;
-import org.kinotic.persistence.api.services.EntitiesService;
-import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
+import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.utils.GqlUtils;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.util.List;
 
 import static graphql.Scalars.*;
@@ -36,19 +33,13 @@ import static graphql.schema.GraphQLNonNull.nonNull;
 public class DefaultGqlOperationDefinitionService implements GqlOperationDefinitionService {
 
     private final List<GqlOperationDefinition> builtInOperationDefinitions;
-    private final AsyncLoadingCache<String, List<GqlOperationDefinition>> namedQueryOperationDefinitionCache;
+    private final NamedQueryGqlOperationDefinitionCache namedQueryOperationDefinitionCache;
 
     public DefaultGqlOperationDefinitionService(EntitiesService entitiesService,
-                                                NamedQueryGqlOperationDefinitionCacheLoader namedQueryGqlOperationDefinitionCacheLoader,
-                                                ObjectMapper objectMapper,
-                                                DefaultCaffeineCacheFactory cacheFactory) {
+                                                NamedQueryGqlOperationDefinitionCache namedQueryGqlOperationDefinitionCache,
+                                                ObjectMapper objectMapper) {
 
-        namedQueryOperationDefinitionCache
-                = cacheFactory.<String, List<GqlOperationDefinition>>newBuilder()
-                              .name("namedQueryOperationDefinitionCache")
-                              .expireAfterAccess(Duration.ofHours(1))
-                              .maximumSize(2000)
-                              .buildAsync(namedQueryGqlOperationDefinitionCacheLoader);
+        this.namedQueryOperationDefinitionCache = namedQueryGqlOperationDefinitionCache;
 
         this.builtInOperationDefinitions = List.of(
 
@@ -66,7 +57,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.BULK_SAVE));
                                           return builder.build();
                                       })
-                                      .dataFetcherDefinitionFunction(entityDefinition -> new BulkSaveDataFetcher(entityDefinition.getId(), entitiesService))
+                                      .dataFetcherDefinitionFunction(entityDefinition -> new BulkSaveDataFetcher(entityDefinition.getId(),
+                                                                                                                 entitiesService))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -83,7 +75,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.BULK_UPDATE));
                                           return builder.build();
                                       })
-                                      .dataFetcherDefinitionFunction(entityDefinition -> new BulkUpdateDataFetcher(entityDefinition.getId(), entitiesService))
+                                      .dataFetcherDefinitionFunction(entityDefinition -> new BulkUpdateDataFetcher(entityDefinition.getId(),
+                                                                                                                   entitiesService))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -98,7 +91,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.COUNT));
                                           return builder.build();
                                       })
-                                      .dataFetcherDefinitionFunction(entityDefinition -> new CountDataFetcher(entityDefinition.getId(), entitiesService))
+                                      .dataFetcherDefinitionFunction(entityDefinition -> new CountDataFetcher(entityDefinition.getId(),
+                                                                                                              entitiesService))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -115,7 +109,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.DELETE_BY_ID));
                                           return builder.build();
                                       })
-                                      .dataFetcherDefinitionFunction(entityDefinition -> new DeleteDataFetcher(entityDefinition.getId(), entitiesService))
+                                      .dataFetcherDefinitionFunction(entityDefinition -> new DeleteDataFetcher(entityDefinition.getId(),
+                                                                                                               entitiesService))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -132,7 +127,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.FIND_BY_ID));
                                           return builder.build();
                                       })
-                                      .dataFetcherDefinitionFunction(entityDefinition -> new FindByIdDataFetcher(entityDefinition.getId(), entitiesService))
+                                      .dataFetcherDefinitionFunction(entityDefinition -> new FindByIdDataFetcher(entityDefinition.getId(),
+                                                                                                                 entitiesService))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -149,7 +145,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.FIND_ALL));
                                           return builder.build();
                                       })
-                                      .dataFetcherDefinitionFunction(entityDefinition -> new FindAllDataFetcher(entityDefinition.getId(), entitiesService, objectMapper))
+                                      .dataFetcherDefinitionFunction(entityDefinition -> new FindAllDataFetcher(entityDefinition.getId(),
+                                                                                                                entitiesService, objectMapper))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -166,7 +163,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.FIND_ALL));
                                           return builder.build();
                                       })
-                                      .dataFetcherDefinitionFunction(entityDefinition -> new FindAllDataFetcher(entityDefinition.getId(), entitiesService, objectMapper))
+                                      .dataFetcherDefinitionFunction(entityDefinition -> new FindAllDataFetcher(entityDefinition.getId(),
+                                                                                                                entitiesService, objectMapper))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -183,7 +181,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.SAVE));
                                           return builder.build();
                                       })
-                                      .dataFetcherDefinitionFunction(entityDefinition -> new SaveDataFetcher(entityDefinition.getId(), entitiesService))
+                                      .dataFetcherDefinitionFunction(entityDefinition -> new SaveDataFetcher(entityDefinition.getId(),
+                                                                                                             entitiesService))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -202,7 +201,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.SEARCH));
                                           return builder.build();
                                       })
-                                      .dataFetcherDefinitionFunction(entityDefinition -> new SearchDataFetcher(entityDefinition.getId(), entitiesService, objectMapper))
+                                      .dataFetcherDefinitionFunction(entityDefinition -> new SearchDataFetcher(entityDefinition.getId(),
+                                                                                                               entitiesService, objectMapper))
                                       .build(),
 
                 GqlOperationDefinition.builder()
@@ -221,7 +221,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.SEARCH));
                                           return builder.build();
                                       })
-                                      .dataFetcherDefinitionFunction(entityDefinition -> new SearchDataFetcher(entityDefinition.getId(), entitiesService, objectMapper))
+                                      .dataFetcherDefinitionFunction(entityDefinition -> new SearchDataFetcher(entityDefinition.getId(),
+                                                                                                               entitiesService, objectMapper))
                                       .build(),
 
 
@@ -237,7 +238,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.SYNC_INDEX));
                                           return builder.build();
                                       })
-                                      .dataFetcherDefinitionFunction(entityDefinition -> new SyncIndexDataFetcher(entityDefinition.getId(), entitiesService))
+                                      .dataFetcherDefinitionFunction(entityDefinition -> new SyncIndexDataFetcher(entityDefinition.getId(),
+                                                                                                                  entitiesService))
                                       .build(),
 
 
@@ -255,7 +257,8 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
                                           builder = addPolicyIfPresent(builder, args.getEntityOperationsMap().get(EntityOperation.UPDATE));
                                           return builder.build();
                                       })
-                                      .dataFetcherDefinitionFunction(entityDefinition -> new UpdateDataFetcher(entityDefinition.getId(), entitiesService))
+                                      .dataFetcherDefinitionFunction(entityDefinition -> new UpdateDataFetcher(entityDefinition.getId(),
+                                                                                                               entitiesService))
                                       .build()
         );
     }
@@ -270,7 +273,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
         try {
 
             if(cacheEvictionEvent.getEntityDefinitionId() != null){
-                namedQueryOperationDefinitionCache.asMap().remove(cacheEvictionEvent.getEntityDefinitionId());
+                namedQueryOperationDefinitionCache.evict(cacheEvictionEvent.getOrganizationId(), cacheEvictionEvent.getEntityDefinitionId());
             }
         } catch (Exception e) {
             log.error("Failed to handle cache eviction (source: {})",
@@ -285,7 +288,7 @@ public class DefaultGqlOperationDefinitionService implements GqlOperationDefinit
 
     @Override
     public List<GqlOperationDefinition> getNamedQueryOperationDefinitions(final EntityDefinition entityDefinition) {
-        return namedQueryOperationDefinitionCache.get(entityDefinition.getId()).join();
+        return namedQueryOperationDefinitionCache.get(entityDefinition.getOrganizationId(), entityDefinition.getId()).join();
     }
 
     private GraphQLFieldDefinition.Builder addPolicyIfPresent(GraphQLFieldDefinition.Builder builder,

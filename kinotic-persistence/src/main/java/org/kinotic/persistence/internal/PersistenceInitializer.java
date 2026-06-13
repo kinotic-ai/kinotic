@@ -1,21 +1,19 @@
 package org.kinotic.persistence.internal;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Vertx;
-import io.vertx.ext.healthchecks.HealthChecks;
-import io.vertx.ext.healthchecks.Status;
-import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.internal.endpoints.PersistenceVerticleFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import io.vertx.core.Vertx;
+import io.vertx.ext.healthchecks.HealthChecks;
+import io.vertx.ext.healthchecks.Status;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 
 /**
  * This class is responsible for initializing the Persistence endpoints.
@@ -30,7 +28,6 @@ public class PersistenceInitializer {
     private final ElasticsearchAsyncClient esAsyncClient;
     private final HealthChecks healthChecks;
     private final PersistenceProperties properties;
-    private final PersistenceVerticleFactory verticleFactory;
     private final Vertx vertx;
     private Throwable lastEsError = null;
     private boolean lastEsStatus = true;
@@ -39,15 +36,6 @@ public class PersistenceInitializer {
     public void init(){
         int numToDeploy = kinoticProperties.getMaxNumberOfCoresToUse();
         log.info("{} Cores will be used for Persistence Endpoints", numToDeploy);
-        DeploymentOptions options = new DeploymentOptions().setInstances(numToDeploy);
-
-        vertx.deployVerticle(verticleFactory::createOpenApiVerticle, options);
-
-        vertx.deployVerticle(verticleFactory::createGqlVerticle, options);
-
-        if(properties.isEnableStaticFileServer()){// only 1 web server verticle
-            vertx.deployVerticle(verticleFactory::createWebServerNextVerticle, new DeploymentOptions());
-        }
 
         healthChecks.register("elasticsearch", future -> {
             if(lastEsStatus){
@@ -84,13 +72,6 @@ public class PersistenceInitializer {
         log.info("GraphQL available at http://localhost:{}{}[KINOTIC APPLICATION]/",
                  properties.getGraphqlPort(),
                  properties.getGraphqlPath());
-        if(properties.isEnableStaticFileServer()) {
-            log.info("Web Server Next listening on port {}", properties.getWebServerPort());
-            log.info("Web Server Next available at http://localhost:{}/", properties.getWebServerPort());
-        }
-        log.info("Health checks available at http://localhost:{}{}",
-                 properties.getWebServerPort(),
-                 properties.getHealthCheckPath());
     }
 
 }

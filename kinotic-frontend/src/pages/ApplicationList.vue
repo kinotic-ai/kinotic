@@ -1,33 +1,27 @@
 <script lang="ts">
 import { Component, Vue, Ref, Watch } from "vue-facing-decorator";
 import CrudTable from "@/components/CrudTable.vue";
-import ContainerMedium from "@/components/ContainerMedium.vue";
 import ApplicationSidebar from "@/components/ApplicationSidebar.vue";
-import GraphQLModal from "@/components/modals/GraphQLModal.vue";
-import OpenAPIModal from "@/components/modals/OpenAPIModal.vue";
 import { Kinotic } from "@kinotic-ai/core";
 import {
   type IApplicationService,
   type Application,
 } from "@kinotic-ai/os-api";
 import { APPLICATION_STATE } from "@/states/IApplicationState";
-import { mdiGraphql, mdiApi } from "@mdi/js";
 import { onClickOutside } from "@vueuse/core";
 import type { CrudHeader } from "@/types/CrudHeader";
 import type { Identifiable } from "@kinotic-ai/core";
 import { shallowRef } from "vue";
 import DatetimeUtil from "@/util/DatetimeUtil";
 import { createDebug } from "@/util/debug";
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('application-list');
 
 @Component({
   components: {
     CrudTable,
-    ContainerMedium,
     ApplicationSidebar,
-    GraphQLModal,
-    OpenAPIModal,
   },
 })
 export default class NamespaceList extends Vue {
@@ -39,9 +33,6 @@ export default class NamespaceList extends Vue {
   ];
 
   dataSource: IApplicationService = Kinotic.applications;
-  icons = { graph: mdiGraphql, api: mdiApi };
-  showGraphQLModal = false;
-  showOpenAPIModal = false;
   showSidebar = false;
   searchText: string = (this?.$route?.query.search as string) || "";
   itemCount: number = 0;
@@ -96,6 +87,10 @@ export default class NamespaceList extends Vue {
     return this.itemCount > 3;
   }
 
+  get isDark() {
+    return darkMode.value;
+  }
+
   onAddItem(): void {
     this.showSidebar = true;
   }
@@ -134,32 +129,17 @@ export default class NamespaceList extends Vue {
   onEditItem(item: Identifiable<string>): void {
     this.$router.push(`${this.$route.path}/edit/${item.id}`);
   }
-
-  openGraphQL(): void {
-    this.showGraphQLModal = true;
-  }
-
-  closeGraphQL(): void {
-    this.showGraphQLModal = false;
-  }
-
-  openOpenAPI(): void {
-    this.showOpenAPIModal = true;
-  }
-
-  closeOpenAPI(): void {
-    this.showOpenAPIModal = false;
-  }
 }
 </script>
 
 <template>
-  <ContainerMedium>
-    <h1 class="text-2xl font-semibold mb-5 text-surface-950">Applications</h1>
+  <div :class="['application-list flex flex-col transition-colors', isDark ? 'application-list--dark text-surface-0' : 'text-surface-950']">
+    <h1 :class="['mb-5 text-2xl font-semibold', isDark ? 'text-white' : 'text-surface-950']">Applications</h1>
     <CrudTable
       ref="crudTable"
       createNewButtonText="New application"
       rowHoverColor=""
+      transparent-dark-cards
       :data-source="dataSource"
       :headers="headers"
       :singleExpand="false"
@@ -170,52 +150,29 @@ export default class NamespaceList extends Vue {
       @add-item="onAddItem"
       @edit-item="onEditItem"
       @onRowClick="toApplicationPage"
-      class="!text-sm"
-      :show-pagination="false"
+      class="application-list__table !text-sm"
     >
-      <template #item.id="{ item }">
-        <span>{{ item.id }}</span>
-      </template>
-      <template #item.description="{ item }">
-        <span
-          class="block max-w-[300px] sm:max-w-[500px] md:max-w-[190px] lg:max-w-[390px] xl:max-w-[590px] truncate"
-        >
-          {{ item.description }}
-        </span>
-      </template>
-      <template #item.created="{ item }">
-        <span>
-          {{ DatetimeUtil.formatMonthDayYear(item.created) }}
-        </span>
-      </template>
-      <template #item.updated="{ item }">
-        <span>
-          {{ DatetimeUtil.formatRelativeDate(item.updated) }}
-        </span>
-      </template>
-      <template #additional-actions="{ item }">
-        <Button
-          v-if="item.enableGraphQL"
-          text
-          title="GraphQL"
-          @click="openGraphQL"
-        >
-          <img class="!w-[24px] !h-[24px]" src="@/assets/graphql.svg" />
-        </Button>
-
-        <Button
-          v-if="item.enableOpenAPI"
-          text
-          title="OpenAPI"
-          @click="openOpenAPI"
-        >
-          <img class="!w-[24px] !h-[24px]" src="@/assets/scalar.svg" />
-        </Button>
-      </template>
+    <template #item.id="{ item }">
+      <span>{{ item.id }}</span>
+    </template>
+    <template #item.description="{ item }">
+      <span
+        class="block max-w-[300px] sm:max-w-[500px] md:max-w-[190px] lg:max-w-[390px] xl:max-w-[590px] truncate"
+      >
+        {{ item.description }}
+      </span>
+    </template>
+    <template #item.created="{ item }">
+      <span>
+        {{ DatetimeUtil.formatMonthDayYear(item.created) }}
+      </span>
+    </template>
+    <template #item.updated="{ item }">
+      <span>
+        {{ DatetimeUtil.formatRelativeDate(item.updated) }}
+      </span>
+    </template>
     </CrudTable>
-
-    <GraphQLModal :visible="showGraphQLModal" @close="closeGraphQL" />
-    <OpenAPIModal :visible="showOpenAPIModal" @close="closeOpenAPI" />
 
     <div v-show="showSidebar" ref="sidebarWrapper">
       <ApplicationSidebar
@@ -224,27 +181,5 @@ export default class NamespaceList extends Vue {
         @submit="onApplicationSubmit"
       />
     </div>
-  </ContainerMedium>
+  </div>
 </template>
-
-<style scoped>
-.p-row-even,
-.p-row-odd {
-  cursor: pointer;
-}
-
-:deep(.p-datatable .p-datatable-tbody > tr) {
-  height: 64px;
-}
-
-:deep(.p-datatable .p-datatable-tbody > tr > td) {
-  vertical-align: middle;
-}
-
-:deep(.p-datatable .p-datatable-tbody > tr > td:last-child) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 64px;
-}
-</style>

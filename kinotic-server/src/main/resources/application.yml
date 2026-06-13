@@ -1,8 +1,12 @@
 # General properties shared by all profiles
 kinotic:
+  github:
+    appId: 3584018
+    appSlug: kinotic-ai
+    repoTemplate: "-"
   persistence:
     openApiSecurityType: BASIC
-    enableStaticFileServer: true
+
 
 logging:
   level:
@@ -10,4 +14,3 @@ logging:
       kinotic: INFO
 
 
-  

@@ -3,6 +3,7 @@
 package org.kinotic.core.internal.api.service.rpc.converters;
 
 import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.internal.api.service.json.AbstractJacksonSupport;
 import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverter;
 import org.springframework.core.ReactiveAdapterRegistry;
@@ -23,8 +24,9 @@ public class JacksonRpcArgumentConverter extends AbstractJacksonSupport implemen
 
     public JacksonRpcArgumentConverter(JsonMapper jsonMapper,
                                        ReactiveAdapterRegistry reactiveAdapterRegistry,
-                                       KinoticProperties kinoticProperties) {
-        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties);
+                                       KinoticProperties kinoticProperties,
+                                       SecurityContext securityContext) {
+        super(jsonMapper, reactiveAdapterRegistry, kinoticProperties, securityContext);
     }
 
     @Override

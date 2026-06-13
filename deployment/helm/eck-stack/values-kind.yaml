@@ -1,0 +1,90 @@
+# KinD development overrides for eck-stack.
+# Dedicated master + 2 data nodes, TLS disabled, moderate resources.
+# Mirrors the Azure beta topology at a smaller scale.
+
+eck-elasticsearch:
+  # Disable HTTP TLS for local dev convenience
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: true
+    service:
+      spec:
+        type: ClusterIP
+
+  nodeSets:
+    # -- Master node
+    - name: master
+      count: 1
+      config:
+        node.roles: ["master"]
+        xpack.security.enabled: true
+        xpack.security.http.ssl.enabled: false
+
+      podTemplate:
+        spec:
+          initContainers:
+            - name: sysctl
+              securityContext:
+                privileged: true
+                runAsUser: 0
+              command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+          containers:
+            - name: elasticsearch
+              resources:
+                requests:
+                  memory: "1Gi"
+                  cpu: "250m"
+                limits:
+                  memory: "1Gi"
+                  cpu: "500m"
+              env:
+                - name: ES_JAVA_OPTS
+                  value: "-Xms512m -Xmx512m"
+
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 5Gi
+
+    # -- Data nodes
+    - name: data
+      count: 2
+      config:
+        node.roles: ["data", "ingest", "transform"]
+        xpack.security.enabled: true
+        xpack.security.http.ssl.enabled: false
+
+      podTemplate:
+        spec:
+          initContainers:
+            - name: sysctl
+              securityContext:
+                privileged: true
+                runAsUser: 0
+              command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+          containers:
+            - name: elasticsearch
+              resources:
+                requests:
+                  memory: "2Gi"
+                  cpu: "500m"
+                limits:
+                  memory: "2Gi"
+                  cpu: "1"
+              env:
+                - name: ES_JAVA_OPTS
+                  value: "-Xms1024m -Xmx1024m"
+
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 15Gi

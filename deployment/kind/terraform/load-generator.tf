@@ -4,7 +4,7 @@ resource "helm_release" "load_generator" {
   count = var.enable_load_generator ? 1 : 0
 
   name      = "load-generator"
-  namespace = "default"
+  namespace = kubernetes_namespace.kinotic.metadata[0].name
   chart     = "${path.module}/../../helm/load-generator"
   wait      = false # Job runs asynchronously
 

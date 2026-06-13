@@ -10,6 +10,7 @@ import { Project } from '@kinotic-ai/os-api'
 import type { CrudHeader } from '@/types/CrudHeader'
 import DatetimeUtil from "@/util/DatetimeUtil"
 import { createDebug } from '@/util/debug'
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('project-list');
 
@@ -30,12 +31,28 @@ export default class ProjectList extends Vue {
     { field: 'name', header: 'Project Name', sortable: true },
     { field: 'sourceOfTruth', header: 'Source of Truth', sortable: true },
     { field: 'description', header: 'Description', sortable: false },
+    { field: 'created', header: 'Created', sortable: false },
     { field: 'updated', header: 'Updated', sortable: false }
   ]
 
   mounted() {
     this.searchText = (this.$route.query['search-project'] as string) || ''
     this.isInitialized = true
+    this.handleOpenNewProjectQuery()
+  }
+
+  /**
+   * Honors the post-install handoff from `GitHubInstallCallback`. When the user
+   * started a GitHub link from the new-project sidebar, the callback redirects
+   * back here with `?openNewProject=1` so we re-open the sidebar automatically.
+   */
+  private handleOpenNewProjectQuery(): void {
+    if (this.$route.query.openNewProject === '1') {
+      this.showProjectSidebar = true
+      const cleaned = { ...this.$route.query }
+      delete cleaned.openNewProject
+      this.$router.replace({ query: cleaned }).catch(() => {})
+    }
   }
 
   @Watch('$route.query.search-project')
@@ -68,6 +85,11 @@ export default class ProjectList extends Vue {
   get projectsCount() {
     return APPLICATION_STATE.projectsCount
   }
+
+  get isDark() {
+    return darkMode.value
+  }
+
   public DatetimeUtil = DatetimeUtil
   refreshTable(): void {
     this.crudTable?.find?.()
@@ -137,7 +159,7 @@ export default class ProjectList extends Vue {
 </script>
 
 <template>
-  <div>
+  <div class="flex flex-1 flex-col">
     <CrudTable
       v-if="!selectedProjectId"
       ref="crudTable"
@@ -163,12 +185,17 @@ export default class ProjectList extends Vue {
           {{ DatetimeUtil.formatRelativeDate(item.updated) }}
         </span>
       </template>
+      <template #item.created="{ item }">
+        <span>
+          {{ DatetimeUtil.formatMonthDayYear(item.created) }}
+        </span>
+      </template>
     </CrudTable>
 
     <div v-if="selectedProjectId" class="mt-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-semibold text-[#101010]">
-          Structures for Project: {{ selectedProjectId }}
+        <h2 class="text-xl font-semibold" :class="isDark ? 'text-surface-0' : 'text-surface-950'">
+          Entities for Project: {{ selectedProjectId }}
         </h2>
         <Button label="Back to Projects" icon="pi pi-arrow-left" @click="clearSelectedProject" />
       </div>

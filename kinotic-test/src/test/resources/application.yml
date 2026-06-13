@@ -21,6 +21,14 @@ kinotic:
     cors-allowed-origin-pattern: "*"
     cors-allowed-headers: "*"
     cors-allow-credentials: true
+  github:
+    # Placeholders to satisfy @NotBlank validation; the test profile activates
+    # MockProjectRepoProvisioner which never reads these.
+    appId: test-app
+    appSlug: test-app
+    appPrivateKey: "test-placeholder"
+    webhookSecret: test-webhook-secret
+    repoTemplate: kinotic-test/template
 
 logging:
   level:
@@ -30,22 +38,4 @@ logging:
       kinotic: TRACE
     io:
       vertx: DEBUG
-
-oidc-security-service:
-  enabled: false
-  debug: true
-  frontend-configuration-path: "/app-config.override.json"
-  oidc-providers:
-    - provider: "keycloak"
-      display-name: "Keycloak"
-      enabled: true
-      roles-claim-path: "realm_access.roles"
-      domains:
-        - "example.com"
-      audience: "test-keycloak-client"
-      client-id: "test-keycloak-client"
-      authority: "http://localhost:8888/auth/realms/test"
-      redirect-uri: "http://localhost:8989/login"
-      post-logout-redirect-uri: "http://localhost:8989"
-      silent-redirect-uri: "http://localhost:8989/login/silent-renew"
 

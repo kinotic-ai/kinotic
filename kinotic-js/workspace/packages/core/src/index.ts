@@ -5,7 +5,6 @@ export * from './api/ConnectionInfo'
 export * from './api/ContextInterceptor'
 export * from './api/Kinotic'
 export * from './api/KinoticDecorators'
-export * from './api/KinoticProjectConfig'
 export * from './api/IServiceRegistry'
 export * from './api/ServiceRegistry'
 
@@ -21,10 +20,6 @@ export * from './api/crud/IterablePage'
 export * from './api/crud/Page'
 export * from './api/crud/Pageable'
 export * from './api/crud/Sort'
-
-export * from './api/errors/KinoticError'
-export * from './api/errors/AuthenticationError'
-export * from './api/errors/AuthorizationError'
 
 export * from './api/event/CRI'
 export * from './api/event/DefaultCRI'

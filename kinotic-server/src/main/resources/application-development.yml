@@ -1,14 +1,42 @@
 # YAML Reference http://www.yaml.org/refcard.html
 kinotic:
   debug: true
+  github:
+    webhookSecret: "-"
+    appPrivateKey: "-"
+  domain:
+    # IDE dev runs the SPA on vite (5173); kinotic-server is just the backend on 58503.
+    # Verification email URLs and OIDC redirect URIs are built from this base, so they
+    # need to point at the SPA's origin — not at kinotic-server's static port (9090).
+    appBaseUrl: http://localhost:5173
+    email:
+      # No real ACS in dev — EmailService logs verification URLs instead of sending.
+      # To test against real ACS, flip enabled=true (endpoint/sender are pre-filled).
+      enabled: false
+      endpoint: https://acs-kinotic.communication.azure.com
+      sender-address: "DoNotReply@kinotic.ai"
+  cors:
+    allowedOriginPattern: "http:\\/\\/localhost:\\d+"
+    allowCredentials: true
   maxNumberOfCoresToUse: 4
   ignite:
     discoveryType: SHAREDFS
+  secretStorage:
+    backend: ~
+    # Base64-encoded 32-byte key used by SecretNameDeriver to derive opaque, deterministic
+    # storage names. Dev-only value — production supplies this via Azure Key Vault.
+    masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
+  platformSecrets:
+    # Auto-seeded on first boot by DevPlatformSecretsGenerator (dev profile only). Each
+    # developer machine ends up with its own random keys; none of this is committed.
+    # Production uses Azure Key Vault via the Secrets Store CSI driver — same file layout,
+    # different origin.
+    jwtSigningKeysPath: ${user.home}/.kinotic/dev-platform-secrets/jwt-signing-keys
+  # OIDC client secrets resolve via SecretReferenceResolver — Azure Key Vault when
+  # kinotic.secretStorage.azure.vaultUrl is set, otherwise from KINOTIC_AKV_<name> env vars
+  # (uppercased, non-alphanumerics → "_"). For local dev, export the env var matching the
+  # secret name on the seeded OrgSignupOidcConfiguration / OidcConfiguration row.
   persistence:
-    corsAllowedOriginPattern: "https:\\/\\/studio.apollographql.com|http:\\/\\/localhost:\\d+|http:\\/\\/121.0.0.1:\\d+"
-    corsAllowedHeaders:
-      - "*"
-    corsAllowCredentials: true
     elastic-connections:
       - scheme: "http"
         host: "localhost"
@@ -18,11 +46,6 @@ logging:
   level:
     org:
       kinotic: TRACE
-#    io:
-#      vertx: WARN
-#      netty:
-#        util: DEBUG
-#        buffer: DEBUG
 
 spring:
   ai:

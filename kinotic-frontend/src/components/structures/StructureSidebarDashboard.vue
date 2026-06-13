@@ -2,6 +2,7 @@
 import { Vue, Component } from 'vue-facing-decorator'
 import RadioButton from 'primevue/radiobutton'
 import Textarea from 'primevue/textarea'
+import { isDark as darkMode } from '@/composables/useTheme'
 
 @Component({
   components: { RadioButton, Textarea },
@@ -20,13 +21,17 @@ export default class StructureSidebarDashboard extends Vue {
   selectedCategory: string = 'Table'
   selectedAccess: string = 'None'
   notes: string = ''
+
+  get isDark() {
+    return darkMode.value
+  }
 }
 </script>
 
 <template>
-  <div class="w-[320px] h-full border border-surface-200 bg-white flex flex-col">
-    <div class="border-b border-surface-200 p-6">
-      <h3 class="text-sm font-semibold">Structure settings</h3>
+  <div :class="['w-[320px] h-full flex flex-col border', isDark ? 'border-surface-800 bg-surface-900 text-surface-0' : 'border-surface-200 bg-surface-0 text-surface-950']">
+    <div :class="['p-6 border-b', isDark ? 'border-surface-800' : 'border-surface-200']">
+      <h3 class="text-sm font-semibold">Entity settings</h3>
     </div>
     <div class="flex-1 overflow-y-auto p-6 space-y-6">
       <div class="space-y-3 mb-7">
@@ -46,7 +51,7 @@ export default class StructureSidebarDashboard extends Vue {
         </div>
       </div>
       <div class="space-y-3">
-        <p class="text-xs font-medium text-gray-500">Multi tenancy</p>
+        <p :class="['text-xs font-medium', isDark ? 'text-surface-400' : 'text-surface-500']">Multi tenancy</p>
         <div
           v-for="access in accessModes"
           :key="access.key"
@@ -63,7 +68,7 @@ export default class StructureSidebarDashboard extends Vue {
         </div>
       </div>
       <div>
-        <p class="text-xs font-medium text-gray-500 mb-1">Description</p>
+        <p :class="['text-xs font-medium mb-1', isDark ? 'text-surface-400' : 'text-surface-500']">Description</p>
         <Textarea
           v-model="notes"
           autoResize

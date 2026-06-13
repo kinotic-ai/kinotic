@@ -1,0 +1,37 @@
+# Azure overrides for Loki.
+# Uses Azure Blob Storage instead of local filesystem.
+#
+# Requires a storage account and two containers:
+#   - kinotic-loki-chunks  (log data)
+#   - kinotic-loki-ruler   (alert rules)
+#
+# The storage account is created by terraform (observability.tf).
+# Loki authenticates via workload identity.
+
+loki:
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: azure
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+
+  storage:
+    type: azure
+    azure:
+      accountName: ${LOKI_STORAGE_ACCOUNT}
+      containerName: kinotic-loki-chunks
+      requestTimeout: 0
+      useFederatedToken: true
+    bucketNames:
+      chunks: kinotic-loki-chunks
+      ruler: kinotic-loki-ruler
+
+singleBinary:
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClassName: managed-csi-premium

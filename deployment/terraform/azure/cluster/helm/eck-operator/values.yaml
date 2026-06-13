@@ -1,0 +1,78 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# ECK Operator Helm Values — Production / AKS
+# Chart: elastic/eck-operator  Version: 3.3.x
+#
+# Install:
+#   helm repo add elastic https://helm.elastic.co && helm repo update
+#   helm install elastic-operator elastic/eck-operator \
+#     -n elastic-system --create-namespace \
+#     -f helm/eck-operator/values.yaml
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Only manage the elastic-stack namespace — isolates the operator from
+# other workloads and prevents accidental cluster-wide interference.
+managedNamespaces:
+  - elastic
+
+# Install CRDs as part of this chart (safe for a single-operator cluster).
+# If you ever run multiple ECK operators per cluster, split this to eck-operator-crds.
+installCRDs: true
+
+# ── Operator Pod Configuration ─────────────────────────────────────────────────
+replicaCount: 1   # Operator itself is not HA; it uses leader-election internally
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Schedule the operator on the system nodepool, not on ES data nodes
+nodeSelector:
+  kubernetes.azure.com/mode: system
+
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Exists
+
+# ── TLS / Webhook ──────────────────────────────────────────────────────────────
+webhook:
+  enabled: true    # Validates ECK custom resources on admission — keep enabled
+
+# ── Operator Config ────────────────────────────────────────────────────────────
+config:
+  # How often the operator checks Elasticsearch cluster health.
+  # Lower values = faster reaction, more API calls.
+  elasticsearchObservationInterval: 10s
+
+  # Validates that storage classes support volume expansion before
+  # allowing PVC resize operations. Keep enabled.
+  validateStorageClass: true
+
+  # Sets a default security context on ES containers.
+  # "auto-detect" correctly handles both standard Kubernetes and OpenShift.
+  setDefaultSecurityContext: auto-detect
+
+  # Log level — use info for production, debug only for troubleshooting
+  logVerbosity: 0   # 0=info, 1=debug, 2=trace
+
+# ── Metrics (Azure Managed Prometheus compatible) ──────────────────────────────
+metrics:
+  enabled: true
+  port: 9090
+  # ServiceMonitor for scraping by Prometheus operator / Azure Monitor
+  serviceMonitor:
+    enabled: false   # Set to true if you deploy kube-prometheus-stack
+  podMonitor:
+    enabled: false
+
+# ── Telemetry ──────────────────────────────────────────────────────────────────
+telemetry:
+  disabled: false   # Sends anonymous usage data to Elastic — set true to opt out
+
+# ── Pod Disruption Budget for the operator itself ──────────────────────────────
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

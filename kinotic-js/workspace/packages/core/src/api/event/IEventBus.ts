@@ -1,7 +1,6 @@
 import { Optional } from 'typescript-optional'
 import { Observable } from 'rxjs'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
-import {KinoticError} from '@/api/errors/KinoticError'
 import {ConnectionInfo, ServerInfo} from '@/api/ConnectionInfo'
 
 /**
@@ -83,7 +82,7 @@ export interface IEventBus {
      * Any errors emitted by this observable will be fatal and the connection will be closed.
      * You will need to resolve the problem and reconnect.
      */
-    fatalErrors: Observable<KinoticError>
+    fatalErrors: Observable<Error>
 
     /**
      * The {@link ServerInfo} used when connecting, if connected or null
@@ -172,25 +171,14 @@ export enum EventConstants {
     REPLY_TO_HEADER = 'reply-to',
 
     /**
-     * This is the replyToId that will be supplied by the client, which will be used when sending replies to the client.
-     */
-    REPLY_TO_ID_HEADER = 'reply-to-id',
-
-    /**
-     * Header provided by the sever on connection to represent the user's session id
-     */
-    SESSION_HEADER = 'session',
-
-    /**
      * Header provided by the server on connection to provide the {@link ConnectionInfo} as a JSON string
      */
     CONNECTED_INFO_HEADER = 'connected-info',
 
     /**
-     * Header provided by the client on connection request to represent that the server
-     * should not keep the session alive after any network disconnection.
+     * Header provided by the client on connection request to choose how the session is kept alive.
      */
-    DISABLE_STICKY_SESSION_HEADER = "disable-sticky-session",
+    SESSION_KEEP_ALIVE_HEADER = 'session-keep-alive',
 
     /**
      * Correlates a response with a given request
@@ -228,6 +216,8 @@ export enum EventConstants {
     SERVICE_DESTINATION_SCHEME = "srv",
     STREAM_DESTINATION_PREFIX =  'stream://',
     STREAM_DESTINATION_SCHEME = "stream",
+    REPLY_DESTINATION_PREFIX = 'reply://',
+    REPLY_DESTINATION_SCHEME = "reply",
 
     CONTENT_JSON = 'application/json',
     CONTENT_TEXT = 'text/plain',
@@ -247,5 +237,5 @@ export enum EventConstants {
      * The main purpose of the tracestate header is to provide additional vendor-specific trace identification information across different distributed tracing systems and is a companion header for the traceparent field. It also conveys information about the request’s position in multiple distributed tracing graphs.
      * @see https://www.w3.org/TR/trace-context/#tracestate-header
      */
-    TRACESTATE_HEADER = 'tracestate'
+    TRACESTATE_HEADER = 'tracestate',
 }

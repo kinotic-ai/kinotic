@@ -1,9 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_CONTINUUM_HOST?: string
-  readonly VITE_CONTINUUM_PORT?: string
-  readonly VITE_CONTINUUM_USE_SSL?: string
+  readonly VITE_KINOTIC_HOST?: string
+  readonly VITE_KINOTIC_PORT?: string
+  readonly VITE_KINOTIC_USE_SSL?: string
 }
 
 interface ImportMeta {

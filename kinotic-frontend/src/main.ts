@@ -6,12 +6,12 @@ import StyleClass from 'primevue/styleclass'
 import { StructuresPreset } from '@/StructuresPreset'
 import router from '@/router'
 import ToastService from 'primevue/toastservice'
+import ConfirmationService from 'primevue/confirmationservice'
 import { CONTINUUM_UI } from '@/IContinuumUI'
 import 'primeicons/primeicons.css'
 import { createApp } from 'vue'
 import App from './App.vue'
-import { Log } from 'oidc-client-ts'
-Log.setLogger(console)
+import { StructuresStates } from '@/states'
 
 import { Kinotic } from '@kinotic-ai/core'
 import { OsApiPlugin } from '@kinotic-ai/os-api'
@@ -68,7 +68,7 @@ app.use(PrimeVue, {
     theme: {
         preset: StructuresPreset,
         options: {
-            darkModeSelector: '.structures-admin-dark',
+            darkModeSelector: '.dark',
             cssLayer: false,
             prefix: 'p',
         }
@@ -79,8 +79,14 @@ CONTINUUM_UI.initialize(router);
 
 app.directive('styleclass', StyleClass)
 app.use(ToastService)
+app.use(ConfirmationService)
 app.use(createStructuresUI(), { router })
 
-app.use(router)
-
-app.mount('#app')
+// Installing the router fires its initial navigation, which runs the auth guard. Do that after the
+// session probe resolves, so the guard sees the real auth state.
+StructuresStates.getUserState().login()
+    .catch(() => {})
+    .finally(() => {
+        app.use(router)
+        app.mount('#app')
+    })

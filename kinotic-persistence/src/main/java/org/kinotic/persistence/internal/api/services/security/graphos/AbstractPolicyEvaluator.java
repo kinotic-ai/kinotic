@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.services.security.graphos;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
-import org.kinotic.persistence.api.model.SecurityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizationRequest;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizer;
 
@@ -20,7 +20,7 @@ public abstract class AbstractPolicyEvaluator implements PolicyEvaluator {
 
     @WithSpan
     @Override
-    public CompletableFuture<AuthorizationResult> evaluatePolicies(SecurityContext securityContext) {
+    public CompletableFuture<AuthorizationResult> evaluatePolicies(EntityContext entityContext) {
         Set<String> allPolicies = new HashSet<>(sharedPolicyManager.getSharedPolicies());
         addOperationPolicies(allPolicies);
 
@@ -35,7 +35,7 @@ public abstract class AbstractPolicyEvaluator implements PolicyEvaluator {
                                                                                                           DefaultPolicyAuthorizationRequest::new));
             List<PolicyAuthorizationRequest> requests = new ArrayList<>(policyRequests.values());
 
-            return authorizer.authorize(requests, securityContext)
+            return authorizer.authorize(requests, entityContext)
                              .thenApply(ignored -> {
 
                                  Map<String, Boolean> fieldResults = evaluateFieldPolicies(policyRequests);

@@ -1,0 +1,37 @@
+# Azure AKS overrides for kinotic-server.
+# SPA is served by Static Web Apps. Only STOMP/WebSocket is exposed externally.
+
+replicaCount: 2
+
+image:
+  pullPolicy: Always
+
+migration:
+  backoffLimit: 5
+  activeDeadlineSeconds: 600
+
+properties:
+  springActiveProfiles: "production,kubernetes"
+
+kinotic:
+  elastic:
+    connections:
+      - host: "kinotic-es-es-http.elastic.svc"
+        port: 9200
+        scheme: "http"
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: 2
+    memory: 2Gi
+
+# Service — Azure LB exposes 443→58503 (STOMP only)
+service:
+  type: LoadBalancer
+
+# CORS for the SPA domain
+extraEnv:
+  KINOTIC_PERSISTENCE_CORSALLOWEDORIGINPATTERN: "https://portal\\.kinotic\\.ai|https://.*\\.kinotic\\.ai"

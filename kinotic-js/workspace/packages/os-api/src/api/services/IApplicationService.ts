@@ -6,7 +6,8 @@ import { Application } from '@/api/model/Application'
 export interface IApplicationService extends ICrudServiceProxy<Application> {
 
     /**
-     * Creates a new application if it does not already exist.
+     * Creates a new application if it does not already exist. The organization id is derived
+     * from the authenticated participant on the server.
      * @param id the id of the application to create
      * @param description the description of the application to create
      * @return {@link Promise} emitting the created application

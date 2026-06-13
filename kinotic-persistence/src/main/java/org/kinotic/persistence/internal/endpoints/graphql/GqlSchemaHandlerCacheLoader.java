@@ -17,10 +17,10 @@ import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;
 import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsDecorator;
-import org.kinotic.persistence.api.services.EntitiesService;
+import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
+import org.kinotic.persistence.internal.api.repositories.EntityDefinitionRepository;
 import org.kinotic.persistence.internal.api.services.EntityDefinitionConversionService;
-import org.kinotic.persistence.internal.api.services.EntityDefinitionDAO;
 import org.kinotic.persistence.api.model.EntityOperation;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.EntitiesDataFetcher;
 import org.kinotic.persistence.internal.endpoints.graphql.datafetchers.EntitiesTypeResolver;
@@ -53,7 +53,7 @@ import static graphql.schema.GraphQLObjectType.newObject;
  */
 @Component
 @RequiredArgsConstructor
-public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, GraphQLHandler> {
+public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<GqlCacheKey, GraphQLHandler> {
 
     private static final Logger log = LoggerFactory.getLogger(GqlSchemaHandlerCacheLoader.class);
     private static final EntitiesTypeResolver ENTITIES_TYPE_RESOLVER = new EntitiesTypeResolver();
@@ -82,22 +82,22 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
 
     private final DefaultCaffeineCacheFactory cacheFactory;
     private final EntitiesService entitiesService;
-    private final EntityDefinitionDAO entityDefinitionDAO;
+    private final EntityDefinitionRepository entityDefinitionRepository;
     private final EntityDefinitionConversionService entityDefinitionConversionService;
     private final GqlOperationDefinitionService gqlOperationDefinitionService;
 
     @Override
-    public CompletableFuture<GraphQLHandler> asyncLoad(String key, Executor executor) {
+    public CompletableFuture<GraphQLHandler> asyncLoad(GqlCacheKey key, Executor executor) {
         long now = System.nanoTime();
-        return createGraphQlSchema(key, executor)
+        return createGraphQlSchema(key.organizationId(), key.applicationId(), executor)
                 .thenCompose(schema -> {
 
                     GraphQL.Builder builder = GraphQL.newGraphQL(schema)
                                                      .preparsedDocumentProvider(new CachingPreparsedDocumentProvider(cacheFactory));
                     GraphQL graphQL = builder.build();
 
-                    log.debug("Finished creating GraphQL Schema for application: {} in {}ms",
-                              key,
+                    log.debug("Finished creating GraphQL Schema for org: {} application: {} in {}ms",
+                              key.organizationId(), key.applicationId(),
                               TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - now));
 
                     return CompletableFuture.completedFuture(GraphQLHandler.create(graphQL));
@@ -105,11 +105,13 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
     }
 
     @WithSpan
-    private CompletableFuture<GraphQLSchema> createGraphQlSchema(@SpanAttribute("applicationId")
+    private CompletableFuture<GraphQLSchema> createGraphQlSchema(@SpanAttribute("organizationId")
+                                                                 String organizationId,
+                                                                 @SpanAttribute("applicationId")
                                                                  String applicationId,
                                                                  Executor executor) {
-        return entityDefinitionDAO
-                .findAllPublishedForApplication(applicationId, Pageable.ofSize(500))
+        return entityDefinitionRepository
+                .findAllPublishedForApplication(applicationId, organizationId, Pageable.ofSize(500))
                 .thenComposeAsync(entityDefinitionPage -> {
                     if(entityDefinitionPage.getTotalElements() > 0) {
                         log.debug("Creating GraphQL Schema for application: {}", applicationId);
@@ -214,7 +216,7 @@ public class GqlSchemaHandlerCacheLoader implements AsyncCacheLoader<String, Gra
                         GraphQLSchema graphQLSchema = graphQLSchemaBuilder.build();
                         graphQLSchema = Federation.transform(graphQLSchema)
                                                   .setFederation2(true)
-                                                  .fetchEntities(new EntitiesDataFetcher(entitiesService, applicationId))
+                                                  .fetchEntities(new EntitiesDataFetcher(entitiesService, organizationId, applicationId))
                                                   .resolveEntityType(ENTITIES_TYPE_RESOLVER)
                                                   .build();
 

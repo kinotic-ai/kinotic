@@ -6,6 +6,8 @@ import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.web.Router;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.core.api.config.SslHelper;
+import org.kinotic.core.api.config.SslProperties;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityDefinition;
 
@@ -17,6 +19,7 @@ import org.kinotic.persistence.api.model.EntityDefinition;
 public class OpenApiVerticle extends VerticleBase {
 
     private final PersistenceProperties properties;
+    private final SslProperties sslProperties;
     private final Router router;
     private HttpServer server;
 
@@ -25,6 +28,7 @@ public class OpenApiVerticle extends VerticleBase {
     public Future<?> start() throws Exception {
         HttpServerOptions options = new HttpServerOptions();
         options.setMaxHeaderSize(properties.getMaxHttpHeaderSize());
+        SslHelper.applySsl(options, sslProperties);
         server = vertx.createHttpServer(options);
 
         // Begin listening for requests

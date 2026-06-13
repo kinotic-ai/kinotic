@@ -3,19 +3,18 @@ import { computed, reactive, ref } from 'vue'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
-import ToggleButton from 'primevue/togglebutton'
 import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@/util/debug'
 import type {Application} from "@kinotic-ai/os-api";
 import {Kinotic} from "@kinotic-ai/core";
+import { USER_STATE } from '@/states/IUserState'
+import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('application-sidebar');
 
 interface ApplicationForm {
   name: string
   description: string
-  graphql: boolean
-  openapi: boolean
 }
 
 const props = defineProps<{ visible: boolean }>()
@@ -29,12 +28,11 @@ const toast = useToast()
 
 const form = reactive<ApplicationForm>({
   name: '',
-  description: '',
-  graphql: true,
-  openapi: false
+  description: ''
 })
 
 const loading = ref(false)
+const isDark = darkMode
 
 const isSubmitDisabled = computed(() => loading.value || form.name.trim() === '')
 
@@ -54,8 +52,6 @@ function sanitizeId(name: string): string {
 function resetForm(): void {
   form.name = ''
   form.description = ''
-  form.graphql = true
-  form.openapi = false
 }
 
 async function handleSubmit(): Promise<void> {
@@ -63,13 +59,13 @@ async function handleSubmit(): Promise<void> {
   try {
     const applicationData: Application = {
       id: sanitizeId(form.name),
+      organizationId: USER_STATE.getOrganizationId(),
       description: form.description,
-      enableGraphQL: form.graphql,
-      enableOpenAPI: form.openapi,
+      tenantPerUser: false,
       updated: null
     }
 
-    const createdApplication = await Kinotic.applications.create(applicationData)
+    const createdApplication = await Kinotic.applications.createSync(applicationData)
 
     toast.add({
       severity: 'success',
@@ -100,11 +96,20 @@ function handleClose(): void {
 </script>
 
 <template>
-  <transition name="slide">
-    <div v-if="props.visible" class="fixed inset-y-0 right-0 w-[400px] h-screen bg-white shadow-xl z-50 overflow-y-auto">
-      <div class="flex justify-between items-center mb-4 border-b border-b-[#E6E7EB] p-4">
+  <transition
+    enter-active-class="transition-transform duration-300 ease-out"
+    enter-from-class="translate-x-full"
+    enter-to-class="translate-x-0"
+    leave-active-class="transition-transform duration-300 ease-in"
+    leave-from-class="translate-x-0"
+    leave-to-class="translate-x-full"
+  >
+    <div v-if="props.visible" :class="['fixed inset-y-0 right-0 z-50 h-screen w-[400px] overflow-y-auto shadow-xl', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
+      <div :class="['mb-4 flex items-center justify-between border-b p-4', isDark ? 'border-b-surface-800' : 'border-b-surface-200']">
         <div class="flex items-center gap-3">
-          <img src="@/assets/action-plus-icon.svg" />
+          <div class="flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-[8px] bg-[#101010]">
+            <img src="@/assets/plus.svg" alt="Create application" class="h-6 w-6" />
+          </div>
           <h2 class="text-lg font-semibold">New Application</h2>
         </div>
         <span @click="handleClose" class="w-[11px] h-[11px] cursor-pointer">
@@ -114,31 +119,12 @@ function handleClose(): void {
       <form @submit.prevent="handleSubmit" class="flex flex-col h-[calc(100vh-100px)] justify-between gap-4 p-4">
         <div>
           <div class="mb-5">
-            <label class="block text-sm text-[#101010] mb-3 font-semibold">Name</label>
+            <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Name</label>
             <InputText v-model="form.name" type="text" class="w-full" required />
           </div>
           <div class="mb-5">
-            <label class="block text-sm text-[#101010] mb-3 font-semibold">Description</label>
+            <label :class="['mb-3 block text-sm font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">Description</label>
             <Textarea v-model="form.description" class="w-full" rows="3" />
-          </div>
-          <div>
-            <label class="block text-sm text-[#101010] mb-3 font-semibold">API configuration</label>
-            <div class="border border-[#E6E7EB] rounded-2xl w-full divide-y divide-[#E6E7EB]">
-              <div class="flex items-center justify-between p-4">
-                <div class="flex items-center gap-2">
-                  <img src="@/assets/graphql.svg" />
-                  <span class="text-[#3F424D] text-sm font-normal">GraphQL</span>
-                </div>
-                <ToggleButton v-model="form.graphql" onLabel="On" offLabel="Off" />
-              </div>
-              <div class="flex items-center justify-between p-4">
-                <div class="flex items-center gap-2">
-                  <img src="@/assets/scalar.svg" />
-                  <span class="text-[#3F424D] text-sm font-normal">OpenAPI</span>
-                </div>
-                <ToggleButton v-model="form.openapi" onLabel="On" offLabel="Off" />
-              </div>
-            </div>
           </div>
         </div>
         <div class="flex justify-end gap-2 mt-6">

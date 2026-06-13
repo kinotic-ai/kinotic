@@ -3,15 +3,13 @@
 package org.kinotic.test.tests.core.application;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.os.api.model.Application;
+import org.kinotic.domain.api.model.Application;
 import org.kinotic.os.api.services.ApplicationService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-
-import java.util.concurrent.CompletableFuture;
 
 @SpringBootTest
 public class ApplicationTests extends KinoticTestBase {
@@ -23,20 +21,19 @@ public class ApplicationTests extends KinoticTestBase {
 	public void createAndDeleteApplication() {
 		Application test = new Application();
 		test.setId("Test");
+		test.setOrganizationId(TEST_ORG_ID);
 		test.setDescription("Testing This Application");
 
-		CompletableFuture<Application> future = applicationService.save(test);
-
-		StepVerifier.create(Mono.fromFuture(future))
+		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.save(test))))
 					.expectNextMatches(application -> application.getId().equals("Test") && application.getUpdated() != null)
 					.expectComplete()
 					.verify();
 
-		StepVerifier.create(Mono.fromFuture(applicationService.deleteById(test.getId())))
+		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.deleteById(test.getId()))))
 					.expectComplete()
 					.verify();
 
-		StepVerifier.create(Mono.fromFuture(applicationService.findById(test.getId())))
+		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.findById(test.getId()))))
 					.expectComplete()
 					.verify();
 	}

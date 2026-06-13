@@ -68,12 +68,20 @@ public class InsertStatementExecutor implements StatementExecutor<InsertStatemen
                     }
                 }
 
-                // Index the document with optional refresh
-                return client.index(i -> i
-                    .index(statement.tableName())
-                    .document(document)
-                    .refresh(statement.refresh() ? Refresh.True : Refresh.False)
-                ).thenApply(response -> null);
+                // Index the document with optional refresh. When an "id" column is provided,
+                // use its value as the Elasticsearch _id so callers can look the document up
+                // by that same id later (e.g. IamCredentialStore#findById).
+                Object idValue = document.get("id");
+                String documentId = idValue instanceof String s ? s : null;
+                return client.index(i -> {
+                    i.index(statement.tableName())
+                     .document(document)
+                     .refresh(statement.refresh() ? Refresh.True : Refresh.False);
+                    if (documentId != null) {
+                        i.id(documentId);
+                    }
+                    return i;
+                }).thenApply(response -> null);
             });
     }
 } 

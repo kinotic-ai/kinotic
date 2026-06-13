@@ -12,6 +12,11 @@
       kubernetesServiceName: structures
       kubernetesIncludeNotReadyAddresses: false
 
+  kinotic:
+    secret-storage:
+      # Dummy Base64-encoded key for tests only; lets SecretNameDeriver start in the test context.
+      master-key: a2lub3RpYy10ZXN0LW1hc3Rlci1rZXktZHVtbXktMDA=
+
   logging:
     level:
       org:

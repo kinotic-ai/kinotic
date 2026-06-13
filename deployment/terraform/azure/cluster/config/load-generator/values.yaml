@@ -1,0 +1,23 @@
+# Azure production values for the load-generator chart.
+# Connects directly to kinotic-server service (cluster-internal).
+
+kinotic:
+  useSsl: false
+  host: kinotic-server
+  port: 58503
+
+loadGenerator:
+  image:
+    tag: latest
+    pullPolicy: Always
+  config:
+    maxConcurrentRequests: 1
+    maxRequestsPerSecond: 100
+    testName: generateComplexEntities
+    beginTenantIdNumber: 1
+    numberOfTenants: 1
+
+otel:
+  type: NONE
+
+parallelism: 1

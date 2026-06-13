@@ -1,0 +1,11 @@
+# Local terraform state (should use remote backend)
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
+# Local overrides with real credentials
+*.auto.tfvars
+
+# SSH keys from firecracker module
+*.pem

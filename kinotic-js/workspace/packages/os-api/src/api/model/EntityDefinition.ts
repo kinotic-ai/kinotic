@@ -5,6 +5,12 @@ export class EntityDefinition implements Identifiable<string> {
     public id!: string | null
 
     /**
+     * The id of the organization that owns this entity definition.
+     * Populated server-side by org enforcement on save.
+     */
+    public organizationId!: string
+
+    /**
      * The id of the application that this entity definition belongs to.
      * All application ids are unique throughout the entire system.
      */
@@ -24,11 +30,13 @@ export class EntityDefinition implements Identifiable<string> {
     public published!: boolean // do not ever set, system managed
     public publishedTimestamp!: number // do not ever set, system managed
 
-    constructor(applicationId: string,
+    constructor(organizationId: string,
+                applicationId: string,
                 projectId: string,
                 name: string,
                 schema: ObjectC3Type,
                 description?: string | null) {
+        this.organizationId = organizationId
         this.applicationId = applicationId
         this.projectId = projectId
         this.name = name

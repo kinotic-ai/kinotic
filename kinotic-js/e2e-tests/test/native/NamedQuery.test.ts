@@ -1,7 +1,7 @@
-import {Kinotic, Page, Pageable} from '@kinotic-ai/core'
+import {Kinotic, KinoticSingleton, Page, Pageable} from '@kinotic-ai/core'
 import {ArrayC3Type, FunctionDefinition, LongC3Type, ObjectC3Type, StringC3Type} from '@kinotic-ai/idl'
 import {EntityDefinition, NamedQueriesDefinition, PageableC3Type, PageC3Type, QueryDecorator} from '@kinotic-ai/os-api'
-import {EntityService, IEntityService} from '@kinotic-ai/persistence'
+import {EntitiesRepository, EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {Person} from '../domain/Person.js'
@@ -10,15 +10,22 @@ import {
     createTestPeopleAndVerify,
     deleteEntityDefinition,
     generateRandomString,
+    initKinoticAppClient,
     initKinoticClient,
     shutdownKinoticClient,
 } from '../TestHelpers.js'
+
+const TEST_ORG_ID = 'kinotic-test'
+const APP_TENANT = 'kinotic'
+// Seeded by the V5__e2e_app_fixtures migration, with the matching app user for APP_TENANT.
+const APP_ID = 'e2e-named-query'
 
 interface LocalTestContext {
     entityDefinition: EntityDefinition
     applicationIdUsed: string
     projectIdUsed: string
-    entityService: IEntityService<Person>
+    appKinotic: KinoticSingleton
+    entityService: IEntityRepository<Person>
 }
 
 describe('End To End Tests', () => {
@@ -34,20 +41,26 @@ describe('End To End Tests', () => {
     }, 60000)
 
     beforeEach<LocalTestContext>(async (context) => {
-        context.applicationIdUsed = generateRandomString(10)
+        context.applicationIdUsed = APP_ID
         context.projectIdUsed = generateRandomString(5)
-        context.entityDefinition = await createPersonEntityDefinitionIfNotExist(context.applicationIdUsed, context.projectIdUsed)
+        context.entityDefinition = await createPersonEntityDefinitionIfNotExist(TEST_ORG_ID, context.applicationIdUsed, context.projectIdUsed)
         expect(context.entityDefinition).toBeDefined()
-        context.entityService = new EntityService(context.entityDefinition.applicationId, context.entityDefinition.name)
+        context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT)
+        context.entityService = new EntityRepository(
+            context.entityDefinition.organizationId,
+            context.entityDefinition.applicationId,
+            context.entityDefinition.name,
+            new EntitiesRepository(context.appKinotic)
+        )
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
+        await context.appKinotic.disconnect()
         await expect(deleteEntityDefinition(context.entityDefinition.id as string)).resolves.toBeUndefined()
         await expect(Kinotic.entityDefinitions.syncIndex()).resolves.toBeNull()
         await Kinotic.projects.deleteById(context.entityDefinition.projectId)
         await expect(Kinotic.projects.syncIndex()).resolves.toBeNull()
-        await Kinotic.applications.deleteById(context.entityDefinition.applicationId)
     })
 
 
@@ -65,6 +78,7 @@ describe('End To End Tests', () => {
                                                         .addProperty("count", new LongC3Type()))
 
             const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
+                                                                      TEST_ORG_ID,
                                                                       applicationIdUsed,
                                                                       projectIdUsed,
                                                                       entityService.entityName,
@@ -72,7 +86,7 @@ describe('End To End Tests', () => {
 
 
             const namedQueriesService = Kinotic.namedQueriesDefinitions
-            await namedQueriesService.save(namedQueriesDefinition)
+            await namedQueriesService.saveSync(namedQueriesDefinition)
 
             const countResult: any = await entityService.namedQuery('countAllPeople', [])
             expect(countResult).toBeDefined()
@@ -99,6 +113,7 @@ describe('End To End Tests', () => {
             namedQuery.returnType = new ArrayC3Type(contentType)
 
             const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
+                                                                      TEST_ORG_ID,
                                                                       applicationIdUsed,
                                                                       projectIdUsed,
                                                                       entityService.entityName,
@@ -106,7 +121,7 @@ describe('End To End Tests', () => {
 
 
             const namedQueriesService = Kinotic.namedQueriesDefinitions
-            await namedQueriesService.save(namedQueriesDefinition)
+            await namedQueriesService.saveSync(namedQueriesDefinition)
 
             const countResult: any = await entityService.namedQuery('countPeopleByLastNameWithLastName',
                                                                     [{key: 'lastName', value: 'Doe'}])
@@ -134,6 +149,7 @@ describe('End To End Tests', () => {
             namedQuery.returnType = new PageC3Type(contentType)
 
             const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
+                                                                      TEST_ORG_ID,
                                                                       applicationIdUsed,
                                                                       projectIdUsed,
                                                                       entityService.entityName,
@@ -141,7 +157,7 @@ describe('End To End Tests', () => {
 
 
             const namedQueriesService = Kinotic.namedQueriesDefinitions
-            await namedQueriesService.save(namedQueriesDefinition)
+            await namedQueriesService.saveSync(namedQueriesDefinition)
 
             const pageable = Pageable.createWithCursor(null, 1)
             const personPage: Page<Person> = await entityService.namedQueryPage('countPeopleByLastNamePage',
@@ -195,11 +211,12 @@ describe('End To End Tests', () => {
 
             // Save the named queries
             const namedQueriesDefinition = new NamedQueriesDefinition(structureId,
+                                                                      TEST_ORG_ID,
                                                                       applicationIdUsed,
                                                                       projectIdUsed,
                                                                       entityService.entityName,
                                                                       [namedQuery, namedQuery2, namedQuery3])
-            await namedQueriesService.save(namedQueriesDefinition)
+            await namedQueriesService.saveSync(namedQueriesDefinition)
         }
     )
 

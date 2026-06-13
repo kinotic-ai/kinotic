@@ -2,7 +2,7 @@
   <div class="rounded-lg overflow-hidden bg-white text-xs min-w-[200px] border border-surface-100">
     <div>
       <div class="p-3 bg-surface-950 font-semibold text-white flex items-center gap-2">
-        <i class="pi pi-table text-[#C8FB39]" />
+        <i class="pi pi-table" style="color: var(--p-lime-300)" />
         {{ data.label }}
       </div>
     </div>
