@@ -26,6 +26,14 @@ export interface IProjectService extends ICrudServiceProxy<Project> {
     findAllForApplication(applicationId: string, pageable: Pageable): Promise<IterablePage<Project>>
 
     /**
+     * Re-runs repository initialization for a project left
+     * {@link RepositoryConnectionStatus.INITIALIZATION_FAILED} by creation.
+     * @param projectId the id of the project to retry
+     * @return Promise emitting the project, marked {@link RepositoryConnectionStatus.CONNECTED} on success
+     */
+    retryRepoInitialization(projectId: string): Promise<Project>
+
+    /**
      * This operation makes all the recent writes immediately available for search.
      * @return a Promise that resolves when the operation is complete
      */
@@ -55,6 +63,10 @@ export class ProjectService extends CrudServiceProxy<Project> implements IProjec
 
     public findAllForApplicationSinglePage(applicationId: string, pageable: Pageable): Promise<IterablePage<Project>> {
         return this.serviceProxy.invoke('findAllForApplication', [applicationId, pageable])
+    }
+
+    public retryRepoInitialization(projectId: string): Promise<Project> {
+        return this.serviceProxy.invoke('retryRepoInitialization', [projectId])
     }
 
     public syncIndex(): Promise<void> {

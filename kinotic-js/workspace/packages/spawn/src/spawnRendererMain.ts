@@ -19,13 +19,14 @@ const engine = new SpawnEngine()
 
 /**
  * Renders the spawn described by a JSON string of {files, context} and
- * resolves to the rendered files as a JSON string. A property required by the
- * spawn but missing from the context rejects the promise.
+ * resolves to a JSON string of {files, sources}: the rendered files keyed by
+ * destination path, and the originating template path for each. A property
+ * required by the spawn but missing from the context rejects the promise.
  */
 function renderSpawn(inputJson: string): Promise<string> {
   const input = JSON.parse(inputJson) as {files: Record<string, string>, context: Record<string, unknown>}
   return engine.renderSpawn(input.files, {context: input.context})
-    .then(result => JSON.stringify(result.files))
+    .then(result => JSON.stringify({files: result.files, sources: result.sources}))
 }
 
 // Assigned to a global rather than exported: the Java side evaluates the

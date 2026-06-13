@@ -22,6 +22,10 @@ describe('SpawnEngine', () => {
     const result = await new SpawnEngine().renderSpawn(spawn, {context: {package: 'org.kinotic.demo', name: 'widget'}})
 
     expect(result.files).toEqual({'src/org/kinotic/demo/Widget.ts': 'export class Widget {}'})
+    // sources maps the rendered destination back to its template path
+    expect(result.sources).toEqual({
+      'src/org/kinotic/demo/Widget.ts': 'src/{{ package | packageToPath }}/{{ name | upperFirst }}.ts.liquid',
+    })
   })
 
   it('applies the camelCase and encodePackage filters', async () => {

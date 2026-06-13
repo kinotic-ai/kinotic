@@ -31,4 +31,17 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      */
     CompletableFuture<List<Project>> findByRepoFullName(String repoFullName);
 
+    /**
+     * Re-runs repository initialization for a project left
+     * {@link org.kinotic.domain.api.model.RepositoryConnectionStatus#INITIALIZATION_FAILED}
+     * by creation, persisting the result. Succeeds with the project marked
+     * {@link org.kinotic.domain.api.model.RepositoryConnectionStatus#CONNECTED} once the
+     * baseline is committed.
+     *
+     * @param projectId id of the project to retry
+     * @return a {@link CompletableFuture} emitting the updated project
+     * @throws IllegalStateException when the project is not awaiting an initialization retry
+     */
+    CompletableFuture<Project> retryRepoInitialization(String projectId);
+
 }
