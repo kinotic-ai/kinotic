@@ -49,26 +49,19 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     }
 
     @Override
-    public CompletableFuture<Void> deleteById(String id) {
+    protected CompletableFuture<Void> beforeDelete(String id) {
         return projectService.countForApplication(id).thenAccept(count -> {
             if(count > 0){
                 throw new IllegalStateException("Cannot delete an application with projects in it.");
             }
-        }).thenCompose(v -> super.deleteById(id));
+        });
     }
 
     @Override
-    public CompletableFuture<Application> save(Application entity) {
+    protected CompletableFuture<Void> beforeSave(Application entity) {
         DomainUtil.validateApplicationId(entity.getId());
         entity.setUpdated(new Date());
-        return super.save(entity);
-    }
-
-    @Override
-    public CompletableFuture<Application> saveSync(Application entity) {
-        DomainUtil.validateApplicationId(entity.getId());
-        entity.setUpdated(new Date());
-        return super.saveSync(entity);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

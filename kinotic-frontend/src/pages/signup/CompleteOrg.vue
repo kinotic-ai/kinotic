@@ -59,9 +59,9 @@ import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 import type { CompleteOrgRequest } from '@kinotic-ai/os-api'
 
 /**
- * Lands here after `/api/signup/callback/:configId` redirects with `?token=<verificationToken>`
+ * Lands here after `/api/auth/org/signup/social/callback/:configId` redirects with `?token=<verificationToken>`
  * (a {@code PendingRegistration}). The user supplies an org name; we POST to
- * `/api/signup/complete-org`, the backend creates the Organization + admin IamUser and
+ * `/api/auth/org/signup/social/complete`, the backend creates the Organization + admin IamUser and
  * establishes the browser session, which we then use to open the realtime connection.
  */
 @Component({
@@ -105,7 +105,7 @@ export default class CompleteOrg extends Vue {
         orgName,
         orgDescription: this.orgDescription.trim() || null,
       }
-      const res = await fetch(apiUrl('/api/signup/complete-org'), {
+      const res = await fetch(apiUrl('/api/auth/org/signup/social/complete'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

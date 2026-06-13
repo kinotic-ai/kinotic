@@ -44,14 +44,14 @@ public class ApplicationLoginHandler {
     private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
-        router.get("/api/app/:orgId/:appId/login/providers").handler(this::handleProviders);
-        router.post("/api/app/:orgId/:appId/login/lookup").handler(this::handleLookup);
-        router.post("/api/app/:orgId/:appId/login").handler(this::handleLogin);
-        router.get("/api/app/:orgId/:appId/login/callback/:configId").handler(this::handleCallback);
+        router.get("/api/auth/app/:orgId/:appId/login/providers").handler(this::handleProviders);
+        router.post("/api/auth/app/:orgId/:appId/login/lookup").handler(this::handleLookup);
+        router.post("/api/auth/app/:orgId/:appId/login").handler(this::handleLogin);
+        router.get("/api/auth/app/:orgId/:appId/login/oidc/callback/:configId").handler(this::handleCallback);
     }
 
     /**
-     * {@code GET /api/app/:orgId/:appId/login/providers} — lists the enabled
+     * {@code GET /api/auth/app/:orgId/:appId/login/providers} — lists the enabled
      * {@link OidcConfiguration} rows the app references via
      * {@code Application.oidcConfigurationIds}.
      */
@@ -77,7 +77,7 @@ public class ApplicationLoginHandler {
     }
 
     /**
-     * {@code POST /api/app/:orgId/:appId/login/lookup {email}} — email-first SSO/password
+     * {@code POST /api/auth/app/:orgId/:appId/login/lookup {email}} — email-first SSO/password
      * decision: {@code {type:"sso", redirect:"…"}} when the user is OIDC with a live
      * config, otherwise {@code {type:"password"}}.
      */
@@ -118,7 +118,7 @@ public class ApplicationLoginHandler {
     }
 
     /**
-     * {@code POST /api/app/:orgId/:appId/login {email, password}} — local password auth,
+     * {@code POST /api/auth/app/:orgId/:appId/login {email, password}} — local password auth,
      * scoped to the application so a stray cross-scope match can't authenticate here.
      */
     private void handleLogin(RoutingContext ctx) {
@@ -130,7 +130,7 @@ public class ApplicationLoginHandler {
     }
 
     /**
-     * {@code GET /api/app/:orgId/:appId/login/callback/:configId} — the IdP returns here;
+     * {@code GET /api/auth/app/:orgId/:appId/login/oidc/callback/:configId} — the IdP returns here;
      * validates the callback and logs the user into the application. The pre-auth flow has
      * no participant bound, so the config lookup is scoped by the {@code :orgId} path param.
      */
@@ -155,6 +155,6 @@ public class ApplicationLoginHandler {
     }
 
     private String callbackUrl(String orgId, String appId, String configId) {
-        return authEndpointSupport.absoluteUrl("/api/app/" + orgId + "/" + appId + "/login/callback/" + configId);
+        return authEndpointSupport.absoluteUrl("/api/auth/app/" + orgId + "/" + appId + "/login/oidc/callback/" + configId);
     }
 }

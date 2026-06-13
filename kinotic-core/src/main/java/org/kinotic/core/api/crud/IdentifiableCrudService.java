@@ -1,6 +1,5 @@
 package org.kinotic.core.api.crud;
 
-import org.apache.commons.lang3.Validate;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -10,55 +9,27 @@ import java.util.concurrent.CompletableFuture;
 public interface IdentifiableCrudService<T extends Identifiable<ID>, ID> extends CrudService<T, ID> {
 
     /**
-     * Creates a new entity if one does not already exist for the given id
-     * @param entity to create if one does not already exist
-     * @return a {@link CompletableFuture} containing the new entity or an error if an exception occurred
+     * Creates a new entity, failing if one with the same id already exists. Unlike
+     * {@link #save}, which overwrites, this fails with
+     * {@link org.kinotic.core.api.exceptions.AlreadyExistsException} on an id collision.
+     *
+     * @param entity to create, must not be {@literal null}
+     * @return a {@link CompletableFuture} containing the new entity, or failing with
+     *         {@link org.kinotic.core.api.exceptions.AlreadyExistsException} if the id is
+     *         already taken
      */
-    default CompletableFuture<T> create(T entity) {
-        Validate.notNull(entity, "Entity cannot be null");
-        ID id = entity.getId();
-        if(id != null){
-            return findById(entity.getId())
-                    .thenCompose(result -> {
-                        if (result == null) {
-                            return save(entity);
-                        } else {
-                            CompletableFuture<T> exceptionFuture = new CompletableFuture<>();
-                            exceptionFuture.completeExceptionally(new IllegalArgumentException(entity.getClass().getSimpleName() + " for the id " + entity.getId() + " already exists"));
-                            return exceptionFuture;
-                        }
-                    });
-        }else{
-            return save(entity);
-        }
-    }
+    CompletableFuture<T> create(T entity);
 
     /**
-     * Creates a new entity if one does not already exist for the given id, and waits for the
-     * change to be visible in search results before returning.
-     * Use this when you need read-your-write consistency immediately after creation.
+     * Creates a new entity like {@link #create}, additionally waiting for it to be visible
+     * in search results before returning. Use this when you need read-your-write consistency
+     * immediately after creation.
      *
-     * @param entity to create if one does not already exist
-     * @return a {@link CompletableFuture} containing the new entity after it is searchable, or an error if an exception occurred
+     * @param entity to create, must not be {@literal null}
+     * @return a {@link CompletableFuture} containing the new entity after it is searchable,
+     *         or failing with {@link org.kinotic.core.api.exceptions.AlreadyExistsException}
+     *         if the id is already taken
      */
-    default CompletableFuture<T> createSync(T entity) {
-        Validate.notNull(entity, "Entity cannot be null");
-        ID id = entity.getId();
-        if(id != null){
-            return findById(entity.getId())
-                    .thenCompose(result -> {
-                        if (result == null) {
-                            return saveSync(entity);
-                        } else {
-                            CompletableFuture<T> exceptionFuture = new CompletableFuture<>();
-                            exceptionFuture.completeExceptionally(new IllegalArgumentException(entity.getClass().getSimpleName() + " for the id " + entity.getId() + " already exists"));
-                            return exceptionFuture;
-                        }
-                    });
-        }else{
-            return saveSync(entity);
-        }
-    }
-
+    CompletableFuture<T> createSync(T entity);
 
 }

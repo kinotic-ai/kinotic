@@ -53,14 +53,14 @@ public class InviteHandler {
     private final AuthEndpointSupport authEndpointSupport;
 
     public void mountRoutes(Router router) {
-        router.get("/api/invite").handler(this::handleDetails);
-        router.post("/api/invite/accept").handler(this::handleLocalAccept);
-        router.post("/api/invite/start/:configId").handler(this::handleOidcStart);
-        router.get("/api/invite/callback/:configId").handler(this::handleOidcCallback);
+        router.get("/api/auth/invite/details").handler(this::handleDetails);
+        router.post("/api/auth/invite/accept").handler(this::handleLocalAccept);
+        router.post("/api/auth/invite/oidc/start/:configId").handler(this::handleOidcStart);
+        router.get("/api/auth/invite/oidc/callback/:configId").handler(this::handleOidcCallback);
     }
 
     /**
-     * {@code GET /api/invite?token=} — invitation details plus the scope's live provider
+     * {@code GET /api/auth/invite/details?token=} — invitation details plus the scope's live provider
      * list, for rendering the accept page.
      */
     private void handleDetails(RoutingContext ctx) {
@@ -93,7 +93,7 @@ public class InviteHandler {
     }
 
     /**
-     * {@code POST /api/invite/accept {token, password, displayName?}} — accept by setting a
+     * {@code POST /api/auth/invite/accept {token, password, displayName?}} — accept by setting a
      * password. Both scopes get a browser session, same as logging in. Org invitees get a
      * {@code 204}; app invitees get a payload identifying the application, which the accept
      * page uses for its confirmation state since the web app is not their UI.
@@ -134,7 +134,7 @@ public class InviteHandler {
     }
 
     /**
-     * {@code POST /api/invite/start/:configId} (form, {@code token}) — begins an OIDC accept
+     * {@code POST /api/auth/invite/oidc/start/:configId} (form, {@code token}) — begins an OIDC accept
      * with one of the providers offered by {@link #handleDetails}, redirecting to the IdP.
      */
     private void handleOidcStart(RoutingContext ctx) {
@@ -159,7 +159,7 @@ public class InviteHandler {
     }
 
     /**
-     * {@code GET /api/invite/callback/:configId} — the IdP returns here for every invite
+     * {@code GET /api/auth/invite/oidc/callback/:configId} — the IdP returns here for every invite
      * acceptance; the accept token was stashed on the flow session at start.
      */
     private void handleOidcCallback(RoutingContext ctx) {
@@ -343,7 +343,7 @@ public class InviteHandler {
     }
 
     private String inviteCallbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl("/api/invite/callback/" + configId);
+        return authEndpointSupport.absoluteUrl("/api/auth/invite/oidc/callback/" + configId);
     }
 
     /**

@@ -80,6 +80,19 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
                                   .thenApply(response -> null);
     }
 
+    /**
+     * Deletes the document with the given {@code id} that belongs to {@code orgId}, waiting
+     * for the deletion to be visible in search results before returning. No-op if no such
+     * document exists.
+     */
+    public CompletableFuture<Void> deleteByIdSync(String id, String orgId) {
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        return crudServiceTemplate.deleteByIdSync(indexName,
+                                                  composeDocumentId(id, orgId),
+                                                  b -> b.routing(orgId))
+                                  .thenApply(response -> null);
+    }
+
     public CompletableFuture<Page<T>> findAll(String orgId, Pageable pageable) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         return crudServiceTemplate.search(indexName, pageable, type,
@@ -107,6 +120,35 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
                                             composeDocumentId(value.getId(), orgId),
                                             value,
                                             b -> b.routing(orgId))
+                                  .thenApply(indexResponse -> value);
+    }
+
+    /**
+     * Persists a new entity belonging to {@code orgId}, failing with
+     * {@link org.kinotic.core.api.exceptions.AlreadyExistsException} if the id is already
+     * taken within that organization, instead of overwriting the way {@link #save} would.
+     */
+    public CompletableFuture<T> create(T value, String orgId) {
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        requireOrgMatchesEntity(value, orgId);
+        return crudServiceTemplate.create(indexName,
+                                          composeDocumentId(value.getId(), orgId),
+                                          value,
+                                          b -> b.routing(orgId))
+                                  .thenApply(indexResponse -> value);
+    }
+
+    /**
+     * Persists a new entity like {@link #create}, additionally waiting for it to be visible
+     * in search results before returning.
+     */
+    public CompletableFuture<T> createSync(T value, String orgId) {
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        requireOrgMatchesEntity(value, orgId);
+        return crudServiceTemplate.createSync(indexName,
+                                              composeDocumentId(value.getId(), orgId),
+                                              value,
+                                              b -> b.routing(orgId))
                                   .thenApply(indexResponse -> value);
     }
 

@@ -14,4 +14,18 @@ public class AlreadyExistsException extends ContinuumException {
     public AlreadyExistsException(String message, Throwable cause) {
         super(message, cause);
     }
+
+    /**
+     * Returns true when {@code throwable} is, or is caused by, an
+     * {@link AlreadyExistsException} — future composition often wraps the original in a
+     * {@link java.util.concurrent.CompletionException}.
+     */
+    public static boolean isCause(Throwable throwable) {
+        for (Throwable cause = throwable; cause != null; cause = cause.getCause()) {
+            if (cause instanceof AlreadyExistsException) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

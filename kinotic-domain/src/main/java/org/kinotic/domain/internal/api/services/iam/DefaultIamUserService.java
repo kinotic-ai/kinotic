@@ -35,7 +35,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     }
 
     @Override
-    public CompletableFuture<IamUser> save(IamUser entity) {
+    protected CompletableFuture<Void> beforeSave(IamUser entity) {
         Validate.notNull(entity.getEmail(), "IamUser email cannot be null");
         // Canonical form at the single write chokepoint; lookups normalize in the repository.
         entity.setEmail(DomainUtil.normalizeEmail(entity.getEmail()));
@@ -44,7 +44,7 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
             entity.setId(UUID.randomUUID().toString());
         }
         entity.setUpdated(new Date());
-        return enforceUniqueEmailInScope(entity).thenCompose(v -> super.save(entity));
+        return enforceUniqueEmailInScope(entity);
     }
 
     /**
@@ -243,9 +243,10 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
     }
 
     @Override
-    public CompletableFuture<Void> deleteById(String id) {
-        return credentialRepository.deleteById(id)
-                .thenCompose(v -> super.deleteById(id));
+    protected CompletableFuture<Void> beforeDelete(String id) {
+        // Cascade the IamCredential. Credential lookups are by id (realtime GETs), so the
+        // credential delete never needs to wait for search visibility.
+        return credentialRepository.deleteById(id);
     }
 
 }

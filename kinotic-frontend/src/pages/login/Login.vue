@@ -1,13 +1,13 @@
 <template>
   <AuthPageShell>
     <div class="login-form">
-      <!-- Platform social buttons (Google, Microsoft, etc.) — fetched from /api/login/providers -->
+      <!-- Platform social buttons (Google, Microsoft, etc.) — fetched from /api/auth/org/login/providers -->
       <div v-if="providers.length > 0" class="login-providers">
         <SocialAuthButton
           v-for="provider in providers"
           :key="provider"
           :provider="provider"
-          :action="apiUrl('/api/login/start/' + provider)"
+          :action="apiUrl('/api/auth/org/login/social/start/' + provider)"
           intent="sign-in"
         />
         <div class="login-divider"><span>or</span></div>
@@ -159,7 +159,7 @@ export default class Login extends Vue {
 
   private async loadProviders() {
     try {
-      const res = await fetch(apiUrl('/api/login/providers'), { credentials: 'same-origin' })
+      const res = await fetch(apiUrl('/api/auth/org/login/providers'), { credentials: 'same-origin' })
       if (!res.ok) {
         debug('Provider list returned %d', res.status)
         return
@@ -178,7 +178,7 @@ export default class Login extends Vue {
     }
     this.loading = true
     try {
-      const res = await fetch(apiUrl('/api/login/lookup'), {
+      const res = await fetch(apiUrl('/api/auth/org/login/lookup'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
@@ -214,7 +214,7 @@ export default class Login extends Vue {
     try {
       // Verify the password; on success the gateway establishes the browser session and sets
       // the session cookie. credentials:'include' so the cross-origin Set-Cookie is stored.
-      const res = await fetch(apiUrl('/api/login'), {
+      const res = await fetch(apiUrl('/api/auth/org/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

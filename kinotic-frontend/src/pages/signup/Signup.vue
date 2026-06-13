@@ -9,7 +9,7 @@
           v-for="provider in providers"
           :key="provider"
           :provider="provider"
-          :action="apiUrl('/api/signup/start/' + provider)"
+          :action="apiUrl('/api/auth/org/signup/social/start/' + provider)"
           intent="sign-up"
         />
         <div class="login-divider"><span>or with email</span></div>
@@ -103,7 +103,7 @@ export default class Signup extends Vue {
 
   async mounted() {
     try {
-      const res = await fetch(apiUrl('/api/login/providers'), { credentials: 'same-origin' })
+      const res = await fetch(apiUrl('/api/auth/org/login/providers'), { credentials: 'same-origin' })
       if (res.ok) {
         const data = await res.json()
         if (Array.isArray(data)) this.providers = data
@@ -139,7 +139,7 @@ export default class Signup extends Vue {
 
     this.loading = true
     try {
-      const response = await fetch(apiUrl('/api/signup'), {
+      const response = await fetch(apiUrl('/api/auth/org/signup'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.request),

@@ -7,7 +7,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * In-process service for verifying email + password and resolving the matching
  * {@link IamUser}. Not {@code @Publish}-annotated: raw passwords never travel over RPC,
- * only direct in-JVM calls (e.g. the {@code POST /api/login/token} HTTP handler) or
+ * only direct in-JVM calls (e.g. the {@code POST /api/auth/org/login} HTTP handler) or
  * STOMP CONNECT credentials handled separately by the {@code SecurityService}.
  */
 public interface LocalAuthenticationService {
