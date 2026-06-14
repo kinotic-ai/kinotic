@@ -1,26 +1,27 @@
-package org.kinotic.github.internal.api.services;
+package org.kinotic.domain.mocks;
 
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.api.model.RepositoryConnectionStatus;
 import org.kinotic.domain.api.services.ProjectRepoProvisioner;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Test/e2e replacement for {@link GitHubProjectRepoProvisioner}: skips the
- * org-install lookup and the GitHub API call entirely, just stamps deterministic
- * fake repo metadata on the project. Lets project-create flow tests pass without
- * seeding a {@code GitHubAppInstallation} row or hitting github.com.
+ * Fallback {@link ProjectRepoProvisioner} used when the GitHub module is disabled
+ * ({@code kinotic.disableGithub=true}) or absent from the classpath. Skips the
+ * GitHub API call entirely and stamps deterministic fake repo metadata on the
+ * project, so project-create flows work in development and tests without a
+ * configured GitHub App.
  */
 @Slf4j
 @Component
-@Profile({"test", "e2e-tests"})
+@ConditionalOnProperty(value = "kinotic.disableGithub", havingValue = "true")
 public class MockProjectRepoProvisioner implements ProjectRepoProvisioner {
 
-    private static final String FAKE_OWNER = "kinotic-test";
+    private static final String FAKE_OWNER = "kinotic-mock";
     private static final long FAKE_REPO_ID = 1L;
     private static final String FAKE_DEFAULT_BRANCH = "main";
 

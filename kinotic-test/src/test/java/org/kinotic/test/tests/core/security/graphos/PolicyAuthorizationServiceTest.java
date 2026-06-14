@@ -104,7 +104,7 @@ public class PolicyAuthorizationServiceTest {
 
         Throwable exception = assertThrows(CompletionException.class, result::join);
         assertInstanceOf(AuthorizationException.class, exception.getCause());
-        assertEquals("testapplication.testname Fields [lastName] access not allowed.", exception.getCause().getMessage());
+        assertEquals("testorganization.testapplication.testname Fields [lastName] access not allowed.", exception.getCause().getMessage());
     }
 
     @Test
@@ -121,6 +121,7 @@ public class PolicyAuthorizationServiceTest {
 
     private EntityDefinition createStructureWithNoFieldPolicies() {
         EntityDefinition structure = new EntityDefinition();
+        structure.setOrganizationId("testOrganization");
         structure.setApplicationId("testApplication");
         structure.setName("testName");
 
@@ -153,6 +154,7 @@ public class PolicyAuthorizationServiceTest {
 
     private EntityDefinition createStructureWithFieldPolicies() {
         EntityDefinition structure = new EntityDefinition();
+        structure.setOrganizationId("testOrganization");
         structure.setApplicationId("testApplication");
         structure.setName("testName");
 

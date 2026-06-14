@@ -32,6 +32,10 @@ dependencies {
 
 	testImplementation 'com.github.dasniko:testcontainers-keycloak:3.8.0'
 
+	// PersistenceInitializer injects HealthChecks (normally provided by the api-gateway module,
+	// which this module doesn't depend on). KinoticTestBeansConfiguration supplies it for tests.
+	testImplementation 'io.vertx:vertx-health-check'
+
 	testImplementation 'io.projectreactor:reactor-test'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
