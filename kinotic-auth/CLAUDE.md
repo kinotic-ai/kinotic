@@ -17,7 +17,7 @@
 - Hand-written visitor and parsing glue code belongs in `org.kinotic.auth.parsers` (plural) — the singular `org.kinotic.auth.parser` package is reserved for ANTLR-generated files.
 - Always keep the `@AbacPolicy` annotation and `AbacPolicyDecorator` in `api` packages — they are part of the public surface consumed by `kinotic-core`, `kinotic-persistence`, and `kinotic-rpc-gateway`.
 - The `EsQueryCompiler` must only produce document field references from resource/entity paths — participant and context paths must always be resolved to concrete values at compile time via the `participantAttributes` map.
-- The `CedarCompiler` maps `participant.*` to Cedar `principal.*` and all other roots (entity, method parameters) to `resource.*`.
+- The `CedarCompiler` maps `participant.*` to Cedar `principal.*` and every other root (entity, method parameters) to `resource.<root>.*` — nested under the resource by name to match the request the gateway builds. `CasbinCompiler` mirrors this for jCasbin: `participant.*` → `r.sub.*`, every other root → `r.obj.<root>.*`.
 
 ## Package Structure
 
@@ -26,10 +26,12 @@
 | `org.kinotic.auth.api.annotations` | `@AbacPolicy` annotation for published Java service methods |
 | `org.kinotic.auth.api.decorators` | `AbacPolicyDecorator` for attaching policies to entity definitions via C3 IDL |
 | `org.kinotic.auth.api.expressions` | Sealed AST types: `PolicyExpression`, `ComparisonExpression`, `AndExpression`, `OrExpression`, `NotExpression`, `AttributePath`, `LiteralValue`, `ArrayValue` |
+| `org.kinotic.auth.api.engine` | `AuthorizationEngine` SPI and `AuthorizationRequest` — the engine-neutral contract both the Cedar and jCasbin services implement |
 | `org.kinotic.auth.parser` | **ANTLR-generated** lexer, parser, visitor, and listener — do not edit |
 | `org.kinotic.auth.parsers` | Hand-written `PolicyExpressionParser` (ANTLR visitor that produces the AST) and `PolicyParseException` |
-| `org.kinotic.auth.compilers` | `CedarCompiler` (AST → Cedar condition string) and `EsQueryCompiler` (AST → Elasticsearch `Query`) |
-| `org.kinotic.auth.cedar` | `CedarAuthorizationService` — production Cedar engine that calls JNI directly with streaming JSON (no POJO round-trip) |
+| `org.kinotic.auth.compilers` | `CedarCompiler` (AST → Cedar condition), `CasbinCompiler` (AST → AviatorScript condition), and `EsQueryCompiler` (AST → Elasticsearch `Query`) |
+| `org.kinotic.auth.cedar` | `CedarAuthorizationService` — Cedar engine that calls JNI directly with streaming JSON (no POJO round-trip) |
+| `org.kinotic.auth.casbin` | `CasbinAuthorizationService` — pure-JVM jCasbin engine (AviatorScript matchers, no native library) |
 
 ## Expression Language
 
@@ -54,6 +56,7 @@ entity.approvedBy exists
 | Compiler | Input | Output | Use Case |
 |---|---|---|---|
 | `CedarCompiler` | `PolicyExpression` AST | Cedar condition string (body of a `when` clause) | Gateway-level allow/deny evaluation via Cedar in-process JNI |
+| `CasbinCompiler` | `PolicyExpression` AST | AviatorScript condition (body of `eval(p.cond)`) | Gateway-level allow/deny evaluation via the pure-JVM jCasbin engine |
 | `EsQueryCompiler` | `PolicyExpression` AST + participant attributes map | Elasticsearch `Query` | Injected as filter into read queries so only authorized documents are returned |
 
 For service method policies, the gateway transforms raw JSON argument arrays into named objects using registered parameter names. The CedarCompiler maps these parameter names to `resource.*` attributes, enabling Cedar expressions like `resource.order.amount < 50000` for a method parameter named `order`.
@@ -65,4 +68,5 @@ For service method policies, the gateway transforms raw JSON argument arrays int
 | `kinotic-idl` | `C3Decorator`, `DecoratorTarget` used by `AbacPolicyDecorator` |
 | `co.elastic.clients:elasticsearch-java` | Elasticsearch `Query`, `BoolQuery`, `FieldValue` types used by `EsQueryCompiler` |
 | `com.cedarpolicy:cedar-java` | Cedar authorization engine for in-process policy evaluation via JNI |
+| `org.casbin:jcasbin` | Pure-JVM ABAC engine (AviatorScript matchers) evaluated side-by-side with Cedar |
 | `org.antlr:antlr4-runtime` | ANTLR runtime for the generated parser |

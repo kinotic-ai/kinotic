@@ -46,8 +46,13 @@ dependencies {
     // Cedar SDK uses old Jackson (com.fasterxml) for policy serialization
     implementation 'com.fasterxml.jackson.core:jackson-core:2.18.3'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.3'
-    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.18.3'
+    // jackson-annotations is shared with tools.jackson (Jackson 3) databind, which needs 2.20
+    // (JsonFormat.Shape.POJO); pin the higher version so both Jackson lines link at runtime.
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.20'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.18.3'
+
+    // jCasbin — pure-JVM ABAC engine (AviatorScript matchers); evaluated side-by-side with Cedar
+    implementation 'org.casbin:jcasbin:1.99.0'
 
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter'

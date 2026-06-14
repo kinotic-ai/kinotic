@@ -2,6 +2,9 @@ package org.kinotic.auth.cedar;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.kinotic.auth.api.engine.AuthorizationRequest;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -23,6 +26,13 @@ class CedarAuthorizationServiceTest {
                 "participant.roles contains 'admin' or participant.roles contains 'manager'");
     }
 
+    private static AuthorizationRequest request(String principalAttributesJson,
+                                                String action,
+                                                String argumentsJson,
+                                                String... parameterNames) {
+        return new AuthorizationRequest("user-1", principalAttributesJson, action, argumentsJson, List.of(parameterNames));
+    }
+
     // ========== Policy Registration ==========
 
     @Test
@@ -42,115 +52,94 @@ class CedarAuthorizationServiceTest {
     @Test
     void unregisteredActionThrowsOnAuthorization() {
         assertThrows(CedarAuthorizationException.class, () ->
-                service.isAuthorized("user-1", "{\"roles\": [\"finance\"]}",
-                        "nonExistent",
-                        "[{}]", new String[]{"arg"}));
+                service.isAuthorized(request("{\"roles\": [\"finance\"]}", "nonExistent", "[{}]", "arg")));
     }
 
     // ========== placeOrder ==========
 
     @Test
     void placeOrder_allowed() {
-        assertTrue(service.isAuthorized(
-                "user-1",
+        assertTrue(service.isAuthorized(request(
                 "{\"roles\": [\"finance\"]}",
                 "placeOrder",
                 "[{\"amount\": 25000, \"department\": \"sales\"}]",
-                new String[]{"order"}));
+                "order")));
     }
 
     @Test
     void placeOrder_denied_overLimit() {
-        assertFalse(service.isAuthorized(
-                "user-1",
+        assertFalse(service.isAuthorized(request(
                 "{\"roles\": [\"finance\"]}",
                 "placeOrder",
                 "[{\"amount\": 75000, \"department\": \"sales\"}]",
-                new String[]{"order"}));
+                "order")));
     }
 
     @Test
     void placeOrder_denied_wrongRole() {
-        assertFalse(service.isAuthorized(
-                "user-1",
+        assertFalse(service.isAuthorized(request(
                 "{\"roles\": [\"engineering\"]}",
                 "placeOrder",
                 "[{\"amount\": 25000}]",
-                new String[]{"order"}));
+                "order")));
     }
 
     // ========== transferFunds ==========
 
     @Test
     void transferFunds_allowed() {
-        assertTrue(service.isAuthorized(
-                "user-1",
+        assertTrue(service.isAuthorized(request(
                 "{\"roles\": [\"finance\"], \"transferLimit\": 100000}",
                 "transferFunds",
                 "[{\"amount\": 50000, \"currency\": \"USD\"}, {\"approved\": true}]",
-                new String[]{"transfer", "approval"}));
+                "transfer", "approval")));
     }
 
     @Test
     void transferFunds_denied_overLimit() {
-        assertFalse(service.isAuthorized(
-                "user-1",
+        assertFalse(service.isAuthorized(request(
                 "{\"roles\": [\"finance\"], \"transferLimit\": 100000}",
                 "transferFunds",
                 "[{\"amount\": 150000, \"currency\": \"USD\"}, {\"approved\": true}]",
-                new String[]{"transfer", "approval"}));
+                "transfer", "approval")));
     }
 
     @Test
     void transferFunds_denied_wrongCurrency() {
-        assertFalse(service.isAuthorized(
-                "user-1",
+        assertFalse(service.isAuthorized(request(
                 "{\"roles\": [\"finance\"], \"transferLimit\": 100000}",
                 "transferFunds",
                 "[{\"amount\": 50000, \"currency\": \"EUR\"}, {\"approved\": true}]",
-                new String[]{"transfer", "approval"}));
+                "transfer", "approval")));
     }
 
     @Test
     void transferFunds_denied_notApproved() {
-        assertFalse(service.isAuthorized(
-                "user-1",
+        assertFalse(service.isAuthorized(request(
                 "{\"roles\": [\"finance\"], \"transferLimit\": 100000}",
                 "transferFunds",
                 "[{\"amount\": 50000, \"currency\": \"USD\"}, {\"approved\": false}]",
-                new String[]{"transfer", "approval"}));
+                "transfer", "approval")));
     }
 
     // ========== viewReport (RBAC) ==========
 
     @Test
     void viewReport_allowed_admin() {
-        assertTrue(service.isAuthorized(
-                "user-1",
-                "{\"roles\": [\"admin\"]}",
-                "viewReport",
-                "[{}]",
-                new String[]{"params"}));
+        assertTrue(service.isAuthorized(request(
+                "{\"roles\": [\"admin\"]}", "viewReport", "[{}]", "params")));
     }
 
     @Test
     void viewReport_allowed_manager() {
-        assertTrue(service.isAuthorized(
-                "user-1",
-                "{\"roles\": [\"manager\"]}",
-                "viewReport",
-                "[{}]",
-                new String[]{"params"}));
+        assertTrue(service.isAuthorized(request(
+                "{\"roles\": [\"manager\"]}", "viewReport", "[{}]", "params")));
     }
 
     @Test
     void viewReport_denied_regularUser() {
-        assertFalse(service.isAuthorized(
-                "user-1",
-                "{\"roles\": [\"user\"]}",
-                "viewReport",
-                "[{}]",
-                new String[]{"params"}));
+        assertFalse(service.isAuthorized(request(
+                "{\"roles\": [\"user\"]}", "viewReport", "[{}]", "params")));
     }
 
     // ========== Policy lifecycle ==========

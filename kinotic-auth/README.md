@@ -156,7 +156,7 @@ Compiles to a Cedar `when` clause body for allow/deny evaluation:
 PolicyExpression expr = PolicyExpressionParser.parse(
     "participant.role contains 'finance' and order.amount < 50000");
 String cedarCondition = CedarCompiler.compile(expr);
-// → (principal.role.contains("finance") && resource.amount < 50000)
+// → (principal.role.contains("finance") && resource.order.amount < 50000)
 ```
 
 Path mapping:
@@ -165,7 +165,25 @@ Path mapping:
 |---|---|
 | `participant.*` | `principal.*` |
 | `context.*` | `context.*` |
-| Everything else | `resource.*` |
+| Everything else | `resource.<root>.*` |
+
+### jCasbin (`CasbinCompiler`)
+
+Compiles to an AviatorScript condition evaluated by the jCasbin engine — a pure-JVM ABAC engine that needs no native library:
+
+```java
+PolicyExpression expr = PolicyExpressionParser.parse(
+    "participant.role contains 'finance' and order.amount < 50000");
+String condition = CasbinCompiler.compile(expr);
+// → include(r.sub.role, "finance") && r.obj.order.amount < 50000
+```
+
+Path mapping:
+
+| Policy path | AviatorScript path |
+|---|---|
+| `participant.*` | `r.sub.*` |
+| Everything else | `r.obj.<root>.*` |
 
 ### Elasticsearch (`EsQueryCompiler`)
 

@@ -2,6 +2,8 @@ package org.kinotic.auth.cedar;
 
 import com.cedarpolicy.BasicAuthorizationEngine;
 import com.cedarpolicy.model.policy.PolicySet;
+import org.kinotic.auth.api.engine.AuthorizationEngine;
+import org.kinotic.auth.api.engine.AuthorizationRequest;
 import org.kinotic.auth.compilers.CedarCompiler;
 import org.kinotic.auth.parsers.PolicyExpressionParser;
 import tools.jackson.core.JsonGenerator;
@@ -22,8 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <ol>
  *   <li>Call {@link #registerPolicy} at service registration time to compile
  *       and cache an ABAC expression as a Cedar policy for a given action.</li>
- *   <li>Call {@link #isAuthorized} on each request with the raw JSON payload,
- *       parameter names, principal attributes JSON, and action name.</li>
+ *   <li>Call {@link #isAuthorized} on each request with an {@link AuthorizationRequest}
+ *       carrying the raw JSON payload, parameter names, principal attributes, and action.</li>
  * </ol>
  * <p>
  * The request JSON is built in a single streaming pass — the raw argument array
@@ -31,7 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * allocation. Pre-serialized policy JSON is embedded directly via
  * {@link JsonGenerator#writeRawValue}.
  */
-public class CedarAuthorizationService {
+public class CedarAuthorizationService implements AuthorizationEngine {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -86,6 +88,7 @@ public class CedarAuthorizationService {
      * @param expression     the ABAC policy expression (e.g., "participant.roles contains 'finance' and order.amount < 50000")
      * @throws CedarPolicyRegistrationException if the expression cannot be parsed or compiled
      */
+    @Override
     public void registerPolicy(String action, String expression) {
         try {
             // Parse ABAC expression → AST → Cedar condition
@@ -117,49 +120,40 @@ public class CedarAuthorizationService {
     /**
      * Evaluates an authorization request against a registered policy.
      * <p>
-     * Builds the Cedar JNI request JSON in a single streaming pass:
-     * <ul>
-     *   <li>Principal attributes are embedded as raw JSON</li>
-     *   <li>The raw argument array is transformed to a named object inline</li>
-     *   <li>The pre-serialized policy JSON is spliced in directly</li>
-     * </ul>
+     * Builds the Cedar JNI request JSON in a single streaming pass: principal attributes are
+     * embedded as raw JSON, the raw argument array is transformed to a named object inline, and
+     * the pre-serialized policy JSON is spliced in directly.
      *
-     * @param principalId       the principal identifier (e.g., "user-123")
-     * @param principalAttrsJson raw JSON for principal attributes (e.g., {"roles": ["finance"]})
-     * @param action            the action name (must match a registered policy)
-     * @param rawArgsPayload    the raw JSON argument array (e.g., [{"amount": 25000}])
-     * @param paramNames        the method parameter names to map array elements to
+     * @param request the request to authorize
      * @return true if the request is allowed, false if denied
-     * @throws CedarAuthorizationException if evaluation fails
+     * @throws CedarAuthorizationException if no policy is registered for the action, or evaluation fails
      */
-    public boolean isAuthorized(String principalId,
-                                String principalAttrsJson,
-                                String action,
-                                String rawArgsPayload,
-                                String[] paramNames) {
-        String policyJson = policyCache.get(action);
+    @Override
+    public boolean isAuthorized(AuthorizationRequest request) {
+        String policyJson = policyCache.get(request.action());
         if (policyJson == null) {
-            throw new CedarAuthorizationException("No policy registered for action: " + action);
+            throw new CedarAuthorizationException("No policy registered for action: " + request.action());
         }
 
         try {
             String requestJson = buildRequestJson(
-                    principalId, principalAttrsJson,
-                    action,
-                    rawArgsPayload, paramNames,
+                    request.principalId(), request.principalAttributesJson(),
+                    request.action(),
+                    request.argumentsJson(), request.parameterNames().toArray(new String[0]),
                     policyJson);
 
             String responseJson = (String) callCedarJNI.invoke("AuthorizationOperation", requestJson);
             return responseJson.contains("\"allow\"");
 
         } catch (Throwable e) {
-            throw new CedarAuthorizationException("Cedar authorization failed for action: " + action, e);
+            throw new CedarAuthorizationException("Cedar authorization failed for action: " + request.action(), e);
         }
     }
 
     /**
      * Returns true if a policy is registered for the given action.
      */
+    @Override
     public boolean hasPolicy(String action) {
         return policyCache.containsKey(action);
     }
@@ -167,6 +161,7 @@ public class CedarAuthorizationService {
     /**
      * Removes a registered policy.
      */
+    @Override
     public void removePolicy(String action) {
         policyCache.remove(action);
     }

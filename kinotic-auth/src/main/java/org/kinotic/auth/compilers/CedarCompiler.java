@@ -3,6 +3,8 @@ package org.kinotic.auth.compilers;
 import org.kinotic.auth.api.expressions.*;
 import org.kinotic.auth.parsers.PolicyParseException;
 
+import java.util.List;
+
 /**
  * Compiles a {@link PolicyExpression} AST into a Cedar policy condition string.
  * <p>
@@ -21,7 +23,7 @@ import org.kinotic.auth.parsers.PolicyParseException;
  * Path mapping:
  * <ul>
  *     <li>{@code participant.*} → {@code principal.*} (Cedar principal entity attributes)</li>
- *     <li>All other roots → {@code resource.*} (Cedar resource entity attributes, mapped from method parameter names)</li>
+ *     <li>All other roots → {@code resource.<root>.*} (nested under the resource by parameter/entity name)</li>
  * </ul>
  * <p>
  * Example:
@@ -96,20 +98,21 @@ public class CedarCompiler {
     }
 
     /**
-     * Maps an attribute path to a Cedar path.
-     * {@code participant.*} → {@code principal.*}
-     * Everything else → {@code resource.*}
+     * Maps an attribute path to a Cedar path. {@code participant.*} → {@code principal.*};
+     * every other root is nested under the resource by its own name
+     * ({@code order.amount} → {@code resource.order.amount}), matching the request shape the
+     * gateway builds from the method's named arguments.
      */
     private static String compilePath(AttributePath path) {
-        String cedarRoot = switch (path.root()) {
-            case "participant" -> "principal";
-            default -> "resource";
+        return switch (path.root()) {
+            case "participant" -> "principal" + fieldSuffix(path.fields());
+            case "context" -> "context" + fieldSuffix(path.fields());
+            default -> "resource." + path.root() + fieldSuffix(path.fields());
         };
-        String fieldPath = path.fieldPath();
-        if (fieldPath.isEmpty()) {
-            return cedarRoot;
-        }
-        return cedarRoot + "." + fieldPath;
+    }
+
+    private static String fieldSuffix(List<String> fields) {
+        return fields.isEmpty() ? "" : "." + String.join(".", fields);
     }
 
     private static String compileOperand(Operand operand) {
