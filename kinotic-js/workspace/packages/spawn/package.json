@@ -40,7 +40,7 @@
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "build:graal-renderer": "bun build ./src/spawnGraalRendererMain.ts --outfile ./dist/graal-renderer.js --format=iife --target=browser"
+    "build:graal-spawn-renderer": "bun build ./src/graalSpawnRendererMain.ts --outfile ./dist/graal-spawn-renderer.js --format=iife --target=browser"
   },
   "dependencies": {
     "liquidjs": "10.25.7",

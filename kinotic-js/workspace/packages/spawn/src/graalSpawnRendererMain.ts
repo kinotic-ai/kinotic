@@ -1,8 +1,8 @@
 import {SpawnEngine} from './api/SpawnEngine'
 
 /**
- * Entry point for dist/graal-renderer.js, the self-contained bundle produced
- * by this package's build:graal-renderer script (iife, browser target,
+ * Entry point for dist/graal-spawn-renderer.js, the self-contained bundle produced
+ * by this package's build:graal-spawn-renderer script (iife, browser target,
  * liquidjs/zod inlined). It exists for the Kinotic server, not for JavaScript
  * consumers — nothing here is exported from index.ts.
  *

@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Component
 public class GraalJsSpawnRenderer {
 
-    private static final String BUNDLE_RESOURCE = "/spawn/graal-renderer.js";
+    private static final String BUNDLE_RESOURCE = "/spawn/graal-spawn-renderer.js";
 
     private final Object initLock = new Object();
     private volatile Engine engine;
@@ -120,7 +120,7 @@ public class GraalJsSpawnRenderer {
                 engine = Engine.newBuilder("js")
                                .option("engine.WarnInterpreterOnly", "false")
                                .build();
-                bundleSource = Source.newBuilder("js", bundle, "spawn-renderer.js").build();
+                bundleSource = Source.newBuilder("js", bundle, "graal-spawn-renderer.js").build();
             } catch (IOException e) {
                 throw new IllegalStateException("Unable to load spawn renderer bundle " + BUNDLE_RESOURCE, e);
             }
