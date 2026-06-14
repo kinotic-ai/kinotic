@@ -1,6 +1,6 @@
-# Minimal compose for kinotic-test: EK stack + kinotic-server only (no otel, gen-schemas).
+# Minimal compose for the kinotic-test integration tests: Elasticsearch + migration (no Kibana, OTEL, or server).
 include:
-  - compose.ek-stack.yml
+  - compose.elasticsearch.yml
   - compose.kinotic-migration.yml
 
 services:

@@ -24,19 +24,3 @@ services:
           memory: 4G
     volumes:
       - ~/kinotic/elastic-data:/usr/share/elasticsearch/data
-  kinotic-kibana:
-    image: docker.elastic.co/kibana/kibana:9.2.4
-    container_name: kinotic-kibana
-    depends_on:
-      kinotic-elasticsearch:
-        condition: service_healthy
-    deploy:
-      resources:
-        reservations:
-          memory: 1G
-        limits:
-          memory: 1G
-    ports:
-      - "5601:5601"
-    volumes:
-      - ./kibana.yml:/usr/share/kibana/config/kibana.yml

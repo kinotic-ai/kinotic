@@ -11,7 +11,7 @@ import org.kinotic.sql.domain.MigrationContent;
 import org.kinotic.sql.executor.MigrationExecutor;
 import org.kinotic.sql.executor.TypeMapper;
 import org.kinotic.sql.parsers.MigrationParser;
-import org.kinotic.test.support.elastic.ElasticTestBase;
+import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
@@ -23,7 +23,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class CompositeTypeTest extends ElasticTestBase {
+class CompositeTypeTest extends KinoticTestBase {
 
     @Autowired
     private ElasticsearchAsyncClient asyncClient;

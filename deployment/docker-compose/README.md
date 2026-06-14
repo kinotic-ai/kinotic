@@ -9,11 +9,10 @@ workflow — they're built up from small `compose.*.yml` files using docker-comp
 | You want… | Run |
 |---|---|
 | **Everything in containers, fastest path** | `docker compose up -d` |
-| **IntelliJ-running kinotic-server, just ES + Kibana** | `docker compose -f compose.ek-stack.yml up -d` |
-| **IntelliJ + ES + run migrations once** | `docker compose -f compose.ek-stack.yml -f compose.kinotic-migration.yml up -d` |
+| **IntelliJ-running kinotic-server, just ES + Kibana** | `docker compose -f compose.elasticsearch.yml -f compose.kibana.yml up -d` |
+| **IntelliJ + ES + run migrations once** | `docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up -d` |
 | **Full stack with OIDC via local Keycloak** | `docker compose -f compose.yml -f compose.keycloak.yml up -d` |
 | **Test runtime (no observability, ephemeral ES)** | `docker compose -f compose.kinotic-test.yml up -d` |
-| **Apple Silicon (M-series) — ES SVE workaround** | append `-f compose.ek-m4.override.yml` to any of the above |
 
 `docker compose down` to stop. `docker compose down -v` to also wipe volumes (ES data).
 
@@ -22,23 +21,23 @@ workflow — they're built up from small `compose.*.yml` files using docker-comp
 | File | Purpose | Brings up |
 |---|---|---|
 | `compose.yml` | Top-level — `include:`s every piece below | Full stack (ES + Kibana + OTEL + load-gen + migration + kinotic-server) |
-| `compose.ek-stack.yml` | Elasticsearch + Kibana | `kinotic-elasticsearch:9200`, `kinotic-kibana:5601` |
+| `compose.elasticsearch.yml` | Elasticsearch | `kinotic-elasticsearch:9200` |
+| `compose.kibana.yml` | Kibana (depends on Elasticsearch) | `kinotic-kibana:5601` |
 | `compose.kinotic-migration.yml` | Runs `kinotic-migration` once against ES, then exits | One-shot job — `service_completed_successfully` is what kinotic-server waits on |
 | `compose.kinotic-server.yml` | The Kinotic server itself | `kinotic-server:9090/58503` (UI, STOMP) |
 | `compose-otel.yml` | OpenTelemetry collector + Grafana + Tempo + Mimir | `grafana:3000`, plus internal otel/tempo/mimir |
 | `compose.gen-schemas.yml` | Load-generator container that pre-populates schemas | One-shot when `compose.yml` brings up the full stack |
 | `compose.keycloak.yml` | Local Keycloak as a platform OIDC provider (dev-only secret) | `keycloak:8888` — see `KEYCLOAK_HOSTS_SETUP.md` |
 | `compose.kinotic-test.yml` | Minimal: ES + migration + server with `SPRING_PROFILES_ACTIVE=test` | Used by integration tests |
-| `compose.kinotic-e2e-test.yml` | EK + migration only (server runs externally) | Used by e2e tests in CI |
-| `compose.ek-m4.override.yml` | Adds `_JAVA_OPTIONS=-XX:UseSVE=0` for ES on Apple Silicon | Override only — not standalone |
+| `compose.kinotic-e2e-test.yml` | Elasticsearch + migration + server | Used by e2e tests in CI |
 
 ## Common one-liners
 
 ```bash
 # (1) Backing services for IntelliJ-local kinotic-server dev
-#     Runs ES, Kibana, then the migration container which exits when done.
+#     Runs ES, then the migration container which exits when done.
 #     Re-run any time you bump kinotic-migration to refresh indices.
-docker compose -f compose.ek-stack.yml -f compose.kinotic-migration.yml up -d
+docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up -d
 
 # (2) Full self-contained stack (everything in containers, including the server)
 docker compose up -d
@@ -122,8 +121,8 @@ What this gives you:
 This is the recommended workflow when iterating on backend code:
 
 ```bash
-# 1. ES + Kibana + run migrations once
-docker compose -f compose.ek-stack.yml -f compose.kinotic-migration.yml up -d
+# 1. ES + run migrations once
+docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up -d
 
 # 2. Wait for migration to finish (it's a one-shot)
 docker compose ps kinotic-migration   # State: Exited (0)
@@ -144,12 +143,6 @@ on the IntelliJ run config so OIDC redirect URIs match what's registered with th
 - `~/kinotic/elastic-data` — Elasticsearch data dir (host bind mount). Survives
   `docker compose down`; gone with `docker compose down -v` only if you also `rm -rf` it.
 - No host volumes for the kinotic-server container — it's stateless.
-
-## Apple Silicon (M-series) note
-
-Recent ES versions hit a SIGILL on M-series CPUs because of SVE auto-detection. Append
-`-f compose.ek-m4.override.yml` to any command above; the override sets
-`_JAVA_OPTIONS=-XX:UseSVE=0` on the ES container.
 
 ## When you outgrow docker-compose
 
