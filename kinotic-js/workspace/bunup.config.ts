@@ -23,6 +23,10 @@ export default defineWorkspace(
 		{
 			name: 'spawn',
 			root: 'packages/spawn'
+		},
+		{
+			name: 'spawn-node',
+			root: 'packages/spawn-node'
 		}
 	],
 	{

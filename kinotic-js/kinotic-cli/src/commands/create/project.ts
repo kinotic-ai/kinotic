@@ -4,6 +4,7 @@ import chalk from 'chalk'
 import ora from 'ora'
 import path from 'node:path'
 import process from 'node:process'
+import {assertPathWithin} from '@kinotic-ai/spawn-node'
 import {fileSystemSpawnEngine} from '@/internal/spawn/FileSystemSpawnEngine'
 import {createFrontEnd} from '@/internal/CommandHelper'
 
@@ -72,11 +73,7 @@ export class Project extends Command {
   }
 
   private async renderProjectModule(spawn: string, name: string, projectDir: string, context: Record<string, unknown>): Promise<void> {
-    const dir: string = path.resolve(name)
-
-    if (!dir.startsWith(projectDir)) {
-      throw new Error(`Module dir ${dir} must be within ${projectDir}`)
-    }
+    const dir: string = assertPathWithin(projectDir, name)
 
     await fileSystemSpawnEngine.renderSpawn(spawn, dir, context)
   }
