@@ -127,7 +127,8 @@ if (skipTests) {
     }
 }
 
-let failed = false
+const published: Pkg[] = []
+const failedToPublish: Pkg[] = []
 
 for (const pkg of toPublish) {
     console.log(`\nPublishing ${pkg.name}@${pkg.version}...`)
@@ -138,10 +139,26 @@ for (const pkg of toPublish) {
 
     if (result.status !== 0) {
         console.error(`Failed to publish ${pkg.name}`)
-        failed = true
+        failedToPublish.push(pkg)
+    } else {
+        published.push(pkg)
     }
 }
 
-if (failed) {
+// Summary at the very end, so it isn't buried under each package's verbose
+// publish output (file lists, shasums, sizes, etc.).
+console.log(`\n${'='.repeat(48)}`)
+if (published.length > 0) {
+    console.log(`Published ${published.length} package(s):`)
+    for (const pkg of published) {
+        console.log(`  ✓ ${pkg.name}@${pkg.version}`)
+    }
+}
+if (failedToPublish.length > 0) {
+    console.log(`Failed to publish ${failedToPublish.length} package(s):`)
+    for (const pkg of failedToPublish) {
+        console.log(`  ✗ ${pkg.name}@${pkg.version}`)
+    }
     process.exit(1)
 }
+
