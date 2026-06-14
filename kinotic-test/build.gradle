@@ -50,4 +50,12 @@ test {
     systemProperty 'spring.profiles.active', 'test'
     // some tests take longer
     timeout = Duration.ofMinutes(10)
+    // TEMP: surface the Testcontainers/docker-compose startup output and full exception causes
+    // in CI so a ContainerLaunchException shows its actual reason (image pull, ES bootstrap, etc.).
+    testLogging {
+        showStandardStreams = true
+        exceptionFormat = 'full'
+        showCauses = true
+        showStackTraces = true
+    }
 }
