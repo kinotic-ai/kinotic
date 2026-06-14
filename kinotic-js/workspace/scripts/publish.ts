@@ -99,54 +99,47 @@ for (const pkg of packages) {
     }
 }
 
-if (skipped.length > 0) {
-    console.log(`Already on the registry, skipping: ${skipped.map(p => `${p.name}@${p.version}`).join(', ')}`)
-}
-
-if (toPublish.length === 0) {
-    console.log('Nothing new to publish.')
-    process.exit(0)
-}
-
-// Verify only the packages being published, so e.g. a spawn-only publish doesn't
-// spin up core's gateway. The GraalJS bundle smoke test runs only when spawn is
-// among them, since that's whose bundle it is. --skip-tests bypasses all of it.
-if (skipTests) {
-    console.log('\nSkipping tests (--skip-tests)')
-} else {
-    for (const pkg of toPublish) {
-        console.log(`\nTesting ${pkg.name}...`)
-        const testResult = spawnSync('bun', ['run', '--filter', pkg.name, 'test'], { cwd: root, stdio: 'inherit' })
-        if (testResult.status !== 0) {
-            console.error(`Tests failed for ${pkg.name}`)
-            process.exit(1)
-        }
-    }
-    if (toPublish.some(p => p.name === '@kinotic-ai/spawn')) {
-        await verifyGraalBundle()
-    }
-}
-
 const published: Pkg[] = []
 const failedToPublish: Pkg[] = []
 
-for (const pkg of toPublish) {
-    console.log(`\nPublishing ${pkg.name}@${pkg.version}...`)
-
-    const publishArgs = pkg.version.includes('beta') ? ['publish', '--tag', 'beta'] : ['publish']
-
-    const result = spawnSync('bun', publishArgs, { cwd: pkg.dir, stdio: 'inherit' })
-
-    if (result.status !== 0) {
-        console.error(`Failed to publish ${pkg.name}`)
-        failedToPublish.push(pkg)
+if (toPublish.length > 0) {
+    // Verify only the packages being published, so e.g. a spawn-only publish doesn't
+    // spin up core's gateway. The GraalJS bundle smoke test runs only when spawn is
+    // among them, since that's whose bundle it is. --skip-tests bypasses all of it.
+    if (skipTests) {
+        console.log('\nSkipping tests (--skip-tests)')
     } else {
-        published.push(pkg)
+        for (const pkg of toPublish) {
+            console.log(`\nTesting ${pkg.name}...`)
+            const testResult = spawnSync('bun', ['run', '--filter', pkg.name, 'test'], { cwd: root, stdio: 'inherit' })
+            if (testResult.status !== 0) {
+                console.error(`Tests failed for ${pkg.name}`)
+                process.exit(1)
+            }
+        }
+        if (toPublish.some(p => p.name === '@kinotic-ai/spawn')) {
+            await verifyGraalBundle()
+        }
+    }
+
+    for (const pkg of toPublish) {
+        console.log(`\nPublishing ${pkg.name}@${pkg.version}...`)
+
+        const publishArgs = pkg.version.includes('beta') ? ['publish', '--tag', 'beta'] : ['publish']
+
+        const result = spawnSync('bun', publishArgs, { cwd: pkg.dir, stdio: 'inherit' })
+
+        if (result.status !== 0) {
+            console.error(`Failed to publish ${pkg.name}`)
+            failedToPublish.push(pkg)
+        } else {
+            published.push(pkg)
+        }
     }
 }
 
-// Summary at the very end, so it isn't buried under each package's verbose
-// publish output (file lists, shasums, sizes, etc.).
+// Single end-of-run summary, so the outcome isn't buried under each package's
+// verbose bun publish output (file lists, shasums, sizes).
 console.log(`\n${'='.repeat(48)}`)
 if (published.length > 0) {
     console.log(`Published ${published.length} package(s):`)
@@ -154,11 +147,22 @@ if (published.length > 0) {
         console.log(`  ✓ ${pkg.name}@${pkg.version}`)
     }
 }
+if (skipped.length > 0) {
+    console.log(`Already on the registry, skipped ${skipped.length} package(s):`)
+    for (const pkg of skipped) {
+        console.log(`  – ${pkg.name}@${pkg.version}`)
+    }
+}
 if (failedToPublish.length > 0) {
     console.log(`Failed to publish ${failedToPublish.length} package(s):`)
     for (const pkg of failedToPublish) {
         console.log(`  ✗ ${pkg.name}@${pkg.version}`)
     }
+}
+if (published.length === 0 && failedToPublish.length === 0) {
+    console.log('Nothing new to publish.')
+}
+if (failedToPublish.length > 0) {
     process.exit(1)
 }
 
