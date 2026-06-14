@@ -37,6 +37,7 @@ public final class TemplateTarball {
                     // pax_global_header and other entries outside the root directory
                     continue;
                 }
+                RepoTreePath.requireContained(path);
                 boolean executable = (entry.getMode() & 0100) != 0;
                 files.put(path, new TarballFile(tar.readAllBytes(), executable));
             }

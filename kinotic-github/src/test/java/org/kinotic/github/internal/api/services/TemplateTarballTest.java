@@ -53,6 +53,13 @@ class TemplateTarballTest {
         assertThrows(UncheckedIOException.class, () -> TemplateTarball.parse(new byte[]{1, 2, 3}));
     }
 
+    @Test
+    void rejectsAnEntryThatEscapesTheRoot() throws IOException {
+        byte[] tarball = tarball(Map.of("root/../../etc/cron.d/evil", entry("*/1 * * * * root sh", false)));
+
+        assertThrows(IllegalArgumentException.class, () -> TemplateTarball.parse(tarball));
+    }
+
     private record Entry(byte[] content, boolean executable) {
     }
 

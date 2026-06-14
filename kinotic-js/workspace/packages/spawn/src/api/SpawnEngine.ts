@@ -55,6 +55,8 @@ function camelCase(s: string): string {
  *   {@link PropertyResolver}, or fail the render when no resolver is given
  * - paths containing liquid expressions are rendered; files ending in
  *   {@code .liquid} have their content rendered and the suffix stripped
+ * - a reference to a variable that is neither in the context nor declared in
+ *   spawn.json throws rather than rendering empty (strictVariables)
  * - files from derived spawns overwrite same-destination files from inherited
  *   spawns
  */
@@ -63,7 +65,10 @@ export class SpawnEngine {
   private engine: Liquid
 
   constructor() {
-    this.engine = new Liquid({cache: true})
+    // strictVariables makes a reference to an undeclared variable throw instead of
+    // rendering an empty string, so a template that uses a value no one provides
+    // fails loudly rather than producing silently-wrong output.
+    this.engine = new Liquid({cache: true, strictVariables: true})
     this.engine.registerFilter('packageToPath', (v: string) => v.replaceAll('.', '/'))
     this.engine.registerFilter('encodePackage', (v: string) => {
       v = v.replaceAll('-', '_')

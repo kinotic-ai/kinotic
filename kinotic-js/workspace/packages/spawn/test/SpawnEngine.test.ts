@@ -182,4 +182,24 @@ describe('SpawnEngine', () => {
     })
   })
 
+  it('throws on an undeclared variable instead of rendering empty (strictVariables)', async () => {
+    await expect(new SpawnEngine().renderSpawn({'a.txt.liquid': '{{ missing }}'}, {context: {}}))
+      .rejects.toThrow(/undefined variable: missing/)
+  })
+
+  it('throws on an undeclared variable in a path', async () => {
+    await expect(new SpawnEngine().renderSpawn({'{{ missing }}/a.txt': 'hi'}, {context: {}}))
+      .rejects.toThrow(/undefined variable: missing/)
+  })
+
+  it('throws on an undeclared variable even inside a conditional or with a default filter', async () => {
+    // strictVariables looks the variable up before the filter/branch runs, so neither
+    // {% if %} nor `| default:` rescues an undeclared variable — declare optionals as
+    // globals with a real value instead.
+    await expect(new SpawnEngine().renderSpawn({'a.txt.liquid': '{% if missing %}y{% endif %}'}, {context: {}}))
+      .rejects.toThrow(/undefined variable: missing/)
+    await expect(new SpawnEngine().renderSpawn({'a.txt.liquid': '{{ missing | default: "x" }}'}, {context: {}}))
+      .rejects.toThrow(/undefined variable: missing/)
+  })
+
 })

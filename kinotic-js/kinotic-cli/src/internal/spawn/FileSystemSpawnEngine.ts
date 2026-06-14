@@ -24,10 +24,24 @@ async function loadSpawnTree(dir: string): Promise<SpawnTree> {
   return tree
 }
 
+/**
+ * Asserts {@code resolved} is at or below {@code root}, so a template can't escape
+ * the directory we're operating in via {@code ..} (whether authored in a path or
+ * injected through a property value). Relies on the resolver having already
+ * canonicalized {@code ..}; {@code ../} that stays within {@code root} is allowed.
+ */
+function assertContained(root: string, resolved: string): string {
+  const rel = path.relative(root, resolved)
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    throw new Error(`Path escapes ${root}: ${resolved}`)
+  }
+  return resolved
+}
+
 async function writeSpawnTree(tree: SpawnTree, destination: string): Promise<void> {
   await fsP.mkdir(destination, {recursive: true})
   for (const [treePath, content] of Object.entries(tree)) {
-    const filePath = path.resolve(destination, treePath)
+    const filePath = assertContained(destination, path.resolve(destination, treePath))
     await fsP.mkdir(path.dirname(filePath), {recursive: true})
     await fsP.writeFile(filePath, content)
   }
@@ -63,13 +77,14 @@ export class FileSystemSpawnEngine {
     const source: string = await this.spawnResolver.resolveSpawn(spawn)
 
     // Inheritance chains are linear, so each inherits ref resolves against the
-    // directory of the spawn that declared it.
+    // directory of the spawn that declared it — but must stay within the root
+    // spawn so a template can't pull in spawn.json from outside the tree.
     let currentDir = source
     const result = await this.engine.renderSpawn(await loadSpawnTree(source), {
       context,
       propertyResolver: new InquirerPropertyResolver(),
       loadInherited: async (ref: string) => {
-        currentDir = path.resolve(currentDir, ref)
+        currentDir = assertContained(source, path.resolve(currentDir, ref))
         if (!fs.existsSync(path.resolve(currentDir, 'spawn.json'))) {
           throw new Error(`Inherited spawn ${path.resolve(currentDir, 'spawn.json')} does not exist`)
         }

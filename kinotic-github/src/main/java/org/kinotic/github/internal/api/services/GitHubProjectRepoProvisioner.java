@@ -179,8 +179,11 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
 
     private Future<List<TreeEntry>> uploadBinaries(String token, Project project, RenderedBaseline baseline) {
         List<TreeEntry> treeEntries = new ArrayList<>();
+        // Rendered destinations are re-checked here: a property value can inject ../
+        // into a path the source entry didn't contain, so it isn't covered by the
+        // parse-time check on tarball entries.
         baseline.renderedFiles().forEach((path, content) ->
-                treeEntries.add(TreeEntry.text(path, modeFor(path, baseline), content)));
+                treeEntries.add(TreeEntry.text(RepoTreePath.requireContained(path), modeFor(path, baseline), content)));
 
         List<Future<Void>> uploads = new ArrayList<>();
         baseline.binaryFiles().forEach((path, file) ->

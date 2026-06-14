@@ -2,7 +2,21 @@ import {expect} from 'chai'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {fileSystemSpawnEngine} from '../../src/internal/spawn/FileSystemSpawnEngine.js'
+import {FileSystemSpawnEngine, fileSystemSpawnEngine} from '../../src/internal/spawn/FileSystemSpawnEngine.js'
+
+function spawnDirWith(files: Record<string, string>): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-src-'))
+    for (const [rel, content] of Object.entries(files)) {
+        const p = path.join(dir, rel)
+        fs.mkdirSync(path.dirname(p), {recursive: true})
+        fs.writeFileSync(p, content)
+    }
+    return dir
+}
+
+function engineFor(spawnDir: string): FileSystemSpawnEngine {
+    return new FileSystemSpawnEngine({resolveSpawn: async () => spawnDir})
+}
 
 describe('FileSystemSpawnEngine', () => {
 
@@ -42,6 +56,32 @@ describe('FileSystemSpawnEngine', () => {
             expect.fail('renderSpawn should have thrown')
         } catch (err) {
             expect((err as Error).message).to.contain('already exists')
+        }
+    })
+
+    it('refuses to write outside the destination when a path escapes the root', async () => {
+        // A property value injects ../ into a templated path; the write must be refused.
+        const spawnDir = spawnDirWith({'{{ out }}.txt': 'pwned'})
+        const destination = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-test-')), 'app')
+
+        try {
+            await engineFor(spawnDir).renderSpawn('evil', destination, {out: '../../../escape'})
+            expect.fail('renderSpawn should have thrown')
+        } catch (err) {
+            expect((err as Error).message).to.contain('escapes')
+            expect(fs.existsSync(path.resolve(destination, '../../../escape.txt'))).to.be.false
+        }
+    })
+
+    it('refuses an inheritance ref that escapes the root', async () => {
+        const spawnDir = spawnDirWith({'spawn.json': JSON.stringify({inherits: '../../../../etc'})})
+        const destination = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-test-')), 'app')
+
+        try {
+            await engineFor(spawnDir).renderSpawn('evil', destination, {})
+            expect.fail('renderSpawn should have thrown')
+        } catch (err) {
+            expect((err as Error).message).to.contain('escapes')
         }
     })
 
