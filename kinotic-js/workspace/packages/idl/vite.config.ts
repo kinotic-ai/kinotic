@@ -15,7 +15,6 @@ export default defineConfig({
         env: {
             DEBUG: 'kinotic:*'
         },
-        globalSetup: './test/setup.ts',
         setupFiles: ["allure-vitest/setup"],
         reporters: [
             "verbose",

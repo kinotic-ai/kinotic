@@ -72,14 +72,15 @@ if (buildResult.status !== 0) {
     process.exit(1)
 }
 
-// Verify the freshly-resolved dependencies before publishing anything. Scoped to
-// @kinotic-ai/spawn: it's where the exact-pinned, inlined deps (liquidjs/zod)
-// live, and it has no infra-dependent tests (unlike core, which needs a server).
+// Verify the freshly-resolved dependencies before publishing anything: run every
+// package's tests, then smoke-test the GraalJS bundle. core's tests need a
+// running gateway (USE_GATEWAY_DOCKER), so publish from an env that provides it
+// or pass --skip-tests.
 if (skipTests) {
     console.log('\nSkipping tests (--skip-tests)')
 } else {
     console.log('\nRunning tests...')
-    const testResult = spawnSync('bun', ['run', '--filter', '@kinotic-ai/spawn', 'test'], { cwd: root, stdio: 'inherit' })
+    const testResult = spawnSync('bun', ['run', '--filter', '*', 'test'], { cwd: root, stdio: 'inherit' })
     if (testResult.status !== 0) {
         console.error('Tests failed')
         process.exit(1)
