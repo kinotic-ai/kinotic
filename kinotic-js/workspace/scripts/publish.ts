@@ -1,9 +1,14 @@
 import { spawnSync } from 'child_process'
 import { readdirSync, readFileSync, rmSync, existsSync } from 'fs'
 import { resolve } from 'path'
+import { runInThisContext } from 'vm'
 
 const root = process.cwd()
 const packagesDir = resolve(root, 'packages')
+
+// `bun run publish --skip-tests` skips the verification step, for when manually
+// republishing many artifacts where the suite has already been run.
+const skipTests = process.argv.includes('--skip-tests')
 
 const registry = (process.env.npm_config_registry ?? 'https://registry.npmjs.org').replace(/\/$/, '')
 
@@ -18,6 +23,30 @@ async function isAlreadyPublished(name: string, version: string): Promise<boolea
     } catch {
         return false
     }
+}
+
+// Smoke-tests the built GraalJS bundle the Kinotic server consumes. vitest covers
+// the engine source, but not this inlined iife — where a bundler/dep interaction
+// can silently break it (e.g. zod tree-shaking). This runs against the exact
+// bundle produced by the fresh install above.
+async function verifyGraalBundle(): Promise<void> {
+    const bundlePath = resolve(packagesDir, 'spawn', 'dist', 'graal-spawn-renderer.js')
+    console.log(`Verifying ${bundlePath}...`)
+    runInThisContext(readFileSync(bundlePath, 'utf-8'))
+    const kinoticSpawn = (globalThis as { KinoticSpawn?: { renderSpawn(input: string): Promise<string> } }).KinoticSpawn
+    if (!kinoticSpawn) {
+        console.error('Graal bundle did not define KinoticSpawn')
+        process.exit(1)
+    }
+    const rendered = JSON.parse(await kinoticSpawn.renderSpawn(JSON.stringify({
+        files: { 'a.txt.liquid': '{{ name | upperFirst }}', 'spawn.json': '{}' },
+        context: { name: 'verify' },
+    })))
+    if (rendered.files['a.txt'] !== 'Verify') {
+        console.error(`Graal bundle smoke test failed: ${JSON.stringify(rendered.files)}`)
+        process.exit(1)
+    }
+    console.log('Graal bundle OK')
 }
 
 // Delete bun.lock to ensure a fresh install
@@ -41,6 +70,21 @@ const buildResult = spawnSync('bun', ['run', 'build'], { cwd: root, stdio: 'inhe
 if (buildResult.status !== 0) {
     console.error('bun build failed')
     process.exit(1)
+}
+
+// Verify the freshly-resolved dependencies before publishing anything. Scoped to
+// @kinotic-ai/spawn: it's where the exact-pinned, inlined deps (liquidjs/zod)
+// live, and it has no infra-dependent tests (unlike core, which needs a server).
+if (skipTests) {
+    console.log('\nSkipping tests (--skip-tests)')
+} else {
+    console.log('\nRunning tests...')
+    const testResult = spawnSync('bun', ['run', '--filter', '@kinotic-ai/spawn', 'test'], { cwd: root, stdio: 'inherit' })
+    if (testResult.status !== 0) {
+        console.error('Tests failed')
+        process.exit(1)
+    }
+    await verifyGraalBundle()
 }
 
 type Pkg = { dir: string, name: string, version: string }
