@@ -23,4 +23,10 @@ services:
         limits:
           memory: 4G
     volumes:
-      - ~/kinotic/elastic-data:/usr/share/elasticsearch/data
+      # Named volume (not a host bind mount) so consumers don't need to override it: dev keeps the
+      # data across `down`, and the test/e2e stacks get a fresh project-scoped volume cleared by
+      # `down -v`. Overriding an included service breaks `include:` on newer Docker Compose.
+      - kinotic-elastic-data:/usr/share/elasticsearch/data
+
+volumes:
+  kinotic-elastic-data:

@@ -140,8 +140,8 @@ on the IntelliJ run config so OIDC redirect URIs match what's registered with th
 
 ## Storage paths
 
-- `~/kinotic/elastic-data` — Elasticsearch data dir (host bind mount). Survives
-  `docker compose down`; gone with `docker compose down -v` only if you also `rm -rf` it.
+- `kinotic-elastic-data` — Elasticsearch data, a Docker named volume. Survives
+  `docker compose down`; removed by `docker compose down -v`.
 - No host volumes for the kinotic-server container — it's stateless.
 
 ## When you outgrow docker-compose
