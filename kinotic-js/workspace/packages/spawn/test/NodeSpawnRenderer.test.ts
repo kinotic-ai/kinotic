@@ -2,7 +2,7 @@ import {afterEach, describe, expect, it} from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {assertPathWithin, NodeSpawnRenderer} from '../src/node/index'
+import {assertPathWithin, lintSpawnDir, NodeSpawnRenderer} from '../src/node/index'
 
 const tmpDirs: string[] = []
 
@@ -82,6 +82,17 @@ describe('NodeSpawnRenderer', () => {
     expect(assertPathWithin(root, 'a/../b.txt')).toBe(path.join(root, 'b.txt'))
     expect(() => assertPathWithin(root, '../escape')).toThrow(/escapes/)
     expect(() => assertPathWithin(root, '/etc/passwd')).toThrow(/escapes/)
+  })
+
+  it('lintSpawnDir reports undeclared variables from a spawn directory', async () => {
+    const spawnDir = spawnDirWith({
+      'spawn.json': JSON.stringify({propertySchema: {projectName: {type: 'string'}}}),
+      'a.txt.liquid': '{{ projectName }} {{ missing }}',
+    })
+
+    const result = await lintSpawnDir(spawnDir)
+
+    expect(result.undeclared).toEqual([{name: 'missing', files: ['a.txt.liquid']}])
   })
 
 })

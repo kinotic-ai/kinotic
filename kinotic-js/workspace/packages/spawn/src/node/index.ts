@@ -3,6 +3,7 @@ import fsP from 'node:fs/promises'
 import path from 'node:path'
 import {SpawnEngine} from '../api/SpawnEngine'
 import type {PropertyResolver} from '../api/PropertyResolver'
+import type {SpawnLintResult} from '../api/SpawnLintResult'
 import type {SpawnTree} from '../api/SpawnTree'
 
 function assertContained(root: string, resolved: string): string {
@@ -21,6 +22,48 @@ function assertContained(root: string, resolved: string): string {
  */
 export function assertPathWithin(root: string, target: string): string {
   return assertContained(root, path.resolve(root, target))
+}
+
+// Reads every file under dir into a tree keyed by POSIX relative path; .liquid
+// files are read as text, everything else as bytes. Shared by render and lint.
+async function loadSpawnTree(dir: string): Promise<SpawnTree> {
+  const tree: SpawnTree = {}
+  const entries = await fsP.readdir(dir, {recursive: true, withFileTypes: true})
+  for (const entry of entries) {
+    if (!entry.isFile()) {
+      continue
+    }
+    const filePath = path.join(entry.parentPath, entry.name)
+    const treePath = path.relative(dir, filePath).split(path.sep).join('/')
+    if (treePath.endsWith('.liquid')) {
+      tree[treePath] = await fsP.readFile(filePath, {encoding: 'utf8'})
+    } else {
+      tree[treePath] = await fsP.readFile(filePath)
+    }
+  }
+  return tree
+}
+
+// Builds a loadInherited callback that resolves each inherits ref against the
+// spawn that declared it while confining all reads to spawnRoot.
+function diskInheritanceLoader(spawnRoot: string): (ref: string) => Promise<SpawnTree> {
+  let currentDir = spawnRoot
+  return async (ref: string) => {
+    currentDir = assertContained(spawnRoot, path.resolve(currentDir, ref))
+    if (!fs.existsSync(path.resolve(currentDir, 'spawn.json'))) {
+      throw new Error(`Inherited spawn ${path.resolve(currentDir, 'spawn.json')} does not exist`)
+    }
+    return loadSpawnTree(currentDir)
+  }
+}
+
+/**
+ * Reports the variables a spawn directory's templates reference that are
+ * declared neither in propertySchema nor in globals (following inheritance on
+ * disk, confined to {@code dir}). See {@link SpawnEngine#lint}.
+ */
+export async function lintSpawnDir(dir: string): Promise<SpawnLintResult> {
+  return new SpawnEngine().lint(await loadSpawnTree(dir), {loadInherited: diskInheritanceLoader(dir)})
 }
 
 /**
@@ -61,42 +104,15 @@ export class NodeSpawnRenderer {
       throw new Error(`The target directory ${destination} already exists`)
     }
 
-    // Inheritance chains are linear; each ref resolves against the directory of the
-    // spawn that declared it but must stay within the original spawn root.
-    let currentDir = spawnDir
-    const result = await this.engine.renderSpawn(await this.loadSpawnTree(spawnDir), {
+    const result = await this.engine.renderSpawn(await loadSpawnTree(spawnDir), {
       context: options?.context,
       propertyResolver: options?.propertyResolver,
-      loadInherited: async (ref: string) => {
-        currentDir = assertContained(spawnDir, path.resolve(currentDir, ref))
-        if (!fs.existsSync(path.resolve(currentDir, 'spawn.json'))) {
-          throw new Error(`Inherited spawn ${path.resolve(currentDir, 'spawn.json')} does not exist`)
-        }
-        return this.loadSpawnTree(currentDir)
-      }
+      loadInherited: diskInheritanceLoader(spawnDir)
     })
 
     await this.writeSpawnTree(result.files, destination)
 
     return result.context
-  }
-
-  private async loadSpawnTree(dir: string): Promise<SpawnTree> {
-    const tree: SpawnTree = {}
-    const entries = await fsP.readdir(dir, {recursive: true, withFileTypes: true})
-    for (const entry of entries) {
-      if (!entry.isFile()) {
-        continue
-      }
-      const filePath = path.join(entry.parentPath, entry.name)
-      const treePath = path.relative(dir, filePath).split(path.sep).join('/')
-      if (treePath.endsWith('.liquid')) {
-        tree[treePath] = await fsP.readFile(filePath, {encoding: 'utf8'})
-      } else {
-        tree[treePath] = await fsP.readFile(filePath)
-      }
-    }
-    return tree
   }
 
   private async writeSpawnTree(tree: SpawnTree, destination: string): Promise<void> {
