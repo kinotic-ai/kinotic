@@ -40,8 +40,7 @@
         "ts-morph": "^27.0.2",
         "uuid": "^13.0.0",
         "ws": "^8.19.0",
-        "yaml": "2.8.3",
-        "zod": "^4.3.6"
+        "yaml": "2.8.3"
     },
     "devDependencies": {
         "@types/chai": "^5",

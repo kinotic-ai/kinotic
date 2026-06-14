@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "liquidjs": "10.27.0",
-    "zod": "^4.3.6"
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.3.2",
