@@ -72,22 +72,6 @@ if (buildResult.status !== 0) {
     process.exit(1)
 }
 
-// Verify the freshly-resolved dependencies before publishing anything: run every
-// package's tests, then smoke-test the GraalJS bundle. core's tests need a
-// running gateway (USE_GATEWAY_DOCKER), so publish from an env that provides it
-// or pass --skip-tests.
-if (skipTests) {
-    console.log('\nSkipping tests (--skip-tests)')
-} else {
-    console.log('\nRunning tests...')
-    const testResult = spawnSync('bun', ['run', '--filter', '*', 'test'], { cwd: root, stdio: 'inherit' })
-    if (testResult.status !== 0) {
-        console.error('Tests failed')
-        process.exit(1)
-    }
-    await verifyGraalBundle()
-}
-
 type Pkg = { dir: string, name: string, version: string }
 
 const packages: Pkg[] = readdirSync(packagesDir)
@@ -122,6 +106,25 @@ if (skipped.length > 0) {
 if (toPublish.length === 0) {
     console.log('Nothing new to publish.')
     process.exit(0)
+}
+
+// Verify only the packages being published, so e.g. a spawn-only publish doesn't
+// spin up core's gateway. The GraalJS bundle smoke test runs only when spawn is
+// among them, since that's whose bundle it is. --skip-tests bypasses all of it.
+if (skipTests) {
+    console.log('\nSkipping tests (--skip-tests)')
+} else {
+    for (const pkg of toPublish) {
+        console.log(`\nTesting ${pkg.name}...`)
+        const testResult = spawnSync('bun', ['run', '--filter', pkg.name, 'test'], { cwd: root, stdio: 'inherit' })
+        if (testResult.status !== 0) {
+            console.error(`Tests failed for ${pkg.name}`)
+            process.exit(1)
+        }
+    }
+    if (toPublish.some(p => p.name === '@kinotic-ai/spawn')) {
+        await verifyGraalBundle()
+    }
 }
 
 let failed = false
