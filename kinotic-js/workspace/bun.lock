@@ -114,23 +114,10 @@
     },
     "packages/spawn": {
       "name": "@kinotic-ai/spawn",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "dependencies": {
         "liquidjs": "10.25.7",
         "zod": "^4.3.6",
-      },
-      "devDependencies": {
-        "@types/node": "^25.3.2",
-        "@vitest/coverage-v8": "^4.0.18",
-        "typescript": "^5.9.3",
-        "vitest": "^4.0.18",
-      },
-    },
-    "packages/spawn-node": {
-      "name": "@kinotic-ai/spawn-node",
-      "version": "0.1.0",
-      "dependencies": {
-        "@kinotic-ai/spawn": "workspace:*",
       },
       "devDependencies": {
         "@types/node": "^25.3.2",
@@ -256,8 +243,6 @@
     "@kinotic-ai/persistence": ["@kinotic-ai/persistence@workspace:packages/persistence"],
 
     "@kinotic-ai/spawn": ["@kinotic-ai/spawn@workspace:packages/spawn"],
-
-    "@kinotic-ai/spawn-node": ["@kinotic-ai/spawn-node@workspace:packages/spawn-node"],
 
     "@kwsites/file-exists": ["@kwsites/file-exists@1.1.1", "", { "dependencies": { "debug": "^4.1.1" } }, "sha512-m9/5YGR18lIwxSFDwfE3oA7bWuq9kdau6ugN4H2rJeyhFQZcG9AgSHkQtSD15a8WvTgfz9aikZMrKPHvbpqFiw=="],
 

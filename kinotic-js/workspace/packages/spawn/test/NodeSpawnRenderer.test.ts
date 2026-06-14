@@ -2,7 +2,7 @@ import {afterEach, describe, expect, it} from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {assertPathWithin, NodeSpawnRenderer} from '../src/index'
+import {assertPathWithin, NodeSpawnRenderer} from '../src/node/index'
 
 const tmpDirs: string[] = []
 

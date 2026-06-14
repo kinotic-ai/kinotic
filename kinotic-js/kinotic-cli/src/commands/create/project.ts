@@ -4,7 +4,7 @@ import chalk from 'chalk'
 import ora from 'ora'
 import path from 'node:path'
 import process from 'node:process'
-import {assertPathWithin} from '@kinotic-ai/spawn-node'
+import {assertPathWithin} from '@kinotic-ai/spawn/node'
 import {fileSystemSpawnEngine} from '@/internal/spawn/FileSystemSpawnEngine'
 import {createFrontEnd} from '@/internal/CommandHelper'
 

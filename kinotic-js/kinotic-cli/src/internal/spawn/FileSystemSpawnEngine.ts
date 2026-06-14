@@ -1,4 +1,4 @@
-import {NodeSpawnRenderer} from '@kinotic-ai/spawn-node'
+import {NodeSpawnRenderer} from '@kinotic-ai/spawn/node'
 import {InquirerPropertyResolver} from './InquirerPropertyResolver'
 import {spawnResolver, SpawnResolver} from './SpawnResolver'
 

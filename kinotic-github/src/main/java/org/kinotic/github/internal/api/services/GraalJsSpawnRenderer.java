@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Component
 public class GraalJsSpawnRenderer {
 
-    private static final String BUNDLE_RESOURCE = "/spawn/spawn-renderer.js";
+    private static final String BUNDLE_RESOURCE = "/spawn/graal-renderer.js";
 
     private final Object initLock = new Object();
     private volatile Engine engine;

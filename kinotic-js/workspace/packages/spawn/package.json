@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/spawn",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "files": [
     "dist"
@@ -19,6 +19,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./node": {
+      "import": {
+        "types": "./dist/node/index.d.ts",
+        "default": "./dist/node/index.js"
+      },
+      "require": {
+        "types": "./dist/node/index.d.cts",
+        "default": "./dist/node/index.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "homepage": "https://github.com/kinotic-ai/kinotic",
@@ -30,7 +40,7 @@
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "build:renderer": "bun build ./src/spawnRendererMain.ts --outfile ./dist/spawn-renderer.global.js --format=iife --target=browser"
+    "build:graal-renderer": "bun build ./src/spawnGraalRendererMain.ts --outfile ./dist/graal-renderer.js --format=iife --target=browser"
   },
   "dependencies": {
     "liquidjs": "10.25.7",

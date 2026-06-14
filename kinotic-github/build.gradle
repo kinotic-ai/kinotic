@@ -39,9 +39,9 @@ dependencies {
 }
 
 // GraalJsSpawnRenderer executes the published @kinotic-ai/spawn npm package.
-// Its GraalJS bundle (dist/spawn-renderer.global.js) is fetched from the npm
-// registry as an ordinary dependency and extracted onto the classpath, so the
-// engine version the server runs is the pin below, not repo source.
+// Its GraalJS bundle (dist/graal-renderer.js) is fetched from the npm registry
+// as an ordinary dependency and extracted onto the classpath, so the engine
+// version the server runs is the pin below, not repo source.
 repositories {
     ivy {
         url = uri('https://registry.npmjs.org')
@@ -62,8 +62,8 @@ dependencies {
 
 tasks.register('extractSpawnRenderer', Copy) {
     from({ tarTree(resources.gzip(configurations.spawnRenderer.singleFile)) }) {
-        include 'package/dist/spawn-renderer.global.js'
-        eachFile { it.path = 'spawn/spawn-renderer.js' }
+        include 'package/dist/graal-renderer.js'
+        eachFile { it.path = 'spawn/graal-renderer.js' }
     }
     includeEmptyDirs = false
     into layout.buildDirectory.dir('spawn-renderer')
