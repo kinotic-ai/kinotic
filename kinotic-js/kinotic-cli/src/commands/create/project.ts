@@ -1,4 +1,4 @@
-import {Args, Command} from '@oclif/core'
+import {Args, Command, Flags} from '@oclif/core'
 import {input, select} from '@inquirer/prompts'
 import chalk from 'chalk'
 import ora from 'ora'
@@ -11,18 +11,27 @@ export class Project extends Command {
   static description = 'Creates a Kinotic Project'
 
   static examples = [
-    '$ kinotic create project MyProjectName',
+    '$ kinotic create project MyProjectName --organization acme --application acme-app',
   ]
 
   static args = {
     name: Args.string({description: 'The name for the project', required: true})
   }
 
+  static flags = {
+    organization: Flags.string({char: 'o', description: 'The organization that owns the project', required: true}),
+    application: Flags.string({char: 'a', description: 'The application the project belongs to', required: true})
+  }
+
   async run(): Promise<void> {
-    const {args} = await this.parse(Project)
+    const {args, flags} = await this.parse(Project)
 
     const projectDir: string = path.resolve(args.name)
-    let context: Record<string, unknown> = {projectName: args.name}
+    let context: Record<string, unknown> = {
+      projectName: args.name,
+      organization: flags.organization,
+      application: flags.application
+    }
 
     this.log(chalk.cyan('Creating Kinotic Project'))
 
