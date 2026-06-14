@@ -112,10 +112,10 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
                     }
                     CompletableFuture<Void> chain = CompletableFuture.completedFuture(null);
                     for (Project project : projects) {
-                        if (project.getRepositoryConnectionStatus() == RepositoryConnectionStatus.DISCONNECTED) {
+                        if (project.getRepoConnectionStatus() == RepositoryConnectionStatus.DISCONNECTED) {
                             continue;
                         }
-                        project.setRepositoryConnectionStatus(RepositoryConnectionStatus.DISCONNECTED);
+                        project.setRepoConnectionStatus(RepositoryConnectionStatus.DISCONNECTED);
                         log.warn("Flagging project {} (org {}) DISCONNECTED — installation lost access to {}",
                                  project.getId(), project.getOrganizationId(), repoFullName);
                         chain = chain.thenCompose(v -> projectRepository

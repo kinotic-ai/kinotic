@@ -19,6 +19,14 @@ export default defineWorkspace(
 		{
 			name: 'persistence',
 			root: 'packages/persistence'
+		},
+		{
+			// Library only: core engine (".") + node fs adapter ("./node"), deps external.
+			// The GraalJS iife (spawnGraalRendererMain) is built by the package's
+			// build:graal-renderer script — bunup mis-tree-shakes zod v4 into a broken bundle.
+			name: 'spawn',
+			root: 'packages/spawn',
+			config: { entry: ['src/index.ts', 'src/node/index.ts'] }
 		}
 	],
 	{

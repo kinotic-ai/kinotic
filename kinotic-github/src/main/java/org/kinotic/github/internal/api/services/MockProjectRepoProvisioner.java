@@ -29,10 +29,16 @@ public class MockProjectRepoProvisioner implements ProjectRepoProvisioner {
         String repoName = project.getName() == null ? "unnamed" : project.getName();
         project.setRepoFullName(FAKE_OWNER + "/" + repoName);
         project.setRepoId(FAKE_REPO_ID);
-        project.setDefaultBranch(FAKE_DEFAULT_BRANCH);
-        project.setRepositoryConnectionStatus(RepositoryConnectionStatus.CONNECTED);
+        project.setRepoDefaultBranch(FAKE_DEFAULT_BRANCH);
+        project.setRepoConnectionStatus(RepositoryConnectionStatus.CONNECTED);
         log.debug("MockProjectRepoProvisioner stamped {} on project {}",
                   project.getRepoFullName(), project.getId());
+        return CompletableFuture.completedFuture(project);
+    }
+
+    @Override
+    public CompletableFuture<Project> reinitialize(Project project) {
+        project.setRepoConnectionStatus(RepositoryConnectionStatus.CONNECTED);
         return CompletableFuture.completedFuture(project);
     }
 }

@@ -28,7 +28,7 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "test": "vitest run --mode development",
+    "test": "vitest run",
     "coverage": "vitest run --coverage",
     "ui-test": "vitest --ui --coverage.enabled=true --mode development"
   },

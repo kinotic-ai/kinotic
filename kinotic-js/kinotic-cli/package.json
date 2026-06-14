@@ -22,13 +22,14 @@
         "@kinotic-ai/idl": "^1.0.9",
         "@kinotic-ai/os-api": "^1.11.0",
         "@kinotic-ai/persistence": "^1.4.0",
+        "@kinotic-ai/spawn": "^0.5.0",
         "@oclif/core": "^4.9.0",
         "c12": "^3.3.3",
         "chalk": "^5.6.2",
         "execa": "^9.6.1",
         "glob": "^13.0.6",
         "graphql": "^16.13.1",
-        "liquidjs": "10.25.7",
+        "liquidjs": "10.27.0",
         "open": "^11.0.0",
         "ora": "^9.3.0",
         "p-timeout": "^7.0.1",
@@ -39,8 +40,7 @@
         "ts-morph": "^27.0.2",
         "uuid": "^13.0.0",
         "ws": "^8.19.0",
-        "yaml": "2.8.3",
-        "zod": "^4.3.6"
+        "yaml": "2.8.3"
     },
     "devDependencies": {
         "@types/chai": "^5",
@@ -67,6 +67,9 @@
         "topics": {
             "create": {
                 "description": "Creates Kinotic projects, libraries, and applications"
+            },
+            "spawn": {
+                "description": "Works with Kinotic spawn templates"
             }
         }
     },

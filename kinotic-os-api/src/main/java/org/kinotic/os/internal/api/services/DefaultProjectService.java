@@ -5,6 +5,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Project;
+import org.kinotic.domain.api.model.RepositoryConnectionStatus;
 import org.kinotic.domain.internal.api.repositories.ProjectRepository;
 import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
 import org.kinotic.domain.internal.utils.DomainUtil;
@@ -81,6 +82,23 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     public CompletableFuture<List<Project>> findByRepoFullName(String repoFullName) {
         Validate.notBlank(repoFullName, "repoFullName must not be blank");
         return projectRepository.findByRepoFullName(repoFullName, requireOrganizationId());
+    }
+
+    @Override
+    public CompletableFuture<Project> retryRepoInitialization(String projectId) {
+        Validate.notBlank(projectId, "projectId must not be blank");
+        return findById(projectId).thenCompose(project -> {
+            if (project == null) {
+                return CompletableFuture.failedFuture(new IllegalArgumentException(
+                        "Project for id " + projectId + " does not exist"));
+            }
+            if (project.getRepoConnectionStatus() != RepositoryConnectionStatus.INITIALIZATION_FAILED) {
+                return CompletableFuture.failedFuture(new IllegalStateException(
+                        "Project " + projectId + " is not awaiting initialization retry (status "
+                        + project.getRepoConnectionStatus() + ")"));
+            }
+            return repoProvisioner.reinitialize(project).thenCompose(this::save);
+        });
     }
 
     private void validateAndDeriveId(Project project) {
