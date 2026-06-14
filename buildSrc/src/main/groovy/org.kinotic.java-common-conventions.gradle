@@ -141,5 +141,12 @@ test {
         "--add-opens=java.base/java.lang=ALL-UNNAMED",
         "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
     )
+    // Show full stack traces with messages and cause chains on test failures (the default 'short'
+    // format prints only class:line, which hides the real reason).
+    testLogging {
+        exceptionFormat = 'full'
+        showCauses = true
+        showStackTraces = true
+    }
 }
 
