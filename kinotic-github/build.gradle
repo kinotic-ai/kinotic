@@ -69,8 +69,7 @@ tasks.register('extractSpawnRenderer', Copy) {
     into layout.buildDirectory.dir('spawn-renderer')
 }
 
-sourceSets.main.resources.srcDir(layout.buildDirectory.dir('spawn-renderer'))
-
-tasks.named('processResources') {
-    dependsOn 'extractSpawnRenderer'
-}
+// Register the task (not just its output dir) as the resource source so every
+// consumer — processResources, sourcesJar — infers the extractSpawnRenderer
+// dependency, instead of each having to declare it by hand.
+sourceSets.main.resources.srcDir(tasks.named('extractSpawnRenderer'))
