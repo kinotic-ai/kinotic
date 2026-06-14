@@ -63,8 +63,8 @@ public class CasbinCompiler {
             case IN -> compileIn(left, (ArrayValue) comp.right());
             // A missing map key resolves to nil, so presence is a non-nil check.
             case EXISTS -> left + " != nil";
-            // AviatorScript regex match; the glob is anchored so '*' spans the whole value.
-            case LIKE -> left + " =~ " + compileLikePattern((LiteralValue) comp.right());
+            // Custom like(value, glob) function ('*' matches any sequence); see LikeFunction.
+            case LIKE -> "like(" + left + ", " + compileLiteral((LiteralValue) comp.right()) + ")";
         };
     }
 
@@ -111,26 +111,5 @@ public class CasbinCompiler {
             case DECIMAL -> String.valueOf(lit.asDouble());
             case BOOLEAN -> String.valueOf(lit.asBoolean());
         };
-    }
-
-    /**
-     * Converts a glob pattern ({@code *} = any sequence) into an anchored AviatorScript regex literal
-     * so the match spans the entire value, mirroring Cedar's {@code like}.
-     */
-    private static String compileLikePattern(LiteralValue lit) {
-        String glob = lit.asString();
-        StringBuilder regex = new StringBuilder("/^");
-        for (int i = 0; i < glob.length(); i++) {
-            char c = glob.charAt(i);
-            if (c == '*') {
-                regex.append(".*");
-            } else if ("\\.[]{}()+-^$|?/".indexOf(c) >= 0) {
-                regex.append('\\').append(c);
-            } else {
-                regex.append(c);
-            }
-        }
-        regex.append("$/");
-        return regex.toString();
     }
 }

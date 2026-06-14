@@ -111,8 +111,8 @@ class EngineComparisonTest {
                 .flatMap(s -> s.cases().stream().map(c -> requestFor(s, c)))
                 .toList();
 
-        // Each eval re-parses the request JSON, so these numbers reflect the full first-pass
-        // integration cost (parse + evaluate), not the engines' raw matcher speed in isolation.
+        // Both engines run their production path: Cedar via direct JNI, jCasbin via pre-compiled
+        // AviatorScript. Each eval still parses the request JSON, as it arrives at the gateway.
         int warmup = 200;
         int iterations = 500;
         long evaluations = (long) iterations * requests.size();

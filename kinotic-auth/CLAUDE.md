@@ -31,7 +31,7 @@
 | `org.kinotic.auth.parsers` | Hand-written `PolicyExpressionParser` (ANTLR visitor that produces the AST) and `PolicyParseException` |
 | `org.kinotic.auth.compilers` | `CedarCompiler` (AST → Cedar condition), `CasbinCompiler` (AST → AviatorScript condition), and `EsQueryCompiler` (AST → Elasticsearch `Query`) |
 | `org.kinotic.auth.cedar` | `CedarAuthorizationService` — Cedar engine that calls JNI directly with streaming JSON (no POJO round-trip) |
-| `org.kinotic.auth.casbin` | `CasbinAuthorizationService` — pure-JVM jCasbin engine (AviatorScript matchers, no native library) |
+| `org.kinotic.auth.casbin` | `CasbinAuthorizationService` — pure-JVM engine evaluating pre-compiled AviatorScript matchers (Casbin's matcher language), no native library |
 
 ## Expression Language
 
@@ -56,7 +56,7 @@ entity.approvedBy exists
 | Compiler | Input | Output | Use Case |
 |---|---|---|---|
 | `CedarCompiler` | `PolicyExpression` AST | Cedar condition string (body of a `when` clause) | Gateway-level allow/deny evaluation via Cedar in-process JNI |
-| `CasbinCompiler` | `PolicyExpression` AST | AviatorScript condition (body of `eval(p.cond)`) | Gateway-level allow/deny evaluation via the pure-JVM jCasbin engine |
+| `CasbinCompiler` | `PolicyExpression` AST | AviatorScript boolean condition | Gateway-level allow/deny evaluation via pre-compiled AviatorScript (the engine Casbin uses for ABAC) |
 | `EsQueryCompiler` | `PolicyExpression` AST + participant attributes map | Elasticsearch `Query` | Injected as filter into read queries so only authorized documents are returned |
 
 For service method policies, the gateway transforms raw JSON argument arrays into named objects using registered parameter names. The CedarCompiler maps these parameter names to `resource.*` attributes, enabling Cedar expressions like `resource.order.amount < 50000` for a method parameter named `order`.
@@ -68,5 +68,5 @@ For service method policies, the gateway transforms raw JSON argument arrays int
 | `kinotic-idl` | `C3Decorator`, `DecoratorTarget` used by `AbacPolicyDecorator` |
 | `co.elastic.clients:elasticsearch-java` | Elasticsearch `Query`, `BoolQuery`, `FieldValue` types used by `EsQueryCompiler` |
 | `com.cedarpolicy:cedar-java` | Cedar authorization engine for in-process policy evaluation via JNI |
-| `org.casbin:jcasbin` | Pure-JVM ABAC engine (AviatorScript matchers) evaluated side-by-side with Cedar |
+| `org.casbin:jcasbin` | Provides the AviatorScript engine used (pre-compiled) for the jCasbin-style ABAC comparison |
 | `org.antlr:antlr4-runtime` | ANTLR runtime for the generated parser |

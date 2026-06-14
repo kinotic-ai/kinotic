@@ -51,7 +51,8 @@ dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-annotations:2.20'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.18.3'
 
-    // jCasbin — pure-JVM ABAC engine (AviatorScript matchers); evaluated side-by-side with Cedar
+    // jCasbin provides the AviatorScript matcher engine; CasbinAuthorizationService evaluates
+    // pre-compiled AviatorScript expressions directly (jCasbin's Enforcer recompiles per call).
     implementation 'org.casbin:jcasbin:1.99.0'
 
     // Testing

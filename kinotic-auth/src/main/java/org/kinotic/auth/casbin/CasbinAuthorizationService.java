@@ -1,7 +1,8 @@
 package org.kinotic.auth.casbin;
 
-import org.casbin.jcasbin.main.Enforcer;
-import org.casbin.jcasbin.model.Model;
+import com.googlecode.aviator.AviatorEvaluator;
+import com.googlecode.aviator.AviatorEvaluatorInstance;
+import com.googlecode.aviator.Expression;
 import org.kinotic.auth.api.engine.AuthorizationEngine;
 import org.kinotic.auth.api.engine.AuthorizationRequest;
 import org.kinotic.auth.compilers.CasbinCompiler;
@@ -11,57 +12,34 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * jCasbin-backed {@link AuthorizationEngine}: a pure-JVM ABAC engine that evaluates policies with
- * AviatorScript matchers, requiring no native library.
+ * Pure-JVM ABAC {@link AuthorizationEngine} that evaluates AviatorScript matcher conditions — the
+ * matcher language Casbin uses for ABAC — with no native library.
  * <p>
- * Each registered ABAC expression is compiled to an AviatorScript condition and stored as a jCasbin
- * policy keyed by action; the shared model evaluates {@code eval(p.cond)} for the action matching the
- * request. Requests carry participant attributes and method arguments as raw JSON, which are parsed
- * into the maps the matcher reads as {@code r.sub.*} and {@code r.obj.*}.
+ * Each registered ABAC expression is compiled to an AviatorScript condition (via {@link CasbinCompiler})
+ * and pre-compiled to a cached {@link Expression} keyed by action. Evaluation parses the request's
+ * participant attributes and method arguments into the {@code r.sub.*} / {@code r.obj.*} maps the
+ * condition reads, then executes the pre-compiled expression in-process.
+ * <p>
+ * jCasbin's {@code Enforcer} is intentionally not on the evaluation path: its {@code eval(p.cond)}
+ * matcher recompiles the AviatorScript expression on every call, which dominates latency. Pre-compiling
+ * once per action and executing the cached expression is the production-grade equivalent.
  */
 public class CasbinAuthorizationService implements AuthorizationEngine {
 
-    private static final String MODEL_TEXT = """
-            [request_definition]
-            r = sub, obj, act
-
-            [policy_definition]
-            p = act, cond
-
-            [policy_effect]
-            e = some(where (p.eft == allow))
-
-            [matchers]
-            m = r.act == p.act && eval(p.cond)
-            """;
-
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final Enforcer enforcer;
+    private final AviatorEvaluatorInstance aviator = AviatorEvaluator.newInstance();
 
     /**
-     * Actions with a registered policy, for O(1) membership checks on the evaluation path.
+     * Pre-compiled AviatorScript condition per action.
      */
-    private final Set<String> registeredActions = ConcurrentHashMap.newKeySet();
+    private final Map<String, Expression> compiledByAction = new ConcurrentHashMap<>();
 
-    /**
-     * Creates a new CasbinAuthorizationService with an in-memory ABAC enforcer.
-     *
-     * @throws CasbinInitializationException if the ABAC model cannot be loaded
-     */
     public CasbinAuthorizationService() {
-        try {
-            Model model = new Model();
-            model.loadModelFromText(MODEL_TEXT);
-            this.enforcer = new Enforcer(model);
-            this.enforcer.enableLog(false);
-        } catch (Exception e) {
-            throw new CasbinInitializationException("Failed to initialize jCasbin enforcer", e);
-        }
+        aviator.addFunction(new LikeFunction());
     }
 
     @Override
@@ -69,12 +47,7 @@ public class CasbinAuthorizationService implements AuthorizationEngine {
         try {
             var ast = PolicyExpressionParser.parse(expression);
             String condition = CasbinCompiler.compile(ast);
-
-            // Replace any prior policy so re-registration is idempotent.
-            enforcer.removeFilteredPolicy(0, action);
-            enforcer.addPolicy(action, condition);
-            registeredActions.add(action);
-
+            compiledByAction.put(action, aviator.compile(condition, true));
         } catch (Exception e) {
             throw new CasbinPolicyRegistrationException(
                     "Failed to register jCasbin policy for action '" + action + "': " + expression, e);
@@ -83,27 +56,37 @@ public class CasbinAuthorizationService implements AuthorizationEngine {
 
     @Override
     public boolean isAuthorized(AuthorizationRequest request) {
-        if (!registeredActions.contains(request.action())) {
+        Expression compiled = compiledByAction.get(request.action());
+        if (compiled == null) {
             throw new CasbinAuthorizationException("No policy registered for action: " + request.action());
         }
+
+        Map<String, Object> subject;
+        Map<String, Object> object;
         try {
-            Map<String, Object> subject = parseObject(request.principalAttributesJson());
-            Map<String, Object> object = buildNamedArguments(request.argumentsJson(), request.parameterNames());
-            return enforcer.enforce(subject, object, request.action());
+            subject = parseObject(request.principalAttributesJson());
+            object = buildNamedArguments(request.argumentsJson(), request.parameterNames());
         } catch (Exception e) {
-            throw new CasbinAuthorizationException("jCasbin authorization failed for action: " + request.action(), e);
+            throw new CasbinAuthorizationException("Failed to parse request for action: " + request.action(), e);
+        }
+
+        Map<String, Object> env = Map.of("r", Map.of("sub", subject, "obj", object));
+        try {
+            return Boolean.TRUE.equals(compiled.execute(env));
+        } catch (RuntimeException evaluationError) {
+            // A missing attribute or type mismatch denies, matching Cedar's fail-closed behavior.
+            return false;
         }
     }
 
     @Override
     public boolean hasPolicy(String action) {
-        return registeredActions.contains(action);
+        return compiledByAction.containsKey(action);
     }
 
     @Override
     public void removePolicy(String action) {
-        enforcer.removeFilteredPolicy(0, action);
-        registeredActions.remove(action);
+        compiledByAction.remove(action);
     }
 
     @SuppressWarnings("unchecked")
@@ -116,7 +99,7 @@ public class CasbinAuthorizationService implements AuthorizationEngine {
 
     /**
      * Maps the positional JSON argument array onto a named object using the parameter names,
-     * producing the {@code r.obj} the matcher reads (e.g. {@code [{"amount":25000}]} with names
+     * producing the {@code r.obj} the condition reads (e.g. {@code [{"amount":25000}]} with names
      * {@code ["order"]} becomes {@code {"order": {"amount": 25000}}}).
      */
     @SuppressWarnings("unchecked")
