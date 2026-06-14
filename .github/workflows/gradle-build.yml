@@ -34,15 +34,29 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # Step 1: build + test the migration toolchain, then publish the kinotic-migration image.
+      # kinotic-test (in the main build below) starts a compose stack that pulls
+      # kinoticai/kinotic-migration:<version>, so the image must exist first. The `&&` publishes
+      # the image only if kinotic-sql and kinotic-migration tests pass.
+      - name: Build & test kinotic-sql + kinotic-migration, publish migration image
+        id: migration
+        continue-on-error: true
+        run: ./gradlew :kinotic-sql:build :kinotic-migration:build && ./gradlew :kinotic-migration:bootBuildImage --publishImage
+        env:
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      # Step 2: build and test everything else. kinotic-test pulls the migration image published above.
       - name: Build with Gradle
         id: gradle_build
+        if: ${{ steps.migration.outcome == 'success' }}
         continue-on-error: true
-#        env:
-#          TESTCONTAINERS_RYUK_DISABLED: true
         run: ./gradlew build
 
+      # All library Maven artifacts publish once here (applications publish images, not jars), so
+      # kinotic-sql deploys with the rest — no separate/duplicate deploy.
       - name: Publish to Maven Central with JReleaser
-        if: ${{ steps.gradle_build.outcome == 'success' }}
+        if: ${{ steps.migration.outcome == 'success' && steps.gradle_build.outcome == 'success' }}
         run: ./gradlew publish && ./gradlew jreleaserDeploy --info
         env:
           JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.MAVEN_TOKEN_USERNAME }}
@@ -52,9 +66,10 @@ jobs:
           JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_KEY_NEW }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_KEY_PASS_NEW }}
 
-      - name: Publish to Docker Hub
-        if: ${{ steps.gradle_build.outcome == 'success' }}
-        run: ./gradlew bootBuildImage --publishImage
+      # The migration image was published in step 1; this publishes the remaining application image.
+      - name: Publish kinotic-server image to Docker Hub
+        if: ${{ steps.migration.outcome == 'success' && steps.gradle_build.outcome == 'success' }}
+        run: ./gradlew :kinotic-server:bootBuildImage --publishImage
         env:
           DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
           DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
