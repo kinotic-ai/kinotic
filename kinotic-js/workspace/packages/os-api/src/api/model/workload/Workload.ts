@@ -1,6 +1,7 @@
 import type { Identifiable } from '@kinotic-ai/core'
 import { WorkloadStatus } from '@/api/model/workload/WorkloadStatus'
 import { VmProviderType } from '@/api/model/workload/VmProviderType'
+import type { VolumeMount } from '@/api/model/workload/VolumeMount'
 
 /**
  * Represents a workload to be managed by the VM manager.
@@ -62,6 +63,11 @@ export class Workload implements Identifiable<string> {
      * Optional port mappings from host to guest (hostPort -> guestPort).
      */
     public portMappings: Record<number, number> = {}
+
+    /**
+     * Volume mounts that expose host directories inside the guest VM.
+     */
+    public volumeMounts: VolumeMount[] = []
 
     /**
      * The date and time the workload was created.
