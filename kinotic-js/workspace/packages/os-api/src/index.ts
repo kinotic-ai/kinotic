@@ -34,6 +34,8 @@ export * from '@/api/model/insights/InsightRequest'
 
 export * from '@/api/model/workload/Workload'
 export * from '@/api/model/workload/VolumeMount'
+export * from '@/api/model/workload/PortMapping'
+export * from '@/api/model/workload/PortProtocol'
 export * from '@/api/model/workload/WorkloadStatus'
 export * from '@/api/model/workload/VmProviderType'
 export * from '@/api/model/workload/VmNode'
