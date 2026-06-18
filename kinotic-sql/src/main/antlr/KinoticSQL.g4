@@ -6,6 +6,8 @@ migrations
 
 statement
     : createTableStatement
+    | createDataStreamStatement
+    | createLifecyclePolicyStatement
     | createComponentTemplateStatement
     | createIndexTemplateStatement
     | alterTableStatement
@@ -18,6 +20,29 @@ statement
 
 createTableStatement
     : CREATE TABLE (IF NOT EXISTS)? ID LPAREN columnDefinition (COMMA columnDefinition)* RPAREN SEMICOLON
+    ;
+
+createDataStreamStatement
+    : CREATE DATA STREAM ID LPAREN columnDefinition (COMMA columnDefinition)* RPAREN (WITH LPAREN dataStreamOption (COMMA dataStreamOption)* RPAREN)? SEMICOLON
+    ;
+
+dataStreamOption
+    : LIFECYCLE EQUALS STRING
+    ;
+
+createLifecyclePolicyStatement
+    : CREATE LIFECYCLE POLICY ID WITH LPAREN lifecyclePhase (COMMA lifecyclePhase)* RPAREN SEMICOLON
+    ;
+
+lifecyclePhase
+    : ROLLOVER LPAREN rolloverCondition (COMMA rolloverCondition)* RPAREN
+    | DELETE LPAREN MIN_AGE EQUALS STRING RPAREN
+    ;
+
+rolloverCondition
+    : MAX_AGE EQUALS STRING
+    | MAX_SIZE EQUALS STRING
+    | MAX_DOCS EQUALS INTEGER_LITERAL
     ;
 
 createComponentTemplateStatement
@@ -172,6 +197,7 @@ COLUMN: 'COLUMN';
 COMPONENT: 'COMPONENT';
 CONFLICTS: 'CONFLICTS';
 CREATE: 'CREATE';
+DATA: 'DATA';
 DATE: 'DATE';
 DELETE: 'DELETE';
 DOUBLE: 'DOUBLE';
@@ -184,21 +210,28 @@ INDEX: 'INDEX';
 INDEXED: 'INDEXED';
 INSERT: 'INSERT';
 INTO: 'INTO';
+LIFECYCLE: 'LIFECYCLE';
 LONG: 'LONG';
+MAX_AGE: 'MAX_AGE';
 MAX_DOCS: 'MAX_DOCS';
+MAX_SIZE: 'MAX_SIZE';
+MIN_AGE: 'MIN_AGE';
 NOT: 'NOT';
 NUMBER_OF_REPLICAS: 'NUMBER_OF_REPLICAS';
 NUMBER_OF_SHARDS: 'NUMBER_OF_SHARDS';
 OR: 'OR';
+POLICY: 'POLICY';
 PROCEED: 'PROCEED';
 QUERY: 'QUERY';
 REFRESH: 'REFRESH';
 REINDEX: 'REINDEX';
+ROLLOVER: 'ROLLOVER';
 SCRIPT: 'SCRIPT';
 SET: 'SET';
 SIZE: 'SIZE';
 SLICES: 'SLICES';
 SOURCE_FIELDS: 'SOURCE_FIELDS';
+STREAM: 'STREAM';
 TABLE: 'TABLE';
 TEMPLATE: 'TEMPLATE';
 UPDATE: 'UPDATE';

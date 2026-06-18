@@ -38,6 +38,56 @@ public interface KinoticSQLListener extends ParseTreeListener {
 	 */
 	void exitCreateTableStatement(KinoticSQLParser.CreateTableStatementContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#createDataStreamStatement}.
+	 * @param ctx the parse tree
+	 */
+	void enterCreateDataStreamStatement(KinoticSQLParser.CreateDataStreamStatementContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#createDataStreamStatement}.
+	 * @param ctx the parse tree
+	 */
+	void exitCreateDataStreamStatement(KinoticSQLParser.CreateDataStreamStatementContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#dataStreamOption}.
+	 * @param ctx the parse tree
+	 */
+	void enterDataStreamOption(KinoticSQLParser.DataStreamOptionContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#dataStreamOption}.
+	 * @param ctx the parse tree
+	 */
+	void exitDataStreamOption(KinoticSQLParser.DataStreamOptionContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#createLifecyclePolicyStatement}.
+	 * @param ctx the parse tree
+	 */
+	void enterCreateLifecyclePolicyStatement(KinoticSQLParser.CreateLifecyclePolicyStatementContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#createLifecyclePolicyStatement}.
+	 * @param ctx the parse tree
+	 */
+	void exitCreateLifecyclePolicyStatement(KinoticSQLParser.CreateLifecyclePolicyStatementContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#lifecyclePhase}.
+	 * @param ctx the parse tree
+	 */
+	void enterLifecyclePhase(KinoticSQLParser.LifecyclePhaseContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#lifecyclePhase}.
+	 * @param ctx the parse tree
+	 */
+	void exitLifecyclePhase(KinoticSQLParser.LifecyclePhaseContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#rolloverCondition}.
+	 * @param ctx the parse tree
+	 */
+	void enterRolloverCondition(KinoticSQLParser.RolloverConditionContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#rolloverCondition}.
+	 * @param ctx the parse tree
+	 */
+	void exitRolloverCondition(KinoticSQLParser.RolloverConditionContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link KinoticSQLParser#createComponentTemplateStatement}.
 	 * @param ctx the parse tree
 	 */
