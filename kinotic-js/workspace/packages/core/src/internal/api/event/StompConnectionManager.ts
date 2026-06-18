@@ -1,4 +1,4 @@
-import {ConnectionInfo, type IWebSocket, SessionKeepAliveMode} from '@/api/ConnectionInfo'
+import {buildBrokerUrl, ConnectionInfo, type IWebSocket, SessionKeepAliveMode} from '@/api/ConnectionInfo'
 import {EventConstants} from '@/api/event/IEventBus'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {type IFrame, RxStomp, RxStompConfig, StompHeaders} from '@stomp/rx-stomp'
@@ -99,9 +99,7 @@ export class StompConnectionManager {
             this.lastWebsocketError = null
             this.maxConnectionAttemptsReached = false
 
-            const url = 'ws' + (connectionInfo.useSSL ? 's' : '')
-                + '://' + connectionInfo.host
-                + (connectionInfo.port ? ':' + connectionInfo.port : '') + '/v1'
+            const url = buildBrokerUrl(connectionInfo)
 
             this.rxStomp = new RxStomp()
 
