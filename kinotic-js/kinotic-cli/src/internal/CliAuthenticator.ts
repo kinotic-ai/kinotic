@@ -1,8 +1,7 @@
-import {ConnectionInfo, IWebSocket, Kinotic} from '@kinotic-ai/core'
+import {BearerTokenAuthProvider, ConnectionInfo, createAuthenticatedWebSocketFactory, Kinotic} from '@kinotic-ai/core'
 import {confirm} from '@inquirer/prompts'
 import open from 'open'
 import pTimeout from 'p-timeout'
-import {WebSocket} from 'ws'
 import {createStateManager} from './state/IStateManager'
 import {Logger} from './Logger'
 
@@ -19,7 +18,6 @@ interface ServerTarget {
     port: number
     useSSL: boolean
     restBaseUrl: string
-    wsUrl: string
 }
 
 /** State key the rotating refresh token is persisted under, keyed by server url. */
@@ -90,14 +88,13 @@ export class CliAuthenticator {
             connectionInfo.host = target.host
             connectionInfo.port = target.port
             connectionInfo.useSSL = target.useSSL
-            // The CLI is a Node client: it attaches the access token as a WebSocket upgrade
-            // header. The factory is async so the token is refreshed before each (re)connect.
-            connectionInfo.webSocketFactory = async () => {
-                const token = await this.freshAccessToken(target.restBaseUrl)
-                return new WebSocket(target.wsUrl, {
-                    headers: {Authorization: 'Bearer ' + token}
-                }) as unknown as IWebSocket
-            }
+            // The CLI is a Node client: core builds the broker URL and attaches the bearer
+            // token as a WebSocket upgrade header. The supplier refreshes the access token
+            // before each (re)connect, since core consults the provider on every connect.
+            connectionInfo.webSocketFactory = createAuthenticatedWebSocketFactory(
+                {host: target.host, port: target.port, useSSL: target.useSSL},
+                new BearerTokenAuthProvider(() => this.freshAccessToken(target.restBaseUrl)),
+            )
 
             await pTimeout(Kinotic.connect(connectionInfo), {
                 milliseconds: 60000,
@@ -158,8 +155,7 @@ export class CliAuthenticator {
             host: url.hostname,
             port,
             useSSL,
-            restBaseUrl: (useSSL ? 'https' : 'http') + '://' + url.hostname + ':' + port,
-            wsUrl: (useSSL ? 'wss' : 'ws') + '://' + url.hostname + ':' + port + '/v1'
+            restBaseUrl: (useSSL ? 'https' : 'http') + '://' + url.hostname + ':' + port
         }
     }
 
