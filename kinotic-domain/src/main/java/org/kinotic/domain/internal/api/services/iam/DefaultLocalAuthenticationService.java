@@ -19,8 +19,8 @@ import java.util.function.Supplier;
 @RequiredArgsConstructor
 public class DefaultLocalAuthenticationService implements LocalAuthenticationService {
 
-    private final IamUserRepository iamUserRepository;
     private final IamCredentialRepository credentialRepository;
+    private final IamUserRepository iamUserRepository;
 
     @Override
     public CompletableFuture<IamUser> authenticateLocal(String email, String password) {
@@ -30,8 +30,10 @@ public class DefaultLocalAuthenticationService implements LocalAuthenticationSer
     }
 
     @Override
-    public CompletableFuture<IamUser> authenticateLocal(String email, String password,
-                                                        String organizationId, String applicationId) {
+    public CompletableFuture<IamUser> authenticateLocal(String email,
+                                                        String password,
+                                                        String organizationId,
+                                                        String applicationId) {
         Validate.notBlank(email, "email cannot be blank");
         Validate.notBlank(password, "password cannot be blank");
         if (applicationId != null) {

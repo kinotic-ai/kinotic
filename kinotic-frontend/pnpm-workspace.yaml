@@ -3,3 +3,10 @@ allowBuilds:
   esbuild: true
   es5-ext: false
   vue-demi: false
+
+# First-party packages are trusted; exclude them from the minimumReleaseAge
+# supply-chain policy so a freshly-published release doesn't block the build.
+minimumReleaseAgeExclude:
+  - '@kinotic-ai/core@1.7.0'
+  - '@kinotic-ai/os-api@1.11.0'
+  - '@kinotic-ai/persistence@1.4.0'

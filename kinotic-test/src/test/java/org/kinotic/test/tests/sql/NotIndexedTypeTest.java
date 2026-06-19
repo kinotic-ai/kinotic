@@ -8,7 +8,7 @@ import java.util.Map;
 
 import jakarta.annotation.PostConstruct;
 import org.junit.jupiter.api.Test;
-import org.kinotic.test.support.elastic.ElasticTestBase;
+import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.kinotic.sql.domain.Migration;
 import org.kinotic.sql.domain.MigrationContent;
 import org.kinotic.sql.executor.MigrationExecutor;
@@ -24,7 +24,7 @@ import co.elastic.clients.elasticsearch.indices.GetMappingResponse;
  * Test for NOT INDEXED type functionality.
  * Verifies that fields marked with NOT INDEXED are properly configured in Elasticsearch.
  */
-class NotIndexedTypeTest extends ElasticTestBase {
+class NotIndexedTypeTest extends KinoticTestBase {
 
     @Autowired
     private ElasticsearchAsyncClient asyncClient;

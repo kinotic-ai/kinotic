@@ -6,8 +6,10 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -76,9 +78,24 @@ public class Workload implements Identifiable<String> {
     private Map<String, String> environment = new HashMap<>();
 
     /**
-     * Optional port mappings from host to guest (hostPort -> guestPort).
+     * Port mappings that expose guest ports on the host.
      */
-    private Map<Integer, Integer> portMappings = new HashMap<>();
+    private List<PortMapping> portMappings = new ArrayList<>();
+
+    /**
+     * Volume mounts that expose host directories inside the guest VM.
+     */
+    private List<VolumeMount> volumeMounts = new ArrayList<>();
+
+    /**
+     * Overrides the image entrypoint. Empty keeps the image default.
+     */
+    private List<String> entrypoint = new ArrayList<>();
+
+    /**
+     * Overrides the image command (CMD). Empty keeps the image default.
+     */
+    private List<String> cmd = new ArrayList<>();
 
     /**
      * The date and time the workload was created.

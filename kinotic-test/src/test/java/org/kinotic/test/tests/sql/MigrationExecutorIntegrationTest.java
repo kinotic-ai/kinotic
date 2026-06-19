@@ -13,7 +13,7 @@ import org.kinotic.sql.domain.Migration;
 import org.kinotic.sql.domain.MigrationContent;
 import org.kinotic.sql.executor.MigrationExecutor;
 import org.kinotic.sql.parsers.MigrationParser;
-import org.kinotic.test.support.elastic.ElasticTestBase;
+import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
@@ -26,7 +26,7 @@ import co.elastic.clients.elasticsearch.indices.GetIndexTemplateResponse;
 import co.elastic.clients.elasticsearch.indices.GetMappingResponse;
 import jakarta.annotation.PostConstruct;
 
-class MigrationExecutorIntegrationTest extends ElasticTestBase {
+class MigrationExecutorIntegrationTest extends KinoticTestBase {
 
     @Autowired
     private ElasticsearchAsyncClient asyncClient;

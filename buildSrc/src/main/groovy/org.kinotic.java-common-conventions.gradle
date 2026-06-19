@@ -58,19 +58,30 @@ dependencyManagement {
         dependency "co.elastic.clients:elasticsearch-java:${elasticClientVersion}"
         dependency "co.elastic.clients:elasticsearch-rest5-client:${elasticClientVersion}"
 
+        dependency "com.azure:azure-communication-email:${azureCommunicationEmailVersion}"
+        dependency "com.azure:azure-identity:${azureIdentityVersion}"
+        dependency "com.azure:azure-security-keyvault-secrets:${azureKeyvaultSecretsVersion}"
+
         dependency "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
+        dependency "com.github.dasniko:testcontainers-keycloak:${testcontainersKeycloakVersion}"
+        dependency "com.github.jknack:handlebars:${handlebarsVersion}"
 
         dependency "com.graphql-java:graphql-java:${graphQlJavaVersion}"
 
         dependency "commons-io:commons-io:${commonsIoVersion}"
+
+        // JWT and OIDC dependencies
+        dependency "io.jsonwebtoken:jjwt-api:${jsonwebtokenVersion}"
+        dependency "io.jsonwebtoken:jjwt-impl:${jsonwebtokenVersion}"
+        dependency "io.jsonwebtoken:jjwt-jackson:${jsonwebtokenVersion}"
 
         dependency "io.vertx:vertx-auth-common:${vertxVersion}"
         dependency "io.vertx:vertx-auth-jwt:${vertxVersion}"
         dependency "io.vertx:vertx-auth-oauth2:${vertxVersion}"
         dependency "io.vertx:vertx-core:${vertxVersion}"
         dependency "io.vertx:vertx-grpc-server:${vertxVersion}"
-        dependency "io.vertx:vertx-grpcio-server:${vertxVersion}"
         dependency "io.vertx:vertx-grpcio-client:${vertxVersion}"
+        dependency "io.vertx:vertx-grpcio-server:${vertxVersion}"
         dependency "io.vertx:vertx-health-check:${vertxVersion}"
         dependency "io.vertx:vertx-ignite:${vertxVersion}"
         dependency "io.vertx:vertx-reactive-streams:${vertxVersion}"
@@ -78,32 +89,32 @@ dependencyManagement {
         dependency "io.vertx:vertx-web-client:${vertxVersion}"
         dependency "io.vertx:vertx-web-graphql:${vertxVersion}"
 
+        // Spring no longer uses javax annotations
+        dependency "jakarta.annotation:jakarta.annotation-api:${jakartaAnnotationVersion}"
+        // must be overridden for the elastic client
+        dependency "jakarta.json:jakarta.json-api:${jakartaJsonVersion}"
+
+        dependency "net.openhft:chronicle-map:${chronicleMapVersion}"
+
+        dependency "org.antlr:antlr4:${antlrVersion}"
+        dependency "org.antlr:antlr4-runtime:${antlrVersion}"
+
         dependency "org.apache.commons:commons-compress:${apacheCommonsCompressVersion}"
         dependency "org.apache.commons:commons-lang3:${apacheCommonsLangVersion}"
         dependency "org.apache.commons:commons-text:${apacheCommonsTextVersion}"
 
         dependency "org.apache.groovy:groovy:${groovyVersion}"
 
+        dependency "org.apache.ignite:ignite-calcite:${igniteVersion}"
         dependency "org.apache.ignite:ignite-core:${igniteVersion}"
         dependency "org.apache.ignite:ignite-indexing:${igniteVersion}"
-        dependency "org.apache.ignite:ignite-calcite:${igniteVersion}"
-        dependency "org.apache.ignite:ignite-spring:${igniteVersion}"
-        dependency "org.apache.ignite:ignite-slf4j:${igniteVersion}"
         dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-slf4j:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-spring:${igniteVersion}"
 
         dependency "org.kinotic:vertx-stomp-lite:${vertxStompLiteVersion}"
 
         dependency "org.springframework.boot:spring-boot-configuration-processor:${springBootVersion}"
-
-        // Spring no longer uses javax annotations
-        dependency "jakarta.annotation:jakarta.annotation-api:${jakartaAnnotationVersion}"
-        // must be overridden for the elastic client
-        dependency 'jakarta.json:jakarta.json-api:2.0.1'
-
-        // JWT and OIDC dependencies
-        dependency "io.jsonwebtoken:jjwt-api:${jsonwebtokenVersion}"
-        dependency "io.jsonwebtoken:jjwt-impl:${jsonwebtokenVersion}"
-        dependency "io.jsonwebtoken:jjwt-jackson:${jsonwebtokenVersion}"
     }
 }
 
@@ -134,6 +145,15 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    // Keep the Allure report correct under org.gradle.caching (enabled in #200). The Allure JUnit
+    // listener writes results to allure.results.directory as a side effect of running the tests:
+    //  - point every module at build/allure-results (replaces the per-module allure.properties),
+    //  - declare it as a task output so a cached/up-to-date test task restores the results
+    //    FROM-CACHE instead of producing nothing,
+    //  - delete it before each execution so a re-run doesn't accumulate stale result files.
+    systemProperty 'allure.results.directory', 'build/allure-results'
+    outputs.dir(layout.buildDirectory.dir('allure-results')).withPropertyName('allureResults')
+    doFirst { delete layout.buildDirectory.dir('allure-results') }
     jvmArgs(
         "-javaagent:${configurations.agent.singleFile}",
         "--add-opens=java.base/java.nio=ALL-UNNAMED",
@@ -141,5 +161,12 @@ test {
         "--add-opens=java.base/java.lang=ALL-UNNAMED",
         "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
     )
+    // Show full stack traces with messages and cause chains on test failures (the default 'short'
+    // format prints only class:line, which hides the real reason).
+    testLogging {
+        exceptionFormat = 'full'
+        showCauses = true
+        showStackTraces = true
+    }
 }
 

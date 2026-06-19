@@ -41,7 +41,7 @@ The maintainers of this repo read code faster than English. When explaining anyt
 - Show failure modes as code that compiles-but-misbehaves (or the verbatim compiler/test error), not as an abstract description of the risk.
 - Keep prose for what code cannot express: intent, constraints, and consequences — one or two sentences placed next to the snippet they explain.
 
-This applies to chat replies, PR descriptions, and review responses alike.
+This governs how you communicate *about* the code in conversation — chat replies, PR descriptions, review responses. It does not apply to the repo's own artifacts: documentation (this file, READMEs) and code comments.
 
 
 ## Java Conventions
@@ -84,6 +84,16 @@ Never remove or alter an existing authorship comment — `Created by <name> on <
 ## Properties
 Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant.
 
+## Dependency Versions
+
+Never hardcode a dependency version in a module `build.gradle`. Every version lives as a `*Version` property in `gradle.properties` (kept alphabetical) and is pinned once in the `dependencyManagement` block of `buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle`. The module declares the artifact with no version, so the managed version applies.
+
+One version per artifact across every module, one place to bump it. A literal version repeated across modules is Shotgun Surgery; the same artifact pinned at two versions in two files is a latent bug. Verify a move with `dependencyInsight` on the module's `compileClasspath` — `selected by rule` confirms the managed version is in effect.
+
+## Keep docs in sync with code
+
+When a change alters something the docs describe — a wire contract, public API signature, REST route, auth mechanism, configuration option, or user-facing behavior — update the affected docs in the same change. `website/content/**` must always reflect the correct and current shape of the system; stale docs are a defect, not a follow-up. Before finishing, grep `website/content` for the symbols, routes, and field names you changed and reconcile every hit. If a change is genuinely too large to document in the same pass, say so explicitly rather than leaving the docs silently wrong.
+
 ## Avoid these code smells
 
 These are the named smells from Martin Fowler and Kent Beck's catalog in *Refactoring: Improving the Design of Existing Code*, grouped by Mäntylä's taxonomy — decades of industry consensus on what makes code hard to change, not house style or one reviewer's taste. That is why they bind: each one is a pattern the field has repeatedly watched turn into maintenance cost. Check every diff against this list before presenting it. The bar for any new abstraction is YAGNI (Beck and Jeffries, Extreme Programming) and the Rule of Three (Don Roberts, in Refactoring): it must carry information or remove duplication **today** — not that it might someday.
@@ -99,7 +109,7 @@ These are the named smells from Martin Fowler and Kent Beck's catalog in *Refact
 **Bloaters — things that have grown past one responsibility**
 
 - **Long Function.** A method that does several things at different levels of abstraction gets decomposed, each piece named for what it does.
-- **Large Class / junk drawers.** No `Constants`/`Utils`/`Helper`/`Manager` grab bags accumulating unrelated members. Name a class for the one thing it holds; if you can't name it honestly, split it. Entities too: a class holding one kind of thing must not carry a name claiming generality it doesn't have.
+- **Large Class / junk drawers.** The smell is a class that accumulates *unrelated* members and changes for many reasons; split it along the reasons it changes. Entities too: a class holding one kind of thing must not carry a name claiming generality it doesn't have. The name itself isn't the smell: a shared `Util`/`Constants`/`Helper` class is fine for cohesive, stateless, well-named static members — a single known home beats scattering them. Don't overcorrect either — a class or file created to hold a single static method is a Lazy Element; fold it into the nearest cohesive home instead of trading a grab bag for file sprawl.
 - **Long Parameter List / flag arguments.** A boolean or mode parameter that forks a method's whole behavior is two methods. More than ~4 parameters is a sign some of them are a missing type.
 - **Data Clumps.** Values that always travel together belong in one type, not loose parameter pairs repeated across signatures.
 - **Primitive Obsession.** Covered by the enum rule in Java Conventions — applies equally to ids, keys, and wire codes used across boundaries.

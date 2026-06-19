@@ -1,13 +1,10 @@
-
-
-
 package org.kinotic.core.internal.api.service.invoker;
 
-import io.opentelemetry.api.OpenTelemetry;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
+import org.jspecify.annotations.NonNull;
 import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.exceptions.RpcMissingMethodException;
 import org.kinotic.core.api.security.Participant;
@@ -15,12 +12,8 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.ServiceFunction;
 import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
-import org.kinotic.core.internal.api.event.MetadataTextMapGetter;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
-import org.kinotic.core.internal.config.KinoticVertxConfig;
 import org.kinotic.core.internal.utils.EventUtil;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.json.JsonMapper;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -51,22 +44,18 @@ public class ServiceInvocationSupervisor {
 
     private final AtomicBoolean active = new AtomicBoolean(false);
     private final ConcurrentHashMap<String, StreamSubscriber> activeStreamingResults = new ConcurrentHashMap<>();
-    private final MetadataTextMapGetter textMapGetter = new MetadataTextMapGetter();
     private final ArgumentResolver argumentResolver;
     private final EventBusService eventBusService;
     private final ExceptionConverter exceptionConverter;
-    private final JsonMapper jsonMapper;
     private final Map<String, HandlerMethod> methodMap;
     private final SecurityContext securityContext;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final ReturnValueConverter returnValueConverter;
     private final ServiceDescriptor serviceDescriptor;
     private final Vertx vertx;
-    private final OpenTelemetry openTelemetry;
 
 
     private EventConsumer methodInvocationEventConsumer;
-
 
 
     public ServiceInvocationSupervisor(ServiceDescriptor serviceDescriptor,
@@ -77,8 +66,6 @@ public class ServiceInvocationSupervisor {
                                        EventBusService eventBusService,
                                        ReactiveAdapterRegistry reactiveAdapterRegistry,
                                        Vertx vertx,
-                                       OpenTelemetry openTelemetry,
-                                       JsonMapper jsonMapper,
                                        SecurityContext securityContext) {
 
         Validate.notNull(serviceDescriptor, "ServiceDescriptor must not be null");
@@ -89,8 +76,6 @@ public class ServiceInvocationSupervisor {
         Validate.notNull(eventBusService, "eventBusService must not be null");
         Validate.notNull(reactiveAdapterRegistry, "reactiveAdapterRegistry must not be null");
         Validate.notNull(vertx, "vertx must not be null");
-        Validate.notNull(openTelemetry, "OpenTelemetry must not be null");
-        Validate.notNull(jsonMapper, "jsonMapper must not be null");
         Validate.notNull(securityContext, "securityContext must not be null");
 
         this.serviceDescriptor = serviceDescriptor;
@@ -98,11 +83,9 @@ public class ServiceInvocationSupervisor {
         this.returnValueConverter = returnValueConverter;
         this.exceptionConverter = exceptionConverter;
         this.eventBusService = eventBusService;
-        this.jsonMapper = jsonMapper;
         this.securityContext = securityContext;
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
         this.vertx = vertx;
-        this.openTelemetry = openTelemetry;
 
         this.methodMap = buildMethodMap(serviceDescriptor, instanceProvider);
     }
@@ -126,7 +109,7 @@ public class ServiceInvocationSupervisor {
                         return null;
                     }))
                     .exceptionHandler(throwable -> log.error("Event listener error", throwable))
-                    .endHandler(v -> {
+                    .endHandler(_ -> {
                         log.error("Should not happen! Event listener stopped for some reason!! Changing supervisor state to inactive");
                         active.set(false);
                     });
@@ -206,7 +189,7 @@ public class ServiceInvocationSupervisor {
         String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
         Validate.notNull(correlationId, "Streaming control plain messages require a CORRELATION_ID_HEADER to be set");
 
-        activeStreamingResults.computeIfPresent(correlationId, (s, streamSubscriber) -> {
+        activeStreamingResults.computeIfPresent(correlationId, (_, streamSubscriber) -> {
             streamSubscriber.processControlEvent(incomingEvent);
             return streamSubscriber;
         });
@@ -318,7 +301,7 @@ public class ServiceInvocationSupervisor {
                 }
 
                 String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
-                activeStreamingResults.computeIfAbsent(correlationId, s -> {
+                activeStreamingResults.computeIfAbsent(correlationId, _ -> {
                     //  FIXME: logic error here clients like the js client will stay alive during multiple requests even though previous request was invalidated indirectly
                     Flux<?> flux = Flux.from(reactiveAdapter.toPublisher(result));
 
@@ -424,14 +407,14 @@ public class ServiceInvocationSupervisor {
         }
 
         @Override
-        protected void hookOnError(Throwable throwable) {
+        protected void hookOnError(@NonNull Throwable throwable) {
             // This condition should not occur under normal operation
             log.error("Reply Listener Monitor threw an exception. Terminating streaming result.", throwable);
             streamSubscription.cancel();
         }
 
         @Override
-        protected void hookOnNext(ListenerStatus status) {
+        protected void hookOnNext(@NonNull ListenerStatus status) {
             if(log.isTraceEnabled()){
                 log.trace("Received ListenerStatus {}", status);
             }
@@ -486,7 +469,7 @@ public class ServiceInvocationSupervisor {
         }
 
         @Override
-        protected void hookFinally(SignalType type) {
+        protected void hookFinally(@NonNull SignalType type) {
             log.trace("Stream Cleanup Now");
 
             replyListenerStatusSubscriber.cancel();
@@ -507,7 +490,7 @@ public class ServiceInvocationSupervisor {
         }
 
         @Override
-        protected void hookOnError(Throwable throwable) {
+        protected void hookOnError(@NonNull Throwable throwable) {
             if(log.isTraceEnabled()){
                 log.trace("Stream Error",throwable);
             }
@@ -515,7 +498,7 @@ public class ServiceInvocationSupervisor {
         }
 
         @Override
-        protected void hookOnNext(Object value) {
+        protected void hookOnNext(@NonNull Object value) {
             if(log.isTraceEnabled()){
                 log.trace("Next stream value {}", value);
             }
@@ -523,7 +506,7 @@ public class ServiceInvocationSupervisor {
         }
 
         @Override
-        protected void hookOnSubscribe(Subscription subscription) {
+        protected void hookOnSubscribe(@NonNull Subscription subscription) {
 
             replyListenerStatusSubscriber = new ReplyListenerStatusSubscriber(this);
             replyListenerStatus.subscribe(replyListenerStatusSubscriber);

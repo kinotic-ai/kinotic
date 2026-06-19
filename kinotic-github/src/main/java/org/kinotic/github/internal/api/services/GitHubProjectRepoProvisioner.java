@@ -15,7 +15,6 @@ import org.kinotic.github.internal.api.services.client.TreeEntry;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.api.model.RepositoryConnectionStatus;
 import org.kinotic.domain.api.services.ProjectRepoProvisioner;
-import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.CharacterCodingException;
@@ -46,7 +45,6 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Component
-@Profile("!test & !e2e-tests")
 @RequiredArgsConstructor
 public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
 
