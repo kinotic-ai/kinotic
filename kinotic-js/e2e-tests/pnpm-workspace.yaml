@@ -3,3 +3,7 @@ allowBuilds:
   esbuild: true
   protobufjs: false
   ssh2: false
+minimumReleaseAgeExclude:
+  - '@kinotic-ai/core@1.8.0'
+  - '@kinotic-ai/os-api@1.14.0'
+  - '@kinotic-ai/persistence@1.5.0'
