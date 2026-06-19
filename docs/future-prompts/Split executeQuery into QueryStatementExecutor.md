@@ -138,7 +138,24 @@ Two cases need a deterministic naming rule:
 - **Aggregates** — use the alias when present (`COUNT(*) AS cnt`), else the expression text as the
   column name. Deterministic from the statement either way.
 
-### Contract impact
+### Caching: prepare once on the already-cached executor
+Keep `kinotic-sql` stateless — parsing, `*`-expansion, name derivation, and execution are pure
+functions, no internal cache. The persistence layer already owns the caching that matters:
+`DefaultNamedQueriesService` holds an `AsyncLoadingCache<CacheKey, QueryExecutor>` keyed by
+`(queryName, entityDefinition)` (`DefaultNamedQueriesService.java:44-72`), built once by the factory
+and **invalidated on `CacheEvictionEvent` when the named query changes**
+(`DefaultNamedQueriesService.java:81-102`) — cluster-aware.
+
+So make the SELECT executor a **prepared statement** and let it ride that existing cache:
+- At construction (cached, evicted on change): parse the raw SQL via `kinotic-sql` → `SelectStatement`;
+  expand `*` from the `EntityDefinition` into an explicit projection; derive the ordered column names.
+  Hold all of these on the executor instance.
+- Per page: reuse the parsed statement + names; only the raw ES cursor round-trips. No per-cursor cache.
+
+This subsumes both caching wins without new infrastructure: the ANTLR parse (the expensive part) is
+amortized across pages and calls via `namedQueriesCache`, and the derived column-name list is a field
+computed once. Do NOT reintroduce a per-cursor / per-response cache — that is the node-local cache
+(and clustering bug) this whole approach is removing.
 SELECT returns rows + a continuation, so the query contract's `R` must be page-shaped for it:
 - UPDATE/DELETE → `CompletableFuture<Long>`; INSERT → id/void (unchanged).
 - SELECT → `CompletableFuture<CursorPage<Map<String,Object>>>` (rows keyed by the derived column
