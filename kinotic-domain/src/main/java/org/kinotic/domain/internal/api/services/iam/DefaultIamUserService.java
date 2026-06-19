@@ -91,11 +91,6 @@ public class DefaultIamUserService extends AbstractCrudService<IamUser> implemen
 
     @Override
     public CompletableFuture<IamUser> findByEmail(String email, String organizationId, String applicationId) {
-        Validate.notBlank(email, "email cannot be blank");
-        if (applicationId != null) {
-            Validate.notBlank(organizationId,
-                              "organizationId is required when applicationId is supplied");
-        }
         return iamUserRepository.findByEmail(email, organizationId, applicationId);
     }
 

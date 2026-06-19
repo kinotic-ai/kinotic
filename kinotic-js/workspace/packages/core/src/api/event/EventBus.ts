@@ -1,6 +1,6 @@
 import {ConnectionInfo, ServerInfo} from '@/api/ConnectionInfo'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
-import {StompConnectionManager} from '@/internal/api/event/StompConnectionManager'
+import {StompConnectionManager} from '@/internal/api/StompConnectionManager'
 import {context, propagation} from '@opentelemetry/api';
 import type {IMessage} from '@stomp/rx-stomp';
 import {ConnectableObservable, firstValueFrom, Observable, Subject, Subscription, throwError, type Unsubscribable} from 'rxjs'

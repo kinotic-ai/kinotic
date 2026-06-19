@@ -49,6 +49,7 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+// FIXME: this should be in a different module
 public class KinoticSecurityService implements SecurityService {
 
     private final IamUserService userService;

@@ -9,80 +9,80 @@ Object.assign(global, { WebSocket})
 
 describe('Kinotic Client Tests', () => {
 
-    async function connectToKinotic(continuum: KinoticSingleton) {
-        return await logFailure(continuum.connect(createConnectionInfo()),
+    async function connectToKinotic(kinotic: KinoticSingleton) {
+        return await logFailure(kinotic.connect(createConnectionInfo()),
                                 'Failed to connect to Kinotic Gateway')
     }
 
     it('should connect and disconnect', async () => {
-        const continuum = new KinoticSingleton()
-        const connectedInfo = await connectToKinotic(continuum)
+        const kinotic = new KinoticSingleton()
+        const connectedInfo = await connectToKinotic(kinotic)
         validateConnectedInfo(connectedInfo)
 
-        await expect(continuum.disconnect()).resolves.toBeUndefined()
+        await expect(kinotic.disconnect()).resolves.toBeUndefined()
     })
 
     it('should connect and disconnect multiple times and still be able to call services', async () => {
-        const continuum = new KinoticSingleton()
-        const testService = new TestService(continuum);
+        const kinotic = new KinoticSingleton()
+        const testService = new TestService(kinotic);
 
         console.log(`Connecting to Kinotic Gateway running at the first time`)
-        let connectedInfo = await connectToKinotic(continuum)
+        let connectedInfo = await connectToKinotic(kinotic)
         validateConnectedInfo(connectedInfo)
 
         console.log(`Calling Service the first time`)
         console.log(await testService.testMethodWithString("Bob"))
 
-        await expect(continuum.disconnect()).resolves.toBeUndefined()
+        await expect(kinotic.disconnect()).resolves.toBeUndefined()
 
         console.log(`Connecting to Kinotic Gateway running at the second time`)
-        connectedInfo = await connectToKinotic(continuum)
+        connectedInfo = await connectToKinotic(kinotic)
         validateConnectedInfo(connectedInfo)
 
         console.log(`Calling Service the second time`)
         await expect(testService.testMethodWithString("Bob")).resolves.toBe("Hello Bob")
 
-        await expect(continuum.disconnect()).resolves.toBeUndefined()
+        await expect(kinotic.disconnect()).resolves.toBeUndefined()
 
         console.log(`Connecting to Kinotic Gateway running at the third time`)
-        connectedInfo = await connectToKinotic(continuum)
+        connectedInfo = await connectToKinotic(kinotic)
         validateConnectedInfo(connectedInfo)
 
         console.log(`Calling Service the third time`)
         await expect(testService.testMethodWithString("Bob")).resolves.toBe("Hello Bob")
 
-        await expect(continuum.disconnect()).resolves.toBeUndefined()
+        await expect(kinotic.disconnect()).resolves.toBeUndefined()
     })
 
-    it('should allow continuum CLI to connect but not send any data', async () => {
-        const continuum = new KinoticSingleton()
-        const testService = new TestService(continuum);
+    it('should allow kinotic CLI to connect but not send any data', async () => {
+        const kinotic = new KinoticSingleton()
+        const testService = new TestService(kinotic);
         console.log(`Connecting to Kinotic Gateway running at`)
 
-        let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(createConnectionInfo(SessionKeepAliveMode.ACTIVITY,
+        let connectedInfo: ConnectedInfo = await logFailure(kinotic.connect(createConnectionInfo(SessionKeepAliveMode.ACTIVITY,
                                                                                                    {login: ParticipantConstants.CLI_PARTICIPANT_ID})),
                                                             'Failed to connect to Kinotic Gateway')
 
         validateConnectedInfo(connectedInfo, ['ANONYMOUS'])
 
         const promise = new Promise((resolve, reject) => {
-            continuum.eventBus.fatalErrors.subscribe((error: Error) => {
+            kinotic.eventBus.fatalErrors.subscribe((error: Error) => {
                 resolve(error)
             })
         })
 
-        console.log('Sending invalid event from continuum client')
-        continuum.eventBus.send(new Event(EventConstants.SERVICE_DESTINATION_PREFIX+ 'blah'))
+        console.log('Sending invalid event from kinotic client')
+        kinotic.eventBus.send(new Event(EventConstants.SERVICE_DESTINATION_PREFIX+ 'blah'))
 
         const error = await logFailure(promise, 'Failed to receive error from fatalErrors observable')
 
         expect(error).toBeDefined()
 
         // make sure client was automatically disconnected
-        expect(continuum.eventBus.isConnectionActive(),
+        expect(kinotic.eventBus.isConnectionActive(),
             'Client to be disconnected').toBe(false)
 
-        await expect(continuum.disconnect()).resolves.toBeUndefined()
+        await expect(kinotic.disconnect()).resolves.toBeUndefined()
 
     })
 })
