@@ -34,8 +34,8 @@ import java.util.concurrent.CompletableFuture;
  * <p>
  * <b>Two paths:</b>
  * <ol>
- *   <li><b>Email/password</b> — direct STOMP CONNECT with {@code login}/{@code passcode}
- *       headers. Looks up the {@link IamUser} by email + scope, verifies the bcrypt password.</li>
+ *   <li><b>Client credentials</b> — {@code clientId}/{@code clientSecret} upgrade headers.
+ *       Looks up the {@link IamUser} by email + scope, verifies the bcrypt password.</li>
  *   <li><b>Kinotic JWT</b> — {@code Authorization: Bearer <jwt>} header. The JWT was minted
  *       by {@link KinoticJwtIssuer} after a successful OIDC callback. We validate the JWT
  *       signature + audience, then look up the {@link IamUser} by id from the JWT
@@ -92,11 +92,11 @@ public class KinoticSecurityService implements SecurityService {
     private CompletableFuture<Participant> authenticateEmailPassword(String organizationId,
                                                                      String applicationId,
                                                                      Map<String, String> authInfo) {
-        String email = authInfo.get("login");
-        String password = authInfo.get("passcode");
+        String email = authInfo.get("clientId");
+        String password = authInfo.get("clientSecret");
 
         if (email == null || password == null) {
-            return CompletableFuture.failedFuture(new AuthenticationException("login and passcode headers are required for email/password authentication"));
+            return CompletableFuture.failedFuture(new AuthenticationException("clientId and clientSecret headers are required for credential authentication"));
         }
 
         return userService.findByEmail(email, organizationId, applicationId)
