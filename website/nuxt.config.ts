@@ -1,6 +1,12 @@
 export default defineNuxtConfig({
   extends: ['docus'],
   css: ['~/assets/css/main.css'],
+  // Keep the published Allure test reports out of search indexes. They live at /test-results/ on
+  // this same domain but aren't content we want crawled. @nuxtjs/robots is provided by the docus
+  // layer; this emits `Disallow: /test-results/` into the generated robots.txt.
+  robots: {
+    disallow: ['/test-results/'],
+  },
   runtimeConfig: {
     public: {
       clarityProjectId: 'waw4oqkd0y',
