@@ -86,29 +86,9 @@ Properties should never be created for something that will not need to be config
 
 ## Dependency Versions
 
-Never hardcode a dependency version in a module `build.gradle`. Every version lives as a `*Version` property in `gradle.properties` (kept alphabetical) and is pinned once in the `dependencyManagement` block of `buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle`. The module then declares the artifact with no version:
+Never hardcode a dependency version in a module `build.gradle`. Every version lives as a `*Version` property in `gradle.properties` (kept alphabetical) and is pinned once in the `dependencyManagement` block of `buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle`. The module declares the artifact with no version, so the managed version applies.
 
-```groovy
-// kinotic-core/build.gradle — WRONG: inline version
-implementation 'com.azure:azure-identity:1.18.2'
-
-// kinotic-core/build.gradle — RIGHT: version resolved from dependency management
-implementation 'com.azure:azure-identity'
-```
-```properties
-# gradle.properties — alphabetized among the other *Version keys
-azureIdentityVersion=1.18.2
-```
-```groovy
-// org.kinotic.java-common-conventions.gradle — pinned once, in dependencyManagement
-dependency "com.azure:azure-identity:${azureIdentityVersion}"
-```
-
-One version per artifact across every module, one place to bump it. A literal version repeated across modules is Shotgun Surgery; the same artifact pinned at two versions in two files is a latent bug. Verify a move with `dependencyInsight` — `selected by rule` confirms the managed version is in effect:
-
-```bash
-./gradlew :kinotic-core:dependencyInsight --dependency com.azure:azure-identity --configuration compileClasspath
-```
+One version per artifact across every module, one place to bump it. A literal version repeated across modules is Shotgun Surgery; the same artifact pinned at two versions in two files is a latent bug. Verify a move with `dependencyInsight` on the module's `compileClasspath` — `selected by rule` confirms the managed version is in effect.
 
 ## Avoid these code smells
 
