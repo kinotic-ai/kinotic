@@ -1,7 +1,7 @@
 import {faker} from '@faker-js/faker/locale/en'
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import {ConnectionInfo, IWebSocket, Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, SessionKeepAliveMode, WebSocketFactory} from '@kinotic-ai/core'
+import {ConnectionInfo, IAuthProvider, Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, SessionKeepAliveMode, createAuthenticatedWebSocketFactory} from '@kinotic-ai/core'
 import {WebSocket} from 'ws'
 import {
     ObjectC3Type,
@@ -30,6 +30,10 @@ import {PersonWithTenant} from './domain/PersonWithTenant.js'
 import {Cat, Dog} from './domain/Pet.js'
 import {Vehicle, Wheel} from './domain/Vehicle.js'
 
+// core's createAuthenticatedWebSocketFactory builds the upgrade socket from the global
+// WebSocket; bind it to the `ws` implementation these tests run against.
+Object.assign(global, {WebSocket})
+
 Kinotic.use(OsApiPlugin)
 
 type SchemaCreationResult ={
@@ -50,12 +54,15 @@ export interface AuthHeaders {
     authScopeId: string
 }
 
-function buildWsUrl(host: string, port: number, useSSL: boolean = false): string {
-    return `${useSSL ? 'wss' : 'ws'}://${host}:${port}/v1`
-}
-
-function authedWebSocketFactory(wsUrl: string, headers: AuthHeaders): WebSocketFactory {
-    return () => new WebSocket(wsUrl, { headers: headers as unknown as Record<string, string> }) as unknown as IWebSocket
+/**
+ * Adapts the test {@link AuthHeaders} into an {@link IAuthProvider}. The gateway reads
+ * each field as an individual WebSocket upgrade header, so they are passed through
+ * verbatim rather than encoded into a single Authorization header.
+ */
+export function authHeadersProvider(headers: AuthHeaders): IAuthProvider {
+    return {
+        getAuthHeaders: (): Record<string, string> => headers as unknown as Record<string, string>
+    }
 }
 
 function buildConnectionInfo(host: string, port: number, headers: AuthHeaders): ConnectionInfo {
@@ -64,7 +71,7 @@ function buildConnectionInfo(host: string, port: number, headers: AuthHeaders): 
     ci.port = port
     ci.useSSL = false
     ci.sessionKeepAlive = SessionKeepAliveMode.NONE
-    ci.webSocketFactory = authedWebSocketFactory(buildWsUrl(host, port), headers)
+    ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci, authHeadersProvider(headers))
     return ci
 }
 
