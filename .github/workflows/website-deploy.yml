@@ -8,6 +8,13 @@ on:
       - 'website/**'
   workflow_dispatch:
 
+# Shares the gh-pages-deploy group with gradle-build.yml's Allure deploy so the two never push to
+# gh-pages at the same time. Without this, an Allure push landing between the "Preserve existing
+# Allure reports" checkout and the keep_files:false deploy below would be wiped.
+concurrency:
+  group: gh-pages-deploy
+  cancel-in-progress: false
+
 jobs:
   build_and_deploy_website:
     runs-on: ubuntu-latest
@@ -28,6 +35,21 @@ jobs:
         run: |
           cd website
           bun run generate
+
+      # The deploy below uses keep_files:false, which replaces the whole gh-pages branch. Fold the
+      # existing /allure tree into the publish dir first so the clean wipe keeps Allure history while
+      # still deleting stale website files (removed routes, old hashed bundles).
+      - name: Preserve existing Allure reports
+        uses: actions/checkout@v4
+        continue-on-error: true   # gh-pages won't exist on the very first deploy
+        with:
+          ref: gh-pages
+          path: gh-pages-current
+      - name: Fold Allure reports into site output
+        run: |
+          if [ -d gh-pages-current/allure ]; then
+            cp -a gh-pages-current/allure website/.output/public/allure
+          fi
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
