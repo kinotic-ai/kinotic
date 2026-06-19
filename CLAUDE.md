@@ -41,7 +41,7 @@ The maintainers of this repo read code faster than English. When explaining anyt
 - Show failure modes as code that compiles-but-misbehaves (or the verbatim compiler/test error), not as an abstract description of the risk.
 - Keep prose for what code cannot express: intent, constraints, and consequences — one or two sentences placed next to the snippet they explain.
 
-This applies to chat replies, PR descriptions, and review responses alike.
+This governs how you communicate *about* the code in conversation — chat replies, PR descriptions, review responses. It does not apply to the repo's own artifacts: documentation (this file, READMEs) and code comments are written as prose.
 
 
 ## Java Conventions
