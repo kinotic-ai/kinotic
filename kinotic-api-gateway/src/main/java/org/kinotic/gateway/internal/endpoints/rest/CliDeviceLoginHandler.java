@@ -26,15 +26,6 @@ import java.util.Date;
  * drives the user through a browser login, and afterwards keeps only a rotating refresh
  * token from which it mints the short-lived access tokens used on STOMP CONNECT.
  *
- * <ul>
- *   <li>{@code POST /api/auth/device/start} — begins a flow; returns the device/user codes
- *       and the browser verification URL.</li>
- *   <li>{@code POST /api/auth/device/token} — polled by the CLI; returns
- *       {@code authorization_pending} until approved, then an access/refresh token pair.</li>
- *   <li>{@code POST /api/auth/device/refresh} — exchanges a refresh token for a new
- *       access/refresh token pair (rotation).</li>
- * </ul>
- *
  * <p>Error responses use the RFC 8628 / RFC 6749 shape {@code {"error":"<code>"}} so the CLI
  * can branch on the code.
  */
@@ -58,6 +49,10 @@ public class CliDeviceLoginHandler {
         router.post("/api/auth/device/refresh").handler(this::handleRefresh);
     }
 
+    /**
+     * {@code POST /api/auth/device/start} — begins a flow; returns the device/user codes
+     * and the browser verification URL.
+     */
     private void handleStart(RoutingContext ctx) {
         Future.fromCompletionStage(deviceCodeGrantService.start())
               .onSuccess(start -> {
@@ -82,6 +77,10 @@ public class CliDeviceLoginHandler {
               });
     }
 
+    /**
+     * {@code POST /api/auth/device/token} — polled by the CLI; returns
+     * {@code authorization_pending} until approved, then an access/refresh token pair.
+     */
     private void handleToken(RoutingContext ctx) {
         String deviceCode = stringField(ctx, "device_code");
         if (deviceCode == null) {
@@ -113,6 +112,10 @@ public class CliDeviceLoginHandler {
               });
     }
 
+    /**
+     * {@code POST /api/auth/device/refresh} — exchanges a refresh token for a new
+     * access/refresh token pair (rotation).
+     */
     private void handleRefresh(RoutingContext ctx) {
         String refreshToken = stringField(ctx, "refresh_token");
         if (refreshToken == null) {
