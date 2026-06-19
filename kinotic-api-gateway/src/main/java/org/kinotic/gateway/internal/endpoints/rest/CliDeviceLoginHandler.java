@@ -64,6 +64,9 @@ public class CliDeviceLoginHandler {
     private void handleStart(RoutingContext ctx) {
         Future.fromCompletionStage(deviceCodeGrantService.start())
               .onSuccess(start -> {
+                  // /device is a kinotic-frontend SPA route (DeviceVerification.vue), not a gateway
+                  // route — hence appBaseUrl (SPA origin), not apiBaseUrl. The signed-in browser
+                  // approves there via DeviceApprovalService over STOMP; this gateway only emits the URL.
                   String verificationUri = domainProperties.getDomain().getAppBaseUrl() + "/device";
                   JsonObject body = new JsonObject()
                           .put("device_code", start.deviceCode())
