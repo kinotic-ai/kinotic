@@ -1,21 +1,6 @@
-import { ConnectionInfo, IWebSocket, Kinotic as Continuum, SessionKeepAliveMode, WebSocketFactory } from '@kinotic-ai/core';
+import { ConnectionInfo, Kinotic as Continuum, SessionKeepAliveMode, createAuthenticatedWebSocketFactory } from '@kinotic-ai/core';
 import { ChildProcess, execSync } from 'child_process';
-import { WebSocket } from 'ws';
-import { AuthHeaders } from '../TestHelpers.js';
-
-function buildPodWsUrl(localPort: number): string {
-    return `ws://localhost:${localPort}/v1`;
-}
-
-function adminWebSocketFactory(localPort: number): WebSocketFactory {
-    const headers: AuthHeaders = {
-        login: 'admin',
-        passcode: 'structures',
-        authScopeType: 'SYSTEM',
-        authScopeId: 'kinotic'
-    };
-    return () => new WebSocket(buildPodWsUrl(localPort), { headers: headers as unknown as Record<string, string> }) as unknown as IWebSocket;
-}
+import { authHeadersProvider } from '../TestHelpers.js';
 
 function adminConnectionInfo(localPort: number): ConnectionInfo {
     const ci = new ConnectionInfo();
@@ -24,7 +9,12 @@ function adminConnectionInfo(localPort: number): ConnectionInfo {
     ci.useSSL = false;
     ci.maxConnectionAttempts = 5;
     ci.sessionKeepAlive = SessionKeepAliveMode.NONE;
-    ci.webSocketFactory = adminWebSocketFactory(localPort);
+    ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci, authHeadersProvider({
+        login: 'admin',
+        passcode: 'structures',
+        authScopeType: 'SYSTEM',
+        authScopeId: 'kinotic'
+    }));
     return ci;
 }
 
