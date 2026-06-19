@@ -42,26 +42,36 @@ type SchemaCreationResult ={
 }
 let schemas: Map<string, SchemaCreationResult> = new Map<string, SchemaCreationResult>()
 
+/** Organization that owns every e2e fixture user (V3 test users + V5 app fixtures). */
+const E2E_ORGANIZATION_ID = 'kinotic-test'
+
 /**
- * Credentials passed as WebSocket upgrade headers; the gateway's
- * {@link KinoticSecurityService} authenticates the participant from these
- * before the STOMP CONNECT frame is processed.
+ * Credentials sent as discrete WebSocket upgrade headers. The gateway's
+ * {@link KinoticSecurityService} looks the user up by email + scope and verifies the
+ * password. Scope is structural: organizationId absent → SYSTEM, organizationId only →
+ * ORGANIZATION, both organizationId and applicationId → APPLICATION.
  */
 export interface AuthHeaders {
     login: string
     passcode: string
-    authScopeType: 'SYSTEM' | 'ORGANIZATION' | 'APPLICATION'
-    authScopeId: string
+    organizationId?: string
+    applicationId?: string
 }
 
 /**
- * Adapts the test {@link AuthHeaders} into an {@link IAuthProvider}. The gateway reads
- * each field as an individual WebSocket upgrade header, so they are passed through
- * verbatim rather than encoded into a single Authorization header.
+ * Adapts the test {@link AuthHeaders} into an {@link IAuthProvider}. Each field becomes an
+ * individual upgrade header; the optional scope fields are omitted when absent so a SYSTEM
+ * login sends no organizationId/applicationId rather than an "undefined" header value.
  */
 export function authHeadersProvider(headers: AuthHeaders): IAuthProvider {
+    const authHeaders: Record<string, string> = {
+        login: headers.login,
+        passcode: headers.passcode
+    }
+    if (headers.organizationId != null) authHeaders.organizationId = headers.organizationId
+    if (headers.applicationId != null) authHeaders.applicationId = headers.applicationId
     return {
-        getAuthHeaders: (): Record<string, string> => headers as unknown as Record<string, string>
+        getAuthHeaders: (): Record<string, string> => authHeaders
     }
 }
 
@@ -87,8 +97,7 @@ export async function initKinoticClient(): Promise<void> {
         await Kinotic.connect(buildConnectionInfo(host, port, {
             login: 'kinotic@kinotic.local',
             passcode: 'kinotic',
-            authScopeType: 'ORGANIZATION',
-            authScopeId: 'kinotic-test'
+            organizationId: E2E_ORGANIZATION_ID
         }))
 
         console.log('Connected to Kinotic')
@@ -128,8 +137,8 @@ export async function initKinoticAppClient(applicationId: string, tenantId: stri
     await appKinotic.connect(buildConnectionInfo(host, port, {
         login: email,
         passcode: 'kinotic',
-        authScopeType: 'APPLICATION',
-        authScopeId: applicationId
+        organizationId: E2E_ORGANIZATION_ID,
+        applicationId
     }))
     return appKinotic
 }

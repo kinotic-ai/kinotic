@@ -9,11 +9,10 @@ function adminConnectionInfo(localPort: number): ConnectionInfo {
     ci.useSSL = false;
     ci.maxConnectionAttempts = 5;
     ci.sessionKeepAlive = SessionKeepAliveMode.NONE;
+    // SYSTEM scope: no organizationId/applicationId headers.
     ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci, authHeadersProvider({
         login: 'admin',
-        passcode: 'structures',
-        authScopeType: 'SYSTEM',
-        authScopeId: 'kinotic'
+        passcode: 'structures'
     }));
     return ci;
 }
