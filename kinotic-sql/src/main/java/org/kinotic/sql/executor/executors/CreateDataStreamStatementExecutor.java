@@ -19,8 +19,8 @@ import lombok.RequiredArgsConstructor;
 /**
  * Executes CREATE DATA STREAM statements against Elasticsearch.
  * Creates a data-stream-backing index template (pattern matching the stream name) with a managed
- * {@code @timestamp} date field, the supplied mappings, and an optional ILM lifecycle policy, then
- * materializes the data stream.
+ * {@code @timestamp} date field, the supplied mappings, and an optional native data stream lifecycle
+ * retention period, then materializes the data stream.
  * Created by Navíd Mitchell 🤝 Claude on 6/18/26.
  */
 @Component
@@ -28,6 +28,9 @@ import lombok.RequiredArgsConstructor;
 public class CreateDataStreamStatementExecutor implements StatementExecutor<CreateDataStreamStatement, Void> {
     // Elasticsearch requires every data stream document to carry a date field named exactly "@timestamp".
     private static final String TIMESTAMP_FIELD = "@timestamp";
+
+    // Above the built-in template priority (200) so a stream named like a built-in pattern still wins.
+    private static final long TEMPLATE_PRIORITY = 500L;
 
     private final ElasticsearchAsyncClient client;
 
@@ -47,18 +50,16 @@ public class CreateDataStreamStatementExecutor implements StatementExecutor<Crea
                 .name(statement.streamName())
                 .indexPatterns(List.of(statement.streamName()))
                 .dataStream(ds -> ds)
-                .template(te -> te
-                        .settings(s -> {
-                            if (statement.lifecyclePolicy() != null) {
-                                s.lifecycle(l -> l.name(statement.lifecyclePolicy()));
-                            }
-                            return s;
-                        })
-                        .mappings(m -> m
-                                .dynamic(DynamicMapping.Strict)
-                                .properties(properties)
-                        )
-                )
+                .priority(TEMPLATE_PRIORITY)
+                .template(te -> {
+                    if (statement.dataRetention() != null) {
+                        te.lifecycle(l -> l.dataRetention(r -> r.time(statement.dataRetention())));
+                    }
+                    return te.mappings(m -> m
+                            .dynamic(DynamicMapping.Strict)
+                            .properties(properties)
+                    );
+                })
         ).thenCompose(response -> client.indices().createDataStream(d -> d.name(statement.streamName())))
          .thenApply(response -> null);
     }

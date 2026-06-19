@@ -77,42 +77,6 @@ public class KinoticSQLBaseListener implements KinoticSQLListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterCreateLifecyclePolicyStatement(KinoticSQLParser.CreateLifecyclePolicyStatementContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitCreateLifecyclePolicyStatement(KinoticSQLParser.CreateLifecyclePolicyStatementContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterLifecyclePhase(KinoticSQLParser.LifecyclePhaseContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitLifecyclePhase(KinoticSQLParser.LifecyclePhaseContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterRolloverCondition(KinoticSQLParser.RolloverConditionContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitRolloverCondition(KinoticSQLParser.RolloverConditionContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
 	@Override public void enterCreateComponentTemplateStatement(KinoticSQLParser.CreateComponentTemplateStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}

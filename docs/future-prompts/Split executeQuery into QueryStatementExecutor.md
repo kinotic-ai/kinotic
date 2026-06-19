@@ -21,7 +21,7 @@ public interface StatementExecutor<T extends Statement, R> {
 }
 ```
 
-7 of the 10 implementations throw `UnsupportedOperationException` from `executeQuery`
+5 of the 9 implementations throw `UnsupportedOperationException` from `executeQuery`
 (textbook **Refused Bequest**). Move `executeQuery` into a narrower capability interface
 that only the query/DML statements implement, so DDL executors stop carrying a method they
 refuse. This is a behavior-preserving refactor — no statement gains or loses runtime capability.
@@ -62,7 +62,6 @@ Distribution of `executeQuery` across the 10 executors in
 | `CreateComponentTemplateStatementExecutor` | `throw` | — |
 | `CreateIndexTemplateStatementExecutor` | `throw` | — |
 | `CreateDataStreamStatementExecutor` | `throw` | — |
-| `CreateLifecyclePolicyStatementExecutor` | `throw` | — |
 
 `MigrationExecutor` (the only current consumer) calls **only** `supports` + `executeMigration`
 — see `executeStatement`/`findExecutor`. It is unaffected by this refactor.
@@ -88,8 +87,8 @@ Per-executor changes:
   so `Insert` stays query-capable even though its `?` binding is still a TODO.)
 - **`CreateTableStatementExecutor`** → move the body from `executeQuery` **into** `executeMigration`
   (CREATE TABLE is DDL, not in `SqlQueryType`), drop `executeQuery`. Becomes plain `StatementExecutor`.
-- **`AlterTable`, `Reindex`, `CreateComponentTemplate`, `CreateIndexTemplate`, `CreateDataStream`,
-  `CreateLifecyclePolicy`** → delete the throwing `executeQuery`. Plain `StatementExecutor`.
+- **`AlterTable`, `Reindex`, `CreateComponentTemplate`, `CreateIndexTemplate`, `CreateDataStream`**
+  → delete the throwing `executeQuery`. Plain `StatementExecutor`.
 
 `MigrationExecutor` keeps `List<StatementExecutor<?, ?>>` — `QueryStatementExecutor` extends it,
 so all executors still register and dispatch. No change there.
@@ -187,7 +186,7 @@ minimal.
 - **Param-shape adapter.** kinotic-sql takes `Map<String,Object>`; persistence carries
   `QueryContext`/`ParameterHolder` + `List<Object> queryParameters` — bridge it in the `SqlQueryExecutor` leaf.
 
-Do not touch the data-stream/ILM work (already merged via its own PR) and do not delete
+Do not touch the data-stream lifecycle work (its own PR) and do not delete
 `executeQuery` outright — the consumer above is planned.
 
 ## Build & verify (Claude Code cloud)

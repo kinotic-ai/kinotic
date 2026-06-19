@@ -7,7 +7,6 @@ migrations
 statement
     : createTableStatement
     | createDataStreamStatement
-    | createLifecyclePolicyStatement
     | createComponentTemplateStatement
     | createIndexTemplateStatement
     | alterTableStatement
@@ -27,22 +26,7 @@ createDataStreamStatement
     ;
 
 dataStreamOption
-    : LIFECYCLE EQUALS STRING
-    ;
-
-createLifecyclePolicyStatement
-    : CREATE LIFECYCLE POLICY ID WITH LPAREN lifecyclePhase (COMMA lifecyclePhase)* RPAREN SEMICOLON
-    ;
-
-lifecyclePhase
-    : ROLLOVER LPAREN rolloverCondition (COMMA rolloverCondition)* RPAREN
-    | DELETE LPAREN MIN_AGE EQUALS STRING RPAREN
-    ;
-
-rolloverCondition
-    : MAX_AGE EQUALS STRING
-    | MAX_SIZE EQUALS STRING
-    | MAX_DOCS EQUALS INTEGER_LITERAL
+    : DATA_RETENTION EQUALS STRING
     ;
 
 createComponentTemplateStatement
@@ -198,6 +182,7 @@ COMPONENT: 'COMPONENT';
 CONFLICTS: 'CONFLICTS';
 CREATE: 'CREATE';
 DATA: 'DATA';
+DATA_RETENTION: 'DATA_RETENTION';
 DATE: 'DATE';
 DELETE: 'DELETE';
 DOUBLE: 'DOUBLE';
@@ -210,22 +195,16 @@ INDEX: 'INDEX';
 INDEXED: 'INDEXED';
 INSERT: 'INSERT';
 INTO: 'INTO';
-LIFECYCLE: 'LIFECYCLE';
 LONG: 'LONG';
-MAX_AGE: 'MAX_AGE';
 MAX_DOCS: 'MAX_DOCS';
-MAX_SIZE: 'MAX_SIZE';
-MIN_AGE: 'MIN_AGE';
 NOT: 'NOT';
 NUMBER_OF_REPLICAS: 'NUMBER_OF_REPLICAS';
 NUMBER_OF_SHARDS: 'NUMBER_OF_SHARDS';
 OR: 'OR';
-POLICY: 'POLICY';
 PROCEED: 'PROCEED';
 QUERY: 'QUERY';
 REFRESH: 'REFRESH';
 REINDEX: 'REINDEX';
-ROLLOVER: 'ROLLOVER';
 SCRIPT: 'SCRIPT';
 SET: 'SET';
 SIZE: 'SIZE';

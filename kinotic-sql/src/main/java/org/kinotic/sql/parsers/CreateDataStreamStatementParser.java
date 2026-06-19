@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Parses CREATE DATA STREAM statements into CreateDataStreamStatement objects.
- * Handles data stream creation with field mappings and an optional LIFECYCLE policy reference.
+ * Handles data stream creation with field mappings and an optional DATA_RETENTION lifecycle period.
  * Created by Navíd Mitchell 🤝 Claude on 6/18/26.
  */
 @Component
@@ -29,12 +29,12 @@ public class CreateDataStreamStatementParser implements StatementParser {
                 .map(def -> TypeParser.parseColumnType(def.ID().getText(), def.type()))
                 .toList();
 
-        String lifecyclePolicy = streamCtx.dataStreamOption().stream()
-                .filter(opt -> opt.LIFECYCLE() != null)
+        String dataRetention = streamCtx.dataStreamOption().stream()
+                .filter(opt -> opt.DATA_RETENTION() != null)
                 .map(opt -> opt.STRING().getText().replaceAll("'", ""))
                 .findFirst()
                 .orElse(null);
 
-        return new CreateDataStreamStatement(streamName, columns, lifecyclePolicy);
+        return new CreateDataStreamStatement(streamName, columns, dataRetention);
     }
 }
