@@ -145,6 +145,15 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    // Keep the Allure report correct under org.gradle.caching (enabled in #200). The Allure JUnit
+    // listener writes results to allure.results.directory as a side effect of running the tests:
+    //  - point every module at build/allure-results (replaces the per-module allure.properties),
+    //  - declare it as a task output so a cached/up-to-date test task restores the results
+    //    FROM-CACHE instead of producing nothing,
+    //  - delete it before each execution so a re-run doesn't accumulate stale result files.
+    systemProperty 'allure.results.directory', 'build/allure-results'
+    outputs.dir(layout.buildDirectory.dir('allure-results')).withPropertyName('allureResults')
+    doFirst { delete layout.buildDirectory.dir('allure-results') }
     jvmArgs(
         "-javaagent:${configurations.agent.singleFile}",
         "--add-opens=java.base/java.nio=ALL-UNNAMED",
