@@ -1,6 +1,6 @@
 import type {IWebSocket, ServerInfo, WebSocketFactory} from '@/api/ConnectionInfo'
 import type {IAuthProvider} from '@/api/security/IAuthProvider'
-import {buildBrokerUrl} from '@/internal/api/event/BrokerUrl'
+import {Util} from '@/internal/api/Util'
 
 /**
  * Builds a {@link WebSocketFactory} that authenticates during the WebSocket upgrade
@@ -15,7 +15,7 @@ import {buildBrokerUrl} from '@/internal/api/event/BrokerUrl'
  */
 export function createAuthenticatedWebSocketFactory(serverInfo: ServerInfo,
                                                     authProvider: IAuthProvider): WebSocketFactory {
-    const brokerUrl: string = buildBrokerUrl(serverInfo)
+    const brokerUrl: string = Util.buildBrokerUrl(serverInfo)
     return async (): Promise<IWebSocket> => {
         const headers: Record<string, string> = await authProvider.getAuthHeaders()
         // The Node/Bun WebSocket accepts a `headers` option that the DOM lib typings omit.
