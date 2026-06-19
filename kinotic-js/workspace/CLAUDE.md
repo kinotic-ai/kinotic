@@ -9,6 +9,17 @@
 - Use `bun run <script>` to run scripts
 - **DO NOT** use pnpm, yarn, or npm
 
+## Versioning: bumping `@kinotic-ai/core`
+
+Other packages declare `@kinotic-ai/core` as a **peerDependency** (e.g. `os-api`, `persistence`) with a `>=<version>` floor, plus a `workspace:*` devDependency for local builds. The `workspace:*` devDep tracks the local build automatically, but the peer floor is what a published consumer resolves against — so it does not move on its own.
+
+Whenever you bump core's version, in the same change:
+
+1. Raise the `@kinotic-ai/core` peerDependency floor to `>=<new core version>` in **every** package that declares it (grep `@kinotic-ai/core` across `packages/*/package.json`).
+2. Bump that dependent package's own `version` so the new floor actually ships — a published consumer using `persistence` directly then pulls a core that has the API `persistence` was built against.
+
+This keeps `os-api`/`persistence` consumers from resolving an older core that lacks the symbols those packages now expect.
+
 ## Kinotic Service Registration
 
 **IMPORTANT:** Any service class that needs to be called remotely via the Kinotic event bus **must** use the `@Publish` decorator from `@kinotic-ai/core`. Without `@Publish`, the service will not be registered with the `ServiceRegistry` and will not be accessible through service proxies.
