@@ -74,67 +74,111 @@ jobs:
           DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
           DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
-#      - name: Run E2E Tests
-#        id: run_e2e_tests
-#        continue-on-error: true
-#        run: |
-#          cd structures-js/structures-e2e
-#          gradle pnpmInstall
-#          gradle pnpmTest
-#
-#      - name: Merge Test Results
-#        run: |
-#          mkdir -p allure-results
-#          cp -r */build/allure-results/* allure-results/ || true
-#          cp -r structures-js/*/allure-results/* allure-results/ || true
-#
-#      - name: Get Allure history
-#        uses: actions/checkout@v4
-#        continue-on-error: true
-#        with:
-#          ref: gh-pages
-#          path: gh-pages
-#
-#      - name: Generate Allure report
-#        uses: simple-elf/allure-report-action@v1.13
-#        id: allure-report
-#        with:
-#          allure_results: allure-results
-#          gh_pages: gh-pages
-#          subfolder: allure
-#          allure_report: allure-report
-#          allure_history: allure-history
-#
-#      - name: Deploy report to Github Pages
-#        uses: peaceiris/actions-gh-pages@v4
-#        with:
-#          github_token: ${{ secrets.GITHUB_TOKEN }}
-#          publish_dir: allure-history
-#          publish_branch: gh-pages
-#          keep_files: true
-#
-#      - name: Add status to Commit
-#        uses: guibranco/github-status-action-v2@v1.1.13
-#        with:
-#          authToken: ${{ secrets.GITHUB_TOKEN }}
-#          context: 'Test Report'
-#          description: 'Passed'
-#          state: 'success'
-#          sha: ${{ github.sha }}
-#          target_url: https://kinotic-ai.github.io/kinotic/allure/${{ github.run_number }}
-#
-#      - name: Check If Failure
-#        if: ${{ steps.gradle_build.outcome == 'failure' || steps.run_e2e_tests.outcome == 'failure' }}
-#        run: |
-#          if [ "${{ steps.gradle_build.outcome }}" == "failure" ]; then
-#            echo "Gradle Build failed."
-#          fi
-#
-#          if [ "${{ steps.run_e2e_tests.outcome }}" == "failure" ]; then
-#            echo "E2E Tests failed."
-#          fi
-#
-#          # Optionally mark the job as failed
-#          exit 1
-#
-#          https://kinoitc-ai.github.io/kinotic/webdocs/guide/overview.html
+      - name: Run E2E Tests
+        id: run_e2e_tests
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          cd kinotic-js/e2e-tests
+          gradle pnpmInstall
+          gradle pnpmTest
+
+      # Aggregate Allure results from every module into one directory: the Java suites (allure-junit5)
+      # and the JS e2e suite (allure-vitest) each write their own allure-results. Find them wherever
+      # they land, skipping node_modules and the aggregate directory itself.
+      - name: Merge Test Results
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p allure-results
+          find . -type d -name allure-results \
+               -not -path './allure-results' \
+               -not -path '*/node_modules/*' -print0 \
+          | while IFS= read -r -d '' dir; do
+              cp -a "$dir/." allure-results/ 2>/dev/null || true
+            done
+
+      # Hand the merged results to the publish_test_report job, which runs on a separate runner.
+      - name: Upload Allure results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Publishing the Allure report is split into its own job so the gh-pages serialization
+  # (concurrency below) covers only the gh-pages push, not the heavy build/publish job above —
+  # which keeps its cancel-previous-run behavior. The shared group string couples this job with
+  # the website deploy in website-deploy.yml so the two never push to gh-pages concurrently.
+  publish_test_report:
+    name: Publish Allure Report
+    needs: gradle_build_and_publish
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: gh-pages-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Download Allure results
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: allure-results
+          path: allure-results
+
+      - name: Get Allure history
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Generate Allure report
+        uses: simple-elf/allure-report-action@v1.13
+        id: allure-report
+        with:
+          allure_results: allure-results
+          gh_pages: gh-pages
+          subfolder: test-results
+          allure_report: allure-report
+          allure_history: allure-history
+
+      # Stable, crawler-safe entry point. /test-results/ redirects to the newest run and is marked
+      # noindex, so it is linkable from the site and README without exposing report pages to search
+      # engines — unlike a root redirect, a redirect this deep carries no homepage SEO cost. The
+      # folder is named for the artifact (test-results), not the tool, so the public URL survives a
+      # future switch away from Allure.
+      - name: Write latest-report redirect
+        run: |
+          mkdir -p allure-history/test-results
+          cat > allure-history/test-results/index.html <<EOF
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="robots" content="noindex">
+            <meta http-equiv="refresh" content="0; url=./${{ github.run_number }}/">
+            <title>Kinotic test reports</title>
+          </head>
+          <body>Redirecting to the latest <a href="./${{ github.run_number }}/">Allure report</a></body>
+          </html>
+          EOF
+
+      - name: Deploy report to Github Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-history
+          publish_branch: gh-pages
+          keep_files: true
+
+      - name: Add status to Commit
+        uses: guibranco/github-status-action-v2@v1.1.13
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          context: 'Test Report'
+          description: 'Report published'
+          state: 'success'
+          sha: ${{ github.sha }}
+          target_url: https://kinotic.ai/test-results/${{ github.run_number }}
