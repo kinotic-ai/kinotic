@@ -4,9 +4,10 @@ This is two intertwined pieces of work:
 1. **Refactor:** move `executeQuery` off the base `StatementExecutor` into a narrower
    `QueryStatementExecutor` capability interface (behavior-preserving).
 2. **Feature:** add a `SELECT` statement to `kinotic-sql` — with `GROUP BY` / aggregate functions,
-   so it absorbs what the persistence `AGGREGATE` path does today — returning rows via a
-   **self-describing cursor** so the executor stays stateless. This is what lets the persistence
-   named-query subsystem run on `kinotic-sql` and retire the Vert.x `_sql` client + column cache.
+   so it absorbs what the persistence `AGGREGATE` path does today. Column names are derived from the
+   SELECT projection on every page (not cached, not carried in the cursor), so the executor stays
+   stateless. This is what lets the persistence named-query subsystem run on `kinotic-sql` and retire
+   the Vert.x `_sql` client + column cache.
 
 ## Objective (refactor)
 In `kinotic-sql`, `StatementExecutor<T, R>` declares two operations:
@@ -108,34 +109,45 @@ Grammar/shape (verify ES SQL feature support as you go):
   older Java client "was missing functionality"; confirm 9.x covers it (it appears to) so the
   named-query path can stop using raw `_sql` HTTP.
 
-### Statelessness: self-describing cursor (the crux)
+### Statelessness: derive column names from the statement (the crux)
 ES `_sql` returns `columns` only on the **first** page; pages 2..N return `{rows, cursor}` with no
 columns. `DefaultElasticVertxClient` bridges this with a node-local Caffeine cache keyed by cursor
 (`DefaultElasticVertxClient.java:242-264`). That is both stateful **and** a clustering bug — a
 follow-up page landing on another replica throws "Cursor has expired".
 
-Do NOT port the cache. Instead make the cursor self-describing: the opaque token handed to the
-caller carries the column metadata; ES only ever sees its own raw cursor.
+Do NOT port the cache, and do NOT invent a self-describing cursor token either. The only state
+threaded across pages is the **ordered list of column names** — the row-mapping code only reads
+`ElasticColumn.getName()`; `ElasticColumn.type` is parsed but never used (verify:
+`DefaultElasticVertxClient.java:237,278`). And those names are fully determined by the SELECT
+projection, which the executor has on every page. So recompute them from the parsed statement and
+ignore ES's page-1 `columns` entirely:
 
-```java
-record SqlCursor(String esCursor, List<ElasticColumn> columns) {}   // serialized as base64(json) token
-// page 1: token = encode(SqlCursor(resp.cursor(), resp.columns()))
-// page N: SqlCursor c = decode(callerToken); ES gets only {cursor: c.esCursor()}; name rows with c.columns()
-//         next = c.esCursor()==null ? null : encode(SqlCursor(resp.cursor(), c.columns()))
+```text
+  page 1   ES→{columns,rows,cursor}     → ignore ES columns; names = projection of parsed SELECT
+  page N   ES←{cursor}; ES→{rows,cursor} → names = projection of parsed SELECT   (recomputed, not stored)
 ```
 
-This keeps the executor a pure function of `(statement | cursor-token, params) → page` — no fields,
-no cache, no TTL, cluster-safe. The schema is tiny and already visible (column names are the JSON
-keys of every row), so the token leaks nothing new.
+ES returns columns in select-list order, so the parsed projection lines up positionally with each
+row's values. The cursor handed back stays exactly what `CursorPage.getCursor()` returns today — the
+**raw ES cursor string**. No token, no cache, no TTL, cluster-safe; the whole `columnsCache` goes away.
+
+Two cases need a deterministic naming rule:
+- **`SELECT *`** — expand to an explicit projection from the entity schema (the persistence adapter
+  holds the `EntityDefinition`) *before* issuing the query, so ES returns exactly those columns in
+  that order and there is no `*`-ordering to reverse-engineer.
+- **Aggregates** — use the alias when present (`COUNT(*) AS cnt`), else the expression text as the
+  column name. Deterministic from the statement either way.
 
 ### Contract impact
 SELECT returns rows + a continuation, so the query contract's `R` must be page-shaped for it:
 - UPDATE/DELETE → `CompletableFuture<Long>`; INSERT → id/void (unchanged).
-- SELECT → `CompletableFuture<CursorPage<Map<String,Object>>>` (rows keyed by column name + self-describing cursor).
+- SELECT → `CompletableFuture<CursorPage<Map<String,Object>>>` (rows keyed by the derived column
+  names; cursor is the raw ES cursor string).
 
-`executeQuery` will also need a cursor/pageable input for SELECT (today it only takes
-`Map<String,Object> parameters`). Decide whether to pass a small args type or add a pageable
-parameter; keep kinotic-sql's dependency surface minimal.
+`executeQuery` will also need a cursor input for SELECT (today it only takes
+`Map<String,Object> parameters`) so it can issue the `{cursor}` continuation request. Decide whether
+to pass a small args type or add a pageable/cursor parameter; keep kinotic-sql's dependency surface
+minimal.
 
 ## Out of scope (follow-on — note for context, do not build here)
 - **Full persistence rewiring.** Turning `SelectQueryExecutor`/`AggregateQueryExecutor` into thin
