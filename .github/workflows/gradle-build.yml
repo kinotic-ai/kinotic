@@ -21,10 +21,10 @@ jobs:
         uses: styfle/cancel-workflow-action@0.12.1
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: 25
@@ -32,7 +32,7 @@ jobs:
           gpg-passphrase: ${{ secrets.GPG_KEY_PASS_NEW }}
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
 
       # Step 1: build + test the migration toolchain, then publish the kinotic-migration image.
       # kinotic-test (in the main build below) starts a compose stack that pulls
@@ -100,7 +100,7 @@ jobs:
       # Hand the merged results to the publish_test_report job, which runs on a separate runner.
       - name: Upload Allure results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: allure-results
           path: allure-results
@@ -121,14 +121,14 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Download Allure results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         continue-on-error: true
         with:
           name: allure-results
           path: allure-results
 
       - name: Get Allure history
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         continue-on-error: true
         with:
           ref: gh-pages
