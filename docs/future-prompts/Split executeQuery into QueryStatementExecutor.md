@@ -167,12 +167,25 @@ to pass a small args type or add a pageable/cursor parameter; keep kinotic-sql's
 minimal.
 
 ## Out of scope (follow-on — note for context, do not build here)
-- **Full persistence rewiring.** Turning `SelectQueryExecutor`/`AggregateQueryExecutor` into thin
-  adapters (`QueryContext` → kinotic-sql SELECT `executeQuery` → `CursorPage<Map>` → convert to `T`)
-  and retiring `DefaultElasticVertxClient` + `columnsCache` from the named-query path is the payoff,
-  but lands after this PR proves the SELECT executor + stateless cursor in `kinotic-sql`.
+- **Full persistence rewiring.** This is the payoff but lands after the `kinotic-sql` SELECT executor
+  + stateless cursor are proven. Keep `QueryExecutor` and its orchestration — do NOT drop the
+  interface. It is the seam `DefaultNamedQueriesService` caches/evicts and the contract the
+  persistence-only decorators compose over; those concerns must not leak into the generic
+  `kinotic-sql` library (`kinotic-migration` uses it too and has no auth/tenancy/named-query notion).
+  - **Keep:** `QueryExecutor`, `AbstractQueryExecutor`, `ParameterProcessorExecutor` (IDL param
+    marshaling + tenant/options extraction), `PreAuthorizationExecutor` (security), the factory
+    (simplified), `QueryContext`, the `DefaultNamedQueriesService` cache.
+  - **Collapse:** `SelectQueryExecutor` + `UpdateQueryExecutor` (both `return null` stubs) and the
+    aggregate path → one thin `SqlQueryExecutor` leaf that holds the prepared kinotic-sql `Statement`,
+    injects the multi-tenancy filter, calls the right `QueryStatementExecutor`, and converts
+    `Map`/count → `T`/`Page<T>`.
+  - **Delete:** `AggregateQueryExecutor` (folds into SELECT-with-grouping), `CompositeQueryExecutor`
+    (dead stub; multi-statement is explicitly unsupported — YAGNI), and the entire Vert.x SQL stack
+    (`ElasticVertxClient`, `DefaultElasticVertxClient`, `ElasticColumn`, `ElasticSQLResponse`,
+    `columnsCache`). Likely retire `SqlQueryType` + `QueryUtils.determineQueryType` by dispatching on
+    the parsed `Statement` type (verify).
 - **Param-shape adapter.** kinotic-sql takes `Map<String,Object>`; persistence carries
-  `QueryContext`/`ParameterHolder` + `List<Object> queryParameters` — bridge it during rewiring.
+  `QueryContext`/`ParameterHolder` + `List<Object> queryParameters` — bridge it in the `SqlQueryExecutor` leaf.
 
 Do not touch the data-stream/ILM work (already merged via its own PR) and do not delete
 `executeQuery` outright — the consumer above is planned.
