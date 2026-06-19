@@ -151,7 +151,13 @@ jobs:
       # future switch away from Allure.
       - name: Write latest-report redirect
         run: |
+          # simple-elf/allure-report-action runs as root in a container and already writes its own
+          # index.html here, but pointing at the github.io URL — wrong for the kinotic.ai custom
+          # domain. Take ownership of the root-created tree, then replace it with a relative,
+          # noindex redirect to the newest run that works regardless of host. mkdir first so chown
+          # has a target even if the report step produced nothing.
           mkdir -p allure-history/test-results
+          sudo chown -R "$(id -u):$(id -g)" allure-history
           cat > allure-history/test-results/index.html <<EOF
           <!doctype html>
           <html lang="en">
