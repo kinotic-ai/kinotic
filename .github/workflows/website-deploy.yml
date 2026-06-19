@@ -37,18 +37,18 @@ jobs:
           bun run generate
 
       # The deploy below uses keep_files:false, which replaces the whole gh-pages branch. Fold the
-      # existing /allure tree into the publish dir first so the clean wipe keeps Allure history while
-      # still deleting stale website files (removed routes, old hashed bundles).
-      - name: Preserve existing Allure reports
+      # existing /test-results tree into the publish dir first so the clean wipe keeps the report
+      # history while still deleting stale website files (removed routes, old hashed bundles).
+      - name: Preserve existing test reports
         uses: actions/checkout@v4
         continue-on-error: true   # gh-pages won't exist on the very first deploy
         with:
           ref: gh-pages
           path: gh-pages-current
-      - name: Fold Allure reports into site output
+      - name: Fold test reports into site output
         run: |
-          if [ -d gh-pages-current/allure ]; then
-            cp -a gh-pages-current/allure website/.output/public/allure
+          if [ -d gh-pages-current/test-results ]; then
+            cp -a gh-pages-current/test-results website/.output/public/test-results
           fi
 
       - name: Deploy to GitHub Pages

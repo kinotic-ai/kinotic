@@ -140,17 +140,19 @@ jobs:
         with:
           allure_results: allure-results
           gh_pages: gh-pages
-          subfolder: allure
+          subfolder: test-results
           allure_report: allure-report
           allure_history: allure-history
 
-      # Stable, crawler-safe entry point. /allure/ redirects to the newest run and is marked
+      # Stable, crawler-safe entry point. /test-results/ redirects to the newest run and is marked
       # noindex, so it is linkable from the site and README without exposing report pages to search
-      # engines — unlike a root redirect, a redirect this deep carries no homepage SEO cost.
+      # engines — unlike a root redirect, a redirect this deep carries no homepage SEO cost. The
+      # folder is named for the artifact (test-results), not the tool, so the public URL survives a
+      # future switch away from Allure.
       - name: Write latest-report redirect
         run: |
-          mkdir -p allure-history/allure
-          cat > allure-history/allure/index.html <<EOF
+          mkdir -p allure-history/test-results
+          cat > allure-history/test-results/index.html <<EOF
           <!doctype html>
           <html lang="en">
           <head>
@@ -179,4 +181,4 @@ jobs:
           description: 'Report published'
           state: 'success'
           sha: ${{ github.sha }}
-          target_url: https://kinotic.ai/allure/${{ github.run_number }}
+          target_url: https://kinotic.ai/test-results/${{ github.run_number }}

@@ -104,7 +104,7 @@ Kinotic OS isn't just a development platform; it is a **SaaS Launchpad**. Develo
 
 Every push to `develop` and `main` runs the Java and `kinotic-js/e2e-tests` suites and publishes an [Allure](https://allurereport.org/) report with full trend history:
 
-* **Latest report:** [kinotic.ai/allure](https://kinotic.ai/allure/)
+* **Latest report:** [kinotic.ai/test-results](https://kinotic.ai/test-results/)
 
 ---
 
