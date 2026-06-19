@@ -13,6 +13,7 @@ import {
     OsApiPlugin,
     EntityDefinition,
     KinoticProjectConfig,
+    KinoticOsCredentialsAuthProvider,
     NamedQueriesDefinition,
     QueryDecorator,
     Project
@@ -45,43 +46,13 @@ let schemas: Map<string, SchemaCreationResult> = new Map<string, SchemaCreationR
 /** Organization that owns every e2e fixture user (V3 test users + V5 app fixtures). */
 const E2E_ORGANIZATION_ID = 'kinotic-test'
 
-/**
- * Credentials sent as discrete WebSocket upgrade headers. The gateway's
- * {@link KinoticSecurityService} looks the user up by email + scope and verifies the
- * password. Scope is structural: organizationId absent → SYSTEM, organizationId only →
- * ORGANIZATION, both organizationId and applicationId → APPLICATION.
- */
-export interface AuthHeaders {
-    login: string
-    passcode: string
-    organizationId?: string
-    applicationId?: string
-}
-
-/**
- * Adapts the test {@link AuthHeaders} into an {@link IAuthProvider}. Each field becomes an
- * individual upgrade header; the optional scope fields are omitted when absent so a SYSTEM
- * login sends no organizationId/applicationId rather than an "undefined" header value.
- */
-export function authHeadersProvider(headers: AuthHeaders): IAuthProvider {
-    const authHeaders: Record<string, string> = {
-        login: headers.login,
-        passcode: headers.passcode
-    }
-    if (headers.organizationId != null) authHeaders.organizationId = headers.organizationId
-    if (headers.applicationId != null) authHeaders.applicationId = headers.applicationId
-    return {
-        getAuthHeaders: (): Record<string, string> => authHeaders
-    }
-}
-
-function buildConnectionInfo(host: string, port: number, headers: AuthHeaders): ConnectionInfo {
+function buildConnectionInfo(host: string, port: number, authProvider: IAuthProvider): ConnectionInfo {
     const ci = new ConnectionInfo()
     ci.host = host
     ci.port = port
     ci.useSSL = false
     ci.sessionKeepAlive = SessionKeepAliveMode.NONE
-    ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci, authHeadersProvider(headers))
+    ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci, authProvider)
     return ci
 }
 
@@ -94,11 +65,8 @@ export async function initKinoticClient(): Promise<void> {
 
         console.log('Connecting to Kinotic at ' + host)
 
-        await Kinotic.connect(buildConnectionInfo(host, port, {
-            login: 'kinotic@kinotic.local',
-            passcode: 'kinotic',
-            organizationId: E2E_ORGANIZATION_ID
-        }))
+        await Kinotic.connect(buildConnectionInfo(host, port,
+            new KinoticOsCredentialsAuthProvider('kinotic@kinotic.local', 'kinotic', E2E_ORGANIZATION_ID)))
 
         console.log('Connected to Kinotic')
     } catch (e) {
@@ -134,12 +102,8 @@ export async function initKinoticAppClient(applicationId: string, tenantId: stri
     const appKinotic = new KinoticSingleton()
     appKinotic.use(OsApiPlugin).use(PersistencePlugin)
 
-    await appKinotic.connect(buildConnectionInfo(host, port, {
-        login: email,
-        passcode: 'kinotic',
-        organizationId: E2E_ORGANIZATION_ID,
-        applicationId
-    }))
+    await appKinotic.connect(buildConnectionInfo(host, port,
+        new KinoticOsCredentialsAuthProvider(email, 'kinotic', E2E_ORGANIZATION_ID, applicationId)))
     return appKinotic
 }
 

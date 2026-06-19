@@ -28,8 +28,8 @@ importers:
         specifier: ^2.3.0
         version: 2.3.0(@types/node@25.0.6)(magicast@0.5.1)(typescript@5.9.3)
       '@kinotic-ai/os-api':
-        specifier: ^1.13.0
-        version: 1.13.0(@kinotic-ai/core@1.8.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^1.14.0
+        version: 1.14.0(@kinotic-ai/core@1.8.0(typescript@5.9.3))(typescript@5.9.3)
       '@kinotic-ai/persistence':
         specifier: ^1.5.0
         version: 1.5.0(@kinotic-ai/core@1.8.0(typescript@5.9.3))(typescript@5.9.3)
@@ -471,8 +471,8 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  '@kinotic-ai/os-api@1.13.0':
-    resolution: {integrity: sha512-Qsc+SKBA1HlVx1NtSespMmFZ2bIo942KKltYcK0OJsnkQju8zE3z+M6S4NxmLG+KhHXgYOPcdXb5BVMqQVXWpA==}
+  '@kinotic-ai/os-api@1.14.0':
+    resolution: {integrity: sha512-MqB8YvY0aBY9ksBbObIt1qZdQ5NzWv/PWDD9AyyeLa5cTl0bbORyeDwlMeY96+k2c9hEvwZTYvyuH4tI1KSWYw==}
     peerDependencies:
       '@kinotic-ai/core': '>=1.8.0'
       typescript: '*'
@@ -2457,7 +2457,7 @@ snapshots:
       '@inquirer/prompts': 8.3.2(@types/node@25.0.6)
       '@kinotic-ai/core': 1.8.0(typescript@5.9.3)
       '@kinotic-ai/idl': 1.0.9(typescript@5.9.3)
-      '@kinotic-ai/os-api': 1.13.0(@kinotic-ai/core@1.8.0(typescript@5.9.3))(typescript@5.9.3)
+      '@kinotic-ai/os-api': 1.14.0(@kinotic-ai/core@1.8.0(typescript@5.9.3))(typescript@5.9.3)
       '@kinotic-ai/persistence': 1.5.0(@kinotic-ai/core@1.8.0(typescript@5.9.3))(typescript@5.9.3)
       '@oclif/core': 4.9.0
       c12: 3.3.3(magicast@0.5.1)
@@ -2486,7 +2486,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@kinotic-ai/os-api@1.13.0(@kinotic-ai/core@1.8.0(typescript@5.9.3))(typescript@5.9.3)':
+  '@kinotic-ai/os-api@1.14.0(@kinotic-ai/core@1.8.0(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
       '@kinotic-ai/core': 1.8.0(typescript@5.9.3)
       '@kinotic-ai/idl': 1.0.9(typescript@5.9.3)
