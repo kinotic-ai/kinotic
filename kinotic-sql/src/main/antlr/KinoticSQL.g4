@@ -6,6 +6,7 @@ migrations
 
 statement
     : createTableStatement
+    | createDataStreamStatement
     | createComponentTemplateStatement
     | createIndexTemplateStatement
     | alterTableStatement
@@ -18,6 +19,15 @@ statement
 
 createTableStatement
     : CREATE TABLE (IF NOT EXISTS)? ID LPAREN columnDefinition (COMMA columnDefinition)* RPAREN SEMICOLON
+    ;
+
+createDataStreamStatement
+    : CREATE DATA STREAM ID LPAREN columnDefinition (COMMA columnDefinition)* RPAREN (WITH LPAREN dataStreamOption (COMMA dataStreamOption)* RPAREN)? SEMICOLON
+    ;
+
+dataStreamOption
+    : DATA_RETENTION EQUALS STRING
+    | TIME_REFERENCE EQUALS STRING
     ;
 
 createComponentTemplateStatement
@@ -172,6 +182,8 @@ COLUMN: 'COLUMN';
 COMPONENT: 'COMPONENT';
 CONFLICTS: 'CONFLICTS';
 CREATE: 'CREATE';
+DATA: 'DATA';
+DATA_RETENTION: 'DATA_RETENTION';
 DATE: 'DATE';
 DELETE: 'DELETE';
 DOUBLE: 'DOUBLE';
@@ -199,8 +211,10 @@ SET: 'SET';
 SIZE: 'SIZE';
 SLICES: 'SLICES';
 SOURCE_FIELDS: 'SOURCE_FIELDS';
+STREAM: 'STREAM';
 TABLE: 'TABLE';
 TEMPLATE: 'TEMPLATE';
+TIME_REFERENCE: 'TIME_REFERENCE';
 UPDATE: 'UPDATE';
 USING: 'USING';
 VALUES: 'VALUES';

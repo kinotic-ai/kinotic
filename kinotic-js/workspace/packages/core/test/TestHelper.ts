@@ -10,17 +10,16 @@ import * as path from 'path'
  * the STOMP CONNECT frame is processed.
  */
 export interface AuthHeaders {
-    login: string
-    passcode: string
-    authScopeType: 'SYSTEM' | 'ORGANIZATION' | 'APPLICATION'
-    authScopeId: string
+    clientId: string
+    clientSecret: string
+    organizationId?: string
+    applicationId?: string
 }
 
 const DEFAULT_AUTH_HEADERS: AuthHeaders = {
-    login: 'kinotic@kinotic.local',
-    passcode: 'kinotic',
-    authScopeType: 'ORGANIZATION',
-    authScopeId: 'kinotic-test'
+    clientId: 'kinotic@kinotic.local',
+    clientSecret: 'kinotic',
+    organizationId: 'kinotic-test'
 }
 
 /**

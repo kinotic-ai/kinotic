@@ -1,6 +1,6 @@
 import { ConnectionInfo, Kinotic as Continuum, SessionKeepAliveMode, createAuthenticatedWebSocketFactory } from '@kinotic-ai/core';
 import { ChildProcess, execSync } from 'child_process';
-import { authHeadersProvider } from '../TestHelpers.js';
+import { KinoticOsCredentialsAuthProvider } from '@kinotic-ai/os-api';
 
 function adminConnectionInfo(localPort: number): ConnectionInfo {
     const ci = new ConnectionInfo();
@@ -9,12 +9,8 @@ function adminConnectionInfo(localPort: number): ConnectionInfo {
     ci.useSSL = false;
     ci.maxConnectionAttempts = 5;
     ci.sessionKeepAlive = SessionKeepAliveMode.NONE;
-    ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci, authHeadersProvider({
-        login: 'admin',
-        passcode: 'structures',
-        authScopeType: 'SYSTEM',
-        authScopeId: 'kinotic'
-    }));
+    // SYSTEM scope: no organizationId/applicationId.
+    ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci, new KinoticOsCredentialsAuthProvider('admin', 'structures'));
     return ci;
 }
 
