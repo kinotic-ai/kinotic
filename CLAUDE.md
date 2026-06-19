@@ -84,6 +84,32 @@ Never remove or alter an existing authorship comment — `Created by <name> on <
 ## Properties
 Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant.
 
+## Dependency Versions
+
+Never hardcode a dependency version in a module `build.gradle`. Every version lives as a `*Version` property in `gradle.properties` (kept alphabetical) and is pinned once in the `dependencyManagement` block of `buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle`. The module then declares the artifact with no version:
+
+```groovy
+// kinotic-core/build.gradle — WRONG: inline version
+implementation 'com.azure:azure-identity:1.18.2'
+
+// kinotic-core/build.gradle — RIGHT: version resolved from dependency management
+implementation 'com.azure:azure-identity'
+```
+```properties
+# gradle.properties — alphabetized among the other *Version keys
+azureIdentityVersion=1.18.2
+```
+```groovy
+// org.kinotic.java-common-conventions.gradle — pinned once, in dependencyManagement
+dependency "com.azure:azure-identity:${azureIdentityVersion}"
+```
+
+One version per artifact across every module, one place to bump it. A literal version repeated across modules is Shotgun Surgery; the same artifact pinned at two versions in two files is a latent bug. Verify a move with `dependencyInsight` — `selected by rule` confirms the managed version is in effect:
+
+```bash
+./gradlew :kinotic-core:dependencyInsight --dependency com.azure:azure-identity --configuration compileClasspath
+```
+
 ## Avoid these code smells
 
 These are the named smells from Martin Fowler and Kent Beck's catalog in *Refactoring: Improving the Design of Existing Code*, grouped by Mäntylä's taxonomy — decades of industry consensus on what makes code hard to change, not house style or one reviewer's taste. That is why they bind: each one is a pattern the field has repeatedly watched turn into maintenance cost. Check every diff against this list before presenting it. The bar for any new abstraction is YAGNI (Beck and Jeffries, Extreme Programming) and the Rule of Three (Don Roberts, in Refactoring): it must carry information or remove duplication **today** — not that it might someday.
