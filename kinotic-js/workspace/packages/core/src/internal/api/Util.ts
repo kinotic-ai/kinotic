@@ -1,13 +1,14 @@
 import {EventConstants, type IEvent} from '@/api/event/IEventBus'
 import {Event} from '@/api/event/EventBus'
+import type {ServerInfo} from '@/api/ConnectionInfo'
 
 /**
- * Utility functions for working with events in the Kinoitc framework.
+ * Static utility functions used across the Kinoitc core runtime.
  *
  * @author Navid Mitchell 🤝Grok
  * @since 3/25/2025
  */
-export class EventUtil {
+export class Util {
 
     public static createReplyEvent(
         incomingHeaders: Map<string, string>,
@@ -37,5 +38,18 @@ export class EventUtil {
         }
 
         return new Event(replyCRI, newHeaders, body || undefined)
+    }
+
+    /**
+     * Builds the WebSocket broker URL the STOMP client connects to for a given server.
+     *
+     * Single source of truth for the broker path: used by {@link StompConnectionManager}
+     * and by {@link createAuthenticatedWebSocketFactory}, so a Node/Bun caller that supplies
+     * its own {@link WebSocketFactory} never has to re-type the path and drift from core.
+     */
+    public static buildBrokerUrl(serverInfo: ServerInfo): string {
+        return 'ws' + (serverInfo.useSSL ? 's' : '')
+            + '://' + serverInfo.host
+            + (serverInfo.port ? ':' + serverInfo.port : '') + '/v1'
     }
 }
