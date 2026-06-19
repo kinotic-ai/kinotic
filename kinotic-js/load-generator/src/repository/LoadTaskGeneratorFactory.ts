@@ -9,7 +9,7 @@ import {MultiTenantSearchTaskGenerator} from '@/tasks/MultiTenantSearchTaskGener
 import {MultiTenantTaskGeneratorDelegator, TenantId} from '@/tasks/MultiTenantTaskGeneratorDelegator.js'
 import {SaveTaskGenerator} from '@/tasks/SaveTaskGenerator.js'
 import {SearchPeopleTaskGenerator} from '@/tasks/SearchPeopleTaskGenerator.js'
-import {ConnectionInfo} from '@kinotic-ai/core'
+import {ConnectionInfo, createAuthenticatedWebSocketFactory, IAuthProvider} from '@kinotic-ai/core'
 
 
 export class LoadTaskGeneratorFactory {
@@ -128,19 +128,22 @@ export class LoadTaskGeneratorFactory {
     private static createConnectionInfo(tenantId: string,
                                         kinoticConnectionConfig: KinoticConnectionConfig):() => Promise<ConnectionInfo> {
         return  async () => {
-            return {
-                host                 : kinoticConnectionConfig.kinoticHost,
-                port                 : kinoticConnectionConfig.kinoticPort,
-                useSSL               : kinoticConnectionConfig.kinoticUseSsl,
-                maxConnectionAttempts: 5,
-                connectHeaders       : {
-                    login        : 'kinotic@kinotic.local',
-                    passcode     : 'kinotic',
-                    authScopeType: 'ORGANIZATION',
-                    authScopeId  : 'kinotic-test',
-                    tenantId     : tenantId
-                }
+            const connectionInfo = new ConnectionInfo()
+            connectionInfo.host = kinoticConnectionConfig.kinoticHost
+            connectionInfo.port = kinoticConnectionConfig.kinoticPort
+            connectionInfo.useSSL = kinoticConnectionConfig.kinoticUseSsl
+            connectionInfo.maxConnectionAttempts = 5
+            // ORGANIZATION-scoped management user; tenantId selects the tenant slice the load runs against.
+            const authProvider: IAuthProvider = {
+                getAuthHeaders: (): Record<string, string> => ({
+                    clientId      : 'kinotic@kinotic.local',
+                    clientSecret  : 'kinotic',
+                    organizationId: 'kinotic-test',
+                    tenantId      : tenantId
+                })
             }
+            connectionInfo.webSocketFactory = createAuthenticatedWebSocketFactory(connectionInfo, authProvider)
+            return connectionInfo
         }
     }
 
