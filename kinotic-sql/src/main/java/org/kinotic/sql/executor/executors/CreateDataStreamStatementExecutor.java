@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
  * Creates a data-stream-backing index template (pattern matching the stream name) with a managed
  * {@code @timestamp} date field, the supplied mappings, and an optional ILM lifecycle policy, then
  * materializes the data stream.
- * Created by Navíd Mitchell 🤝 Grok on 6/18/26.
+ * Created by Navíd Mitchell 🤝 Claude on 6/18/26.
  */
 @Component
 @RequiredArgsConstructor

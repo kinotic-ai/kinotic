@@ -15,7 +15,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * Executes CREATE LIFECYCLE POLICY statements against Elasticsearch.
  * Creates a reusable ILM policy with an optional hot-phase rollover and a delete phase that ages data out.
- * Created by Navíd Mitchell 🤝 Grok on 6/18/26.
+ * Created by Navíd Mitchell 🤝 Claude on 6/18/26.
  */
 @Component
 @RequiredArgsConstructor

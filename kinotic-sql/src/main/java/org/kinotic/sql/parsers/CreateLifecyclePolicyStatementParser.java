@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 /**
  * Parses CREATE LIFECYCLE POLICY statements into CreateLifecyclePolicyStatement objects.
  * Handles ILM policy creation with an optional hot-phase ROLLOVER and a DELETE phase.
- * Created by Navíd Mitchell 🤝 Grok on 6/18/26.
+ * Created by Navíd Mitchell 🤝 Claude on 6/18/26.
  */
 @Component
 public class CreateLifecyclePolicyStatementParser implements StatementParser {

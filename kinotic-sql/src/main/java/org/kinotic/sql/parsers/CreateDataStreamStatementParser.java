@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 /**
  * Parses CREATE DATA STREAM statements into CreateDataStreamStatement objects.
  * Handles data stream creation with field mappings and an optional LIFECYCLE policy reference.
- * Created by Navíd Mitchell 🤝 Grok on 6/18/26.
+ * Created by Navíd Mitchell 🤝 Claude on 6/18/26.
  */
 @Component
 public class CreateDataStreamStatementParser implements StatementParser {
