@@ -34,18 +34,31 @@ class DataStreamMigrationParserTest {
 
         assertEquals("events", statement.streamName());
         assertEquals("30d", statement.dataRetention());
+        assertNull(statement.timeReference());
         assertEquals(
             List.of(new Column("level", ColumnType.KEYWORD), new Column("message", ColumnType.TEXT)),
             statement.columns());
     }
 
     @Test
-    void dataStreamWithoutRetentionHasNullValue() {
+    void dataStreamWithoutOptionsHasNullValues() {
         CreateDataStreamStatement statement = assertInstanceOf(CreateDataStreamStatement.class, parseSingle(
             "CREATE DATA STREAM metrics (value DOUBLE);"));
 
         assertEquals("metrics", statement.streamName());
         assertNull(statement.dataRetention());
+        assertNull(statement.timeReference());
         assertEquals(List.of(new Column("value", ColumnType.DOUBLE)), statement.columns());
+    }
+
+    @Test
+    void dataStreamWithTimeReferenceAndRetention() {
+        CreateDataStreamStatement statement = assertInstanceOf(CreateDataStreamStatement.class, parseSingle(
+            "CREATE DATA STREAM sensor_readings (id KEYWORD, eventTime DATE, value DOUBLE) "
+            + "WITH (DATA_RETENTION = '30d', TIME_REFERENCE = 'eventTime');"));
+
+        assertEquals("sensor_readings", statement.streamName());
+        assertEquals("30d", statement.dataRetention());
+        assertEquals("eventTime", statement.timeReference());
     }
 }

@@ -35,6 +35,12 @@ public class CreateDataStreamStatementParser implements StatementParser {
                 .findFirst()
                 .orElse(null);
 
-        return new CreateDataStreamStatement(streamName, columns, dataRetention);
+        String timeReference = streamCtx.dataStreamOption().stream()
+                .filter(opt -> opt.TIME_REFERENCE() != null)
+                .map(opt -> opt.STRING().getText().replaceAll("'", ""))
+                .findFirst()
+                .orElse(null);
+
+        return new CreateDataStreamStatement(streamName, columns, dataRetention, timeReference);
     }
 }

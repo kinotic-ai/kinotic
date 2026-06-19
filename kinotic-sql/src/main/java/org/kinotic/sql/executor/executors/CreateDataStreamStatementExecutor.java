@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import org.kinotic.sql.domain.Column;
+import org.kinotic.sql.domain.ColumnType;
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.statements.CreateDataStreamStatement;
 import org.kinotic.sql.executor.StatementExecutor;
@@ -41,6 +43,8 @@ public class CreateDataStreamStatementExecutor implements StatementExecutor<Crea
 
     @Override
     public CompletableFuture<Void> executeMigration(CreateDataStreamStatement statement) {
+        validateTimeReference(statement);
+
         Map<String, Property> properties = new LinkedHashMap<>();
         properties.put(TIMESTAMP_FIELD, Property.of(p -> p.date(d -> d)));
         statement.columns().forEach(column ->
@@ -67,5 +71,26 @@ public class CreateDataStreamStatementExecutor implements StatementExecutor<Crea
     @Override
     public CompletableFuture<Void> executeQuery(CreateDataStreamStatement statement, Map<String, Object> parameters) {
         throw new UnsupportedOperationException("CREATE DATA STREAM not supported as a named query");
+    }
+
+    /**
+     * The time reference names a declared date column the application reads and writes directly; the
+     * managed {@code @timestamp} is its Elasticsearch-required companion. The named column must therefore
+     * exist and be a DATE.
+     */
+    private void validateTimeReference(CreateDataStreamStatement statement) {
+        if (statement.timeReference() == null) {
+            return;
+        }
+        Column reference = statement.columns().stream()
+                .filter(column -> column.name().equals(statement.timeReference()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "TIME_REFERENCE '" + statement.timeReference()
+                                + "' is not a declared column of data stream '" + statement.streamName() + "'"));
+        if (reference.type() != ColumnType.DATE) {
+            throw new IllegalArgumentException(
+                    "TIME_REFERENCE column '" + reference.name() + "' must be of type DATE but was " + reference.type());
+        }
     }
 }
