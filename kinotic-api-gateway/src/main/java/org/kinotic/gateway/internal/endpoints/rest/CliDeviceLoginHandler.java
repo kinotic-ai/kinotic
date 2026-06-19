@@ -35,9 +35,6 @@ import java.util.Date;
  *       access/refresh token pair (rotation).</li>
  * </ul>
  *
- * <p>The approve step is the {@code DeviceApprovalService} Kinotic service the browser
- * invokes over its authenticated connection, not a REST route.
- *
  * <p>Error responses use the RFC 8628 / RFC 6749 shape {@code {"error":"<code>"}} so the CLI
  * can branch on the code.
  */
