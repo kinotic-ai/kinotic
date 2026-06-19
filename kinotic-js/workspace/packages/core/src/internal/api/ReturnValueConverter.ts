@@ -1,5 +1,5 @@
 import {EventConstants, type IEvent} from '@/api/event/IEventBus'
-import {EventUtil} from './EventUtil'
+import {Util} from './Util'
 
 /**
  * Return value conversion utilities for service responses.
@@ -13,7 +13,7 @@ export interface ReturnValueConverter {
 
 export class BasicReturnValueConverter implements ReturnValueConverter {
     convert(incomingMetadata: Map<string, string>, returnValue: any): IEvent {
-        return EventUtil.createReplyEvent(
+        return Util.createReplyEvent(
             incomingMetadata,
             new Map([[EventConstants.CONTENT_TYPE_HEADER, "application/json"]]),
             new TextEncoder().encode(JSON.stringify(returnValue))
