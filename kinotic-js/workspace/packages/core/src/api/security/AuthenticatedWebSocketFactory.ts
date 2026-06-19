@@ -1,5 +1,6 @@
-import {buildBrokerUrl, type IWebSocket, type ServerInfo, type WebSocketFactory} from '@/api/ConnectionInfo'
+import type {IWebSocket, ServerInfo, WebSocketFactory} from '@/api/ConnectionInfo'
 import type {IAuthProvider} from '@/api/security/IAuthProvider'
+import {buildBrokerUrl} from '@/internal/api/event/BrokerUrl'
 
 /**
  * Builds a {@link WebSocketFactory} that authenticates during the WebSocket upgrade

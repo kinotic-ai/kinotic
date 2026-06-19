@@ -31,20 +31,6 @@ export class ServerInfo {
     useSSL?: boolean | null
 }
 
-/**
- * Builds the WebSocket broker URL the STOMP client connects to for a given server.
- *
- * This is the single source of truth for the broker path. It is used both by the
- * internal connection manager and by {@link createAuthenticatedWebSocketFactory},
- * so a Node caller that supplies its own {@link WebSocketFactory} never has to
- * re-type the path and stay in sync with core.
- */
-export function buildBrokerUrl(serverInfo: ServerInfo): string {
-    return 'ws' + (serverInfo.useSSL ? 's' : '')
-        + '://' + serverInfo.host
-        + (serverInfo.port ? ':' + serverInfo.port : '') + '/v1'
-}
-
 export enum SessionKeepAliveMode {
     NONE = 'NONE',
     ACTIVITY = 'ACTIVITY',
