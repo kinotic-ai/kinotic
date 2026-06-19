@@ -90,6 +90,10 @@ Never hardcode a dependency version in a module `build.gradle`. Every version li
 
 One version per artifact across every module, one place to bump it. A literal version repeated across modules is Shotgun Surgery; the same artifact pinned at two versions in two files is a latent bug. Verify a move with `dependencyInsight` on the module's `compileClasspath` — `selected by rule` confirms the managed version is in effect.
 
+## Keep docs in sync with code
+
+When a change alters something the docs describe — a wire contract, public API signature, REST route, auth mechanism, configuration option, or user-facing behavior — update the affected docs in the same change. `website/content/**` must always reflect the correct and current shape of the system; stale docs are a defect, not a follow-up. Before finishing, grep `website/content` for the symbols, routes, and field names you changed and reconcile every hit. If a change is genuinely too large to document in the same pass, say so explicitly rather than leaving the docs silently wrong.
+
 ## Avoid these code smells
 
 These are the named smells from Martin Fowler and Kent Beck's catalog in *Refactoring: Improving the Design of Existing Code*, grouped by Mäntylä's taxonomy — decades of industry consensus on what makes code hard to change, not house style or one reviewer's taste. That is why they bind: each one is a pattern the field has repeatedly watched turn into maintenance cost. Check every diff against this list before presenting it. The bar for any new abstraction is YAGNI (Beck and Jeffries, Extreme Programming) and the Rule of Three (Don Roberts, in Refactoring): it must carry information or remove duplication **today** — not that it might someday.
