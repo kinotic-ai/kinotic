@@ -41,7 +41,7 @@ The maintainers of this repo read code faster than English. When explaining anyt
 - Show failure modes as code that compiles-but-misbehaves (or the verbatim compiler/test error), not as an abstract description of the risk.
 - Keep prose for what code cannot express: intent, constraints, and consequences — one or two sentences placed next to the snippet they explain.
 
-This applies to chat replies, PR descriptions, and review responses alike.
+This governs how you communicate *about* the code in conversation — chat replies, PR descriptions, review responses. It does not apply to the repo's own artifacts: documentation (this file, READMEs) and code comments.
 
 
 ## Java Conventions
@@ -83,6 +83,12 @@ Never remove or alter an existing authorship comment — `Created by <name> on <
 
 ## Properties
 Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant.
+
+## Dependency Versions
+
+Never hardcode a dependency version in a module `build.gradle`. Every version lives as a `*Version` property in `gradle.properties` (kept alphabetical) and is pinned once in the `dependencyManagement` block of `buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle`. The module declares the artifact with no version, so the managed version applies.
+
+One version per artifact across every module, one place to bump it. A literal version repeated across modules is Shotgun Surgery; the same artifact pinned at two versions in two files is a latent bug. Verify a move with `dependencyInsight` on the module's `compileClasspath` — `selected by rule` confirms the managed version is in effect.
 
 ## Avoid these code smells
 

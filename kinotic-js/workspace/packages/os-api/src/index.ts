@@ -62,6 +62,7 @@ export * from '@/api/security/ISystemParticipant'
 export * from '@/api/security/IOrganizationParticipant'
 export * from '@/api/security/IApplicationParticipant'
 export * from '@/api/security/ParticipantGuards'
+export * from '@/api/security/KinoticOsCredentialsAuthProvider'
 
 // Services
 export * from '@/api/services/IApplicationService'

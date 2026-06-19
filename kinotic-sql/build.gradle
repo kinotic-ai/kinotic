@@ -38,9 +38,9 @@ dependencies {
     implementation 'tools.jackson.core:jackson-core'
     implementation 'tools.jackson.core:jackson-databind'
 
-    // Parsing dependencies FIXME: move versions below to dependency management
-	implementation 'org.antlr:antlr4-runtime:4.13.2'
-	antlr 'org.antlr:antlr4:4.13.2'
+    // Parsing dependencies
+	implementation 'org.antlr:antlr4-runtime'
+	antlr 'org.antlr:antlr4'
 
 }
 

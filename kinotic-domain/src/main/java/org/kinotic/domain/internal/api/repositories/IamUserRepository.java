@@ -2,6 +2,7 @@ package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.IamUser;
@@ -20,6 +21,11 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
     }
 
     public CompletableFuture<IamUser> findByEmail(String email, String organizationId, String applicationId) {
+        Validate.notBlank(email, "email cannot be blank");
+        if (applicationId != null) {
+            Validate.notBlank(organizationId,
+                              "organizationId is required when applicationId is supplied");
+        }
         return findFirst(b -> b.query(composeFilter(
                 termFilter("email", DomainUtil.normalizeEmail(email)),
                 scopeFilter(organizationId, applicationId))));
@@ -75,14 +81,16 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
     /**
      * Structural scope filter against the typed scope fields on the document:
      * <ul>
-     *   <li>both null → {@code organizationId} must be missing (SYSTEM)</li>
+     *   <li>both null → {@code organizationId} and {@code applicationId} must be missing (SYSTEM).</li>
      *   <li>only {@code organizationId} set → matches that org AND {@code applicationId} is missing (ORG)</li>
      *   <li>both set → matches both fields (APP)</li>
      * </ul>
      */
     private Query scopeFilter(String organizationId, String applicationId) {
         if (organizationId == null && applicationId == null) {
-            return missingFilter("organizationId");
+            return composeFilter(
+                    missingFilter("organizationId"),
+                    missingFilter("applicationId"));
         }
         if (applicationId == null) {
             return composeFilter(
