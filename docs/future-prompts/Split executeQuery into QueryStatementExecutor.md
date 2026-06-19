@@ -1,6 +1,14 @@
-# Split `executeQuery` off `StatementExecutor` into a `QueryStatementExecutor` capability interface
+# Split `executeQuery` into `QueryStatementExecutor` + add a SELECT (with grouping) statement
 
-## Objective
+This is two intertwined pieces of work:
+1. **Refactor:** move `executeQuery` off the base `StatementExecutor` into a narrower
+   `QueryStatementExecutor` capability interface (behavior-preserving).
+2. **Feature:** add a `SELECT` statement to `kinotic-sql` — with `GROUP BY` / aggregate functions,
+   so it absorbs what the persistence `AGGREGATE` path does today — returning rows via a
+   **self-describing cursor** so the executor stays stateless. This is what lets the persistence
+   named-query subsystem run on `kinotic-sql` and retire the Vert.x `_sql` client + column cache.
+
+## Objective (refactor)
 In `kinotic-sql`, `StatementExecutor<T, R>` declares two operations:
 
 ```java
@@ -85,24 +93,72 @@ Per-executor changes:
 `MigrationExecutor` keeps `List<StatementExecutor<?, ?>>` — `QueryStatementExecutor` extends it,
 so all executors still register and dispatch. No change there.
 
-## Out of scope (do NOT attempt here — these are the follow-on integration, not this refactor)
-Wiring the persistence consumer is a separate, larger effort. Note the gaps for context, but
-leave them:
-1. **Return-type impedance.** `QueryExecutor.execute` returns `List<T>`/`Page<T>`; `executeQuery`
-   returns `R` (`Void`/`Long`/`String`). The eventual contract's `R` should be designed against
-   `QueryExecutor`'s shape — but not in this PR.
-2. **No SELECT in `kinotic-sql`.** The grammar has no `SELECT` statement, so `SelectQueryExecutor`
-   has nothing to delegate to yet. Adding SELECT (statement + parser + executor returning rows) is
-   a separate feature.
-3. **Param-shape adapter.** kinotic-sql takes `Map<String,Object>`; persistence carries
-   `QueryContext` / `ParameterHolder` + `List<Object> queryParameters`. A bridge is needed when the
-   consumer is actually wired.
+## Feature: add SELECT (with grouping), absorbing AGGREGATE
+The persistence factory dispatches `SqlQueryType {AGGREGATE, DELETE, INSERT, SELECT, UPDATE}`.
+`kinotic-sql` already has INSERT/UPDATE/DELETE but **no SELECT and no AGGREGATE**. Per the decision,
+add a single `SELECT` statement that supports `GROUP BY` + aggregate functions (COUNT/SUM/AVG/MIN/
+MAX/…), so AGGREGATE is not a separate statement — it's SELECT with grouping.
 
-Also do not touch the data-stream/ILM work (already merged via its own PR) and do not delete
+Grammar/shape (verify ES SQL feature support as you go):
+- Projections, the existing `whereClause`, `GROUP BY`, aggregate functions, `ORDER BY`,
+  `LIMIT`/fetch size.
+- Back it with the **typed** client `client.sql().query(...)` (9.x `ElasticsearchSqlAsyncClient`),
+  which exposes `columns()` / `rows()` / `cursor()` plus `filter` / `params` / `timeZone` /
+  `pageTimeout` / `fetchSize`. The existing Vert.x `DefaultElasticVertxClient` exists because an
+  older Java client "was missing functionality"; confirm 9.x covers it (it appears to) so the
+  named-query path can stop using raw `_sql` HTTP.
+
+### Statelessness: self-describing cursor (the crux)
+ES `_sql` returns `columns` only on the **first** page; pages 2..N return `{rows, cursor}` with no
+columns. `DefaultElasticVertxClient` bridges this with a node-local Caffeine cache keyed by cursor
+(`DefaultElasticVertxClient.java:242-264`). That is both stateful **and** a clustering bug — a
+follow-up page landing on another replica throws "Cursor has expired".
+
+Do NOT port the cache. Instead make the cursor self-describing: the opaque token handed to the
+caller carries the column metadata; ES only ever sees its own raw cursor.
+
+```java
+record SqlCursor(String esCursor, List<ElasticColumn> columns) {}   // serialized as base64(json) token
+// page 1: token = encode(SqlCursor(resp.cursor(), resp.columns()))
+// page N: SqlCursor c = decode(callerToken); ES gets only {cursor: c.esCursor()}; name rows with c.columns()
+//         next = c.esCursor()==null ? null : encode(SqlCursor(resp.cursor(), c.columns()))
+```
+
+This keeps the executor a pure function of `(statement | cursor-token, params) → page` — no fields,
+no cache, no TTL, cluster-safe. The schema is tiny and already visible (column names are the JSON
+keys of every row), so the token leaks nothing new.
+
+### Contract impact
+SELECT returns rows + a continuation, so the query contract's `R` must be page-shaped for it:
+- UPDATE/DELETE → `CompletableFuture<Long>`; INSERT → id/void (unchanged).
+- SELECT → `CompletableFuture<CursorPage<Map<String,Object>>>` (rows keyed by column name + self-describing cursor).
+
+`executeQuery` will also need a cursor/pageable input for SELECT (today it only takes
+`Map<String,Object> parameters`). Decide whether to pass a small args type or add a pageable
+parameter; keep kinotic-sql's dependency surface minimal.
+
+## Out of scope (follow-on — note for context, do not build here)
+- **Full persistence rewiring.** Turning `SelectQueryExecutor`/`AggregateQueryExecutor` into thin
+  adapters (`QueryContext` → kinotic-sql SELECT `executeQuery` → `CursorPage<Map>` → convert to `T`)
+  and retiring `DefaultElasticVertxClient` + `columnsCache` from the named-query path is the payoff,
+  but lands after this PR proves the SELECT executor + stateless cursor in `kinotic-sql`.
+- **Param-shape adapter.** kinotic-sql takes `Map<String,Object>`; persistence carries
+  `QueryContext`/`ParameterHolder` + `List<Object> queryParameters` — bridge it during rewiring.
+
+Do not touch the data-stream/ILM work (already merged via its own PR) and do not delete
 `executeQuery` outright — the consumer above is planned.
 
 ## Build & verify (Claude Code cloud)
-No grammar change, so no ANTLR regen needed. JDK 25 is required to compile:
+The SELECT statement changes the grammar, so the ANTLR parser must be regenerated. The generated
+parser is committed under `kinotic-sql/.../parser/` and is only regenerated when the task is invoked
+explicitly:
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+./gradlew :kinotic-sql:generateGrammarSource   # runs with JDK 21; rewrites the committed parser
+```
+
+JDK 25 is required to compile:
 
 ```bash
 # JDK 25 if not present (Oracle CDN is allowlisted)
@@ -117,9 +173,10 @@ CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-sql:test \
   -Porg.gradle.java.installations.paths=/tmp/jdk-25.0.3
 ```
 
-The existing `DataStreamMigrationParserTest` and the other `kinotic-sql` tests must stay green.
-A quick `grep` for `executeQuery` afterward should show it only on `QueryStatementExecutor` and
-its three implementers.
+The existing `DataStreamMigrationParserTest` and the other `kinotic-sql` tests must stay green; add
+parser tests for SELECT (projections, WHERE, GROUP BY, ORDER BY, LIMIT). A quick `grep` for
+`executeQuery` afterward should show it only on `QueryStatementExecutor` and its implementers
+(Update, Delete, Insert, Select).
 
 ## Git
 Develop on a NEW branch (not the data-stream branch / PR #237). Behavior-preserving — keep it a
