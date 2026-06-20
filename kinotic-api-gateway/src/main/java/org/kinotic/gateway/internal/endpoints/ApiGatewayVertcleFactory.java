@@ -20,6 +20,7 @@ import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.rest.*;
 import org.kinotic.github.api.rest.GitHubGatewayRoutes;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -41,7 +42,9 @@ public class ApiGatewayVertcleFactory {
     private final InviteHandler inviteHandler;
     private final CliDeviceLoginHandler cliDeviceLoginHandler;
     private final SessionEndpointHandler sessionEndpointHandler;
-    private final GitHubGatewayRoutes githubGatewayRoutes;
+    // Optional: the GitHub module's component scan is off when kinotic.disableGithub=true,
+    // so this bean is absent and its webhook routes simply aren't mounted.
+    private final ObjectProvider<GitHubGatewayRoutes> githubGatewayRoutes;
     private final HealthChecks healthChecks;
     private final Vertx vertx;
     private final SessionStore sessionStore;
@@ -80,7 +83,7 @@ public class ApiGatewayVertcleFactory {
         inviteHandler.mountRoutes(router);
         cliDeviceLoginHandler.mountRoutes(router);
         sessionEndpointHandler.mountRoutes(router);
-        githubGatewayRoutes.mountRoutes(router);
+        githubGatewayRoutes.ifAvailable(routes -> routes.mountRoutes(router));
 
         StompServerOptions stompServerOptions = properties.getApiGateway().getStomp();
         // we override the body length with the continuum properties

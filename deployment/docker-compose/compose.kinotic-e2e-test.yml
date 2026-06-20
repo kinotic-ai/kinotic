@@ -16,6 +16,11 @@ services:
       JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m # remove otel javaagent for test
       SPRING_PROFILES_ACTIVE: test,e2e-tests,compose
       SPRING_AI_OPENAI_API-KEY: "noop"
+      # SecretNameDeriver requires a master key at startup. The key lives in the `development`
+      # profile (application-development.yml), which e2e deliberately drops in favor of
+      # `test,e2e-tests,compose`, so supply the dummy test key here. Matches kinotic-test's
+      # application.yml so derived secret names stay consistent with the test fixtures.
+      KINOTIC_SECRETSTORAGE_MASTERKEY: a2lub3RpYy10ZXN0LW1hc3Rlci1rZXktZHVtbXktMDA=
       # GitHub is disabled for e2e; the domain MockProjectRepoProvisioner supplies a no-op
       # ProjectRepoProvisioner so project-create flows work without a configured GitHub App.
       KINOTIC_DISABLEGITHUB: "true"

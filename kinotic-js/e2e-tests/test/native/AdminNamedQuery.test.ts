@@ -17,6 +17,9 @@ import {
 
 const TEST_ORG_ID = 'kinotic-test'
 const APP_TENANT = 'kinotic'
+// Fixed application seeded with its APPLICATION-scoped user by V5__e2e_app_fixtures; the
+// app client logs in as app-<APP_ID>-<APP_TENANT>@test.local, which only exists for a seeded id.
+const APP_ID = 'e2e-admin-named-query'
 
 interface LocalTestContext {
     entityDefinition: EntityDefinition
@@ -40,7 +43,7 @@ describe('End To End Tests', () => {
     }, 60000)
 
     beforeEach<LocalTestContext>(async (context) => {
-        context.applicationIdUsed = generateRandomString(10)
+        context.applicationIdUsed = APP_ID
         context.projectIdUsed = generateRandomString(5)
         context.entityDefinition = await createPersonEntityDefinitionIfNotExist(TEST_ORG_ID, context.applicationIdUsed, context.projectIdUsed, true)
         expect(context.entityDefinition).toBeDefined()
