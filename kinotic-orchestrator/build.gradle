@@ -1,0 +1,21 @@
+plugins {
+    id 'org.kinotic.java-library-conventions'
+}
+
+
+dependencies {
+    implementation 'org.kinotic:kinotic-core'
+    implementation 'org.kinotic:kinotic-domain'
+
+    implementation 'commons-io:commons-io'
+
+    implementation 'io.projectreactor:reactor-core'
+
+    implementation 'org.reactivestreams:reactive-streams'
+
+    implementation 'tools.jackson.core:jackson-core'
+    implementation 'tools.jackson.core:jackson-databind'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.projectreactor:reactor-test'
+}

@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.github.api.config.KinoticGithubProperties;
 import org.kinotic.github.api.model.GitHubWebhookEvent;
-import org.kinotic.github.api.rest.GithubConstants;
 import org.kinotic.github.api.services.GitHubWebhookEventService;
 import org.springframework.stereotype.Component;
 
@@ -54,7 +53,7 @@ public class GitHubWebhookHandler {
     private final GitHubWebhookEventService webhookEventService;
 
     public void mountRoute(Router router) {
-        router.post(GithubConstants.WEBHOOK_PATH)
+        router.post("/api/github/webhook")
               .handler(BodyHandler.create().setBodyLimit(WEBHOOK_BODY_LIMIT_BYTES))
               .handler(this::handleWebhook);
     }

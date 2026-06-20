@@ -27,7 +27,11 @@ export default defineWorkspace(
 			name: 'spawn',
 			root: 'packages/spawn',
 			config: { entry: ['src/index.ts', 'src/node/index.ts'] }
-		}
+		},
+		{
+			name: 'vm-manager',
+			root: 'packages/vm-manager'
+		},
 	],
 	{
 		format: ["esm", "cjs"],
