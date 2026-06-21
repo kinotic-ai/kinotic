@@ -4,8 +4,8 @@ plugins {
 
 
 dependencies {
-    implementation 'org.kinotic:kinotic-core'
-    implementation 'org.kinotic:kinotic-domain'
+    implementation project(':kinotic-core')
+    implementation project(':kinotic-domain')
 
     implementation 'commons-io:commons-io'
 
