@@ -13,7 +13,7 @@
   "scripts": {
     "type-check": "tsc --noEmit",
     "dev": "bun run src/index.ts",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "coverage": "vitest run --coverage",
     "ui-test": "vitest --ui --coverage.enabled=true --mode development"
   },
@@ -28,6 +28,7 @@
   },
   "devDependencies": {
     "@types/bun": "^1.3.9",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }

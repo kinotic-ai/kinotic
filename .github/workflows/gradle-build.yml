@@ -82,11 +82,12 @@ jobs:
           DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
           DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
-      # The @kinotic-ai/core suite drives a real gateway: its globalSetup (test/setup.ts) starts the
-      # kinotic-server image published above via testcontainers when USE_GATEWAY_DOCKER=true. Its
-      # allure-results are picked up by the aggregation step below.
-      - name: Run JS Core Tests
-        id: run_core_tests
+      # Run every kinotic-js/workspace package's test suite. The @kinotic-ai/core suite drives a real
+      # gateway: its globalSetup (test/setup.ts) starts the kinotic-server image published above via
+      # testcontainers when USE_GATEWAY_DOCKER=true; the other suites ignore that flag. Each suite's
+      # allure-vitest results are picked up by the aggregation step below.
+      - name: Run JS Workspace Tests
+        id: run_workspace_tests
         if: ${{ !cancelled() }}
         continue-on-error: true
         env:
@@ -94,7 +95,7 @@ jobs:
         run: |
           cd kinotic-js/workspace
           bun install --frozen-lockfile
-          bun run --filter '@kinotic-ai/core' test
+          bun run --filter '*' test
 
       - name: Run E2E Tests
         id: run_e2e_tests
@@ -106,8 +107,8 @@ jobs:
           gradle pnpmTest
 
       # Aggregate Allure results from every module into one directory: the Java suites (allure-junit5)
-      # and the JS suites (allure-vitest: @kinotic-ai/core and e2e-tests) each write their own
-      # allure-results. Find them wherever they land, skipping node_modules and the aggregate directory.
+      # and the JS suites (allure-vitest: the kinotic-js/workspace packages and e2e-tests) each write
+      # their own allure-results. Find them wherever they land, skipping node_modules and the aggregate.
       - name: Merge Test Results
         if: ${{ !cancelled() }}
         run: |

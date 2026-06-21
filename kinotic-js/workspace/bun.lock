@@ -122,6 +122,8 @@
       "devDependencies": {
         "@types/node": "^25.3.2",
         "@vitest/coverage-v8": "^4.0.18",
+        "allure": "^3.4.1",
+        "allure-vitest": "^3.7.1",
         "typescript": "^5.9.3",
         "vitest": "^4.0.18",
       },
@@ -137,6 +139,7 @@
       "devDependencies": {
         "@types/bun": "^1.3.9",
         "typescript": "^5.9.3",
+        "vitest": "^4.0.18",
       },
       "peerDependencies": {
         "@kinotic-ai/core": ">=1.8.0",
