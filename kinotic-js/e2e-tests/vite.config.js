@@ -18,6 +18,7 @@ export default defineConfig({
                 "allure-vitest/reporter",
                 {
                     resultsDir: "allure-results",
+                    globalLabels: { parentSuite: "E2E Tests" },
                 },
             ],
         ],

@@ -13,9 +13,8 @@
   "scripts": {
     "type-check": "tsc --noEmit",
     "dev": "bun run src/index.ts",
-    "test": "vitest run",
-    "coverage": "vitest run --coverage",
-    "ui-test": "vitest --ui --coverage.enabled=true --mode development"
+    "test": "bun test --pass-with-no-tests",
+    "coverage": "bun test --coverage --pass-with-no-tests"
   },
   "peerDependencies": {
     "@kinotic-ai/core": ">=1.8.0",

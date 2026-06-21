@@ -21,10 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.12.1
+        uses: styfle/cancel-workflow-action@0.13.1
 
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up JDK
         uses: actions/setup-java@v5
@@ -35,7 +35,12 @@ jobs:
           gpg-passphrase: ${{ secrets.GPG_KEY_PASS_NEW }}
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v6
+
+      # Bun runs the kinotic-js/workspace tests (the @kinotic-ai/core suite below). The workspace is a
+      # Bun monorepo (bun.lock); e2e-tests uses its own node-gradle plugin and does not need this.
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
 
       # Step 1: build + test the migration toolchain, then publish the kinotic-migration image.
       # kinotic-test (in the main build below) starts a compose stack that pulls
@@ -79,12 +84,28 @@ jobs:
 
       # The runner's bundled Docker Compose rejects include: + service overrides used by
       # compose.kinotic-e2e-test.yml ("conflicts with imported resource"); install a current plugin.
+      # Must precede the testcontainers-driven suites below (JS workspace + E2E).
       - name: Set up Docker Compose
         if: ${{ !cancelled() }}
         continue-on-error: true
         uses: docker/setup-compose-action@v2
         with:
           version: v5.1.4
+
+      # Run every kinotic-js/workspace package's test suite. The @kinotic-ai/core suite drives a real
+      # gateway: its globalSetup (test/setup.ts) starts the kinotic-server image published above via
+      # testcontainers when USE_GATEWAY_DOCKER=true; the other suites ignore that flag. Each suite's
+      # allure results are picked up by the aggregation step below.
+      - name: Run JS Workspace Tests
+        id: run_workspace_tests
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          USE_GATEWAY_DOCKER: "true"
+        run: |
+          cd kinotic-js/workspace
+          bun install --frozen-lockfile
+          bun run --filter '*' test
 
       - name: Run E2E Tests
         id: run_e2e_tests
@@ -96,8 +117,8 @@ jobs:
           gradle pnpmTest
 
       # Aggregate Allure results from every module into one directory: the Java suites (allure-junit5)
-      # and the JS e2e suite (allure-vitest) each write their own allure-results. Find them wherever
-      # they land, skipping node_modules and the aggregate directory itself.
+      # and the JS suites (allure-vitest: the kinotic-js/workspace packages and e2e-tests) each write
+      # their own allure-results. Find them wherever they land, skipping node_modules and the aggregate.
       - name: Merge Test Results
         if: ${{ !cancelled() }}
         run: |
@@ -112,7 +133,7 @@ jobs:
       # Hand the merged results to the publish_test_report job, which runs on a separate runner.
       - name: Upload Allure results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: allure-results
           path: allure-results
@@ -140,25 +161,25 @@ jobs:
       # for it). Sparse-checkout avoids pulling the whole tree into this lightweight publish job.
       # Must run before the artifact download below, since actions/checkout cleans its destination.
       - name: Checkout report config
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           sparse-checkout: allurerc.mjs
           sparse-checkout-cone-mode: false
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Download Allure results
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: allure-results
           path: allure-results
 
       - name: Get Allure history
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         continue-on-error: true
         with:
           ref: gh-pages
@@ -221,7 +242,7 @@ jobs:
           keep_files: true
 
       - name: Add status to Commit
-        uses: guibranco/github-status-action-v2@v1.1.13
+        uses: guibranco/github-status-action-v2@v1.2.4
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           context: 'Test Report'

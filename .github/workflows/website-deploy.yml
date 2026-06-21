@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -40,7 +40,7 @@ jobs:
       # existing /test-results tree into the publish dir first so the clean wipe keeps the report
       # history while still deleting stale website files (removed routes, old hashed bundles).
       - name: Preserve existing test reports
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         continue-on-error: true   # gh-pages won't exist on the very first deploy
         with:
           ref: gh-pages

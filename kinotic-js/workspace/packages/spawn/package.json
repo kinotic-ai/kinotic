@@ -38,8 +38,8 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "test": "vitest run",
-    "coverage": "vitest run --coverage",
+    "test": "bun test",
+    "coverage": "bun test --coverage",
     "build:graal-spawn-renderer": "bun build ./src/graalSpawnRendererMain.ts --outfile ./dist/graal-spawn-renderer.js --format=iife --target=browser"
   },
   "dependencies": {
@@ -47,10 +47,10 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@types/bun": "^1.3.9",
     "@types/node": "^25.3.2",
-    "@vitest/coverage-v8": "^4.0.18",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "allure-bun": "^3.10.0",
+    "typescript": "^5.9.3"
   },
   "peerDependenciesMeta": {
     "typescript": {
