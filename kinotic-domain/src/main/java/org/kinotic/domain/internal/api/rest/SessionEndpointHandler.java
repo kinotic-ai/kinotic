@@ -1,6 +1,7 @@
-package org.kinotic.gateway.internal.endpoints.rest;
+package org.kinotic.domain.internal.api.rest;
 
 import io.vertx.ext.web.Router;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import io.vertx.ext.web.handler.SessionHandler;
@@ -19,8 +20,9 @@ import org.springframework.stereotype.Component;
  * </ul>
  */
 @Component
-public class SessionEndpointHandler {
+public class SessionEndpointHandler implements SuppliesGatewayRoutes {
 
+    @Override
     public void mountRoutes(Router router) {
         router.get("/api/auth/me").handler(this::handleMe);
         router.post("/api/auth/logout").handler(this::handleLogout);

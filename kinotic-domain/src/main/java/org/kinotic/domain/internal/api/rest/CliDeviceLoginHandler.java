@@ -1,9 +1,10 @@
-package org.kinotic.gateway.internal.endpoints.rest;
+package org.kinotic.domain.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.web.Router;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +13,7 @@ import org.kinotic.domain.api.model.iam.DeviceCodePollResult;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.services.iam.DeviceCodeGrantService;
 import org.kinotic.domain.api.services.iam.RefreshTokenService;
-import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
+import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
 
@@ -32,7 +33,7 @@ import java.util.Date;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class CliDeviceLoginHandler {
+public class CliDeviceLoginHandler implements SuppliesGatewayRoutes {
 
     /** Access-token TTL for the CLI's short-lived JWT. */
     private static final int JWT_TTL_SECONDS = 60;
@@ -43,6 +44,7 @@ public class CliDeviceLoginHandler {
     private final KinoticDomainProperties domainProperties;
     private final KinoticJwtIssuer jwtIssuer;
 
+    @Override
     public void mountRoutes(Router router) {
         router.post("/api/auth/device/start").handler(this::handleStart);
         router.post("/api/auth/device/token").handler(this::handleToken);

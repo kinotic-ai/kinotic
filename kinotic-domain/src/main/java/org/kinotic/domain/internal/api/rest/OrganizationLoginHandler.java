@@ -1,15 +1,16 @@
-package org.kinotic.gateway.internal.endpoints.rest;
+package org.kinotic.domain.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
-import org.kinotic.gateway.internal.endpoints.rest.support.CallbackResult;
-import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
+import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
+import org.kinotic.domain.internal.api.rest.support.CallbackResult;
+import org.kinotic.domain.internal.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
@@ -34,7 +35,7 @@ import java.util.Set;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class OrganizationLoginHandler {
+public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
 
     private final AuthEndpointSupport authEndpointSupport;
     private final IamUserService iamUserService;
@@ -44,6 +45,7 @@ public class OrganizationLoginHandler {
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final OidcConfigurationRepository oidcConfigurationRepository;
 
+    @Override
     public void mountRoutes(Router router) {
         router.get("/api/auth/org/login/providers").handler(this::handleProviders);
         router.post("/api/auth/org/login/lookup").handler(this::handleLookup);

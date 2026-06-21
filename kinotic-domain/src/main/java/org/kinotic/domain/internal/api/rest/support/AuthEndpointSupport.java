@@ -1,4 +1,4 @@
-package org.kinotic.gateway.internal.endpoints.rest.support;
+package org.kinotic.domain.internal.api.rest.support;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -11,7 +11,7 @@ import java.util.function.Function;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.gateway.internal.endpoints.rest.OidcErrorCodes;
+import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.internal.utils.DomainUtil;
