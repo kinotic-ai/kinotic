@@ -85,7 +85,7 @@ jobs:
       # Run every kinotic-js/workspace package's test suite. The @kinotic-ai/core suite drives a real
       # gateway: its globalSetup (test/setup.ts) starts the kinotic-server image published above via
       # testcontainers when USE_GATEWAY_DOCKER=true; the other suites ignore that flag. Each suite's
-      # allure-vitest results are picked up by the aggregation step below.
+      # allure results are picked up by the aggregation step below.
       - name: Run JS Workspace Tests
         id: run_workspace_tests
         if: ${{ !cancelled() }}
@@ -96,6 +96,15 @@ jobs:
           cd kinotic-js/workspace
           bun install --frozen-lockfile
           bun run --filter '*' test
+
+      # The runner's bundled Docker Compose rejects include: + service overrides used by
+      # compose.kinotic-e2e-test.yml ("conflicts with imported resource"); install a current plugin.
+      - name: Set up Docker Compose
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: docker/setup-compose-action@v2
+        with:
+          version: v5.1.4
 
       - name: Run E2E Tests
         id: run_e2e_tests
