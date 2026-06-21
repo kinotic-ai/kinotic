@@ -140,12 +140,9 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      # The test/build steps above use continue-on-error so every suite runs and the merged Allure
-      # report stays complete regardless of failures. This final gate re-reads their outcomes (which
-      # are still 'failure' under continue-on-error) and fails the job when any failed, so a run with
-      # failing tests shows a red X instead of a green check. Placed after the upload so the report
-      # artifact is produced first; publish_test_report still runs because it is gated on
-      # !cancelled(), not on this job succeeding.
+      # The test steps use continue-on-error so every suite runs and the Allure report stays complete;
+      # this gate re-reads their outcomes (still 'failure' under continue-on-error) and fails the job
+      # if any failed, giving a red X instead of a green check.
       - name: Fail job if any test run failed
         if: ${{ !cancelled() }}
         run: |
