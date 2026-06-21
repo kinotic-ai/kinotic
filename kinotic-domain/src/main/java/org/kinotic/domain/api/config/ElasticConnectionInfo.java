@@ -1,4 +1,4 @@
-package org.kinotic.persistence.api.config;
+package org.kinotic.domain.api.config;
 
 import lombok.*;
 import lombok.experimental.Accessors;

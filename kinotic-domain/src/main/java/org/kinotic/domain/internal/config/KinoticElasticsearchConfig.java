@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.config;
+package org.kinotic.domain.internal.config;
 
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
@@ -11,7 +11,8 @@ import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.hc.core5.util.Timeout;
-import org.kinotic.persistence.api.config.PersistenceProperties;
+import org.kinotic.domain.api.config.DomainProperties;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tools.jackson.databind.json.JsonMapper;
@@ -26,32 +27,32 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class KinoticElasticsearchConfig {
 
-    private final PersistenceProperties persistenceProperties;
+    private final DomainProperties domainProperties;
 
-    public KinoticElasticsearchConfig(PersistenceProperties persistenceProperties) {
-        this.persistenceProperties = persistenceProperties;
+    public KinoticElasticsearchConfig(KinoticDomainProperties kinoticDomainProperties) {
+        this.domainProperties = kinoticDomainProperties.getDomain();
     }
 
     @Bean
     public ElasticsearchAsyncClient elasticsearchAsyncClient(JsonpMapper jsonpMapper){
-        HttpHost[] hosts = persistenceProperties.getElasticConnections()
-                                                .stream()
-                                                .map(v -> new HttpHost(v.getScheme(), v.getHost(), v.getPort()))
-                                                .toArray(HttpHost[]::new);
+        HttpHost[] hosts = domainProperties.getElasticConnections()
+                                           .stream()
+                                           .map(v -> new HttpHost(v.getScheme(), v.getHost(), v.getPort()))
+                                           .toArray(HttpHost[]::new);
 
         var builder = Rest5Client.builder(hosts);
 
-        if(persistenceProperties.hasElasticUsernameAndPassword()){
-            String credentials = persistenceProperties.getElasticUsername() + ":" + persistenceProperties.getElasticPassword();
+        if(domainProperties.hasElasticUsernameAndPassword()){
+            String credentials = domainProperties.getElasticUsername() + ":" + domainProperties.getElasticPassword();
             String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
             builder.setDefaultHeaders(new Header[]{
                     new BasicHeader("Authorization", "Basic " + encodedCredentials)
             });
         }
 
-        Timeout connectTimeout = Timeout.of(persistenceProperties.getElasticConnectionTimeout().toMillis(), TimeUnit.MILLISECONDS);
-        Timeout socketTimeout = Timeout.of(persistenceProperties.getElasticSocketTimeout().toMillis(), TimeUnit.MILLISECONDS);
-        Timeout responseTimeout = Timeout.of(persistenceProperties.getElasticSocketTimeout().toMillis(), TimeUnit.MILLISECONDS);
+        Timeout connectTimeout = Timeout.of(domainProperties.getElasticConnectionTimeout().toMillis(), TimeUnit.MILLISECONDS);
+        Timeout socketTimeout = Timeout.of(domainProperties.getElasticSocketTimeout().toMillis(), TimeUnit.MILLISECONDS);
+        Timeout responseTimeout = Timeout.of(domainProperties.getElasticSocketTimeout().toMillis(), TimeUnit.MILLISECONDS);
 
         builder.setConnectionConfigCallback(connectionConfig -> connectionConfig
                 .setConnectTimeout(connectTimeout)
@@ -73,4 +74,3 @@ public class KinoticElasticsearchConfig {
     }
 
 }
-

@@ -33,11 +33,11 @@ public class KinoticTestContextInitializer implements ApplicationContextInitiali
             String esHost = KinoticTestConfiguration.getElasticsearchHost();
             int esPort = KinoticTestConfiguration.getElasticsearchPort();
 
-            TestPropertyValues.of("kinotic.persistence.elastic-connections[0].host=" + esHost)
+            TestPropertyValues.of("kinotic.domain.elastic-connections[0].host=" + esHost)
                 .applyTo(applicationContext);
-            TestPropertyValues.of("kinotic.persistence.elastic-connections[0].port=" + esPort)
+            TestPropertyValues.of("kinotic.domain.elastic-connections[0].port=" + esPort)
                 .applyTo(applicationContext);
-            TestPropertyValues.of("kinotic.persistence.elastic-connections[0].scheme=http")
+            TestPropertyValues.of("kinotic.domain.elastic-connections[0].scheme=http")
                 .applyTo(applicationContext);
 
             log.info("KinoticTestContextInitializer: Kinotic stack ready, elasticsearch={}:{}", esHost, esPort);

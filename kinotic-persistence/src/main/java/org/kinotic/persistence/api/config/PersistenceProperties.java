@@ -7,9 +7,6 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.apache.commons.lang3.Validate;
 
-import java.time.Duration;
-import java.util.List;
-
 @Getter
 @Setter
 @Accessors(chain = true)
@@ -22,25 +19,6 @@ public class PersistenceProperties {
 
     @NotNull
     private String tenantIdFieldName = "tenantId";
-
-    @NotNull
-    private Duration elasticConnectionTimeout = Duration.ofSeconds(5);
-
-    @NotNull
-    private Duration elasticSocketTimeout = Duration.ofMinutes(1);
-
-    /**
-     * The interval to check the health of the elastic cluster
-     */
-    @NotNull
-    private Duration elasticHealthCheckInterval = Duration.ofMinutes(1);
-
-    @NotNull
-    private List<ElasticConnectionInfo> elasticConnections = List.of(new ElasticConnectionInfo());
-
-    private String elasticUsername = null;
-
-    private String elasticPassword = null;
 
     /**
      * The max length of all HTTP headers in bytes. Default is 8KB.
@@ -74,10 +52,6 @@ public class PersistenceProperties {
      */
     private ClusterEvictionProperties clusterEviction = new ClusterEvictionProperties();
 
-
-    public boolean hasElasticUsernameAndPassword(){
-        return elasticUsername != null && !elasticUsername.isBlank() && elasticPassword != null && !elasticPassword.isBlank();
-    }
 
     public PersistenceProperties setOpenApiAdminPath(String path){
         Validate.notBlank(path, "openApiAdminPath must not be blank");

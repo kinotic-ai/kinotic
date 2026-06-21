@@ -15,6 +15,10 @@ kinotic:
       enabled: false
       endpoint: https://acs-kinotic.communication.azure.com
       sender-address: "DoNotReply@kinotic.ai"
+    elastic-connections:
+      - scheme: "http"
+        host: "localhost"
+        port: "9200"
   cors:
     allowedOriginPattern: "http:\\/\\/localhost:\\d+"
     allowCredentials: true
@@ -36,11 +40,6 @@ kinotic:
   # kinotic.secretStorage.azure.vaultUrl is set, otherwise from KINOTIC_AKV_<name> env vars
   # (uppercased, non-alphanumerics → "_"). For local dev, export the env var matching the
   # secret name on the seeded OrgSignupOidcConfiguration / OidcConfiguration row.
-  persistence:
-    elastic-connections:
-      - scheme: "http"
-        host: "localhost"
-        port: "9200"
 
 logging:
   level:

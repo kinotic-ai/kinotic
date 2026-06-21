@@ -26,9 +26,9 @@ data:
 
   # ── Elasticsearch connection ──────────────────────────────
   {{ range $index,$value:= .Values.kinotic.elastic.connections }}
-  KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_{{ $index }}_SCHEME: "{{ $value.scheme }}"
-  KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_{{ $index }}_HOST: "{{ $value.host }}"
-  KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
+  KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_SCHEME: "{{ $value.scheme }}"
+  KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_HOST: "{{ $value.host }}"
+  KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
   {{ end }}
 
   {{- if .Values.tls.enabled }}

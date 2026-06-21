@@ -1,6 +1,7 @@
 package org.kinotic.persistence.internal;
 
 import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +29,7 @@ public class PersistenceInitializer {
     private final ElasticsearchAsyncClient esAsyncClient;
     private final HealthChecks healthChecks;
     private final PersistenceProperties properties;
+    private final KinoticDomainProperties domainProperties;
     private final Vertx vertx;
     private Throwable lastEsError = null;
     private boolean lastEsStatus = true;
@@ -45,7 +47,7 @@ public class PersistenceInitializer {
             }
         });
 
-        vertx.setPeriodic(properties.getElasticHealthCheckInterval().toMillis(),
+        vertx.setPeriodic(domainProperties.getDomain().getElasticHealthCheckInterval().toMillis(),
                           event -> esAsyncClient
                                   .cluster()
                                   .health(builder -> builder.index(properties.getIndexPrefix() + "application")

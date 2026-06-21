@@ -88,9 +88,9 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: KINOTIC_PERSISTENCE_ELASTICUSERNAME
+            - name: KINOTIC_DOMAIN_ELASTICUSERNAME
               value: "{{ .Values.kinotic.elastic.username }}"
-            - name: KINOTIC_PERSISTENCE_ELASTICPASSWORD
+            - name: KINOTIC_DOMAIN_ELASTICPASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.kinotic.elastic.secretName }}

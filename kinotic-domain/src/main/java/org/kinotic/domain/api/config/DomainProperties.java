@@ -1,9 +1,13 @@
 package org.kinotic.domain.api.config;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 import org.kinotic.core.api.config.SslProperties;
+
+import java.time.Duration;
+import java.util.List;
 
 /**
  *
@@ -41,6 +45,29 @@ public class DomainProperties {
      * Email / outbound-mail configuration.
      */
     private EmailProperties email = new EmailProperties();
+
+    @NotNull
+    private Duration elasticConnectionTimeout = Duration.ofSeconds(5);
+
+    @NotNull
+    private Duration elasticSocketTimeout = Duration.ofMinutes(1);
+
+    /**
+     * The interval to check the health of the elastic cluster
+     */
+    @NotNull
+    private Duration elasticHealthCheckInterval = Duration.ofMinutes(1);
+
+    @NotNull
+    private List<ElasticConnectionInfo> elasticConnections = List.of(new ElasticConnectionInfo());
+
+    private String elasticUsername = null;
+
+    private String elasticPassword = null;
+
+    public boolean hasElasticUsernameAndPassword(){
+        return elasticUsername != null && !elasticUsername.isBlank() && elasticPassword != null && !elasticPassword.isBlank();
+    }
 
     /**
      * Returns {@link #apiBaseUrl} when set, otherwise falls back to {@link #appBaseUrl}.
