@@ -120,12 +120,10 @@
         "zod": "4.4.3",
       },
       "devDependencies": {
+        "@types/bun": "^1.3.9",
         "@types/node": "^25.3.2",
-        "@vitest/coverage-v8": "^4.0.18",
-        "allure": "^3.4.1",
-        "allure-vitest": "^3.7.1",
+        "allure-bun": "^3.10.0",
         "typescript": "^5.9.3",
-        "vitest": "^4.0.18",
       },
     },
     "packages/vm-manager": {
@@ -633,6 +631,8 @@
     "agent-base": ["agent-base@6.0.2", "", { "dependencies": { "debug": "4" } }, "sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ=="],
 
     "allure": ["allure@3.12.0", "", { "dependencies": { "@allurereport/charts-api": "3.12.0", "@allurereport/ci": "3.12.0", "@allurereport/core": "3.12.0", "@allurereport/core-api": "3.12.0", "@allurereport/directory-watcher": "3.12.0", "@allurereport/plugin-agent": "3.12.0", "@allurereport/plugin-allure2": "3.12.0", "@allurereport/plugin-api": "3.12.0", "@allurereport/plugin-awesome": "3.12.0", "@allurereport/plugin-classic": "3.12.0", "@allurereport/plugin-csv": "3.12.0", "@allurereport/plugin-dashboard": "3.12.0", "@allurereport/plugin-jira": "3.12.0", "@allurereport/plugin-log": "3.12.0", "@allurereport/plugin-progress": "3.12.0", "@allurereport/plugin-server-reload": "3.12.0", "@allurereport/plugin-slack": "3.12.0", "@allurereport/reader-api": "3.12.0", "@allurereport/service": "3.12.0", "@allurereport/static-server": "3.12.0", "adm-zip": "^0.5.16", "clipanion": "^4.0.0-rc.4", "glob": "^13.0.6", "lodash.omit": "^4.18.0", "prompts": "^2.4.2", "typanion": "^3.14.0", "yoctocolors": "^2.1.1" }, "bin": "./cli.js" }, "sha512-6gsQZBpTIFf6WYpQZoAyj3eFt5hzmL2j7/5WSkH8whAKJr8jCv/bMMYioiDoXejcK+PzzIxHx8vv9aTHae946Q=="],
+
+    "allure-bun": ["allure-bun@3.10.0", "", { "dependencies": { "allure-js-commons": "3.10.0" } }, "sha512-ASNoLynf8PzxT5cwuSNBNN2SAGl3qXEdzq3GYix5iI/MyH83UlyMTwaUyonIPlUU9lhbZNmRZU/n4TaXnLzLZA=="],
 
     "allure-js-commons": ["allure-js-commons@3.10.0", "", { "dependencies": { "md5": "^2.3.0" }, "peerDependencies": { "allure-playwright": "3.10.0" }, "optionalPeers": ["allure-playwright"] }, "sha512-Tf2nYiC7VDNgvM5t0Av9KfQ+cO7ScAzCG2Ikhy9BhzAZoXymjN0I1uyZfsf+iaMJhiuGv7Slf86dBQDHHS3nvw=="],
 
