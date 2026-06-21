@@ -21,10 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.12.1
+        uses: styfle/cancel-workflow-action@0.13.1
 
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up JDK
         uses: actions/setup-java@v5
@@ -35,7 +35,7 @@ jobs:
           gpg-passphrase: ${{ secrets.GPG_KEY_PASS_NEW }}
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v6
 
       # Bun runs the kinotic-js/workspace tests (the @kinotic-ai/core suite below). The workspace is a
       # Bun monorepo (bun.lock); e2e-tests uses its own node-gradle plugin and does not need this.
@@ -133,7 +133,7 @@ jobs:
       # Hand the merged results to the publish_test_report job, which runs on a separate runner.
       - name: Upload Allure results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: allure-results
           path: allure-results
@@ -161,25 +161,25 @@ jobs:
       # for it). Sparse-checkout avoids pulling the whole tree into this lightweight publish job.
       # Must run before the artifact download below, since actions/checkout cleans its destination.
       - name: Checkout report config
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           sparse-checkout: allurerc.mjs
           sparse-checkout-cone-mode: false
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Download Allure results
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: allure-results
           path: allure-results
 
       - name: Get Allure history
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         continue-on-error: true
         with:
           ref: gh-pages
@@ -242,7 +242,7 @@ jobs:
           keep_files: true
 
       - name: Add status to Commit
-        uses: guibranco/github-status-action-v2@v1.1.13
+        uses: guibranco/github-status-action-v2@v1.2.4
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           context: 'Test Report'
