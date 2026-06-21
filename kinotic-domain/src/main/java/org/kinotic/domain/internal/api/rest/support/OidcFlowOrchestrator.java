@@ -1,4 +1,4 @@
-package org.kinotic.gateway.internal.endpoints.rest.support;
+package org.kinotic.domain.internal.api.rest.support;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -15,7 +15,7 @@ import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
-import org.kinotic.gateway.internal.endpoints.rest.OidcErrorCodes;
+import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;

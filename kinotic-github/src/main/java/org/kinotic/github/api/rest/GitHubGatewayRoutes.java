@@ -2,6 +2,7 @@ package org.kinotic.github.api.rest;
 
 import io.vertx.ext.web.Router;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.github.internal.api.rest.GitHubWebhookHandler;
 import org.springframework.stereotype.Component;
 
@@ -16,10 +17,11 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @RequiredArgsConstructor
-public class GitHubGatewayRoutes {
+public class GitHubGatewayRoutes implements SuppliesGatewayRoutes {
 
     private final GitHubWebhookHandler webhookHandler;
 
+    @Override
     public void mountRoutes(Router router) {
         webhookHandler.mountRoute(router);
     }

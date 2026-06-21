@@ -1,4 +1,4 @@
-package org.kinotic.gateway.internal.endpoints.rest.support;
+package org.kinotic.domain.internal.api.rest.support;
 
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;

@@ -1,8 +1,9 @@
-package org.kinotic.gateway.internal.endpoints.rest;
+package org.kinotic.domain.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,11 +15,11 @@ import org.kinotic.domain.api.services.iam.InviteService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
-import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
-import org.kinotic.gateway.internal.endpoints.rest.support.CallbackResult;
-import org.kinotic.gateway.internal.endpoints.rest.support.OAuth2Util;
-import org.kinotic.gateway.internal.endpoints.rest.support.OidcCallbackException;
-import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
+import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
+import org.kinotic.domain.internal.api.rest.support.CallbackResult;
+import org.kinotic.domain.internal.api.rest.support.OAuth2Util;
+import org.kinotic.domain.internal.api.rest.support.OidcCallbackException;
+import org.kinotic.domain.internal.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
@@ -38,7 +39,7 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class InviteHandler {
+public class InviteHandler implements SuppliesGatewayRoutes {
 
     /** Frontend path of the unauthenticated invitation-accept page. */
     private static final String INVITE_ACCEPT_PATH = "/invite/accept";
@@ -52,6 +53,7 @@ public class InviteHandler {
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
 
+    @Override
     public void mountRoutes(Router router) {
         router.get("/api/auth/invite/details").handler(this::handleDetails);
         router.post("/api/auth/invite/accept").handler(this::handleLocalAccept);

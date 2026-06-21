@@ -1,4 +1,4 @@
-package org.kinotic.gateway.internal.endpoints.rest.support;
+package org.kinotic.domain.internal.api.rest.support;
 
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 

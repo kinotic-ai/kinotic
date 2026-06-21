@@ -1,13 +1,14 @@
-package org.kinotic.gateway.internal.endpoints.rest;
+package org.kinotic.domain.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.Organization;
-import org.kinotic.gateway.internal.endpoints.rest.support.*;
+import org.kinotic.domain.internal.api.rest.support.*;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.OidcProviderKind;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
@@ -29,7 +30,7 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class OrganizationSignupHandler {
+public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
 
     private final IamUserService iamUserService;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
@@ -37,6 +38,7 @@ public class OrganizationSignupHandler {
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
 
+    @Override
     public void mountRoutes(Router router) {
         // Email/password: form submit, then completion after the user clicks the email link.
         router.post("/api/auth/org/signup").handler(this::handleLocalSignUp);
