@@ -21,10 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.12.1
+        uses: styfle/cancel-workflow-action@0.13.1
 
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up JDK
         uses: actions/setup-java@v5
@@ -35,12 +35,14 @@ jobs:
           gpg-passphrase: ${{ secrets.GPG_KEY_PASS_NEW }}
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v6
 
-      # Step 1: build + test the migration toolchain, then publish the kinotic-migration image.
-      # kinotic-test (in the main build below) starts a compose stack that pulls
-      # kinoticai/kinotic-migration:<version>, so the image must exist first. The `&&` publishes
-      # the image only if kinotic-sql and kinotic-migration tests pass.
+      # Bun runs the kinotic-js/workspace test suites below (e2e-tests uses its own node-gradle plugin).
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      # Build + test the migration toolchain and publish its image first: the main build's kinotic-test
+      # pulls kinoticai/kinotic-migration:<version>. `&&` gates the publish on the tests passing.
       - name: Build & test kinotic-sql + kinotic-migration, publish migration image
         id: migration
         continue-on-error: true
@@ -49,15 +51,14 @@ jobs:
           DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
           DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
-      # Step 2: build and test everything else. kinotic-test pulls the migration image published above.
+      # Build + test everything else; kinotic-test pulls the migration image published above.
       - name: Build with Gradle
         id: gradle_build
         if: ${{ steps.migration.outcome == 'success' }}
         continue-on-error: true
         run: ./gradlew build
 
-      # All library Maven artifacts publish once here (applications publish images, not jars), so
-      # kinotic-sql deploys with the rest — no separate/duplicate deploy.
+      # All library jars publish here in one pass (apps publish images, not jars).
       - name: Publish to Maven Central with JReleaser
         if: ${{ steps.migration.outcome == 'success' && steps.gradle_build.outcome == 'success' }}
         run: ./gradlew publish && ./gradlew jreleaserDeploy --info
@@ -69,13 +70,35 @@ jobs:
           JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_KEY_NEW }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_KEY_PASS_NEW }}
 
-      # The migration image was published in step 1; this publishes the remaining application image.
+      # Publishes the remaining application image (migration image was published above).
       - name: Publish kinotic-server image to Docker Hub
         if: ${{ steps.migration.outcome == 'success' && steps.gradle_build.outcome == 'success' }}
         run: ./gradlew :kinotic-server:bootBuildImage --publishImage
         env:
           DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
           DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      # Bundled Compose fails on compose.kinotic-e2e-test.yml's include: + overrides; install a current
+      # one before the testcontainers suites (JS workspace + E2E) below.
+      - name: Set up Docker Compose
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: docker/setup-compose-action@v2
+        with:
+          version: v5.1.4
+
+      # Run all workspace test suites. USE_GATEWAY_DOCKER makes the @kinotic-ai/core suite start the
+      # server image (published above) via testcontainers; the other suites ignore it.
+      - name: Run JS Workspace Tests
+        id: run_workspace_tests
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          USE_GATEWAY_DOCKER: "true"
+        run: |
+          cd kinotic-js/workspace
+          bun install --frozen-lockfile
+          bun run --filter '*' test
 
       - name: Run E2E Tests
         id: run_e2e_tests
@@ -86,9 +109,7 @@ jobs:
           gradle pnpmInstall
           gradle pnpmTest
 
-      # Aggregate Allure results from every module into one directory: the Java suites (allure-junit5)
-      # and the JS e2e suite (allure-vitest) each write their own allure-results. Find them wherever
-      # they land, skipping node_modules and the aggregate directory itself.
+      # Collect every module's allure-results into one dir, skipping node_modules and the aggregate.
       - name: Merge Test Results
         if: ${{ !cancelled() }}
         run: |
@@ -100,20 +121,39 @@ jobs:
               cp -a "$dir/." allure-results/ 2>/dev/null || true
             done
 
-      # Hand the merged results to the publish_test_report job, which runs on a separate runner.
+      # Pass the merged results to the publish_test_report job (separate runner).
       - name: Upload Allure results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: allure-results
           path: allure-results
           if-no-files-found: ignore
           retention-days: 7
 
-  # Publishing the Allure report is split into its own job so the gh-pages serialization
-  # (concurrency below) covers only the gh-pages push, not the heavy build/publish job above —
-  # which keeps its cancel-previous-run behavior. The shared group string couples this job with
-  # the website deploy in website-deploy.yml so the two never push to gh-pages concurrently.
+      # Fail the job if any test step failed (their continue-on-error keeps the run going for the report).
+      - name: Fail job if any test run failed
+        if: ${{ !cancelled() }}
+        run: |
+          failed=false
+          check() {
+            if [ "$2" = "failure" ]; then
+              echo "::error::$1 failed"
+              failed=true
+            fi
+          }
+          check "kinotic-sql + kinotic-migration build/test" "${{ steps.migration.outcome }}"
+          check "Gradle build" "${{ steps.gradle_build.outcome }}"
+          check "JS workspace tests" "${{ steps.run_workspace_tests.outcome }}"
+          check "E2E tests" "${{ steps.run_e2e_tests.outcome }}"
+          if [ "$failed" = true ]; then
+            exit 1
+          fi
+          echo "All test runs passed."
+
+  # Separate job so the concurrency group below serializes only the report push, leaving the build
+  # job's cancel-previous behavior intact. Shared group with website-deploy.yml prevents concurrent
+  # gh-pages pushes.
   publish_test_report:
     name: Publish Allure Report
     needs: gradle_build_and_publish
@@ -123,47 +163,41 @@ jobs:
       group: gh-pages-deploy
       cancel-in-progress: false
     env:
-      # Allure 3 report generator (the CLI that renders the new UI and reads/writes history.jsonl).
-      # Pinned so report output and trend handling stay reproducible across runs.
+      # Allure 3 CLI version, pinned for reproducible report output and history handling.
       ALLURE_VERSION: "3.12.0"
     steps:
-      # Only allurerc.mjs is needed from the repo (historyPath is config-only — there is no CLI flag
-      # for it). Sparse-checkout avoids pulling the whole tree into this lightweight publish job.
-      # Must run before the artifact download below, since actions/checkout cleans its destination.
+      # Sparse-checkout just allurerc.mjs (needed for historyPath). Must precede the download below,
+      # since checkout cleans its destination.
       - name: Checkout report config
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           sparse-checkout: allurerc.mjs
           sparse-checkout-cone-mode: false
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Download Allure results
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: allure-results
           path: allure-results
 
       - name: Get Allure history
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         continue-on-error: true
         with:
           ref: gh-pages
           path: gh-pages
 
-      # Render the report with the Allure 3 CLI (the "awesome" UI). The simple-elf action this
-      # replaces bundled the Allure 2 generator; Allure 3 has no drop-in publish action, so the
-      # history round-trip the action did implicitly is done explicitly here:
-      #   1. restore the prior run's history.jsonl from its stable gh-pages path (absent on run 1),
-      #   2. `allure generate` reads it (historyPath in allurerc.mjs), writes the per-run report,
-      #      and rewrites history.jsonl with this launch appended,
-      #   3. persist the updated history.jsonl back to the stable path for the next run.
-      # The Allure 3 generator reads the existing allure-junit5 (v2) and allure-vitest (v3) results
-      # unchanged. Each run is an immutable folder under test-results/<run_number>/.
+      # Allure 3 has no drop-in publish action, so do the history round-trip explicitly:
+      #   1. restore the prior run's history.jsonl from gh-pages (absent on run 1),
+      #   2. `allure generate` reads it (historyPath in allurerc.mjs), writes the report, appends this run,
+      #   3. persist the updated history.jsonl for the next run.
+      # Each run is an immutable folder under test-results/<run_number>/.
       - name: Generate Allure report
         run: |
           if [ ! -d allure-results ] || [ -z "$(ls -A allure-results 2>/dev/null)" ]; then
@@ -179,16 +213,12 @@ jobs:
           mkdir -p allure-history/test-results
           cp history.jsonl allure-history/test-results/history.jsonl
 
-      # Stable, crawler-safe entry point. /test-results/ redirects to the newest run and is marked
-      # noindex, so it is linkable from the site and README without exposing report pages to search
-      # engines — unlike a root redirect, a redirect this deep carries no homepage SEO cost. The
-      # folder is named for the artifact (test-results), not the tool, so the public URL survives a
-      # future switch away from Allure.
+      # Stable noindex entry point: /test-results/ redirects to the newest run, linkable without
+      # exposing report pages to search engines.
       - name: Write latest-report redirect
         run: |
-          # Replace any prior index.html at this path with a relative, noindex redirect to the newest
-          # run that works regardless of host (the github.io default would be wrong for the kinotic.ai
-          # custom domain). mkdir guarantees a target even if the generate step produced nothing.
+          # Relative redirect (host-agnostic for the kinotic.ai domain) to the newest run; mkdir
+          # guarantees a target even if generate produced nothing.
           mkdir -p allure-history/test-results
           cat > allure-history/test-results/index.html <<EOF
           <!doctype html>
@@ -212,7 +242,7 @@ jobs:
           keep_files: true
 
       - name: Add status to Commit
-        uses: guibranco/github-status-action-v2@v1.1.13
+        uses: guibranco/github-status-action-v2@v1.2.4
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
           context: 'Test Report'

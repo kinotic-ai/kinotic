@@ -13,7 +13,7 @@ node {
 
     // // Version of node to download and install (only used if download is true)
     // // It will be unpacked in the workDir
-    version = "22.16.0"
+    version = "24.17.0"
 
     // Base URL for fetching node distributions
     // Only used if download is true
