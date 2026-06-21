@@ -41,7 +41,7 @@ describe("Publish Mechanism", () => {
     }
 
     const sendAndReceiveEvent = async (cri: string, args?: any[] | null): Promise<any> => {
-        const replyTo = `${EventConstants.SERVICE_DESTINATION_PREFIX}${replyToId}:${uuidv4()}@continuum.js.EventBus/replyHandler`
+        const replyTo = `${EventConstants.REPLY_DESTINATION_PREFIX}${replyToId}:${uuidv4()}@continuum.js.EventBus/replyHandler`
         const event = createTestEvent(cri, replyTo, args)
         const response: Observable<IEvent> = Kinotic.eventBus.observe(replyTo)
         const resultPromise = firstValueFrom(response)

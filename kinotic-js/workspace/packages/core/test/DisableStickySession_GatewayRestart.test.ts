@@ -21,7 +21,7 @@ describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
             .withExposedPorts({container: 58503, host: 58599})
             .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
             .withPullPolicy(PullPolicy.alwaysPull())
-            .withWaitStrategy(Wait.forHttp('/', 58503))
+            .withWaitStrategy(Wait.forHttp('/health', 58503).forStatusCodeMatching(c => c === 200 || c === 204))
             .withName('disable-sticky-session-reconnect-test')
             .start()
 
@@ -64,7 +64,7 @@ describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
             .withExposedPorts({container: 58503, host: 58599})
             .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
             .withPullPolicy(PullPolicy.alwaysPull())
-            .withWaitStrategy(Wait.forHttp('/', 58503))
+            .withWaitStrategy(Wait.forHttp('/health', 58503).forStatusCodeMatching(c => c === 200 || c === 204))
             .withName('disable-sticky-session-reconnect-test')
             .start()
 

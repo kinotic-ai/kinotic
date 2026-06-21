@@ -21,12 +21,14 @@ describe('Kinotic Unavailable Tests', () => {
         ci.port = port
         ci.maxConnectionAttempts = 3
         ci.webSocketFactory = authedWebSocketFactory(host, port)
-        await expect(Kinotic.connect(ci))
-            .rejects.toThrowError(
-                expect.stringMatching(
-                    /^Max number of reconnection attempts reached\. Last WS Error getaddrinfo (ENOTFOUND|EAI_AGAIN) notavailable$/
-                )
-            )
+
+        // The reconnect-exhausted failure carries the underlying WS/DNS error as the Error cause
+        // rather than concatenating its (environment-specific) text into the message.
+        // connect() rejects with the fatal error's message string (StompConnectionManager
+        // rejects with err.message); the underlying WS/DNS error is environment-specific, so
+        // assert only the stable reconnect-exhausted message.
+        const error: unknown = await Kinotic.connect(ci).then(() => null, (e) => e)
+        expect(error).toBe('Max number of reconnection attempts reached')
 
         await expect(Kinotic.disconnect()).resolves.toBeUndefined()
     }, 1000 * 60 * 10) // 10 minutes
@@ -44,7 +46,7 @@ describe('Kinotic Unavailable Tests', () => {
                .withExposedPorts({container: 58503, host: 58590})
                .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
                .withPullPolicy(PullPolicy.alwaysPull())
-               .withWaitStrategy(Wait.forHttp('/', 58503))
+               .withWaitStrategy(Wait.forHttp('/health', 58503).forStatusCodeMatching(c => c === 200 || c === 204))
                .withName('maxretries-container')
                .start()
 
