@@ -95,6 +95,22 @@ reload in Box A ~4s later. `nodemon --legacy-watch` under Bun wraps the same
 chokidar-polling mechanism with process restart. Tune `interval` to trade reload
 latency against CPU.
 
+### 4. Does the *host* see guest writes? (guest→host — pending measurement)
+
+Finding #3 is guest→guest. The log-shipping design instead has **one Alloy on the host**
+tailing per-VM log files written by the guests, so the relevant question is whether a
+**host-side** watcher is notified when a guest writes to a shared volume. This is *not*
+symmetric with #3: a guest write reaches the host file via `virtiofsd` performing a real
+`write()` on the **host** kernel, which normally *does* emit an inotify event — so the
+host case may succeed where guest→guest failed.
+
+`volume-host-notify-test.ts` measures it: one box writes to a host-mounted volume while
+the host process watches the directory with both `fs.watch` (event/inotify) and
+`fs.watchFile` (poll). Run on **Linux** for the authoritative result (prod Alloy is Linux;
+`fs.watch` on macOS uses FSEvents). Worst case (event misses), polling still works as in
+#3 — so the design holds either way; the test only decides whether Alloy can use inotify
+(sub-second) or must poll (~poll-interval latency).
+
 ---
 
 ## Scripts (`src/`)
@@ -107,6 +123,7 @@ latency against CPU.
 | `detach-test.ts` | Detach bug repro (finding #1). | **yes** (`detach-http-test`) |
 | `volume-share-test.ts` | Two-box shared volume with `bun --watch` — shows the inotify limitation (finding #3). | self-cleaning |
 | `volume-poll-test.ts` | Same setup with chokidar `{ usePolling }` (recursive, nested file) — shows the fix works. | self-cleaning |
+| `volume-host-notify-test.ts` | **Guest→host** notify (finding #4): a box writes to a host-mounted volume while the host process watches via `fs.watch` (event) vs `fs.watchFile` (poll). Decides whether host-side Alloy can use inotify or must poll. | self-cleaning |
 
 Note: `node/` is a separate mini-project running the smoke test under **Node.js**
 (`node --experimental-strip-types`) to confirm cross-runtime support.
