@@ -16,7 +16,7 @@ import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
-import org.kinotic.os.api.services.iam.OidcConfigurationService;
+import org.kinotic.domain.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

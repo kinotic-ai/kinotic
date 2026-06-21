@@ -8,6 +8,8 @@ dependencies {
     implementation 'com.azure:azure-communication-email'
     implementation 'com.azure:azure-identity'
 
+    implementation 'io.vertx:vertx-auth-common'
+    implementation 'io.vertx:vertx-auth-jwt'
     implementation 'io.vertx:vertx-core'
     implementation 'io.vertx:vertx-web'
     implementation 'io.vertx:vertx-web-client'

@@ -1,4 +1,4 @@
-package org.kinotic.os.internal.api.services;
+package org.kinotic.domain.internal.api.services.iam;
 
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +12,6 @@ import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.IamCredential;
 import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
-import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;

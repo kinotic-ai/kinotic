@@ -19,7 +19,7 @@ import org.kinotic.gateway.internal.endpoints.rest.support.CallbackResult;
 import org.kinotic.gateway.internal.endpoints.rest.support.OAuth2Util;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcCallbackException;
 import org.kinotic.gateway.internal.endpoints.rest.support.OidcFlowOrchestrator;
-import org.kinotic.os.api.services.iam.OidcConfigurationService;
+import org.kinotic.domain.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;

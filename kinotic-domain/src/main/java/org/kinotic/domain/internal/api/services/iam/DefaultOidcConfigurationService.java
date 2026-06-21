@@ -1,4 +1,4 @@
-package org.kinotic.os.internal.api.services.iam;
+package org.kinotic.domain.internal.api.services.iam;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
@@ -6,7 +6,7 @@ import org.kinotic.domain.api.model.iam.OidcConfiguration;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
-import org.kinotic.os.api.services.iam.OidcConfigurationService;
+import org.kinotic.domain.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;

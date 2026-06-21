@@ -1,4 +1,4 @@
-package org.kinotic.os.internal.api.services.iam;
+package org.kinotic.domain.internal.api.services.iam;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;

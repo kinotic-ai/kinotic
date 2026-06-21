@@ -9,7 +9,7 @@ import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedServic
 import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.os.api.services.ApplicationService;
 import org.kinotic.os.api.services.ProjectService;
-import org.kinotic.os.api.services.iam.OidcConfigurationService;
+import org.kinotic.domain.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;

@@ -13,7 +13,7 @@ import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.services.iam.DeviceCodeGrantService;
 import org.kinotic.domain.api.services.iam.RefreshTokenService;
 import org.kinotic.gateway.internal.endpoints.rest.support.AuthEndpointSupport;
-import org.kinotic.os.internal.api.services.iam.KinoticJwtIssuer;
+import org.kinotic.domain.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
