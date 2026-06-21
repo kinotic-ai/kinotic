@@ -22,6 +22,7 @@ export default defineConfig({
                 "allure-vitest/reporter",
                 {
                     resultsDir: "allure-results",
+                    globalLabels: { parentSuite: "Kinotic IDL" },
                 },
             ],
         ],
