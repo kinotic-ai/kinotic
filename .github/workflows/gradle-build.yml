@@ -122,7 +122,25 @@ jobs:
     concurrency:
       group: gh-pages-deploy
       cancel-in-progress: false
+    env:
+      # Allure 3 report generator (the CLI that renders the new UI and reads/writes history.jsonl).
+      # Pinned so report output and trend handling stay reproducible across runs.
+      ALLURE_VERSION: "3.12.0"
     steps:
+      # Only allurerc.mjs is needed from the repo (historyPath is config-only — there is no CLI flag
+      # for it). Sparse-checkout avoids pulling the whole tree into this lightweight publish job.
+      # Must run before the artifact download below, since actions/checkout cleans its destination.
+      - name: Checkout report config
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: allurerc.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Download Allure results
         uses: actions/download-artifact@v6
         continue-on-error: true
@@ -137,15 +155,29 @@ jobs:
           ref: gh-pages
           path: gh-pages
 
+      # Render the report with the Allure 3 CLI (the "awesome" UI). The simple-elf action this
+      # replaces bundled the Allure 2 generator; Allure 3 has no drop-in publish action, so the
+      # history round-trip the action did implicitly is done explicitly here:
+      #   1. restore the prior run's history.jsonl from its stable gh-pages path (absent on run 1),
+      #   2. `allure generate` reads it (historyPath in allurerc.mjs), writes the per-run report,
+      #      and rewrites history.jsonl with this launch appended,
+      #   3. persist the updated history.jsonl back to the stable path for the next run.
+      # The Allure 3 generator reads the existing allure-junit5 (v2) and allure-vitest (v3) results
+      # unchanged. Each run is an immutable folder under test-results/<run_number>/.
       - name: Generate Allure report
-        uses: simple-elf/allure-report-action@v1.13
-        id: allure-report
-        with:
-          allure_results: allure-results
-          gh_pages: gh-pages
-          subfolder: test-results
-          allure_report: allure-report
-          allure_history: allure-history
+        run: |
+          if [ ! -d allure-results ] || [ -z "$(ls -A allure-results 2>/dev/null)" ]; then
+            echo "No allure-results found; skipping report generation."
+            exit 0
+          fi
+          if [ -f gh-pages/test-results/history.jsonl ]; then
+            cp gh-pages/test-results/history.jsonl history.jsonl
+          fi
+          npx --yes "allure@${ALLURE_VERSION}" generate allure-results \
+            --config allurerc.mjs \
+            --output "allure-history/test-results/${{ github.run_number }}"
+          mkdir -p allure-history/test-results
+          cp history.jsonl allure-history/test-results/history.jsonl
 
       # Stable, crawler-safe entry point. /test-results/ redirects to the newest run and is marked
       # noindex, so it is linkable from the site and README without exposing report pages to search
@@ -154,13 +186,10 @@ jobs:
       # future switch away from Allure.
       - name: Write latest-report redirect
         run: |
-          # simple-elf/allure-report-action runs as root in a container and already writes its own
-          # index.html here, but pointing at the github.io URL — wrong for the kinotic.ai custom
-          # domain. Take ownership of the root-created tree, then replace it with a relative,
-          # noindex redirect to the newest run that works regardless of host. mkdir first so chown
-          # has a target even if the report step produced nothing.
+          # Replace any prior index.html at this path with a relative, noindex redirect to the newest
+          # run that works regardless of host (the github.io default would be wrong for the kinotic.ai
+          # custom domain). mkdir guarantees a target even if the generate step produced nothing.
           mkdir -p allure-history/test-results
-          sudo chown -R "$(id -u):$(id -g)" allure-history
           cat > allure-history/test-results/index.html <<EOF
           <!doctype html>
           <html lang="en">
