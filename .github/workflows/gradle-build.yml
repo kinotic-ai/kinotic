@@ -140,6 +140,31 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      # The test/build steps above use continue-on-error so every suite runs and the merged Allure
+      # report stays complete regardless of failures. This final gate re-reads their outcomes (which
+      # are still 'failure' under continue-on-error) and fails the job when any failed, so a run with
+      # failing tests shows a red X instead of a green check. Placed after the upload so the report
+      # artifact is produced first; publish_test_report still runs because it is gated on
+      # !cancelled(), not on this job succeeding.
+      - name: Fail job if any test run failed
+        if: ${{ !cancelled() }}
+        run: |
+          failed=false
+          check() {
+            if [ "$2" = "failure" ]; then
+              echo "::error::$1 failed"
+              failed=true
+            fi
+          }
+          check "kinotic-sql + kinotic-migration build/test" "${{ steps.migration.outcome }}"
+          check "Gradle build" "${{ steps.gradle_build.outcome }}"
+          check "JS workspace tests" "${{ steps.run_workspace_tests.outcome }}"
+          check "E2E tests" "${{ steps.run_e2e_tests.outcome }}"
+          if [ "$failed" = true ]; then
+            exit 1
+          fi
+          echo "All test runs passed."
+
   # Publishing the Allure report is split into its own job so the gh-pages serialization
   # (concurrency below) covers only the gh-pages push, not the heavy build/publish job above —
   # which keeps its cancel-previous-run behavior. The shared group string couples this job with
