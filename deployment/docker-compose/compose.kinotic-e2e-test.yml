@@ -5,8 +5,6 @@ include:
   - compose.kinotic-server.yml
 
 services:
-  kinotic-elasticsearch:
-    volumes: !reset []
   kinotic-migration:
     environment:
       # 'test' activates the e2e fixture migrations (V5__e2e_app_fixtures.test.sql).
