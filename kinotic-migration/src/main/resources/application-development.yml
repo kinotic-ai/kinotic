@@ -1,8 +1,4 @@
 # YAML Reference http://www.yaml.org/refcard.html
-spring:
-  main:
-    web-application-type: none
-
 logging:
   level:
     org:
