@@ -1,5 +1,6 @@
 [test]
 # Installs the bun:test module mock that captures Allure results. Each file's tests are nested
-# under a describe('Kinotic Spawn', ...) so allure-bun derives parentSuite="Kinotic Spawn" from the
-# top of the suite path, bucketing the spawn suite alongside the other kinotic-js suites.
+# under describe('Kinotic JS', () => describe('packages/spawn', ...)) so allure-bun derives
+# parentSuite="Kinotic JS" and suite="packages/spawn" from the top of the suite path, bucketing the
+# spawn suite under the shared Kinotic JS tree alongside the other kinotic-js suites.
 preload = ["allure-bun/setup"]

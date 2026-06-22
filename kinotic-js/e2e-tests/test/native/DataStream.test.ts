@@ -31,10 +31,10 @@ interface LocalTestContext {
     entityService: IEntityRepository<Alert>
 }
 
-describe('E2E Tests', () => {
+describe('Kinotic JS', () => {
     beforeAll(async () => {
-        await allure.suite('Typescript Client')
-        await allure.subSuite('Data Stream Tests')
+        await allure.suite('e2e-tests/native')
+        await allure.subSuite('DataStream')
         await initKinoticClient()
     }, 300000)
 
