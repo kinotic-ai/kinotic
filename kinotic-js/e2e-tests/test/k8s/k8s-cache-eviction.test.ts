@@ -43,11 +43,12 @@ Object.assign(global, { WebSocket });
  * - K8S_STOMP_PORT: Continuum STOMP port (default: 58503)
  * - K8S_STARTING_LOCAL_PORT: Starting local port for port-forwards (default: 58511)
  */
-describe('E2E Tests', () => {
+describe('Kinotic JS', () => {
     let k8s: K8sTestHelper;
 
     beforeAll(async () => {
-        await allure.suite('K8s Cache Eviction Tests');
+        await allure.suite('e2e-tests/k8s');
+        await allure.subSuite('K8s Cache Eviction');
         k8s = new K8sTestHelper();
 
         if (!k8s.isEnabled()) {
