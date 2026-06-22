@@ -13,6 +13,7 @@ import {
     type EvictionsByPod
 } from './eviction-utils';
 import { K8sTestHelper } from './k8s-helper';
+import * as allure from 'allure-js-commons';
 
 // Make WebSocket available globally for continuum-client
 Object.assign(global, { WebSocket });
@@ -42,10 +43,11 @@ Object.assign(global, { WebSocket });
  * - K8S_STOMP_PORT: Continuum STOMP port (default: 58503)
  * - K8S_STARTING_LOCAL_PORT: Starting local port for port-forwards (default: 58511)
  */
-describe('K8s Cache Eviction Tests', () => {
+describe('E2E Tests', () => {
     let k8s: K8sTestHelper;
 
     beforeAll(async () => {
+        await allure.suite('K8s Cache Eviction Tests');
         k8s = new K8sTestHelper();
 
         if (!k8s.isEnabled()) {
