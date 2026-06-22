@@ -12,7 +12,6 @@ on:
       - 'kinotic-js/firecracker-vmm-manager/**'
       - 'kinotic-js/kinotic-cli/**'
       - 'kinotic-js/load-generator/**'
-      - 'kinotic-js/workspace/**'
       - 'website/**'
 
 jobs:
