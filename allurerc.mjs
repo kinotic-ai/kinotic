@@ -10,4 +10,17 @@
 export default {
   name: "Kinotic Test Report",
   historyPath: "./history.jsonl",
+  // Group the report tree by suite labels instead of each adapter's titlePath. The JS adapters
+  // (allure-vitest, allure-bun) attach a file-path titlePath to every result, and the awesome
+  // plugin's tree builder prefers titlePath when no groupBy is set — so JS tests bucket under
+  // "test"/"<package>"/"<file>.test.ts" while the Java modules (no titlePath) already fall back to
+  // parentSuite. Setting groupBy forces buildTreeByLabels for every result, so JS and Java group
+  // uniformly by parentSuite > suite > subSuite.
+  plugins: {
+    awesome: {
+      options: {
+        groupBy: ["parentSuite", "suite", "subSuite"],
+      },
+    },
+  },
 };
