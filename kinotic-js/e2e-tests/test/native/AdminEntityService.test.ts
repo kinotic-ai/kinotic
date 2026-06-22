@@ -28,7 +28,7 @@ interface LocalTestContext {
     entityService: IEntityRepository<PersonWithTenant>
 }
 
-describe('End To End Tests', () => {
+describe('E2E Tests', () => {
 
     beforeAll(async () => {
         await allure.suite('Typescript Client')
