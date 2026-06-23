@@ -4,7 +4,7 @@ import {StompConnectionManager} from '@/internal/api/StompConnectionManager'
 import {context, propagation} from '@opentelemetry/api';
 import type {IMessage} from '@stomp/rx-stomp';
 import {ConnectableObservable, firstValueFrom, Observable, Subject, Subscription, throwError, type Unsubscribable} from 'rxjs'
-import {filter, map, multicast} from 'rxjs/operators'
+import {filter, map, multicast, tap} from 'rxjs/operators'
 import {Optional} from 'typescript-optional'
 import {v4 as uuidv4} from 'uuid'
 import {EventConstants, type IEvent, type IEventBus} from './IEventBus'
@@ -78,6 +78,10 @@ export class EventBus implements IEventBus {
     private requestRepliesObservable: ConnectableObservable<IEvent> | null = null
     private requestRepliesSubject: Subject<IEvent> | null = null
     private requestRepliesSubscription: Subscription | null = null
+    private readonly activeCorrelationIds: Set<string> = new Set<string>()
+    private readonly recentlyReaped: Set<string> = new Set<string>()
+    // How long a sent cancel suppresses repeat cancels for the same stream before retrying.
+    private static readonly REAP_DEBOUNCE_MS = 5000
 
     constructor() {
         // We send an error any in-flight requests and clean up our connection state on fatal errors
@@ -183,13 +187,16 @@ export class EventBus implements IEventBus {
 
                 if (this.requestRepliesObservable == null) {
                     this.requestRepliesSubject = new Subject<IEvent>()
+                    // Reaper: before multicast, so it runs once per reply to cancel streams we no longer track.
                     this.requestRepliesObservable = this._observe(this.replyToCri as string)
-                                                        .pipe(multicast(this.requestRepliesSubject)) as ConnectableObservable<IEvent>
+                                                        .pipe(tap((value: IEvent) => this.cancelIfUnexpected(value)),
+                                                              multicast(this.requestRepliesSubject)) as ConnectableObservable<IEvent>
                     this.requestRepliesSubscription = this.requestRepliesObservable.connect()
                 }
 
                 let serverSignaledCompletion = false
                 const correlationId = uuidv4()
+                this.activeCorrelationIds.add(correlationId)
                 const defaultMessagesSubscription: Unsubscribable
                           = this.requestRepliesObservable
                                 .pipe(filter((value: IEvent): boolean => {
@@ -234,6 +241,7 @@ export class EventBus implements IEventBus {
                 this.send(event)
 
                 return () => {
+                    this.activeCorrelationIds.delete(correlationId)
                     if (sendControlEvents && !serverSignaledCompletion) {
                         // create control event to cancel long-running request
                         const controlEvent: Event = new Event(event.cri)
@@ -263,6 +271,38 @@ export class EventBus implements IEventBus {
     }
 
     /**
+     * Cancels a server stream whose reply arrived for a correlationId we no longer track. The server can't
+     * detect this itself since all requests share one reply destination, so the cancel is sent to the
+     * originating service, whose CRI the server includes on each reply.
+     */
+    private cancelIfUnexpected(value: IEvent): void {
+        const correlationId = value.getHeader(EventConstants.CORRELATION_ID_HEADER)
+        if (correlationId === undefined || this.activeCorrelationIds.has(correlationId)) {
+            return
+        }
+        const originCri = value.getHeader(EventConstants.ORIGIN_CRI_HEADER)
+        // The server may have many values already in flight when we cancel, and each one re-enters here.
+        // recentlyReaped suppresses those duplicates so we send one cancel per stale stream, not one per
+        // stray value.
+        if (originCri === undefined || this.recentlyReaped.has(correlationId)) {
+            return
+        }
+        try {
+            const cancelEvent: Event = new Event(originCri)
+            cancelEvent.setHeader(EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL)
+            cancelEvent.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
+            this.send(cancelEvent)
+
+            // Expire the entry after the debounce window so a lost cancel self-heals: if the stream is
+            // still sending by then, the next stray value falls through the guard above and we cancel again.
+            this.recentlyReaped.add(correlationId)
+            setTimeout(() => this.recentlyReaped.delete(correlationId), EventBus.REAP_DEBOUNCE_MS)
+        } catch {
+            // best-effort: if the send fails we retry on the next stray value
+        }
+    }
+
+    /**
      * Tears down the shared request-replies stream so the next request rebuilds it against the
      * current {@link replyToCri}. Any in-flight requests are failed with the given reason since
      * their replies can no longer be delivered.
@@ -279,6 +319,7 @@ export class EventBus implements IEventBus {
 
             this.requestRepliesSubject = null
             this.requestRepliesObservable = null
+            this.recentlyReaped.clear()
         }
     }
 

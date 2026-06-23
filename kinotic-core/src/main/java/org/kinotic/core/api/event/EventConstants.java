@@ -52,6 +52,12 @@ public class EventConstants {
     public static final String CORRELATION_ID_HEADER = "__correlation-id";
 
     /**
+     * Origin service CRI sent on stream replies so a client can address a cancel back to the service.
+     * The {@code __} prefix persists it across messages.
+     */
+    public static final String ORIGIN_CRI_HEADER = "__origin-cri";
+
+    /**
      * Denotes that something caused an error. Will contain a brief message about the error.
      */
     public static final String ERROR_HEADER = "error";

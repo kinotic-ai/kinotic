@@ -95,6 +95,29 @@ reload in Box A ~4s later. `nodemon --legacy-watch` under Bun wraps the same
 chokidar-polling mechanism with process restart. Tune `interval` to trade reload
 latency against CPU.
 
+### 4. The *host* DOES see guest writes — inotify fires across the boundary (confirmed)
+
+Finding #3 is guest→guest. The log-shipping design instead has **one Alloy on the host**
+tailing per-VM log files the guests write to a shared volume, so the question is whether a
+**host-side** watcher is notified when a guest writes. Unlike #3, it is — and the mechanism
+is why: a guest write reaches the host via `virtiofsd` performing a real `write()` on the
+**host** kernel against the plain (ext4) backing file. The host watcher isn't watching a
+FUSE mount; it's watching that backing file, and a real host write emits a real inotify
+event. (Grafana's "fsnotify won't work on FUSE" caveat is about watching a FUSE *mount* —
+not this case.)
+
+`volume-host-notify-test.ts` confirms it with both `fs.watch` (event/inotify) and
+`fs.watchFile` (poll), 9/9 rounds firing both on each platform:
+
+| host | backend | event saw guest write? | event latency | poll latency (300ms interval) |
+|------|---------|:---:|---------|--------------|
+| **Linux + KVM** (Ubuntu 22.04, kernel 6.8, virtio-fs) — *authoritative* | inotify | ✅ YES | 21–48 ms | 232–319 ms |
+| macOS arm64 (Hypervisor.framework) | FSEvents | ✅ YES | 37–93 ms | 127–344 ms |
+
+**Design implication:** host-side Alloy can use **fsnotify** (event-driven, sub-100 ms) —
+no polling fallback needed, so no constant re-reads of every per-VM file even at high VM
+density.
+
 ---
 
 ## Scripts (`src/`)
@@ -107,6 +130,7 @@ latency against CPU.
 | `detach-test.ts` | Detach bug repro (finding #1). | **yes** (`detach-http-test`) |
 | `volume-share-test.ts` | Two-box shared volume with `bun --watch` — shows the inotify limitation (finding #3). | self-cleaning |
 | `volume-poll-test.ts` | Same setup with chokidar `{ usePolling }` (recursive, nested file) — shows the fix works. | self-cleaning |
+| `volume-host-notify-test.ts` | **Guest→host** notify (finding #4): a box writes to a host-mounted volume while the host process watches via `fs.watch` (event) vs `fs.watchFile` (poll). Decides whether host-side Alloy can use inotify or must poll. | self-cleaning |
 
 Note: `node/` is a separate mini-project running the smoke test under **Node.js**
 (`node --experimental-strip-types`) to confirm cross-runtime support.
