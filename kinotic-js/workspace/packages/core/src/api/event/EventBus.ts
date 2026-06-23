@@ -272,8 +272,8 @@ export class EventBus implements IEventBus {
 
     /**
      * Cancels a server stream whose reply arrived for a correlationId we no longer track. The server can't
-     * detect this itself since all requests share one reply destination; the cancel is addressed via the
-     * origin CRI it sends on replies.
+     * detect this itself since all requests share one reply destination, so the cancel is sent to the
+     * originating service, whose CRI the server includes on each reply.
      */
     private cancelIfUnexpected(value: IEvent): void {
         const correlationId = value.getHeader(EventConstants.CORRELATION_ID_HEADER)
