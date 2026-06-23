@@ -3,6 +3,7 @@
 
 package org.kinotic.core.internal.api.service.rpc;
 
+import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
@@ -27,6 +28,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,6 +51,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     private final RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory;
     private final EventBusService eventBusService;
     private final SecurityContext securityContext;
+    private final Vertx vertx;
 
     private final Map<Method, Integer> methodsWithScopeAnnotation = new HashMap<>();
     private final EventConsumer replyEventConsumer;
@@ -56,6 +59,9 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     private final AtomicBoolean released = new AtomicBoolean(false);
 
     private final ConcurrentHashMap<String, RpcReturnValueHandler> responseMap = new ConcurrentHashMap<>();
+    // correlationIds we recently sent a cancel for, to debounce the in-flight burst before the server stops
+    private final Set<String> recentlyReaped = ConcurrentHashMap.newKeySet();
+    private static final long REAP_DEBOUNCE_MS = 5000;
 
     public DefaultRpcServiceProxyHandle(ServiceIdentifier serviceIdentifier,
                                         String nodeName,
@@ -64,6 +70,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                         RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory,
                                         EventBusService eventBusService,
                                         SecurityContext securityContext,
+                                        Vertx vertx,
                                         ClassLoader classLoader) {
 
         Validate.notNull(serviceIdentifier, "serviceIdentifier must not be null");
@@ -73,6 +80,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         Validate.notNull(rpcReturnValueHandlerFactory, "returnValueHandlerFactory must not be null");
         Validate.notNull(eventBusService, "eventBusService must not be null");
         Validate.notNull(securityContext, "securityContext must not be null");
+        Validate.notNull(vertx, "vertx must not be null");
         Validate.notNull(classLoader, "classLoader must not be null");
 
         this.serviceIdentifier = serviceIdentifier;
@@ -83,6 +91,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         this.rpcReturnValueHandlerFactory = rpcReturnValueHandlerFactory;
         this.eventBusService = eventBusService;
         this.securityContext = securityContext;
+        this.vertx = vertx;
 
         this.handlerCRI = CRI.create(EventConstants.REPLY_DESTINATION_SCHEME, encodedNodeName + ":" + UUID.randomUUID(), KinoticUtil.safeEncodeURI(serviceClass.getName())+"RpcProxyResponseHandler");
 
@@ -124,7 +133,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                 release();
                             }
                         }else{
-                            log.error("Received Message for correlationId: {} but no response handler is set", correlationId);
+                            reapOrphanedStream(event, correlationId);
                         }
 
                     }else{
@@ -147,6 +156,30 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
 
             responseMap.forEach((s, returnValueHandler) -> returnValueHandler.cancel(serviceClass.getSimpleName() + " released. No further responses will be processed"));
             responseMap.clear();
+            recentlyReaped.clear();
+        }
+    }
+
+    /**
+     * Handles a reply for a correlationId this proxy no longer tracks by cancelling the orphaned stream.
+     * The server can't detect such an abandoned stream itself, since all of this proxy's requests share one
+     * reply destination, so we route a cancel to the origin CRI the server sends on stream replies.
+     */
+    private void reapOrphanedStream(Event<byte[]> event, String correlationId){
+        String originCri = event.metadata().get(EventConstants.ORIGIN_CRI_HEADER);
+        if(originCri == null){
+            log.error("Received Message for correlationId: {} but no response handler is set", correlationId);
+            return;
+        }
+        // recentlyReaped debounces the burst of in-flight values that arrive before the server stops; the
+        // timer expires the entry so a lost cancel self-heals on the next stray value.
+        if(recentlyReaped.add(correlationId)){
+            vertx.setTimer(REAP_DEBOUNCE_MS, _ -> recentlyReaped.remove(correlationId));
+
+            Metadata metadata = Metadata.create();
+            metadata.put(EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL);
+            metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
+            eventBusService.send(Event.create(CRI.create(originCri), metadata, null));
         }
     }
 
