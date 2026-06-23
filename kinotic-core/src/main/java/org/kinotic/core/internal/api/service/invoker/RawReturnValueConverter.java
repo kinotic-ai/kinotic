@@ -7,10 +7,10 @@ import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.internal.utils.EventUtil;
+import org.springframework.core.GenericTypeResolver;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.Ordered;
 import org.springframework.core.ReactiveAdapterRegistry;
-import org.springframework.core.ResolvableType;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
@@ -53,7 +53,7 @@ public class RawReturnValueConverter implements ReturnValueConverter {
     private Class<?> resolveValueType(MethodParameter returnType) {
         Class<?> declaredType = returnType.getParameterType();
         if (reactiveAdapterRegistry.getAdapter(declaredType) != null) {
-            Class<?> elementType = ResolvableType.forMethodParameter(returnType).getGeneric(0).resolve();
+            Class<?> elementType = GenericTypeResolver.resolveReturnTypeArgument(returnType.getMethod(), declaredType);
             if (elementType != null) {
                 return elementType;
             }
