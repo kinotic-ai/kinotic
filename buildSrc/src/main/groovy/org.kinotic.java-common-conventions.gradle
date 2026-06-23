@@ -143,11 +143,13 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-engine'
 }
 
-// Shared Allure test support compiled into every module: ModuleSuiteListener (an Allure
-// TestLifecycleListener registered via META-INF/services) rewrites each test's suite labels to
-// Kinotic Java > <module> > <class>, grouping all Java module tests under one bucket.
-sourceSets.test.java.srcDir(rootProject.file('gradle/allure-support/java'))
-sourceSets.test.resources.srcDir(rootProject.file('gradle/allure-support/resources'))
+// ModuleSuiteListener (registered via META-INF/services) regroups each test's Allure suite labels
+// as Kinotic Java > <module> > <class>. Only inject it where tests exist: adding test source to a
+// test-less module trips Gradle's failOnNoDiscoveredTests.
+if (!fileTree('src/test/java').matching { include '**/*.java' }.isEmpty()) {
+    sourceSets.test.java.srcDir(rootProject.file('gradle/allure-support/java'))
+    sourceSets.test.resources.srcDir(rootProject.file('gradle/allure-support/resources'))
+}
 
 test {
     useJUnitPlatform()
