@@ -161,11 +161,19 @@ public class ServiceInvocationSupervisor {
     }
 
     private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result) {
+        convertAndSend(incomingMetadata, handlerMethod, result, null);
+    }
+
+    private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result, String originCri) {
         try {
             Event<byte[]> resultEvent = returnValueConverter.convert(incomingMetadata,
                                                                      handlerMethod.getReturnType()
                                                                                   .getParameterType(),
                                                                      result);
+            // Set the origin CRI on the reply so a streaming client can route a cancel back to this service.
+            if (originCri != null) {
+                resultEvent.metadata().put(EventConstants.ORIGIN_CRI_HEADER, originCri);
+            }
             eventBusService.send(resultEvent);
         } catch (Exception e) {
             if(log.isDebugEnabled()){
@@ -302,9 +310,6 @@ public class ServiceInvocationSupervisor {
 
                 String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
 
-                // Send the origin CRI so a client can route a cancel back to this service.
-                incomingMetadata.put(EventConstants.ORIGIN_CRI_HEADER, incomingEvent.cri().raw());
-
                 activeStreamingResults.computeIfAbsent(correlationId, _ -> {
                     //  FIXME: logic error here clients like the js client will stay alive during multiple requests even though previous request was invalidated indirectly
                     Flux<?> flux = Flux.from(reactiveAdapter.toPublisher(result));
@@ -312,7 +317,7 @@ public class ServiceInvocationSupervisor {
                     CRI replyCRI = CRI.create(incomingEvent.metadata().get(EventConstants.REPLY_TO_HEADER));
                     Flux<ListenerStatus> replyListenerStatus = eventBusService.monitorListenerStatus(replyCRI);
 
-                    StreamSubscriber streamSubscriber = new StreamSubscriber(incomingMetadata, handlerMethod, replyListenerStatus);
+                    StreamSubscriber streamSubscriber = new StreamSubscriber(incomingMetadata, handlerMethod, replyListenerStatus, incomingEvent.cri().raw());
                     flux.subscribe(streamSubscriber);
                     return streamSubscriber;
                 });
@@ -442,14 +447,17 @@ public class ServiceInvocationSupervisor {
         private final HandlerMethod handlerMethod;
         private final Metadata incomingMetadata;
         private final Flux<ListenerStatus> replyListenerStatus;
+        private final String originCri;
         private ReplyListenerStatusSubscriber replyListenerStatusSubscriber;
 
         public StreamSubscriber(Metadata incomingMetadata,
                                 HandlerMethod handlerMethod,
-                                Flux<ListenerStatus> replyListenerStatus) {
+                                Flux<ListenerStatus> replyListenerStatus,
+                                String originCri) {
             this.incomingMetadata = incomingMetadata;
             this.handlerMethod = handlerMethod;
             this.replyListenerStatus = replyListenerStatus;
+            this.originCri = originCri;
         }
 
         public void processControlEvent(Event<byte[]> incomingEvent){
@@ -506,7 +514,7 @@ public class ServiceInvocationSupervisor {
             if(log.isTraceEnabled()){
                 log.trace("Next stream value {}", value);
             }
-            convertAndSend(incomingMetadata, handlerMethod, value);
+            convertAndSend(incomingMetadata, handlerMethod, value, originCri);
         }
 
         @Override
