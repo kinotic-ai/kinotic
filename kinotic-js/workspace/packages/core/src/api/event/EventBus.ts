@@ -78,6 +78,10 @@ export class EventBus implements IEventBus {
     private requestRepliesObservable: ConnectableObservable<IEvent> | null = null
     private requestRepliesSubject: Subject<IEvent> | null = null
     private requestRepliesSubscription: Subscription | null = null
+    private reaperSubscription: Subscription | null = null
+    private readonly activeCorrelationIds: Set<string> = new Set<string>()
+    private readonly recentlyReaped: Set<string> = new Set<string>()
+    private static readonly REAP_DEBOUNCE_MS = 5000
 
     constructor() {
         // We send an error any in-flight requests and clean up our connection state on fatal errors
@@ -185,11 +189,20 @@ export class EventBus implements IEventBus {
                     this.requestRepliesSubject = new Subject<IEvent>()
                     this.requestRepliesObservable = this._observe(this.replyToCri as string)
                                                         .pipe(multicast(this.requestRepliesSubject)) as ConnectableObservable<IEvent>
+                    // Reaper: cancels server streams whose replies arrive for a correlationId we are no
+                    // longer subscribed to. The server cannot detect such an indirect teardown on its own
+                    // because all of this client's requests share one reply destination.
+                    this.reaperSubscription = this.requestRepliesObservable.subscribe({
+                        next: (value: IEvent): void => this.cancelIfUnexpected(value),
+                        error: (): void => {},
+                        complete: (): void => {}
+                    })
                     this.requestRepliesSubscription = this.requestRepliesObservable.connect()
                 }
 
                 let serverSignaledCompletion = false
                 const correlationId = uuidv4()
+                this.activeCorrelationIds.add(correlationId)
                 const defaultMessagesSubscription: Unsubscribable
                           = this.requestRepliesObservable
                                 .pipe(filter((value: IEvent): boolean => {
@@ -234,6 +247,7 @@ export class EventBus implements IEventBus {
                 this.send(event)
 
                 return () => {
+                    this.activeCorrelationIds.delete(correlationId)
                     if (sendControlEvents && !serverSignaledCompletion) {
                         // create control event to cancel long-running request
                         const controlEvent: Event = new Event(event.cri)
@@ -263,6 +277,37 @@ export class EventBus implements IEventBus {
     }
 
     /**
+     * Cancels a server stream whose reply arrived for a correlationId this client is no longer
+     * subscribed to. Such a stream is otherwise invisible to the server: every request shares one reply
+     * destination, so the server's destination-scoped liveness check stays active as long as any request
+     * is open. The cancel is addressed to the originating service via the {@link EventConstants.ORIGIN_CRI_HEADER}
+     * the server stamps on stream replies.
+     */
+    private cancelIfUnexpected(value: IEvent): void {
+        const correlationId = value.getHeader(EventConstants.CORRELATION_ID_HEADER)
+        if (correlationId === undefined || this.activeCorrelationIds.has(correlationId)) {
+            return
+        }
+        const originCri = value.getHeader(EventConstants.ORIGIN_CRI_HEADER)
+        // recentlyReaped debounces the burst of in-flight values that arrive before the server processes
+        // our cancel; it re-arms after a delay so a lost cancel still self-heals on the next stray value.
+        if (originCri === undefined || this.recentlyReaped.has(correlationId)) {
+            return
+        }
+        try {
+            const cancelEvent: Event = new Event(originCri)
+            cancelEvent.setHeader(EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL)
+            cancelEvent.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
+            this.send(cancelEvent)
+
+            this.recentlyReaped.add(correlationId)
+            setTimeout(() => this.recentlyReaped.delete(correlationId), EventBus.REAP_DEBOUNCE_MS)
+        } catch {
+            // best-effort: if the send fails we retry on the next stray value
+        }
+    }
+
+    /**
      * Tears down the shared request-replies stream so the next request rebuilds it against the
      * current {@link replyToCri}. Any in-flight requests are failed with the given reason since
      * their replies can no longer be delivered.
@@ -272,6 +317,11 @@ export class EventBus implements IEventBus {
 
             this.requestRepliesSubject.error(new Error(reason))
 
+            if (this.reaperSubscription != null) {
+                this.reaperSubscription.unsubscribe()
+                this.reaperSubscription = null
+            }
+
             if (this.requestRepliesSubscription != null) {
                 this.requestRepliesSubscription.unsubscribe()
                 this.requestRepliesSubscription = null
@@ -279,6 +329,7 @@ export class EventBus implements IEventBus {
 
             this.requestRepliesSubject = null
             this.requestRepliesObservable = null
+            this.recentlyReaped.clear()
         }
     }
 

@@ -301,6 +301,13 @@ public class ServiceInvocationSupervisor {
                 }
 
                 String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
+
+                // Stamp the originating service CRI so a client that receives a streamed value for a
+                // stream it is no longer subscribed to can address a cancel back here. All of a client's
+                // requests share one reply destination, so the server cannot otherwise detect such an
+                // indirect teardown. The "__" prefix carries it onto every reply via EventUtil.createReplyEvent.
+                incomingMetadata.put(EventConstants.ORIGIN_CRI_HEADER, incomingEvent.cri().raw());
+
                 activeStreamingResults.computeIfAbsent(correlationId, _ -> {
                     //  FIXME: logic error here clients like the js client will stay alive during multiple requests even though previous request was invalidated indirectly
                     Flux<?> flux = Flux.from(reactiveAdapter.toPublisher(result));

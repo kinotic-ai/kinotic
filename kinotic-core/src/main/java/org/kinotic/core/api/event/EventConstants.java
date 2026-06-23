@@ -52,6 +52,13 @@ public class EventConstants {
     public static final String CORRELATION_ID_HEADER = "__correlation-id";
 
     /**
+     * The fully qualified service CRI a streamed result originated from. Stamped on stream replies so a
+     * client that receives a value for a stream it is no longer subscribed to can address a cancel back
+     * to the originating service. Persisted between messages via the {@code __} prefix.
+     */
+    public static final String ORIGIN_CRI_HEADER = "__origin-cri";
+
+    /**
      * Denotes that something caused an error. Will contain a brief message about the error.
      */
     public static final String ERROR_HEADER = "error";
