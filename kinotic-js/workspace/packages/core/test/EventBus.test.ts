@@ -1,7 +1,7 @@
 import {v4 as uuidv4} from 'uuid'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, Kinotic, Event, EventConstants, IEvent} from '../src'
+import {ConnectedInfo, Kinotic, Event, EventConstants, type IEvent} from '../src'
 import {createConnectionInfo, logFailure, validateConnectedInfo} from './TestHelper'
 
 // This is required when running Kinotic from node

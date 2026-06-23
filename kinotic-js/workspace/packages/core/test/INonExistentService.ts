@@ -1,4 +1,4 @@
-import {Kinotic, IServiceProxy} from '../src'
+import {Kinotic, type IServiceProxy} from '../src'
 
 export interface INonExistentService {
 

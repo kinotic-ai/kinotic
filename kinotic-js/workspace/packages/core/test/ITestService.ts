@@ -1,4 +1,4 @@
-import {Kinotic, KinoticSingleton, IServiceProxy} from '../src'
+import {Kinotic, KinoticSingleton, type IServiceProxy} from '../src'
 import {Observable} from 'rxjs'
 
 export interface ITestService {
