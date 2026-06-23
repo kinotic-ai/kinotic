@@ -186,10 +186,7 @@ export class EventBus implements IEventBus {
 
                 if (this.requestRepliesObservable == null) {
                     this.requestRepliesSubject = new Subject<IEvent>()
-                    // The tap runs once per reply on the shared upstream (before multicast), so it acts as
-                    // the reaper: it cancels server streams whose replies arrive for a correlationId we are
-                    // no longer subscribed to. The server cannot detect such an indirect teardown on its own
-                    // because all of this client's requests share one reply destination.
+                    // Reaper: before multicast, so it runs once per reply to cancel streams we no longer track.
                     this.requestRepliesObservable = this._observe(this.replyToCri as string)
                                                         .pipe(tap((value: IEvent) => this.cancelIfUnexpected(value)),
                                                               multicast(this.requestRepliesSubject)) as ConnectableObservable<IEvent>
@@ -273,11 +270,9 @@ export class EventBus implements IEventBus {
     }
 
     /**
-     * Cancels a server stream whose reply arrived for a correlationId this client is no longer
-     * subscribed to. Such a stream is otherwise invisible to the server: every request shares one reply
-     * destination, so the server's destination-scoped liveness check stays active as long as any request
-     * is open. The cancel is addressed to the originating service via the {@link EventConstants.ORIGIN_CRI_HEADER}
-     * the server stamps on stream replies.
+     * Cancels a server stream whose reply arrived for a correlationId we no longer track. The server can't
+     * detect this itself since all requests share one reply destination; the cancel is addressed via the
+     * origin CRI it stamps on replies.
      */
     private cancelIfUnexpected(value: IEvent): void {
         const correlationId = value.getHeader(EventConstants.CORRELATION_ID_HEADER)
@@ -285,8 +280,7 @@ export class EventBus implements IEventBus {
             return
         }
         const originCri = value.getHeader(EventConstants.ORIGIN_CRI_HEADER)
-        // recentlyReaped debounces the burst of in-flight values that arrive before the server processes
-        // our cancel; it re-arms after a delay so a lost cancel still self-heals on the next stray value.
+        // Debounce in-flight values before the server stops; re-arms so a lost cancel self-heals.
         if (originCri === undefined || this.recentlyReaped.has(correlationId)) {
             return
         }
