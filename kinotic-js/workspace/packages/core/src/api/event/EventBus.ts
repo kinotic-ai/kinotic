@@ -80,6 +80,7 @@ export class EventBus implements IEventBus {
     private requestRepliesSubscription: Subscription | null = null
     private readonly activeCorrelationIds: Set<string> = new Set<string>()
     private readonly recentlyReaped: Set<string> = new Set<string>()
+    // How long a sent cancel suppresses repeat cancels for the same stream before retrying.
     private static readonly REAP_DEBOUNCE_MS = 5000
 
     constructor() {
@@ -280,7 +281,9 @@ export class EventBus implements IEventBus {
             return
         }
         const originCri = value.getHeader(EventConstants.ORIGIN_CRI_HEADER)
-        // Debounce in-flight values before the server stops; re-arms so a lost cancel self-heals.
+        // The server may have many values already in flight when we cancel, and each one re-enters here.
+        // recentlyReaped suppresses those duplicates so we send one cancel per stale stream, not one per
+        // stray value.
         if (originCri === undefined || this.recentlyReaped.has(correlationId)) {
             return
         }
@@ -290,6 +293,8 @@ export class EventBus implements IEventBus {
             cancelEvent.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
             this.send(cancelEvent)
 
+            // Expire the entry after the debounce window so a lost cancel self-heals: if the stream is
+            // still sending by then, the next stray value falls through the guard above and we cancel again.
             this.recentlyReaped.add(correlationId)
             setTimeout(() => this.recentlyReaped.delete(correlationId), EventBus.REAP_DEBOUNCE_MS)
         } catch {
