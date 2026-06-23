@@ -143,6 +143,12 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-engine'
 }
 
+// Shared Allure test support compiled into every module: ModuleSuiteListener (an Allure
+// TestLifecycleListener registered via META-INF/services) rewrites each test's suite labels to
+// Kinotic Java > <module> > <class>, grouping all Java module tests under one bucket.
+sourceSets.test.java.srcDir(rootProject.file('gradle/allure-support/java'))
+sourceSets.test.resources.srcDir(rootProject.file('gradle/allure-support/resources'))
+
 test {
     useJUnitPlatform()
     // Keep the Allure report correct under org.gradle.caching.
@@ -151,6 +157,8 @@ test {
     //  - declare it as a task output so a cached/up-to-date test task restores the results FROM-CACHE instead of producing nothing
     //  - delete it before each execution so a re-run doesn't accumulate stale result files.
     systemProperty 'allure.results.directory', 'build/allure-results'
+    // Module name consumed by ModuleSuiteListener to set the suite (middle) level of the Allure tree.
+    systemProperty 'kinotic.allure.module', project.name
     outputs.dir(layout.buildDirectory.dir('allure-results')).withPropertyName('allureResults')
     doFirst { delete layout.buildDirectory.dir('allure-results') }
     jvmArgs(
