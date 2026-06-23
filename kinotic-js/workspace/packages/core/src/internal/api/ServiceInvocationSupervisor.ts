@@ -234,8 +234,8 @@ export class ServiceInvocationSupervisor {
             this.log.warn("Reply-to header must not be blank")
             return false
         }
-        if (!replyTo.startsWith(`${EventConstants.SERVICE_DESTINATION_SCHEME}:`)) {
-            this.log.warn("Reply-to header must be a valid service destination")
+        if (!replyTo.startsWith(`${EventConstants.REPLY_DESTINATION_SCHEME}:`)) {
+            this.log.warn("Reply-to header must be a valid reply destination")
             return false
         }
         return true

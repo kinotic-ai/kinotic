@@ -15,7 +15,6 @@ import java.nio.charset.StandardCharsets;
  *
  * <p>Implements {@link ClusterSerializable} so it can live in a Vert.x web session backed by a
  * clustered session store, which marshals session values between nodes.
- *
  * Created by Navíd Mitchell 🤪on 7/11/23.
  */
 @AllArgsConstructor

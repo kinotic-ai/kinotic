@@ -24,11 +24,12 @@ import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.persistence.api.config.PersistenceProperties;
+import org.kinotic.domain.api.config.DomainProperties;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.persistence.api.model.QueryOptions;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
-import org.kinotic.persistence.api.config.ElasticConnectionInfo;
+import org.kinotic.domain.api.config.ElasticConnectionInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -62,10 +63,11 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
 
 
     public DefaultElasticVertxClient(ObjectMapper objectMapper,
-                                     PersistenceProperties persistenceProperties,
+                                     KinoticDomainProperties kinoticDomainProperties,
                                      Vertx vertx,
                                      DefaultCaffeineCacheFactory cacheFactory) {
         this.objectMapper = objectMapper;
+        DomainProperties domainProperties = kinoticDomainProperties.getDomain();
         this.columnsCache = cacheFactory.<String, List<ElasticColumn>>newBuilder()
                                         .name("elasticColumnsCache")
                                         .expireAfterAccess(Duration.ofMinutes(35))
@@ -73,7 +75,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
                                         .build();
 
         WebClientOptions options = new WebClientOptions()
-                .setConnectTimeout((int) persistenceProperties.getElasticConnectionTimeout().toMillis())
+                .setConnectTimeout((int) domainProperties.getElasticConnectionTimeout().toMillis())
                 .setTcpNoDelay(true)
                 .setTcpKeepAlive(true)
                 .setTracingPolicy(TracingPolicy.IGNORE);
@@ -84,18 +86,18 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
 
         this.webClient = WebClient.create(vertx, options, poolOptions);
 
-        Validate.notEmpty(persistenceProperties.getElasticConnections(), "No Elastic connections defined");
+        Validate.notEmpty(domainProperties.getElasticConnections(), "No Elastic connections defined");
 
-        ElasticConnectionInfo elasticConnectionInfo = persistenceProperties.getElasticConnections().getFirst();
+        ElasticConnectionInfo elasticConnectionInfo = domainProperties.getElasticConnections().getFirst();
 
         sqlQueryRequest = webClient.post(elasticConnectionInfo.getPort(),
                                          elasticConnectionInfo.getHost(), "/_sql");
         if(elasticConnectionInfo.getScheme().equalsIgnoreCase("https")){
             sqlQueryRequest.ssl(true);
         }
-        if(persistenceProperties.hasElasticUsernameAndPassword()){
-            sqlQueryRequest.basicAuthentication(persistenceProperties.getElasticUsername(),
-                                                persistenceProperties.getElasticPassword());
+        if(domainProperties.hasElasticUsernameAndPassword()){
+            sqlQueryRequest.basicAuthentication(domainProperties.getElasticUsername(),
+                                                domainProperties.getElasticPassword());
         }
 
         sqlTranslateRequest = sqlQueryRequest.copy().uri("/_sql/translate");

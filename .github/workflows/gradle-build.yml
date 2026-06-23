@@ -12,7 +12,6 @@ on:
       - 'kinotic-js/firecracker-vmm-manager/**'
       - 'kinotic-js/kinotic-cli/**'
       - 'kinotic-js/load-generator/**'
-      - 'kinotic-js/workspace/**'
       - 'website/**'
 
 jobs:
@@ -214,8 +213,7 @@ jobs:
           cp history.jsonl allure-history/test-results/history.jsonl
 
       # Stable noindex entry point: /test-results/ redirects to the newest run, linkable without
-      # exposing report pages to search engines. Named for the artifact, not the tool, so the URL
-      # survives a switch away from Allure.
+      # exposing report pages to search engines.
       - name: Write latest-report redirect
         run: |
           # Relative redirect (host-agnostic for the kinotic.ai domain) to the newest run; mkdir

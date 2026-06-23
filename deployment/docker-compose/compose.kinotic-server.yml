@@ -29,9 +29,9 @@ services:
       # HFT, run from the IDE on a full JDK instead — see application-development.yml.
       JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED
       KINOTIC_MAX_OFF_HEAP_MEMORY: 419430400
-      KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_0_SCHEME: http
-      KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_0_HOST: kinotic-elasticsearch
-      KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_0_PORT: 9200
+      KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_SCHEME: http
+      KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_HOST: kinotic-elasticsearch
+      KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_PORT: 9200
       KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9090
       OTEL_SERVICE_NAME: kinotic-server
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317

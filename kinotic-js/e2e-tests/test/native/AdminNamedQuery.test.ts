@@ -30,11 +30,11 @@ interface LocalTestContext {
     entityService: IEntityRepository<PersonWithTenant>
 }
 
-describe('End To End Tests', () => {
+describe('Kinotic JS', () => {
 
     beforeAll(async () => {
-        await allure.suite('Typescript Client')
-        await allure.subSuite('Admin Named Query Tests')
+        await allure.suite('e2e-tests/native')
+        await allure.subSuite('AdminNamedQuery')
         await initKinoticClient()
     }, 300000)
 

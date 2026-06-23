@@ -23,11 +23,11 @@ interface LocalTestContext {
     applicationId: string
 }
 
-describe('Migration Service End To End Tests', () => {
+describe('Kinotic JS', () => {
 
     beforeAll(async () => {
-        await allure.suite('Typescript Client')
-        await allure.subSuite('Migration Service Tests')
+        await allure.suite('e2e-tests/native')
+        await allure.subSuite('MigrationService')
         await initKinoticClient()
     }, 300000)
 
