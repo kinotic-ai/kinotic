@@ -1,5 +1,7 @@
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
+import {firstValueFrom} from 'rxjs'
+import {toArray} from 'rxjs/operators'
 import {ConnectedInfo, Kinotic} from '../src'
 import {NON_EXISTENT_SERVICE} from './INonExistentService'
 import {TEST_SERVICE} from './ITestService'
@@ -33,6 +35,23 @@ describe('Kinotic JS', () => {
 
         it('should return missing service error', async () => {
             await expect(NON_EXISTENT_SERVICE.probablyNotHome()).rejects.toThrowError('(NO_HANDLERS,-1) No handlers for address srv://com.namespace.NonExistentService')
+        })
+
+        // --- Binary Passthrough Tests ---
+
+        it('should decode a byte[] return as a binary Uint8Array', async () => {
+            const result = await TEST_SERVICE.getBinaryData()
+            expect(result).toBeInstanceOf(Uint8Array)
+            expect(Array.from(result)).toEqual([0, 1, 2, 3, 255, 254, 42, 255])
+        })
+
+        it('should decode a Flux<byte[]> stream as binary chunks', async () => {
+            const chunks = await firstValueFrom(TEST_SERVICE.getBinaryDataStream().pipe(toArray()))
+            expect(chunks.map(chunk => Array.from(chunk))).toEqual([
+                [10, 20, 30],
+                [40, 50],
+                [60, 70, 80, 90],
+            ])
         })
 
         // --- Participant Context Tests ---

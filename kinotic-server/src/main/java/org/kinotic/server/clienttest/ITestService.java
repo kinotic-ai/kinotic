@@ -4,6 +4,7 @@ package org.kinotic.server.clienttest;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Version;
 import org.kinotic.core.api.security.Participant;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Map;
@@ -20,6 +21,16 @@ public interface ITestService {
     String testMethodWithString(String value);
 
     UUID getTestUUID();
+
+    /**
+     * Returns a fixed binary payload to exercise the {@code application/octet-stream} passthrough.
+     */
+    byte[] getBinaryData();
+
+    /**
+     * Streams fixed binary chunks to exercise per-element {@code application/octet-stream} passthrough.
+     */
+    Flux<byte[]> getBinaryDataStream();
 
     /**
      * Returns the Participant ID from the Vert.x context directly
