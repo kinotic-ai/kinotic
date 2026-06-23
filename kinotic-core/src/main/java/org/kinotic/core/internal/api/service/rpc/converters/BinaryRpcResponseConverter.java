@@ -12,9 +12,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 
 /**
- * Decodes {@code application/octet-stream} responses into the {@code byte[]} or {@link Buffer} the caller
- * declared — whether a direct return (e.g. {@code byte[] getArray()}) or a reactive element type
- * (e.g. {@code Flux<byte[]>} decoded per element). The client-side counterpart of {@code BinaryReturnValueConverter}.
+ * Decodes {@code application/octet-stream} responses into the {@code byte[]} or {@link Buffer} the caller declared
+ * — whether returned directly (e.g. {@code byte[] getArray()}) or as the value of any reactive type the
+ * {@link ReactiveAdapterRegistry} recognizes (e.g. {@code Mono<byte[]>}, {@code Flux<byte[]>}, {@code Future<byte[]>}).
+ * The client-side counterpart of {@code BinaryReturnValueConverter}.
  */
 @Component
 public class BinaryRpcResponseConverter implements RpcResponseConverter {
@@ -42,7 +43,8 @@ public class BinaryRpcResponseConverter implements RpcResponseConverter {
     }
 
     /**
-     * The declared type, or the element type for reactive returns (e.g. {@code Flux<byte[]>} to {@code byte[]}).
+     * The declared type, or its value type when the return is a reactive type the
+     * {@link ReactiveAdapterRegistry} recognizes (e.g. {@code Flux<byte[]>} to {@code byte[]}).
      */
     private Class<?> resolveValueType(MethodParameter methodParameter) {
         MethodParameter parameter = methodParameter;

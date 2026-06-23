@@ -19,8 +19,9 @@ import java.util.Map;
 
 /**
  * Sends {@code byte[]} and {@link Buffer} return values straight through as {@code application/octet-stream},
- * skipping JSON serialization — whether returned directly (e.g. {@code byte[] getArray()}) or as the element
- * of a reactive type (e.g. {@code Flux<byte[]>}, which streams raw bytes per element).
+ * skipping JSON serialization — whether returned directly (e.g. {@code byte[] getArray()}) or as the value of any
+ * reactive type the {@link ReactiveAdapterRegistry} recognizes (e.g. {@code Mono<byte[]>}, {@code Flux<byte[]>},
+ * {@code Future<byte[]>}).
  */
 @Component
 // Must be selected ahead of JacksonReturnValueConverter, which otherwise claims any return on a JSON request.
@@ -48,7 +49,8 @@ public class BinaryReturnValueConverter implements ReturnValueConverter {
     }
 
     /**
-     * The declared return type, or the element type for reactive returns (e.g. {@code Flux<byte[]>} to {@code byte[]}).
+     * The declared return type, or its value type when the return is a reactive type the
+     * {@link ReactiveAdapterRegistry} recognizes (e.g. {@code Flux<byte[]>} to {@code byte[]}).
      */
     private Class<?> resolveValueType(MethodParameter returnType) {
         Class<?> declaredType = returnType.getParameterType();
