@@ -4,7 +4,7 @@ import {StompConnectionManager} from '@/internal/api/StompConnectionManager'
 import {context, propagation} from '@opentelemetry/api';
 import type {IMessage} from '@stomp/rx-stomp';
 import {ConnectableObservable, firstValueFrom, Observable, Subject, Subscription, throwError, type Unsubscribable} from 'rxjs'
-import {filter, map, multicast} from 'rxjs/operators'
+import {filter, map, multicast, tap} from 'rxjs/operators'
 import {Optional} from 'typescript-optional'
 import {v4 as uuidv4} from 'uuid'
 import {EventConstants, type IEvent, type IEventBus} from './IEventBus'
@@ -78,7 +78,6 @@ export class EventBus implements IEventBus {
     private requestRepliesObservable: ConnectableObservable<IEvent> | null = null
     private requestRepliesSubject: Subject<IEvent> | null = null
     private requestRepliesSubscription: Subscription | null = null
-    private reaperSubscription: Subscription | null = null
     private readonly activeCorrelationIds: Set<string> = new Set<string>()
     private readonly recentlyReaped: Set<string> = new Set<string>()
     private static readonly REAP_DEBOUNCE_MS = 5000
@@ -187,16 +186,13 @@ export class EventBus implements IEventBus {
 
                 if (this.requestRepliesObservable == null) {
                     this.requestRepliesSubject = new Subject<IEvent>()
-                    this.requestRepliesObservable = this._observe(this.replyToCri as string)
-                                                        .pipe(multicast(this.requestRepliesSubject)) as ConnectableObservable<IEvent>
-                    // Reaper: cancels server streams whose replies arrive for a correlationId we are no
-                    // longer subscribed to. The server cannot detect such an indirect teardown on its own
+                    // The tap runs once per reply on the shared upstream (before multicast), so it acts as
+                    // the reaper: it cancels server streams whose replies arrive for a correlationId we are
+                    // no longer subscribed to. The server cannot detect such an indirect teardown on its own
                     // because all of this client's requests share one reply destination.
-                    this.reaperSubscription = this.requestRepliesObservable.subscribe({
-                        next: (value: IEvent): void => this.cancelIfUnexpected(value),
-                        error: (): void => {},
-                        complete: (): void => {}
-                    })
+                    this.requestRepliesObservable = this._observe(this.replyToCri as string)
+                                                        .pipe(tap((value: IEvent) => this.cancelIfUnexpected(value)),
+                                                              multicast(this.requestRepliesSubject)) as ConnectableObservable<IEvent>
                     this.requestRepliesSubscription = this.requestRepliesObservable.connect()
                 }
 
@@ -316,11 +312,6 @@ export class EventBus implements IEventBus {
         if (this.requestRepliesSubject != null) {
 
             this.requestRepliesSubject.error(new Error(reason))
-
-            if (this.reaperSubscription != null) {
-                this.reaperSubscription.unsubscribe()
-                this.reaperSubscription = null
-            }
 
             if (this.requestRepliesSubscription != null) {
                 this.requestRepliesSubscription.unsubscribe()
