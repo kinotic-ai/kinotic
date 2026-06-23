@@ -25,11 +25,11 @@ import java.util.Map;
 @Component
 // Must be selected ahead of JacksonReturnValueConverter, which otherwise claims any return on a JSON request.
 @Order(Ordered.HIGHEST_PRECEDENCE)
-public class RawReturnValueConverter implements ReturnValueConverter {
+public class BinaryReturnValueConverter implements ReturnValueConverter {
 
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
 
-    public RawReturnValueConverter(ReactiveAdapterRegistry reactiveAdapterRegistry) {
+    public BinaryReturnValueConverter(ReactiveAdapterRegistry reactiveAdapterRegistry) {
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
     }
 
