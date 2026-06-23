@@ -1,7 +1,7 @@
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
 import {ConnectedInfo, ConnectionInfo, KinoticSingleton, SessionKeepAliveMode} from '../src'
-import {GenericContainer, PullPolicy, StartedTestContainer, Wait} from 'testcontainers'
+import {GenericContainer, PullPolicy, type StartedTestContainer, Wait} from 'testcontainers'
 import { authedWebSocketFactory, logFailure, validateConnectedInfo } from './TestHelper'
 import { TestService } from './ITestService'
 import {KINOTIC_DOCKER_IMAGE} from './TestHelper.js'

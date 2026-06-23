@@ -1,4 +1,5 @@
-import {Kinotic, KinoticSingleton, IServiceProxy} from '../src'
+import {Kinotic, KinoticSingleton, type IServiceProxy} from '../src'
+import {Observable} from 'rxjs'
 
 export interface ITestService {
 
@@ -7,6 +8,10 @@ export interface ITestService {
     testMissingMethod(): Promise<void>;
 
     getTestUUID(): Promise<string>;
+
+    getBinaryData(): Promise<Uint8Array>;
+
+    getBinaryDataStream(): Observable<Uint8Array>;
 
     getParticipantIdFromContext(): Promise<string>;
 
@@ -53,6 +58,14 @@ export class TestService implements ITestService {
 
     getTestUUID(): Promise<string> {
         return this.serviceProxy.invoke('getTestUUID')
+    }
+
+    getBinaryData(): Promise<Uint8Array> {
+        return this.serviceProxy.invoke('getBinaryData')
+    }
+
+    getBinaryDataStream(): Observable<Uint8Array> {
+        return this.serviceProxy.invokeStream('getBinaryDataStream')
     }
 
     getParticipantIdFromContext(): Promise<string> {

@@ -8,6 +8,7 @@ import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.*;
@@ -21,6 +22,10 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultTestService implements ITestService{
 
     private static final UUID TEST_UUID = UUID.randomUUID();
+
+    private static final byte[] BINARY_DATA = {0, 1, 2, 3, (byte) 0xFF, (byte) 0xFE, 42, -1};
+
+    private static final byte[][] BINARY_CHUNKS = {{10, 20, 30}, {40, 50}, {60, 70, 80, 90}};
 
     @Autowired
     private SecurityContext securityContext;
@@ -37,6 +42,18 @@ public class DefaultTestService implements ITestService{
     @Override
     public UUID getTestUUID(){
         return TEST_UUID;
+    }
+
+    @WithSpan
+    @Override
+    public byte[] getBinaryData() {
+        return BINARY_DATA;
+    }
+
+    @WithSpan
+    @Override
+    public Flux<byte[]> getBinaryDataStream() {
+        return Flux.fromArray(BINARY_CHUNKS);
     }
 
     @WithSpan

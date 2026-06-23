@@ -5,6 +5,7 @@ package org.kinotic.core.internal.api;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -126,6 +127,48 @@ public class RpcTests {
 
         StepVerifier.create(mono)
                     .expectNext(PARTICIPANT_ID + suffix)
+                    .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testGetByteArray(){
+        Mono<byte[]> mono = rpcTestServiceProxy.getByteArray();
+
+        StepVerifier.create(mono)
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_VALUE))
+                    .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testGetBuffer(){
+        Mono<Buffer> mono = rpcTestServiceProxy.getBuffer();
+
+        StepVerifier.create(mono)
+                    .expectNextMatches(buffer -> Arrays.equals(buffer.getBytes(), RpcTestService.BINARY_VALUE))
+                    .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testGetMonoByteArray(){
+        Mono<byte[]> mono = rpcTestServiceProxy.getMonoByteArray();
+
+        StepVerifier.create(mono)
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_VALUE))
+                    .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testGetByteArrayFlux(){
+        Flux<byte[]> flux = rpcTestServiceProxy.getByteArrayFlux();
+
+        StepVerifier.create(flux)
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_CHUNKS[0]))
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_CHUNKS[1]))
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_CHUNKS[2]))
                     .expectComplete()
                     .verify();
     }
