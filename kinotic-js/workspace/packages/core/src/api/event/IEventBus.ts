@@ -187,7 +187,7 @@ export enum EventConstants {
     CORRELATION_ID_HEADER = '__correlation-id',
 
     /**
-     * Origin service CRI the server stamps on stream replies so the client can address a cancel back to
+     * Origin service CRI the server sends on stream replies so the client can address a cancel back to
      * it. The __ prefix persists it across messages.
      */
     ORIGIN_CRI_HEADER = '__origin-cri',
