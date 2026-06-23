@@ -13,8 +13,8 @@ import org.springframework.util.MimeTypeUtils;
 
 /**
  * Decodes {@code application/octet-stream} responses into the {@code byte[]} or {@link Buffer} the caller
- * declared. The client-side counterpart of {@code BinaryReturnValueConverter}. Resolves the reactive
- * element type (e.g. {@code Flux<byte[]>} to {@code byte[]}) so streaming binary responses decode per element.
+ * declared — whether a direct return (e.g. {@code byte[] getArray()}) or a reactive element type
+ * (e.g. {@code Flux<byte[]>} decoded per element). The client-side counterpart of {@code BinaryReturnValueConverter}.
  */
 @Component
 public class BinaryRpcResponseConverter implements RpcResponseConverter {

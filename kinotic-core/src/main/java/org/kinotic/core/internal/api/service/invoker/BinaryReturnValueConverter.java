@@ -18,9 +18,9 @@ import org.springframework.util.MimeTypeUtils;
 import java.util.Map;
 
 /**
- * Sends {@code byte[]} and {@link Buffer} return values straight through as
- * {@code application/octet-stream}, skipping JSON serialization. For reactive returns the element
- * type decides, so a {@code Flux<byte[]>} streams raw bytes per element.
+ * Sends {@code byte[]} and {@link Buffer} return values straight through as {@code application/octet-stream},
+ * skipping JSON serialization — whether returned directly (e.g. {@code byte[] getArray()}) or as the element
+ * of a reactive type (e.g. {@code Flux<byte[]>}, which streams raw bytes per element).
  */
 @Component
 // Must be selected ahead of JacksonReturnValueConverter, which otherwise claims any return on a JSON request.
