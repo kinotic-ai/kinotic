@@ -226,6 +226,7 @@ export enum EventConstants {
 
     CONTENT_JSON = 'application/json',
     CONTENT_TEXT = 'text/plain',
+    CONTENT_OCTET_STREAM = 'application/octet-stream',
 
     /**
      * The traceparent HTTP header field identifies the incoming request in a tracing system. It has four fields:

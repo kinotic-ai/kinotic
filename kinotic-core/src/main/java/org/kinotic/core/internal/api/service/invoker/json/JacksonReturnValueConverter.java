@@ -9,6 +9,7 @@ import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.internal.api.service.invoker.ReturnValueConverter;
 import org.kinotic.core.internal.api.service.json.AbstractJacksonSupport;
+import org.springframework.core.MethodParameter;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
@@ -31,9 +32,9 @@ public class JacksonReturnValueConverter extends AbstractJacksonSupport implemen
     }
 
     @Override
-    public Event<byte[]> convert(Metadata incomingMetadata, Class<?> returnType, Object returnValue) {
+    public Event<byte[]> convert(Metadata incomingMetadata, MethodParameter returnType, Object returnValue) {
         // insure void return types are not mistakenly seen as null
-        if(Void.TYPE.isAssignableFrom(returnType)){
+        if(Void.TYPE.isAssignableFrom(returnType.getParameterType())){
             returnValue = Void.TYPE;
         }
         HashMap<String,String> headers = new HashMap<>(1);
@@ -43,7 +44,7 @@ public class JacksonReturnValueConverter extends AbstractJacksonSupport implemen
     }
 
     @Override
-    public boolean supports(Metadata incomingMetadata, Class<?> returnType) {
+    public boolean supports(Metadata incomingMetadata, MethodParameter returnType) {
         return containsJsonContent(incomingMetadata);
     }
 

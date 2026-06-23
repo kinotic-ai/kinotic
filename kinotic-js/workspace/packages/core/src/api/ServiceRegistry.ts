@@ -204,10 +204,12 @@ class ServiceProxy implements IServiceProxy {
                             .pipe(map<IEvent, any>((value: IEvent): any => {
                                 const contentType: string | undefined = value.getHeader(EventConstants.CONTENT_TYPE_HEADER)
                                 if (contentType !== undefined) {
-                                    if (contentType === 'application/json') {
+                                    if (contentType === EventConstants.CONTENT_JSON) {
                                         return JSON.parse(value.getDataString())
-                                    } else if (contentType === 'text/plain') {
+                                    } else if (contentType === EventConstants.CONTENT_TEXT) {
                                         return value.getDataString()
+                                    } else if (contentType === EventConstants.CONTENT_OCTET_STREAM) {
+                                        return value.data.orUndefined()
                                     } else {
                                         throw new Error('Content Type ' + contentType + ' is not supported')
                                     }
