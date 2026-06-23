@@ -302,8 +302,8 @@ public class ServiceInvocationSupervisor {
 
                 String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
 
-                // Stamp the origin CRI so a client can address a cancel back here for a stream it stops
-                // tracking; the "__" prefix carries it onto every reply.
+                // Stamp the origin CRI so a client can route a cancel back to this service.
+                // The "__" prefix carries it onto every reply.
                 incomingMetadata.put(EventConstants.ORIGIN_CRI_HEADER, incomingEvent.cri().raw());
 
                 activeStreamingResults.computeIfAbsent(correlationId, _ -> {
