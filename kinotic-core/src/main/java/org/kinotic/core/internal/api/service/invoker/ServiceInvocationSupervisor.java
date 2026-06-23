@@ -167,8 +167,7 @@ public class ServiceInvocationSupervisor {
     private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result, String originCri) {
         try {
             Event<byte[]> resultEvent = returnValueConverter.convert(incomingMetadata,
-                                                                     handlerMethod.getReturnType()
-                                                                                  .getParameterType(),
+                                                                     handlerMethod.getReturnType(),
                                                                      result);
             // Set the origin CRI on the reply so a streaming client can route a cancel back to this service.
             if (originCri != null) {
@@ -249,7 +248,7 @@ public class ServiceInvocationSupervisor {
                 }
 
                 if (!returnValueConverter.supports(incomingEvent.metadata(),
-                                                   handlerMethod.getReturnType().getParameterType())) {
+                                                   handlerMethod.getReturnType())) {
                     throw new IllegalStateException("No compatible ReturnValueConverter found");
                 }
 
