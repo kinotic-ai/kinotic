@@ -38,7 +38,13 @@ public class GatewayUtils {
         // Make sure that internal headers are set properly now
         headers.put(Frame.DESTINATION, event.cri().raw());
 
-        return new Frame(Frame.Command.MESSAGE, headers, event.data() == null ? null : Buffer.buffer(event.data()));
+        byte[] data = event.data();
+        // Without content-length STOMP delimits the body by the NULL terminator, truncating binary payloads at the first 0x00.
+        if (data != null) {
+            headers.put(Frame.CONTENT_LENGTH, Integer.toString(data.length));
+        }
+
+        return new Frame(Frame.Command.MESSAGE, headers, data == null ? null : Buffer.buffer(data));
     }
 
 
