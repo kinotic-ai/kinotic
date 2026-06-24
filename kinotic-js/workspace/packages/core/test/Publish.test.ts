@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
-import { ConnectedInfo, Kinotic, Event, EventConstants, IEvent } from "../src"
+import { ConnectedInfo, Kinotic, Event, EventConstants, type IEvent } from "../src"
 import { TestServiceNoScope } from "./TestServiceNoScope"
 import { TestServiceWithScope } from "./TestServiceWithScope"
 import { createConnectionInfo, logFailure, validateConnectedInfo } from "./TestHelper"
