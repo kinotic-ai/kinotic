@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Sends {@code byte[]} and {@link Buffer} return values straight through as {@code application/octet-stream},
@@ -55,7 +56,7 @@ public class BinaryReturnValueConverter implements ReturnValueConverter {
     private Class<?> resolveValueType(MethodParameter returnType) {
         Class<?> declaredType = returnType.getParameterType();
         if (reactiveAdapterRegistry.getAdapter(declaredType) != null) {
-            Class<?> elementType = GenericTypeResolver.resolveReturnTypeArgument(returnType.getMethod(), declaredType);
+            Class<?> elementType = GenericTypeResolver.resolveReturnTypeArgument(Objects.requireNonNull(returnType.getMethod()), declaredType);
             if (elementType != null) {
                 return elementType;
             }
