@@ -39,9 +39,7 @@ public class GatewayUtils {
         headers.put(Frame.DESTINATION, event.cri().raw());
 
         byte[] data = event.data();
-        // STOMP delimits a body by content-length when present, otherwise by the NULL terminator. Without
-        // it a body containing 0x00 truncates at the first NULL, and back-to-back frame boundaries are
-        // ambiguous, so set it from the actual byte length to keep binary payloads intact.
+        // Without content-length STOMP delimits the body by the NULL terminator, truncating binary payloads at the first 0x00.
         if (data != null) {
             headers.put(Frame.CONTENT_LENGTH, Integer.toString(data.length));
         }
