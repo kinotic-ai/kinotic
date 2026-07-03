@@ -42,8 +42,17 @@ function readConsole(path: string): string {
 
 async function main() {
   const boxliteHome = process.env.BOXLITE_HOME ?? join(homedir(), ".boxlite");
+  // Console capture (boxes/<id>/console.log) exists only from boxlite 0.9.0 on — a stale
+  // node_modules with 0.8.x would produce a false NO, so resolve and gate on the version.
+  const boxliteVersion = (await import("@boxlite-ai/boxlite/package.json")).default.version as string;
   console.log(`BOXLITE_HOME    : ${boxliteHome}`);
+  console.log(`boxlite version : ${boxliteVersion}`);
   console.log(`Platform        : ${process.platform} (${process.arch})  runtime: Bun ${Bun.version}\n`);
+  const [major, minor] = boxliteVersion.split(".").map(Number);
+  if (major === 0 && minor < 9) {
+    console.error(`boxlite ${boxliteVersion} predates console capture (needs >= 0.9.0) — run 'bun install' first.`);
+    process.exit(1);
+  }
 
   // awk is exec'd directly — no /bin/sh in the chain. fflush() defeats stdio buffering so
   // per-second latency is measurable rather than one flush at exit.
