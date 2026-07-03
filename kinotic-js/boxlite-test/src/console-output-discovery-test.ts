@@ -109,7 +109,8 @@ async function probeBox(label: string, detach: boolean, boxliteHome: string) {
 
   const box = new SimpleBox({
     image: "alpine:latest",
-    name: `console-discovery-${detach ? "detached" : "normal"}`,
+    // Unique per run: autoRemove: false keeps the box record after stop()
+    name: `console-discovery-${detach ? "detached" : "normal"}-${Date.now().toString(36)}`,
     entrypoint: awkEmitter(marker),
     autoRemove: false,
     detach,

@@ -53,9 +53,11 @@ async function main() {
     `print "stderr line " i > "/dev/stderr"; fflush(); ` +
     `system("sleep 1") } }`;
 
+  // Unique per run: autoRemove: false keeps the box record after stop(), so a fixed
+  // name collides with the previous run's stopped box.
   const box = new SimpleBox({
     image: "alpine:latest",
-    name: "console-log-test",
+    name: `console-log-test-${Date.now().toString(36)}`,
     entrypoint: ["/usr/bin/awk", awkProgram],
     autoRemove: false,
   });
