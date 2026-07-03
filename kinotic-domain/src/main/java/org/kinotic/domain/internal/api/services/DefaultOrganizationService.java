@@ -14,6 +14,13 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultOrganizationService extends AbstractCrudService<Organization> implements OrganizationService {
 
+    /**
+     * No one can sign up for an organization whose id begins with this prefix. It is used
+     * internally when the platform needs multi-tenancy but the system is the tenant —
+     * e.g. VM workloads executed by the OS for the OS.
+     */
+    public static final String RESERVED_ID_PREFIX = "kinotic";
+
     private final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
 
     public DefaultOrganizationService(OrganizationRepository repository) {
@@ -25,7 +32,10 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
         Validate.notNull(entity.getName(), "Organization name cannot be null");
 
         if (entity.getId() == null) {
-            entity.setId(slg.slugify(entity.getName()).toLowerCase());
+            String id = slg.slugify(entity.getName()).toLowerCase();
+            Validate.isTrue(!id.startsWith(RESERVED_ID_PREFIX),
+                            "Organization name '%s' is reserved", entity.getName());
+            entity.setId(id);
             entity.setCreated(new Date());
         }
 

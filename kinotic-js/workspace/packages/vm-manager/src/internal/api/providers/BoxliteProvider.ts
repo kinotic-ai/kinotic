@@ -1,6 +1,57 @@
-import { SimpleBox } from '@boxlite-ai/boxlite'
+import { SimpleBox, type SimpleBoxOptions } from '@boxlite-ai/boxlite'
+import { mkdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { Workload, WorkloadStatus } from '@kinotic-ai/os-api'
+
+/**
+ * Guest path where the per-workload host log directory is mounted. This is the log-shipping
+ * contract: log files a workload writes under this directory are shipped to Loki. boxlite
+ * provides no host-side capture of the entrypoint's stdout/stderr, so workload images must
+ * write their logs here themselves.
+ */
+export const GUEST_LOG_DIR = '/var/log/kinotic'
+
+/**
+ * A VM currently managed by this provider, with the resources that outlive the box itself.
+ */
+export interface ActiveVm {
+    box: SimpleBox
+    /** boxlite box id (ULID), assigned once the VM boots. */
+    vmId: string
+    /** Host directory holding this VM's log files, mounted at {@link GUEST_LOG_DIR}. */
+    logDir: string
+}
+
+/**
+ * Builds the boxlite options for a workload. The given host log directory is always mounted
+ * at {@link GUEST_LOG_DIR}; entrypoint and cmd are passed through only when the workload
+ * declares them, so an empty value keeps the image default.
+ */
+export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOptions {
+    return {
+        image: workload.image,
+        name: workload.id!,
+        cpus: workload.vcpus,
+        memoryMib: workload.memoryMb,
+        env: workload.environment,
+        ...(workload.entrypoint.length > 0 ? { entrypoint: workload.entrypoint } : {}),
+        ...(workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
+        ports: Object.entries(workload.portMappings).map(([hostPort, guestPort]) => ({
+            hostPort: Number(hostPort),
+            guestPort: Number(guestPort),
+        })),
+        volumes: [
+            ...workload.volumeMounts.map(({ hostPath, guestPath, readOnly }) => ({
+                hostPath,
+                guestPath,
+                readOnly,
+            })),
+            { hostPath: logDir, guestPath: GUEST_LOG_DIR },
+        ],
+        autoRemove: false,
+    }
+}
 
 /**
  * VM provider implementation using the boxlite Node.js SDK for micro VM management.
@@ -9,7 +60,12 @@ import { Workload, WorkloadStatus } from '@kinotic-ai/os-api'
 export class BoxliteProvider implements IVmProvider {
 
     private readonly workloads: Map<string, Workload> = new Map()
-    private readonly boxes: Map<string, SimpleBox> = new Map()
+    private readonly activeVms: Map<string, ActiveVm> = new Map()
+    private readonly logsBaseDir: string
+
+    constructor(logsBaseDir: string) {
+        this.logsBaseDir = logsBaseDir
+    }
 
     async start(workload: Workload): Promise<Workload> {
         const id = workload.id ?? crypto.randomUUID()
@@ -20,34 +76,21 @@ export class BoxliteProvider implements IVmProvider {
 
         this.workloads.set(id, workload)
 
+        const logDir = join(this.logsBaseDir, id)
+        mkdirSync(logDir, { recursive: true })
+
         try {
-            const box = new SimpleBox({
-                image: workload.image,
-                name: id,
-                cpus: workload.vcpus,
-                memoryMib: workload.memoryMb,
-                env: workload.environment,
-                ports: Object.entries(workload.portMappings).map(([hostPort, guestPort]) => ({
-                    hostPort: Number(hostPort),
-                    guestPort: Number(guestPort),
-                })),
-                volumes: workload.volumeMounts.map(({ hostPath, guestPath, readOnly }) => ({
-                    hostPath,
-                    guestPath,
-                    readOnly,
-                })),
-                autoRemove: false,
-            })
+            const box = new SimpleBox(buildBoxOptions(workload, logDir))
 
-            this.boxes.set(id, box)
-
-            // Verify the box is responsive
+            // Verify the box is responsive; also boots the lazily-created VM so box.id is assigned
             await box.exec('echo ready')
+
+            this.activeVms.set(id, { box, vmId: box.id, logDir })
 
             workload.status = WorkloadStatus.RUNNING
         } catch (error) {
             workload.status = WorkloadStatus.FAILED
-            this.boxes.delete(id)
+            this.activeVms.delete(id)
             throw error
         } finally {
             workload.updated = Date.now()
@@ -62,19 +105,20 @@ export class BoxliteProvider implements IVmProvider {
             throw new Error(`Workload not found: ${workloadId}`)
         }
 
-        const box = this.boxes.get(workloadId)
-        if (!box) {
+        const vm = this.activeVms.get(workloadId)
+        if (!vm) {
             throw new Error(`Box not found for workload: ${workloadId}`)
         }
 
         workload.status = WorkloadStatus.STOPPING
         workload.updated = Date.now()
 
-        await box.stop()
+        await vm.box.stop()
 
         workload.status = WorkloadStatus.STOPPED
         workload.updated = Date.now()
-        this.boxes.delete(workloadId)
+        // The log dir is kept so already-written logs remain shippable until destroy
+        this.activeVms.delete(workloadId)
     }
 
     async destroy(workloadId: string): Promise<void> {
@@ -83,12 +127,13 @@ export class BoxliteProvider implements IVmProvider {
             throw new Error(`Workload not found: ${workloadId}`)
         }
 
-        const box = this.boxes.get(workloadId)
-        if (box) {
-            await box.stop()
-            this.boxes.delete(workloadId)
+        const vm = this.activeVms.get(workloadId)
+        if (vm) {
+            await vm.box.stop()
+            this.activeVms.delete(workloadId)
         }
 
+        rmSync(join(this.logsBaseDir, workloadId), { recursive: true, force: true })
         this.workloads.delete(workloadId)
     }
 

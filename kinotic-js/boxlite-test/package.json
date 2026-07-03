@@ -6,7 +6,7 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
-    "@boxlite-ai/boxlite": "latest"
+    "@boxlite-ai/boxlite": "^0.9.7"
   },
   "devDependencies": {
     "@types/node": "^25.9.3"

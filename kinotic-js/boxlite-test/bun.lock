@@ -5,7 +5,7 @@
     "": {
       "name": "boxlite-test",
       "dependencies": {
-        "@boxlite-ai/boxlite": "latest",
+        "@boxlite-ai/boxlite": "^0.9.7",
       },
       "devDependencies": {
         "@types/node": "^25.9.3",
@@ -13,13 +13,13 @@
     },
   },
   "packages": {
-    "@boxlite-ai/boxlite": ["@boxlite-ai/boxlite@0.9.5", "", { "optionalDependencies": { "@boxlite-ai/boxlite-darwin-arm64": "0.9.5", "@boxlite-ai/boxlite-linux-arm64-gnu": "0.9.5", "@boxlite-ai/boxlite-linux-x64-gnu": "0.9.5" }, "peerDependencies": { "playwright-core": ">=1.58.0" }, "optionalPeers": ["playwright-core"] }, "sha512-Wvg1Jov7BnoLDq2/lZUU1L7HWS49A5f407Xn/et5vRmdjbnGkTfQmOzfNbR+mEy69AcKKky40mKDIs3gy9h2tQ=="],
+    "@boxlite-ai/boxlite": ["@boxlite-ai/boxlite@0.9.7", "", { "optionalDependencies": { "@boxlite-ai/boxlite-darwin-arm64": "0.9.7", "@boxlite-ai/boxlite-linux-arm64-gnu": "0.9.7", "@boxlite-ai/boxlite-linux-x64-gnu": "0.9.7" }, "peerDependencies": { "playwright-core": ">=1.58.0" }, "optionalPeers": ["playwright-core"] }, "sha512-Y/XdJV6c3U6EdesOE4w02wkwOWCvVyCM/ARhXsyM+JbfTl1AAxEFphUSvbV9IYpTEHsiQp2AYJBujl592h/cjg=="],
 
-    "@boxlite-ai/boxlite-darwin-arm64": ["@boxlite-ai/boxlite-darwin-arm64@0.9.5", "", { "os": "darwin", "cpu": "arm64" }, "sha512-5eMmAtSBUd7Cqa7zm+zJc4JyJukqzNV0PerUSG1PjSkb6AGZnXTcrshwp2ekXex0gXqeG2fMANKRoIRZ0M6AHQ=="],
+    "@boxlite-ai/boxlite-darwin-arm64": ["@boxlite-ai/boxlite-darwin-arm64@0.9.7", "", { "os": "darwin", "cpu": "arm64" }, "sha512-a9Yh7RAB2qRJaYS6SIHszL6Dg7rY3XT0SDHmshm9RF604GpOv/yjm+6iqsjQPhAEnx229SJqCABXXHOkLoDpfw=="],
 
-    "@boxlite-ai/boxlite-linux-arm64-gnu": ["@boxlite-ai/boxlite-linux-arm64-gnu@0.9.5", "", { "os": "linux", "cpu": "arm64" }, "sha512-cuUR+XengRKpk3o2/Nbn59rsMWlvC0A5INtl54o7NNTxGPWVN+9zmKpStwp0m6pKdoLnosKTDVA7gXAGgQUF6A=="],
+    "@boxlite-ai/boxlite-linux-arm64-gnu": ["@boxlite-ai/boxlite-linux-arm64-gnu@0.9.7", "", { "os": "linux", "cpu": "arm64" }, "sha512-8fCL+vX4d0sW2t27oifswFbakJnHot9hhJ8D2aFvm0vyPMnPnGP1UqP/g7FL+7+zlhKNuafkMDqstLpDjHRA7w=="],
 
-    "@boxlite-ai/boxlite-linux-x64-gnu": ["@boxlite-ai/boxlite-linux-x64-gnu@0.9.5", "", { "os": "linux", "cpu": "x64" }, "sha512-pJWZgk0sVhdHxW2Ov8+FuFtsi/VPQd4R2TSqKTIcQf2ar8bqAhaSd2qWXbctF0HHE9NdRHNWf+HExEwhFtOWUA=="],
+    "@boxlite-ai/boxlite-linux-x64-gnu": ["@boxlite-ai/boxlite-linux-x64-gnu@0.9.7", "", { "os": "linux", "cpu": "x64" }, "sha512-4FtqDNKF63+JGDlxyILl9UyVX6xKzK5c0535ziv5ZU18LUBrgqFI3IGZQ8R9pCQ+g7sbcEVFMLG/f2DJJTtWaQ=="],
 
     "@types/node": ["@types/node@25.9.3", "", { "dependencies": { "undici-types": ">=7.24.0 <7.24.7" } }, "sha512-603BddQMv3pUcr4U2dhujk83N2tTDVr/34wII2B6bJy6g+8WD6yUb11jszNs0gdi4PesVWl7ABt8nYMVpnLUcg=="],
 
