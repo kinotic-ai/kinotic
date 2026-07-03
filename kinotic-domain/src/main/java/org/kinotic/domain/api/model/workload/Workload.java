@@ -50,6 +50,14 @@ public class Workload implements Identifiable<String> {
     private String organizationId;
 
     /**
+     * The Application this workload runs on behalf of. An application may have many
+     * workloads (build/deploy jobs, service containers). {@code null} for workloads not
+     * tied to an application (organization-level or platform work). When set,
+     * {@link #organizationId} must also be set — the organization that owns the application.
+     */
+    private String applicationId;
+
+    /**
      * The VM provider to use for this workload.
      */
     private VmProviderType providerType = VmProviderType.BOXLITE;

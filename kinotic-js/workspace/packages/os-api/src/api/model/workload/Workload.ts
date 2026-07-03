@@ -33,6 +33,14 @@ export class Workload implements Identifiable<string> {
     public organizationId: string | null = null
 
     /**
+     * The Application this workload runs on behalf of. An application may have many
+     * workloads (build/deploy jobs, service containers). Null for workloads not tied
+     * to an application (organization-level or platform work). When set,
+     * organizationId must also be set — the organization that owns the application.
+     */
+    public applicationId: string | null = null
+
+    /**
      * The VM provider to use for this workload.
      */
     public providerType: VmProviderType = VmProviderType.BOXLITE
