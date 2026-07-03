@@ -80,12 +80,19 @@ async function main() {
     await box.exec("true");
     const boxId = box.id;
     const boxDir = join(boxliteHome, "boxes", boxId);
-    const consolePath = join(boxDir, "console.log");
+    // Path per BoxFilesystemLayout::console_output_path() = logs_dir().join("console.log")
+    const consolePath = join(boxDir, "logs", "console.log");
     const shimStderrPath = join(boxDir, "shim.stderr");
 
     console.log(`Box id          : ${boxId}`);
     console.log(`(a) console.log : ${consolePath}`);
-    console.log(`    exists      : ${existsSync(consolePath) ? "YES" : "NO"}\n`);
+    console.log(`    exists      : ${existsSync(consolePath) ? "YES" : "NO"}`);
+    try {
+        const { readdirSync } = await import("node:fs");
+        console.log(`    logs dir    : [${readdirSync(join(boxDir, "logs")).join(", ")}]\n`);
+    } catch {
+        console.log(`    logs dir    : <absent>\n`);
+    }
 
     watcher = watch(boxDir, (_event, filename) => {
       if (filename === "console.log") watchEvents++;
