@@ -1,10 +1,10 @@
 /**
- * Parameters for a historical log query against Loki's query_range endpoint.
+ * Parameters for a historical log query: one workload's logs over a time range.
  */
 export interface LogQuery {
 
-    /** LogQL query selecting the log streams to return. */
-    query: string
+    /** Id of the workload whose logs to return. */
+    workloadId: string
 
     /** Start of the time range, epoch milliseconds (inclusive). */
     start: number
