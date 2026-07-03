@@ -1,4 +1,4 @@
-package org.kinotic.os.api.model;
+package org.kinotic.domain.api.model.log;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

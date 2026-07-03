@@ -1,7 +1,8 @@
 package org.kinotic.os.api.services;
 
+import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.os.api.model.LogQuery;
+import org.kinotic.domain.api.model.log.LogQuery;
 import reactor.core.publisher.Flux;
 
 import java.util.concurrent.CompletableFuture;
@@ -18,9 +19,9 @@ public interface LogService {
      * frame, and the stream stays open until the caller unsubscribes.
      *
      * @param query the LogQL query selecting the log streams to follow
-     * @return a {@link Flux} emitting raw Loki tail frame bytes
+     * @return a {@link Flux} emitting raw Loki tail frames
      */
-    Flux<byte[]> tail(String query);
+    Flux<Buffer> tail(String query);
 
     /**
      * Returns historical logs for the given query and time range.
@@ -28,5 +29,5 @@ public interface LogService {
      * @param query the {@link LogQuery} describing the LogQL selector, time range, and limit
      * @return a {@link CompletableFuture} emitting the raw Loki {@code query_range} response
      */
-    CompletableFuture<byte[]> history(LogQuery query);
+    CompletableFuture<Buffer> history(LogQuery query);
 }
