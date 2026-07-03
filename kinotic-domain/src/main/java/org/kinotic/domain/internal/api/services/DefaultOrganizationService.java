@@ -15,8 +15,7 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultOrganizationService extends AbstractCrudService<Organization> implements OrganizationService {
 
     /**
-     * Id prefix reserved for platform tenants in external systems that organization ids
-     * flow into (e.g. Loki).
+     * Id prefix reserved for identities owned by the platform itself.
      */
     public static final String RESERVED_ID_PREFIX = "kinotic";
 
