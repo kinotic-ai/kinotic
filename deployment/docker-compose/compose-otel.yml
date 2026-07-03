@@ -28,7 +28,9 @@ services:
     image: grafana/loki:3.3.2
     ports:
       - "3100:3100"  # Loki API (logs) — also serves /otlp for OTLP ingestion
-    command: -config.file=/etc/loki/local-config.yaml
+    # Multi-tenant: X-Scope-OrgID routes each org's workload logs to its own tenant;
+    # multi-tenant queries let platform operators read across tenants (orgA|kinotic-system)
+    command: -config.file=/etc/loki/local-config.yaml -auth.enabled=true -querier.multi-tenant-queries-enabled=true
 
   mimir:
     image: grafana/mimir:2.14.3

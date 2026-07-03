@@ -64,6 +64,9 @@ kinotic:
   openApiPort: 8080
   graphqlPort: 4000
   restPort: 58504
+  # kinotic.loki.url — Loki HTTP API backing the LogService (KINOTIC_LOKI_URL)
+  loki:
+    url: "http://loki.observability.svc:3100"
   elastic:
     connections:
       - host: "kinotic-es-es-http.elastic.svc"
