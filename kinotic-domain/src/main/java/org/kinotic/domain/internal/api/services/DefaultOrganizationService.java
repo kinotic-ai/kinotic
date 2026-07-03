@@ -15,7 +15,9 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultOrganizationService extends AbstractCrudService<Organization> implements OrganizationService {
 
     /**
-     * Id prefix reserved for identities owned by the platform itself.
+     * No one can sign up for an organization whose id begins with this prefix. It is used
+     * internally when the platform needs multi-tenancy but the system is the tenant —
+     * e.g. VM workloads executed by the OS for the OS.
      */
     public static final String RESERVED_ID_PREFIX = "kinotic";
 
@@ -31,7 +33,6 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
 
         if (entity.getId() == null) {
             String id = slg.slugify(entity.getName()).toLowerCase();
-            // Ids set explicitly by platform code are intentionally not checked
             Validate.isTrue(!id.startsWith(RESERVED_ID_PREFIX),
                             "Organization name '%s' is reserved", entity.getName());
             entity.setId(id);
