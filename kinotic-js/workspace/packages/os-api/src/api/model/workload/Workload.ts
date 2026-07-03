@@ -26,6 +26,13 @@ export class Workload implements Identifiable<string> {
     public description?: string
 
     /**
+     * The Organization this workload runs on behalf of, which may view its logs.
+     * Null for internal platform workloads (SYSTEM scope) — their logs are only
+     * visible to platform operators.
+     */
+    public organizationId: string | null = null
+
+    /**
      * The VM provider to use for this workload.
      */
     public providerType: VmProviderType = VmProviderType.BOXLITE

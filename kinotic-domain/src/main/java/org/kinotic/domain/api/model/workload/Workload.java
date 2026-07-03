@@ -43,6 +43,13 @@ public class Workload implements Identifiable<String> {
     private String nodeId;
 
     /**
+     * The Organization this workload runs on behalf of, which may view its logs.
+     * {@code null} for internal platform workloads (SYSTEM scope) — their logs are
+     * only visible to platform operators.
+     */
+    private String organizationId;
+
+    /**
      * The VM provider to use for this workload.
      */
     private VmProviderType providerType = VmProviderType.BOXLITE;

@@ -18,9 +18,9 @@ export class DefaultVmManager implements IVmManager {
 
     private readonly providers: Map<VmProviderType, IVmProvider> = new Map()
 
-    constructor(nodeId: string) {
+    constructor(nodeId: string, vmLogsDir: string) {
         this.nodeId = nodeId
-        this.providers.set(VmProviderType.BOXLITE, new BoxliteProvider())
+        this.providers.set(VmProviderType.BOXLITE, new BoxliteProvider(vmLogsDir))
     }
 
     async startWorkload(workload: Workload): Promise<Workload> {

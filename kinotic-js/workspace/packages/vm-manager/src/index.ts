@@ -5,6 +5,7 @@ import { VmNodeOrchestrationServiceProxy } from '@/internal/services/VmNodeOrche
 import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
 import { createAuthProviderFromEnv } from '@/api/auth/createAuthProviderFromEnv'
 import os from 'node:os'
+import path from 'node:path'
 
 // Required configuration
 const nodeId = process.env.KINOTIC_NODE_ID ?? Bun.argv[2]
@@ -17,6 +18,7 @@ const serverHost = process.env.KINOTIC_SERVER_HOST ?? 'localhost'
 const serverPort = Number(process.env.KINOTIC_SERVER_PORT ?? '58503')
 const serverUseSSL = (process.env.KINOTIC_SERVER_USE_SSL ?? 'false').toLowerCase() === 'true'
 const heartbeatIntervalMs = Number(process.env.KINOTIC_HEARTBEAT_INTERVAL_MS ?? '30000')
+const vmLogsDir = process.env.KINOTIC_VM_LOGS_DIR ?? path.join(os.homedir(), '.kinotic', 'vm-logs')
 
 let heartbeatTimer: Timer | null = null
 
@@ -47,7 +49,7 @@ async function start() {
     console.log(`Connected to Kinotic server at ${serverHost}:${serverPort}`)
 
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
-    const vmManager = new DefaultVmManager(nodeId!)
+    const vmManager = new DefaultVmManager(nodeId!, vmLogsDir)
 
     // Build registration info from system resources
     const registration = new VmNodeRegistration(nodeId!, os.hostname(), os.hostname())
