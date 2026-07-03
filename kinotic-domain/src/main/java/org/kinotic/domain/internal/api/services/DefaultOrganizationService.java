@@ -14,6 +14,13 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultOrganizationService extends AbstractCrudService<Organization> implements OrganizationService {
 
+    /**
+     * Organization ids starting with this prefix are reserved for the platform. An organization's
+     * id doubles as its Loki log tenant, and platform tenants (e.g. {@code kinotic-system}) live in
+     * the same namespace, so user-driven creation must never mint an id that could collide with them.
+     */
+    public static final String RESERVED_ID_PREFIX = "kinotic";
+
     private final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
 
     public DefaultOrganizationService(OrganizationRepository repository) {
@@ -25,7 +32,11 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
         Validate.notNull(entity.getName(), "Organization name cannot be null");
 
         if (entity.getId() == null) {
-            entity.setId(slg.slugify(entity.getName()).toLowerCase());
+            String id = slg.slugify(entity.getName()).toLowerCase();
+            // Only minting is guarded: platform code and migrations may own reserved ids explicitly
+            Validate.isTrue(!id.startsWith(RESERVED_ID_PREFIX),
+                            "Organization name '%s' is reserved", entity.getName());
+            entity.setId(id);
             entity.setCreated(new Date());
         }
 
