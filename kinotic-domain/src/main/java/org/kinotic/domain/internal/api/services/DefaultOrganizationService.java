@@ -31,8 +31,7 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
 
         if (entity.getId() == null) {
             String id = slg.slugify(entity.getName()).toLowerCase();
-            // User-driven creation always arrives with a null id; platform-owned orgs
-            // (e.g. the seeded kinotic-test) are saved with explicit ids and skip this branch
+            // Ids set explicitly by platform code are intentionally not checked
             Validate.isTrue(!id.startsWith(RESERVED_ID_PREFIX),
                             "Organization name '%s' is reserved", entity.getName());
             entity.setId(id);
