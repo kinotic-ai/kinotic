@@ -26,17 +26,14 @@ export class Workload implements Identifiable<string> {
     public description?: string
 
     /**
-     * The Organization this workload runs on behalf of, which may view its logs.
-     * Null for internal platform workloads (SYSTEM scope) — their logs are only
-     * visible to platform operators.
+     * The Organization this workload runs on behalf of, and which may view its logs.
+     * Null for platform workloads (SYSTEM scope).
      */
     public organizationId: string | null = null
 
     /**
-     * The Application this workload runs on behalf of. An application may have many
-     * workloads (build/deploy jobs, service containers). Null for workloads not tied
-     * to an application (organization-level or platform work). When set,
-     * organizationId must also be set — the organization that owns the application.
+     * The Application this workload runs on behalf of, or null if none.
+     * When set, organizationId must also be set.
      */
     public applicationId: string | null = null
 

@@ -43,17 +43,14 @@ public class Workload implements Identifiable<String> {
     private String nodeId;
 
     /**
-     * The Organization this workload runs on behalf of, which may view its logs.
-     * {@code null} for internal platform workloads (SYSTEM scope) — their logs are
-     * only visible to platform operators.
+     * The Organization this workload runs on behalf of, and which may view its logs.
+     * {@code null} for platform workloads (SYSTEM scope).
      */
     private String organizationId;
 
     /**
-     * The Application this workload runs on behalf of. An application may have many
-     * workloads (build/deploy jobs, service containers). {@code null} for workloads not
-     * tied to an application (organization-level or platform work). When set,
-     * {@link #organizationId} must also be set — the organization that owns the application.
+     * The Application this workload runs on behalf of, or {@code null} if none.
+     * When set, {@link #organizationId} must also be set.
      */
     private String applicationId;
 
