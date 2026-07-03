@@ -1,19 +1,16 @@
-import { SimpleBox } from '@boxlite-ai/boxlite'
+import { SimpleBox, type SimpleBoxOptions } from '@boxlite-ai/boxlite'
 import { mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { Workload, WorkloadStatus } from '@kinotic-ai/os-api'
 
 /**
- * Guest path where the per-VM host log directory is mounted. Workloads whose entrypoint
- * cannot be wrapped (no explicit entrypoint) write their own log files here to have them shipped.
+ * Guest path where the per-workload host log directory is mounted. This is the log-shipping
+ * contract: log files a workload writes under this directory are shipped to Loki. boxlite
+ * provides no host-side capture of the entrypoint's stdout/stderr, so workload images must
+ * write their logs here themselves.
  */
 export const GUEST_LOG_DIR = '/var/log/kinotic'
-
-/**
- * File within {@link GUEST_LOG_DIR} that receives the wrapped workload process's stdout/stderr.
- */
-export const CONSOLE_LOG_FILE = 'console.log'
 
 /**
  * A VM currently managed by this provider, with the resources that outlive the box itself.
@@ -27,22 +24,33 @@ export interface ActiveVm {
 }
 
 /**
- * Builds an entrypoint that appends the workload process's stdout/stderr to the console log
- * on the mounted log volume. Returns null when the workload defines no entrypoint — the image
- * default ENTRYPOINT is resolved inside boxlite and unknown here, so it cannot be wrapped;
- * such workloads ship only the log files they write to {@link GUEST_LOG_DIR} themselves.
+ * Builds the boxlite options for a workload. The given host log directory is always mounted
+ * at {@link GUEST_LOG_DIR}; entrypoint and cmd are passed through only when the workload
+ * declares them, so an empty value keeps the image default.
  */
-export function wrapEntrypointForLogCapture(workload: Workload): string[] | null {
-    if (workload.entrypoint.length === 0) {
-        return null
+export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOptions {
+    return {
+        image: workload.image,
+        name: workload.id!,
+        cpus: workload.vcpus,
+        memoryMib: workload.memoryMb,
+        env: workload.environment,
+        ...(workload.entrypoint.length > 0 ? { entrypoint: workload.entrypoint } : {}),
+        ...(workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
+        ports: Object.entries(workload.portMappings).map(([hostPort, guestPort]) => ({
+            hostPort: Number(hostPort),
+            guestPort: Number(guestPort),
+        })),
+        volumes: [
+            ...workload.volumeMounts.map(({ hostPath, guestPath, readOnly }) => ({
+                hostPath,
+                guestPath,
+                readOnly,
+            })),
+            { hostPath: logDir, guestPath: GUEST_LOG_DIR },
+        ],
+        autoRemove: false,
     }
-    return [
-        '/bin/sh', '-c',
-        `exec "$@" >> ${GUEST_LOG_DIR}/${CONSOLE_LOG_FILE} 2>&1`,
-        'sh',
-        ...workload.entrypoint,
-        ...workload.cmd,
-    ]
 }
 
 /**
@@ -72,31 +80,7 @@ export class BoxliteProvider implements IVmProvider {
         mkdirSync(logDir, { recursive: true })
 
         try {
-            const wrappedEntrypoint = wrapEntrypointForLogCapture(workload)
-            const box = new SimpleBox({
-                image: workload.image,
-                name: id,
-                cpus: workload.vcpus,
-                memoryMib: workload.memoryMb,
-                env: workload.environment,
-                // cmd was folded into the wrapper's "$@" args, so it is overridden to empty
-                ...(wrappedEntrypoint
-                    ? { entrypoint: wrappedEntrypoint, cmd: [] }
-                    : workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
-                ports: Object.entries(workload.portMappings).map(([hostPort, guestPort]) => ({
-                    hostPort: Number(hostPort),
-                    guestPort: Number(guestPort),
-                })),
-                volumes: [
-                    ...workload.volumeMounts.map(({ hostPath, guestPath, readOnly }) => ({
-                        hostPath,
-                        guestPath,
-                        readOnly,
-                    })),
-                    { hostPath: logDir, guestPath: GUEST_LOG_DIR },
-                ],
-                autoRemove: false,
-            })
+            const box = new SimpleBox(buildBoxOptions(workload, logDir))
 
             // Verify the box is responsive; also boots the lazily-created VM so box.id is assigned
             await box.exec('echo ready')

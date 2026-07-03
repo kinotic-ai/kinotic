@@ -1,41 +1,42 @@
 import { describe, expect, it } from 'bun:test'
 import { Workload } from '@kinotic-ai/os-api'
-import {
-    CONSOLE_LOG_FILE,
-    GUEST_LOG_DIR,
-    wrapEntrypointForLogCapture,
-} from '@/internal/api/providers/BoxliteProvider'
+import { GUEST_LOG_DIR, buildBoxOptions } from '@/internal/api/providers/BoxliteProvider'
 
-describe('wrapEntrypointForLogCapture', () => {
+function workload(): Workload {
+    const w = new Workload('build', 'alpine:latest')
+    w.id = 'wl-1'
+    return w
+}
 
-    it('wraps an explicit entrypoint so stdout/stderr append to the console log', () => {
-        const workload = new Workload('build', 'alpine:latest')
-        workload.entrypoint = ['/bin/run-build', '--verbose']
+describe('buildBoxOptions', () => {
 
-        const wrapped = wrapEntrypointForLogCapture(workload)
+    it('always mounts the host log directory at the guest log dir', () => {
+        const w = workload()
+        w.volumeMounts = [{ hostPath: '/data', guestPath: '/app/data', readOnly: true }]
 
-        expect(wrapped).toEqual([
-            '/bin/sh', '-c',
-            `exec "$@" >> ${GUEST_LOG_DIR}/${CONSOLE_LOG_FILE} 2>&1`,
-            'sh',
-            '/bin/run-build', '--verbose',
+        const options = buildBoxOptions(w, '/logs/wl-1')
+
+        expect(options.volumes).toEqual([
+            { hostPath: '/data', guestPath: '/app/data', readOnly: true },
+            { hostPath: '/logs/wl-1', guestPath: GUEST_LOG_DIR },
         ])
     })
 
-    it('appends cmd after the entrypoint so the full command is captured', () => {
-        const workload = new Workload('build', 'alpine:latest')
-        workload.entrypoint = ['/bin/sh', '-c']
-        workload.cmd = ['echo hello']
+    it('keeps image defaults by omitting undeclared entrypoint and cmd', () => {
+        const options = buildBoxOptions(workload(), '/logs/wl-1')
 
-        const wrapped = wrapEntrypointForLogCapture(workload)
-
-        expect(wrapped!.slice(-3)).toEqual(['/bin/sh', '-c', 'echo hello'])
+        expect('entrypoint' in options).toBeFalse()
+        expect('cmd' in options).toBeFalse()
     })
 
-    it('returns null when no entrypoint is defined, since the image default cannot be wrapped', () => {
-        const workload = new Workload('service', 'alpine:latest')
-        workload.cmd = ['serve']
+    it('passes declared entrypoint and cmd through unmodified', () => {
+        const w = workload()
+        w.entrypoint = ['/bin/run-build', '--verbose']
+        w.cmd = ['release']
 
-        expect(wrapEntrypointForLogCapture(workload)).toBeNull()
+        const options = buildBoxOptions(w, '/logs/wl-1')
+
+        expect(options.entrypoint).toEqual(['/bin/run-build', '--verbose'])
+        expect(options.cmd).toEqual(['release'])
     })
 })
