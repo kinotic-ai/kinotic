@@ -120,9 +120,9 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
     }
 
     /**
-     * Ensures the current participant carries an {@code organizationId} — either an
-     * {@link OrganizationParticipant} or its {@link ApplicationParticipant} subtype — and
-     * returns that id.
+     * Returns the {@code organizationId} of the current {@link OrganizationParticipant}.
+     * {@link ApplicationParticipant} is a sibling type, not a subtype, so application-scoped
+     * callers are rejected — this check is what keeps org-scoped services closed to applications.
      *
      * @throws IllegalStateException if no participant is bound to the current context
      * @throws AuthorizationException if the participant is not an {@code OrganizationParticipant}

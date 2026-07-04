@@ -25,6 +25,9 @@ import java.util.List;
 @NoArgsConstructor
 public class EntityDefinition implements ProjectScoped<String> {
 
+    /**
+     * System-assigned id of the shape {@code <organizationId>.<applicationId>.<name>}, lowercased.
+     */
     private String id = null; // do not ever set, system managed
 
     private String name = null;
