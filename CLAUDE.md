@@ -120,7 +120,7 @@ These are the named smells from Martin Fowler and Kent Beck's catalog in *Refact
 
 **Couplers — classes that know too much about each other**
 
-- **Middle Man / needless indirection.** No support class, wrapper, or dispatch layer with a single consumer — inline it until at least two real consumers exist. A flow's logic should be followable inside one class; if understanding it requires hopping between classes, the indirection is the smell. Same rule for constants: used in one class → declared in that class; shared catalogs only for genuine cross-class or cross-boundary contracts.
+- **Middle Man / needless indirection.** No support class, wrapper, or dispatch layer with a single consumer — inline it until at least two real consumers exist; a test is never the second consumer. A flow's logic should be followable inside one class; if understanding it requires hopping between classes, the indirection is the smell. Same rule for constants: used in one class → declared in that class; shared catalogs only for genuine cross-class or cross-boundary contracts.
 - **Feature Envy.** A method that mostly reads and combines another class's data belongs on that class. If a handler keeps reaching into an entity to make a decision the entity could make, move the decision.
 - **Inappropriate Intimacy.** Don't reach through another class's internals (its repository, its private collaborators) — go through its interface. Crossing the `api`/`internal` boundary from another module is this smell by definition.
 - **Message Chains.** `a.getB().getC().getD()` couples the caller to the whole path. Ask the nearest object for what you actually need.
@@ -137,3 +137,15 @@ These are the named smells from Martin Fowler and Kent Beck's catalog in *Refact
 - **Refused Bequest.** Don't extend a base class to use one method while ignoring or overriding-to-nothing the rest — compose instead.
 - **Temporary Field.** A field only meaningful during one operation is a missing parameter or a missing small object, not state.
 - **Data Class with leaked logic.** Entities/DTOs stay dumb (this codebase's convention), but the logic operating on them must then live in ONE service — not spread across every caller.
+
+## Tests serve the code — they never shape it
+
+The smells catalog binds with no testability exception: never extract, export, widen
+visibility, or add a parameter/seam whose only consumer is a test. A test is never the
+second consumer under the Rule of Three. Test through the interface a real caller uses
+and assert on outputs the code already produces (the file written, the response returned,
+the process killed); reach edge branches by controlling real inputs, not by opening
+internals. Prefer one behavioral test with real infrastructure (processes, temp dirs,
+containers) — gated to skip when the environment lacks it — over unit tests that each
+cost a structural concession. Behavior unobservable through any public interface is a
+production API gap: raise it, don't add a test-only door.
