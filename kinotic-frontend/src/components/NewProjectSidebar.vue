@@ -1,5 +1,7 @@
-<script lang="ts">
-import { Component, Vue, Prop, Watch } from 'vue-facing-decorator';
+<script setup lang="ts">
+import { onBeforeUnmount, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import { useToast } from 'primevue/usetoast';
 import { Kinotic } from '@kinotic-ai/core';
 import { Project, ProjectType } from '@kinotic-ai/os-api';
 import { APPLICATION_STATE } from '@/states/IApplicationState';
@@ -22,244 +24,242 @@ interface ProjectForm {
 
 type LinkingState = 'idle' | 'awaiting' | 'completing' | 'error';
 
-@Component({
-    components: {
-        InputText,
-        Textarea,
-        Button,
-        ToggleSwitch
-    }
-})
-export default class NewProjectSidebar extends Vue {
-    @Prop({ required: true }) readonly visible!: boolean;
+const props = defineProps<{
+    visible: boolean
+}>();
 
-    form: ProjectForm = {
+const emit = defineEmits<{
+    (e: 'submit', project: Project): void
+    (e: 'close'): void
+}>();
+
+const route = useRoute();
+const toast = useToast();
+
+const form = ref<ProjectForm>({
+    name: '',
+    description: '',
+    repoPrivate: true
+});
+
+const loading = ref(false);
+
+/** null = checking; false = no install (prompt to link); true = install present (show form). */
+const githubLinked = ref<boolean | null>(null);
+
+const linkingState = ref<LinkingState>('idle');
+const linkingError = ref<string | null>(null);
+
+const popup = ref<Window | null>(null);
+const installListener = ref<((e: MessageEvent) => void) | null>(null);
+const popupWatcher = ref<number | null>(null);
+
+watch(() => props.visible, onVisibleChanged);
+async function onVisibleChanged(isOpen: boolean): Promise<void> {
+    if (!isOpen) {
+        cleanupPopupListeners();
+        return;
+    }
+    githubLinked.value = null;
+    linkingState.value = 'idle';
+    linkingError.value = null;
+    try {
+        const install = await Kinotic.githubAppInstallations.findForCurrentOrg();
+        githubLinked.value = install != null;
+    } catch (e) {
+        debug('Failed to check GitHub link state: %O', e);
+        // Treat lookup failure as "linked" — let the create attempt surface the real error
+        // rather than blocking the user behind a noisy probe.
+        githubLinked.value = true;
+    }
+}
+
+onBeforeUnmount(() => {
+    cleanupPopupListeners();
+});
+
+const isDark = darkMode;
+
+async function handleSubmit(): Promise<void> {
+    loading.value = true;
+    try {
+        const app = APPLICATION_STATE.currentApplication;
+        if (!app) throw new Error('No current application selected');
+
+        const project = new Project(null, app.id, form.value.name, form.value.description);
+        project.organizationId = USER_STATE.getOrganizationId();
+        project.sourceOfTruth = ProjectType.TYPESCRIPT;
+        project.repoPrivate = form.value.repoPrivate;
+
+        // Goes through the server-side ProjectRepoProvisioner, which creates the
+        // backing GitHub repo from the configured template and stamps the repo
+        // metadata on the project before persisting. Fails if a project with the
+        // derived id already exists.
+        const createdProject = await Kinotic.projects.create(project);
+
+        toast.add({
+            severity: 'success',
+            summary: 'Success',
+            detail: 'Project successfully added',
+            life: 3000
+        });
+
+        resetForm();
+        emit('submit', createdProject);
+    } catch (error) {
+        debug('Failed to create project: %O', error);
+        const message = (error as Error)?.message ?? '';
+        if (message.includes('GitHub is not linked')) {
+            githubLinked.value = false;
+        } else {
+            toast.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: 'Failed to create project.',
+                life: 3000
+            });
+        }
+    } finally {
+        loading.value = false;
+    }
+}
+
+function handleClose(): void {
+    cleanupPopupListeners();
+    resetForm();
+    emit('close');
+}
+
+/**
+ * Opens GitHub's install page in a popup. The sidebar stays in the main window
+ * showing an "awaiting install" panel. When the popup hits our /github/install/callback
+ * route it posts back installation_id + state and closes itself; we then run
+ * completeInstall and transition to the project form.
+ *
+ * The popup must be opened synchronously inside the click handler — any await
+ * before window.open hands control back to the event loop and the browser stops
+ * treating it as a user-initiated popup.
+ */
+function linkGitHub(): void {
+    linkingError.value = null;
+
+    const popupWindow = window.open('about:blank', 'kinotic-github-install', 'width=900,height=900');
+    if (!popupWindow) {
+        // Popup blocked — fall back to same-window navigation.
+        linkGitHubSameWindow();
+        return;
+    }
+
+    popup.value = popupWindow;
+    linkingState.value = 'awaiting';
+
+    // Resolve the GitHub URL asynchronously and aim the popup at it.
+    Kinotic.githubAppInstallations.startInstall(buildReturnTo())
+        .then(url => {
+            if (popup.value && !popup.value.closed) {
+                popup.value.location.href = url;
+            }
+        })
+        .catch(err => {
+            debug('Failed to start GitHub install: %O', err);
+            if (popup.value && !popup.value.closed) {
+                popup.value.close();
+            }
+            cleanupPopupListeners();
+            linkingState.value = 'error';
+            linkingError.value = (err as Error)?.message ?? 'Failed to start GitHub install.';
+        });
+
+    installListener.value = onInstallMessage;
+    window.addEventListener('message', installListener.value);
+
+    // Watch for the user closing the popup without finishing.
+    popupWatcher.value = window.setInterval(() => {
+        if (popup.value && popup.value.closed) {
+            const wasAwaiting = linkingState.value === 'awaiting';
+            cleanupPopupListeners();
+            if (wasAwaiting) {
+                linkingState.value = 'idle';
+            }
+        }
+    }, 500);
+}
+
+async function linkGitHubSameWindow(): Promise<void> {
+    try {
+        const url = await Kinotic.githubAppInstallations.startInstall(buildReturnTo());
+        window.location.href = url;
+    } catch (err) {
+        debug('Failed to start GitHub install (same-window fallback): %O', err);
+        linkingState.value = 'error';
+        linkingError.value = (err as Error)?.message ?? 'Failed to start GitHub install.';
+    }
+}
+
+/**
+ * Builds the returnTo for the install round-trip: the current route plus
+ * {@code openNewProject=1} so {@code ProjectList} re-opens the sidebar when
+ * the same-window flow lands here. Existing query params are preserved.
+ */
+function buildReturnTo(): string {
+    const fullPath = route.fullPath;
+    const sep = fullPath.includes('?') ? '&' : '?';
+    return `${fullPath}${sep}openNewProject=1`;
+}
+
+async function onInstallMessage(event: MessageEvent): Promise<void> {
+    if (event.origin !== window.location.origin) return;
+    const data = event.data as { type?: string; installationId?: number; state?: string; message?: string } | undefined;
+    if (!data?.type) return;
+
+    if (data.type === 'kinotic-github-install-complete'
+            && typeof data.installationId === 'number'
+            && typeof data.state === 'string') {
+        cleanupPopupListeners();
+        linkingState.value = 'completing';
+        try {
+            await Kinotic.githubAppInstallations.completeInstall(data.installationId, data.state);
+            const install = await Kinotic.githubAppInstallations.findForCurrentOrg();
+            githubLinked.value = install != null;
+            linkingState.value = 'idle';
+        } catch (err) {
+            debug('Failed to complete GitHub install: %O', err);
+            linkingState.value = 'error';
+            linkingError.value = (err as Error)?.message ?? 'Failed to complete GitHub install.';
+        }
+    } else if (data.type === 'kinotic-github-install-error') {
+        cleanupPopupListeners();
+        linkingState.value = 'error';
+        linkingError.value = data.message ?? 'GitHub install was cancelled or failed.';
+    }
+}
+
+function cleanupPopupListeners(): void {
+    if (installListener.value) {
+        window.removeEventListener('message', installListener.value);
+        installListener.value = null;
+    }
+    if (popupWatcher.value !== null) {
+        window.clearInterval(popupWatcher.value);
+        popupWatcher.value = null;
+    }
+    popup.value = null;
+}
+
+function cancelLinking(): void {
+    if (popup.value && !popup.value.closed) {
+        popup.value.close();
+    }
+    cleanupPopupListeners();
+    linkingState.value = 'idle';
+}
+
+function resetForm(): void {
+    form.value = {
         name: '',
         description: '',
         repoPrivate: true
     };
-
-    loading = false;
-
-    /** null = checking; false = no install (prompt to link); true = install present (show form). */
-    githubLinked: boolean | null = null;
-
-    linkingState: LinkingState = 'idle';
-    linkingError: string | null = null;
-
-    private popup: Window | null = null;
-    private installListener: ((e: MessageEvent) => void) | null = null;
-    private popupWatcher: number | null = null;
-
-    @Watch('visible')
-    async onVisibleChanged(isOpen: boolean): Promise<void> {
-        if (!isOpen) {
-            this.cleanupPopupListeners();
-            return;
-        }
-        this.githubLinked = null;
-        this.linkingState = 'idle';
-        this.linkingError = null;
-        try {
-            const install = await Kinotic.githubAppInstallations.findForCurrentOrg();
-            this.githubLinked = install != null;
-        } catch (e) {
-            debug('Failed to check GitHub link state: %O', e);
-            // Treat lookup failure as "linked" — let the create attempt surface the real error
-            // rather than blocking the user behind a noisy probe.
-            this.githubLinked = true;
-        }
-    }
-
-    beforeUnmount(): void {
-        this.cleanupPopupListeners();
-    }
-
-    get isDark() {
-        return darkMode.value;
-    }
-
-    async handleSubmit(): Promise<void> {
-        this.loading = true;
-        try {
-            const app = APPLICATION_STATE.currentApplication;
-            if (!app) throw new Error('No current application selected');
-
-            const project = new Project(null, app.id, this.form.name, this.form.description);
-            project.organizationId = USER_STATE.getOrganizationId();
-            project.sourceOfTruth = ProjectType.TYPESCRIPT;
-            project.repoPrivate = this.form.repoPrivate;
-
-            // Goes through the server-side ProjectRepoProvisioner, which creates the
-            // backing GitHub repo from the configured template and stamps the repo
-            // metadata on the project before persisting. Fails if a project with the
-            // derived id already exists.
-            const createdProject = await Kinotic.projects.create(project);
-
-            this.$toast.add({
-                severity: 'success',
-                summary: 'Success',
-                detail: 'Project successfully added',
-                life: 3000
-            });
-
-            this.resetForm();
-            this.$emit('submit', createdProject);
-        } catch (error) {
-            debug('Failed to create project: %O', error);
-            const message = (error as Error)?.message ?? '';
-            if (message.includes('GitHub is not linked')) {
-                this.githubLinked = false;
-            } else {
-                this.$toast.add({
-                    severity: 'error',
-                    summary: 'Error',
-                    detail: 'Failed to create project.',
-                    life: 3000
-                });
-            }
-        } finally {
-            this.loading = false;
-        }
-    }
-
-    handleClose(): void {
-        this.cleanupPopupListeners();
-        this.resetForm();
-        this.$emit('close');
-    }
-
-    /**
-     * Opens GitHub's install page in a popup. The sidebar stays in the main window
-     * showing an "awaiting install" panel. When the popup hits our /github/install/callback
-     * route it posts back installation_id + state and closes itself; we then run
-     * completeInstall and transition to the project form.
-     *
-     * The popup must be opened synchronously inside the click handler — any await
-     * before window.open hands control back to the event loop and the browser stops
-     * treating it as a user-initiated popup.
-     */
-    linkGitHub(): void {
-        this.linkingError = null;
-
-        const popup = window.open('about:blank', 'kinotic-github-install', 'width=900,height=900');
-        if (!popup) {
-            // Popup blocked — fall back to same-window navigation.
-            this.linkGitHubSameWindow();
-            return;
-        }
-
-        this.popup = popup;
-        this.linkingState = 'awaiting';
-
-        // Resolve the GitHub URL asynchronously and aim the popup at it.
-        Kinotic.githubAppInstallations.startInstall(this.buildReturnTo())
-            .then(url => {
-                if (this.popup && !this.popup.closed) {
-                    this.popup.location.href = url;
-                }
-            })
-            .catch(err => {
-                debug('Failed to start GitHub install: %O', err);
-                if (this.popup && !this.popup.closed) {
-                    this.popup.close();
-                }
-                this.cleanupPopupListeners();
-                this.linkingState = 'error';
-                this.linkingError = (err as Error)?.message ?? 'Failed to start GitHub install.';
-            });
-
-        this.installListener = this.onInstallMessage.bind(this);
-        window.addEventListener('message', this.installListener);
-
-        // Watch for the user closing the popup without finishing.
-        this.popupWatcher = window.setInterval(() => {
-            if (this.popup && this.popup.closed) {
-                const wasAwaiting = this.linkingState === 'awaiting';
-                this.cleanupPopupListeners();
-                if (wasAwaiting) {
-                    this.linkingState = 'idle';
-                }
-            }
-        }, 500);
-    }
-
-    private async linkGitHubSameWindow(): Promise<void> {
-        try {
-            const url = await Kinotic.githubAppInstallations.startInstall(this.buildReturnTo());
-            window.location.href = url;
-        } catch (err) {
-            debug('Failed to start GitHub install (same-window fallback): %O', err);
-            this.linkingState = 'error';
-            this.linkingError = (err as Error)?.message ?? 'Failed to start GitHub install.';
-        }
-    }
-
-    /**
-     * Builds the returnTo for the install round-trip: the current route plus
-     * {@code openNewProject=1} so {@code ProjectList} re-opens the sidebar when
-     * the same-window flow lands here. Existing query params are preserved.
-     */
-    private buildReturnTo(): string {
-        const fullPath = this.$route.fullPath;
-        const sep = fullPath.includes('?') ? '&' : '?';
-        return `${fullPath}${sep}openNewProject=1`;
-    }
-
-    private async onInstallMessage(event: MessageEvent): Promise<void> {
-        if (event.origin !== window.location.origin) return;
-        const data = event.data as { type?: string; installationId?: number; state?: string; message?: string } | undefined;
-        if (!data?.type) return;
-
-        if (data.type === 'kinotic-github-install-complete'
-                && typeof data.installationId === 'number'
-                && typeof data.state === 'string') {
-            this.cleanupPopupListeners();
-            this.linkingState = 'completing';
-            try {
-                await Kinotic.githubAppInstallations.completeInstall(data.installationId, data.state);
-                const install = await Kinotic.githubAppInstallations.findForCurrentOrg();
-                this.githubLinked = install != null;
-                this.linkingState = 'idle';
-            } catch (err) {
-                debug('Failed to complete GitHub install: %O', err);
-                this.linkingState = 'error';
-                this.linkingError = (err as Error)?.message ?? 'Failed to complete GitHub install.';
-            }
-        } else if (data.type === 'kinotic-github-install-error') {
-            this.cleanupPopupListeners();
-            this.linkingState = 'error';
-            this.linkingError = data.message ?? 'GitHub install was cancelled or failed.';
-        }
-    }
-
-    private cleanupPopupListeners(): void {
-        if (this.installListener) {
-            window.removeEventListener('message', this.installListener);
-            this.installListener = null;
-        }
-        if (this.popupWatcher !== null) {
-            window.clearInterval(this.popupWatcher);
-            this.popupWatcher = null;
-        }
-        this.popup = null;
-    }
-
-    cancelLinking(): void {
-        if (this.popup && !this.popup.closed) {
-            this.popup.close();
-        }
-        this.cleanupPopupListeners();
-        this.linkingState = 'idle';
-    }
-
-    private resetForm(): void {
-        this.form = {
-            name: '',
-            description: '',
-            repoPrivate: true
-        };
-    }
 }
 </script>
 
