@@ -15,11 +15,13 @@ public class PersistenceUtil {
     private static final Pattern EntityDefinitionNamePattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
 
     /**
-     * Function will convert a {@link EntityDefinition} applicationId and name to a valid
-     * @param organizationId to converty
-     * @param applicationId to convert
-     * @param entityDefinitionName to convert
-     * @return a valid {@link EntityDefinition} id
+     * Builds an {@link EntityDefinition} id of the shape
+     * {@code <organizationId>.<applicationId>.<entityDefinitionName>}, lowercased.
+     *
+     * @param organizationId of the Organization the definition belongs to
+     * @param applicationId of the Application the definition belongs to
+     * @param entityDefinitionName the definition's name
+     * @return the {@link EntityDefinition} id
      */
     public static String createEntityDefinitionId(String organizationId, String applicationId, String entityDefinitionName){
         return (organizationId + "." + applicationId + "." + entityDefinitionName).toLowerCase();
