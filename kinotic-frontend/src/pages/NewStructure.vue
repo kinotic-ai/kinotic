@@ -1,10 +1,9 @@
-<script lang="ts">
-import { Vue, Component, Ref } from "vue-facing-decorator"
+<script setup lang="ts">
 import { VueFlow, type Node, type Edge } from "@vue-flow/core"
 import { Background } from "@vue-flow/background"
 import { Controls } from "@vue-flow/controls"
 import { MiniMap } from "@vue-flow/minimap"
-import { markRaw } from "vue"
+import { computed, markRaw, onBeforeMount, ref } from "vue"
 import Button from "primevue/button"
 import InputText from "primevue/inputtext"
 import StructureNode from "@/components/structures/flow-components/StructureNode.vue"
@@ -17,77 +16,61 @@ import "@vue-flow/controls/dist/style.css"
 import StructureSidebarDashboard from "@/components/structures/sidebar-dashboard/StructureSidebarDashboard.vue";
 import { isDark as darkMode } from '@/composables/useTheme'
 
-@Component({
-  components: {
-    StructureSidebarDashboard,
-    StructureNode,
-    Button,
-    VueFlow,
-    Background,
-    Controls,
-    MiniMap,
-    InputText
+const emit = defineEmits<{
+  (e: "close"): void
+}>()
+
+const visible = ref(true)
+const isEditing = ref(false)
+const textWidth = ref(0)
+const textHeight = ref(0)
+
+const nameTextEl = ref<HTMLElement | null>(null)
+
+// Store
+const structureStore = useStructureStore();
+
+const name = computed<string>({
+  get: () => structureStore.structure?.name ?? "",
+  set: (value) => {
+    structureStore.updateStructureName(value)
   },
 })
-export default class NewStructure extends Vue {
-  visible = true
-  isEditing = false
-  textWidth = 0
-  textHeight = 0
 
-  @Ref("nameTextEl") readonly nameTextEl!: HTMLElement | null
+const flowNodes = computed<Node[]>(() => structureStore.nodes)
+const flowEdges = computed<Edge[]>(() => structureStore.edges)
 
-  // Store
-  structureStore = useStructureStore();
+const nodeTypes = {
+  structure: markRaw(StructureNode),
+}
 
-  get name(): string {
-    return this.structureStore.structure?.name ?? ""
-  }
-  set name(value: string) {
-    this.structureStore.updateStructureName(value)
-  }
+onBeforeMount(() => {
+  // Initialize structure once when modal opens
+  structureStore.initNewStructure(USER_STATE.getOrganizationId(), "app-123", "proj-456")
+})
 
-  get flowNodes(): Node[] {
-    return this.structureStore.nodes
-  }
-  get flowEdges(): Edge[] {
-    return this.structureStore.edges
-  }
+function handleMouseEnter() {
+  measureText()
+  isEditing.value = true
+}
+function handleMouseLeave() {
+  isEditing.value = false
+}
 
-  nodeTypes = {
-    structure: markRaw(StructureNode),
-  }
-
-  beforeMount(): void {
-    // Initialize structure once when modal opens
-    this.structureStore.initNewStructure(USER_STATE.getOrganizationId(), "app-123", "proj-456")
-  }
-
-  handleMouseEnter() {
-    this.measureText()
-    this.isEditing = true
-  }
-  handleMouseLeave() {
-    this.isEditing = false
-  }
-
-  measureText() {
-    if (this.nameTextEl) {
-      const rect = this.nameTextEl.getBoundingClientRect()
-      this.textWidth = rect.width
-      this.textHeight = rect.height
-    }
-  }
-
-  onHide() {
-    this.visible = false
-    this.$emit("close")
-  }
-
-  get isDark() {
-    return darkMode.value
+function measureText() {
+  if (nameTextEl.value) {
+    const rect = nameTextEl.value.getBoundingClientRect()
+    textWidth.value = rect.width
+    textHeight.value = rect.height
   }
 }
+
+function onHide() {
+  visible.value = false
+  emit("close")
+}
+
+const isDark = darkMode
 </script>
 
 <template>

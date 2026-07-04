@@ -1,5 +1,6 @@
-<script lang="ts">
-import { Component, Vue, Prop, Watch, Ref } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { ref, computed, watch, onMounted, getCurrentInstance } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import CrudTable from '@/components/CrudTable.vue'
 import StructureItemModal from '@/components/modals/StructureItemModal.vue'
 import StructureDataViewModal from '@/components/modals/StructureDataViewModal.vue'
@@ -15,297 +16,295 @@ import { createDebug } from '@/util/debug'
 
 const debug = createDebug('project-structures-table');
 
-@Component({
-  components: { CrudTable, StructureItemModal, StructureDataViewModal, Dialog, Button }
+const props = withDefaults(defineProps<{
+  applicationId: string
+  showNewStructureButton?: boolean
+  newStructureButtonText?: string
+}>(), {
+  showNewStructureButton: false,
+  newStructureButtonText: "New Entity",
 })
-export default class ProjectStructuresTable extends Vue {
-  @Prop({ required: true }) applicationId!: string
-  @Prop({ required: false, default: false }) showNewStructureButton!: boolean
-  @Prop({ required: false, default: "New Entity" }) newStructureButtonText!: string
-  @Ref('crudTable') crudTable!: InstanceType<typeof CrudTable>
 
-  get projectId(): string {
-    return this.$route.params.projectId as string
+const route = useRoute()
+const router = useRouter()
+const instance = getCurrentInstance()
+
+const crudTable = ref<InstanceType<typeof CrudTable>>()
+
+const projectId = computed<string>(() => route.params.projectId as string)
+
+const structureTableHeaders: CrudHeader[] = [
+  { field: 'name', header: 'Entity Name', sortable: true },
+  { field: 'description', header: 'Description', sortable: false },
+  { field: 'created', header: 'Created', sortable: false },
+  { field: 'updated', header: 'Updated', sortable: false },
+  { field: 'published', header: 'Status', sortable: false, centered: true }
+]
+
+const searchText = ref<string>('')
+const showModal = ref(false)
+const showItemModal = ref(false)
+const showPublishModal = ref(false)
+const showUnpublishModal = ref(false)
+const selectedStructure = ref<EntityDefinition | null>(null)
+const isInitialized = ref(false)
+const actionMenus = ref<any[]>([])
+const currentActionItem = ref<EntityDefinition | null>(null)
+const dataSource1 = Kinotic.entityDefinitions
+
+onMounted(() => {
+  searchText.value = (route.query['search-entityDefinition'] as string) || ''
+  isInitialized.value = true
+  refreshTable()
+  markProjectAsActive()
+})
+
+watch(() => route.query['search-entityDefinition'] as string, (val) => {
+  if (isInitialized.value) {
+    searchText.value = val || ''
+    refreshTable()
+  }
+})
+
+watch(() => route.params.projectId, () => {
+  refreshTable()
+  markProjectAsActive()
+}, { immediate: true })
+
+watch(() => props.applicationId, (newApplicationId, oldApplicationId) => {
+  debug('applicationId changed from %s to %s', oldApplicationId, newApplicationId)
+  refreshTable()
+  markProjectAsActive()
+}, { immediate: true })
+
+const isProjectStructuresPage = computed<boolean>(() => {
+  return /^\/application\/[^/]+\/project\/[^/]+\/structures$/.test(route.path)
+})
+
+watch(() => APPLICATION_STATE.currentApplication, async (newApp: any, oldApp: any) => {
+  debug('APPLICATION_STATE.currentApplication changed from %s to %s', oldApp?.id, newApp?.id)
+
+  if (isProjectStructuresPage.value && newApp && newApp.id !== oldApp?.id) {
+    await handleApplicationChangeForProjectStructures(newApp)
+  } else {
+    refreshTable()
+    markProjectAsActive()
+  }
+}, { immediate: true })
+
+async function handleApplicationChangeForProjectStructures(newApp: any) {
+  try {
+    debug('Handling application change for ProjectStructures page')
+
+    const pageable = { pageNumber: 0, pageSize: 1 } as any
+    const result = await Kinotic.projects.findAllForApplication(newApp.id, pageable)
+    const firstProject = result.content?.[0]
+
+    if (firstProject) {
+      debug('Found first project: %s, navigating to it', firstProject.name)
+
+      const applicationId = newApp.id
+      const projectId = firstProject.id ?? ''
+      await router.push(`/application/${encodeURIComponent(applicationId)}/project/${encodeURIComponent(projectId)}/structures`)
+    } else {
+      debug('No projects found for application: %s', newApp.id)
+      refreshTable()
+      markProjectAsActive()
+    }
+  } catch (error) {
+    debug('Error handling application change: %O', error)
+    refreshTable()
+    markProjectAsActive()
+  }
+}
+
+const dataSource = computed(() => {
+  return {
+    findAll: async (pageable: Pageable): Promise<IterablePage<EntityDefinition>> => {
+      debug('dataSource.findAll called with projectId: %s, currentApplication: %s', projectId.value, APPLICATION_STATE.currentApplication?.id)
+      const result = await Kinotic.entityDefinitions.findAllForProject(projectId.value, pageable)
+      APPLICATION_STATE.structuresCount = result.totalElements ?? 0
+      return result
+    },
+    search: async (_searchText: string, pageable: Pageable): Promise<IterablePage<EntityDefinition>> => {
+      debug('dataSource.search called with projectId: %s, currentApplication: %s', projectId.value, APPLICATION_STATE.currentApplication?.id)
+      const search = `projectId:${projectId.value} && ${searchText.value}`
+      return Kinotic.entityDefinitions.search(search, pageable)
+    }
+  }
+})
+
+function refreshTable() {
+  crudTable.value?.find?.()
+}
+
+function updateRouteQuery(newSearch: string) {
+  searchText.value = newSearch
+  const newQuery = { ...route.query }
+
+  if (newSearch) {
+    newQuery['search-entityDefinition'] = newSearch
+  } else {
+    delete newQuery['search-entityDefinition']
   }
 
-  structureTableHeaders: CrudHeader[] = [
-    { field: 'name', header: 'Entity Name', sortable: true },
-    { field: 'description', header: 'Description', sortable: false },
-    { field: 'created', header: 'Created', sortable: false },
-    { field: 'updated', header: 'Updated', sortable: false },
-    { field: 'published', header: 'Status', sortable: false, centered: true }
+  router.replace({ query: newQuery }).catch(() => {})
+  refreshTable()
+}
+
+function openModal(item: EntityDefinition) {
+  try {
+    selectedStructure.value = item
+    showModal.value = true
+  } catch (e) {
+    debug('Failed to open modal with entityDefinition: %O', e)
+  }
+}
+
+function closeModal() {
+  showModal.value = false
+  selectedStructure.value = null
+}
+
+function openItemModal(item: EntityDefinition) {
+  selectedStructure.value = item
+  showItemModal.value = true
+}
+
+function closeItemModal() {
+  showItemModal.value = false
+  selectedStructure.value = null
+}
+
+function openPublishModal(item: EntityDefinition) {
+  debug('openPublishModal called for item: %s', item.name);
+  selectedStructure.value = item
+  showPublishModal.value = true
+}
+
+function closePublishModal() {
+  showPublishModal.value = false
+  selectedStructure.value = null
+}
+
+function openUnpublishModal(item: EntityDefinition) {
+  selectedStructure.value = item
+  showUnpublishModal.value = true
+}
+
+function closeUnpublishModal() {
+  showUnpublishModal.value = false
+  selectedStructure.value = null
+}
+
+function onAddItem() {
+  // this.$router.push("/new-entityDefinition")
+}
+
+function onEditItem(item: Identifiable<string>) {
+  router.push(`${route.path}/edit/${item.id}`)
+}
+
+function handleRowClick(item: EntityDefinition) {
+  if (item.published) {
+    debug('Opening data modal for published entityDefinition');
+    openModal(item)
+  } else {
+    debug('Opening publish modal for unpublished entityDefinition');
+    openPublishModal(item)
+  }
+}
+
+function toggleMenu(event: Event, item: EntityDefinition, index: number) {
+  currentActionItem.value = item
+  const menu = actionMenus.value[index]
+  if (menu) {
+    menu.toggle(event)
+  }
+}
+
+async function publish(item: any) {
+  item['publishing'] = true
+  let table: any = crudTable.value
+  try {
+    await dataSource1.publish(item.id)
+    table?.find()
+    delete item['publishing']
+  } catch (error: any) {
+    delete item['publishing']
+    table?.displayAlert(error.message)
+  }
+}
+
+async function unPublish(item: any) {
+  openUnpublishModal(item)
+}
+
+async function unpublishFromModal() {
+  if (!selectedStructure.value) return;
+
+  const item = selectedStructure.value as any;
+  item["publishing"] = true;
+
+  try {
+    await dataSource1.unPublish(item.id);
+    closeUnpublishModal();
+    refreshTable();
+    delete item["publishing"];
+  } catch (error: any) {
+    delete item["publishing"];
+    debug('Error unpublishing entityDefinition: %O', error);
+  }
+}
+
+function getActionMenu(item: EntityDefinition) {
+  return [
+    {
+      label: item.published ? 'Unpublish' : 'Publish',
+      icon: item.published ? 'pi pi-eye-slash' : 'pi pi-eye',
+      command: () => (item.published ? unPublish(item) : publish(item))
+    },
+    {
+      label: 'View',
+      icon: 'pi pi-file',
+      command: (e: any) => {
+        e?.originalEvent?.stopPropagation?.()
+        e?.originalEvent?.preventDefault?.()
+        openItemModal(item)
+      }
+    }
   ]
+}
 
-  searchText: string = ''
-  showModal = false
-  showItemModal = false
-  showPublishModal = false
-  showUnpublishModal = false
-  selectedStructure: EntityDefinition | null = null
-  isInitialized = false
-  public DatetimeUtil = DatetimeUtil
-  actionMenus: any[] = []
-  currentActionItem: EntityDefinition | null = null
-  private dataSource1 = Kinotic.entityDefinitions
+async function publishFromModal() {
+  if (!selectedStructure.value) return;
 
-  mounted() {
-    this.searchText = (this.$route.query['search-entityDefinition'] as string) || ''
-    this.isInitialized = true
-    this.refreshTable()
-    this.markProjectAsActive()
+  const item = selectedStructure.value as any;
+  item["publishing"] = true;
+
+  try {
+    await dataSource1.publish(item.id);
+    closePublishModal();
+    refreshTable();
+    delete item["publishing"];
+  } catch (error: any) {
+    delete item["publishing"];
+    debug('Error publishing entityDefinition: %O', error);
   }
+}
 
-  @Watch('$route.query.search-entityDefinition')
-  onSearchParamChanged(val: string) {
-    if (this.isInitialized) {
-      this.searchText = val || ''
-      this.refreshTable()
+const isPublishing = computed(() => {
+  return (selectedStructure.value as any)?.publishing || false;
+})
+
+async function markProjectAsActive() {
+  try {
+    const header = instance?.proxy?.$root?.$refs?.header as { setActiveProjectById?: (appId: string, projId: string) => Promise<void> } | undefined
+    if (header?.setActiveProjectById) {
+      await header.setActiveProjectById(props.applicationId, projectId.value)
     }
-  }
-
-  @Watch('$route.params.projectId', { immediate: true })
-  onProjectIdChange() {
-    this.refreshTable()
-    this.markProjectAsActive()
-  }
-
-  @Watch('applicationId', { immediate: true })
-  onApplicationIdChange(newApplicationId: string, oldApplicationId: string) {
-    debug('applicationId changed from %s to %s', oldApplicationId, newApplicationId)
-    this.refreshTable()
-    this.markProjectAsActive()
-  }
-
-  @Watch('APPLICATION_STATE.currentApplication', { immediate: true })
-  async onGlobalApplicationChange(newApp: any, oldApp: any) {
-    debug('APPLICATION_STATE.currentApplication changed from %s to %s', oldApp?.id, newApp?.id)
-    
-    if (this.isProjectStructuresPage && newApp && newApp.id !== oldApp?.id) {
-      await this.handleApplicationChangeForProjectStructures(newApp)
-    } else {
-      this.refreshTable()
-      this.markProjectAsActive()
-    }
-  }
-
-  get isProjectStructuresPage(): boolean {
-    return /^\/application\/[^/]+\/project\/[^/]+\/structures$/.test(this.$route.path)
-  }
-
-  async handleApplicationChangeForProjectStructures(newApp: any) {
-    try {
-      debug('Handling application change for ProjectStructures page')
-      
-      const pageable = { pageNumber: 0, pageSize: 1 } as any
-      const result = await Kinotic.projects.findAllForApplication(newApp.id, pageable)
-      const firstProject = result.content?.[0]
-      
-      if (firstProject) {
-        debug('Found first project: %s, navigating to it', firstProject.name)
-        
-        const applicationId = newApp.id
-        const projectId = firstProject.id ?? ''
-        await this.$router.push(`/application/${encodeURIComponent(applicationId)}/project/${encodeURIComponent(projectId)}/structures`)
-      } else {
-        debug('No projects found for application: %s', newApp.id)
-        this.refreshTable()
-        this.markProjectAsActive()
-      }
-    } catch (error) {
-      debug('Error handling application change: %O', error)
-      this.refreshTable()
-      this.markProjectAsActive()
-    }
-  }
-
-  get dataSource() {
-    return {
-      findAll: async (pageable: Pageable): Promise<IterablePage<EntityDefinition>> => {
-        debug('dataSource.findAll called with projectId: %s, currentApplication: %s', this.projectId, APPLICATION_STATE.currentApplication?.id)
-        const result = await Kinotic.entityDefinitions.findAllForProject(this.projectId, pageable)
-        APPLICATION_STATE.structuresCount = result.totalElements ?? 0
-        return result
-      },
-      search: async (_searchText: string, pageable: Pageable): Promise<IterablePage<EntityDefinition>> => {
-        debug('dataSource.search called with projectId: %s, currentApplication: %s', this.projectId, APPLICATION_STATE.currentApplication?.id)
-        const search = `projectId:${this.projectId} && ${this.searchText}`
-        return Kinotic.entityDefinitions.search(search, pageable)
-      }
-    }
-  }
-
-  refreshTable() {
-    this.crudTable?.find?.()
-  }
-
-  updateRouteQuery(newSearch: string) {
-    this.searchText = newSearch
-    const newQuery = { ...this.$route.query }
-
-    if (newSearch) {
-      newQuery['search-entityDefinition'] = newSearch
-    } else {
-      delete newQuery['search-entityDefinition']
-    }
-
-    this.$router.replace({ query: newQuery }).catch(() => {})
-    this.refreshTable()
-  }
-
-  openModal(item: EntityDefinition) {
-    try {
-      this.selectedStructure = item
-      this.showModal = true
-    } catch (e) {
-      debug('Failed to open modal with entityDefinition: %O', e)
-    }
-  }
-
-  closeModal() {
-    this.showModal = false
-    this.selectedStructure = null
-  }
-
-  openItemModal(item: EntityDefinition) {
-    this.selectedStructure = item
-    this.showItemModal = true
-  }
-
-  closeItemModal() {
-    this.showItemModal = false
-    this.selectedStructure = null
-  }
-
-  openPublishModal(item: EntityDefinition) {
-    debug('openPublishModal called for item: %s', item.name);
-    this.selectedStructure = item
-    this.showPublishModal = true
-  }
-
-  closePublishModal() {
-    this.showPublishModal = false
-    this.selectedStructure = null
-  }
-
-  openUnpublishModal(item: EntityDefinition) {
-    this.selectedStructure = item
-    this.showUnpublishModal = true
-  }
-
-  closeUnpublishModal() {
-    this.showUnpublishModal = false
-    this.selectedStructure = null
-  }
-
-  onAddItem() {
-    // this.$router.push("/new-entityDefinition")
-  }
-
-  onEditItem(item: Identifiable<string>) {
-    this.$router.push(`${this.$route.path}/edit/${item.id}`)
-  }
-
-  handleRowClick(item: EntityDefinition) {
-    if (item.published) {
-      debug('Opening data modal for published entityDefinition');
-      this.openModal(item)
-    } else {
-      debug('Opening publish modal for unpublished entityDefinition');
-      this.openPublishModal(item)
-    }
-  }
-
-  toggleMenu(event: Event, item: EntityDefinition, index: number) {
-    this.currentActionItem = item
-    const menu = this.actionMenus[index]
-    if (menu) {
-      menu.toggle(event)
-    }
-  }
-
-  async publish(item: any) {
-    item['publishing'] = true
-    let table: any = this.$refs?.crudTable
-    try {
-      await this.dataSource1.publish(item.id)
-      table?.find()
-      delete item['publishing']
-    } catch (error: any) {
-      delete item['publishing']
-      table?.displayAlert(error.message)
-    }
-  }
-
-  async unPublish(item: any) {
-    this.openUnpublishModal(item)
-  }
-
-  async unpublishFromModal() {
-    if (!this.selectedStructure) return;
-    
-    const item = this.selectedStructure as any;
-    item["publishing"] = true;
-    
-    try {
-      await this.dataSource1.unPublish(item.id);
-      this.closeUnpublishModal();
-      this.refreshTable();
-      delete item["publishing"];
-    } catch (error: any) {
-      delete item["publishing"];
-      debug('Error unpublishing entityDefinition: %O', error);
-    }
-  }
-
-  getActionMenu(item: EntityDefinition) {
-    return [
-      {
-        label: item.published ? 'Unpublish' : 'Publish',
-        icon: item.published ? 'pi pi-eye-slash' : 'pi pi-eye',
-        command: () => (item.published ? this.unPublish(item) : this.publish(item))
-      },
-      {
-        label: 'View',
-        icon: 'pi pi-file',
-        command: (e: any) => {
-          e?.originalEvent?.stopPropagation?.()
-          e?.originalEvent?.preventDefault?.()
-          this.openItemModal(item)
-        }
-      }
-    ]
-  }
-
-  async publishFromModal() {
-    if (!this.selectedStructure) return;
-    
-    const item = this.selectedStructure as any;
-    item["publishing"] = true;
-    
-    try {
-      await this.dataSource1.publish(item.id);
-      this.closePublishModal();
-      this.refreshTable();
-      delete item["publishing"];
-    } catch (error: any) {
-      delete item["publishing"];
-      debug('Error publishing entityDefinition: %O', error);
-    }
-  }
-
-  get isPublishing() {
-    return (this.selectedStructure as any)?.publishing || false;
-  }
-
-  async markProjectAsActive() {
-    try {
-      const header = this.$root?.$refs?.header as { setActiveProjectById?: (appId: string, projId: string) => Promise<void> } | undefined
-      if (header?.setActiveProjectById) {
-        await header.setActiveProjectById(this.applicationId, this.projectId)
-      }
-    } catch (e) {
-      debug('Failed to mark active project: %O', e)
-    }
+  } catch (e) {
+    debug('Failed to mark active project: %O', e)
   }
 }
 </script>
