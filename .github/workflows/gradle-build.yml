@@ -97,6 +97,8 @@ jobs:
         run: |
           cd kinotic-js/workspace
           bun install --frozen-lockfile
+          # Cross-package imports resolve to each package's dist/, which bunup builds
+          bun run build
           bun run --filter '*' test
 
       - name: Run E2E Tests
