@@ -12,8 +12,8 @@
   </CrudEntityAddEdit>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { ref } from 'vue'
 import InputText from 'primevue/inputtext'
 import CrudEntityAddEdit from '@/components/CrudEntityAddEdit.vue'
 import { Application } from '@kinotic-ai/os-api'
@@ -21,30 +21,25 @@ import { IndexNameHelper } from '@/util/IndexNameHelper'
 
 type RuleValidator = (value: string) => string | boolean
 
-@Component({
-  components: {
-    CrudEntityAddEdit,
-    InputText,
-  },
+withDefaults(defineProps<{
+  id?: string | null
+}>(), {
+  id: null,
 })
-export default class ApplicationAddEdit extends Vue {
-  @Prop({ type: String, required: false, default: null })
-  public id!: string | null
 
-  private crudServiceIdentifier = 'org.kinotic.structures.api.services.ApplicationService'
+const crudServiceIdentifier = 'org.kinotic.structures.api.services.ApplicationService'
 
-  private application: Application = new Application('', '')
+const application = ref<Application>(new Application('', ''))
 
-  private applicationRules: RuleValidator[] = [
-    (v: string) => !!v || 'Name is required',
-    (v: string) => {
-      const result: string = IndexNameHelper.checkNameAndNamespace(v, 'Name')
-      return result.length === 0 ? true : result
-    }
-  ]
-
-  handleEntityUpdate(updated: Application): void {
-    this.application = updated
+const applicationRules: RuleValidator[] = [
+  (v: string) => !!v || 'Name is required',
+  (v: string) => {
+    const result: string = IndexNameHelper.checkNameAndNamespace(v, 'Name')
+    return result.length === 0 ? true : result
   }
+]
+
+function handleEntityUpdate(updated: Application): void {
+  application.value = updated
 }
 </script>

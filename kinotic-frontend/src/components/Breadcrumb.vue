@@ -9,24 +9,16 @@
     </Breadcrumb>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 import { StructuresStates } from '@/states/index.js'
-import { Vue, Component } from 'vue-facing-decorator'
+import { computed } from 'vue'
 import Breadcrumb from 'primevue/breadcrumb'
 import { NavItem } from '@/components/NavItem'
-@Component({
-    components: {
-        Breadcrumb
-    }
-})
-export default class AppBreadcrumb extends Vue {
-    get breadcrumbModel(): NavItem[] {
-        return StructuresStates.getApplicationState().breadcrumbItems
-    }
 
-    navigate(item: NavItem): void {
-        item.navigate()
-    }
+const breadcrumbModel = computed<NavItem[]>(() => StructuresStates.getApplicationState().breadcrumbItems)
+
+function navigate(item: NavItem): void {
+    item.navigate()
 }
 </script>
 
