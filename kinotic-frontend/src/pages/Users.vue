@@ -39,8 +39,9 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import CrudTable from '@/components/CrudTable.vue'
 import { type Identifiable } from '@kinotic-ai/core'
 import { Kinotic } from '@kinotic-ai/core'
@@ -52,51 +53,48 @@ import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('users');
 
-@Component({
-  components: { CrudTable }
-})
-export default class Users extends Vue {
-  headers: CrudHeader[] = [
-    { field: 'id', header: 'Id', sortable: false },
-    { field: 'name', header: 'Name', sortable: false },
-    { field: 'surname', header: 'Surname', sortable: false },
-  ]
+const headers: CrudHeader[] = [
+  { field: 'id', header: 'Id', sortable: false },
+  { field: 'name', header: 'Name', sortable: false },
+  { field: 'surname', header: 'Surname', sortable: false },
+]
 
-  dataSource: IApplicationService = Kinotic.applications
+const dataSource: IApplicationService = Kinotic.applications
 
-  icons = {
-    graph: mdiGraphql,
-    api: mdiApi
-  }
+const icons = {
+  graph: mdiGraphql,
+  api: mdiApi
+}
 
-  get isDark() {
-    return darkMode.value
-  }
+const isDark = darkMode
 
-  async mounted(): Promise<void> {
-    try {
-      this.refreshTable()
+const route = useRoute()
+const router = useRouter()
 
-      if (this.$route.query.created === 'true') {
-        this.$router.replace({ query: {} })
-      }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      debug('Auth or connection failed: %s', message)
+const crudTable = ref<InstanceType<typeof CrudTable>>()
+
+onMounted(async () => {
+  try {
+    refreshTable()
+
+    if (route.query.created === 'true') {
+      router.replace({ query: {} })
     }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    debug('Auth or connection failed: %s', message)
   }
+})
 
-  private refreshTable(): void {
-    const tableRef = this.$refs.crudTable as InstanceType<typeof CrudTable> | undefined
-    tableRef?.find()
-  }
+function refreshTable(): void {
+  crudTable.value?.find()
+}
 
-  onAddItem(): void {
-    this.$router.push('/application-add')
-  }
+function onAddItem(): void {
+  router.push('/application-add')
+}
 
-  onEditItem(item: Identifiable<string>): void {
-    this.$router.push(`${this.$route.path}/edit/${item.id}`)
-  }
+function onEditItem(item: Identifiable<string>): void {
+  router.push(`${route.path}/edit/${item.id}`)
 }
 </script>

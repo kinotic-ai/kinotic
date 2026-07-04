@@ -51,13 +51,13 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue, Emit } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { CrudServiceProxyFactory, Kinotic, type ICrudServiceProxy, type Identifiable } from '@kinotic-ai/core'
-import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
-import ProgressSpinner from 'primevue/progressspinner'
+import { useToast } from 'primevue/usetoast'
 
 type RuleValidator = (value: string) => string | boolean
 
@@ -67,100 +67,107 @@ interface ApplicationEntity extends Identifiable<string> {
   description?: string
 }
 
-@Component({
-  components: {
-    Dialog,
-    InputText,
-    Button,
-    ProgressSpinner,
+const props = withDefaults(defineProps<{
+  crudServiceIdentifier: string
+  title: string
+  identity?: string | null
+  identityLabel?: string
+  identityRules?: RuleValidator[]
+  identityEditable?: boolean
+  showBasicInfoSubheader?: boolean
+  entity?: ApplicationEntity
+}>(), {
+  identity: null,
+  identityLabel: 'Enter your name here',
+  identityRules: () => [],
+  identityEditable: true,
+  showBasicInfoSubheader: true,
+  entity: () => ({ id: '' }),
+})
+
+const emit = defineEmits<{
+  (e: 'beforeSave', entity: ApplicationEntity): void
+  (e: 'afterLoad', item: ApplicationEntity): void
+}>()
+
+const router = useRouter()
+const toast = useToast()
+
+const syncedEntity = ref<ApplicationEntity>({ id: '' })
+const crudServiceProxy = ref<ICrudServiceProxy<ApplicationEntity>>()
+const editing = ref(false)
+const valid = ref(true)
+const loading = ref(false)
+const rulesForIdentity = ref<RuleValidator[]>([])
+
+onMounted(async () => {
+  rulesForIdentity.value =
+    props.identityRules.length > 0
+      ? props.identityRules
+      : [(v: string) => !!v || `${props.identityLabel} is required`]
+
+  try {
+    crudServiceProxy.value = new CrudServiceProxyFactory(Kinotic.serviceRegistry).crudServiceProxy(props.crudServiceIdentifier)
+
+    if (props.identity !== null) {
+      editing.value = true
+      loading.value = true
+
+      const item = await crudServiceProxy.value.findById(props.identity)
+      syncedEntity.value = item
+      afterLoad(item)
+      loading.value = false
+    }
+  } catch (error: unknown) {
+    loading.value = false
+    displayAlert((error as Error).message || 'Error connecting or loading data')
   }
 })
-export default class CrudEntityAddEdit extends Vue {
-  @Prop({ type: String, required: true }) public crudServiceIdentifier!: string
-  @Prop({ type: String, required: true }) public title!: string
-  @Prop({ type: String, default: null }) public identity!: string | null
-  @Prop({ type: String, default: 'Enter your name here' }) public identityLabel!: string
-  @Prop({ type: Array, default: () => [] }) public identityRules!: RuleValidator[]
-  @Prop({ type: Boolean, default: true }) public identityEditable!: boolean
-  @Prop({ type: Boolean, default: true }) public showBasicInfoSubheader!: boolean
-  @Prop({ type: Object, default: () => ({ id: '' }) }) public entity!: ApplicationEntity
 
-  public syncedEntity: ApplicationEntity = { id: '' }
-  private crudServiceProxy!: ICrudServiceProxy<ApplicationEntity>
-  private editing = false
-  public valid = true
-  public loading = false
-  private rulesForIdentity: RuleValidator[] = []
+function close() {
+  router.back()
+}
 
-  public async mounted() {
-    this.rulesForIdentity =
-      this.identityRules.length > 0
-        ? this.identityRules
-        : [(v: string) => !!v || `${this.identityLabel} is required`]
+function validateIdentity() {
+  valid.value = rulesForIdentity.value.every(rule => rule(syncedEntity.value.id) === true)
+}
 
-    try {
-      this.crudServiceProxy = new CrudServiceProxyFactory(Kinotic.serviceRegistry).crudServiceProxy(this.crudServiceIdentifier)
+async function save() {
+  validateIdentity()
+  if (!valid.value) return
 
-      if (this.identity !== null) {
-        this.editing = true
-        this.loading = true
+  loading.value = true
+  beforeSave()
 
-        const item = await this.crudServiceProxy.findById(this.identity)
-        this.syncedEntity = item
-        this.afterLoad(item)
-        this.loading = false
-      }
-    } catch (error: unknown) {
-      this.loading = false
-      this.displayAlert((error as Error).message || 'Error connecting or loading data')
-    }
-  }
-
-  public close() {
-    this.$router.back()
-  }
-
-  public validateIdentity() {
-    this.valid = this.rulesForIdentity.every(rule => rule(this.syncedEntity.id) === true)
-  }
-
-  public async save() {
-    this.validateIdentity()
-    if (!this.valid) return
-
-    this.loading = true
-    this.beforeSave()
-
-    try {
-      if (!this.editing) {
-        await this.crudServiceProxy.create(this.syncedEntity)
-      } else {
-        await this.crudServiceProxy.save(this.syncedEntity)
-      }
-
-      this.$router.push({ path: '/application', query: { created: 'true' } })
-    } catch (error: unknown) {
-      this.displayAlert((error as Error).message)
+  try {
+    if (!editing.value) {
+      await crudServiceProxy.value!.create(syncedEntity.value)
+    } else {
+      await crudServiceProxy.value!.save(syncedEntity.value)
     }
 
-    this.loading = false
+    router.push({ path: '/application', query: { created: 'true' } })
+  } catch (error: unknown) {
+    displayAlert((error as Error).message)
   }
 
-  @Emit() public beforeSave(): ApplicationEntity {
-    return this.syncedEntity
-  }
+  loading.value = false
+}
 
-  @Emit() public afterLoad(item: ApplicationEntity): ApplicationEntity {
-    return item
-  }
+function beforeSave() {
+  emit('beforeSave', syncedEntity.value)
+}
 
-  private displayAlert(text: string) {
-    this.$toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: text,
-      life: 3000
-    })
-  }
+function afterLoad(item: ApplicationEntity) {
+  emit('afterLoad', item)
+}
+
+function displayAlert(text: string) {
+  toast.add({
+    severity: 'error',
+    summary: 'Error',
+    detail: text,
+    life: 3000
+  })
 }
 </script>
