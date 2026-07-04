@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { generateAlloyConfig } from '@/internal/api/logging/AlloyConfigGenerator'
@@ -7,6 +7,42 @@ import type { LogTarget } from '@/model/LogTarget'
 
 // Alloy's default port, bound to loopback so the debug UI is not exposed off-host
 const LISTEN_ADDR = '127.0.0.1:12345'
+
+/**
+ * Terminates the Alloy process recorded in the pid file, if one is still running. A crashed
+ * vm-manager leaves its Alloy child orphaned and holding the listen port; exactly one
+ * vm-manager runs per node, so any recorded process is ours to take over.
+ */
+export async function terminateStaleAlloy(pidFile: string): Promise<void> {
+    let pid: number
+    try {
+        pid = Number.parseInt(readFileSync(pidFile, 'utf-8').trim(), 10)
+    } catch {
+        return
+    }
+    rmSync(pidFile, { force: true })
+    if (!Number.isInteger(pid) || pid <= 0 || !isAlive(pid)) {
+        return
+    }
+
+    console.log(`Terminating orphaned Alloy (pid ${pid}) left by a previous vm-manager`)
+    process.kill(pid, 'SIGTERM')
+    for (let i = 0; i < 50 && isAlive(pid); i++) {
+        await new Promise(resolve => setTimeout(resolve, 200))
+    }
+    if (isAlive(pid)) {
+        process.kill(pid, 'SIGKILL')
+    }
+}
+
+function isAlive(pid: number): boolean {
+    try {
+        process.kill(pid, 0)
+        return true
+    } catch {
+        return false
+    }
+}
 
 export interface AlloyManagerOptions {
     /** Base URL of the Loki HTTP API logs are pushed to. */
@@ -30,6 +66,7 @@ export class AlloyManager {
 
     private readonly options: AlloyManagerOptions
     private readonly configPath: string
+    private readonly pidFile: string
     private child: ChildProcess | null = null
     private lastConfig: string | null = null
     private stopping = false
@@ -37,6 +74,7 @@ export class AlloyManager {
     constructor(options: AlloyManagerOptions) {
         this.options = options
         this.configPath = join(options.dataDir, 'config.alloy')
+        this.pidFile = join(options.dataDir, 'alloy.pid')
     }
 
     /**
@@ -82,6 +120,7 @@ export class AlloyManager {
             })
             child.kill('SIGTERM')
         })
+        rmSync(this.pidFile, { force: true })
     }
 
     private async start(): Promise<void> {
@@ -91,6 +130,9 @@ export class AlloyManager {
             installDir: join(this.options.dataDir, 'bin'),
         })
 
+        // An orphan from a crashed vm-manager still holds the listen port; take it over
+        await terminateStaleAlloy(this.pidFile)
+
         this.child = spawn(binary, [
             'run', this.configPath,
             `--server.http.listen-addr=${LISTEN_ADDR}`,
@@ -98,9 +140,11 @@ export class AlloyManager {
         ], {
             stdio: ['ignore', 'inherit', 'inherit'],
         })
+        writeFileSync(this.pidFile, String(this.child.pid))
         console.log(`Alloy started (pid ${this.child.pid}), shipping logs to ${this.options.lokiUrl}`)
 
         this.child.on('exit', (code, signal) => {
+            rmSync(this.pidFile, { force: true })
             if (this.stopping) {
                 return
             }
