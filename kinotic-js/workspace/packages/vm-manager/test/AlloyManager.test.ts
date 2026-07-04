@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SYSTEM_LOG_TENANT } from '@kinotic-ai/os-api'
-import { AlloyManager, terminateStaleAlloy } from '@/internal/api/logging/AlloyManager'
+import { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import type { LogTarget } from '@/model/LogTarget'
 
 function target(overrides: Partial<LogTarget> = {}): LogTarget {
@@ -95,31 +95,40 @@ function isAlive(pid: number): boolean {
     }
 }
 
-describe('terminateStaleAlloy', () => {
+/** A manager whose "alloy" is the `true` binary: the full start path runs, then exits harmlessly. */
+function managerWithTrivialAlloy(dataDir: string): AlloyManager {
+    return new AlloyManager({
+        lokiUrl: 'http://loki:3100',
+        nodeId: 'node-1',
+        dataDir,
+        binaryPath: Bun.which('true')!,
+        version: 'v0.0.0',
+    })
+}
 
-    it('terminates the recorded process and removes the pid file', async () => {
+describe('orphaned Alloy takeover on start', () => {
+
+    it('terminates the process recorded in the pid file before starting', async () => {
         const orphan = spawn('sleep', ['60'])
-        const pidFile = join(mkdtempSync(join(tmpdir(), 'alloy-pid-')), 'alloy.pid')
-        writeFileSync(pidFile, String(orphan.pid))
+        const dataDir = mkdtempSync(join(tmpdir(), 'alloy-takeover-'))
+        writeFileSync(join(dataDir, 'alloy.pid'), String(orphan.pid))
+        const manager = managerWithTrivialAlloy(dataDir)
 
-        await terminateStaleAlloy(pidFile)
+        await manager.applyTargets([])
 
         expect(isAlive(orphan.pid!)).toBeFalse()
-        expect(existsSync(pidFile)).toBeFalse()
-    })
-
-    it('is a no-op without a pid file', async () => {
-        await terminateStaleAlloy(join(tmpdir(), 'nonexistent-dir', 'alloy.pid'))
+        await manager.stop()
     })
 
     it('tolerates a recorded process that already exited', async () => {
         const exited = spawn('true')
         await new Promise(resolve => exited.once('exit', resolve))
-        const pidFile = join(mkdtempSync(join(tmpdir(), 'alloy-pid-')), 'alloy.pid')
-        writeFileSync(pidFile, String(exited.pid))
+        const dataDir = mkdtempSync(join(tmpdir(), 'alloy-takeover-'))
+        writeFileSync(join(dataDir, 'alloy.pid'), String(exited.pid))
+        const manager = managerWithTrivialAlloy(dataDir)
 
-        await terminateStaleAlloy(pidFile)
+        await manager.applyTargets([])
 
-        expect(existsSync(pidFile)).toBeFalse()
+        await manager.stop()
     })
 })

@@ -8,42 +8,6 @@ import type { LogTarget } from '@/model/LogTarget'
 // Alloy's default port, bound to loopback so the debug UI is not exposed off-host
 const LISTEN_ADDR = '127.0.0.1:12345'
 
-/**
- * Terminates the Alloy process recorded in the pid file, if one is still running. A crashed
- * vm-manager leaves its Alloy child orphaned and holding the listen port; exactly one
- * vm-manager runs per node, so any recorded process is ours to take over.
- */
-export async function terminateStaleAlloy(pidFile: string): Promise<void> {
-    let pid: number
-    try {
-        pid = Number.parseInt(readFileSync(pidFile, 'utf-8').trim(), 10)
-    } catch {
-        return
-    }
-    rmSync(pidFile, { force: true })
-    if (!Number.isInteger(pid) || pid <= 0 || !isAlive(pid)) {
-        return
-    }
-
-    console.log(`Terminating orphaned Alloy (pid ${pid}) left by a previous vm-manager`)
-    process.kill(pid, 'SIGTERM')
-    for (let i = 0; i < 50 && isAlive(pid); i++) {
-        await new Promise(resolve => setTimeout(resolve, 200))
-    }
-    if (isAlive(pid)) {
-        process.kill(pid, 'SIGKILL')
-    }
-}
-
-function isAlive(pid: number): boolean {
-    try {
-        process.kill(pid, 0)
-        return true
-    } catch {
-        return false
-    }
-}
-
 export interface AlloyManagerOptions {
     /** Base URL of the Loki HTTP API logs are pushed to. */
     lokiUrl: string
@@ -128,7 +92,7 @@ export class AlloyManager {
         })
 
         // An orphan from a crashed vm-manager still holds the listen port; take it over
-        await terminateStaleAlloy(this.pidFile)
+        await this.terminateStale()
 
         this.child = spawn(binary, [
             'run', this.configPath,
@@ -151,6 +115,33 @@ export class AlloyManager {
             this.child = null
             this.lastConfig = null
         })
+    }
+
+    /**
+     * Terminates the Alloy process recorded in the pid file, if one is still running. A
+     * crashed vm-manager leaves its Alloy child orphaned; exactly one vm-manager runs per
+     * node, so any recorded process is ours to take over.
+     */
+    private async terminateStale(): Promise<void> {
+        let pid: number
+        try {
+            pid = Number.parseInt(readFileSync(this.pidFile, 'utf-8').trim(), 10)
+        } catch {
+            return
+        }
+        rmSync(this.pidFile, { force: true })
+        if (!Number.isInteger(pid) || pid <= 0 || !isAlive(pid)) {
+            return
+        }
+
+        console.log(`Terminating orphaned Alloy (pid ${pid}) left by a previous vm-manager`)
+        process.kill(pid, 'SIGTERM')
+        for (let i = 0; i < 50 && isAlive(pid); i++) {
+            await new Promise(resolve => setTimeout(resolve, 200))
+        }
+        if (isAlive(pid)) {
+            process.kill(pid, 'SIGKILL')
+        }
     }
 
     // Renders the pipeline: one file source per running VM, a shared process stage that
@@ -204,6 +195,15 @@ loki.source.file ${river(name)} {
   forward_to = [loki.process.workloads.receiver]
 }
 `
+    }
+}
+
+function isAlive(pid: number): boolean {
+    try {
+        process.kill(pid, 0)
+        return true
+    } catch {
+        return false
     }
 }
 
