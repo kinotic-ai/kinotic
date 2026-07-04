@@ -130,16 +130,16 @@ export class AlloyManager {
             return
         }
         rmSync(this.pidFile, { force: true })
-        if (!Number.isInteger(pid) || pid <= 0 || !isAlive(pid)) {
+        if (!Number.isInteger(pid) || pid <= 0 || !this.isAlive(pid)) {
             return
         }
 
         console.log(`Terminating orphaned Alloy (pid ${pid}) left by a previous vm-manager`)
         process.kill(pid, 'SIGTERM')
-        for (let i = 0; i < 50 && isAlive(pid); i++) {
+        for (let i = 0; i < 50 && this.isAlive(pid); i++) {
             await new Promise(resolve => setTimeout(resolve, 200))
         }
-        if (isAlive(pid)) {
+        if (this.isAlive(pid)) {
             process.kill(pid, 'SIGKILL')
         }
     }
@@ -164,7 +164,7 @@ export class AlloyManager {
 
 loki.write "default" {
   endpoint {
-    url = ${river(this.options.lokiUrl + '/loki/api/v1/push')}
+    url = ${this.river(this.options.lokiUrl + '/loki/api/v1/push')}
   }
 }
 `,
@@ -173,16 +173,16 @@ loki.write "default" {
     }
 
     private renderTarget(target: LogTarget): string {
-        const name = componentName(target.workloadId)
+        const name = this.componentName(target.workloadId)
         const labels = [
-            `      __path__       = ${river(join(target.logDir, '*.log'))},`,
-            `      workload_id    = ${river(target.workloadId)},`,
-            `      vm_id          = ${river(target.vmId)},`,
-            `      node_id        = ${river(this.options.nodeId)},`,
-            ...(target.applicationId ? [`      application_id = ${river(target.applicationId)},`] : []),
-            `      tenant         = ${river(target.organizationId ?? SYSTEM_LOG_TENANT)},`,
+            `      __path__       = ${this.river(join(target.logDir, '*.log'))},`,
+            `      workload_id    = ${this.river(target.workloadId)},`,
+            `      vm_id          = ${this.river(target.vmId)},`,
+            `      node_id        = ${this.river(this.options.nodeId)},`,
+            ...(target.applicationId ? [`      application_id = ${this.river(target.applicationId)},`] : []),
+            `      tenant         = ${this.river(target.organizationId ?? SYSTEM_LOG_TENANT)},`,
         ]
-        return `local.file_match ${river(name)} {
+        return `local.file_match ${this.river(name)} {
   path_targets = [
     {
 ${labels.join('\n')}
@@ -190,29 +190,29 @@ ${labels.join('\n')}
   ]
 }
 
-loki.source.file ${river(name)} {
+loki.source.file ${this.river(name)} {
   targets    = local.file_match.${name}.targets
   forward_to = [loki.process.workloads.receiver]
 }
 `
     }
-}
 
-function isAlive(pid: number): boolean {
-    try {
-        process.kill(pid, 0)
-        return true
-    } catch {
-        return false
+    private isAlive(pid: number): boolean {
+        try {
+            process.kill(pid, 0)
+            return true
+        } catch {
+            return false
+        }
     }
-}
 
-// Alloy component labels must match [A-Za-z_][A-Za-z0-9_]*; workload ids are UUIDs
-function componentName(workloadId: string): string {
-    return `wl_${workloadId.replace(/[^A-Za-z0-9_]/g, '_')}`
-}
+    // Alloy component labels must match [A-Za-z_][A-Za-z0-9_]*; workload ids are UUIDs
+    private componentName(workloadId: string): string {
+        return `wl_${workloadId.replace(/[^A-Za-z0-9_]/g, '_')}`
+    }
 
-// River string literals use JSON-compatible escaping
-function river(value: string): string {
-    return JSON.stringify(value)
+    // River string literals use JSON-compatible escaping
+    private river(value: string): string {
+        return JSON.stringify(value)
+    }
 }
