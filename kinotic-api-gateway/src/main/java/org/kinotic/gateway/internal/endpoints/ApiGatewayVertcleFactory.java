@@ -18,8 +18,10 @@ import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.core.internal.utils.CorsUtil;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
+import org.kinotic.billing.api.rest.BillingGatewayRoutes;
 import org.kinotic.gateway.internal.endpoints.rest.*;
 import org.kinotic.github.api.rest.GitHubGatewayRoutes;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -43,6 +45,8 @@ public class ApiGatewayVertcleFactory {
     private final CliDeviceLoginHandler cliDeviceLoginHandler;
     private final LogoutHandler logoutHandler;
     private final GitHubGatewayRoutes githubGatewayRoutes;
+    // ObjectProvider: the billing module is conditional on kinotic.billing.enabled
+    private final ObjectProvider<BillingGatewayRoutes> billingGatewayRoutes;
     private final HealthChecks healthChecks;
     private final Vertx vertx;
     private final SessionStore sessionStore;
@@ -83,6 +87,7 @@ public class ApiGatewayVertcleFactory {
         logoutHandler.mountRoutes(router);
         //systemLoginHandler.mountRoutes(router);
         githubGatewayRoutes.mountRoutes(router);
+        billingGatewayRoutes.ifAvailable(routes -> routes.mountRoutes(router));
 
         StompServerOptions stompServerOptions = properties.getApiGateway().getStomp();
         // we override the body length with the continuum properties

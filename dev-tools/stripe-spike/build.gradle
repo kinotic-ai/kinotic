@@ -1,0 +1,30 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+dependencies {
+    implementation 'com.stripe:stripe-java:29.3.0-beta.1'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
+}
+
+application {
+    mainClass = 'org.kinotic.spike.StripeSpike'
+}
+
+run {
+    standardInput = System.in
+    // Pass through the env vars the spike reads
+    environment 'STRIPE_SECRET_KEY', System.getenv('STRIPE_SECRET_KEY') ?: ''
+    environment 'STRIPE_SPIKE_ACCOUNT_ID', System.getenv('STRIPE_SPIKE_ACCOUNT_ID') ?: ''
+}
