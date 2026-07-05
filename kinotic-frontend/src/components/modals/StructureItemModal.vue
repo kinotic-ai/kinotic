@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from "vue";
 import dagre from "dagre";
-import { VueFlow, type Node, type Edge, MarkerType } from "@vue-flow/core";
+import { VueFlow, type Node, type Edge, type NodeTypesObject, MarkerType } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";
 import { MiniMap } from "@vue-flow/minimap";
@@ -42,13 +42,15 @@ function onHide() {
 
 const isDark = darkMode;
 
+// Cast: VueFlow's NodeTypesObject wants NodeComponent values, which SFC-typed
+// components don't structurally satisfy even though they work at runtime.
 const nodeTypes = computed(() => {
   return {
     globalObject: GlobalObjectNode,
     objectNode: ObjectNode,
     enumNode: EnumNode,
     unionNode: UnionNode,
-  };
+  } as unknown as NodeTypesObject;
 });
 
 onMounted(() => {
@@ -354,7 +356,10 @@ function applyAutoLayout(direction: "LR" | "TB" = "LR") {
   const rowMap = new Map<number, number>();
   let rowIndexCounter = 0;
 
-  flowNodes.value = flowNodes.value.map((node) => {
+  // node: any sidesteps TS2589 — inferring the map element from the unwrapped
+  // ref's Node generics makes type instantiation explode, and Node lacks
+  // positionAbsolute even though VueFlow accepts it at runtime.
+  flowNodes.value = flowNodes.value.map((node: any) => {
     const pos = g.node(node.id);
     if (!pos) return node;
     const primaryAxis = direction === "TB" ? pos.y : pos.x;
@@ -373,7 +378,7 @@ function applyAutoLayout(direction: "LR" | "TB" = "LR") {
         ...node.data,
         rowIndex
       },
-    };
+    } as any;
   });
 }
 </script>

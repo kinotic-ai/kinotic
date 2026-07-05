@@ -38,8 +38,4 @@ const applicationRules: RuleValidator[] = [
     return result.length === 0 ? true : result
   }
 ]
-
-function handleEntityUpdate(updated: Application): void {
-  application.value = updated
-}
 </script>

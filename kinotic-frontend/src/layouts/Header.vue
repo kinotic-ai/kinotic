@@ -424,8 +424,4 @@ function handleClickOutside(event: MouseEvent) {
     avatarDropdownOpen.value = false;
   }
 }
-
-function notifyApplicationChange(app: Application) {
-  emit('application-changed', app);
-}
 </script>

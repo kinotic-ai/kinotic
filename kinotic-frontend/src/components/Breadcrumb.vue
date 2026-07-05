@@ -13,12 +13,15 @@
 import { StructuresStates } from '@/states/index.js'
 import { computed } from 'vue'
 import Breadcrumb from 'primevue/breadcrumb'
+import type { MenuItem } from 'primevue/menuitem'
 import { NavItem } from '@/components/NavItem'
 
 const breadcrumbModel = computed<NavItem[]>(() => StructuresStates.getApplicationState().breadcrumbItems)
 
-function navigate(item: NavItem): void {
-    item.navigate()
+// The #item slot types its argument as PrimeVue's MenuItem, but breadcrumbModel
+// only ever holds NavItems.
+function navigate(item: MenuItem): void {
+    (item as NavItem).navigate()
 }
 </script>
 

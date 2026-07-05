@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { VueFlow, type Node, type Edge } from "@vue-flow/core"
+import { VueFlow, type Node, type Edge, type NodeTypesObject } from "@vue-flow/core"
 import { Background } from "@vue-flow/background"
 import { Controls } from "@vue-flow/controls"
 import { MiniMap } from "@vue-flow/minimap"
@@ -15,10 +15,6 @@ import "@vue-flow/minimap/dist/style.css"
 import "@vue-flow/controls/dist/style.css"
 import StructureSidebarDashboard from "@/components/structures/sidebar-dashboard/StructureSidebarDashboard.vue";
 import { isDark as darkMode } from '@/composables/useTheme'
-
-const emit = defineEmits<{
-  (e: "close"): void
-}>()
 
 const visible = ref(true)
 const isEditing = ref(false)
@@ -40,9 +36,11 @@ const name = computed<string>({
 const flowNodes = computed<Node[]>(() => structureStore.nodes)
 const flowEdges = computed<Edge[]>(() => structureStore.edges)
 
+// Cast: VueFlow's NodeTypesObject wants NodeComponent values, which SFC-typed
+// components don't structurally satisfy even though they work at runtime.
 const nodeTypes = {
   structure: markRaw(StructureNode),
-}
+} as unknown as NodeTypesObject
 
 onBeforeMount(() => {
   // Initialize structure once when modal opens
@@ -63,11 +61,6 @@ function measureText() {
     textWidth.value = rect.width
     textHeight.value = rect.height
   }
-}
-
-function onHide() {
-  visible.value = false
-  emit("close")
 }
 
 const isDark = darkMode

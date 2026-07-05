@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 
 import DataTable from "primevue/datatable";
 import Column from "primevue/column";
@@ -30,7 +30,9 @@ import { isDark as darkMode } from '@/composables/useTheme'
 const debug = createDebug('crud-table');
 
 const props = withDefaults(defineProps<{
-  dataSource: IDataSource<DescriptiveIdentifiable>
+  // any: parents bind entity-specific IDataSource implementations (EntityDefinition,
+  // Dashboard, ...) and IDataSource's type parameter is invariant.
+  dataSource: IDataSource<any>
   headers: CrudHeader[]
   multiSort?: boolean
   mustSort?: boolean
@@ -70,14 +72,15 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: "update:search", value: string): void;
   (e: "addItem"): void;
-  (e: "editItem", item: Identifiable<string>): void;
-  (e: "onRowClick", data: Identifiable<string>): void;
+  // any: listeners type these payloads as their concrete entity (EntityDefinition,
+  // Dashboard, ...), which is narrower than the Identifiable<string> rows the table holds.
+  (e: "editItem", item: any): void;
+  (e: "onRowClick", data: any): void;
   (e: "items-count", count: number): void;
 }>();
 
 const toast = useToast()
 const route = useRoute()
-const router = useRouter()
 
 function getRowClass() {
   return {
@@ -191,16 +194,6 @@ onMounted(() => {
   find();
 });
 
-function updateUrlSearchParam(value: string) {
-  const newQuery = { ...route.query };
-  if (value) {
-    newQuery.search = value;
-  } else {
-    delete newQuery.search;
-  }
-  router.replace({ query: newQuery });
-}
-
 watch(
   () => props.search,
   (newVal) => {
@@ -224,10 +217,6 @@ function emitSearchUpdate(val: string) {
 
 function addItem() {
   emit("addItem");
-}
-
-function editItem(item: Identifiable<string>) {
-  emit("editItem", { ...item });
 }
 
 function onRowClick(event: {

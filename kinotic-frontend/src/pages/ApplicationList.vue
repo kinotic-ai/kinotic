@@ -10,7 +10,7 @@ import { APPLICATION_STATE } from "@/states/IApplicationState";
 import { onClickOutside } from "@vueuse/core";
 import type { CrudHeader } from "@/types/CrudHeader";
 import type { Identifiable } from "@kinotic-ai/core";
-import { computed, onMounted, ref, shallowRef, watch } from "vue";
+import { onMounted, ref, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import DatetimeUtil from "@/util/DatetimeUtil";
 import { createDebug } from "@/util/debug";
@@ -31,7 +31,6 @@ const headers: CrudHeader[] = [
 const dataSource: IApplicationService = Kinotic.applications;
 const showSidebar = ref(false);
 const searchText = ref<string>((route.query.search as string) || "");
-const itemCount = ref<number>(0);
 const sidebarWrapper = ref<HTMLElement>();
 const crudTable = ref<InstanceType<typeof CrudTable>>();
 
@@ -62,10 +61,6 @@ watch(() => route.query.search, (newVal) => {
 function refreshTable(): void {
   crudTable.value?.find();
 }
-function onItemsCount(count: number): void {
-  itemCount.value = count;
-}
-
 function updateRouteQuery(search: string) {
   const query = { ...route.query };
 
@@ -77,8 +72,6 @@ function updateRouteQuery(search: string) {
 
   router.replace({ query });
 }
-const shouldShowPagination = computed<boolean>(() => itemCount.value > 3);
-
 const isDark = darkMode;
 
 function onAddItem(): void {

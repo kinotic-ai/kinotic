@@ -17,7 +17,9 @@ import { createDebug } from '@/util/debug'
 const debug = createDebug('project-structures-table');
 
 const props = withDefaults(defineProps<{
-  applicationId: string
+  // Optional: ProjectList renders this table without an applicationId and the
+  // table falls back to route params for its project scope.
+  applicationId?: string
   showNewStructureButton?: boolean
   newStructureButtonText?: string
 }>(), {
@@ -301,7 +303,7 @@ async function markProjectAsActive() {
   try {
     const header = instance?.proxy?.$root?.$refs?.header as { setActiveProjectById?: (appId: string, projId: string) => Promise<void> } | undefined
     if (header?.setActiveProjectById) {
-      await header.setActiveProjectById(props.applicationId, projectId.value)
+      await header.setActiveProjectById(props.applicationId!, projectId.value)
     }
   } catch (e) {
     debug('Failed to mark active project: %O', e)

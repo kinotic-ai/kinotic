@@ -64,5 +64,8 @@
     resolve(false)
     dialog.value = false
   }
+
+  // open is the dialog's public API, invoked by parents through a template ref.
+  defineExpose({ open })
   </script>
   
