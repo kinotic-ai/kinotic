@@ -7,7 +7,6 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.model.log.LogConstants;
 import org.kinotic.domain.api.model.log.LogQuery;
 import org.kinotic.domain.api.model.workload.Workload;
 import org.kinotic.domain.api.security.OrganizationParticipant;
@@ -30,6 +29,13 @@ import java.util.concurrent.CompletableFuture;
 @Component
 @RequiredArgsConstructor
 public class DefaultLogService implements LogService {
+
+    /**
+     * Loki tenant that receives logs for platform workloads with no organization (SYSTEM scope).
+     * Must match the tenant the vm-manager's AlloyManager ships those logs under; organization
+     * ids can never take this value — ids beginning with "kinotic" are reserved for the platform.
+     */
+    public static final String SYSTEM_LOG_TENANT = "kinotic-system";
 
     private final LokiClient lokiClient;
     private final SecurityContext securityContext;
@@ -82,7 +88,7 @@ public class DefaultLogService implements LogService {
 
     private static String tenantFor(Workload workload) {
         return workload.getOrganizationId() != null ? workload.getOrganizationId()
-                                                    : LogConstants.SYSTEM_LOG_TENANT;
+                                                    : SYSTEM_LOG_TENANT;
     }
 
     // The id comes from the persisted workload record, so it is safe to embed in LogQL
