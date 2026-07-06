@@ -74,11 +74,13 @@ Keycloak and Grafana also read from the same TLS secret.
 
 Centralized log collection using Grafana's stack:
 
-- **Alloy** — DaemonSet on each node, collects pod logs, ships to Loki. Pipeline config in `helm/observability/alloy-config.alloy`.
-- **Loki** — Log storage. Filesystem in KinD, Azure Blob Storage in Azure.
-- **Grafana** — Query and dashboards. Local auth in KinD, Entra ID (Azure AD) in Azure.
+- **Alloy** — DaemonSet on each node, collects pod logs, ships to Loki under the `kinotic-system` tenant. Pipeline config in `helm/observability/alloy-config.alloy`.
+- **Loki** — Multi-tenant log storage (`auth_enabled: true`): one tenant per organization for workload logs, plus the reserved `kinotic-system` tenant for platform logs. Filesystem in KinD, Azure Blob Storage in Azure.
+- **Grafana** — Query and dashboards. The Loki datasource browses the `kinotic-system` tenant by default; multi-tenant queries accept pipe-separated ids (`acme|kinotic-system`). Local auth in KinD, Entra ID (Azure AD) in Azure.
 
-To add a new log source (e.g. Firecracker VM logs), add a `local.file_match` + `loki.source.file` block to the Alloy config and apply.
+Customer workload (micro VM) logs are shipped separately: each vm-manager node runs its own Alloy process that tails per-workload log directories and routes each stream to the workload organization's tenant. See the observability page on the website for the architecture.
+
+To add a new cluster log source, add a `local.file_match` + `loki.source.file` block to the Alloy config and apply.
 
 ## Quick Reference
 
