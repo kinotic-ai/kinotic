@@ -31,6 +31,9 @@ data:
   KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
   {{ end }}
 
+  # ── Loki (LogService) ─────────────────────────────────────
+  KINOTIC_DOMAIN_LOKI_URL: "{{ .Values.kinotic.domain.loki.url }}"
+
   {{- if .Values.tls.enabled }}
   # ── SSL/TLS ──────────────────────────────────────────────
   KINOTIC_DOMAIN_SSL_ENABLED: "true"
