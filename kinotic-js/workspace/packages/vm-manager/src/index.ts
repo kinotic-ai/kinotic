@@ -4,6 +4,7 @@ import { VmNodeRegistration } from '@/model/VmNodeRegistration'
 import { VmNodeOrchestrationServiceProxy } from '@/internal/services/VmNodeOrchestrationServiceProxy'
 import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
 import { createAuthProviderFromEnv } from '@/api/auth/createAuthProviderFromEnv'
+import { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -19,6 +20,18 @@ const serverPort = Number(process.env.KINOTIC_SERVER_PORT ?? '58503')
 const serverUseSSL = (process.env.KINOTIC_SERVER_USE_SSL ?? 'false').toLowerCase() === 'true'
 const heartbeatIntervalMs = Number(process.env.KINOTIC_HEARTBEAT_INTERVAL_MS ?? '30000')
 const vmLogsDir = process.env.KINOTIC_VM_LOGS_DIR ?? path.join(os.homedir(), '.kinotic', 'vm-logs')
+const lokiUrl = process.env.KINOTIC_LOKI_URL
+
+const alloyManager = lokiUrl
+    ? new AlloyManager({
+        lokiUrl,
+        nodeId: nodeId!,
+        dataDir: path.join(os.homedir(), '.kinotic', 'alloy'),
+    })
+    : null
+if (!alloyManager) {
+    console.warn('KINOTIC_LOKI_URL is not set — workload log shipping is disabled')
+}
 
 let heartbeatTimer: Timer | null = null
 
@@ -49,7 +62,7 @@ async function start() {
     console.log(`Connected to Kinotic server at ${serverHost}:${serverPort}`)
 
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
-    const vmManager = new DefaultVmManager(nodeId!, vmLogsDir)
+    const vmManager = new DefaultVmManager(nodeId!, vmLogsDir, alloyManager)
 
     // Build registration info from system resources
     const registration = new VmNodeRegistration(nodeId!, os.hostname(), os.hostname())
@@ -71,23 +84,18 @@ async function start() {
 }
 
 // Graceful shutdown
-process.on('SIGINT', async () => {
+async function shutdown() {
     console.log('Shutting down VM Manager...')
     if (heartbeatTimer) {
         clearInterval(heartbeatTimer)
     }
+    await alloyManager?.stop()
     await Kinotic.disconnect()
     process.exit(0)
-})
+}
 
-process.on('SIGTERM', async () => {
-    console.log('Shutting down VM Manager...')
-    if (heartbeatTimer) {
-        clearInterval(heartbeatTimer)
-    }
-    await Kinotic.disconnect()
-    process.exit(0)
-})
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)
 
 start().catch(error => {
     console.error('Failed to start VM Manager:', error)

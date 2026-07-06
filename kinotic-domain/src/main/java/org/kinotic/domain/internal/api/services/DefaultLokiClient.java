@@ -9,8 +9,8 @@ import io.vertx.ext.web.client.WebClient;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.config.LokiProperties;
-import org.kinotic.domain.api.model.log.LogQuery;
 import org.kinotic.domain.api.services.LokiClient;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -36,9 +36,9 @@ public class DefaultLokiClient implements LokiClient {
     private WebClient webClient;
     private WebSocketClient webSocketClient;
 
-    public DefaultLokiClient(Vertx vertx, LokiProperties lokiProperties) {
+    public DefaultLokiClient(Vertx vertx, KinoticDomainProperties properties) {
         this.vertx = vertx;
-        this.lokiProperties = lokiProperties;
+        this.lokiProperties = properties.getDomain().getLoki();
     }
 
     @PostConstruct
@@ -58,13 +58,13 @@ public class DefaultLokiClient implements LokiClient {
     }
 
     @Override
-    public Future<Buffer> queryRange(String orgId, LogQuery query) {
+    public Future<Buffer> queryRange(String tenant, String query, long start, long end, int limit) {
         return webClient.getAbs(lokiProperties.getUrl() + QUERY_RANGE_PATH)
-                        .addQueryParam("query", query.getQuery())
-                        .addQueryParam("start", Long.toString(msToNs(query.getStart())))
-                        .addQueryParam("end", Long.toString(msToNs(query.getEnd())))
-                        .addQueryParam("limit", Integer.toString(query.getLimit()))
-                        .putHeader(ORG_ID_HEADER, orgId)
+                        .addQueryParam("query", query)
+                        .addQueryParam("start", Long.toString(msToNs(start)))
+                        .addQueryParam("end", Long.toString(msToNs(end)))
+                        .addQueryParam("limit", Integer.toString(limit))
+                        .putHeader(ORG_ID_HEADER, tenant)
                         .send()
                         .compose(resp -> resp.statusCode() == 200
                                 ? Future.succeededFuture(resp.body())
@@ -73,8 +73,8 @@ public class DefaultLokiClient implements LokiClient {
     }
 
     @Override
-    public Flux<Buffer> tail(String orgId, String query) {
-        return Flux.create(sink -> webSocketClient.connect(tailOptions(orgId, query))
+    public Flux<Buffer> tail(String tenant, String query) {
+        return Flux.create(sink -> webSocketClient.connect(tailOptions(tenant, query))
                 .onSuccess(ws -> {
                     // The Flux can be cancelled before the socket finishes opening; close it straight away.
                     if (sink.isCancelled()) {
@@ -89,7 +89,7 @@ public class DefaultLokiClient implements LokiClient {
                 .onFailure(sink::error));
     }
 
-    private WebSocketConnectOptions tailOptions(String orgId, String query) {
+    private WebSocketConnectOptions tailOptions(String tenant, String query) {
         URI base = URI.create(lokiProperties.getUrl());
         boolean ssl = "https".equalsIgnoreCase(base.getScheme());
         int port = base.getPort() != -1 ? base.getPort() : (ssl ? 443 : 80);
@@ -98,7 +98,7 @@ public class DefaultLokiClient implements LokiClient {
                 .setPort(port)
                 .setSsl(ssl)
                 .setURI(TAIL_PATH + "?query=" + URLEncoder.encode(query, StandardCharsets.UTF_8))
-                .addHeader(ORG_ID_HEADER, orgId);
+                .addHeader(ORG_ID_HEADER, tenant);
     }
 
     private static long msToNs(long epochMs) {
