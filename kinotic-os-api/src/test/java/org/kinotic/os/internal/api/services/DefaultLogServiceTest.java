@@ -12,7 +12,6 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.model.log.LogConstants;
 import org.kinotic.domain.api.model.log.LogQuery;
 import org.kinotic.domain.api.model.workload.Workload;
 import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
@@ -102,7 +101,7 @@ class DefaultLogServiceTest {
     void platformWorkloadsResolveToTheSystemTenant() throws Throwable {
         callAs(PLATFORM_OPERATOR, () -> service.history(query("wl-platform")));
 
-        assertEquals(LogConstants.SYSTEM_LOG_TENANT, lokiClient.tenant);
+        assertEquals(DefaultLogService.SYSTEM_LOG_TENANT, lokiClient.tenant);
     }
 
     @Test
