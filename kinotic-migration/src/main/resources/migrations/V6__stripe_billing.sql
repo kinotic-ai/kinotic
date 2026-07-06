@@ -9,11 +9,11 @@ CREATE TABLE IF NOT EXISTS kinotic_stripe_webhook_event (
     stripeAccountId KEYWORD,
     livemode BOOLEAN,
     relatedObjectId KEYWORD,
-    payload TEXT NOT INDEXED,
+    payload TEXT,
     receivedAt DATE,
     processedAt DATE,
     status KEYWORD,
-    lastError TEXT NOT INDEXED
+    lastError TEXT
 );
 
 -- Append-only journal of money movements on each organization's payable balance.
