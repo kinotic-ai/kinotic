@@ -3,10 +3,7 @@ kinotic:
   debug: true
   github:
     webhookSecret: "-"
-    repoTemplate: "-"
     appPrivateKey: "-"
-    appId: "-"
-    appSlug: "-"
   domain:
     # IDE dev runs the SPA on vite (5173); kinotic-server is just the backend on 58503.
     # Verification email URLs and OIDC redirect URIs are built from this base, so they
@@ -18,6 +15,10 @@ kinotic:
       enabled: false
       endpoint: https://acs-kinotic.communication.azure.com
       sender-address: "DoNotReply@kinotic.ai"
+    elastic-connections:
+      - scheme: "http"
+        host: "localhost"
+        port: "9200"
   cors:
     allowedOriginPattern: "http:\\/\\/localhost:\\d+"
     allowCredentials: true
@@ -25,9 +26,6 @@ kinotic:
   ignite:
     discoveryType: SHAREDFS
   secretStorage:
-    # Chronicle Map (HFT) needs the full JDK at runtime (jdk.compiler module for codegen),
-    # which the IDE has but the Paketo bootBuildImage's JRE base does not. Compose layers
-    # on the `compose` profile to flip this back to in-memory; see application-compose.yml.
     backend: ~
     # Base64-encoded 32-byte key used by SecretNameDeriver to derive opaque, deterministic
     # storage names. Dev-only value — production supplies this via Azure Key Vault.
@@ -42,21 +40,11 @@ kinotic:
   # kinotic.secretStorage.azure.vaultUrl is set, otherwise from KINOTIC_AKV_<name> env vars
   # (uppercased, non-alphanumerics → "_"). For local dev, export the env var matching the
   # secret name on the seeded OrgSignupOidcConfiguration / OidcConfiguration row.
-  persistence:
-    elastic-connections:
-      - scheme: "http"
-        host: "localhost"
-        port: "9200"
 
 logging:
   level:
     org:
       kinotic: TRACE
-#    io:
-#      vertx: WARN
-#      netty:
-#        util: DEBUG
-#        buffer: DEBUG
 
 spring:
   ai:

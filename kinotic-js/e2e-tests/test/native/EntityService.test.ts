@@ -20,6 +20,9 @@ import {
 
 const TEST_ORG_ID = 'kinotic-test'
 const APP_TENANT = 'kinotic'
+// Fixed application seeded with its APPLICATION-scoped user by V5__e2e_app_fixtures; the
+// app client logs in as app-<APP_ID>-<APP_TENANT>@test.local, which only exists for a seeded id.
+const APP_ID = 'e2e-entity-service'
 
 interface LocalTestContext {
     entityDefinition: EntityDefinition
@@ -27,11 +30,11 @@ interface LocalTestContext {
     entityService: IEntityRepository<Person>
 }
 
-describe('End To End Tests', () => {
+describe('Kinotic JS', () => {
 
     beforeAll(async () => {
-        await allure.suite('Typescript Client')
-        await allure.subSuite('EntityService Tests')
+        await allure.suite('e2e-tests/native')
+        await allure.subSuite('EntityService')
         await initKinoticClient()
     }, 300000)
 
@@ -42,7 +45,7 @@ describe('End To End Tests', () => {
     beforeEach<LocalTestContext>(async (context: any) => {
         // Platform metadata (Application, Project, EntityDefinition) is created as the
         // ORGANIZATION user via the default Kinotic singleton.
-        context.entityDefinition = await createPersonEntityDefinitionIfNotExist(TEST_ORG_ID, generateRandomString(10), generateRandomString(5))
+        context.entityDefinition = await createPersonEntityDefinitionIfNotExist(TEST_ORG_ID, APP_ID, generateRandomString(5))
         expect(context.entityDefinition).toBeDefined()
 
         // Entity data lives under an APPLICATION-scoped user inside the application just

@@ -1,9 +1,12 @@
 package org.kinotic.domain.internal.utils;
 
-import org.kinotic.core.api.security.DefaultParticipant;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.security.DefaultApplicationParticipant;
+import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
+import org.kinotic.domain.api.security.DefaultSystemParticipant;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.nio.charset.StandardCharsets;
@@ -11,9 +14,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -51,6 +54,22 @@ public class DomainUtil {
             throw new IllegalArgumentException("Kinotic Project Id Invalid, first character must be a " +
                                                        "letter. And contain only letters, numbers, periods, underscores or dashes. Got "+ projectId);
         }
+    }
+
+    /**
+     * Normalizes an email address to its canonical stored form: trimmed and lowercased
+     * with {@link Locale#ROOT} (locale-sensitive lowercasing corrupts emails under e.g.
+     * a Turkish default locale). Emails are matched with exact-match term filters, so
+     * every write and every lookup must agree on this one form.
+     *
+     * @param email to normalize, must not be blank
+     * @return the normalized email
+     * @throws IllegalArgumentException if {@code email} is blank
+     * @throws NullPointerException if {@code email} is null
+     */
+    public static String normalizeEmail(String email) {
+        Validate.notBlank(email, "email cannot be blank");
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 
     /**
@@ -107,26 +126,47 @@ public class DomainUtil {
 
     /**
      * Builds the {@link Participant} security identity for an authenticated {@link IamUser}.
-     * This is the single mapping from a persisted user to the identity carried for the life
-     * of a connection, so the authentication paths and the browser session-login flow stay
-     * consistent.
+     * Returns the typed subtype that matches the user's structural scope:
+     * <ul>
+     *   <li>{@code organizationId == null} → {@link DefaultSystemParticipant}</li>
+     *   <li>{@code organizationId != null, applicationId == null} → {@link DefaultOrganizationParticipant}</li>
+     *   <li>both set → {@link DefaultApplicationParticipant} (also carrying {@code tenantId})</li>
+     * </ul>
+     * Synchronous: every field needed lives on the user, no lookups required.
      *
      * @param user the authenticated user
-     * @return the participant for the given user
+     * @return the typed participant for the given user
      */
     public static Participant createParticipant(IamUser user) {
-        Map<String, String> metadata = new HashMap<>(Map.of(
+        Map<String, String> metadata = Map.of(
                 ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
                 "email", user.getEmail(),
                 "displayName", user.getDisplayName() != null ? user.getDisplayName() : user.getEmail(),
                 "authType", user.getAuthType().name()
-        ));
-
-        // tenantId is the client-tenant the caller is acting within — meaningful only for
-        // APPLICATION-scoped users (where it partitions SHARED entity data). SYSTEM and ORGANIZATION
-        // identities are not tenants, so user.getTenantId() must be null for them.
-        return new DefaultParticipant(user.getTenantId(), user.getId(),
-                user.getAuthScopeType(), user.getAuthScopeId(), metadata, List.of());
+        );
+        if (user.getOrganizationId() == null) {
+            return DefaultSystemParticipant.builder()
+                                           .id(user.getId())
+                                           .metadata(metadata)
+                                           .roles(List.of())
+                                           .build();
+        }
+        if (user.getApplicationId() == null) {
+            return DefaultOrganizationParticipant.builder()
+                                                 .id(user.getId())
+                                                 .organizationId(user.getOrganizationId())
+                                                 .metadata(metadata)
+                                                 .roles(List.of())
+                                                 .build();
+        }
+        return DefaultApplicationParticipant.builder()
+                                            .id(user.getId())
+                                            .organizationId(user.getOrganizationId())
+                                            .applicationId(user.getApplicationId())
+                                            .tenantId(user.getTenantId())
+                                            .metadata(metadata)
+                                            .roles(List.of())
+                                            .build();
     }
 
 }

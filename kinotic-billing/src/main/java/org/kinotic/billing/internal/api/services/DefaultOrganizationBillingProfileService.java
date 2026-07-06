@@ -21,7 +21,7 @@ public class DefaultOrganizationBillingProfileService extends AbstractOrganizati
     }
 
     @Override
-    public CompletableFuture<OrganizationBillingProfile> save(OrganizationBillingProfile value) {
+    protected CompletableFuture<Void> beforeSave(OrganizationBillingProfile value) {
         Validate.notNull(value, "profile cannot be null");
         Validate.notBlank(value.getId(), "profile id must be set");
         Validate.isTrue(value.getId().equals(value.getOrganizationId()),
@@ -31,13 +31,6 @@ public class DefaultOrganizationBillingProfileService extends AbstractOrganizati
             value.setCreated(new Date());
         }
         value.setUpdated(new Date());
-        return super.save(value);
-    }
-
-    // id == organizationId, so elevated-access lookups (webhooks, schedulers) can always
-    // recover the routing key from the id itself.
-    @Override
-    protected String getRoutingKeyFromId(String id) {
-        return id;
+        return CompletableFuture.completedFuture(null);
     }
 }

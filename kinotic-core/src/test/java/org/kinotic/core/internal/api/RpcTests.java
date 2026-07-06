@@ -2,7 +2,10 @@
 
 package org.kinotic.core.internal.api;
 
+import io.vertx.core.Context;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -10,6 +13,8 @@ import org.kinotic.core.api.Kinotic;
 import org.kinotic.core.api.exceptions.RpcInvocationException;
 import org.kinotic.core.api.exceptions.RpcMissingMethodException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.internal.api.support.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,7 +28,9 @@ import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -45,6 +52,42 @@ public class RpcTests {
 
     @Autowired
     private JsonMapper jsonMapper;
+    @Autowired
+    private Vertx vertx;
+    @Autowired
+    private SecurityContext securityContext;
+
+    private static final String PARTICIPANT_ID = "test-participant";
+
+    /**
+     * Runs {@code proxyCall} on a Vert.x context that has a participant bound, then returns its result.
+     * The RPC proxy captures the sender from the current context when the method is invoked, so the
+     * invocation must happen on a context (a JUnit thread has none).
+     */
+    private <T> T withParticipant(Supplier<T> proxyCall) {
+        Context context = vertx.getOrCreateContext();
+        securityContext.setParticipant(context, new Participant() {
+            @Override
+            public String getId() { return PARTICIPANT_ID; }
+            @Override
+            public Map<String, String> getMetadata() { return Map.of(); }
+            @Override
+            public List<String> getRoles() { return List.of(); }
+        });
+        CompletableFuture<T> future = new CompletableFuture<>();
+        context.runOnContext(_ -> {
+            try {
+                future.complete(proxyCall.get());
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+            }
+        });
+        try {
+            return future.get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     // TODO: test to few arguments, and too many arguments, also a variation with the participant. Participant variant error message may be misleading?
     // See org.kinotic.core.internal.api.service.json.AbstractJacksonSupport Line 114, Line 180. Should we keep the number of participant args in mind.
@@ -80,10 +123,52 @@ public class RpcTests {
     @Test
     public void testFirstArgParticipant(){
         String suffix = " Wat";
-        Mono<String> mono = rpcTestServiceProxy.firstArgParticipant(suffix);
+        Mono<String> mono = withParticipant(() -> rpcTestServiceProxy.firstArgParticipant(suffix));
 
         StepVerifier.create(mono)
-                    .expectNext(kinotic.serverInfo().getNodeName() + suffix)
+                    .expectNext(PARTICIPANT_ID + suffix)
+                    .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testGetByteArray(){
+        Mono<byte[]> mono = rpcTestServiceProxy.getByteArray();
+
+        StepVerifier.create(mono)
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_VALUE))
+                    .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testGetBuffer(){
+        Mono<Buffer> mono = rpcTestServiceProxy.getBuffer();
+
+        StepVerifier.create(mono)
+                    .expectNextMatches(buffer -> Arrays.equals(buffer.getBytes(), RpcTestService.BINARY_VALUE))
+                    .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testGetMonoByteArray(){
+        Mono<byte[]> mono = rpcTestServiceProxy.getMonoByteArray();
+
+        StepVerifier.create(mono)
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_VALUE))
+                    .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testGetByteArrayFlux(){
+        Flux<byte[]> flux = rpcTestServiceProxy.getByteArrayFlux();
+
+        StepVerifier.create(flux)
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_CHUNKS[0]))
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_CHUNKS[1]))
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_CHUNKS[2]))
                     .expectComplete()
                     .verify();
     }
@@ -105,10 +190,10 @@ public class RpcTests {
     public void testLastArgParticipant(){
         String prefix = "Hello ";
 
-        Mono<String> mono = rpcTestServiceProxy.lastArgParticipant(prefix);
+        Mono<String> mono = withParticipant(() -> rpcTestServiceProxy.lastArgParticipant(prefix));
 
         StepVerifier.create(mono)
-                    .expectNext(prefix + kinotic.serverInfo().getNodeName())
+                    .expectNext(prefix + PARTICIPANT_ID)
                     .expectComplete()
                     .verify();
     }
@@ -128,10 +213,10 @@ public class RpcTests {
         String prefix = "Hello ";
         String suffix = " Wat";
 
-        Mono<String> mono = rpcTestServiceProxy.middleArgParticipant(prefix, suffix);
+        Mono<String> mono = withParticipant(() -> rpcTestServiceProxy.middleArgParticipant(prefix, suffix));
 
         StepVerifier.create(mono)
-                    .expectNext(prefix + kinotic.serverInfo().getNodeName() + suffix)
+                    .expectNext(prefix + PARTICIPANT_ID + suffix)
                     .expectComplete()
                     .verify();
     }

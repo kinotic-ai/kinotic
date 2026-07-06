@@ -1,143 +1,99 @@
 <template>
-  <div class="login-page">
-    <div class="login-shell">
-      <aside class="login-art" aria-hidden="true">
-        <img :src="loginBackgroundArt" alt="" class="login-art__image" />
-      </aside>
+  <AuthPageShell>
+    <div v-if="!submitted" class="login-form">
+      <h2 class="signup-title">Create your organization</h2>
 
-      <main class="login-panel">
-        <button type="button" class="login-theme-toggle" @click="toggleTheme" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
-          <span :class="isDark ? 'pi pi-sun' : 'pi pi-moon'"></span>
-        </button>
-        <div class="login-panel__content">
-          <img :src="loginBrandMark" alt="Kinotic" class="login-brand" />
+      <!-- Social signup — IdP returns identity, then user picks an org name on /register -->
+      <div v-if="providers.length > 0" class="signup-providers">
+        <SocialAuthButton
+          v-for="provider in providers"
+          :key="provider"
+          :provider="provider"
+          :action="apiUrl('/api/auth/org/signup/social/start/' + provider)"
+          intent="sign-up"
+        />
+        <div class="login-divider"><span>or with email</span></div>
+      </div>
 
-          <div v-if="!submitted" class="login-form">
-            <h2 class="signup-title">Create your organization</h2>
-
-            <!-- Social signup — IdP returns identity, then user picks an org name on /register -->
-            <div v-if="providers.length > 0" class="signup-providers">
-              <SocialAuthButton
-                v-for="provider in providers"
-                :key="provider"
-                :provider="provider"
-                :action="apiUrl('/api/signup/start/' + provider)"
-                intent="sign-up"
-              />
-              <div class="login-divider"><span>or with email</span></div>
-            </div>
-
-            <div class="login-form__step">
-              <div class="login-field">
-                <InputText
-                  v-model="request.orgName"
-                  class="login-input"
-                  placeholder="Organization name"
-                  @keyup.enter="focusNext('displayName')"
-                />
-              </div>
-
-              <div class="login-field">
-                <InputText
-                  ref="displayName"
-                  v-model="request.displayName"
-                  class="login-input"
-                  placeholder="Your name"
-                  @keyup.enter="focusNext('email')"
-                />
-              </div>
-
-              <div class="login-field">
-                <InputText
-                  ref="email"
-                  v-model="request.email"
-                  class="login-input"
-                  placeholder="Your email"
-                  type="email"
-                  @keyup.enter="handleSubmit"
-                />
-              </div>
-
-              <Button
-                label="Sign Up"
-                class="login-submit"
-                :loading="loading"
-                @click="handleSubmit"
-              />
-            </div>
-
-            <div class="signup-footer-link">
-              Already have an account? <router-link to="/login" class="login-link">Sign in</router-link>
-            </div>
-          </div>
-
-          <div v-else class="login-form">
-            <div class="signup-success">
-              <span class="signup-success__icon-wrap">
-                <span class="pi pi-envelope signup-success__icon"></span>
-              </span>
-              <h2 class="signup-success__title">Check your email</h2>
-              <p class="signup-success__text">
-                We've sent a verification link to
-              </p>
-              <p class="signup-success__email">{{ request.email }}</p>
-              <p class="signup-success__text">
-                Click the link to activate your organization.
-              </p>
-              <p class="signup-success__text signup-success__text--muted">
-                The link expires in 24 hours.
-              </p>
-            </div>
-          </div>
+      <div class="login-form__step">
+        <div class="login-field">
+          <InputText
+            ref="displayName"
+            v-model="request.displayName"
+            class="login-input"
+            placeholder="Your name"
+            @keyup.enter="focusNext('email')"
+          />
         </div>
 
-        <footer class="login-footer">
-          <a href="#" class="login-footer__link">Terms of use</a>
-          <span class="login-footer__divider">|</span>
-          <a href="#" class="login-footer__link">Privacy policy</a>
-        </footer>
-      </main>
+        <div class="login-field">
+          <InputText
+            ref="email"
+            v-model="request.email"
+            class="login-input"
+            placeholder="Your email"
+            type="email"
+            @keyup.enter="handleSubmit"
+          />
+        </div>
+
+        <Button
+          label="Sign Up"
+          class="login-submit"
+          :loading="loading"
+          @click="handleSubmit"
+        />
+      </div>
+
+      <div class="signup-footer-link">
+        Already have an account? <router-link to="/login" class="login-link">Sign in</router-link>
+      </div>
     </div>
 
-    <Toast />
-  </div>
+    <div v-else class="login-form">
+      <div class="signup-success">
+        <span class="signup-success__icon-wrap">
+          <span class="pi pi-envelope signup-success__icon"></span>
+        </span>
+        <h2 class="signup-success__title">Check your email</h2>
+        <p class="signup-success__text">
+          We've sent a verification link to
+        </p>
+        <p class="signup-success__email">{{ request.email }}</p>
+        <p class="signup-success__text">
+          Click the link to name your organization and finish setting up.
+        </p>
+        <p class="signup-success__text signup-success__text--muted">
+          The link expires in 24 hours.
+        </p>
+      </div>
+    </div>
+  </AuthPageShell>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-facing-decorator';
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
-import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
 import type { SignUpRequest } from '@kinotic-ai/os-api'
 
-import loginBgDark from '@/assets/left_background_dark.png'
-import loginBgLight from '@/assets/left-background_light.png'
-import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
-import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
-import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
 import { apiUrl } from '@/util/helpers'
+import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
-import '@/pages/auth-pages.css'
 
 @Component({
   components: {
+    AuthPageShell,
     InputText,
     Button,
-    Toast,
     SocialAuthButton,
   }
 })
 export default class Signup extends Vue {
   private toast = useToast()
 
-  get loginBackgroundArt() { return darkMode.value ? loginBgDark : loginBgLight }
-  get loginBrandMark() { return darkMode.value ? loginPageLogo : loginPageLogoLight }
-  get isDark() { return darkMode.value }
-  toggleTheme() { toggleDark() }
-
   request: SignUpRequest = {
-    orgName: '',
     email: '',
     displayName: '',
   }
@@ -147,7 +103,7 @@ export default class Signup extends Vue {
 
   async mounted() {
     try {
-      const res = await fetch(apiUrl('/api/login/providers'), { credentials: 'same-origin' })
+      const res = await fetch(apiUrl('/api/auth/org/login/providers'), { credentials: 'same-origin' })
       if (res.ok) {
         const data = await res.json()
         if (Array.isArray(data)) this.providers = data
@@ -169,14 +125,9 @@ export default class Signup extends Vue {
   }
 
   async handleSubmit() {
-    this.request.orgName = this.request.orgName.trim()
     this.request.email = this.request.email.trim()
     this.request.displayName = this.request.displayName.trim()
 
-    if (!this.request.orgName) {
-      this.displayAlert('Organization name is required')
-      return
-    }
     if (!this.request.email || !this.request.email.includes('@')) {
       this.displayAlert('Please enter a valid email address')
       return
@@ -188,7 +139,7 @@ export default class Signup extends Vue {
 
     this.loading = true
     try {
-      const response = await fetch(apiUrl('/api/signup'), {
+      const response = await fetch(apiUrl('/api/auth/org/signup'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.request),

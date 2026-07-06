@@ -9,7 +9,7 @@ import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedServic
 import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.os.api.services.ApplicationService;
 import org.kinotic.os.api.services.ProjectService;
-import org.kinotic.os.api.services.iam.OidcConfigurationService;
+import org.kinotic.domain.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -49,26 +49,19 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     }
 
     @Override
-    public CompletableFuture<Void> deleteById(String id) {
+    protected CompletableFuture<Void> beforeDelete(String id) {
         return projectService.countForApplication(id).thenAccept(count -> {
             if(count > 0){
                 throw new IllegalStateException("Cannot delete an application with projects in it.");
             }
-        }).thenCompose(v -> super.deleteById(id));
+        });
     }
 
     @Override
-    public CompletableFuture<Application> save(Application entity) {
+    protected CompletableFuture<Void> beforeSave(Application entity) {
         DomainUtil.validateApplicationId(entity.getId());
         entity.setUpdated(new Date());
-        return super.save(entity);
-    }
-
-    @Override
-    public CompletableFuture<Application> saveSync(Application entity) {
-        DomainUtil.validateApplicationId(entity.getId());
-        entity.setUpdated(new Date());
-        return super.saveSync(entity);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

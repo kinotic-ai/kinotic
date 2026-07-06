@@ -11,7 +11,6 @@ dependencies {
 	implementation project(':kinotic-sql')
 
 	implementation 'co.elastic.clients:elasticsearch-java'
-	implementation 'co.elastic.clients:elasticsearch-rest5-client'
 
 	implementation "com.apollographql.federation:federation-graphql-java-support:${graphQlFederationJvmVersion}"
 

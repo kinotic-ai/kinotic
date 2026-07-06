@@ -1,8 +1,7 @@
-import {ConnectionInfo, IWebSocket, Kinotic} from '@kinotic-ai/core'
+import {BearerTokenAuthProvider, ConnectionInfo, createAuthenticatedWebSocketFactory, Kinotic} from '@kinotic-ai/core'
 import {confirm} from '@inquirer/prompts'
 import open from 'open'
 import pTimeout from 'p-timeout'
-import {WebSocket} from 'ws'
 import {createStateManager} from './state/IStateManager'
 import {Logger} from './Logger'
 
@@ -19,7 +18,6 @@ interface ServerTarget {
     port: number
     useSSL: boolean
     restBaseUrl: string
-    wsUrl: string
 }
 
 /** State key the rotating refresh token is persisted under, keyed by server url. */
@@ -90,14 +88,13 @@ export class CliAuthenticator {
             connectionInfo.host = target.host
             connectionInfo.port = target.port
             connectionInfo.useSSL = target.useSSL
-            // The CLI is a Node client: it attaches the access token as a WebSocket upgrade
-            // header. The factory is async so the token is refreshed before each (re)connect.
-            connectionInfo.webSocketFactory = async () => {
-                const token = await this.freshAccessToken(target.restBaseUrl)
-                return new WebSocket(target.wsUrl, {
-                    headers: {Authorization: 'Bearer ' + token}
-                }) as unknown as IWebSocket
-            }
+            // The CLI is a Node client: core builds the broker URL and attaches the bearer
+            // token as a WebSocket upgrade header. The supplier refreshes the access token
+            // before each (re)connect, since core consults the provider on every connect.
+            connectionInfo.webSocketFactory = createAuthenticatedWebSocketFactory(
+                {host: target.host, port: target.port, useSSL: target.useSSL},
+                new BearerTokenAuthProvider(() => this.freshAccessToken(target.restBaseUrl)),
+            )
 
             await pTimeout(Kinotic.connect(connectionInfo), {
                 milliseconds: 60000,
@@ -119,7 +116,7 @@ export class CliAuthenticator {
         if (this.accessToken !== null && Date.now() < this.accessTokenExpiresAt - 10_000) {
             return this.accessToken
         }
-        const res = await fetch(restBaseUrl + '/api/login/device/refresh', {
+        const res = await fetch(restBaseUrl + '/api/auth/device/refresh', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({refresh_token: this.refreshToken}),
@@ -158,14 +155,13 @@ export class CliAuthenticator {
             host: url.hostname,
             port,
             useSSL,
-            restBaseUrl: (useSSL ? 'https' : 'http') + '://' + url.hostname + ':' + port,
-            wsUrl: (useSSL ? 'wss' : 'ws') + '://' + url.hostname + ':' + port + '/v1'
+            restBaseUrl: (useSSL ? 'https' : 'http') + '://' + url.hostname + ':' + port
         }
     }
 
     /** Runs the RFC 8628 device flow: start, browser approval, then poll for tokens. */
     private async deviceLogin(restBaseUrl: string): Promise<DeviceTokens | null> {
-        const startRes = await fetch(restBaseUrl + '/api/login/device/start', {
+        const startRes = await fetch(restBaseUrl + '/api/auth/device/start', {
             method: 'POST',
             signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
         })
@@ -194,7 +190,7 @@ export class CliAuthenticator {
         let intervalMs = Math.max(start.interval, 1) * 1000
         while (Date.now() < deadline) {
             await delay(intervalMs)
-            const tokenRes = await fetch(restBaseUrl + '/api/login/device/token', {
+            const tokenRes = await fetch(restBaseUrl + '/api/auth/device/token', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({device_code: start.device_code}),

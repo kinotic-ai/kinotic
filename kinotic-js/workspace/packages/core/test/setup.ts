@@ -18,7 +18,9 @@ export async function setup(project: TestProject) {
             .withExposedPorts(58503)
             .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
             .withPullPolicy(PullPolicy.alwaysPull())
-            .withWaitStrategy(Wait.forHttp('/', 58503).forStatusCode(200))
+            // /health is the gateway readiness endpoint on the STOMP port; it returns 204 with no
+            // health procedures registered (clienttest) and 200 once they are, so accept either.
+            .withWaitStrategy(Wait.forHttp('/health', 58503).forStatusCodeMatching(c => c === 200 || c === 204))
             .start()
 
         // @ts-ignore

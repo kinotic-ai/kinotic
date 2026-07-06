@@ -8,8 +8,10 @@ on:
     paths-ignore:
       - 'helm/**'
       - 'docker-compose/**'
-      - 'kinotic-js/**'
-      - 'webdocs/**' 
+      - 'kinotic-js/boxlite-test/**'
+      - 'kinotic-js/firecracker-vmm-manager/**'
+      - 'kinotic-js/kinotic-cli/**'
+      - 'kinotic-js/load-generator/**'
       - 'website/**'
 
 jobs:
@@ -18,13 +20,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.12.1
+        uses: styfle/cancel-workflow-action@0.13.1
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: 25
@@ -32,17 +34,32 @@ jobs:
           gpg-passphrase: ${{ secrets.GPG_KEY_PASS_NEW }}
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
+      # Bun runs the kinotic-js/workspace test suites below (e2e-tests uses its own node-gradle plugin).
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      # Build + test the migration toolchain and publish its image first: the main build's kinotic-test
+      # pulls kinoticai/kinotic-migration:<version>. `&&` gates the publish on the tests passing.
+      - name: Build & test kinotic-sql + kinotic-migration, publish migration image
+        id: migration
+        continue-on-error: true
+        run: ./gradlew :kinotic-sql:build :kinotic-migration:build && ./gradlew :kinotic-migration:bootBuildImage --publishImage
+        env:
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      # Build + test everything else; kinotic-test pulls the migration image published above.
       - name: Build with Gradle
         id: gradle_build
+        if: ${{ steps.migration.outcome == 'success' }}
         continue-on-error: true
-#        env:
-#          TESTCONTAINERS_RYUK_DISABLED: true
-        run: ./gradlew build -x test
+        run: ./gradlew build
 
+      # All library jars publish here in one pass (apps publish images, not jars).
       - name: Publish to Maven Central with JReleaser
-        if: ${{ steps.gradle_build.outcome == 'success' }}
+        if: ${{ steps.migration.outcome == 'success' && steps.gradle_build.outcome == 'success' }}
         run: ./gradlew publish && ./gradlew jreleaserDeploy --info
         env:
           JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.MAVEN_TOKEN_USERNAME }}
@@ -52,74 +69,185 @@ jobs:
           JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_KEY_NEW }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_KEY_PASS_NEW }}
 
-      - name: Publish to Docker Hub
-        if: ${{ steps.gradle_build.outcome == 'success' }}
-        run: ./gradlew bootBuildImage --publishImage
+      # Publishes the remaining application image (migration image was published above).
+      - name: Publish kinotic-server image to Docker Hub
+        if: ${{ steps.migration.outcome == 'success' && steps.gradle_build.outcome == 'success' }}
+        run: ./gradlew :kinotic-server:bootBuildImage --publishImage
         env:
           DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
           DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
-#      - name: Run E2E Tests
-#        id: run_e2e_tests
-#        continue-on-error: true
-#        run: |
-#          cd structures-js/structures-e2e
-#          gradle pnpmInstall
-#          gradle pnpmTest
-#
-#      - name: Merge Test Results
-#        run: |
-#          mkdir -p allure-results
-#          cp -r */build/allure-results/* allure-results/ || true
-#          cp -r structures-js/*/allure-results/* allure-results/ || true
-#
-#      - name: Get Allure history
-#        uses: actions/checkout@v4
-#        continue-on-error: true
-#        with:
-#          ref: gh-pages
-#          path: gh-pages
-#
-#      - name: Generate Allure report
-#        uses: simple-elf/allure-report-action@v1.13
-#        id: allure-report
-#        with:
-#          allure_results: allure-results
-#          gh_pages: gh-pages
-#          subfolder: allure
-#          allure_report: allure-report
-#          allure_history: allure-history
-#
-#      - name: Deploy report to Github Pages
-#        uses: peaceiris/actions-gh-pages@v4
-#        with:
-#          github_token: ${{ secrets.GITHUB_TOKEN }}
-#          publish_dir: allure-history
-#          publish_branch: gh-pages
-#          keep_files: true
-#
-#      - name: Add status to Commit
-#        uses: guibranco/github-status-action-v2@v1.1.13
-#        with:
-#          authToken: ${{ secrets.GITHUB_TOKEN }}
-#          context: 'Test Report'
-#          description: 'Passed'
-#          state: 'success'
-#          sha: ${{ github.sha }}
-#          target_url: https://kinotic-ai.github.io/kinotic/allure/${{ github.run_number }}
-#
-#      - name: Check If Failure
-#        if: ${{ steps.gradle_build.outcome == 'failure' || steps.run_e2e_tests.outcome == 'failure' }}
-#        run: |
-#          if [ "${{ steps.gradle_build.outcome }}" == "failure" ]; then
-#            echo "Gradle Build failed."
-#          fi
-#
-#          if [ "${{ steps.run_e2e_tests.outcome }}" == "failure" ]; then
-#            echo "E2E Tests failed."
-#          fi
-#
-#          # Optionally mark the job as failed
-#          exit 1
-#
-#          https://kinoitc-ai.github.io/kinotic/webdocs/guide/overview.html
+      # Bundled Compose fails on compose.kinotic-e2e-test.yml's include: + overrides; install a current
+      # one before the testcontainers suites (JS workspace + E2E) below.
+      - name: Set up Docker Compose
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: docker/setup-compose-action@v2
+        with:
+          version: v5.1.4
+
+      # Run all workspace test suites. USE_GATEWAY_DOCKER makes the @kinotic-ai/core suite start the
+      # server image (published above) via testcontainers; the other suites ignore it.
+      - name: Run JS Workspace Tests
+        id: run_workspace_tests
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          USE_GATEWAY_DOCKER: "true"
+        run: |
+          cd kinotic-js/workspace
+          bun install --frozen-lockfile
+          # Cross-package imports resolve to each package's dist/, which bunup builds
+          bun run build
+          bun run --filter '*' test
+
+      - name: Run E2E Tests
+        id: run_e2e_tests
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          cd kinotic-js/e2e-tests
+          gradle pnpmInstall
+          gradle pnpmTest
+
+      # Collect every module's allure-results into one dir, skipping node_modules and the aggregate.
+      - name: Merge Test Results
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p allure-results
+          find . -type d -name allure-results \
+               -not -path './allure-results' \
+               -not -path '*/node_modules/*' -print0 \
+          | while IFS= read -r -d '' dir; do
+              cp -a "$dir/." allure-results/ 2>/dev/null || true
+            done
+
+      # Pass the merged results to the publish_test_report job (separate runner).
+      - name: Upload Allure results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-results
+          path: allure-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # Fail the job if any test step failed (their continue-on-error keeps the run going for the report).
+      - name: Fail job if any test run failed
+        if: ${{ !cancelled() }}
+        run: |
+          failed=false
+          check() {
+            if [ "$2" = "failure" ]; then
+              echo "::error::$1 failed"
+              failed=true
+            fi
+          }
+          check "kinotic-sql + kinotic-migration build/test" "${{ steps.migration.outcome }}"
+          check "Gradle build" "${{ steps.gradle_build.outcome }}"
+          check "JS workspace tests" "${{ steps.run_workspace_tests.outcome }}"
+          check "E2E tests" "${{ steps.run_e2e_tests.outcome }}"
+          if [ "$failed" = true ]; then
+            exit 1
+          fi
+          echo "All test runs passed."
+
+  # Separate job so the concurrency group below serializes only the report push, leaving the build
+  # job's cancel-previous behavior intact. Shared group with website-deploy.yml prevents concurrent
+  # gh-pages pushes.
+  publish_test_report:
+    name: Publish Allure Report
+    needs: gradle_build_and_publish
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: gh-pages-deploy
+      cancel-in-progress: false
+    env:
+      # Allure 3 CLI version, pinned for reproducible report output and history handling.
+      ALLURE_VERSION: "3.12.0"
+    steps:
+      # Sparse-checkout just allurerc.mjs (needed for historyPath). Must precede the download below,
+      # since checkout cleans its destination.
+      - name: Checkout report config
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: allurerc.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Download Allure results
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: allure-results
+          path: allure-results
+
+      - name: Get Allure history
+        uses: actions/checkout@v7
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      # Allure 3 has no drop-in publish action, so do the history round-trip explicitly:
+      #   1. restore the prior run's history.jsonl from gh-pages (absent on run 1),
+      #   2. `allure generate` reads it (historyPath in allurerc.mjs), writes the report, appends this run,
+      #   3. persist the updated history.jsonl for the next run.
+      # Each run is an immutable folder under test-results/<run_number>/.
+      - name: Generate Allure report
+        run: |
+          if [ ! -d allure-results ] || [ -z "$(ls -A allure-results 2>/dev/null)" ]; then
+            echo "No allure-results found; skipping report generation."
+            exit 0
+          fi
+          if [ -f gh-pages/test-results/history.jsonl ]; then
+            cp gh-pages/test-results/history.jsonl history.jsonl
+          fi
+          npx --yes "allure@${ALLURE_VERSION}" generate allure-results \
+            --config allurerc.mjs \
+            --output "allure-history/test-results/${{ github.run_number }}"
+          mkdir -p allure-history/test-results
+          cp history.jsonl allure-history/test-results/history.jsonl
+
+      # Stable noindex entry point: /test-results/ redirects to the newest run, linkable without
+      # exposing report pages to search engines.
+      - name: Write latest-report redirect
+        run: |
+          # Relative redirect (host-agnostic for the kinotic.ai domain) to the newest run; mkdir
+          # guarantees a target even if generate produced nothing.
+          mkdir -p allure-history/test-results
+          cat > allure-history/test-results/index.html <<EOF
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="robots" content="noindex">
+            <meta http-equiv="refresh" content="0; url=./${{ github.run_number }}/">
+            <title>Kinotic test reports</title>
+          </head>
+          <body>Redirecting to the latest <a href="./${{ github.run_number }}/">Allure report</a></body>
+          </html>
+          EOF
+
+      - name: Deploy report to Github Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-history
+          publish_branch: gh-pages
+          keep_files: true
+
+      - name: Add status to Commit
+        uses: guibranco/github-status-action-v2@v1.2.4
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          context: 'Test Report'
+          description: 'Report published'
+          state: 'success'
+          sha: ${{ github.sha }}
+          target_url: https://kinotic.ai/test-results/${{ github.run_number }}

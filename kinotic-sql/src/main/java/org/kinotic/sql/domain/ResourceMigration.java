@@ -3,6 +3,11 @@ package org.kinotic.sql.domain;
 import org.kinotic.sql.parsers.MigrationParser;
 import org.springframework.core.io.Resource;
 
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Locale;
+import java.util.Set;
+
 /**
  * Migration implementation backed by a Spring Resource.
  * <p>
@@ -14,6 +19,7 @@ public class ResourceMigration implements Migration {
     private final MigrationParser parser;
     private final int version;
     private final String name;
+    private final Set<String> environments;
     private MigrationContent content;
 
     public ResourceMigration(Resource resource, MigrationParser parser) {
@@ -21,6 +27,7 @@ public class ResourceMigration implements Migration {
         this.parser = parser;
         this.name = resource.getFilename();
         this.version = extractVersionFromFilename(name);
+        this.environments = extractEnvironmentsFromFilename(name);
     }
 
     @Override
@@ -31,6 +38,11 @@ public class ResourceMigration implements Migration {
     @Override
     public String getName() {
         return name;
+    }
+
+    @Override
+    public Set<String> getEnvironments() {
+        return environments;
     }
 
     @Override
@@ -57,5 +69,25 @@ public class ResourceMigration implements Migration {
             }
         }
         throw new IllegalArgumentException("Invalid migration filename format: " + filename);
+    }
+
+    private Set<String> extractEnvironmentsFromFilename(String filename) {
+        if (filename == null) throw new IllegalArgumentException("Migration filename is null");
+        if (!filename.toLowerCase(Locale.ROOT).endsWith(".sql")) {
+            throw new IllegalArgumentException("Invalid migration filename format: " + filename);
+        }
+        int idx = filename.indexOf("__");
+        // The portion after the description segment ("V<n>__<description>") holds the optional, dot-delimited environment tokens.
+        String afterDescription = filename.substring(idx + 2, filename.length() - ".sql".length());
+        String[] tokens = afterDescription.split("\\.");
+        Set<String> result = new LinkedHashSet<>();
+        // The first token is the description; everything after it is an environment. Blank tokens (e.g. a double dot) are ignored.
+        for (int i = 1; i < tokens.length; i++) {
+            String env = tokens[i].trim().toLowerCase(Locale.ROOT);
+            if (!env.isEmpty()) {
+                result.add(env);
+            }
+        }
+        return Collections.unmodifiableSet(result);
     }
 } 

@@ -32,13 +32,8 @@ public class KinoticTestConfiguration {
 
         File composeDir = resolveComposeDir();
         File mainCompose = new File(composeDir, "compose.kinotic-test.yml");
-        String osName = System.getProperty("os.name", "");
-        String osArch = System.getProperty("os.arch", "");
-        File[] composeFiles = osName.startsWith("Mac") && "aarch64".equals(osArch)
-            ? new File[] { mainCompose, new File(composeDir, "compose.ek-m4.override.yml") }
-            : new File[] { mainCompose };
 
-        COMPOSE_CONTAINER = new ComposeContainer(composeFiles)
+        COMPOSE_CONTAINER = new ComposeContainer(mainCompose)
                 .withOptions("--project-name", "kinotic-test");
 
 

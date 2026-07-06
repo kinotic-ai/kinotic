@@ -1,4 +1,5 @@
 import { ConnectedInfo, Kinotic } from '@kinotic-ai/core'
+import { isApplicationParticipant, isOrganizationParticipant } from '@kinotic-ai/os-api'
 import { reactive } from 'vue'
 import { createDebug } from '@/util/debug'
 import { apiUrl, createConnectionInfo } from '../util/helpers'
@@ -11,16 +12,16 @@ export interface IUserState {
     isAuthenticated(): boolean
 
     /**
-     * Returns the organization id of the currently authenticated participant. Only valid for
-     * ORGANIZATION-scoped logins, where the participant's authScopeId IS the org id; throws for
-     * SYSTEM- or APPLICATION-scoped participants (those need a separate resolution path — TODO).
+     * Returns the organization id of the authenticated participant. This client admits only
+     * organization-scoped participants; it throws for application- and system-scoped participants.
      */
     getOrganizationId(): string
 
     /**
      * Opens the realtime connection, authenticated by the session cookie a prior REST login
      * established. Resolves once connected; rejects when there is no valid session — so on app
-     * start it doubles as the "is the browser still signed in?" check.
+     * start it doubles as the "is the browser still signed in?" check. Overlapping login/logout
+     * calls run one at a time, so only a single realtime connection is ever open.
      */
     login(): Promise<void>
 
@@ -31,33 +32,39 @@ export interface IUserState {
 export class UserState implements IUserState {
     public connectedInfo: ConnectedInfo | null = null
 
-    public async login(): Promise<void> {
-        try {
-            await Kinotic.disconnect()
-        } catch (error) {
-            debug('No existing connection to disconnect')
-        }
+    private inFlight: Promise<unknown> = Promise.resolve()
 
-        try {
-            this.connectedInfo = await Kinotic.connect(createConnectionInfo())
-        } catch (reason: any) {
-            this.connectedInfo = null
-            throw new Error(reason ? String(reason) : 'Session authentication failed')
-        }
+    public login(): Promise<void> {
+        return this.serialize(async () => {
+            try {
+                await Kinotic.disconnect()
+            } catch (error) {
+                debug('No existing connection to disconnect')
+            }
+
+            try {
+                this.connectedInfo = await Kinotic.connect(createConnectionInfo())
+            } catch (reason: any) {
+                this.connectedInfo = null
+                throw new Error(reason ? String(reason) : 'Session authentication failed')
+            }
+        })
     }
 
-    public async logout(): Promise<void> {
-        try {
-            await fetch(apiUrl('/api/logout'), { method: 'POST', credentials: 'include' })
-        } catch (error) {
-            debug('Logout request failed: %O', error)
-        }
-        try {
-            await Kinotic.disconnect()
-        } catch (error) {
-            debug('Error disconnecting from Kinotic: %O', error)
-        }
-        this.connectedInfo = null
+    public logout(): Promise<void> {
+        return this.serialize(async () => {
+            try {
+                await fetch(apiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' })
+            } catch (error) {
+                debug('Logout request failed: %O', error)
+            }
+            try {
+                await Kinotic.disconnect()
+            } catch (error) {
+                debug('Error disconnecting from Kinotic: %O', error)
+            }
+            this.connectedInfo = null
+        })
     }
 
     public isAuthenticated(): boolean {
@@ -66,13 +73,18 @@ export class UserState implements IUserState {
 
     public getOrganizationId(): string {
         const participant = this.connectedInfo?.participant
-        if (!participant?.authScopeId) {
-            throw new Error('No organization id available — user is not authenticated')
+        // This client admits organization administrators only. An application-scoped participant
+        // also carries an organizationId, so it is excluded explicitly rather than by absence.
+        if (!participant || !isOrganizationParticipant(participant) || isApplicationParticipant(participant)) {
+            throw new Error('No organization id available — this client requires an organization-scoped session')
         }
-        if (participant.authScopeType !== 'ORGANIZATION') {
-            throw new Error(`Cannot resolve organization id: participant is ${participant.authScopeType}-scoped, expected ORGANIZATION`)
-        }
-        return participant.authScopeId
+        return participant.organizationId
+    }
+
+    private serialize<T>(operation: () => Promise<T>): Promise<T> {
+        const result = this.inFlight.then(operation)
+        this.inFlight = result.catch(() => {})   // the next call waits for this one, pass or fail
+        return result
     }
 }
 

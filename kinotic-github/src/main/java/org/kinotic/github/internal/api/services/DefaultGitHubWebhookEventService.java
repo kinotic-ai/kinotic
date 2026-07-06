@@ -6,13 +6,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.github.api.model.GitHubWebhookEvent;
-import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.api.services.GitHubWebhookEventService;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.api.model.RepositoryConnectionStatus;
-import org.kinotic.os.api.services.ProjectService;
+import org.kinotic.domain.internal.api.repositories.ProjectRepository;
+import org.kinotic.github.internal.api.repositories.GitHubAppInstallationRepository;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -25,11 +24,10 @@ import java.util.concurrent.CompletableFuture;
  * access, and republishes a slim envelope for repo events on
  * {@code evt://github/<eventType>/<orgId>/<projectId>}.
  * <p>
- * Webhook deliveries have no Kinotic participant attached, so all reads and writes
- * go through the published {@link GitHubAppInstallationService} and
- * {@link ProjectService} wrapped in {@link SecurityContext#withElevatedAccess} —
- * the same single CRUD layer the rest of the platform uses, just with the per-call
- * org filter disabled.
+ * Webhook deliveries have no Kinotic participant attached, so reads go through the
+ * repositories' find-by-field finders (which need no org context, the search key is
+ * globally unique) and writes call the org-scoped repository overloads directly with the
+ * {@code organizationId} carried on the row just read.
  * <p>
  * Always succeeds — webhook handler returns 204 quickly and any internal error is
  * logged and dropped so GitHub does not redeliver.
@@ -41,9 +39,8 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
 
     private static final String EVT_NAMESPACE = "github";
 
-    private final SecurityContext securityContext;
-    private final GitHubAppInstallationService installationService;
-    private final ProjectService projectService;
+    private final GitHubAppInstallationRepository installationRepository;
+    private final ProjectRepository projectRepository;
     private final EventBusService eventBusService;
 
     @Override
@@ -67,25 +64,22 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
         if (installationId == null) {
             return CompletableFuture.completedFuture(null);
         }
-        return securityContext.withElevatedAccess(
-                () -> installationService.findByGithubInstallationId(installationId))
+        return installationRepository.findByGithubInstallationId(installationId)
                 .thenCompose(existing -> {
                     if (existing == null) {
                         // Created elsewhere or already removed — nothing to mutate.
                         return CompletableFuture.completedFuture(null);
                     }
+                    String orgId = existing.getOrganizationId();
                     return switch (action == null ? "" : action) {
-                        case "deleted" -> securityContext.withElevatedAccess(
-                                () -> installationService.deleteById(existing.getId()));
+                        case "deleted" -> installationRepository.deleteById(existing.getId(), orgId);
                         case "suspend" -> {
                             existing.setSuspendedAt(new Date()).setUpdated(new Date());
-                            yield securityContext.withElevatedAccess(
-                                    () -> installationService.save(existing)).thenApply(saved -> null);
+                            yield installationRepository.save(existing, orgId).thenApply(saved -> null);
                         }
                         case "unsuspend" -> {
                             existing.setSuspendedAt(null).setUpdated(new Date());
-                            yield securityContext.withElevatedAccess(
-                                    () -> installationService.save(existing)).thenApply(saved -> null);
+                            yield installationRepository.save(existing, orgId).thenApply(saved -> null);
                         }
                         default -> CompletableFuture.completedFuture(null);
                     };
@@ -110,7 +104,7 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
     }
 
     private CompletableFuture<Void> markDisconnected(String repoFullName) {
-        return securityContext.withElevatedAccess(() -> projectService.findByRepoFullName(repoFullName))
+        return projectRepository.findByRepoFullName(repoFullName)
                 .thenCompose(projects -> {
                     if (projects.isEmpty()) {
                         log.debug("Installation lost access to {}; no Kinotic project backed by it", repoFullName);
@@ -118,14 +112,14 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
                     }
                     CompletableFuture<Void> chain = CompletableFuture.completedFuture(null);
                     for (Project project : projects) {
-                        if (project.getRepositoryConnectionStatus() == RepositoryConnectionStatus.DISCONNECTED) {
+                        if (project.getRepoConnectionStatus() == RepositoryConnectionStatus.DISCONNECTED) {
                             continue;
                         }
-                        project.setRepositoryConnectionStatus(RepositoryConnectionStatus.DISCONNECTED);
+                        project.setRepoConnectionStatus(RepositoryConnectionStatus.DISCONNECTED);
                         log.warn("Flagging project {} (org {}) DISCONNECTED — installation lost access to {}",
                                  project.getId(), project.getOrganizationId(), repoFullName);
-                        chain = chain.thenCompose(v -> securityContext
-                                .withElevatedAccess(() -> projectService.save(project))
+                        chain = chain.thenCompose(v -> projectRepository
+                                .save(project, project.getOrganizationId())
                                 .thenApply(saved -> null));
                     }
                     return chain;
@@ -136,8 +130,7 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
         if (event.getRepoFullName() == null) {
             return CompletableFuture.completedFuture(null);
         }
-        return securityContext.withElevatedAccess(
-                () -> projectService.findByRepoFullName(event.getRepoFullName()))
+        return projectRepository.findByRepoFullName(event.getRepoFullName())
                 .thenAccept(projects -> {
                     if (projects.isEmpty()) {
                         log.debug("No Kinotic project for repo {} (event {}); dropping",

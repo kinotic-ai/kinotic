@@ -1,18 +1,9 @@
 /**
- * Sent to the server to initiate an organization sign-up.
- * The user provides {@link orgName}, {@link orgDescription}, {@link email}, and
- * {@link displayName}. The remaining fields ({@link id}, {@link verificationToken},
- * {@link expiresAt}, {@link created}) are populated by the server before the record
- * is persisted.
+ * Sent to {@code POST /api/auth/org/signup} to start an email/password organization sign-up.
+ * Only the user's identity is collected up front; the organization name and password are
+ * provided after email verification (see {@link SignUpCompleteRequest}).
  */
 export interface SignUpRequest {
-    id?: string | null
-    verificationToken?: string | null
-    expiresAt?: number | null
-    created?: number | null
-
-    orgName: string
-    orgDescription?: string | null
     email: string
     displayName: string
 }

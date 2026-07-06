@@ -4,6 +4,7 @@ package org.kinotic.core.api.event;
 
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.kinotic.core.api.security.Participant;
 
 /**
  *
@@ -14,6 +15,7 @@ public class DefaultEvent<T> implements Event<T>{
     private final CRI cri;
     private final Metadata metadata;
     private final T data;
+    private Participant sender;
 
     public DefaultEvent(CRI cri, Metadata metadata, T data) {
         Validate.notNull(cri, "CRI must not be null");
@@ -25,6 +27,11 @@ public class DefaultEvent<T> implements Event<T>{
 
     public DefaultEvent(CRI cri, T data) {
         this(cri, new DefaultMetadata(), data);
+    }
+
+    public DefaultEvent(CRI cri, Metadata metadata, T data, Participant sender) {
+        this(cri, metadata, data);
+        this.sender = sender;
     }
 
     @Override
@@ -40,6 +47,16 @@ public class DefaultEvent<T> implements Event<T>{
     @Override
     public T data() {
         return data;
+    }
+
+    @Override
+    public Participant sender() {
+        return sender;
+    }
+
+    @Override
+    public void setSender(Participant sender) {
+        this.sender = sender;
     }
 
     @Override

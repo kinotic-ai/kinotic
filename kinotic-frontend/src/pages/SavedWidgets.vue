@@ -1,5 +1,5 @@
 <template>
-  <div :class="['saved-widgets-page p-4', isDark ? 'text-surface-0' : 'text-surface-950']">
+  <div :class="['saved-widgets-page', isDark ? 'text-surface-0' : 'text-surface-950']">
     <h1 :class="['text-2xl font-semibold mb-4', isDark ? 'text-surface-0' : 'text-surface-950']">Saved Widgets</h1>
 
     <!-- Loading state -->

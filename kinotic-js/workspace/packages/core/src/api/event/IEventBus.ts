@@ -187,6 +187,11 @@ export enum EventConstants {
     CORRELATION_ID_HEADER = '__correlation-id',
 
     /**
+     * Origin service CRI the server sends on stream replies so the client can route a cancel back to it.
+     */
+    ORIGIN_CRI_HEADER = '__origin-cri',
+
+    /**
      * Denotes that something caused an error. Will contain a brief message about the error
      */
     ERROR_HEADER = 'error',
@@ -221,6 +226,7 @@ export enum EventConstants {
 
     CONTENT_JSON = 'application/json',
     CONTENT_TEXT = 'text/plain',
+    CONTENT_OCTET_STREAM = 'application/octet-stream',
 
     /**
      * The traceparent HTTP header field identifies the incoming request in a tracing system. It has four fields:

@@ -17,11 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.config.SslHelper;
 import org.kinotic.core.internal.utils.CorsUtil;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
-import org.kinotic.billing.api.rest.BillingGatewayRoutes;
-import org.kinotic.gateway.internal.endpoints.rest.*;
-import org.kinotic.github.api.rest.GitHubGatewayRoutes;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -37,16 +34,7 @@ public class ApiGatewayVertcleFactory {
     private final KinoticApiGatewayProperties properties;
     private final KinoticDomainProperties domainProperties;
     private final StompServerHandlerFactory stompServerHandlerFactory;
-    private final SignUpHandler signUpHandler;
-    private final OrganizationLoginHandler organizationLoginHandler;
-    private final OrganizationSignupHandler organizationSignupHandler;
-    private final ApplicationLoginHandler applicationLoginHandler;
-    private final SystemLoginHandler systemLoginHandler;
-    private final CliDeviceLoginHandler cliDeviceLoginHandler;
-    private final LogoutHandler logoutHandler;
-    private final GitHubGatewayRoutes githubGatewayRoutes;
-    // ObjectProvider: the billing module is conditional on kinotic.billing.enabled
-    private final ObjectProvider<BillingGatewayRoutes> billingGatewayRoutes;
+    private final List<SuppliesGatewayRoutes> gatewayRoutes;
     private final HealthChecks healthChecks;
     private final Vertx vertx;
     private final SessionStore sessionStore;
@@ -78,16 +66,9 @@ public class ApiGatewayVertcleFactory {
 
         router.route("/api/*").handler(sessionHandler);
 
-        // REST endpoints under /api
-        signUpHandler.mountRoutes(router);
-        organizationLoginHandler.mountRoutes(router);
-        organizationSignupHandler.mountRoutes(router);
-        applicationLoginHandler.mountRoutes(router);
-        cliDeviceLoginHandler.mountRoutes(router);
-        logoutHandler.mountRoutes(router);
-        //systemLoginHandler.mountRoutes(router);
-        githubGatewayRoutes.mountRoutes(router);
-        billingGatewayRoutes.ifAvailable(routes -> routes.mountRoutes(router));
+        // REST endpoints under /api — every bean supplying gateway routes is collected and mounted
+        // here, so a disabled module contributes nothing and the gateway still boots.
+        gatewayRoutes.forEach(routes -> routes.mountRoutes(router));
 
         StompServerOptions stompServerOptions = properties.getApiGateway().getStomp();
         // we override the body length with the continuum properties

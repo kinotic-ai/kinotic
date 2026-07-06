@@ -1,7 +1,12 @@
 # General properties shared by all profiles
 kinotic:
+  github:
+    appId: 3584018
+    appSlug: kinotic-ai
+    repoTemplate: kinotic-ai/kinotic-tpl-isomorphic-ts
   persistence:
     openApiSecurityType: BASIC
+
 
 logging:
   level:

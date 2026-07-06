@@ -15,6 +15,7 @@ import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.Assert;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Map;
 
@@ -28,12 +29,14 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
 
     private final Vertx vertx;
     private final EndpointConnectionHandler endpointConnectionHandler;
+    private final JsonMapper jsonMapper;
 
 
     public DefaultStompServerHandler(Vertx vertx,
                                      Services services) {
         this.vertx = vertx;
         this.endpointConnectionHandler = new EndpointConnectionHandler(services);
+        this.jsonMapper = services.jsonMapper;
     }
 
     @Override
@@ -81,7 +84,7 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
 
             CRI cri = CRI.create(frame.getDestination());
 
-            StompSubscriptionEventSubscriber subscriber = new StompSubscriptionEventSubscriber(cri.raw(), subscriptionId, stompServerConnection);
+            StompSubscriptionEventSubscriber subscriber = new StompSubscriptionEventSubscriber(cri.raw(), subscriptionId, stompServerConnection, jsonMapper);
             endpointConnectionHandler.subscribe(cri, subscriptionId, subscriber);
 
         } catch (Exception e) {

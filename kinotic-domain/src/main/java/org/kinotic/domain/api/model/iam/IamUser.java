@@ -10,11 +10,19 @@ import java.util.Date;
 
 /**
  * Represents an authenticated identity at any scope layer in the IAM system.
- * Each user is scoped to exactly one layer and is unique by email within that scope.
+ * Each user is scoped to exactly one layer — SYSTEM, an Organization, or an Application
+ * within an Organization — and is unique by email within that scope. The scope is encoded
+ * structurally by which of {@link #organizationId} / {@link #applicationId} is set:
+ * <ul>
+ *   <li>both null → SYSTEM (platform operators)</li>
+ *   <li>{@code organizationId} set, {@code applicationId} null → ORGANIZATION</li>
+ *   <li>both set → APPLICATION (a user of an Application owned by an Organization)</li>
+ * </ul>
  * Users must be pre-created by an administrator before they can authenticate.
  * <p>
- * The {@code authScopeType} is a plain String to keep the scope system extensible —
- * customers using kinotic-core for RPC without the full IAM stack can define their own scope types.
+ * Auth-flow callers continue to use {@code authScopeType} + {@code authScopeId} as the
+ * wire-level scope parameters (STOMP CONNECT headers, JWT claims, URL routing); those
+ * values are matched against the typed fields here at authentication time.
  */
 @Getter
 @Setter
@@ -25,7 +33,7 @@ public class IamUser implements Identifiable<String> {
     private String id;
 
     /**
-     * Email address, unique within the user's scope (authScopeType + authScopeId).
+     * Email address, unique within the user's scope (organizationId + applicationId).
      */
     private String email;
 
@@ -38,7 +46,7 @@ public class IamUser implements Identifiable<String> {
 
     /**
      * The {@code sub} claim from the OIDC token. Populated when an OIDC user is provisioned
-     * (auto on first login, or via PendingRegistration completion); used together with
+     * (auto on first login, or via pending sign-up completion); used together with
      * {@link #oidcConfigId} to resolve the IamUser back from the IdP callback.
      */
     private String oidcSubject;
@@ -50,22 +58,24 @@ public class IamUser implements Identifiable<String> {
     private String oidcConfigId;
 
     /**
-     * The scope layer this user belongs to. Well-known values are "SYSTEM", "ORGANIZATION",
-     * and "APPLICATION", but custom values are allowed for extensibility.
+     * The Organization this user belongs to. {@code null} for SYSTEM users; set for both
+     * ORGANIZATION and APPLICATION users (an Application is owned by exactly one Org, so
+     * APP-scope users intrinsically carry the owning org's id).
      */
-    private String authScopeType;
+    private String organizationId;
 
     /**
-     * The scope identifier: "kinotic" for SYSTEM, the organization ID for ORGANIZATION,
-     * or the application ID for APPLICATION. Always set — never null.
+     * The Application this user authenticates against. {@code null} for SYSTEM and
+     * ORGANIZATION users; set for APPLICATION users. When set, {@link #organizationId}
+     * must also be set (the org that owns the application).
      */
-    private String authScopeId;
+    private String applicationId;
 
     /**
      * The client tenant this user belongs to within their application's data model.
-     * Only meaningful when {@link #authScopeType} is {@code "APPLICATION"} — application
-     * tenants partition the data of {@code MultiTenancyType.SHARED} entities owned by the app.
-     * Must be null for SYSTEM and ORGANIZATION scopes; those identities are not tenants.
+     * Only meaningful when {@link #applicationId} is set — application tenants partition
+     * the data of {@code MultiTenancyType.SHARED} entities owned by the app. Must be null
+     * for SYSTEM and ORGANIZATION scopes; those identities are not tenants.
      */
     private String tenantId;
 

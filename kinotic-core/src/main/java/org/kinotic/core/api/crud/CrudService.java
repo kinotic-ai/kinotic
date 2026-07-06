@@ -53,6 +53,16 @@ public interface CrudService<T, ID> {
     CompletableFuture<Void> deleteById(ID id);
 
     /**
+     * Deletes the entity with the given id and waits for the deletion to be visible in search results
+     * before returning. Use this when you need read-your-write consistency.
+     *
+     * @param id must not be {@literal null}
+     * @return {@link CompletableFuture} signaling when the deletion is visible to search
+     * @throws IllegalArgumentException in case the given {@literal id} is {@literal null}
+     */
+    CompletableFuture<Void> deleteByIdSync(ID id);
+
+    /**
      * Returns a {@link Page} of entities meeting the paging restriction provided in the {@link Pageable} object.
      *
      * @param pageable the page settings to be used

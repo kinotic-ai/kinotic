@@ -8,7 +8,7 @@ import org.kinotic.sql.domain.MigrationContent;
 import org.kinotic.sql.domain.statements.CreateTableStatement;
 import org.kinotic.sql.executor.MigrationExecutor;
 import org.kinotic.sql.parsers.MigrationParser;
-import org.kinotic.test.support.elastic.ElasticTestBase;
+import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Parser-level tests: assert on the Column tree produced by MigrationParser
  * without executing against Elasticsearch.
  */
-class CompositeTypeParserTest extends ElasticTestBase {
+class CompositeTypeParserTest extends KinoticTestBase {
 
     @Autowired
     private MigrationParser migrationParser;

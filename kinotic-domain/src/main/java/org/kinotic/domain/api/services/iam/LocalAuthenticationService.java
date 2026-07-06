@@ -7,7 +7,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * In-process service for verifying email + password and resolving the matching
  * {@link IamUser}. Not {@code @Publish}-annotated: raw passwords never travel over RPC,
- * only direct in-JVM calls (e.g. the {@code POST /api/login/token} HTTP handler) or
+ * only direct in-JVM calls (e.g. the {@code POST /api/auth/org/login} HTTP handler) or
  * STOMP CONNECT credentials handled separately by the {@code SecurityService}.
  */
 public interface LocalAuthenticationService {
@@ -25,11 +25,17 @@ public interface LocalAuthenticationService {
 
     /**
      * Scope-restricted variant of {@link #authenticateLocal(String, String)}: only
-     * matches an {@link IamUser} in the given {@code (authScopeType, authScopeId)} pair.
-     * Used by the application and system login handlers so a stray cross-scope match
-     * (e.g. the dev admin row in SYSTEM scope) can't authenticate against an app or
-     * system endpoint.
+     * matches an {@link IamUser} in the given {@code (organizationId, applicationId)}
+     * pair. Used by the application and system login handlers so a stray cross-scope
+     * match (e.g. the dev admin row in SYSTEM scope) can't authenticate against an app
+     * or system endpoint. Scope is identified structurally:
+     * <ul>
+     *   <li>both null → SYSTEM</li>
+     *   <li>{@code organizationId} only → ORGANIZATION</li>
+     *   <li>both set → APPLICATION</li>
+     * </ul>
      */
     CompletableFuture<IamUser> authenticateLocal(String email, String password,
-                                                 String authScopeType, String authScopeId);
+                                                 String organizationId, String applicationId);
 }
+

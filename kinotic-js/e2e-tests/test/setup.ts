@@ -3,8 +3,6 @@ import {Kinotic} from '@kinotic-ai/core'
 import {PersistencePlugin} from '@kinotic-ai/persistence'
 // @ts-ignore
 import path from 'node:path'
-// @ts-ignore
-import os from 'node:os'
 import {StartedDockerComposeEnvironment, DockerComposeEnvironment, Wait} from 'testcontainers'
 // @ts-ignore
 import {TestProject} from 'vitest/node.js'
@@ -17,12 +15,6 @@ Kinotic.use(OsApiPlugin)
 
 let environment: StartedDockerComposeEnvironment
 
-function isOSX_M1() {
-    const arch = os.arch()
-    const platform = os.platform()
-    return platform === 'darwin' && arch === 'arm64'
-}
-
 // Run once before all tests
 export async function setup(project: TestProject) {
     // @ts-ignore
@@ -31,9 +23,6 @@ export async function setup(project: TestProject) {
 
         const resolvedPath = path.resolve('../../deployment/docker-compose/')
         const files = ['compose.kinotic-e2e-test.yml']
-        if (isOSX_M1()) {
-            files.push('compose.ek-m4.override.yml')
-        }
         environment = await new DockerComposeEnvironment(resolvedPath, files)
             .withWaitStrategy('kinotic-elasticsearch', Wait.forHttp('/_cluster/health', 9200))
             .withWaitStrategy('kinotic-server', Wait.forHttp('/health', 9090))

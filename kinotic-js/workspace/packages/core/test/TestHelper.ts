@@ -1,4 +1,4 @@
-import {ConnectedInfo, ConnectionInfo, IWebSocket, SessionKeepAliveMode, WebSocketFactory} from '../src'
+import {ConnectedInfo, ConnectionInfo, type IWebSocket, SessionKeepAliveMode, type WebSocketFactory} from '../src'
 import { expect, inject } from 'vitest'
 import { WebSocket } from 'ws'
 import * as fs from 'fs'
@@ -10,17 +10,16 @@ import * as path from 'path'
  * the STOMP CONNECT frame is processed.
  */
 export interface AuthHeaders {
-    login: string
-    passcode: string
-    authScopeType: 'SYSTEM' | 'ORGANIZATION' | 'APPLICATION'
-    authScopeId: string
+    clientId: string
+    clientSecret: string
+    organizationId?: string
+    applicationId?: string
 }
 
 const DEFAULT_AUTH_HEADERS: AuthHeaders = {
-    login: 'kinotic@kinotic.local',
-    passcode: 'kinotic',
-    authScopeType: 'ORGANIZATION',
-    authScopeId: 'kinotic-test'
+    clientId: 'kinotic@kinotic.local',
+    clientSecret: 'kinotic',
+    organizationId: 'kinotic-test'
 }
 
 /**
@@ -30,10 +29,11 @@ export function getKinoticDockerImage(): string {
     const gradlePropsPath = path.resolve(__dirname, '../../../../../gradle.properties')
     const content = fs.readFileSync(gradlePropsPath, 'utf-8')
     const versionMatch = content.match(/kinoticVersion=(.+)/)
-    if (!versionMatch) {
+    const version = versionMatch?.[1]
+    if (!version) {
         throw new Error('Could not find kinoticVersion in gradle.properties')
     }
-    return `kinoticai/kinotic-server:${versionMatch[1].trim()}`
+    return `kinoticai/kinotic-server:${version.trim()}`
 }
 
 export const KINOTIC_DOCKER_IMAGE: string = getKinoticDockerImage()

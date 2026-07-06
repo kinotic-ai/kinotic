@@ -113,6 +113,16 @@ public class StripeEventDispatcherTest {
         }
 
         @Override
+        public CompletableFuture<RevenueSplit> create(RevenueSplit entity) {
+            return unsupported();
+        }
+
+        @Override
+        public CompletableFuture<RevenueSplit> createSync(RevenueSplit entity) {
+            return unsupported();
+        }
+
+        @Override
         public CompletableFuture<RevenueSplit> findById(String id) {
             return unsupported();
         }
@@ -124,6 +134,11 @@ public class StripeEventDispatcherTest {
 
         @Override
         public CompletableFuture<Void> deleteById(String id) {
+            return unsupported();
+        }
+
+        @Override
+        public CompletableFuture<Void> deleteByIdSync(String id) {
             return unsupported();
         }
 

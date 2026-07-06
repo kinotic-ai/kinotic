@@ -1,4 +1,0 @@
-services:
-  kinotic-elasticsearch:
-    environment:
-      - _JAVA_OPTIONS=-XX:UseSVE=0

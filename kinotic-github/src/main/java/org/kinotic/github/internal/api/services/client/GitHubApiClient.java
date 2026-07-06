@@ -1,8 +1,10 @@
 package org.kinotic.github.internal.api.services.client;
 
 import io.vertx.core.Future;
+import io.vertx.core.buffer.Buffer;
 import org.kinotic.github.api.model.GitHubToken;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -15,6 +17,27 @@ public interface GitHubApiClient {
     /** Standard token scopes used in the platform. */
     Map<String, String> READ_CONTENTS = Map.of("contents", "read");
     Map<String, String> WRITE_CONTENTS = Map.of("contents", "write");
+
+    /**
+     * Creates a blob on {@code repoFullName} and returns its SHA, for binary
+     * content that cannot ride inline in {@link #createTree}.
+     *
+     * @param installationToken token with {@code contents:write} on the target repo
+     */
+    Future<String> createBlob(String installationToken,
+                              String repoFullName,
+                              byte[] content);
+
+    /**
+     * Creates a root commit (no parents) pointing at {@code treeSha} and returns
+     * the commit SHA.
+     *
+     * @param installationToken token with {@code contents:write} on the target repo
+     */
+    Future<String> createCommit(String installationToken,
+                                String repoFullName,
+                                String message,
+                                String treeSha);
 
     /**
      * Creates a ref on {@code repoFullName}. Idempotent: a 422 with body
@@ -52,6 +75,28 @@ public interface GitHubApiClient {
                                                      boolean isPrivate);
 
     /**
+     * Creates a complete Git tree (no base tree) on {@code repoFullName} from
+     * {@code entries} and returns the tree SHA.
+     *
+     * @param installationToken token with {@code contents:write} on the target repo
+     */
+    Future<String> createTree(String installationToken,
+                              String repoFullName,
+                              List<TreeEntry> entries);
+
+    /**
+     * Downloads {@code ref} of {@code repoFullName} as a gzipped tarball. The
+     * archive wraps all paths in a single root directory and fails with a 404
+     * while the repo has no content yet.
+     *
+     * @param installationToken token with {@code contents:read} on the target repo
+     * @param ref               branch, tag, or commit SHA
+     */
+    Future<Buffer> downloadTarball(String installationToken,
+                                   String repoFullName,
+                                   String ref);
+
+    /**
      * Looks up the install metadata GitHub holds for {@code installationId}. Used at
      * link time to capture the owning account's login + type for our own record.
      */
@@ -73,4 +118,17 @@ public interface GitHubApiClient {
     Future<GitHubToken> getToken(long installationId,
                                  Long repoId,
                                  Map<String, String> permissions);
+
+    /**
+     * Moves an existing ref on {@code repoFullName} to {@code sha}.
+     *
+     * @param installationToken token with {@code contents:write} on the target repo
+     * @param refName           ref without the {@code refs/} prefix, e.g. {@code heads/main}
+     * @param force             move the ref even when the update is not fast-forward
+     */
+    Future<Void> updateRef(String installationToken,
+                           String repoFullName,
+                           String refName,
+                           String sha,
+                           boolean force);
 }

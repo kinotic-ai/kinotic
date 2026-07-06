@@ -1,61 +1,20 @@
 
 import { type RouteMeta, type RouteRecordRaw } from 'vue-router'
+import type { SidebarItemMeta } from '@/types/SidebarItemMeta'
 
-function organizationSidebarItems() {
-  return [
-    {
-      label: 'Applications',
-      icon: 'pi-th-large',
-      path: '/applications',
-      section: 'Workspace'
-    },
-    {
-      label: 'Members',
-      icon: 'pi-users',
-      path: '/members',
-      section: 'Organization'
-    },
-    {
-      label: 'Roles & permissions',
-      icon: 'pi-shield',
-      path: '/roles-permissions',
-      section: 'Organization'
-    },
-    {
-      label: 'Authentication providers',
-      icon: 'pi-key',
-      path: '/authentication-providers',
-      section: 'Organization'
-    },
-    {
-      label: 'Identity mapping',
-      icon: 'pi-sort-alt',
-      path: '/identity-mapping',
-      section: 'Organization'
-    },
-    {
-      label: 'Organization settings',
-      icon: 'pi-cog',
-      path: '/organization-settings',
-      section: 'Organization'
-    },
-    {
-      label: 'Billing & plan',
-      icon: 'pi-credit-card',
-      path: '/billing-plan',
-      section: 'Organization'
-    }
-  ]
+function organizationSidebarItem(label: string, icon: string, order: number): SidebarItemMeta {
+  return { group: 'organization', section: 'Organization', label, icon, order }
 }
 
-function organizationPlaceholderRoute(path: string, name: string, title: string, description: string): RouteRecordRaw {
+function organizationPlaceholderRoute(path: string, name: string, title: string, description: string,
+                                      icon: string, order: number): RouteRecordRaw {
   return {
     path,
     component: () => import('@/layouts/LayoutForPage.vue'),
     meta: {
       showInMainNav: false,
       label: title,
-      sidebarItems: organizationSidebarItems
+      sidebar: organizationSidebarItem(title, icon, order)
     } as RouteMeta,
     children: [
       {
@@ -79,7 +38,7 @@ const pageRoutes: RouteRecordRaw[] = [
       showInMainNav: true,
       icon: 'microchip.svg',
       label: 'Applications',
-      sidebarItems: organizationSidebarItems
+      sidebar: { group: 'organization', section: 'Workspace', label: 'Applications', icon: 'pi-th-large', order: 10 } as SidebarItemMeta
     } as RouteMeta,
     children: [
       {
@@ -90,12 +49,28 @@ const pageRoutes: RouteRecordRaw[] = [
     ]
   },
 
-  organizationPlaceholderRoute('/members', 'organization-members', 'Members', 'Manage the people who can access this organization.'),
-  organizationPlaceholderRoute('/roles-permissions', 'organization-roles', 'Roles & permissions', 'Define roles and control access across your organization.'),
-  organizationPlaceholderRoute('/authentication-providers', 'organization-auth-providers', 'Authentication providers', 'Configure the identity providers available to this organization.'),
-  organizationPlaceholderRoute('/identity-mapping', 'organization-identity-mapping', 'Identity mapping', 'Map external identities to your organization users and roles.'),
-  organizationPlaceholderRoute('/organization-settings', 'organization-settings', 'Organization settings', 'Update organization-wide settings and preferences.'),
-  organizationPlaceholderRoute('/billing-plan', 'organization-billing-plan', 'Billing & plan', 'Review subscription, billing, and usage details for this organization.'),
+  {
+    path: '/members',
+    component: () => import('@/layouts/LayoutForPage.vue'),
+    meta: {
+      showInMainNav: false,
+      label: 'Members',
+      sidebar: organizationSidebarItem('Members', 'pi-users', 20)
+    } as RouteMeta,
+    children: [
+      {
+        name: 'organization-members',
+        path: '',
+        component: () => import('@/pages/MembersPage.vue'),
+        props: { applicationId: null }
+      }
+    ]
+  },
+  organizationPlaceholderRoute('/roles-permissions', 'organization-roles', 'Roles & permissions', 'Define roles and control access across your organization.', 'pi-shield', 30),
+  organizationPlaceholderRoute('/authentication-providers', 'organization-auth-providers', 'Authentication providers', 'Configure the identity providers available to this organization.', 'pi-key', 40),
+  organizationPlaceholderRoute('/identity-mapping', 'organization-identity-mapping', 'Identity mapping', 'Map external identities to your organization users and roles.', 'pi-sort-alt', 50),
+  organizationPlaceholderRoute('/organization-settings', 'organization-settings', 'Organization settings', 'Update organization-wide settings and preferences.', 'pi-cog', 60),
+  organizationPlaceholderRoute('/billing-plan', 'organization-billing-plan', 'Billing & plan', 'Review subscription, billing, and usage details for this organization.', 'pi-credit-card', 70),
 
   {
     path: '/application/:applicationId',
@@ -104,55 +79,33 @@ const pageRoutes: RouteRecordRaw[] = [
       showInMainNav: false,
       label: 'Application Details',
       icon: 'microchip.svg',
-      sidebarItems: (route: { params: { applicationId: any } }) => [
-        {
-          label: 'Overview',
-          icon: 'pi-objects-column',
-          path: `/application/${route.params.applicationId}`
-        },
-        // {
-        //   label: 'Authentication',
-        //   icon: 'pi pi-key',
-        //   path: `/application/${route.params.applicationId}/auth`
-        // },
-        {
-          label: 'Dashboards',
-          icon: 'pi pi-chart-line',
-          path: `/application/${route.params.applicationId}/dashboards`
-        },
-        {
-          label: 'Data Insights',
-          icon: 'pi pi-lightbulb',
-          path: `/application/${route.params.applicationId}/data-insights`
-        },
-        {
-          label: 'Data Insights Widgets',
-          icon: 'pi pi-bookmark',
-          path: `/application/${route.params.applicationId}/saved-widgets`
-        },
-        {
-          label: 'Application settings',
-          icon: 'pi pi-cog',
-          path: `/application/${route.params.applicationId}/settings`
-        }
-      ]
+      // Children declare their own sidebar items; detail routes without one (dashboard
+      // view/edit) still render this group's sidebar.
+      sidebarGroup: 'application'
     }  as RouteMeta,
     children: [
       {
         name: 'application-details',
         path: '',
+        meta: {
+          sidebar: { group: 'application', label: 'Overview', icon: 'pi-objects-column', order: 10 } as SidebarItemMeta
+        } as RouteMeta,
         component: () => import('@/pages/ApplicationDetails.vue'),
         props: (route) => ({ applicationId: route.params.applicationId })
       },
       {
         name: 'application-dashboards',
         path: 'dashboards',
+        meta: {
+          sidebar: { group: 'application', label: 'Dashboards', icon: 'pi pi-chart-line', order: 20 } as SidebarItemMeta
+        } as RouteMeta,
         component: () => import('@/pages/Dashboards.vue'),
         props: (route) => ({ applicationId: route.params.applicationId })
       },
       {
         name: 'dashboard-view',
         path: 'dashboards/:dashboardId',
+        meta: { fullWidth: true } as RouteMeta,
         component: () => import('@/pages/DashboardDetails.vue'),
         props: (route) => ({ 
           applicationId: route.params.applicationId,
@@ -163,6 +116,7 @@ const pageRoutes: RouteRecordRaw[] = [
       {
         name: 'dashboard-edit',
         path: 'dashboards/:dashboardId/edit',
+        meta: { fullWidth: true } as RouteMeta,
         component: () => import('@/pages/DashboardDetails.vue'),
         props: (route) => ({ 
           applicationId: route.params.applicationId,
@@ -173,6 +127,7 @@ const pageRoutes: RouteRecordRaw[] = [
       {
         name: 'dashboard-new',
         path: 'dashboards/new',
+        meta: { fullWidth: true } as RouteMeta,
         component: () => import('@/pages/DashboardDetails.vue'),
         props: (route) => ({ 
           applicationId: route.params.applicationId,
@@ -183,18 +138,46 @@ const pageRoutes: RouteRecordRaw[] = [
       {
         name: 'application-data-insights',
         path: 'data-insights',
+        meta: {
+          fullWidth: true,
+          sidebar: { group: 'application', label: 'Data Insights', icon: 'pi pi-lightbulb', order: 30 } as SidebarItemMeta
+        } as RouteMeta,
         component: () => import('@/pages/DataInsights.vue'),
         props: (route) => ({ applicationId: route.params.applicationId })
       },
       {
         name: 'application-saved-widgets',
         path: 'saved-widgets',
+        meta: {
+          sidebar: { group: 'application', label: 'Data Insights Widgets', icon: 'pi pi-bookmark', order: 40 } as SidebarItemMeta
+        } as RouteMeta,
         component: () => import('@/pages/SavedWidgets.vue'),
+        props: (route) => ({ applicationId: route.params.applicationId })
+      },
+      {
+        name: 'application-members',
+        path: 'members',
+        meta: {
+          sidebar: { group: 'application', label: 'Members', icon: 'pi pi-users', order: 50 } as SidebarItemMeta
+        } as RouteMeta,
+        component: () => import('@/pages/MembersPage.vue'),
+        props: (route) => ({ applicationId: route.params.applicationId })
+      },
+      {
+        name: 'application-invite-email',
+        path: 'invite-email',
+        meta: {
+          sidebar: { group: 'application', label: 'Invitation email', icon: 'pi pi-envelope', order: 60 } as SidebarItemMeta
+        } as RouteMeta,
+        component: () => import('@/pages/InviteEmailTemplatePage.vue'),
         props: (route) => ({ applicationId: route.params.applicationId })
       },
       {
         name: 'application-settings',
         path: 'settings',
+        meta: {
+          sidebar: { group: 'application', label: 'Application settings', icon: 'pi pi-cog', order: 70 } as SidebarItemMeta
+        } as RouteMeta,
         component: () => import('@/pages/ApplicationSettings.vue'),
         props: (route) => ({ applicationId: route.params.applicationId })
       }
@@ -217,28 +200,15 @@ const pageRoutes: RouteRecordRaw[] = [
       showInMainNav: false,
       icon: 'objects-column.svg',
       label: 'Project Entities',
-      sidebarItems: (route: { params: { applicationId: any; projectId: any; }; }) => [
-        {
-          label: 'Entities',
-          icon: 'pi pi-table',
-          path: `/application/${route.params.applicationId}/project/${route.params.projectId}/structures`
-        }
-        // {
-        //   label: 'Lambdas',
-        //   icon: 'pi pi-key',
-        //   path: `/application/${route.params.applicationId}/project/${route.params.projectId}/structures/sections`
-        // },
-        // {
-        //   label: 'Project settings',
-        //   icon: 'pi pi-cog',
-        //   path: `/application/${route.params.applicationId}/project/${route.params.projectId}/structures/settings`
-        // }
-      ]
+      sidebarGroup: 'project'
     } as RouteMeta,
     children: [
       {
         name: 'project-structures',
         path: '',
+        meta: {
+          sidebar: { group: 'project', label: 'Entities', icon: 'pi pi-table', order: 10 } as SidebarItemMeta
+        } as RouteMeta,
         component: () => import('@/pages/ProjectStructuresPage.vue'),
         props: (route) => ({
           applicationId: route.params.applicationId,
@@ -315,6 +285,14 @@ const pageRoutes: RouteRecordRaw[] = [
   {
     path: '/register',
     component: () => import('@/pages/signup/CompleteOrg.vue'),
+    meta: {
+      showInMainNav: false,
+      authenticationRequired: false
+    } as RouteMeta,
+  },
+  {
+    path: '/invite/accept',
+    component: () => import('@/pages/signup/AcceptInvitation.vue'),
     meta: {
       showInMainNav: false,
       authenticationRequired: false

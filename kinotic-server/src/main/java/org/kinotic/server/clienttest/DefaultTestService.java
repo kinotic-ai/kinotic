@@ -4,9 +4,11 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Vertx;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.*;
@@ -20,6 +22,10 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultTestService implements ITestService{
 
     private static final UUID TEST_UUID = UUID.randomUUID();
+
+    private static final byte[] BINARY_DATA = {0, 1, 2, 3, (byte) 0xFF, (byte) 0xFE, 42, -1};
+
+    private static final byte[][] BINARY_CHUNKS = {{10, 20, 30}, {40, 50}, {60, 70, 80, 90}};
 
     @Autowired
     private SecurityContext securityContext;
@@ -36,6 +42,18 @@ public class DefaultTestService implements ITestService{
     @Override
     public UUID getTestUUID(){
         return TEST_UUID;
+    }
+
+    @WithSpan
+    @Override
+    public byte[] getBinaryData() {
+        return BINARY_DATA;
+    }
+
+    @WithSpan
+    @Override
+    public Flux<byte[]> getBinaryDataStream() {
+        return Flux.fromArray(BINARY_CHUNKS);
     }
 
     @WithSpan
@@ -72,7 +90,9 @@ public class DefaultTestService implements ITestService{
             throw new IllegalStateException("Participant parameter ID (" + participant.getId()
                                             + ") does not match context ID (" + fromContext.getId() + ")");
         }
-        if (!Objects.equals(participant.getTenantId(), fromContext.getTenantId())) {
+        String paramTenant = participant instanceof ApplicationParticipant app ? app.getTenantId() : null;
+        String ctxTenant = fromContext instanceof ApplicationParticipant app ? app.getTenantId() : null;
+        if (!Objects.equals(paramTenant, ctxTenant)) {
             throw new IllegalStateException("Participant parameter tenantId does not match context tenantId");
         }
         if (!Objects.equals(participant.getRoles(), fromContext.getRoles())) {
@@ -201,7 +221,7 @@ public class DefaultTestService implements ITestService{
     private Map<String, Object> participantToMap(Participant participant) {
         Map<String, Object> result = new HashMap<>();
         result.put("id", participant.getId());
-        result.put("tenantId", participant.getTenantId());
+        result.put("tenantId", participant instanceof ApplicationParticipant app ? app.getTenantId() : null);
         result.put("roles", participant.getRoles());
         result.put("metadata", participant.getMetadata());
         return result;

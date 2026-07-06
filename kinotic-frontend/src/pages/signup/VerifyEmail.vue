@@ -1,146 +1,85 @@
 <template>
-  <div class="login-page">
-    <div class="login-shell">
-      <aside class="login-art" aria-hidden="true">
-        <img :src="loginBackgroundArt" alt="" class="login-art__image" />
-      </aside>
-
-      <main class="login-panel">
-        <button type="button" class="login-theme-toggle" @click="toggleTheme" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
-          <span :class="isDark ? 'pi pi-sun' : 'pi pi-moon'"></span>
-        </button>
-        <div class="login-panel__content">
-          <img :src="loginBrandMark" alt="Kinotic" class="login-brand" />
-
-          <div class="login-form">
-            <!-- Password form -->
-            <div v-if="!completed" class="login-form__step">
-              <div class="verify-header">
-                <span class="verify-icon-wrap verify-icon-wrap--primary">
-                  <span class="pi pi-shield verify-header__icon"></span>
-                </span>
-                <h2 class="verify-title">Thank you for verifying your email</h2>
-                <p class="verify-text">Please set your password to finish creating your account.</p>
-              </div>
-
-              <IconField class="login-field">
-                <Password
-                  ref="passwordInput"
-                  v-model="request.password"
-                  class="login-password"
-                  input-class="login-password-input"
-                  placeholder="Password"
-                  :feedback="false"
-                  toggleMask
-                  @keyup.enter="focusConfirm"
-                />
-              </IconField>
-
-              <IconField class="login-field">
-                <Password
-                  ref="confirmPasswordInput"
-                  v-model="confirmPassword"
-                  :class="['login-password', confirmStateClass]"
-                  input-class="login-password-input"
-                  placeholder="Confirm password"
-                  :feedback="false"
-                  toggleMask
-                  @keyup.enter="handleSubmit"
-                />
-              </IconField>
-
-              <Button
-                label="Create account"
-                class="login-submit"
-                :loading="loading"
-                :disabled="!canSubmit"
-                @click="handleSubmit"
-              />
-            </div>
-
-            <!-- Success state -->
-            <div v-else class="verify-state">
-              <span class="verify-icon-wrap verify-icon-wrap--success">
-                <span class="pi pi-check verify-header__icon"></span>
-              </span>
-              <h2 class="verify-title">Account created!</h2>
-              <p class="verify-text">Your organization is ready. You can now sign in.</p>
-              <Button
-                label="Sign in"
-                class="login-submit"
-                @click="$router.push('/login')"
-              />
-            </div>
-          </div>
+  <AuthPageShell>
+    <div class="login-form">
+      <!-- Password form -->
+      <div class="login-form__step">
+        <div class="verify-header">
+          <span class="verify-icon-wrap verify-icon-wrap--primary">
+            <span class="pi pi-shield verify-header__icon"></span>
+          </span>
+          <h2 class="verify-title">Email verified</h2>
+          <p class="verify-text">Name your organization and set a password to finish.</p>
         </div>
 
-        <footer class="login-footer">
-          <a href="#" class="login-footer__link">Terms of use</a>
-          <span class="login-footer__divider">|</span>
-          <a href="#" class="login-footer__link">Privacy policy</a>
-        </footer>
-      </main>
-    </div>
+        <div class="login-field">
+          <InputText
+            ref="orgNameInput"
+            v-model="request.orgName"
+            class="login-input"
+            placeholder="Organization name"
+            @keyup.enter="focusPassword"
+          />
+        </div>
 
-    <Toast />
-  </div>
+        <SetPasswordFields
+          ref="passwordFields"
+          v-model:password="request.password"
+          v-model:confirm="confirmPassword"
+          @submit="handleSubmit"
+        />
+
+        <Button
+          label="Create account"
+          class="login-submit"
+          :loading="loading"
+          :disabled="!canSubmit"
+          @click="handleSubmit"
+        />
+      </div>
+    </div>
+  </AuthPageShell>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-facing-decorator';
-import Password from 'primevue/password'
 import Button from 'primevue/button'
-import IconField from 'primevue/iconfield'
-import Toast from 'primevue/toast'
+import InputText from 'primevue/inputtext'
 import { useToast } from 'primevue/usetoast'
 import type { SignUpCompleteRequest } from '@kinotic-ai/os-api'
 
-import loginBgDark from '@/assets/left_background_dark.png'
-import loginBgLight from '@/assets/left-background_light.png'
-import loginPageLogo from '@/assets/login-page-kinotic-logo.svg'
-import loginPageLogoLight from '@/assets/login-page-kinotic-logo-light.svg'
-import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
+import AuthPageShell from '@/components/auth/AuthPageShell.vue'
+import SetPasswordFields from '@/components/auth/SetPasswordFields.vue'
 import { apiUrl } from '@/util/helpers'
-import '@/pages/auth-pages.css'
+import { CONTINUUM_UI } from '@/IContinuumUI'
+import { StructuresStates } from '@/states/index'
+import { type IUserState } from '@/states/IUserState'
 
 @Component({
   components: {
-    Password,
+    AuthPageShell,
+    SetPasswordFields,
     Button,
-    IconField,
-    Toast,
+    InputText,
   }
 })
 export default class VerifyEmail extends Vue {
   private toast = useToast()
-
-  get loginBackgroundArt() { return darkMode.value ? loginBgDark : loginBgLight }
-  get loginBrandMark() { return darkMode.value ? loginPageLogo : loginPageLogoLight }
-  get isDark() { return darkMode.value }
-  toggleTheme() { toggleDark() }
-
-  // Stays empty (no border tint) until the user types into the confirm field.
-  // Once non-empty: green if it matches the password, red otherwise.
-  get confirmStateClass(): string {
-    if (!this.confirmPassword) return ''
-    return this.request.password === this.confirmPassword
-      ? 'login-password--match'
-      : 'login-password--mismatch'
-  }
+  private userState: IUserState = StructuresStates.getUserState()
 
   get canSubmit(): boolean {
-    return !!this.request.password
+    return !!this.request.orgName
+        && !!this.request.password
         && !!this.confirmPassword
         && this.request.password === this.confirmPassword
   }
 
   request: SignUpCompleteRequest = {
     token: '',
+    orgName: '',
     password: '',
   }
   confirmPassword = ''
   loading = false
-  completed = false
 
   mounted() {
     this.request.token = (this.$route.query.token as string) || ''
@@ -149,16 +88,19 @@ export default class VerifyEmail extends Vue {
     }
   }
 
-  private focusConfirm() {
-    const el = this.$refs.confirmPasswordInput as any
-    if (el?.$el) {
-      el.$el.querySelector('input')?.focus()
-    }
+  private focusPassword() {
+    const fields = this.$refs.passwordFields as InstanceType<typeof SetPasswordFields> | undefined
+    fields?.focus()
   }
 
   async handleSubmit() {
     if (!this.request.token) {
       this.displayAlert('No verification token provided.')
+      return
+    }
+    this.request.orgName = this.request.orgName.trim()
+    if (!this.request.orgName) {
+      this.displayAlert('Organization name is required')
       return
     }
     if (!this.request.password) {
@@ -172,24 +114,34 @@ export default class VerifyEmail extends Vue {
 
     this.loading = true
     try {
-      const response = await fetch(apiUrl('/api/signup/complete'), {
+      const response = await fetch(apiUrl('/api/auth/org/signup/complete'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(this.request),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        this.displayAlert(data.error || 'Account creation failed')
+        this.displayAlert(await this.readError(response, 'Account creation failed'))
         return
       }
 
-      this.completed = true
+      // The org, admin user, and browser session are created; connect with it and go to the app.
+      await this.userState.login()
+      await CONTINUUM_UI.navigate('/applications')
     } catch (error: unknown) {
       this.displayAlert(error instanceof Error ? error.message : 'Account creation failed')
     } finally {
       this.loading = false
+    }
+  }
+
+  private async readError(res: Response, fallback: string): Promise<string> {
+    try {
+      const body = await res.json()
+      return body?.error ?? fallback
+    } catch {
+      return fallback
     }
   }
 
@@ -205,29 +157,9 @@ export default class VerifyEmail extends Vue {
 </script>
 
 <style scoped>
-/* Confirm-password border tint: red while passwords don't match, green once they do.
- * Empty state stays neutral so the user isn't yelled at before they've typed anything. */
-.login-password--mismatch :deep(.login-password-input),
-.login-password--match :deep(.login-password-input) {
-  transition: border-color 0.18s ease;
-}
-
-.login-password--mismatch :deep(.login-password-input) {
-  border-color: var(--p-red-500);
-}
-
-.login-password--match :deep(.login-password-input) {
-  border-color: var(--p-green-500);
-}
-
 .verify-header {
   text-align: center;
   margin-bottom: 1.5rem;
-}
-
-.verify-state {
-  text-align: center;
-  padding: 1rem 0 0.5rem;
 }
 
 .verify-icon-wrap {
@@ -244,20 +176,12 @@ export default class VerifyEmail extends Vue {
   background: color-mix(in srgb, var(--p-primary-color) 14%, transparent);
 }
 
-.verify-icon-wrap--success {
-  background: color-mix(in srgb, var(--p-green-500) 14%, transparent);
-}
-
 .verify-header__icon {
   font-size: 2rem;
 }
 
 .verify-icon-wrap--primary .verify-header__icon {
   color: var(--p-primary-color);
-}
-
-.verify-icon-wrap--success .verify-header__icon {
-  color: var(--p-green-500);
 }
 
 .verify-title {

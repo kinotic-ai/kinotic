@@ -69,7 +69,16 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
 
     protected CompletableFuture<Void> deleteById(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
         return crudServiceTemplate.deleteById(indexName, id, builderConsumer)
-                                  .thenApply(response -> null);
+                                  .thenApply(_ -> null);
+    }
+
+    public CompletableFuture<Void> deleteByIdSync(String id) {
+        return deleteByIdSync(id, null);
+    }
+
+    protected CompletableFuture<Void> deleteByIdSync(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.deleteByIdSync(indexName, id, builderConsumer)
+                                  .thenApply(_ -> null);
     }
 
     public CompletableFuture<Page<T>> findAll(Pageable pageable) {
@@ -90,7 +99,7 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
 
     protected CompletableFuture<T> save(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
         return crudServiceTemplate.save(indexName, value.getId(), value, builderConsumer)
-                                  .thenApply(indexResponse -> value);
+                                  .thenApply(_ -> value);
     }
 
     public CompletableFuture<T> saveSync(T value) {
@@ -99,7 +108,30 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
 
     protected CompletableFuture<T> saveSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
         return crudServiceTemplate.saveSync(indexName, value.getId(), value, builderConsumer)
-                                  .thenApply(indexResponse -> value);
+                                  .thenApply(_ -> value);
+    }
+
+    /**
+     * Persists a new entity, failing if one with the same id already exists. Unlike {@link #save},
+     * which overwrites, this fails with {@link org.kinotic.core.api.exceptions.AlreadyExistsException}
+     * on an id collision — use it to enforce uniqueness on a caller-assigned id.
+     */
+    public CompletableFuture<T> create(T value) {
+        return crudServiceTemplate.create(indexName, value.getId(), value)
+                                  .thenApply(_ -> value);
+    }
+
+    /**
+     * Persists a new entity like {@link #create}, additionally waiting for it to be visible
+     * in search results before returning.
+     */
+    public CompletableFuture<T> createSync(T value) {
+        return createSync(value, null);
+    }
+
+    protected CompletableFuture<T> createSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return crudServiceTemplate.createSync(indexName, value.getId(), value, builderConsumer)
+                                  .thenApply(_ -> value);
     }
 
     public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
@@ -112,7 +144,7 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     public CompletableFuture<Void> syncIndex() {
         return esAsyncClient.indices()
                             .refresh(b -> b.index(indexName))
-                            .thenApply(unused -> null);
+                            .thenApply(_ -> null);
     }
 
     protected Query composeFilter(Query... filters) {
@@ -133,6 +165,14 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
 
     protected Query termFilter(String field, double value) {
         return crudServiceTemplate.termFilter(field, value);
+    }
+
+    protected Query existsFilter(String field) {
+        return crudServiceTemplate.existsFilter(field);
+    }
+
+    protected Query missingFilter(String field) {
+        return crudServiceTemplate.missingFilter(field);
     }
 
     protected CompletableFuture<T> findFirst(Consumer<SearchRequest.Builder> builderConsumer) {

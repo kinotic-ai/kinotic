@@ -1,4 +1,4 @@
-import {PrettyPrintableError} from '@oclif/core/lib/errors'
+import {PrettyPrintableError} from '@oclif/core/errors'
 
 export type Logger = {
     log: (message?: string, ...args: any[]) => void

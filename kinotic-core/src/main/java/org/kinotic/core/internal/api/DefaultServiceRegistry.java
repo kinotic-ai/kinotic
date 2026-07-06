@@ -1,22 +1,20 @@
-
-
-
 package org.kinotic.core.internal.api;
 
-import java.util.concurrent.ConcurrentHashMap;
-
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
-import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.ServiceRegistry;
+import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
 import org.kinotic.core.api.service.ServiceIdentifier;
-import org.kinotic.core.internal.api.service.invoker.ArgumentResolverComposite;
 import org.kinotic.core.internal.api.service.ExceptionConverterComposite;
+import org.kinotic.core.internal.api.service.invoker.ArgumentResolverComposite;
 import org.kinotic.core.internal.api.service.invoker.ReturnValueConverterComposite;
 import org.kinotic.core.internal.api.service.invoker.ServiceInvocationSupervisor;
 import org.kinotic.core.internal.api.service.rpc.DefaultRpcServiceProxyHandle;
@@ -30,11 +28,7 @@ import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 
-import io.opentelemetry.api.OpenTelemetry;
-import io.vertx.core.Future;
-import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
-import tools.jackson.databind.json.JsonMapper;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  *
@@ -65,10 +59,6 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     @Autowired
     private Vertx vertx; //TODO: move thread scheduling and execution functionality into Continuum API such as Scheduling Service ect..
     @Autowired
-    private OpenTelemetry openTelemetry;
-    @Autowired
-    private JsonMapper jsonMapper;
-    @Autowired
     private SecurityContext securityContext;
 
     @Override
@@ -84,7 +74,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     public Future<Void> register(ServiceDescriptor serviceDescriptor, ServiceFunctionInstanceProvider instanceProvider) {
         Promise<Void> promise = Promise.promise();
         supervisors.compute(serviceDescriptor.serviceIdentifier(),
-                            (serviceIdentifier, serviceInvocationSupervisor) -> {
+                            (_, serviceInvocationSupervisor) -> {
                                 if(serviceInvocationSupervisor == null){
                                     try {
                                         serviceInvocationSupervisor = new ServiceInvocationSupervisor(
@@ -96,8 +86,6 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                 eventBusService,
                                                 reactiveAdapterRegistry,
                                                 vertx,
-                                                openTelemetry,
-                                                jsonMapper,
                                                 securityContext);
 
                                         serviceInvocationSupervisor
@@ -130,6 +118,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   rpcArgumentConverter,
                                                   rpcReturnValueHandlerFactory,
                                                   eventBusService,
+                                                  securityContext,
+                                                  vertx,
                                                   Thread.currentThread().getContextClassLoader());
     }
 
@@ -144,6 +134,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   rpcArgumentConverter,
                                                   rpcReturnValueHandlerFactory,
                                                   eventBusService,
+                                                  securityContext,
+                                                  vertx,
                                                   Thread.currentThread().getContextClassLoader());
     }
 

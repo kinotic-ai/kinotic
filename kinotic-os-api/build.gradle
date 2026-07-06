@@ -8,8 +8,8 @@ dependencies {
     implementation project(':kinotic-idl')
 
     implementation 'io.vertx:vertx-core'
-    implementation 'io.vertx:vertx-auth-common'
-    implementation 'io.vertx:vertx-auth-jwt'
+
+    implementation 'io.projectreactor:reactor-core'
 
     implementation 'co.elastic.clients:elasticsearch-java'
     implementation 'co.elastic.clients:elasticsearch-rest5-client'
@@ -18,10 +18,9 @@ dependencies {
 
     implementation 'org.springframework.security:spring-security-crypto'
 
-    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 
-    implementation 'com.azure:azure-communication-email:1.1.2'
-    implementation 'com.azure:azure-identity:1.18.2'
+    implementation 'com.azure:azure-communication-email'
+    implementation 'com.azure:azure-identity'
 
     implementation 'org.apache.ignite:ignite-core'
 

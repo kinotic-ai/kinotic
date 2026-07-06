@@ -1,13 +1,10 @@
-
-
-
 package org.kinotic.core.internal.api.service.invoker;
 
-import io.opentelemetry.api.OpenTelemetry;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
+import org.jspecify.annotations.NonNull;
 import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.exceptions.RpcMissingMethodException;
 import org.kinotic.core.api.security.Participant;
@@ -15,12 +12,8 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.ServiceFunction;
 import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
-import org.kinotic.core.internal.api.event.MetadataTextMapGetter;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
-import org.kinotic.core.internal.config.KinoticVertxConfig;
 import org.kinotic.core.internal.utils.EventUtil;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.json.JsonMapper;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -51,22 +44,18 @@ public class ServiceInvocationSupervisor {
 
     private final AtomicBoolean active = new AtomicBoolean(false);
     private final ConcurrentHashMap<String, StreamSubscriber> activeStreamingResults = new ConcurrentHashMap<>();
-    private final MetadataTextMapGetter textMapGetter = new MetadataTextMapGetter();
     private final ArgumentResolver argumentResolver;
     private final EventBusService eventBusService;
     private final ExceptionConverter exceptionConverter;
-    private final JsonMapper jsonMapper;
     private final Map<String, HandlerMethod> methodMap;
     private final SecurityContext securityContext;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final ReturnValueConverter returnValueConverter;
     private final ServiceDescriptor serviceDescriptor;
     private final Vertx vertx;
-    private final OpenTelemetry openTelemetry;
 
 
     private EventConsumer methodInvocationEventConsumer;
-
 
 
     public ServiceInvocationSupervisor(ServiceDescriptor serviceDescriptor,
@@ -77,8 +66,6 @@ public class ServiceInvocationSupervisor {
                                        EventBusService eventBusService,
                                        ReactiveAdapterRegistry reactiveAdapterRegistry,
                                        Vertx vertx,
-                                       OpenTelemetry openTelemetry,
-                                       JsonMapper jsonMapper,
                                        SecurityContext securityContext) {
 
         Validate.notNull(serviceDescriptor, "ServiceDescriptor must not be null");
@@ -89,8 +76,6 @@ public class ServiceInvocationSupervisor {
         Validate.notNull(eventBusService, "eventBusService must not be null");
         Validate.notNull(reactiveAdapterRegistry, "reactiveAdapterRegistry must not be null");
         Validate.notNull(vertx, "vertx must not be null");
-        Validate.notNull(openTelemetry, "OpenTelemetry must not be null");
-        Validate.notNull(jsonMapper, "jsonMapper must not be null");
         Validate.notNull(securityContext, "securityContext must not be null");
 
         this.serviceDescriptor = serviceDescriptor;
@@ -98,11 +83,9 @@ public class ServiceInvocationSupervisor {
         this.returnValueConverter = returnValueConverter;
         this.exceptionConverter = exceptionConverter;
         this.eventBusService = eventBusService;
-        this.jsonMapper = jsonMapper;
         this.securityContext = securityContext;
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
         this.vertx = vertx;
-        this.openTelemetry = openTelemetry;
 
         this.methodMap = buildMethodMap(serviceDescriptor, instanceProvider);
     }
@@ -118,7 +101,7 @@ public class ServiceInvocationSupervisor {
     public Future<Void> start(){
         if(active.compareAndSet(false, true)){
             // begin listening on the event bus for service invocation requests
-            methodInvocationEventConsumer = eventBusService.listen(serviceDescriptor.serviceIdentifier().cri().baseResource());
+            methodInvocationEventConsumer = eventBusService.listen(serviceDescriptor.serviceIdentifier().cri());
 
             methodInvocationEventConsumer
                     .handler(event -> vertx.executeBlocking(() -> {
@@ -126,7 +109,7 @@ public class ServiceInvocationSupervisor {
                         return null;
                     }))
                     .exceptionHandler(throwable -> log.error("Event listener error", throwable))
-                    .endHandler(v -> {
+                    .endHandler(_ -> {
                         log.error("Should not happen! Event listener stopped for some reason!! Changing supervisor state to inactive");
                         active.set(false);
                     });
@@ -178,11 +161,18 @@ public class ServiceInvocationSupervisor {
     }
 
     private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result) {
+        convertAndSend(incomingMetadata, handlerMethod, result, null);
+    }
+
+    private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result, String originCri) {
         try {
             Event<byte[]> resultEvent = returnValueConverter.convert(incomingMetadata,
-                                                                     handlerMethod.getReturnType()
-                                                                                  .getParameterType(),
+                                                                     handlerMethod.getReturnType(),
                                                                      result);
+            // Set the origin CRI on the reply so a streaming client can route a cancel back to this service.
+            if (originCri != null) {
+                resultEvent.metadata().put(EventConstants.ORIGIN_CRI_HEADER, originCri);
+            }
             eventBusService.send(resultEvent);
         } catch (Exception e) {
             if(log.isDebugEnabled()){
@@ -206,7 +196,7 @@ public class ServiceInvocationSupervisor {
         String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
         Validate.notNull(correlationId, "Streaming control plain messages require a CORRELATION_ID_HEADER to be set");
 
-        activeStreamingResults.computeIfPresent(correlationId, (s, streamSubscriber) -> {
+        activeStreamingResults.computeIfPresent(correlationId, (_, streamSubscriber) -> {
             streamSubscriber.processControlEvent(incomingEvent);
             return streamSubscriber;
         });
@@ -258,21 +248,16 @@ public class ServiceInvocationSupervisor {
                 }
 
                 if (!returnValueConverter.supports(incomingEvent.metadata(),
-                                                   handlerMethod.getReturnType().getParameterType())) {
+                                                   handlerMethod.getReturnType())) {
                     throw new IllegalStateException("No compatible ReturnValueConverter found");
                 }
 
                 // Inject the Participant into the Vert.x context so service methods can access it via context.getLocal()
-                String participantJson = incomingEvent.metadata().get(EventConstants.SENDER_HEADER);
-                if (participantJson != null) {
-                    try {
-                        Participant participant = jsonMapper.readValue(participantJson, Participant.class);
-                        Context context = Vertx.currentContext();
-                        if (context != null) {
-                            securityContext.setParticipant(context, participant);
-                        }
-                    } catch (JacksonException e) {
-                        log.warn("Failed to deserialize Participant from event metadata", e);
+                Participant participant = incomingEvent.sender();
+                if (participant != null) {
+                    Context context = Vertx.currentContext();
+                    if (context != null) {
+                        securityContext.setParticipant(context, participant);
                     }
                 }
 
@@ -323,14 +308,14 @@ public class ServiceInvocationSupervisor {
                 }
 
                 String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
-                activeStreamingResults.computeIfAbsent(correlationId, s -> {
-                    //  FIXME: logic error here clients like the js client will stay alive during multiple requests even though previous request was invalidated indirectly
+
+                activeStreamingResults.computeIfAbsent(correlationId, _ -> {
                     Flux<?> flux = Flux.from(reactiveAdapter.toPublisher(result));
 
                     CRI replyCRI = CRI.create(incomingEvent.metadata().get(EventConstants.REPLY_TO_HEADER));
-                    Flux<ListenerStatus> replyListenerStatus = eventBusService.monitorListenerStatus(replyCRI.baseResource());
+                    Flux<ListenerStatus> replyListenerStatus = eventBusService.monitorListenerStatus(replyCRI);
 
-                    StreamSubscriber streamSubscriber = new StreamSubscriber(incomingMetadata, handlerMethod, replyListenerStatus);
+                    StreamSubscriber streamSubscriber = new StreamSubscriber(incomingMetadata, handlerMethod, replyListenerStatus, incomingEvent.cri().raw());
                     flux.subscribe(streamSubscriber);
                     return streamSubscriber;
                 });
@@ -429,14 +414,14 @@ public class ServiceInvocationSupervisor {
         }
 
         @Override
-        protected void hookOnError(Throwable throwable) {
+        protected void hookOnError(@NonNull Throwable throwable) {
             // This condition should not occur under normal operation
             log.error("Reply Listener Monitor threw an exception. Terminating streaming result.", throwable);
             streamSubscription.cancel();
         }
 
         @Override
-        protected void hookOnNext(ListenerStatus status) {
+        protected void hookOnNext(@NonNull ListenerStatus status) {
             if(log.isTraceEnabled()){
                 log.trace("Received ListenerStatus {}", status);
             }
@@ -460,14 +445,17 @@ public class ServiceInvocationSupervisor {
         private final HandlerMethod handlerMethod;
         private final Metadata incomingMetadata;
         private final Flux<ListenerStatus> replyListenerStatus;
+        private final String originCri;
         private ReplyListenerStatusSubscriber replyListenerStatusSubscriber;
 
         public StreamSubscriber(Metadata incomingMetadata,
                                 HandlerMethod handlerMethod,
-                                Flux<ListenerStatus> replyListenerStatus) {
+                                Flux<ListenerStatus> replyListenerStatus,
+                                String originCri) {
             this.incomingMetadata = incomingMetadata;
             this.handlerMethod = handlerMethod;
             this.replyListenerStatus = replyListenerStatus;
+            this.originCri = originCri;
         }
 
         public void processControlEvent(Event<byte[]> incomingEvent){
@@ -491,7 +479,7 @@ public class ServiceInvocationSupervisor {
         }
 
         @Override
-        protected void hookFinally(SignalType type) {
+        protected void hookFinally(@NonNull SignalType type) {
             log.trace("Stream Cleanup Now");
 
             replyListenerStatusSubscriber.cancel();
@@ -512,7 +500,7 @@ public class ServiceInvocationSupervisor {
         }
 
         @Override
-        protected void hookOnError(Throwable throwable) {
+        protected void hookOnError(@NonNull Throwable throwable) {
             if(log.isTraceEnabled()){
                 log.trace("Stream Error",throwable);
             }
@@ -520,15 +508,15 @@ public class ServiceInvocationSupervisor {
         }
 
         @Override
-        protected void hookOnNext(Object value) {
+        protected void hookOnNext(@NonNull Object value) {
             if(log.isTraceEnabled()){
                 log.trace("Next stream value {}", value);
             }
-            convertAndSend(incomingMetadata, handlerMethod, value);
+            convertAndSend(incomingMetadata, handlerMethod, value, originCri);
         }
 
         @Override
-        protected void hookOnSubscribe(Subscription subscription) {
+        protected void hookOnSubscribe(@NonNull Subscription subscription) {
 
             replyListenerStatusSubscriber = new ReplyListenerStatusSubscriber(this);
             replyListenerStatus.subscribe(replyListenerStatusSubscriber);

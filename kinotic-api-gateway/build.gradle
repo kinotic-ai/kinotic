@@ -7,7 +7,6 @@ dependencies {
     implementation project(':kinotic-domain')
     implementation project(':kinotic-os-api')
     implementation project(':kinotic-github')
-    implementation project(':kinotic-billing')
 
     // reactive streams apis
     implementation 'io.projectreactor:reactor-core'
@@ -15,8 +14,6 @@ dependencies {
     implementation 'io.vertx:vertx-core'
     implementation 'io.vertx:vertx-web'
     implementation 'io.vertx:vertx-health-check'
-    implementation 'io.vertx:vertx-auth-common'
-    implementation 'io.vertx:vertx-auth-oauth2'
 
     implementation 'org.apache.ignite:ignite-core'
 

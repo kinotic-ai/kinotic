@@ -14,7 +14,6 @@ import io.swagger.v3.oas.models.servers.Server;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.text.WordUtils;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.idl.api.schema.*;
 import org.kinotic.persistence.api.config.OpenApiSecurityType;
@@ -51,7 +50,6 @@ public class DefaultOpenApiService implements OpenApiService {
     private final EntityDefinitionConversionService entityDefinitionConversionService;
     private final EntityDefinitionService entityDefinitionService;
     private final PersistenceProperties persistenceProperties;
-    private final SecurityContext securityContext;
 
 
     private static ApiResponses getDefaultResponses(){
@@ -470,10 +468,9 @@ public class DefaultOpenApiService implements OpenApiService {
 
         String lowercaseApplication = entityDefinition.getApplicationId().toLowerCase();
         String lowercaseName = entityDefinition.getName().toLowerCase();
-        NamedQueriesDefinition namedQueriesDefinition = securityContext
-                .withElevatedAccess(() -> namedQueriesDefinitionService
-                        .findByApplicationAndEntityDefinition(entityDefinition.getApplicationId(),
-                                                              entityDefinition.getName()))
+        NamedQueriesDefinition namedQueriesDefinition = namedQueriesDefinitionService
+                .findByApplicationAndEntityDefinition(entityDefinition.getApplicationId(),
+                                                      entityDefinition.getName())
                 .join();
         if(namedQueriesDefinition != null){
 

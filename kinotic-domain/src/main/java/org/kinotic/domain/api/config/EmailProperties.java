@@ -46,6 +46,7 @@ public class EmailProperties {
      * {@code DefaultAzureCredential} auto-resolves via AKS Workload-Identity env vars
      * ({@code AZURE_CLIENT_ID}, {@code AZURE_TENANT_ID}, {@code AZURE_FEDERATED_TOKEN_FILE}).
      */
+    // FIXME: we probably should ditch this
     private String managedIdentityClientId;
 
 }

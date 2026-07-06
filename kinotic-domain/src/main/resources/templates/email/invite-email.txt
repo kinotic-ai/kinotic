@@ -1,0 +1,16 @@
+Hi,
+
+{{#if applicationName}}
+{{inviterName}} has invited you to join {{applicationName}}, provided by {{organizationName}}.
+{{else}}
+{{inviterName}} has invited you to join {{organizationName}} on Kinotic.
+{{/if}}
+
+Accept the invitation to set up your account:
+
+{{acceptUrl}}
+
+This invitation expires in {{expiresInDays}} days. If you weren't expecting it,
+you can safely ignore this email.
+
+— The Kinotic Team

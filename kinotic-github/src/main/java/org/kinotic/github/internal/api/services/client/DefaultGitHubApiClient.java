@@ -19,6 +19,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -80,6 +82,40 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
     }
 
     @Override
+    public Future<String> createBlob(String installationToken,
+                                     String repoFullName,
+                                     byte[] content) {
+        JsonObject body = new JsonObject()
+                .put("content", Base64.getEncoder().encodeToString(content))
+                .put("encoding", "base64");
+        return tokenAuthedPost("/repos/" + repoFullName + "/git/blobs", installationToken, body)
+                .compose(resp -> {
+                    if (resp.statusCode() == 201) {
+                        return Future.succeededFuture(resp.bodyAsJsonObject().getString("sha"));
+                    }
+                    return Future.failedFuture(httpError("createBlob", resp));
+                });
+    }
+
+    @Override
+    public Future<String> createCommit(String installationToken,
+                                       String repoFullName,
+                                       String message,
+                                       String treeSha) {
+        // No "parents" key: GitHub creates a root commit.
+        JsonObject body = new JsonObject()
+                .put("message", message)
+                .put("tree", treeSha);
+        return tokenAuthedPost("/repos/" + repoFullName + "/git/commits", installationToken, body)
+                .compose(resp -> {
+                    if (resp.statusCode() == 201) {
+                        return Future.succeededFuture(resp.bodyAsJsonObject().getString("sha"));
+                    }
+                    return Future.failedFuture(httpError("createCommit", resp));
+                });
+    }
+
+    @Override
     public Future<Void> createRef(String installationToken,
                                   String repoFullName,
                                   String refName,
@@ -125,6 +161,54 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                     }
                     return Future.failedFuture(httpError("createRepoFromTemplate", resp));
                 });
+    }
+
+    @Override
+    public Future<String> createTree(String installationToken,
+                                     String repoFullName,
+                                     List<TreeEntry> entries) {
+        JsonArray tree = new JsonArray();
+        for (TreeEntry entry : entries) {
+            JsonObject node = new JsonObject()
+                    .put("path", entry.path())
+                    .put("mode", entry.mode())
+                    .put("type", "blob");
+            if (entry.content() != null) {
+                node.put("content", entry.content());
+            } else {
+                node.put("sha", entry.sha());
+            }
+            tree.add(node);
+        }
+        JsonObject body = new JsonObject().put("tree", tree);
+        return tokenAuthedPost("/repos/" + repoFullName + "/git/trees", installationToken, body)
+                .compose(resp -> {
+                    if (resp.statusCode() == 201) {
+                        return Future.succeededFuture(resp.bodyAsJsonObject().getString("sha"));
+                    }
+                    return Future.failedFuture(httpError("createTree", resp));
+                });
+    }
+
+    @Override
+    public Future<Buffer> downloadTarball(String installationToken,
+                                          String repoFullName,
+                                          String ref) {
+        // The tarball endpoint 302s to codeload.github.com; followRedirects
+        // handles the hop.
+        return webClient.get(API_PORT, API_HOST, "/repos/" + repoFullName + "/tarball/" + ref)
+                        .ssl(true)
+                        .followRedirects(true)
+                        .putHeader(HttpHeaders.AUTHORIZATION.toString(), "Bearer " + installationToken)
+                        .putHeader(HttpHeaders.ACCEPT.toString(), ACCEPT)
+                        .putHeader(API_VERSION_HEADER, API_VERSION)
+                        .send()
+                        .compose(resp -> {
+                            if (resp.statusCode() == 200) {
+                                return Future.succeededFuture(resp.body());
+                            }
+                            return Future.failedFuture(httpError("downloadTarball", resp));
+                        });
     }
 
     @Override
@@ -211,6 +295,27 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                             json.getString("token"),
                             Instant.parse(json.getString("expires_at"))));
                 });
+    }
+
+    @Override
+    public Future<Void> updateRef(String installationToken,
+                                  String repoFullName,
+                                  String refName,
+                                  String sha,
+                                  boolean force) {
+        JsonObject body = new JsonObject().put("sha", sha).put("force", force);
+        return webClient.patch(API_PORT, API_HOST, "/repos/" + repoFullName + "/git/refs/" + refName)
+                        .ssl(true)
+                        .putHeader(HttpHeaders.AUTHORIZATION.toString(), "Bearer " + installationToken)
+                        .putHeader(HttpHeaders.ACCEPT.toString(), ACCEPT)
+                        .putHeader(API_VERSION_HEADER, API_VERSION)
+                        .sendJsonObject(body)
+                        .compose(resp -> {
+                            if (resp.statusCode() == 200) {
+                                return Future.succeededFuture();
+                            }
+                            return Future.failedFuture(httpError("updateRef", resp));
+                        });
     }
 
     private Future<HttpResponse<Buffer>> tokenAuthedPost(String path, String token, JsonObject body) {

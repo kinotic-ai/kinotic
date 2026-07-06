@@ -1,10 +1,10 @@
 import {ConnectionInfo, ServerInfo} from '@/api/ConnectionInfo'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
-import {StompConnectionManager} from '@/internal/api/event/StompConnectionManager'
+import {StompConnectionManager} from '@/internal/api/StompConnectionManager'
 import {context, propagation} from '@opentelemetry/api';
 import type {IMessage} from '@stomp/rx-stomp';
 import {ConnectableObservable, firstValueFrom, Observable, Subject, Subscription, throwError, type Unsubscribable} from 'rxjs'
-import {filter, map, multicast} from 'rxjs/operators'
+import {filter, map, multicast, tap} from 'rxjs/operators'
 import {Optional} from 'typescript-optional'
 import {v4 as uuidv4} from 'uuid'
 import {EventConstants, type IEvent, type IEventBus} from './IEventBus'
@@ -56,7 +56,7 @@ export class Event implements IEvent {
 
     public getDataString(): string {
         let ret = ''
-        this.data.ifPresent(( value ) => ret = new TextDecoder().decode(value))
+        this.data.ifPresent(( value: any ) => ret = new TextDecoder().decode(value))
         return ret
     }
 }
@@ -73,10 +73,15 @@ export class EventBus implements IEventBus {
 
     public serverInfo: ServerInfo | null = null
     private stompConnectionManager: StompConnectionManager = new StompConnectionManager()
+    private connectionLifecycle: Promise<unknown> = Promise.resolve()
     private replyToCri: string  | null = null
     private requestRepliesObservable: ConnectableObservable<IEvent> | null = null
     private requestRepliesSubject: Subject<IEvent> | null = null
     private requestRepliesSubscription: Subscription | null = null
+    private readonly activeCorrelationIds: Set<string> = new Set<string>()
+    private readonly recentlyReaped: Set<string> = new Set<string>()
+    // How long a sent cancel suppresses repeat cancels for the same stream before retrying.
+    private static readonly REAP_DEBOUNCE_MS = 5000
 
     constructor() {
         // We send an error any in-flight requests and clean up our connection state on fatal errors
@@ -100,30 +105,48 @@ export class EventBus implements IEventBus {
         return this.stompConnectionManager.connected
     }
 
-    public async connect(connectionInfo: ConnectionInfo): Promise<ConnectedInfo> {
-        if(!this.stompConnectionManager.active){
+    public connect(connectionInfo: ConnectionInfo): Promise<ConnectedInfo> {
+        return this.serializeLifecycle(async () => {
+            if(!this.stompConnectionManager.active){
 
-            // reset state in case connection ended due to max connection attempts
-            this.cleanup()
+                // reset state in case connection ended due to max connection attempts
+                this.cleanup()
 
-            const connectedInfo = await this.stompConnectionManager.activate(connectionInfo)
-            // manually copy so we don't store any sensitive info
-            this.serverInfo = new ServerInfo()
-            this.serverInfo.host = connectionInfo.host
-            this.serverInfo.port = connectionInfo.port
-            this.serverInfo.useSSL = connectionInfo.useSSL
+                const connectedInfo = await this.stompConnectionManager.activate(connectionInfo)
+                // manually copy so we don't store any sensitive info
+                this.serverInfo = new ServerInfo()
+                this.serverInfo.host = connectionInfo.host
+                this.serverInfo.port = connectionInfo.port
+                this.serverInfo.useSSL = connectionInfo.useSSL
 
-            this.replyToCri = this.stompConnectionManager.replyToCri
+                this.replyToCri = this.stompConnectionManager.replyToCri
 
-            return connectedInfo
-        }else{
-            throw new Error('Event Bus connection already active')
-        }
+                return connectedInfo
+            }else{
+                throw new Error('Event Bus connection already active')
+            }
+        })
     }
 
-    public async disconnect(force?: boolean): Promise<void> {
-        await this.stompConnectionManager.deactivate(force)
-        this.cleanup()
+    public disconnect(force?: boolean): Promise<void> {
+        return this.serializeLifecycle(async () => {
+            await this.stompConnectionManager.deactivate(force)
+            this.cleanup()
+        })
+    }
+
+    /** Runs connect and disconnect one at a time so they never overlap on the shared socket. */
+    private serializeLifecycle<T>(operation: () => Promise<T>): Promise<T> {
+        // A one-at-a-time promise queue. `connectionLifecycle` always holds a promise that resolves
+        // when the previously queued operation finished, so running `operation` off it defers
+        // `operation` until that one is done. We then store this operation's own completion back
+        // into `connectionLifecycle`, so the next call defers behind this one — and so on.
+        const result = this.connectionLifecycle.then(operation)
+        // `result` is the operation's real outcome and goes to the caller. The copy we keep as the
+        // next "previous" swallows rejections, so one failed operation can't reject the chain and
+        // stall everything queued behind it.
+        this.connectionLifecycle = result.catch(() => {})
+        return result
     }
 
     public send(event: IEvent): void {
@@ -164,13 +187,16 @@ export class EventBus implements IEventBus {
 
                 if (this.requestRepliesObservable == null) {
                     this.requestRepliesSubject = new Subject<IEvent>()
+                    // Reaper: before multicast, so it runs once per reply to cancel streams we no longer track.
                     this.requestRepliesObservable = this._observe(this.replyToCri as string)
-                                                        .pipe(multicast(this.requestRepliesSubject)) as ConnectableObservable<IEvent>
+                                                        .pipe(tap((value: IEvent) => this.cancelIfUnexpected(value)),
+                                                              multicast(this.requestRepliesSubject)) as ConnectableObservable<IEvent>
                     this.requestRepliesSubscription = this.requestRepliesObservable.connect()
                 }
 
                 let serverSignaledCompletion = false
                 const correlationId = uuidv4()
+                this.activeCorrelationIds.add(correlationId)
                 const defaultMessagesSubscription: Unsubscribable
                           = this.requestRepliesObservable
                                 .pipe(filter((value: IEvent): boolean => {
@@ -215,6 +241,7 @@ export class EventBus implements IEventBus {
                 this.send(event)
 
                 return () => {
+                    this.activeCorrelationIds.delete(correlationId)
                     if (sendControlEvents && !serverSignaledCompletion) {
                         // create control event to cancel long-running request
                         const controlEvent: Event = new Event(event.cri)
@@ -244,6 +271,38 @@ export class EventBus implements IEventBus {
     }
 
     /**
+     * Cancels a server stream whose reply arrived for a correlationId we no longer track. The server can't
+     * detect this itself since all requests share one reply destination, so the cancel is sent to the
+     * originating service, whose CRI the server includes on each reply.
+     */
+    private cancelIfUnexpected(value: IEvent): void {
+        const correlationId = value.getHeader(EventConstants.CORRELATION_ID_HEADER)
+        if (correlationId === undefined || this.activeCorrelationIds.has(correlationId)) {
+            return
+        }
+        const originCri = value.getHeader(EventConstants.ORIGIN_CRI_HEADER)
+        // The server may have many values already in flight when we cancel, and each one re-enters here.
+        // recentlyReaped suppresses those duplicates so we send one cancel per stale stream, not one per
+        // stray value.
+        if (originCri === undefined || this.recentlyReaped.has(correlationId)) {
+            return
+        }
+        try {
+            const cancelEvent: Event = new Event(originCri)
+            cancelEvent.setHeader(EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL)
+            cancelEvent.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
+            this.send(cancelEvent)
+
+            // Expire the entry after the debounce window so a lost cancel self-heals: if the stream is
+            // still sending by then, the next stray value falls through the guard above and we cancel again.
+            this.recentlyReaped.add(correlationId)
+            setTimeout(() => this.recentlyReaped.delete(correlationId), EventBus.REAP_DEBOUNCE_MS)
+        } catch {
+            // best-effort: if the send fails we retry on the next stray value
+        }
+    }
+
+    /**
      * Tears down the shared request-replies stream so the next request rebuilds it against the
      * current {@link replyToCri}. Any in-flight requests are failed with the given reason since
      * their replies can no longer be delivered.
@@ -260,6 +319,7 @@ export class EventBus implements IEventBus {
 
             this.requestRepliesSubject = null
             this.requestRepliesObservable = null
+            this.recentlyReaped.clear()
         }
     }
 

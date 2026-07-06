@@ -6,7 +6,7 @@ import ProjectStructuresTable from '@/components/ProjectStructuresTable.vue'
 import type { IDataSource, Identifiable, IterablePage, Pageable } from '@kinotic-ai/core'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { Kinotic } from '@kinotic-ai/core'
-import { Project } from '@kinotic-ai/os-api'
+import { Project, RepositoryConnectionStatus } from '@kinotic-ai/os-api'
 import type { CrudHeader } from '@/types/CrudHeader'
 import DatetimeUtil from "@/util/DatetimeUtil"
 import { createDebug } from '@/util/debug'
@@ -29,11 +29,18 @@ export default class ProjectList extends Vue {
 
   projectTableHeaders: CrudHeader[] = [
     { field: 'name', header: 'Project Name', sortable: true },
+    { field: 'repoConnectionStatus', header: 'Repository', sortable: false },
     { field: 'sourceOfTruth', header: 'Source of Truth', sortable: true },
     { field: 'description', header: 'Description', sortable: false },
     { field: 'created', header: 'Created', sortable: false },
     { field: 'updated', header: 'Updated', sortable: false }
   ]
+
+  // Ids of projects whose repository initialization is currently being retried,
+  // to drive the per-row Retry button's loading state.
+  retryingIds: string[] = []
+
+  public RepoStatus = RepositoryConnectionStatus
 
   mounted() {
     this.searchText = (this.$route.query['search-project'] as string) || ''
@@ -155,11 +162,44 @@ export default class ProjectList extends Vue {
   clearSelectedProject() {
     this.selectedProjectId = null
   }
+
+  isRetrying(id: string | null): boolean {
+    return id != null && this.retryingIds.includes(id)
+  }
+
+  /**
+   * Re-runs repository initialization for a project left INITIALIZATION_FAILED
+   * at create time, then refreshes the list so the updated status shows.
+   */
+  async retryRepoInit(project: Project): Promise<void> {
+    if (!project.id) return
+    this.retryingIds = [...this.retryingIds, project.id]
+    try {
+      await Kinotic.projects.retryRepoInitialization(project.id)
+      this.$toast.add({
+        severity: 'success',
+        summary: 'Repository initialized',
+        detail: `Initialization succeeded for ${project.name}.`,
+        life: 3000
+      })
+      this.refreshTable()
+    } catch (error) {
+      debug('Retry repo initialization failed for %s: %O', project.id, error)
+      this.$toast.add({
+        severity: 'error',
+        summary: 'Retry failed',
+        detail: `Repository initialization failed again for ${project.name}.`,
+        life: 5000
+      })
+    } finally {
+      this.retryingIds = this.retryingIds.filter(id => id !== project.id)
+    }
+  }
 }
 </script>
 
 <template>
-  <div>
+  <div class="flex flex-1 flex-col">
     <CrudTable
       v-if="!selectedProjectId"
       ref="crudTable"
@@ -179,6 +219,25 @@ export default class ProjectList extends Vue {
     >
       <template #item.id="{ item }">
         <span>{{ item.id }}</span>
+      </template>
+      <template #item.repoConnectionStatus="{ item }">
+        <div
+          v-if="item.repoConnectionStatus === RepoStatus.INITIALIZATION_FAILED"
+          class="flex items-center gap-2"
+        >
+          <Tag value="Init failed" severity="warn" />
+          <Button
+            label="Retry"
+            size="small"
+            :loading="isRetrying(item.id)"
+            @click.stop="retryRepoInit(item)"
+          />
+        </div>
+        <Tag
+          v-else-if="item.repoConnectionStatus === RepoStatus.DISCONNECTED"
+          value="Disconnected"
+          severity="danger"
+        />
       </template>
       <template #item.updated="{ item }">
         <span>

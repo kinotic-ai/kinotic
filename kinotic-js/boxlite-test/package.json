@@ -1,0 +1,14 @@
+{
+  "name": "boxlite-test",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@boxlite-ai/boxlite": "^0.9.7"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3"
+  }
+}

@@ -6,6 +6,7 @@ import StyleClass from 'primevue/styleclass'
 import { StructuresPreset } from '@/StructuresPreset'
 import router from '@/router'
 import ToastService from 'primevue/toastservice'
+import ConfirmationService from 'primevue/confirmationservice'
 import { CONTINUUM_UI } from '@/IContinuumUI'
 import 'primeicons/primeicons.css'
 import { createApp } from 'vue'
@@ -78,12 +79,14 @@ CONTINUUM_UI.initialize(router);
 
 app.directive('styleclass', StyleClass)
 app.use(ToastService)
+app.use(ConfirmationService)
 app.use(createStructuresUI(), { router })
 
-app.use(router)
-
-// Restore the session from the cookie a prior REST login set, then mount. A failed probe just
-// means the user is not signed in — the router guard will send them to /login.
+// Installing the router fires its initial navigation, which runs the auth guard. Do that after the
+// session probe resolves, so the guard sees the real auth state.
 StructuresStates.getUserState().login()
     .catch(() => {})
-    .finally(() => app.mount('#app'))
+    .finally(() => {
+        app.use(router)
+        app.mount('#app')
+    })

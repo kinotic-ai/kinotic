@@ -135,8 +135,7 @@ public class EndpointConnectionHandler {
 
             try {
 
-                // FIXME: when the invocation is local this happens for no reason. If the event stays on the local bus we shouldn't do this..
-                incomingEvent.metadata().put(EventConstants.SENDER_HEADER, services.jsonMapper.writeValueAsString(connectedInfo.getParticipant()));
+                incomingEvent.setSender(connectedInfo.getParticipant());
 
                 // make sure reply-to if present is scoped to sender
                 validateReplyToForServiceRequest(incomingEvent);
@@ -212,7 +211,7 @@ public class EndpointConnectionHandler {
 
         if (cri.scheme().equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {
 
-            EventConsumer eventConsumer = services.eventBusService.listen(cri.baseResource());
+            EventConsumer eventConsumer = services.eventBusService.listen(cri);
             eventConsumer.handler(event -> {
                         // If reply-to is set we implicitly allow the subscriber to send a single message to the given destination
                         // Reply-To is known to be scoped to the sender because there is a check when the system receives the event above
@@ -260,7 +259,7 @@ public class EndpointConnectionHandler {
 
         } else if (cri.scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
 
-            EventConsumer eventConsumer = services.eventBusService.listen(cri.baseResource());
+            EventConsumer eventConsumer = services.eventBusService.listen(cri);
             eventConsumer.handler(subscriptionHandler::handleEvent)
                          .exceptionHandler(subscriptionHandler::handleError);
 

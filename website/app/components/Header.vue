@@ -45,6 +45,7 @@ watch(isMenuOpen, (val) => {
 
         <div class="hidden items-center gap-8 lg:flex">
           <NuxtLink to="/apps/introduction" class="text-[14px] font-medium leading-[120%] text-white transition hover:opacity-80">Docs</NuxtLink>
+          <a href="/test-results/" class="text-[14px] font-medium leading-[120%] text-white transition hover:opacity-80">Test Reports</a>
           <span class="h-5 w-px bg-white/20"></span>
           <a
             href="https://github.com/kinotic-ai/kinotic"
@@ -102,6 +103,7 @@ watch(isMenuOpen, (val) => {
         <div class="flex flex-col justify-between items-center gap-6 h-screen">
           <div class="flex flex-col justify-between items-center gap-8">
             <NuxtLink to="/apps/introduction" class="text-sm text-[#EDEEF2]" @click="isMenuOpen = false">Docs</NuxtLink>
+            <a href="/test-results/" class="text-sm text-[#EDEEF2]" @click="isMenuOpen = false">Test Reports</a>
           </div>
           <a
             href="https://github.com/kinotic-ai/kinotic"

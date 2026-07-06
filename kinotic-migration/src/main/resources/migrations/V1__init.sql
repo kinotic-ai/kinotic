@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS kinotic_application (
     organizationId KEYWORD,
     description TEXT,
     oidcConfigurationIds KEYWORD,
+    tenantPerUser BOOLEAN,
     updated DATE
 );
 
@@ -18,7 +19,7 @@ CREATE TABLE IF NOT EXISTS kinotic_named_query_service_definition (
 );
 
 -- Create the project table if it does not exist.
--- repoFullName / repoId / defaultBranch are stamped by the GitHub repo provisioner
+-- repoFullName / repoId / repoDefaultBranch are stamped by the GitHub repo provisioner
 -- when the project is created; every project is backed by a GitHub repo.
 CREATE TABLE IF NOT EXISTS kinotic_project (
     id KEYWORD,
@@ -29,9 +30,9 @@ CREATE TABLE IF NOT EXISTS kinotic_project (
     sourceOfTruth KEYWORD,
     repoFullName KEYWORD,
     repoId LONG,
-    defaultBranch KEYWORD,
+    repoDefaultBranch KEYWORD,
     repoPrivate BOOLEAN,
-    repositoryConnectionStatus KEYWORD,
+    repoConnectionStatus KEYWORD,
     updated DATE
 );
 
@@ -69,8 +70,10 @@ CREATE TABLE IF NOT EXISTS kinotic_entity_definition (
     timeReferenceFieldName KEYWORD NOT INDEXED
 );
 
--- IAM User: authenticated identities at each scope layer.
--- Uniqueness rule (enforced in service layer): one row per (email, authScopeType, authScopeId).
+-- IAM User: authenticated identities at each scope layer. Scope is encoded structurally by
+-- which of organizationId / applicationId is set: both null = SYSTEM, organizationId only =
+-- ORGANIZATION, both set = APPLICATION.
+-- Uniqueness rule (enforced in service layer): one row per (email, organizationId, applicationId).
 CREATE TABLE IF NOT EXISTS kinotic_iam_user (
     id KEYWORD,
     email KEYWORD,
@@ -78,8 +81,8 @@ CREATE TABLE IF NOT EXISTS kinotic_iam_user (
     authType KEYWORD,
     oidcSubject KEYWORD,
     oidcConfigId KEYWORD,
-    authScopeType KEYWORD,
-    authScopeId KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
     tenantId KEYWORD,
     enabled BOOLEAN,
     created DATE,
@@ -134,22 +137,6 @@ CREATE TABLE IF NOT EXISTS kinotic_org_signup_oidc_configuration (
     updated DATE
 );
 
--- Kinotic platform-admin OIDC configs. Separate Entra app from the social-signup configs
--- so the admin IdP can be rotated independently. Public-client flow (PKCE only) — Entra
--- owns the user lifecycle, so Kinotic doesn't authenticate to the token endpoint as a
--- confidential client and no client secret is stored. Singleton-shaped today; multi-row capable.
-CREATE TABLE IF NOT EXISTS kinotic_system_oidc_configuration (
-    id KEYWORD,
-    name KEYWORD,
-    provider KEYWORD,
-    clientId KEYWORD NOT INDEXED,
-    authority KEYWORD,
-    audience KEYWORD NOT INDEXED,
-    enabled BOOLEAN,
-    created DATE,
-    updated DATE
-);
-
 -- Organization: orgs developing applications on the platform.
 -- ssoConfigId points at the org's single OidcConfiguration used as its SSO provider for
 -- org-level Kinotic login (null when the org has no SSO). All other OidcConfigurations
@@ -164,31 +151,48 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     updated DATE
 );
 
--- Pending OIDC registrations awaiting completion form submission
-CREATE TABLE IF NOT EXISTS kinotic_pending_registration (
+-- Pending sign-ups (email-verification or OIDC) awaiting completion (PendingSignUp): the identity
+-- to create plus authType. The organization name is collected at completion, not stored here.
+CREATE TABLE IF NOT EXISTS kinotic_pending_signup (
     id KEYWORD,
     verificationToken KEYWORD,
     expiresAt DATE,
     created DATE,
-    oidcSubject KEYWORD,
-    oidcConfigId KEYWORD,
     email KEYWORD,
     displayName KEYWORD,
-    authScopeType KEYWORD,
-    authScopeId KEYWORD,
-    additionalClaims JSON NOT INDEXED
+    authType KEYWORD,
+    oidcSubject KEYWORD,
+    oidcConfigId KEYWORD
 );
 
--- Sign-up requests awaiting email verification
-CREATE TABLE IF NOT EXISTS kinotic_signup_request (
+-- Pending member invitations (PendingInvite) awaiting acceptance: the invitee's identity, the
+-- scope they join (organizationId always set; applicationId only for app-member invites), and
+-- inviter attribution for the email/accept page. No authType — the invitee chooses password or
+-- OIDC at accept. Single-use: consumed and deleted when accepted, cancelled, or found expired.
+CREATE TABLE IF NOT EXISTS kinotic_pending_invite (
     id KEYWORD,
-    orgName KEYWORD,
-    orgDescription TEXT,
-    email KEYWORD,
-    displayName KEYWORD,
     verificationToken KEYWORD,
     expiresAt DATE,
-    created DATE
+    created DATE,
+    email KEYWORD,
+    displayName KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    invitedById KEYWORD,
+    invitedByName KEYWORD
+);
+
+-- An application's customized invitation email (InviteEmailTemplate): Handlebars sources
+-- replacing the built-in invitation template, at most one row per application.
+CREATE TABLE IF NOT EXISTS kinotic_invite_email_template (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    subject TEXT,
+    htmlBody TEXT,
+    textBody TEXT,
+    created DATE,
+    updated DATE
 );
 
 -- Create the vm_node table for tracking VmManager nodes

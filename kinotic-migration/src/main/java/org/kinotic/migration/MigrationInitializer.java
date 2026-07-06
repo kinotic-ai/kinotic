@@ -7,9 +7,11 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.Set;
 
 /**
  * Starts the migration process when the application is ready.
@@ -22,10 +24,13 @@ public class MigrationInitializer {
     private final MigrationExecutor migrationExecutor;
     private final MigrationParser migrationParser;
     private final ApplicationContext applicationContext;
+    private final Environment springEnvironment;
 
     @EventListener
     public void onApplicationReadyEvent(ApplicationReadyEvent event) throws IOException {
-        SystemMigrator systemMigrator = new SystemMigrator(migrationExecutor, migrationParser);
+        SystemMigrator systemMigrator = new SystemMigrator(migrationExecutor,
+                                                           migrationParser,
+                                                           Set.of(springEnvironment.getActiveProfiles()));
         systemMigrator.execute();
 
         ((ConfigurableApplicationContext) applicationContext).close();

@@ -2,6 +2,7 @@
 import { Component, Vue, Watch } from 'vue-facing-decorator'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import SidebarItem from './SidebarItem.vue'
+import type { SidebarItemMeta } from '@/types/SidebarItemMeta'
 import strCollapse from '@/assets/str-collapse.svg'
 import strExpand from '@/assets/str-expand.svg'
 import { isDark as darkMode } from '@/composables/useTheme'
@@ -78,15 +79,32 @@ export default class Sidebar extends Vue {
     return Array.from(groups.entries()).map(([section, items]) => ({ section, items }))
   }
 
+  /**
+   * Builds the sidebar from route meta. The active group comes from the matched route
+   * chain ({@code meta.sidebarGroup} on layout routes, or the route's own
+   * {@code meta.sidebar.group}); items are every registered route declaring a
+   * {@link SidebarItemMeta} for that group, ordered by {@code order}, with the current
+   * route's params substituted into dynamic paths. Without a group, falls back to the
+   * main-nav routes ({@code meta.showInMainNav}).
+   */
   generateSidebarItems() {
-    const matchedWithSidebar = this.route.matched.find(r => r.meta?.sidebarItems)
+    const matched = this.route.matched.find(
+        r => r.meta?.sidebarGroup || (r.meta?.sidebar as SidebarItemMeta | undefined)?.group)
+    const group = matched
+        ? (matched.meta.sidebarGroup as string | undefined) ?? (matched.meta.sidebar as SidebarItemMeta).group
+        : null
 
-    if (matchedWithSidebar) {
-      const sidebarItemsMeta = matchedWithSidebar.meta.sidebarItems
-      this.sidebarItems =
-        typeof sidebarItemsMeta === 'function'
-          ? sidebarItemsMeta(this.route)
-          : sidebarItemsMeta || []
+    if (group) {
+      const itemsByPath = new Map<string, SidebarNavItem & { order: number }>()
+      for (const record of this.router.getRoutes()) {
+        const meta = record.meta?.sidebar as SidebarItemMeta | undefined
+        if (meta?.group !== group) continue
+        const path = this.resolvePath(record.path)
+        itemsByPath.set(path, { icon: meta.icon, label: meta.label, path, section: meta.section, order: meta.order })
+      }
+      this.sidebarItems = Array.from(itemsByPath.values())
+          .sort((a, b) => a.order - b.order)
+          .map(({ icon, label, path, section }) => ({ icon, label, path, section }))
     } else {
       const allRoutes = this.router.getRoutes()
       this.sidebarItems = allRoutes
@@ -97,6 +115,14 @@ export default class Sidebar extends Vue {
           path: r.path
         })) as SidebarNavItem[]
     }
+  }
+
+  /** Substitutes the current route's params into a route record path (e.g. :applicationId). */
+  private resolvePath(path: string): string {
+    return path.replace(/:([A-Za-z0-9_]+)/g, (token, name) => {
+      const value = this.route.params[name]
+      return value != null ? String(value) : token
+    })
   }
 
   isActive(path: string): boolean {
@@ -117,17 +143,17 @@ export default class Sidebar extends Vue {
     ]">
       <div class="flex flex-col w-full gap-0" :class="collapsed ? 'justify-center items-center' : ''">
         <div
-          v-for="group in groupedSidebarItems"
+          v-for="(group, groupIndex) in groupedSidebarItems"
           :key="group.section || 'default'"
           :class="[
             'w-full',
-            group.section === 'Organization'
+            groupIndex > 0 && group.section
               ? (collapsed ? 'mt-2 pt-2' : 'pt-3')
               : ''
           ]"
         >
           <div
-            v-if="collapsed && group.section === 'Organization'"
+            v-if="collapsed && groupIndex > 0 && group.section"
             class="w-full px-[10px] pb-2"
           >
             <div class="app-surface-divider border-t" />

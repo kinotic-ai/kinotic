@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/core",
-  "version": "1.4.0",
+  "version": "1.9.1",
   "type": "module",
   "files": [
     "dist"
@@ -28,7 +28,7 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "test": "vitest run --mode development",
+    "test": "vitest run",
     "coverage": "vitest run --coverage",
     "ui-test": "vitest --ui --coverage.enabled=true --mode development"
   },
@@ -57,7 +57,7 @@
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/semantic-conventions": "^1.40.0",
-    "@stomp/rx-stomp": "^2.3.0",
+    "@stomp/rx-stomp": "^2.4.0",
     "@stomp/stompjs": "^7.3.0",
     "@types/debug": "^4.1.13",
     "debug": "^4.4.3",

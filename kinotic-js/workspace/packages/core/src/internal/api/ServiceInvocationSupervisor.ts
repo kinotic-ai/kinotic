@@ -2,7 +2,7 @@ import { createCRI } from '@/api/event/CRI'
 import { EventConstants, type IEvent, type IEventBus } from '@/api/event/IEventBus'
 import { ServiceIdentifier } from '@/api/ServiceIdentifier'
 import {type ArgumentResolver, JsonArgumentResolver } from './ArgumentResolver'
-import { EventUtil } from './EventUtil'
+import { Util } from './Util'
 import { BasicReturnValueConverter, type ReturnValueConverter } from './ReturnValueConverter'
 import { Subscription } from "rxjs"
 import { createDebugLogger, type Logger } from "./Logger"
@@ -213,7 +213,7 @@ export class ServiceInvocationSupervisor {
     }
 
     private handleException(event: IEvent, error: any): void {
-        const errorEvent = EventUtil.createReplyEvent(
+        const errorEvent = Util.createReplyEvent(
             event.headers,
             new Map([
                         [EventConstants.ERROR_HEADER, error.message || "Unknown error"],
@@ -234,8 +234,8 @@ export class ServiceInvocationSupervisor {
             this.log.warn("Reply-to header must not be blank")
             return false
         }
-        if (!replyTo.startsWith(`${EventConstants.SERVICE_DESTINATION_SCHEME}:`)) {
-            this.log.warn("Reply-to header must be a valid service destination")
+        if (!replyTo.startsWith(`${EventConstants.REPLY_DESTINATION_SCHEME}:`)) {
+            this.log.warn("Reply-to header must be a valid reply destination")
             return false
         }
         return true

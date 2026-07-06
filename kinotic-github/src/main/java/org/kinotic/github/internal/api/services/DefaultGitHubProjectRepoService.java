@@ -3,8 +3,8 @@ package org.kinotic.github.internal.api.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.core.api.security.AuthScopeType;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.api.security.OrganizationParticipant;
 import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubRepoToken;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
@@ -36,7 +36,7 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
                                  base.getToken(),
                                  base.getExpiresAt(),
                                  "https://github.com/" + ctx.project().getRepoFullName() + ".git",
-                                 ctx.project().getDefaultBranch()))
+                                 ctx.project().getRepoDefaultBranch()))
                          .toCompletionStage().toCompletableFuture());
     }
 
@@ -63,7 +63,12 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
 
     private CompletableFuture<RepoContext> resolve(String organizationId, String projectId) {
 
-        securityContext.requireAuthScope(AuthScopeType.ORGANIZATION, organizationId);
+        OrganizationParticipant caller = securityContext.requireParticipant(OrganizationParticipant.class);
+        if (!organizationId.equals(caller.getOrganizationId())) {
+            throw new AuthorizationException(
+                    "Caller's organizationId '" + caller.getOrganizationId()
+                            + "' does not match requested '" + organizationId + "'");
+        }
 
         return projectService.findById(projectId).thenCompose(project -> {
             if (project == null || project.getRepoFullName() == null || project.getRepoId() == null) {

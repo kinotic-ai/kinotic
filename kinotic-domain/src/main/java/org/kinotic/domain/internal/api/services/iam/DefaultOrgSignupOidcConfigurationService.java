@@ -26,7 +26,7 @@ public class DefaultOrgSignupOidcConfigurationService
     }
 
     @Override
-    public CompletableFuture<OrgSignupOidcConfiguration> save(OrgSignupOidcConfiguration entity) {
+    protected CompletableFuture<Void> beforeSave(OrgSignupOidcConfiguration entity) {
         Validate.notNull(entity.getName(), "OrgSignupOidcConfiguration name cannot be null");
         Validate.notNull(entity.getProvider(), "OrgSignupOidcConfiguration provider cannot be null");
         if (entity.getId() == null) {
@@ -34,7 +34,7 @@ public class DefaultOrgSignupOidcConfigurationService
             entity.setCreated(new Date());
         }
         entity.setUpdated(new Date());
-        return super.save(entity);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

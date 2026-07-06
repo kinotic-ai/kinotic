@@ -1,7 +1,7 @@
 import {faker} from '@faker-js/faker/locale/en'
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import {ConnectionInfo, IWebSocket, Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, SessionKeepAliveMode, WebSocketFactory} from '@kinotic-ai/core'
+import {ConnectionInfo, IAuthProvider, Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, SessionKeepAliveMode, createAuthenticatedWebSocketFactory} from '@kinotic-ai/core'
 import {WebSocket} from 'ws'
 import {
     ObjectC3Type,
@@ -13,11 +13,10 @@ import {
     OsApiPlugin,
     EntityDefinition,
     KinoticProjectConfig,
+    KinoticOsCredentialsAuthProvider,
     NamedQueriesDefinition,
     QueryDecorator,
-    Project,
-    IamUser,
-    AuthType
+    Project
 } from '@kinotic-ai/os-api'
 import {
     IEntityRepository,
@@ -32,6 +31,10 @@ import {PersonWithTenant} from './domain/PersonWithTenant.js'
 import {Cat, Dog} from './domain/Pet.js'
 import {Vehicle, Wheel} from './domain/Vehicle.js'
 
+// core's createAuthenticatedWebSocketFactory builds the upgrade socket from the global
+// WebSocket; bind it to the `ws` implementation these tests run against.
+Object.assign(global, {WebSocket})
+
 Kinotic.use(OsApiPlugin)
 
 type SchemaCreationResult ={
@@ -40,33 +43,16 @@ type SchemaCreationResult ={
 }
 let schemas: Map<string, SchemaCreationResult> = new Map<string, SchemaCreationResult>()
 
-/**
- * Credentials passed as WebSocket upgrade headers; the gateway's
- * {@link KinoticSecurityService} authenticates the participant from these
- * before the STOMP CONNECT frame is processed.
- */
-export interface AuthHeaders {
-    login: string
-    passcode: string
-    authScopeType: 'SYSTEM' | 'ORGANIZATION' | 'APPLICATION'
-    authScopeId: string
-}
+/** Organization that owns every e2e fixture user (V3 test users + V5 app fixtures). */
+const E2E_ORGANIZATION_ID = 'kinotic-test'
 
-function buildWsUrl(host: string, port: number, useSSL: boolean = false): string {
-    return `${useSSL ? 'wss' : 'ws'}://${host}:${port}/v1`
-}
-
-function authedWebSocketFactory(wsUrl: string, headers: AuthHeaders): WebSocketFactory {
-    return () => new WebSocket(wsUrl, { headers: headers as unknown as Record<string, string> }) as unknown as IWebSocket
-}
-
-function buildConnectionInfo(host: string, port: number, headers: AuthHeaders): ConnectionInfo {
+function buildConnectionInfo(host: string, port: number, authProvider: IAuthProvider): ConnectionInfo {
     const ci = new ConnectionInfo()
     ci.host = host
     ci.port = port
     ci.useSSL = false
     ci.sessionKeepAlive = SessionKeepAliveMode.NONE
-    ci.webSocketFactory = authedWebSocketFactory(buildWsUrl(host, port), headers)
+    ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci, authProvider)
     return ci
 }
 
@@ -79,12 +65,8 @@ export async function initKinoticClient(): Promise<void> {
 
         console.log('Connecting to Kinotic at ' + host)
 
-        await Kinotic.connect(buildConnectionInfo(host, port, {
-            login: 'kinotic@kinotic.local',
-            passcode: 'kinotic',
-            authScopeType: 'ORGANIZATION',
-            authScopeId: 'kinotic-test'
-        }))
+        await Kinotic.connect(buildConnectionInfo(host, port,
+            new KinoticOsCredentialsAuthProvider('kinotic@kinotic.local', 'kinotic', E2E_ORGANIZATION_ID)))
 
         console.log('Connected to Kinotic')
     } catch (e) {
@@ -103,37 +85,15 @@ export async function shutdownKinoticClient(): Promise<void> {
 }
 
 /**
- * Ensures an APPLICATION-scoped IamUser exists for the given application and tenant. Must be
- * called while authenticated as an ORGANIZATION user (e.g. after {@link initKinoticClient}).
- * The user id is deterministic for a given (applicationId, tenantId) pair so repeated calls
- * are idempotent.
- *
- * @return the email of the provisioned user
- */
-export async function createAppUserIfNotExist(applicationId: string, tenantId: string): Promise<string> {
-    const email = `app-${applicationId}-${tenantId}@test.local`
-    const existing = await Kinotic.iamUsers.findByEmailAndScope(email, 'APPLICATION', applicationId)
-    if (existing == null) {
-        const user = new IamUser()
-        user.email = email
-        user.displayName = `App Test User (${applicationId} / ${tenantId})`
-        user.authType = AuthType.LOCAL
-        user.authScopeType = 'APPLICATION'
-        user.authScopeId = applicationId
-        user.tenantId = tenantId
-        await Kinotic.iamUsers.createUser(user, 'kinotic')
-    }
-    return email
-}
-
-/**
- * Creates a fresh {@link KinoticSingleton} connected as the APPLICATION-scoped user returned by
- * {@link createAppUserIfNotExist}. The caller is responsible for disconnecting it when done.
- * The instance has {@code OsApiPlugin} and {@code PersistencePlugin} installed so it can back
- * {@code EntityRepository} / {@code AdminEntityRepository} used to act on SHARED entity data.
+ * Creates a fresh {@link KinoticSingleton} connected as the APPLICATION-scoped user seeded for
+ * the given (applicationId, tenantId) pair by the V5__e2e_app_fixtures migration (email
+ * convention app-<applicationId>-<tenantId>@test.local, password kinotic). The caller is
+ * responsible for disconnecting it when done. The instance has {@code OsApiPlugin} and
+ * {@code PersistencePlugin} installed so it can back {@code EntityRepository} /
+ * {@code AdminEntityRepository} used to act on SHARED entity data.
  */
 export async function initKinoticAppClient(applicationId: string, tenantId: string): Promise<KinoticSingleton> {
-    const email = await createAppUserIfNotExist(applicationId, tenantId)
+    const email = `app-${applicationId}-${tenantId}@test.local`
     // @ts-ignore
     const host = inject('KINOTIC_HOST') as string
     // @ts-ignore
@@ -142,12 +102,8 @@ export async function initKinoticAppClient(applicationId: string, tenantId: stri
     const appKinotic = new KinoticSingleton()
     appKinotic.use(OsApiPlugin).use(PersistencePlugin)
 
-    await appKinotic.connect(buildConnectionInfo(host, port, {
-        login: email,
-        passcode: 'kinotic',
-        authScopeType: 'APPLICATION',
-        authScopeId: applicationId
-    }))
+    await appKinotic.connect(buildConnectionInfo(host, port,
+        new KinoticOsCredentialsAuthProvider(email, 'kinotic', E2E_ORGANIZATION_ID, applicationId)))
     return appKinotic
 }
 
