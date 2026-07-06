@@ -13,14 +13,19 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import reactor.core.Disposable;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -34,8 +39,6 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 class LokiClientIntegrationTest {
 
-    private static final DockerImageName LOKI_IMAGE = DockerImageName.parse("grafana/loki:3.3.2");
-
     private static GenericContainer<?> loki;
     private static Vertx vertx;
     private static DefaultLokiClient lokiClient;
@@ -47,7 +50,7 @@ class LokiClientIntegrationTest {
         Assumptions.assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
                                "Docker is required for the Loki integration test");
 
-        loki = new GenericContainer<>(LOKI_IMAGE)
+        loki = new GenericContainer<>(lokiImageFromCompose())
                 .withExposedPorts(3100)
                 .withCommand("-config.file=/etc/loki/local-config.yaml",
                              "-auth.enabled=true",
@@ -114,6 +117,24 @@ class LokiClientIntegrationTest {
             assertTrue(received.get(5, TimeUnit.SECONDS).contains(marker));
         } finally {
             subscription.dispose();
+        }
+    }
+
+    /**
+     * The compose file is the canonical Loki version declaration (helm pins the same tag),
+     * so this test always runs against the version the platform deploys.
+     */
+    private static DockerImageName lokiImageFromCompose() {
+        Path compose = Path.of("../deployment/docker-compose/compose-otel.yml");
+        try {
+            Matcher matcher = Pattern.compile("image:\\s*(grafana/loki:[\\w.-]+)")
+                                     .matcher(Files.readString(compose));
+            if (!matcher.find()) {
+                throw new IllegalStateException("No grafana/loki image declared in " + compose);
+            }
+            return DockerImageName.parse(matcher.group(1));
+        } catch (IOException e) {
+            throw new IllegalStateException("Cannot read " + compose, e);
         }
     }
 
