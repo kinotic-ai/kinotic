@@ -3,7 +3,6 @@ import { spawn } from 'node:child_process'
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { SYSTEM_LOG_TENANT } from '@kinotic-ai/os-api'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import type { LogTarget } from '@/model/LogTarget'
 
@@ -56,7 +55,7 @@ describe('applyTargets pipeline generation', () => {
     it('routes a platform workload (no organization) to the system tenant', async () => {
         const config = await configFor([target({ organizationId: null })])
 
-        expect(config).toContain(`tenant         = "${SYSTEM_LOG_TENANT}"`)
+        expect(config).toContain('tenant         = "kinotic-system"')
     })
 
     it('labels application_id only when the workload has one', async () => {

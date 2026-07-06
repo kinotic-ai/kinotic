@@ -1,7 +1,6 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
-import { SYSTEM_LOG_TENANT } from '@kinotic-ai/os-api'
 import type { LogTarget } from '@/model/LogTarget'
 
 // Alloy's default port, bound to loopback so the debug UI is not exposed off-host
@@ -9,6 +8,10 @@ const LISTEN_ADDR = '127.0.0.1:12345'
 
 // Release installed when `alloy` is not on the PATH. Bump deliberately.
 const ALLOY_VERSION = 'v1.17.1'
+
+// Loki tenant for platform workloads with no organization (SYSTEM scope); must match
+// DefaultLogService.SYSTEM_LOG_TENANT on the server
+const SYSTEM_LOG_TENANT = 'kinotic-system'
 
 export interface AlloyManagerOptions {
     /** Base URL of the Loki HTTP API logs are pushed to. */
