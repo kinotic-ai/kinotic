@@ -5,7 +5,7 @@
         <img src="@/assets/header-logo.svg" class="h-6 w-[27px]" alt="Kinotic" />
       </RouterLink>
 
-      <template v-if="isApplicationDetailsPage || isProjectStructuresPage || isApplicationSettingsPage || isDashboardsPage || isDataInsightsPage || isSavedWidgetsPage">
+      <template v-if="isApplicationDetailsPage || isProjectStructuresPage || isApplicationSettingsPage || isDashboardsPage">
         <span class="text-lg text-surface-600">/</span>
 
         <div ref="appDropdownRef" class="relative inline-block mr-8">
@@ -40,7 +40,7 @@
           </div>
         </div>
 
-                 <template v-if="currentApp && !isApplicationSettingsPage && !isDashboardsPage && !isDataInsightsPage && !isSavedWidgetsPage">
+                 <template v-if="currentApp && !isApplicationSettingsPage && !isDashboardsPage">
            <span class="text-lg text-surface-600">/</span>
            <div ref="projectDropdownRef" class="relative inline-block">
             <button @click="toggleProjectDropdown"
@@ -144,8 +144,6 @@ const isApplicationDetailsPage = ref(false);
 const isProjectStructuresPage = ref(false);
 const isApplicationSettingsPage = ref(false);
 const isDashboardsPage = ref(false);
-const isDataInsightsPage = ref(false);
-const isSavedWidgetsPage = ref(false);
 
 const projectsForCurrentApp = ref<Project[]>([]);
 const currentApp = ref<Application | null>(null);
@@ -222,11 +220,9 @@ function updateRouteState() {
   isProjectStructuresPage.value = /^\/application\/[^/]+\/project\/[^/]+\/structures$/.test(path);
   isApplicationSettingsPage.value = /^\/application\/[^/]+\/settings$/.test(path);
   isDashboardsPage.value = /^\/application\/[^/]+\/dashboards(\/.*)?$/.test(path);
-  isDataInsightsPage.value = /^\/application\/[^/]+\/data-insights$/.test(path);
-  isSavedWidgetsPage.value = /^\/application\/[^/]+\/saved-widgets$/.test(path);
 
   // Set current application based on route
-  if (isApplicationDetailsPage.value || isProjectStructuresPage.value || isApplicationSettingsPage.value || isDashboardsPage.value || isDataInsightsPage.value || isSavedWidgetsPage.value) {
+  if (isApplicationDetailsPage.value || isProjectStructuresPage.value || isApplicationSettingsPage.value || isDashboardsPage.value) {
     const applicationId = route.params.applicationId as string;
     if (applicationId && currentApp.value?.id !== applicationId) {
       setActiveAppById(applicationId);
@@ -242,7 +238,7 @@ function updateRouteState() {
       setCurrentProjectById(projectId);
     }
   }
-  else if (isApplicationSettingsPage.value || isDashboardsPage.value || isDataInsightsPage.value || isSavedWidgetsPage.value) {
+  else if (isApplicationSettingsPage.value || isDashboardsPage.value) {
     currentProject.value = null;
   }
 }
