@@ -215,7 +215,9 @@ class DefaultLogServiceTest {
 
         @Override
         public CompletableFuture<Workload> findById(String id) {
-            return CompletableFuture.completedFuture(workloads.get(id));
+            // Completes on another thread like the real ES-backed service, so any
+            // SecurityContext read after this hop loses the Vert.x context and fails
+            return CompletableFuture.supplyAsync(() -> workloads.get(id));
         }
 
         @Override
