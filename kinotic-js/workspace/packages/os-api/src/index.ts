@@ -41,6 +41,7 @@ export * from '@/api/model/workload/VmProviderType'
 export * from '@/api/model/workload/VmNode'
 export * from '@/api/model/workload/VmNodeStatus'
 
+export * from '@/api/model/log/LogConstants'
 export * from '@/api/model/log/LogQuery'
 
 export * from '@/api/model/iam/AuthType'

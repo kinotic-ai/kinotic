@@ -2,6 +2,7 @@ import { SimpleBox, type SimpleBoxOptions } from '@boxlite-ai/boxlite'
 import { mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
+import type { LogTarget } from '@/model/LogTarget'
 import { Workload, WorkloadStatus } from '@kinotic-ai/os-api'
 
 /**
@@ -147,5 +148,18 @@ export class BoxliteProvider implements IVmProvider {
 
     async listWorkloads(): Promise<Workload[]> {
         return Array.from(this.workloads.values())
+    }
+
+    async listLogTargets(): Promise<LogTarget[]> {
+        return Array.from(this.activeVms.entries()).map(([workloadId, vm]) => {
+            const workload = this.workloads.get(workloadId)!
+            return {
+                workloadId,
+                vmId: vm.vmId,
+                logDir: vm.logDir,
+                organizationId: workload.organizationId,
+                applicationId: workload.applicationId,
+            }
+        })
     }
 }

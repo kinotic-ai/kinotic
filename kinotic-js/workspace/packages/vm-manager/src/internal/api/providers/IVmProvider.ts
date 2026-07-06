@@ -1,4 +1,5 @@
 import type { Workload } from '@kinotic-ai/os-api'
+import type { LogTarget } from '@/model/LogTarget'
 
 /**
  * Abstraction for a VM provider that can manage micro VM lifecycle.
@@ -37,4 +38,10 @@ export interface IVmProvider {
      * @return a Promise resolving to an array of workloads
      */
     listWorkloads(): Promise<Workload[]>
+
+    /**
+     * Lists the log sources of this provider's running VMs.
+     * @return a Promise resolving to one target per running VM
+     */
+    listLogTargets(): Promise<LogTarget[]>
 }

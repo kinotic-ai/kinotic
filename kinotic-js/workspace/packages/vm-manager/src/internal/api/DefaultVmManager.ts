@@ -1,6 +1,8 @@
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
 import type { IVmManager } from '@/api/IVmManager'
+import type { AlloyManager } from '@/internal/api/logging/AlloyManager'
+import type { LogTarget } from '@/model/LogTarget'
 import { Publish, Scope } from '@kinotic-ai/core'
 import { type Workload, VmProviderType } from '@kinotic-ai/os-api'
 
@@ -17,25 +19,31 @@ export class DefaultVmManager implements IVmManager {
     public readonly nodeId: string
 
     private readonly providers: Map<VmProviderType, IVmProvider> = new Map()
+    private readonly alloyManager: AlloyManager | null
 
-    constructor(nodeId: string, vmLogsDir: string) {
+    constructor(nodeId: string, vmLogsDir: string, alloyManager: AlloyManager | null = null) {
         this.nodeId = nodeId
+        this.alloyManager = alloyManager
         this.providers.set(VmProviderType.BOXLITE, new BoxliteProvider(vmLogsDir))
     }
 
     async startWorkload(workload: Workload): Promise<Workload> {
         const provider = this.getProvider(workload.providerType)
-        return provider.start(workload)
+        const started = await provider.start(workload)
+        await this.refreshLogShipping()
+        return started
     }
 
     async stopWorkload(workloadId: string): Promise<void> {
         const provider = await this.findProviderForWorkload(workloadId)
-        return provider.stop(workloadId)
+        await provider.stop(workloadId)
+        await this.refreshLogShipping()
     }
 
     async destroyWorkload(workloadId: string): Promise<void> {
         const provider = await this.findProviderForWorkload(workloadId)
-        return provider.destroy(workloadId)
+        await provider.destroy(workloadId)
+        await this.refreshLogShipping()
     }
 
     async getWorkload(workloadId: string): Promise<Workload> {
@@ -50,6 +58,22 @@ export class DefaultVmManager implements IVmManager {
             allWorkloads.push(...workloads)
         }
         return allWorkloads
+    }
+
+    // Log shipping must never fail a workload operation, so errors are logged and swallowed
+    private async refreshLogShipping(): Promise<void> {
+        if (!this.alloyManager) {
+            return
+        }
+        try {
+            const targets: LogTarget[] = []
+            for (const provider of this.providers.values()) {
+                targets.push(...await provider.listLogTargets())
+            }
+            await this.alloyManager.applyTargets(targets)
+        } catch (error) {
+            console.error('Failed to update log shipping configuration:', error)
+        }
     }
 
     private getProvider(providerType: VmProviderType): IVmProvider {
