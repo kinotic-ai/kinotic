@@ -5,7 +5,6 @@ import { VmNodeOrchestrationServiceProxy } from '@/internal/services/VmNodeOrche
 import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
 import { createAuthProviderFromEnv } from '@/api/auth/createAuthProviderFromEnv'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
-import { DEFAULT_ALLOY_VERSION } from '@/internal/api/logging/AlloyBinary'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -21,17 +20,18 @@ const serverPort = Number(process.env.KINOTIC_SERVER_PORT ?? '58503')
 const serverUseSSL = (process.env.KINOTIC_SERVER_USE_SSL ?? 'false').toLowerCase() === 'true'
 const heartbeatIntervalMs = Number(process.env.KINOTIC_HEARTBEAT_INTERVAL_MS ?? '30000')
 const vmLogsDir = process.env.KINOTIC_VM_LOGS_DIR ?? path.join(os.homedir(), '.kinotic', 'vm-logs')
-const logShippingEnabled = (process.env.KINOTIC_LOG_SHIPPING_ENABLED ?? 'true').toLowerCase() === 'true'
+const lokiUrl = process.env.KINOTIC_LOKI_URL
 
-const alloyManager = logShippingEnabled
+const alloyManager = lokiUrl
     ? new AlloyManager({
-        lokiUrl: process.env.KINOTIC_LOKI_URL ?? 'http://localhost:3100',
+        lokiUrl,
         nodeId: nodeId!,
         dataDir: path.join(os.homedir(), '.kinotic', 'alloy'),
-        binaryPath: process.env.KINOTIC_ALLOY_PATH,
-        version: process.env.KINOTIC_ALLOY_VERSION ?? DEFAULT_ALLOY_VERSION,
     })
     : null
+if (!alloyManager) {
+    console.warn('KINOTIC_LOKI_URL is not set — workload log shipping is disabled')
+}
 
 let heartbeatTimer: Timer | null = null
 

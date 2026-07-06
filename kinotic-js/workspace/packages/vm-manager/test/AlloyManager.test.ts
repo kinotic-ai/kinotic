@@ -1,11 +1,22 @@
 import { describe, expect, it } from 'bun:test'
 import { spawn } from 'node:child_process'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SYSTEM_LOG_TENANT } from '@kinotic-ai/os-api'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import type { LogTarget } from '@/model/LogTarget'
+
+// AlloyManager resolves `alloy` from the PATH, so a harmless stand-in on the PATH lets
+// the full start path (binary resolution, orphan takeover, spawn, pid file) run for real
+const fakeBinDir = mkdtempSync(join(tmpdir(), 'alloy-bin-'))
+writeFileSync(join(fakeBinDir, 'alloy'), '#!/bin/sh\nexec sleep 60\n')
+chmodSync(join(fakeBinDir, 'alloy'), 0o755)
+process.env.PATH = `${fakeBinDir}:${process.env.PATH}`
+
+function manager(dataDir: string): AlloyManager {
+    return new AlloyManager({ lokiUrl: 'http://loki:3100', nodeId: 'node-1', dataDir })
+}
 
 function target(overrides: Partial<LogTarget> = {}): LogTarget {
     return {
@@ -18,22 +29,16 @@ function target(overrides: Partial<LogTarget> = {}): LogTarget {
     }
 }
 
-/**
- * Drives applyTargets with a binary path that cannot exist: the config file is written
- * before the spawn fails, so the written pipeline is the observable output under test.
- */
+/** Applies the targets and returns the pipeline config the manager wrote. */
 async function configFor(targets: LogTarget[]): Promise<string> {
     const dataDir = mkdtempSync(join(tmpdir(), 'alloy-config-'))
-    const manager = new AlloyManager({
-        lokiUrl: 'http://loki:3100',
-        nodeId: 'node-1',
-        dataDir,
-        binaryPath: join(dataDir, 'no-such-alloy'),
-        version: 'v0.0.0',
-    })
-
-    await expect(manager.applyTargets(targets)).rejects.toThrow('KINOTIC_ALLOY_PATH')
-    return readFileSync(join(dataDir, 'config.alloy'), 'utf-8')
+    const alloyManager = manager(dataDir)
+    try {
+        await alloyManager.applyTargets(targets)
+        return readFileSync(join(dataDir, 'config.alloy'), 'utf-8')
+    } finally {
+        await alloyManager.stop()
+    }
 }
 
 describe('applyTargets pipeline generation', () => {
@@ -95,29 +100,18 @@ function isAlive(pid: number): boolean {
     }
 }
 
-/** A manager whose "alloy" is the `true` binary: the full start path runs, then exits harmlessly. */
-function managerWithTrivialAlloy(dataDir: string): AlloyManager {
-    return new AlloyManager({
-        lokiUrl: 'http://loki:3100',
-        nodeId: 'node-1',
-        dataDir,
-        binaryPath: Bun.which('true')!,
-        version: 'v0.0.0',
-    })
-}
-
 describe('orphaned Alloy takeover on start', () => {
 
     it('terminates the process recorded in the pid file before starting', async () => {
         const orphan = spawn('sleep', ['60'])
         const dataDir = mkdtempSync(join(tmpdir(), 'alloy-takeover-'))
         writeFileSync(join(dataDir, 'alloy.pid'), String(orphan.pid))
-        const manager = managerWithTrivialAlloy(dataDir)
+        const alloyManager = manager(dataDir)
 
-        await manager.applyTargets([])
+        await alloyManager.applyTargets([])
 
         expect(isAlive(orphan.pid!)).toBeFalse()
-        await manager.stop()
+        await alloyManager.stop()
     })
 
     it('tolerates a recorded process that already exited', async () => {
@@ -125,10 +119,10 @@ describe('orphaned Alloy takeover on start', () => {
         await new Promise(resolve => exited.once('exit', resolve))
         const dataDir = mkdtempSync(join(tmpdir(), 'alloy-takeover-'))
         writeFileSync(join(dataDir, 'alloy.pid'), String(exited.pid))
-        const manager = managerWithTrivialAlloy(dataDir)
+        const alloyManager = manager(dataDir)
 
-        await manager.applyTargets([])
+        await alloyManager.applyTargets([])
 
-        await manager.stop()
+        await alloyManager.stop()
     })
 })

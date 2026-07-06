@@ -1,12 +1,14 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { spawn, type ChildProcess } from 'node:child_process'
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
 import { SYSTEM_LOG_TENANT } from '@kinotic-ai/os-api'
-import { resolveAlloyBinary } from '@/internal/api/logging/AlloyBinary'
 import type { LogTarget } from '@/model/LogTarget'
 
 // Alloy's default port, bound to loopback so the debug UI is not exposed off-host
 const LISTEN_ADDR = '127.0.0.1:12345'
+
+// Release installed when `alloy` is not on the PATH. Bump deliberately.
+const ALLOY_VERSION = 'v1.17.1'
 
 export interface AlloyManagerOptions {
     /** Base URL of the Loki HTTP API logs are pushed to. */
@@ -15,10 +17,6 @@ export interface AlloyManagerOptions {
     nodeId: string
     /** Directory holding the generated config, Alloy's WAL, and downloaded binaries. */
     dataDir: string
-    /** Use exactly this Alloy binary instead of PATH lookup / download. */
-    binaryPath?: string
-    /** Alloy release to download when no binary is found. */
-    version: string
 }
 
 /**
@@ -85,11 +83,7 @@ export class AlloyManager {
     }
 
     private async start(): Promise<void> {
-        const binary = await resolveAlloyBinary({
-            explicitPath: this.options.binaryPath,
-            version: this.options.version,
-            installDir: join(this.options.dataDir, 'bin'),
-        })
+        const binary = await this.resolveBinary()
 
         // An orphan from a crashed vm-manager still holds the listen port; take it over
         await this.terminateStale()
@@ -118,6 +112,58 @@ export class AlloyManager {
     }
 
     /**
+     * Resolves the Alloy binary to run: `alloy` on the PATH, else a per-version install
+     * under the data dir, downloading the pinned release from GitHub on first use.
+     */
+    private async resolveBinary(): Promise<string> {
+        // Resolve against the live PATH — the same environment the spawned child inherits;
+        // Bun.which otherwise snapshots the startup environ
+        const onPath = Bun.which('alloy', { PATH: process.env.PATH ?? '' })
+        if (onPath) {
+            return onPath
+        }
+
+        const versionDir = join(this.options.dataDir, 'bin', ALLOY_VERSION)
+        const installed = join(versionDir, 'alloy')
+        if (existsSync(installed)) {
+            return installed
+        }
+        return this.downloadBinary(versionDir)
+    }
+
+    private async downloadBinary(versionDir: string): Promise<string> {
+        const os = process.platform === 'linux' ? 'linux' : process.platform === 'darwin' ? 'darwin' : null
+        const cpu = process.arch === 'x64' ? 'amd64' : process.arch === 'arm64' ? 'arm64' : null
+        if (!os || !cpu) {
+            throw new Error(`No Alloy release asset for platform ${process.platform}/${process.arch}`)
+        }
+        const asset = `alloy-${os}-${cpu}`
+        const url = `https://github.com/grafana/alloy/releases/download/${ALLOY_VERSION}/${asset}.zip`
+        console.log(`Downloading Alloy ${ALLOY_VERSION} from ${url}`)
+
+        mkdirSync(versionDir, { recursive: true })
+        const zipPath = join(versionDir, `${asset}.zip`)
+        const response = await fetch(url)
+        if (!response.ok) {
+            throw new Error(`Alloy download failed: HTTP ${response.status} for ${url}`)
+        }
+        await Bun.write(zipPath, response)
+
+        const unzip = spawnSync('unzip', ['-o', zipPath, '-d', versionDir], { stdio: 'ignore' })
+        if (unzip.error || unzip.status !== 0) {
+            throw new Error(`Failed to unzip ${zipPath} — is 'unzip' installed?`)
+        }
+        rmSync(zipPath, { force: true })
+
+        // The zip contains a single binary named after the asset
+        const binaryPath = join(versionDir, 'alloy')
+        renameSync(join(versionDir, asset), binaryPath)
+        chmodSync(binaryPath, 0o755)
+        console.log(`Alloy installed at ${binaryPath}`)
+        return binaryPath
+    }
+
+    /**
      * Terminates the Alloy process recorded in the pid file, if one is still running. A
      * crashed vm-manager leaves its Alloy child orphaned; exactly one vm-manager runs per
      * node, so any recorded process is ours to take over.
@@ -141,6 +187,15 @@ export class AlloyManager {
         }
         if (this.isAlive(pid)) {
             process.kill(pid, 'SIGKILL')
+        }
+    }
+
+    private isAlive(pid: number): boolean {
+        try {
+            process.kill(pid, 0)
+            return true
+        } catch {
+            return false
         }
     }
 
@@ -195,15 +250,6 @@ loki.source.file ${this.river(name)} {
   forward_to = [loki.process.workloads.receiver]
 }
 `
-    }
-
-    private isAlive(pid: number): boolean {
-        try {
-            process.kill(pid, 0)
-            return true
-        } catch {
-            return false
-        }
     }
 
     // Alloy component labels must match [A-Za-z_][A-Za-z0-9_]*; workload ids are UUIDs
