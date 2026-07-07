@@ -104,7 +104,19 @@ async function main() {
   console.log(`  /tmp/state.txt : ${tmpMarker.stdout.trim() === MARKER ? "survived (tmpfs persisted?!)" : "gone (expected — tmpfs)"}`);
   console.log(`  box id         : ${restartedId} ${restartedId === keepId ? "(unchanged)" : `(CHANGED from ${keepId})`}\n`);
 
+  // ---- Phase 2c: the explicit restart API — runtime.get(name).start() ------------
+  console.log(`=== Phase 2c: stop again, restart via runtime.get('${KEEP_NAME}').start() ===`);
   await restarted.stop();
+  const jsbox = await runtime.get(KEEP_NAME);
+  await jsbox.start();
+  // Checked via getInfo BEFORE any exec — exec would auto-boot and mask whether start()
+  // did the work
+  const afterStart = await runtime.getInfo(KEEP_NAME);
+  console.log(`  running after start(), before any exec: ${afterStart?.state.running}`);
+  const viaStart = new SimpleBox({ image: "alpine:latest", name: KEEP_NAME, autoRemove: false, reuseExisting: true, runtime });
+  const marker2 = await viaStart.exec("cat", ["/root/state.txt"]);
+  console.log(`  /root/state.txt: ${marker2.stdout.trim() === MARKER ? "SURVIVED" : `LOST (got: ${marker2.stdout.trim() || marker2.stderr.trim()})`}\n`);
+  await viaStart.stop();
   await runtime.remove(KEEP_NAME, true);
 
   // ---- Phase 3: autoRemove:true — is everything actually removed? ----------------
@@ -127,6 +139,7 @@ async function main() {
   console.log(`(c) stopped box restartable:                       see Phase 2 restart path`);
   console.log(`(d) rootfs state survives restart:                 ${rootMarker.stdout.trim() === MARKER ? "YES" : "NO"}`);
   console.log(`(e) autoRemove:true + stop removes record+files:   ${!dropInfo && !existsSync(dropDir) ? "YES" : "NO / partial"}`);
+  console.log(`(f) runtime.get(name).start() boots a stopped box: ${afterStart?.state.running ? "YES" : "NO"}`);
 }
 
 main().catch((error) => {
