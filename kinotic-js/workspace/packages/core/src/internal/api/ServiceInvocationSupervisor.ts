@@ -7,7 +7,7 @@ import { BasicReturnValueConverter, type ReturnValueConverter } from './ReturnVa
 import { Subscription } from "rxjs"
 import { createDebugLogger, type Logger } from "./Logger"
 import type {ContextInterceptor, ServiceContext} from '@/api/ContextInterceptor'
-import { CONTEXT_METADATA_KEY } from '@/api/KinoticDecorators'
+import { getContextParameterIndices } from '@/api/KinoticDecorators'
 
 /**
  * Handles invoking services registered with Kinoitc in TypeScript.
@@ -166,7 +166,7 @@ export class ServiceInvocationSupervisor {
 
         const methodName = path;
         const args = this.argumentResolver.resolveArguments(event)
-        const contextIndices: number[] = Reflect.getMetadata(CONTEXT_METADATA_KEY, this.serviceInstance, methodName) || [];
+        const contextIndices: number[] = getContextParameterIndices(this.serviceInstance, methodName);
 
         // Create context using interceptor
         let context: ServiceContext = {};

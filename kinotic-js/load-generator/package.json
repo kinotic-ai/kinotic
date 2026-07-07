@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@faker-js/faker": "^10.4.0",
-    "@kinotic-ai/core": "^1.7.0",
+    "@kinotic-ai/core": "^2.0.0",
     "@kinotic-ai/idl": "^1.0.9",
     "@kinotic-ai/kinotic-cli": "^2.2.0",
     "@kinotic-ai/os-api": "^1.11.0",

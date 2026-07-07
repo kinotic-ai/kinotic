@@ -7,11 +7,13 @@ interface CustomServiceContext {
 
 @Publish("com.example")
 export class TestServiceWithContext {
-    greetWithContext(name: string, @Context() context: CustomServiceContext): string {
+    @Context(1)
+    greetWithContext(name: string, context: CustomServiceContext): string {
         return `Hello, ${name}! Realm: ${context.realm}, API Key: ${context.apiKey}`
     }
 
-    async fetchDataWithContext(id: number, @Context() context: CustomServiceContext): Promise<{ id: number; value: string; realm: string; apiKey: string }> {
+    @Context(1)
+    async fetchDataWithContext(id: number, context: CustomServiceContext): Promise<{ id: number; value: string; realm: string; apiKey: string }> {
         return Promise.resolve({ id, value: `Data for ${id}`, realm: context.realm, apiKey: context.apiKey })
     }
 }
