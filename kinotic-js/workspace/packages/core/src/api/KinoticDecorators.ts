@@ -1,4 +1,3 @@
-import 'reflect-metadata'
 import { Kinotic } from '@/api/Kinotic'
 
 import { ServiceIdentifier } from '@/api/ServiceIdentifier'
@@ -9,58 +8,116 @@ import { ServiceIdentifier } from '@/api/ServiceIdentifier'
  * @author Navid Mitchell 🤝Grok
  * @since 3/25/2025
  */
-const SCOPE_METADATA_KEY = Symbol('scope')
-const VERSION_METADATA_KEY = Symbol('version')
-export const CONTEXT_METADATA_KEY: unique symbol = Symbol('context')
+const scopeFunctions = new WeakSet<Function>()
+const versionRegistry = new WeakMap<Function, string>()
+const contextMarkedFunctions = new WeakSet<Function>()
 
-//@ts-ignore
-export function Scope(target: any, propertyKey: string, descriptor?: PropertyDescriptor): void {
-    Reflect.defineMetadata(SCOPE_METADATA_KEY, propertyKey, target)
+// A Version above @Publish stamps the replacement class while one below it stamps the
+// original, so the lookup walks the constructor prototype chain to find either.
+function findInConstructorChain<T>(registry: WeakMap<Function, T>, constructor: Function): T | undefined {
+    let current: Function | null = constructor
+    while (current) {
+        const value = registry.get(current)
+        if (value !== undefined) {
+            return value
+        }
+        current = Object.getPrototypeOf(current)
+    }
+    return undefined
 }
 
+// Scans prototype descriptors for the member marked @Scope; keyed by function identity,
+// so the member's name is irrelevant and getters are not invoked while scanning.
+function resolveScope(instance: object): unknown {
+    let proto = Object.getPrototypeOf(instance)
+    while (proto && proto !== Object.prototype) {
+        for (const key of Object.getOwnPropertyNames(proto)) {
+            if (key === 'constructor') {
+                continue
+            }
+            const descriptor = Object.getOwnPropertyDescriptor(proto, key)
+            if (descriptor?.get && scopeFunctions.has(descriptor.get)) {
+                return descriptor.get.call(instance)
+            }
+            if (typeof descriptor?.value === 'function' && scopeFunctions.has(descriptor.value)) {
+                return descriptor.value.call(instance)
+            }
+        }
+        proto = Object.getPrototypeOf(proto)
+    }
+    return undefined
+}
+
+/**
+ * Marks the getter or method that provides the service's scope, which targets requests at one
+ * specific instance of the service, such as the copy running on a particular node. It is
+ * invoked on each instance when the instance registers with the ServiceRegistry.
+ */
+export function Scope(value: Function, _context: ClassGetterDecoratorContext | ClassMethodDecoratorContext): void {
+    scopeFunctions.add(value)
+}
+
+/**
+ * Sets the semantic version a service registers under.
+ * @param version the version in X.Y.Z[-optional] format
+ */
 export function Version(version: string) {
     if (!/^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?$/.test(version)) {
         throw new Error(`Invalid semantic version: ${version}. Must follow X.Y.Z[-optional] format.`)
     }
-    return function (target: Function): void {
-        Reflect.defineMetadata(VERSION_METADATA_KEY, version, target)
+    return function (value: Function, _context: ClassDecoratorContext<any>): void {
+        versionRegistry.set(value, version)
     }
 }
 
-export function Context() {
-    return function (target: any, propertyKey: string, parameterIndex: number): void {
-        const existingContexts = Reflect.getMetadata(CONTEXT_METADATA_KEY, target, propertyKey) || [];
-        existingContexts.push(parameterIndex);
-        Reflect.defineMetadata(CONTEXT_METADATA_KEY, existingContexts, target, propertyKey);
-    }
+/**
+ * Marks a service method that receives the {@link ServiceContext} produced by the registered
+ * {@link ContextInterceptor}. The context parameter MUST be the method's final parameter:
+ * callers do not pass it, and the platform appends it after the caller-supplied arguments.
+ */
+export function Context(value: Function, _context: ClassMethodDecoratorContext): void {
+    // Keyed by the method function itself, like Scope, so Bun's decorator-context bugs
+    // cannot affect it.
+    contextMarkedFunctions.add(value)
 }
 
+/**
+ * Returns whether the given method of a service instance is marked with {@link Context}.
+ * @param serviceInstance the service instance to inspect
+ * @param methodName the method to look up
+ */
+export function receivesContext(serviceInstance: object, methodName: string): boolean {
+    const method = (serviceInstance as any)[methodName]
+    return typeof method === 'function' && contextMarkedFunctions.has(method)
+}
+
+/**
+ * Registers each instance of the decorated class with the Kinotic ServiceRegistry under the
+ * given namespace. The service name defaults to the class name; {@link Version} and
+ * {@link Scope} on the same class refine the registration.
+ * @param namespace the namespace the service is published under
+ * @param name the service name, defaults to the class name
+ */
 export function Publish(namespace: string, name?: string) {
-    return function (target: Function) {
-        const original = target
-        const serviceIdentifier = new ServiceIdentifier(namespace, name || target.name)
+    return function <T extends new (...args: any[]) => object>(value: T, _context: ClassDecoratorContext<any>): T {
+        return class extends value {
+            constructor(...args: any[]) {
+                super(...args)
 
-        const version = Reflect.getMetadata(VERSION_METADATA_KEY, target)
-        if (version) {
-            serviceIdentifier.version = version
-        }
+                const serviceIdentifier = new ServiceIdentifier(namespace, name || value.name)
 
-        const newConstructor: any = function (this: any, ...args: any[]) {
-            const instance = Reflect.construct(original, args)
+                const version = findInConstructorChain(versionRegistry, this.constructor)
+                if (version) {
+                    serviceIdentifier.version = version
+                }
 
-            const scopeProperty = Reflect.getMetadata(SCOPE_METADATA_KEY, target.prototype)
-            if (scopeProperty) {
-                const scopeValue = instance[scopeProperty]
-                serviceIdentifier.scope = typeof scopeValue === 'function' ? scopeValue.call(instance) : scopeValue
+                const scope = resolveScope(this)
+                if (scope !== undefined) {
+                    serviceIdentifier.scope = scope as string
+                }
+
+                Kinotic.serviceRegistry.register(serviceIdentifier, this)
             }
-
-            // Register with the default Kinotic's ServiceRegistry
-            Kinotic.serviceRegistry.register(serviceIdentifier, instance)
-
-            return instance
         }
-
-        newConstructor.prototype = original.prototype
-        return newConstructor as any
     }
 }

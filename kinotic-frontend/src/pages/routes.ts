@@ -136,25 +136,6 @@ const pageRoutes: RouteRecordRaw[] = [
         })
       },
       {
-        name: 'application-data-insights',
-        path: 'data-insights',
-        meta: {
-          fullWidth: true,
-          sidebar: { group: 'application', label: 'Data Insights', icon: 'pi pi-lightbulb', order: 30 } as SidebarItemMeta
-        } as RouteMeta,
-        component: () => import('@/pages/DataInsights.vue'),
-        props: (route) => ({ applicationId: route.params.applicationId })
-      },
-      {
-        name: 'application-saved-widgets',
-        path: 'saved-widgets',
-        meta: {
-          sidebar: { group: 'application', label: 'Data Insights Widgets', icon: 'pi pi-bookmark', order: 40 } as SidebarItemMeta
-        } as RouteMeta,
-        component: () => import('@/pages/SavedWidgets.vue'),
-        props: (route) => ({ applicationId: route.params.applicationId })
-      },
-      {
         name: 'application-members',
         path: 'members',
         meta: {

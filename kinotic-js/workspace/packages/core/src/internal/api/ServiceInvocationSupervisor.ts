@@ -7,7 +7,7 @@ import { BasicReturnValueConverter, type ReturnValueConverter } from './ReturnVa
 import { Subscription } from "rxjs"
 import { createDebugLogger, type Logger } from "./Logger"
 import type {ContextInterceptor, ServiceContext} from '@/api/ContextInterceptor'
-import { CONTEXT_METADATA_KEY } from '@/api/KinoticDecorators'
+import { receivesContext } from '@/api/KinoticDecorators'
 
 /**
  * Handles invoking services registered with Kinoitc in TypeScript.
@@ -116,11 +116,17 @@ export class ServiceInvocationSupervisor {
 
     private buildMethodMap(serviceInstance: any): Record<string, (...args: any[]) => any> {
         const methodMap: Record<string, (...args: any[]) => any> = {}
-        for (const key of Object.getOwnPropertyNames(Object.getPrototypeOf(serviceInstance))) {
-            const method = serviceInstance[key]
-            if (typeof method === "function" && key !== "constructor") {
-                methodMap[key] = method.bind(serviceInstance)
+        // Walks the prototype chain because Publish registers instances of a subclass whose own
+        // prototype is empty; descriptors are used so getters are not invoked while scanning.
+        let proto = Object.getPrototypeOf(serviceInstance)
+        while (proto && proto !== Object.prototype) {
+            for (const key of Object.getOwnPropertyNames(proto)) {
+                const descriptor = Object.getOwnPropertyDescriptor(proto, key)
+                if (typeof descriptor?.value === "function" && key !== "constructor" && !methodMap[key]) {
+                    methodMap[key] = descriptor.value.bind(serviceInstance)
+                }
             }
+            proto = Object.getPrototypeOf(proto)
         }
         return methodMap
     }
@@ -166,7 +172,7 @@ export class ServiceInvocationSupervisor {
 
         const methodName = path;
         const args = this.argumentResolver.resolveArguments(event)
-        const contextIndices: number[] = Reflect.getMetadata(CONTEXT_METADATA_KEY, this.serviceInstance, methodName) || [];
+        const injectContext = receivesContext(this.serviceInstance, methodName);
 
         // Create context using interceptor
         let context: ServiceContext = {};
@@ -181,9 +187,9 @@ export class ServiceInvocationSupervisor {
             }
         }
 
-        // Inject context into arguments where @Context is used
-        for (const index of contextIndices) {
-            args[index] = context;
+        // A @Context method takes the context as its final parameter, appended after caller args
+        if (injectContext) {
+            args.push(context);
         }
 
         const expectedArgsCount = handlerMethod.length

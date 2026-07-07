@@ -30,8 +30,8 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { computed, ref } from 'vue'
 import Password from 'primevue/password'
 import IconField from 'primevue/iconfield'
 
@@ -41,39 +41,47 @@ import IconField from 'primevue/iconfield'
  * the password field focuses confirm; Enter in confirm emits {@code submit}. Bind with
  * {@code v-model:password} and {@code v-model:confirm}.
  */
-@Component({
-  emits: ['update:password', 'update:confirm', 'submit'],
-  components: { Password, IconField }
+defineEmits<{
+  (e: 'update:password', value: string): void
+  (e: 'update:confirm', value: string): void
+  (e: 'submit'): void
+}>()
+
+const props = defineProps<{
+  password: string
+  confirm: string
+}>()
+
+const passwordInput = ref<InstanceType<typeof Password>>()
+const confirmInput = ref<InstanceType<typeof Password>>()
+
+// Stays empty (no border tint) until the user types into the confirm field.
+// Once non-empty: green if it matches the password, red otherwise.
+const confirmStateClass = computed<string>(() => {
+  if (!props.confirm) return ''
+  return props.password === props.confirm
+    ? 'login-password--match'
+    : 'login-password--mismatch'
 })
-export default class SetPasswordFields extends Vue {
-  @Prop({ required: true }) password!: string
-  @Prop({ required: true }) confirm!: string
 
-  // Stays empty (no border tint) until the user types into the confirm field.
-  // Once non-empty: green if it matches the password, red otherwise.
-  get confirmStateClass(): string {
-    if (!this.confirm) return ''
-    return this.password === this.confirm
-      ? 'login-password--match'
-      : 'login-password--mismatch'
-  }
+/** Moves keyboard focus into the password field. */
+function focus() {
+  focusInput('passwordInput')
+}
 
-  /** Moves keyboard focus into the password field. */
-  public focus() {
-    this.focusInput('passwordInput')
-  }
+function focusConfirm() {
+  focusInput('confirmInput')
+}
 
-  private focusConfirm() {
-    this.focusInput('confirmInput')
-  }
-
-  private focusInput(refName: string) {
-    const el = this.$refs[refName] as any
-    if (el?.$el) {
-      el.$el.querySelector('input')?.focus()
-    }
+function focusInput(refName: string) {
+  const inputs: Record<string, typeof passwordInput> = { passwordInput, confirmInput }
+  const el = inputs[refName]?.value as any
+  if (el?.$el) {
+    el.$el.querySelector('input')?.focus()
   }
 }
+
+defineExpose({ focus })
 </script>
 
 <style scoped>

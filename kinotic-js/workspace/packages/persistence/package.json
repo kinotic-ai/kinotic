@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/persistence",
-  "version": "1.5.2",
+  "version": "2.0.0",
   "type": "module",
   "files": [
     "dist"
@@ -32,11 +32,10 @@
     "coverage": "bun test --coverage --pass-with-no-tests"
   },
   "peerDependencies": {
-    "@kinotic-ai/core": ">=1.9.1"
+    "@kinotic-ai/core": ">=2.0.0"
   },
   "dependencies": {
     "@kinotic-ai/idl": "workspace:*",
-    "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {

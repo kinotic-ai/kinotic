@@ -59,68 +59,70 @@
         </template>
     </ul>
 </template>
-<script lang="ts">
-import { Vue, Component, Prop } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import Tooltip from 'primevue/tooltip'
 import type { NavItem } from '@/components/NavItem.js'
 
-@Component({
-    directives: {
-        tooltip: Tooltip
+const vTooltip = Tooltip
+
+const props = withDefaults(defineProps<{
+    navItems: NavItem[]
+    collapsed?: boolean
+}>(), {
+    collapsed: false,
+})
+
+const route = useRoute()
+
+const selectedNav = ref<NavItem | null>(null)
+
+async function navClicked(item: NavItem) {
+    selectedNav.value = item
+    await item.navigate?.()
+}
+
+function getIconUrl(icon: string): string {
+    return new URL(`../assets/${icon}`, import.meta.url).href
+}
+
+onMounted(() => {
+    if (props.navItems && props.navItems.length > 0) {
+        selectedNav.value = route.meta as unknown as NavItem
     }
 })
-export default class SideNav extends Vue {
-    @Prop({ required: true }) navItems!: NavItem[]
-    @Prop({ default: false }) collapsed!: boolean
+function isParentNavSelected(item: NavItem) {
+    return selectedNav.value?.label === item.label || selectedNav.value?.parent?.label === item.label
+}
 
-    selectedNav: NavItem | null = null
 
-    async navClicked(item: NavItem) {
-        this.selectedNav = item
-        await item.navigate?.()
+function getLinePath(index: number, totalItems: number) {
+    if (index === 0) {
+        return `M1 0 V40`;
+    } else if (index === totalItems - 1) {
+        return `M1 -4 V14`;
+    } else {
+        return `M1 -4 V40`;
     }
+}
 
-    getIconUrl(icon: string): string {
-        return new URL(`../assets/${icon}`, import.meta.url).href
+function getActiveLinePath(index: number, selectedIndex: number) {
+    if (index === 0) {
+        return `M1 0 V${index === selectedIndex ? '14' : '40'}`;
+    } else if (index === selectedIndex) {
+        return `M1 -4 V14`;
+    } else {
+        return `M1 -4 V40`;
     }
+}
 
-    mounted() {
-        if (this.navItems && this.navItems.length > 0) {
-            this.selectedNav = this.$route.meta as unknown as NavItem
-        }
-    }
-    isParentNavSelected(item: NavItem) {
-        return this.selectedNav?.label === item.label || this.selectedNav?.parent?.label === item.label
-    }
-
-
-    getLinePath(index: number, totalItems: number) {
-        if (index === 0) {
-            return `M1 0 V40`;
-        } else if (index === totalItems - 1) {
-            return `M1 -4 V14`;
-        } else {
-            return `M1 -4 V40`;
-        }
-    }
-
-    getActiveLinePath(index: number, selectedIndex: number) {
-        if (index === 0) {
-            return `M1 0 V${index === selectedIndex ? '14' : '40'}`;
-        } else if (index === selectedIndex) {
-            return `M1 -4 V14`;
-        } else {
-            return `M1 -4 V40`;
-        }
-    }
-
-    getSelectedIndex() {
-        const children = this.selectedNav?.parent?.children
-        if (children) {
-            return children.findIndex((subItem) => subItem.label === this.selectedNav?.label)
-        } else {
-            return -1
-        }
+function getSelectedIndex() {
+    const children = selectedNav.value?.parent?.children
+    if (children) {
+        return children.findIndex((subItem) => subItem.label === selectedNav.value?.label)
+    } else {
+        return -1
     }
 }
 </script>

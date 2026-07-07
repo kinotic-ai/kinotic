@@ -44,8 +44,9 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Prop } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Toolbar from 'primevue/toolbar'
@@ -63,155 +64,148 @@ import { createDebug } from '@/util/debug'
 
 const debug = createDebug('entity-list-structures');
 
-@Component({
-  components: {
-    DataTable,
-    Column,
-    Toolbar,
-    Button,
-    InputText
-  }
+const props = defineProps<{
+  structureId?: string
+}>()
+
+const route = useRoute()
+
+const loading = ref(false)
+const finishedInitialLoad = ref(false)
+const items = ref<Array<Identifiable<string>>>([])
+const totalItems = ref(0)
+const searchText = ref<string | null>(null)
+
+const keys = ref<string[]>([])
+const headers = ref<any[]>([])
+const structureProperties = ref<any>({})
+const structure = ref<EntityDefinition>()
+
+const entitiesService: IEntitiesRepository = Kinotic.entities
+const structureService: IEntityDefinitionService = Kinotic.entityDefinitions
+
+const options = ref({
+  rows: 10,
+  first: 0,
+  sortField: '',
+  sortOrder: 1
 })
-export default class EntityList extends Vue {
-  @Prop({ type: String }) structureId?: string
 
-  loading = false
-  finishedInitialLoad = false
-  items: Array<Identifiable<string>> = []
-  totalItems = 0
-  searchText: string | null = null
+onMounted(() => {
+  const paramId = route.params.id
+  const id = props.structureId || (Array.isArray(paramId) ? paramId[0] : paramId)
 
-  keys: string[] = []
-  headers: any[] = []
-  structureProperties: any = {}
-  structure!: EntityDefinition
-
-  entitiesService: IEntitiesRepository = Kinotic.entities
-  structureService: IEntityDefinitionService = Kinotic.entityDefinitions
-
-  options = {
-    rows: 10,
-    first: 0,
-    sortField: '',
-    sortOrder: 1
+  if (!id) {
+    displayAlert("Missing entity ID.")
+    return
   }
 
-  mounted() {
-const paramId = this.$route.params.id
-const id = this.structureId || (Array.isArray(paramId) ? paramId[0] : paramId)
-
-    if (!id) {
-      this.displayAlert("Missing entity ID.")
-      return
-    }
-
-    this.structureService.findById(id)
-      .then((structure: EntityDefinition) => {
-        this.structure = structure
-        this.structureProperties = structure.schema.properties
-        for (const property of this.structureProperties) {
-          if (property) {
-            const fieldName = property.name[0].toUpperCase() + property.name.slice(1)
-            let sortable = true
-            if (
-              ['ref', 'array', 'object'].includes(property.type.type) ||
-              (property.type.type === 'string' && StructureUtil.hasDecorator('Text', property.decorators))
-            ) {
-              sortable = false
-            }
-            const headerDef: any = {
-              header: fieldName,
-              field: property.name,
-              sortable: sortable,
-              width: property.name === 'id' ? 300 : (sortable ? 150 : 200),
-              isCollapsable: property?.name === 'addresses' || property?.name === 'pet'
-            }
-            this.headers.push(headerDef)
-            this.keys.push(property.name)
+  structureService.findById(id)
+    .then((entityDefinition: EntityDefinition) => {
+      structure.value = entityDefinition
+      structureProperties.value = entityDefinition.schema.properties
+      for (const property of structureProperties.value) {
+        if (property) {
+          const fieldName = property.name[0].toUpperCase() + property.name.slice(1)
+          let sortable = true
+          if (
+            ['ref', 'array', 'object'].includes(property.type.type) ||
+            (property.type.type === 'string' && StructureUtil.hasDecorator('Text', property.decorators))
+          ) {
+            sortable = false
           }
+          const headerDef: any = {
+            header: fieldName,
+            field: property.name,
+            sortable: sortable,
+            width: property.name === 'id' ? 300 : (sortable ? 150 : 200),
+            isCollapsable: property?.name === 'addresses' || property?.name === 'pet'
+          }
+          headers.value.push(headerDef)
+          keys.value.push(property.name)
         }
+      }
 
-        this.find()
-      })
-      .catch((error: Error) => {
-        debug('Error during structure retrieval: %O', error)
-        this.displayAlert(error.message)
-      })
+      find()
+    })
+    .catch((error: Error) => {
+      debug('Error during structure retrieval: %O', error)
+      displayAlert(error.message)
+    })
+})
+
+function formatDate(date: string): string {
+  return DatetimeUtil.formatDate(date)
+}
+
+function isDateField(field: string): boolean {
+  return StructureUtil.getPropertyDefinition(field, structureProperties.value)?.type?.type === 'date'
+}
+
+function onPage(event: any) {
+  options.value.rows = event.rows
+  options.value.first = event.first
+  find()
+}
+
+function onSort(event: any) {
+  options.value.sortField = event.sortField
+  options.value.sortOrder = event.sortOrder
+  find()
+}
+
+function clearSearch() {
+  searchText.value = null
+  options.value.first = 0
+  find()
+}
+
+function search() {
+  options.value.first = 0
+  find()
+}
+
+function displayAlert(text: string) {
+  alert(text)
+}
+
+function find() {
+  if (loading.value) return
+
+  loading.value = true
+
+  const page = options.value.first / options.value.rows
+  const orders: Order[] = []
+
+  if (options.value.sortField) {
+    orders.push(new Order(options.value.sortField, options.value.sortOrder === 1 ? Direction.ASC : Direction.DESC))
   }
 
-  formatDate(date: string): string {
-    return DatetimeUtil.formatDate(date)
-  }
+  const pageable = Pageable.create(page, options.value.rows, { orders })
+  const paramId = route.params.id
+  const id = props.structureId || (Array.isArray(paramId) ? paramId[0] : paramId)
 
-  isDateField(field: string): boolean {
-    return StructureUtil.getPropertyDefinition(field, this.structureProperties)?.type?.type === 'date'
-  }
+  const queryPromise = (searchText.value?.length)
+    ? entitiesService.search(id, searchText.value, pageable)
+    : entitiesService.findAll(id, pageable)
 
-  onPage(event: any) {
-    this.options.rows = event.rows
-    this.options.first = event.first
-    this.find()
-  }
+  queryPromise
+    .then((page: Page<any>) => {
+      items.value = page.content ?? []
+      totalItems.value = page.totalElements ?? 0
+      loading.value = false
 
-  onSort(event: any) {
-    this.options.sortField = event.sortField
-    this.options.sortOrder = event.sortOrder
-    this.find()
-  }
-
-  clearSearch() {
-    this.searchText = null
-    this.options.first = 0
-    this.find()
-  }
-
-  search() {
-    this.options.first = 0
-    this.find()
-  }
-
-  displayAlert(text: string) {
-    alert(text)
-  }
-
-  find() {
-    if (this.loading) return
-
-    this.loading = true
-
-    const page = this.options.first / this.options.rows
-    const orders: Order[] = []
-
-    if (this.options.sortField) {
-      orders.push(new Order(this.options.sortField, this.options.sortOrder === 1 ? Direction.ASC : Direction.DESC))
-    }
-
-    const pageable = Pageable.create(page, this.options.rows, { orders })
-    const paramId = this.$route.params.id
-const id = this.structureId || (Array.isArray(paramId) ? paramId[0] : paramId)
-
-    const queryPromise = (this.searchText?.length)
-      ? this.entitiesService.search(id, this.searchText, pageable)
-      : this.entitiesService.findAll(id, pageable)
-
-    queryPromise
-      .then((page: Page<any>) => {
-        this.items = page.content ?? []
-        this.totalItems = page.totalElements ?? 0
-        this.loading = false
-
-        if (!this.finishedInitialLoad) {
-          setTimeout(() => { this.finishedInitialLoad = true }, 500)
-        }
-      })
-      .catch((error: any) => {
-        this.displayAlert(error.message)
-        this.loading = false
-        if (!this.finishedInitialLoad) {
-          setTimeout(() => { this.finishedInitialLoad = true }, 500)
-        }
-      })
-  }
+      if (!finishedInitialLoad.value) {
+        setTimeout(() => { finishedInitialLoad.value = true }, 500)
+      }
+    })
+    .catch((error: any) => {
+      displayAlert(error.message)
+      loading.value = false
+      if (!finishedInitialLoad.value) {
+        setTimeout(() => { finishedInitialLoad.value = true }, 500)
+      }
+    })
 }
 </script>
 

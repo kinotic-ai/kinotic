@@ -17,7 +17,6 @@
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
-    "experimentalDecorators": true,
     "esModuleInterop": true,
     "noEmit": true,
     "importHelpers": true,

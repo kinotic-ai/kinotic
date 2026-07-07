@@ -1,70 +1,71 @@
-<script lang="ts">
+<script setup lang="ts">
 import EntityList from "@/pages/EntityList.vue";
 import EntityListOld from "@/components/EntityListOld.vue";
-import { Component, Vue, Prop, Emit } from "vue-facing-decorator";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { isDark as darkMode } from '@/composables/useTheme'
 
-@Component({
-    components: { EntityList, EntityListOld }
-})
-export default class StructureDataViewModal extends Vue {
-    @Prop({ default: false }) readonly modelValue!: boolean;
-    @Prop({ default: "Data View" }) readonly title!: string;
-    @Prop({ default: () => ({}) }) readonly entityProps!: Record<string, unknown>;
+const props = withDefaults(defineProps<{
+    modelValue?: boolean;
+    title?: string;
+    entityProps?: Record<string, unknown>;
+}>(), {
+    modelValue: false,
+    title: "Data View",
+    entityProps: () => ({}),
+});
 
-    showNewVersion = true;
+const emit = defineEmits<{
+    (e: "update:modelValue", value: boolean): void;
+    (e: "open", value: boolean): void;
+    (e: "close", value: boolean): void;
+}>();
 
-    get visible(): boolean {
-        return this.modelValue;
-    }
+const showNewVersion = ref(true);
 
-    set visible(val: boolean) {
-        this.updateModelValue(val);
-    }
+const visible = computed({
+    get: (): boolean => props.modelValue,
+    set: (val: boolean) => {
+        updateModelValue(val);
+    },
+});
 
-    @Emit("update:modelValue")
-    updateModelValue(val: boolean) {
-        return val;
-    }
-
-    @Emit("open")
-    emitOpen() {
-        return true;
-    }
-
-    @Emit("close")
-    emitClose() {
-        return true;
-    }
-
-    mounted() {
-        if (this.visible) this.emitOpen();
-        window.addEventListener("keydown", this.onKeydown);
-    }
-
-    beforeUnmount() {
-        window.removeEventListener("keydown", this.onKeydown);
-    }
-
-    onKeydown = (e: KeyboardEvent) => {
-        if (e.key === "Escape" && this.visible) {
-            this.onHide();
-        }
-    };
-
-    onHide() {
-        this.visible = false;
-        this.emitClose();
-    }
-
-    toggleVersion() {
-        this.showNewVersion = !this.showNewVersion;
-    }
-
-    get isDark() {
-        return darkMode.value;
-    }
+function updateModelValue(val: boolean) {
+    emit("update:modelValue", val);
 }
+
+function emitOpen() {
+    emit("open", true);
+}
+
+function emitClose() {
+    emit("close", true);
+}
+
+onMounted(() => {
+    if (visible.value) emitOpen();
+    window.addEventListener("keydown", onKeydown);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener("keydown", onKeydown);
+});
+
+const onKeydown = (e: KeyboardEvent) => {
+    if (e.key === "Escape" && visible.value) {
+        onHide();
+    }
+};
+
+function onHide() {
+    visible.value = false;
+    emitClose();
+}
+
+function toggleVersion() {
+    showNewVersion.value = !showNewVersion.value;
+}
+
+const isDark = darkMode;
 </script>
 <template>
     <div v-show="visible" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">

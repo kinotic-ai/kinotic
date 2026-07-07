@@ -1,5 +1,4 @@
-<script lang="ts">
-import { Component, Vue, Ref, Watch } from "vue-facing-decorator";
+<script setup lang="ts">
 import CrudTable from "@/components/CrudTable.vue";
 import ApplicationSidebar from "@/components/ApplicationSidebar.vue";
 import { Kinotic } from "@kinotic-ai/core";
@@ -11,124 +10,107 @@ import { APPLICATION_STATE } from "@/states/IApplicationState";
 import { onClickOutside } from "@vueuse/core";
 import type { CrudHeader } from "@/types/CrudHeader";
 import type { Identifiable } from "@kinotic-ai/core";
-import { shallowRef } from "vue";
+import { onMounted, ref, shallowRef, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import DatetimeUtil from "@/util/DatetimeUtil";
 import { createDebug } from "@/util/debug";
 import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('application-list');
 
-@Component({
-  components: {
-    CrudTable,
-    ApplicationSidebar,
-  },
-})
-export default class NamespaceList extends Vue {
-  headers: CrudHeader[] = [
-    { field: "id", header: "Name", sortable: false },
-    { field: "description", header: "Description", sortable: false },
-    { field: "created", header: "Created", sortable: false },
-    { field: "updated", header: "Updated", sortable: false },
-  ];
+const route = useRoute();
+const router = useRouter();
 
-  dataSource: IApplicationService = Kinotic.applications;
-  showSidebar = false;
-  searchText: string = (this?.$route?.query.search as string) || "";
-  itemCount: number = 0;
-  @Ref("sidebarWrapper") sidebarWrapper!: HTMLElement;
-  @Ref("crudTable") crudTable!: InstanceType<typeof CrudTable>;
-  public DatetimeUtil = DatetimeUtil;
+const headers: CrudHeader[] = [
+  { field: "id", header: "Name", sortable: false },
+  { field: "description", header: "Description", sortable: false },
+  { field: "created", header: "Created", sortable: false },
+  { field: "updated", header: "Updated", sortable: false },
+];
 
-  async mounted(): Promise<void> {
-    try {
-      this.refreshTable();
-      const el = shallowRef<HTMLElement | null>(this.sidebarWrapper);
+const dataSource: IApplicationService = Kinotic.applications;
+const showSidebar = ref(false);
+const searchText = ref<string>((route.query.search as string) || "");
+const sidebarWrapper = ref<HTMLElement>();
+const crudTable = ref<InstanceType<typeof CrudTable>>();
 
-      onClickOutside(el, () => {
-        if (this.showSidebar) {
-          this.onSidebarClose();
-        }
-      });
+onMounted(async () => {
+  try {
+    refreshTable();
+    const el = shallowRef<HTMLElement | null>(sidebarWrapper.value ?? null);
 
-      if (this?.$route?.query.created === "true") {
-        this.$router.replace({ query: {} });
+    onClickOutside(el, () => {
+      if (showSidebar.value) {
+        onSidebarClose();
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      debug('Initialization error: %s', message);
+    });
+
+    if (route.query.created === "true") {
+      router.replace({ query: {} });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    debug('Initialization error: %s', message);
+  }
+});
+
+watch(() => route.query.search, (newVal) => {
+  searchText.value = (newVal as string) || "";
+});
+
+function refreshTable(): void {
+  crudTable.value?.find();
+}
+function updateRouteQuery(search: string) {
+  const query = { ...route.query };
+
+  if (search) {
+    query.search = search;
+  } else {
+    delete query.search;
+  }
+
+  router.replace({ query });
+}
+const isDark = darkMode;
+
+function onAddItem(): void {
+  showSidebar.value = true;
+}
+
+async function toApplicationPage(item: Identifiable<string>): Promise<void> {
+  try {
+    const appId = item.id ?? "";
+    const app = await dataSource.findById(appId);
+    APPLICATION_STATE.currentApplication = app;
+    router.push(`/application/${encodeURIComponent(appId)}`);
+  } catch (e) {
+    debug('Failed to navigate to application: %O', e);
+  }
+}
+
+function onSidebarClose(): void {
+  showSidebar.value = false;
+}
+
+function onApplicationSubmit(created: Application): void {
+  if (created && created.id) {
+    const exists = APPLICATION_STATE.allApplications.some(
+      (a) => a.id === created.id
+    );
+    if (!exists) {
+      APPLICATION_STATE.allApplications = [
+        created,
+        ...APPLICATION_STATE.allApplications,
+      ];
     }
   }
+  refreshTable();
+  showSidebar.value = false;
+}
 
-  @Watch("$route.query.search")
-  onRouteSearchQueryChanged(newVal: string) {
-    this.searchText = newVal || "";
-  }
-
-  private refreshTable(): void {
-    this.crudTable?.find();
-  }
-  onItemsCount(count: number): void {
-    this.itemCount = count;
-  }
-
-  updateRouteQuery(search: string) {
-    const query = { ...this?.$route?.query };
-
-    if (search) {
-      query.search = search;
-    } else {
-      delete query.search;
-    }
-
-    this.$router.replace({ query });
-  }
-  get shouldShowPagination(): boolean {
-    return this.itemCount > 3;
-  }
-
-  get isDark() {
-    return darkMode.value;
-  }
-
-  onAddItem(): void {
-    this.showSidebar = true;
-  }
-
-  async toApplicationPage(item: Identifiable<string>): Promise<void> {
-    try {
-      const appId = item.id ?? "";
-      const app = await this.dataSource.findById(appId);
-      APPLICATION_STATE.currentApplication = app;
-      this.$router.push(`/application/${encodeURIComponent(appId)}`);
-    } catch (e) {
-      debug('Failed to navigate to application: %O', e);
-    }
-  }
-
-  onSidebarClose(): void {
-    this.showSidebar = false;
-  }
-
-  onApplicationSubmit(created: Application): void {
-    if (created && created.id) {
-      const exists = APPLICATION_STATE.allApplications.some(
-        (a) => a.id === created.id
-      );
-      if (!exists) {
-        APPLICATION_STATE.allApplications = [
-          created,
-          ...APPLICATION_STATE.allApplications,
-        ];
-      }
-    }
-    this.refreshTable();
-    this.showSidebar = false;
-  }
-
-  onEditItem(item: Identifiable<string>): void {
-    this.$router.push(`${this.$route.path}/edit/${item.id}`);
-  }
+function onEditItem(item: Identifiable<string>): void {
+  router.push(`${route.path}/edit/${item.id}`);
 }
 </script>
 

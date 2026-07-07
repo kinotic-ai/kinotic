@@ -33,5 +33,5 @@ export class YourService {
 }
 ```
 
-The `@Publish` decorator takes a `namespace` (required) and optional `name` (defaults to the class name). Related decorators include `@Scope` (for routing to specific service instances) and `@Version` (for semantic versioning).
+The `@Publish` decorator takes a `namespace` (required) and optional `name` (defaults to the class name). Related decorators include `@Scope` on a getter or method (for routing to specific service instances) and `@Version` (for semantic versioning).
 

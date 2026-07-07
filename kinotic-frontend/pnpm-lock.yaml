@@ -80,9 +80,6 @@ importers:
       vue:
         specifier: ^3.5.34
         version: 3.5.34(typescript@5.8.3)
-      vue-facing-decorator:
-        specifier: ^4.0.1
-        version: 4.0.1(vue@3.5.34(typescript@5.8.3))
       vue-router:
         specifier: ^5.0.6
         version: 5.0.6(@vue/compiler-sfc@3.5.34)(vue@3.5.34(typescript@5.8.3))
@@ -1085,9 +1082,6 @@ packages:
   ext@1.7.0:
     resolution: {integrity: sha512-6hxeJYaL110a9b5TEJSj0gojyHQAmA2ch5Os+ySCiA1QGdS697XWY1pzsrSjqA9LDEEgdB/KypIlR59RcLuHYw==}
 
-  facing-metadata@2.0.3:
-    resolution: {integrity: sha512-cznIFYEbjy5LCph7aolYr6+5B1PzJAPsW4q3xdsmJDdZgsepFCBq4vZkBgCGt2LZZKNwji0Qt1xU24JOqg/6xQ==}
-
   fdir@6.5.0:
     resolution: {integrity: sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==}
     engines: {node: '>=12.0.0'}
@@ -1556,11 +1550,6 @@ packages:
     peerDependenciesMeta:
       '@vue/composition-api':
         optional: true
-
-  vue-facing-decorator@4.0.1:
-    resolution: {integrity: sha512-zBvPoiXVVCOSctoKmcYUHFu2qu0AGYAZOfT6LnPqcrSSOpElTJTd21cOIrGrnA1rYwzlp8jhQLmlcBKv1ETNRA==}
-    peerDependencies:
-      vue: ^3.0.0
 
   vue-router@5.0.6:
     resolution: {integrity: sha512-9+kmUTGbKMyW9Asoy98IXXYIzrTMT7JDAdpDDeEkorHvybpUvBI2wsrSM5jFOXrFydpzRFJ9vAh+80DN2PGu9w==}
@@ -2459,8 +2448,6 @@ snapshots:
     dependencies:
       type: 2.7.3
 
-  facing-metadata@2.0.3: {}
-
   fdir@6.5.0(picomatch@4.0.4):
     optionalDependencies:
       picomatch: 4.0.4
@@ -2860,11 +2847,6 @@ snapshots:
 
   vue-demi@0.14.10(vue@3.5.34(typescript@5.8.3)):
     dependencies:
-      vue: 3.5.34(typescript@5.8.3)
-
-  vue-facing-decorator@4.0.1(vue@3.5.34(typescript@5.8.3)):
-    dependencies:
-      facing-metadata: 2.0.3
       vue: 3.5.34(typescript@5.8.3)
 
   vue-router@5.0.6(@vue/compiler-sfc@3.5.34)(vue@3.5.34(typescript@5.8.3)):

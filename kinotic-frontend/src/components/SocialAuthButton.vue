@@ -20,8 +20,8 @@
   </form>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { computed } from 'vue'
 import { isDark } from '@/composables/useTheme'
 
 import googleSignInLight from '@/assets/social/google/web_light_rd_SI.svg'
@@ -32,49 +32,42 @@ import microsoftLogoUrl  from '@/assets/social/entra/ms-symbollockup_mssymbol_19
 
 export type Intent = 'sign-in' | 'sign-up'
 
-@Component
-export default class SocialAuthButton extends Vue {
-  @Prop({ required: true }) provider!: string
-  @Prop({ required: true }) action!: string
-  @Prop({ required: true }) intent!: Intent
+const props = defineProps<{
+  provider: string
+  action: string
+  intent: Intent
+}>()
 
-  get isDarkMode(): boolean {
-    return isDark.value
-  }
+const isDarkMode = isDark
 
-  get brandedAsset(): string | null {
-    if (this.provider === 'google') {
-      const dark = isDark.value
-      if (this.intent === 'sign-up') return dark ? googleSignUpDark : googleSignUpLight
-      return dark ? googleSignInDark : googleSignInLight
-    }
-    return null
+const brandedAsset = computed<string | null>(() => {
+  if (props.provider === 'google') {
+    const dark = isDark.value
+    if (props.intent === 'sign-up') return dark ? googleSignUpDark : googleSignUpLight
+    return dark ? googleSignInDark : googleSignInLight
   }
+  return null
+})
 
-  get microsoftLogo(): string {
-    return microsoftLogoUrl
-  }
+const microsoftLogo = microsoftLogoUrl
 
-  get microsoftLabel(): string {
-    return this.intent === 'sign-up' ? 'Sign up with Microsoft' : 'Sign in with Microsoft'
-  }
+const microsoftLabel = computed<string>(() => {
+  return props.intent === 'sign-up' ? 'Sign up with Microsoft' : 'Sign in with Microsoft'
+})
 
-  get providerDisplayName(): string {
-    switch (this.provider) {
-      case 'azure-ad': return 'Microsoft'
-      case 'google':   return 'Google'
-      default:         return this.provider.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
-    }
+const providerDisplayName = computed<string>(() => {
+  switch (props.provider) {
+    case 'azure-ad': return 'Microsoft'
+    case 'google':   return 'Google'
+    default:         return props.provider.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
   }
+})
 
-  get genericLabel(): string {
-    return `${this.intent === 'sign-up' ? 'Sign up' : 'Sign in'} with ${this.providerDisplayName}`
-  }
+const genericLabel = computed<string>(() => {
+  return `${props.intent === 'sign-up' ? 'Sign up' : 'Sign in'} with ${providerDisplayName.value}`
+})
 
-  get ariaLabel(): string {
-    return this.genericLabel
-  }
-}
+const ariaLabel = genericLabel
 </script>
 
 <style scoped>

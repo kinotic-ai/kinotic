@@ -6,18 +6,12 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-facing-decorator'
-
-@Component({
-    components: { }
+<script setup lang="ts">
+withDefaults(defineProps<{
+    message?: string
+}>(), {
+    message: '',
 })
-export default class Glitch extends Vue {
-
-    @Prop({ default: '' })
-    public message!: string
-
-}
 </script>
 
 <style scoped>
