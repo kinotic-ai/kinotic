@@ -70,9 +70,9 @@ export function Version(version: string) {
 }
 
 /**
- * Marks a service method whose final parameter receives the {@link ServiceContext} produced by
- * the registered {@link ContextInterceptor}. Callers do not pass this parameter; the platform
- * appends it after the caller-supplied arguments.
+ * Marks a service method that receives the {@link ServiceContext} produced by the registered
+ * {@link ContextInterceptor}. The context parameter MUST be the method's final parameter:
+ * callers do not pass it, and the platform appends it after the caller-supplied arguments.
  */
 export function Context(value: Function, _context: ClassMethodDecoratorContext): void {
     // Keyed by the method function itself, like Scope, so Bun's decorator-context bugs
