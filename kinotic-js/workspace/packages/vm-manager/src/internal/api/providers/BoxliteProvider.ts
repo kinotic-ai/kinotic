@@ -143,12 +143,15 @@ export class BoxliteProvider implements IVmProvider {
                 await this.runtime.remove(id, true)
             }
 
-            const box = new SimpleBox({ ...buildBoxOptions(workload, logDir), runtime: this.runtime })
+            // Creates the box record only — the VM does not boot until start()
+            const vmId = await new SimpleBox({ ...buildBoxOptions(workload, logDir), runtime: this.runtime }).getId()
 
-            // Verify the box is responsive; also boots the lazily-created VM so box.id is assigned
-            await box.exec('echo', 'ready')
+            // The runtime's boot handshake doubles as the readiness check; unlike an exec
+            // probe it requires no binaries from the guest image
+            const box = await this.boxHandle(id)
+            await box.start()
 
-            this.activeVms.set(id, { box: await this.boxHandle(id), vmId: box.id, logDir })
+            this.activeVms.set(id, { box, vmId, logDir })
 
             workload.status = WorkloadStatus.RUNNING
         } catch (error) {
