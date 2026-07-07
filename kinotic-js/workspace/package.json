@@ -13,6 +13,9 @@
     "typescript": "^5.9.3"
   },
   "private": true,
+  "overrides": {
+    "vite": "^7.3.5"
+  },
   "workspaces": [
     "packages/*"
   ],

@@ -35,3 +35,11 @@ export class YourService {
 
 The `@Publish` decorator takes a `namespace` (required) and optional `name` (defaults to the class name). Related decorators include `@Scope` on a getter or method (for routing to specific service instances) and `@Version` (for semantic versioning).
 
+
+## Vitest and TC39 decorators
+
+The root `package.json` pins `"overrides": { "vite": "^7.3.5" }`. Vitest 4 otherwise
+resolves Vite 8, whose rolldown/oxc transform passes TC39 decorator syntax through
+untransformed (no error, raw `@` reaches Node as a SyntaxError). Vite 7 transforms TS
+with esbuild, which lowers stage-3 decorators correctly. Remove the override only once
+oxc lowers proposal decorators (tracked by rolldown/oxc upstream).
