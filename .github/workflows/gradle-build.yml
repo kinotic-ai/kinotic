@@ -40,12 +40,35 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
 
-      # Build + test the migration toolchain and publish its image first: the main build's kinotic-test
-      # pulls kinoticai/kinotic-migration:<version>. `&&` gates the publish on the tests passing.
-      - name: Build & test kinotic-sql + kinotic-migration, publish migration image
+      # The ISO week in the image cache keys below forces a weekly republish, so images keep
+      # picking up buildpack base-image updates even while their jar is unchanged.
+      - name: Compute image cache week
+        id: image_week
+        run: echo "week=$(date +%G-%V)" >> "$GITHUB_OUTPUT"
+
+      # Build + test the migration toolchain first: the main build's kinotic-test
+      # pulls kinoticai/kinotic-migration:<version>.
+      - name: Build & test kinotic-sql + kinotic-migration
         id: migration
         continue-on-error: true
-        run: ./gradlew :kinotic-sql:build :kinotic-migration:build && ./gradlew :kinotic-migration:bootBuildImage --publishImage
+        run: ./gradlew :kinotic-sql:build :kinotic-migration:build
+
+      # An exact key hit means an image built from a byte-identical jar was already published
+      # (archives are reproducible), so the publish below is skipped and the remote image
+      # already matches this build.
+      - name: Check for already-published migration image
+        id: migration_image
+        if: ${{ steps.migration.outcome == 'success' }}
+        uses: actions/cache@v4
+        with:
+          path: .published-migration-image
+          key: migration-image-${{ hashFiles('kinotic-migration/build/libs/*.jar') }}-${{ steps.image_week.outputs.week }}
+
+      - name: Publish migration image to Docker Hub
+        id: migration_publish
+        if: ${{ steps.migration.outcome == 'success' && steps.migration_image.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        run: ./gradlew :kinotic-migration:bootBuildImage --publishImage && touch .published-migration-image
         env:
           DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
           DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
@@ -53,13 +76,13 @@ jobs:
       # Build + test everything else; kinotic-test pulls the migration image published above.
       - name: Build with Gradle
         id: gradle_build
-        if: ${{ steps.migration.outcome == 'success' }}
+        if: ${{ steps.migration.outcome == 'success' && steps.migration_publish.outcome != 'failure' }}
         continue-on-error: true
         run: ./gradlew build
 
       # All library jars publish here in one pass (apps publish images, not jars).
       - name: Publish to Maven Central with JReleaser
-        if: ${{ steps.migration.outcome == 'success' && steps.gradle_build.outcome == 'success' }}
+        if: ${{ steps.migration.outcome == 'success' && steps.migration_publish.outcome != 'failure' && steps.gradle_build.outcome == 'success' }}
         run: ./gradlew publish && ./gradlew jreleaserDeploy --info
         env:
           JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.MAVEN_TOKEN_USERNAME }}
@@ -69,10 +92,18 @@ jobs:
           JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_KEY_NEW }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_KEY_PASS_NEW }}
 
+      - name: Check for already-published server image
+        id: server_image
+        if: ${{ steps.migration.outcome == 'success' && steps.migration_publish.outcome != 'failure' && steps.gradle_build.outcome == 'success' }}
+        uses: actions/cache@v4
+        with:
+          path: .published-server-image
+          key: server-image-${{ hashFiles('kinotic-server/build/libs/*.jar') }}-${{ steps.image_week.outputs.week }}
+
       # Publishes the remaining application image (migration image was published above).
       - name: Publish kinotic-server image to Docker Hub
-        if: ${{ steps.migration.outcome == 'success' && steps.gradle_build.outcome == 'success' }}
-        run: ./gradlew :kinotic-server:bootBuildImage --publishImage
+        if: ${{ steps.migration.outcome == 'success' && steps.migration_publish.outcome != 'failure' && steps.gradle_build.outcome == 'success' && steps.server_image.outputs.cache-hit != 'true' }}
+        run: ./gradlew :kinotic-server:bootBuildImage --publishImage && touch .published-server-image
         env:
           DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
           DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
@@ -156,6 +187,7 @@ jobs:
             fi
           }
           check "kinotic-sql + kinotic-migration build/test" "${{ steps.migration.outcome }}"
+          check "Migration image publish" "${{ steps.migration_publish.outcome }}"
           check "Gradle build" "${{ steps.gradle_build.outcome }}"
           check "JS workspace tests" "${{ steps.run_workspace_tests.outcome }}"
           check "E2E tests" "${{ steps.run_e2e_tests.outcome }}"
