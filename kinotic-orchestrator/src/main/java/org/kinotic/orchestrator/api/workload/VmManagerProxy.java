@@ -27,6 +27,16 @@ public interface VmManagerProxy {
     CompletableFuture<Workload> startWorkload(@Scope String nodeId, Workload workload);
 
     /**
+     * Restarts a stopped workload in place on the VmManager running on the given node.
+     * The same VM boots again with its disk state intact and the workload's entrypoint
+     * runs again.
+     * @param nodeId the id of the node to route to
+     * @param workloadId the id of the workload to restart
+     * @return a future that will complete with the restarted workload
+     */
+    CompletableFuture<Workload> restartWorkload(@Scope String nodeId, String workloadId);
+
+    /**
      * Stops a running workload on the VmManager running on the given node.
      * @param nodeId the id of the node to route to
      * @param workloadId the id of the workload to stop

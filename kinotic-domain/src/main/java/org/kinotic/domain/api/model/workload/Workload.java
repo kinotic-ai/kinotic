@@ -86,6 +86,13 @@ public class Workload implements Identifiable<String> {
     private boolean detached = true;
 
     /**
+     * When {@code true} the VM and its disk are discarded when the workload stops, so a
+     * stopped workload cannot be restarted. When {@code false} the disk is kept and the
+     * workload may be restarted in place.
+     */
+    private boolean autoRemove = false;
+
+    /**
      * Current status of the workload.
      */
     private WorkloadStatus status = WorkloadStatus.PENDING;

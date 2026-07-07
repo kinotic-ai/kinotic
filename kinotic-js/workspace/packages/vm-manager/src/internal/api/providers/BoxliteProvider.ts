@@ -30,6 +30,12 @@ export interface ActiveVm {
  * declares them, so an empty value keeps the image default.
  */
 export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOptions {
+    // Silently binding to all interfaces when a specific one was requested would be a
+    // security failure, so an unsupported hostIp is rejected outright
+    const boundMapping = workload.portMappings.find(mapping => mapping.hostIp)
+    if (boundMapping) {
+        throw new Error(`boxlite cannot bind a specific host interface (hostIp ${boundMapping.hostIp})`)
+    }
     return {
         image: workload.image,
         name: workload.id!,
@@ -38,9 +44,11 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
         env: workload.environment,
         ...(workload.entrypoint.length > 0 ? { entrypoint: workload.entrypoint } : {}),
         ...(workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
-        ports: Object.entries(workload.portMappings).map(([hostPort, guestPort]) => ({
-            hostPort: Number(hostPort),
-            guestPort: Number(guestPort),
+        ports: workload.portMappings.map(({ hostPort, guestPort, protocol }) => ({
+            ...(hostPort !== undefined ? { hostPort } : {}),
+            guestPort,
+            // boxlite recognizes only lowercase 'udp'; any other value silently means tcp
+            ...(protocol !== undefined ? { protocol: protocol.toLowerCase() } : {}),
         })),
         volumes: [
             ...workload.volumeMounts.map(({ hostPath, guestPath, readOnly }) => ({
@@ -50,7 +58,7 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
             })),
             { hostPath: logDir, guestPath: GUEST_LOG_DIR },
         ],
-        autoRemove: false,
+        autoRemove: workload.autoRemove,
         detach: workload.detached,
     }
 }
@@ -130,6 +138,49 @@ export class BoxliteProvider implements IVmProvider {
         } catch (error) {
             workload.status = WorkloadStatus.FAILED
             this.activeVms.delete(id)
+            throw error
+        } finally {
+            workload.updated = Date.now()
+            this.persist(workload)
+        }
+
+        return workload
+    }
+
+    async restart(workloadId: string): Promise<Workload> {
+        const workload = this.workloads.get(workloadId)
+        if (!workload) {
+            throw new Error(`Workload not found: ${workloadId}`)
+        }
+        if (workload.status !== WorkloadStatus.STOPPED) {
+            throw new Error(`Workload ${workloadId} is not stopped (status: ${workload.status})`)
+        }
+        const info = await this.runtime.getInfo(workloadId)
+        if (!info) {
+            throw new Error(`Workload ${workloadId} cannot be restarted — its VM was discarded (autoRemove)`)
+        }
+
+        workload.status = WorkloadStatus.STARTING
+        workload.updated = Date.now()
+        this.persist(workload)
+
+        try {
+            const jsbox = await this.runtime.get(workloadId)
+            if (!jsbox) {
+                throw new Error(`Box not found for workload: ${workloadId}`)
+            }
+            await jsbox.start()
+
+            const logDir = join(this.logsBaseDir, workloadId)
+            const box = new SimpleBox({ ...buildBoxOptions(workload, logDir), runtime: this.runtime, reuseExisting: true })
+            // Attach now: stop() on a SimpleBox whose box was never resolved is a no-op
+            await box.getId()
+            this.activeVms.set(workloadId, { box, vmId: info.id, logDir })
+
+            workload.status = WorkloadStatus.RUNNING
+        } catch (error) {
+            workload.status = WorkloadStatus.FAILED
+            this.activeVms.delete(workloadId)
             throw error
         } finally {
             workload.updated = Date.now()

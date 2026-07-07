@@ -69,6 +69,13 @@ export class Workload implements Identifiable<string> {
     public detached: boolean = true
 
     /**
+     * When true the VM and its disk are discarded when the workload stops, so a
+     * stopped workload cannot be restarted. When false the disk is kept and the
+     * workload may be restarted in place.
+     */
+    public autoRemove: boolean = false
+
+    /**
      * Current status of the workload.
      */
     public status: WorkloadStatus = WorkloadStatus.PENDING

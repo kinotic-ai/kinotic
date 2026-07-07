@@ -29,6 +29,17 @@ public interface WorkloadOrchestrationService {
     CompletableFuture<Workload> deployWorkload(Workload workload);
 
     /**
+     * Restarts a stopped workload in place on the node it is deployed to. The same VM
+     * boots again with its disk state intact and the workload's entrypoint runs again.
+     * Fails unless the workload is stopped; a workload stopped with
+     * {@link Workload#isAutoRemove()} {@code true} has no VM left to restart.
+     *
+     * @param workloadId the id of the workload to restart
+     * @return a future that will complete with the restarted workload
+     */
+    CompletableFuture<Workload> restartWorkload(String workloadId);
+
+    /**
      * Stops a running workload.
      * Delegates to the VmManager on the node where the workload is deployed.
      *

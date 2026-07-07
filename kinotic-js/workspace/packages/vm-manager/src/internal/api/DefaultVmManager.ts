@@ -35,6 +35,13 @@ export class DefaultVmManager implements IVmManager {
         return started
     }
 
+    async restartWorkload(workloadId: string): Promise<Workload> {
+        const provider = await this.findProviderForWorkload(workloadId)
+        const restarted = await provider.restart(workloadId)
+        await this.refreshLogShipping()
+        return restarted
+    }
+
     async stopWorkload(workloadId: string): Promise<void> {
         const provider = await this.findProviderForWorkload(workloadId)
         await provider.stop(workloadId)

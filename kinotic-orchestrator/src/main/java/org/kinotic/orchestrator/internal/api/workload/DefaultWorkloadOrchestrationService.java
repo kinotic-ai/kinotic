@@ -74,6 +74,40 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     }
 
     @Override
+    public CompletableFuture<Workload> restartWorkload(String workloadId) {
+        Validate.notNull(workloadId, "Workload id cannot be null");
+
+        return workloadService.findById(workloadId)
+                .thenCompose(workload -> {
+                    if (workload == null) {
+                        return CompletableFuture.failedFuture(
+                                new IllegalArgumentException("Workload not found: " + workloadId));
+                    }
+                    if (workload.getStatus() != WorkloadStatus.STOPPED) {
+                        return CompletableFuture.failedFuture(new IllegalStateException(
+                                "Workload " + workloadId + " is not stopped (status: " + workload.getStatus() + ")"));
+                    }
+
+                    workload.setStatus(WorkloadStatus.STARTING);
+                    return workloadService.saveSync(workload);
+                })
+                .thenCompose(workload ->
+                    vmManagerProxy.restartWorkload(workload.getNodeId(), workloadId)
+                            .thenCompose(restarted -> {
+                                restarted.setStatus(WorkloadStatus.RUNNING);
+                                return workloadService.saveSync(restarted);
+                            })
+                            .exceptionallyCompose(error -> {
+                                log.error("Failed to restart workload {} on node {}",
+                                          workloadId, workload.getNodeId(), error);
+                                workload.setStatus(WorkloadStatus.FAILED);
+                                return workloadService.saveSync(workload)
+                                        .thenCompose(failed -> CompletableFuture.failedFuture(error));
+                            })
+                );
+    }
+
+    @Override
     public CompletableFuture<Void> stopWorkload(String workloadId) {
         Validate.notNull(workloadId, "Workload id cannot be null");
 
