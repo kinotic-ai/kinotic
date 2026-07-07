@@ -3,6 +3,11 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.service.ServiceZones;
+import org.kinotic.domain.api.security.ApplicationParticipant;
+import org.kinotic.domain.api.security.OrganizationParticipant;
+import org.kinotic.domain.api.security.SystemParticipant;
 import org.springframework.http.server.PathContainer;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.pattern.PathPattern;
@@ -15,6 +20,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Creates STOMP authorizers using the gateway's current participant routing rules.
+ *
+ * A participant may only address zones its type allows: application participants reach the
+ * {@code api} zone and their own {@code app.<organizationId>.<applicationId>} zone and may host
+ * services only inside their own zone, organization participants reach the {@code api} zone and
+ * host nothing, and system participants reach everything and host in the platform zones.
  */
 @Component
 public class StompAuthorizerFactory {
@@ -32,7 +42,8 @@ public class StompAuthorizerFactory {
         Validate.notNull(connectedInfo.getParticipant(), "participant must not be null");
         Validate.notEmpty(connectedInfo.getReplyToId(), "replyToId must not be empty");
 
-        ParticipantPathPatterns participantPathPatterns = new ParticipantPathPatterns(connectedInfo.getReplyToId());
+        ParticipantPathPatterns participantPathPatterns = new ParticipantPathPatterns(connectedInfo.getParticipant(),
+                                                                                      connectedInfo.getReplyToId());
         return new StompAuthorizer(parser.getPathOptions(),
                                    participantPathPatterns.sendPatterns,
                                    participantPathPatterns.subscriptionPatterns,
@@ -47,24 +58,49 @@ public class StompAuthorizerFactory {
         private final List<PathPattern> sendPatterns = new LinkedList<>();
         private final List<PathPattern> subscriptionPatterns = new LinkedList<>();
 
-        public ParticipantPathPatterns(String replyToId) {
-            List<String> allowedSendPatterns = List.of(EventConstants.SERVICE_DESTINATION_SCHEME + "://*.**",
-                                                       EventConstants.STREAM_DESTINATION_SCHEME + "://*.**");
+        public ParticipantPathPatterns(Participant participant, String replyToId) {
 
-            for (String path : allowedSendPatterns) {
-                sendPatterns.add(getPathPattern(path));
-            }
+            if (participant instanceof SystemParticipant) {
+                addAllZones(sendPatterns);
+                addZone(subscriptionPatterns, ServiceZones.API);
+                addZone(subscriptionPatterns, ServiceZones.SYSTEM);
 
-            List<String> allowedSubscriptionPatterns = List.of(EventConstants.SERVICE_DESTINATION_SCHEME + "://*.**",
-                                                               EventConstants.STREAM_DESTINATION_SCHEME + "://*.**");
+            } else if (participant instanceof ApplicationParticipant applicationParticipant) {
+                // appZone validates the ids, so an id that could act as a wildcard or extra
+                // label inside a pattern fails the connection instead of widening access
+                String appZone = ServiceZones.appZone(applicationParticipant.getOrganizationId(),
+                                                      applicationParticipant.getApplicationId());
+                addZone(sendPatterns, ServiceZones.API);
+                addZone(sendPatterns, appZone);
+                addZone(subscriptionPatterns, appZone);
 
-            for (String path : allowedSubscriptionPatterns) {
-                subscriptionPatterns.add(getPathPattern(path));
+            } else if (participant instanceof OrganizationParticipant) {
+                addZone(sendPatterns, ServiceZones.API);
+
+            } else {
+                throw new IllegalArgumentException("Unknown participant type " + participant.getClass().getName()
+                                                           + ", no zone routing rules exist for it");
             }
 
             subscriptionPatterns.add(getPathPattern(EventConstants.REPLY_DESTINATION_SCHEME + "://"
                                                             + replyToId
                                                             + ":*@*.**"));
+        }
+
+        private void addZone(List<PathPattern> target, String zone) {
+            for (String scheme : List.of(EventConstants.SERVICE_DESTINATION_SCHEME,
+                                         EventConstants.STREAM_DESTINATION_SCHEME)) {
+                target.add(getPathPattern(scheme + "://" + zone + ".**"));
+                // CRIs may carry a scope, e.g. srv://node1@system.kinotic-ai.vm-manager.VmManager
+                target.add(getPathPattern(scheme + "://*@" + zone + ".**"));
+            }
+        }
+
+        private void addAllZones(List<PathPattern> target) {
+            for (String scheme : List.of(EventConstants.SERVICE_DESTINATION_SCHEME,
+                                         EventConstants.STREAM_DESTINATION_SCHEME)) {
+                target.add(getPathPattern(scheme + "://*.**"));
+            }
         }
     }
 
