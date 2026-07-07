@@ -46,11 +46,9 @@ class DefaultOrganizationServiceTest {
     }
 
     @Test
-    void skipsGuardForExplicitPlatformIds() {
-        Organization organization = new Organization().setId("kinotic-test").setName("kinotic-test");
+    void rejectsExplicitReservedIds() {
+        Organization organization = new Organization().setId("kinotic-test").setName("Anything");
 
-        service.beforeSave(organization).join();
-
-        assertEquals("kinotic-test", organization.getId());
+        assertThrows(IllegalArgumentException.class, () -> service.beforeSave(organization));
     }
 }

@@ -3,30 +3,25 @@ import type { ConnectionInfo, ServerInfo } from '@kinotic-ai/core'
 import { VmNodeRegistration } from '@/model/VmNodeRegistration'
 import { VmNodeOrchestrationServiceProxy } from '@/internal/services/VmNodeOrchestrationServiceProxy'
 import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
-import { createAuthProviderFromEnv } from '@/api/auth/createAuthProviderFromEnv'
+import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
+import { VmManagerConfig } from '@/api/VmManagerConfig'
+import { createAuthProvider } from '@/api/createAuthProvider'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import os from 'node:os'
-import path from 'node:path'
 
-// Required configuration
-const nodeId = process.env.KINOTIC_NODE_ID ?? Bun.argv[2]
+const config = new VmManagerConfig()
+
+const nodeId = config.nodeId ?? Bun.argv[2]
 if (!nodeId) {
     console.error('Error: KINOTIC_NODE_ID environment variable or command line argument is required')
     process.exit(1)
 }
 
-const serverHost = process.env.KINOTIC_SERVER_HOST ?? 'localhost'
-const serverPort = Number(process.env.KINOTIC_SERVER_PORT ?? '58503')
-const serverUseSSL = (process.env.KINOTIC_SERVER_USE_SSL ?? 'false').toLowerCase() === 'true'
-const heartbeatIntervalMs = Number(process.env.KINOTIC_HEARTBEAT_INTERVAL_MS ?? '30000')
-const vmLogsDir = process.env.KINOTIC_VM_LOGS_DIR ?? path.join(os.homedir(), '.kinotic', 'vm-logs')
-const lokiUrl = process.env.KINOTIC_LOKI_URL
-
-const alloyManager = lokiUrl
+const alloyManager = config.lokiUrl
     ? new AlloyManager({
-        lokiUrl,
-        nodeId: nodeId!,
-        dataDir: path.join(os.homedir(), '.kinotic', 'alloy'),
+        lokiUrl: config.lokiUrl,
+        nodeId,
+        dataDir: config.alloyDataDir,
     })
     : null
 if (!alloyManager) {
@@ -42,27 +37,32 @@ function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy) {
         } catch (error) {
             console.error('Heartbeat failed:', error)
         }
-    }, heartbeatIntervalMs)
+    }, config.heartbeatIntervalMs)
 }
 
 async function start() {
     // Connect to the Kinotic server. As of @kinotic-ai/core 1.7.0 authentication
     // is performed during the WebSocket upgrade via a pluggable auth provider.
     const serverInfo: ServerInfo = {
-        host: serverHost,
-        port: serverPort,
-        useSSL: serverUseSSL
+        host: config.serverHost,
+        port: config.serverPort,
+        useSSL: config.serverUseSSL
     }
     const connectionInfo: ConnectionInfo = {
         ...serverInfo,
         sessionKeepAlive: SessionKeepAliveMode.ACTIVITY,
-        webSocketFactory: createAuthenticatedWebSocketFactory(serverInfo, createAuthProviderFromEnv())
+        webSocketFactory: createAuthenticatedWebSocketFactory(serverInfo, createAuthProvider(config))
     }
     await Kinotic.connect(connectionInfo)
-    console.log(`Connected to Kinotic server at ${serverHost}:${serverPort}`)
+    console.log(`Connected to Kinotic server at ${config.serverHost}:${config.serverPort}`)
+
+    // Reattach to workloads a previous vm-manager process left running before the
+    // VmManager service is published and can receive new workload operations
+    const provider = new BoxliteProvider(config.vmLogsDir, config.vmStateDir)
+    await provider.recover()
 
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
-    const vmManager = new DefaultVmManager(nodeId!, vmLogsDir, alloyManager)
+    const vmManager = new DefaultVmManager(nodeId!, provider, alloyManager)
 
     // Build registration info from system resources
     const registration = new VmNodeRegistration(nodeId!, os.hostname(), os.hostname())
@@ -80,7 +80,7 @@ async function start() {
 
     // Start sending periodic heartbeats
     startHeartbeat(nodeOrchestrator)
-    console.log(`Heartbeat started (every ${heartbeatIntervalMs / 1000}s)`)
+    console.log(`Heartbeat started (every ${config.heartbeatIntervalMs / 1000}s)`)
 }
 
 // Graceful shutdown
@@ -105,4 +105,5 @@ start().catch(error => {
 export type { IVmManager } from '@/api/IVmManager'
 export type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 export type { VolumeMount } from '@kinotic-ai/os-api'
-export { createAuthProviderFromEnv } from '@/api/auth/createAuthProviderFromEnv'
+export { VmManagerConfig } from '@/api/VmManagerConfig'
+export { createAuthProvider } from '@/api/createAuthProvider'

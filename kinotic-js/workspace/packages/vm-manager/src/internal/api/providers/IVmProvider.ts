@@ -1,4 +1,4 @@
-import type { Workload } from '@kinotic-ai/os-api'
+import type { Workload, VmProviderType } from '@kinotic-ai/os-api'
 import type { LogTarget } from '@/model/LogTarget'
 
 /**
@@ -6,6 +6,17 @@ import type { LogTarget } from '@/model/LogTarget'
  * Implementations handle the specifics of each hypervisor (boxlite, firecracker, cloud-hypervisor, etc.)
  */
 export interface IVmProvider {
+
+    /**
+     * The provider type workloads select via {@link Workload#providerType}.
+     */
+    readonly type: VmProviderType
+
+    /**
+     * Restores the workload state persisted by a previous vm-manager process on this node,
+     * reattaching to VMs that are still running.
+     */
+    recover(): Promise<void>
 
     /**
      * Starts a new VM for the given workload.

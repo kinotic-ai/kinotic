@@ -15,7 +15,7 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultOrganizationService extends AbstractCrudService<Organization> implements OrganizationService {
 
     /**
-     * No one can sign up for an organization whose id begins with this prefix. It is used
+     * No organization can be saved with an id that begins with this prefix. It is used
      * internally when the platform needs multi-tenancy but the system is the tenant —
      * e.g. VM workloads executed by the OS for the OS.
      */
@@ -32,12 +32,12 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
         Validate.notNull(entity.getName(), "Organization name cannot be null");
 
         if (entity.getId() == null) {
-            String id = slg.slugify(entity.getName()).toLowerCase();
-            Validate.isTrue(!id.startsWith(RESERVED_ID_PREFIX),
-                            "Organization name '%s' is reserved", entity.getName());
-            entity.setId(id);
+            entity.setId(slg.slugify(entity.getName()).toLowerCase());
             entity.setCreated(new Date());
         }
+        // Reserved-id organizations are only ever seeded by db migrations, which bypass this service
+        Validate.isTrue(!entity.getId().startsWith(RESERVED_ID_PREFIX),
+                        "Organization id '%s' is reserved", entity.getId());
 
         entity.setUpdated(new Date());
         return CompletableFuture.completedFuture(null);
