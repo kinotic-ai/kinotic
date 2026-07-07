@@ -16,6 +16,13 @@ java {
     withSourcesJar()
 }
 
+// Byte-identical archives for identical inputs, so CI can key "already published" checks
+// on a jar's hash and skip republishing images whose contents did not change
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
 
 repositories {
     // Use Maven Central for resolving dependencies.
