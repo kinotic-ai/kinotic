@@ -49,8 +49,9 @@ function resolveScope(instance: object): unknown {
 }
 
 /**
- * Marks the getter or method that provides the service's scope. It is invoked on each
- * instance when the instance registers with the ServiceRegistry.
+ * Marks the getter or method that provides the service's scope, which targets requests at one
+ * specific instance of the service, such as the copy running on a particular node. It is
+ * invoked on each instance when the instance registers with the ServiceRegistry.
  */
 export function Scope(value: Function, _context: ClassGetterDecoratorContext | ClassMethodDecoratorContext): void {
     scopeFunctions.add(value)
