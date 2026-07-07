@@ -63,6 +63,19 @@ export class Workload implements Identifiable<string> {
     public diskSizeMb: number = 1024
 
     /**
+     * When true the VM runs detached from the vm-manager process and survives its
+     * restarts. Non-detached workloads end when the vm-manager exits.
+     */
+    public detached: boolean = true
+
+    /**
+     * When true the VM and its disk are discarded when the workload stops, so a
+     * stopped workload cannot be restarted. When false the disk is kept and the
+     * workload may be restarted in place.
+     */
+    public autoRemove: boolean = false
+
+    /**
      * Current status of the workload.
      */
     public status: WorkloadStatus = WorkloadStatus.PENDING
@@ -88,7 +101,9 @@ export class Workload implements Identifiable<string> {
     public entrypoint: string[] = []
 
     /**
-     * Overrides the image command (CMD). Empty keeps the image default.
+     * Overrides the image command (CMD). Empty keeps the image default, unless
+     * entrypoint is declared — then the image CMD is dropped so the entrypoint
+     * runs exactly as given.
      */
     public cmd: string[] = []
 

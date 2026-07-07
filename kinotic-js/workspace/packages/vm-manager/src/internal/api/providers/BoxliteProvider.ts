@@ -1,9 +1,9 @@
-import { SimpleBox, type SimpleBoxOptions } from '@boxlite-ai/boxlite'
-import { mkdirSync, rmSync } from 'node:fs'
+import { SimpleBox, getJsBoxlite, type SimpleBoxOptions } from '@boxlite-ai/boxlite'
+import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import type { LogTarget } from '@/model/LogTarget'
-import { Workload, WorkloadStatus } from '@kinotic-ai/os-api'
+import { Workload, WorkloadStatus, VmProviderType } from '@kinotic-ai/os-api'
 
 /**
  * Guest path where the per-workload host log directory is mounted. This is the log-shipping
@@ -14,10 +14,19 @@ import { Workload, WorkloadStatus } from '@kinotic-ai/os-api'
 export const GUEST_LOG_DIR = '/var/log/kinotic'
 
 /**
+ * Lifecycle handle to a boxlite box, as returned by the runtime's get(). The SDK exports
+ * no TS type for it (JsBox), so only the members this provider uses are declared.
+ */
+export interface BoxHandle {
+    start(): Promise<void>
+    stop(): Promise<void>
+}
+
+/**
  * A VM currently managed by this provider, with the resources that outlive the box itself.
  */
 export interface ActiveVm {
-    box: SimpleBox
+    box: BoxHandle
     /** boxlite box id (ULID), assigned once the VM boots. */
     vmId: string
     /** Host directory holding this VM's log files, mounted at {@link GUEST_LOG_DIR}. */
@@ -30,17 +39,28 @@ export interface ActiveVm {
  * declares them, so an empty value keeps the image default.
  */
 export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOptions {
+    // Silently binding to all interfaces when a specific one was requested would be a
+    // security failure, so an unsupported hostIp is rejected outright
+    const boundMapping = workload.portMappings.find(mapping => mapping.hostIp)
+    if (boundMapping) {
+        throw new Error(`boxlite cannot bind a specific host interface (hostIp ${boundMapping.hostIp})`)
+    }
     return {
         image: workload.image,
         name: workload.id!,
         cpus: workload.vcpus,
         memoryMib: workload.memoryMb,
         env: workload.environment,
-        ...(workload.entrypoint.length > 0 ? { entrypoint: workload.entrypoint } : {}),
-        ...(workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
-        ports: Object.entries(workload.portMappings).map(([hostPort, guestPort]) => ({
-            hostPort: Number(hostPort),
-            guestPort: Number(guestPort),
+        // Kubernetes semantics: a declared entrypoint runs exactly as given — the image
+        // CMD is suppressed unless the workload declares its own cmd
+        ...(workload.entrypoint.length > 0
+            ? { entrypoint: workload.entrypoint, cmd: workload.cmd }
+            : workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
+        ports: workload.portMappings.map(({ hostPort, guestPort, protocol }) => ({
+            ...(hostPort !== undefined ? { hostPort } : {}),
+            guestPort,
+            // boxlite recognizes only lowercase 'udp'; any other value silently means tcp
+            ...(protocol !== undefined ? { protocol: protocol.toLowerCase() } : {}),
         })),
         volumes: [
             ...workload.volumeMounts.map(({ hostPath, guestPath, readOnly }) => ({
@@ -50,22 +70,60 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
             })),
             { hostPath: logDir, guestPath: GUEST_LOG_DIR },
         ],
+        // boxlite rejects autoRemove on detached boxes, so Workload.autoRemove is
+        // implemented by stop() instead of this flag
         autoRemove: false,
+        // A workload deserialized from the wire or a persisted state file may predate the
+        // detached field; boxlite's default (false) is the opposite of the model's
+        detach: workload.detached ?? true,
     }
 }
 
 /**
  * VM provider implementation using the boxlite Node.js SDK for micro VM management.
+ * Workload state is persisted under the given state directory so a restarted vm-manager
+ * can {@link recover} the VMs of a previous process.
  * @see https://github.com/boxlite-ai/boxlite
  */
 export class BoxliteProvider implements IVmProvider {
 
+    readonly type: VmProviderType = VmProviderType.BOXLITE
+
     private readonly workloads: Map<string, Workload> = new Map()
     private readonly activeVms: Map<string, ActiveVm> = new Map()
     private readonly logsBaseDir: string
+    // State must not live under logsBaseDir: log dirs are guest-writable via the
+    // GUEST_LOG_DIR mount, and a guest could rewrite its organizationId to reroute
+    // its logs to another tenant
+    private readonly stateDir: string
+    // One boxlite runtime for the whole provider; every SimpleBox is bound to it
+    private readonly runtime = getJsBoxlite().withDefaultConfig()
+    private readonly onStatusChanged: ((workload: Workload) => void) | null
 
-    constructor(logsBaseDir: string) {
+    constructor(logsBaseDir: string,
+                stateDir: string,
+                onStatusChanged: ((workload: Workload) => void) | null = null) {
         this.logsBaseDir = logsBaseDir
+        this.stateDir = stateDir
+        this.onStatusChanged = onStatusChanged
+        mkdirSync(stateDir, { recursive: true })
+    }
+
+    async recover(): Promise<void> {
+        for (const file of readdirSync(this.stateDir)) {
+            if (!file.endsWith('.json')) {
+                continue
+            }
+            let workload: Workload
+            try {
+                workload = JSON.parse(readFileSync(join(this.stateDir, file), 'utf-8'))
+            } catch (error) {
+                console.error(`Skipping unreadable workload state file ${file}:`, error)
+                continue
+            }
+            this.workloads.set(workload.id!, workload)
+            await this.recoverVm(workload)
+        }
     }
 
     async start(workload: Workload): Promise<Workload> {
@@ -79,14 +137,25 @@ export class BoxliteProvider implements IVmProvider {
 
         const logDir = join(this.logsBaseDir, id)
         mkdirSync(logDir, { recursive: true })
+        // STARTING is persisted first so a crash mid-boot is visible to recover()
+        this.persist(workload)
 
         try {
-            const box = new SimpleBox(buildBoxOptions(workload, logDir))
+            // A box record left by a previous run of this workload would collide on the name
+            const stale = await this.runtime.getInfo(id)
+            if (stale && !stale.state.running) {
+                await this.runtime.remove(id, true)
+            }
 
-            // Verify the box is responsive; also boots the lazily-created VM so box.id is assigned
-            await box.exec('echo ready')
+            // Creates the box record only — the VM does not boot until start()
+            const vmId = await new SimpleBox({ ...buildBoxOptions(workload, logDir), runtime: this.runtime }).getId()
 
-            this.activeVms.set(id, { box, vmId: box.id, logDir })
+            // The runtime's boot handshake doubles as the readiness check; unlike an exec
+            // probe it requires no binaries from the guest image
+            const box = await this.boxHandle(id)
+            await box.start()
+
+            this.activeVms.set(id, { box, vmId, logDir })
 
             workload.status = WorkloadStatus.RUNNING
         } catch (error) {
@@ -95,6 +164,44 @@ export class BoxliteProvider implements IVmProvider {
             throw error
         } finally {
             workload.updated = Date.now()
+            this.persist(workload)
+        }
+
+        return workload
+    }
+
+    async restart(workloadId: string): Promise<Workload> {
+        const workload = this.workloads.get(workloadId)
+        if (!workload) {
+            throw new Error(`Workload not found: ${workloadId}`)
+        }
+        if (workload.status !== WorkloadStatus.STOPPED) {
+            throw new Error(`Workload ${workloadId} is not stopped (status: ${workload.status})`)
+        }
+        const info = await this.runtime.getInfo(workloadId)
+        if (!info) {
+            throw new Error(`Workload ${workloadId} cannot be restarted — its VM was discarded (autoRemove)`)
+        }
+
+        workload.status = WorkloadStatus.STARTING
+        workload.updated = Date.now()
+        this.persist(workload)
+
+        try {
+            const box = await this.boxHandle(workloadId)
+            await box.start()
+
+            const logDir = join(this.logsBaseDir, workloadId)
+            this.activeVms.set(workloadId, { box, vmId: info.id, logDir })
+
+            workload.status = WorkloadStatus.RUNNING
+        } catch (error) {
+            workload.status = WorkloadStatus.FAILED
+            this.activeVms.delete(workloadId)
+            throw error
+        } finally {
+            workload.updated = Date.now()
+            this.persist(workload)
         }
 
         return workload
@@ -113,13 +220,21 @@ export class BoxliteProvider implements IVmProvider {
 
         workload.status = WorkloadStatus.STOPPING
         workload.updated = Date.now()
+        this.persist(workload)
 
         await vm.box.stop()
+
+        // Implements Workload.autoRemove: boxlite forbids its own autoRemove flag on
+        // detached boxes, so the provider discards the box explicitly
+        if (workload.autoRemove ?? false) {
+            await this.runtime.remove(workloadId, true)
+        }
 
         workload.status = WorkloadStatus.STOPPED
         workload.updated = Date.now()
         // The log dir is kept so already-written logs remain shippable until destroy
         this.activeVms.delete(workloadId)
+        this.persist(workload)
     }
 
     async destroy(workloadId: string): Promise<void> {
@@ -134,7 +249,13 @@ export class BoxliteProvider implements IVmProvider {
             this.activeVms.delete(workloadId)
         }
 
+        // autoRemove is off, so the box record survives stop and must be removed explicitly
+        if (await this.runtime.getInfo(workloadId)) {
+            await this.runtime.remove(workloadId, true)
+        }
+
         rmSync(join(this.logsBaseDir, workloadId), { recursive: true, force: true })
+        rmSync(this.stateFile(workloadId), { force: true })
         this.workloads.delete(workloadId)
     }
 
@@ -161,5 +282,57 @@ export class BoxliteProvider implements IVmProvider {
                 applicationId: workload.applicationId,
             }
         })
+    }
+
+    // Reconciles a persisted workload with the actual box state, reattaching when it is
+    // still running
+    private async recoverVm(workload: Workload): Promise<void> {
+        if (workload.status !== WorkloadStatus.STARTING &&
+            workload.status !== WorkloadStatus.RUNNING &&
+            workload.status !== WorkloadStatus.STOPPING) {
+            return
+        }
+        const id = workload.id!
+        try {
+            const info = await this.runtime.getInfo(id)
+            if (info?.state.running) {
+                const logDir = join(this.logsBaseDir, id)
+                this.activeVms.set(id, { box: await this.boxHandle(id), vmId: info.id, logDir })
+                workload.status = WorkloadStatus.RUNNING
+                console.log(`Reattached to running workload ${id} (vm ${info.id})`)
+            } else {
+                // The box ended while no vm-manager was supervising it
+                workload.status = workload.status === WorkloadStatus.STOPPING
+                    ? WorkloadStatus.STOPPED
+                    : WorkloadStatus.FAILED
+            }
+        } catch (error) {
+            console.error(`Failed to reattach workload ${id}:`, error)
+            workload.status = WorkloadStatus.FAILED
+        }
+        workload.updated = Date.now()
+        this.persist(workload)
+    }
+
+    // The runtime's own handle to the box named by the workload id
+    private async boxHandle(workloadId: string): Promise<BoxHandle> {
+        const box: BoxHandle | null = await this.runtime.get(workloadId)
+        if (!box) {
+            throw new Error(`Box not found for workload: ${workloadId}`)
+        }
+        return box
+    }
+
+    // Written atomically (write + rename) so a crash mid-write cannot corrupt recovery state.
+    // Every status transition funnels through here, so the listener sees them all.
+    private persist(workload: Workload): void {
+        const file = this.stateFile(workload.id!)
+        writeFileSync(`${file}.tmp`, JSON.stringify(workload))
+        renameSync(`${file}.tmp`, file)
+        this.onStatusChanged?.(workload)
+    }
+
+    private stateFile(workloadId: string): string {
+        return join(this.stateDir, `${workloadId}.json`)
     }
 }

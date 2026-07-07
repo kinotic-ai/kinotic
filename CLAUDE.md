@@ -149,3 +149,11 @@ internals. Prefer one behavioral test with real infrastructure (processes, temp 
 containers) — gated to skip when the environment lacks it — over unit tests that each
 cost a structural concession. Behavior unobservable through any public interface is a
 production API gap: raise it, don't add a test-only door.
+
+The same preference governs test level: an e2e/integration test against real
+collaborators beats a unit test that must fake or mock significant functionality — the
+faked collaborator is where the bugs live (wire dispatch, deserialization, persistence
+hooks), and a slower test that exercises them is worth more than a fast one that assumes
+them. The exception is logic with no external collaborators (parsing, guards, pure
+transforms): there a unit test localizes failures earlier and more precisely than any
+e2e test can, and needs no fakes to begin with.

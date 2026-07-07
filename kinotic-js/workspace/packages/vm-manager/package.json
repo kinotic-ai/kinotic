@@ -35,7 +35,7 @@
     "@kinotic-ai/os-api": ">=1.15.0"
   },
   "dependencies": {
-    "@boxlite-ai/boxlite": "^0.8.2",
+    "@boxlite-ai/boxlite": "^0.9.7",
     "@kinotic-ai/core": "workspace:*",
     "@kinotic-ai/os-api": "workspace:*"
   },
