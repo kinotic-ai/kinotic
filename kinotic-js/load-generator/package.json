@@ -32,7 +32,7 @@
     "@kinotic-ai/core": "^2.0.0",
     "@kinotic-ai/idl": "^1.0.9",
     "@kinotic-ai/kinotic-cli": "^2.2.0",
-    "@kinotic-ai/os-api": "^1.11.0",
+    "@kinotic-ai/os-api": "^2.0.0",
     "@kinotic-ai/persistence": "^2.0.0",
     "@opentelemetry/api": "1.9.1",
     "@opentelemetry/exporter-trace-otlp-grpc": "0.214.0",

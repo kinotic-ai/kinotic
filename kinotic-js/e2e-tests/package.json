@@ -16,7 +16,7 @@
     "@kinotic-ai/core": "^2.0.0",
     "@kinotic-ai/idl": "^1.0.9",
     "@kinotic-ai/kinotic-cli": "^2.3.0",
-    "@kinotic-ai/os-api": "^1.14.0",
+    "@kinotic-ai/os-api": "^2.0.0",
     "@kinotic-ai/persistence": "^2.0.0",
     "@types/node": "^25.0.6",
     "@types/ws": "^8.18.1",
