@@ -7,6 +7,8 @@ import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
 import { createAuthProvider } from '@/api/createAuthProvider'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
+import type { Workload } from '@kinotic-ai/os-api'
+import type { WorkloadStatusReport } from '@/model/WorkloadStatusReport'
 import os from 'node:os'
 
 const config = new VmManagerConfig()
@@ -30,10 +32,24 @@ if (!alloyManager) {
 
 let heartbeatTimer: Timer | null = null
 
-function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy) {
+function toStatusReport(workload: Workload): WorkloadStatusReport {
+    return {
+        workloadId: workload.id!,
+        status: workload.status,
+        updated: workload.updated ?? Date.now(),
+    }
+}
+
+function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy, vmManager: DefaultVmManager) {
     heartbeatTimer = setInterval(async () => {
         try {
             await nodeOrchestrator.heartbeat(nodeId!)
+            // Snapshot reconciliation: re-reporting everything converges any transition
+            // whose push was lost while the server was unreachable
+            const workloads = await vmManager.listWorkloads()
+            if (workloads.length > 0) {
+                await nodeOrchestrator.reportWorkloadStatus(nodeId!, workloads.map(toStatusReport))
+            }
         } catch (error) {
             console.error('Heartbeat failed:', error)
         }
@@ -56,9 +72,18 @@ async function start() {
     await Kinotic.connect(connectionInfo)
     console.log(`Connected to Kinotic server at ${config.serverHost}:${config.serverPort}`)
 
+    const nodeOrchestrator = new VmNodeOrchestrationServiceProxy(
+        Kinotic.serviceProxy('org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService')
+    )
+
     // Reattach to workloads a previous vm-manager process left running before the
-    // VmManager service is published and can receive new workload operations
-    const provider = new BoxliteProvider(config.vmLogsDir, config.vmStateDir)
+    // VmManager service is published and can receive new workload operations. Every
+    // node-side status transition is pushed so the server tracks the workload's real
+    // state; a failed push is only logged — the heartbeat snapshot reconciles it.
+    const provider = new BoxliteProvider(config.vmLogsDir, config.vmStateDir, workload => {
+        nodeOrchestrator.reportWorkloadStatus(nodeId!, [toStatusReport(workload)])
+                        .catch(error => console.error('Failed to report workload status:', error))
+    })
     await provider.recover()
 
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
@@ -70,16 +95,13 @@ async function start() {
     registration.totalMemoryMb = Math.floor(os.totalmem() / (1024 * 1024))
 
     // Register this node with the VmNodeOrchestrationService on the server
-    const nodeOrchestrator = new VmNodeOrchestrationServiceProxy(
-        Kinotic.serviceProxy('org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService')
-    )
     await nodeOrchestrator.registerNode(registration)
 
     console.log(`VM Manager registered on node: ${nodeId}`)
     console.log(`  CPUs: ${registration.totalCpus}, Memory: ${registration.totalMemoryMb}MB`)
 
     // Start sending periodic heartbeats
-    startHeartbeat(nodeOrchestrator)
+    startHeartbeat(nodeOrchestrator, vmManager)
     console.log(`Heartbeat started (every ${config.heartbeatIntervalMs / 1000}s)`)
 }
 

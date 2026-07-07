@@ -47,9 +47,13 @@ describe('BoxliteProvider recovery and restart', () => {
     }
 
     itVm('recovers workloads across provider generations and restarts them in place', async () => {
+        // Every status transition in any generation lands here via the provider listener
+        const reported: WorkloadStatus[] = []
+        const onStatusChanged = (w: Workload) => reported.push(w.status)
+
         // Generation 1: start a detached workload, then abandon the provider without
         // stopping anything — the VM keeps running, modelling a crashed vm-manager
-        const first = new BoxliteProvider(logsDir, stateDir)
+        const first = new BoxliteProvider(logsDir, stateDir, onStatusChanged)
         const started = await first.start(longRunningWorkload())
         startedIds.push(started.id!)
         expect(started.status).toBe(WorkloadStatus.RUNNING)
@@ -57,7 +61,7 @@ describe('BoxliteProvider recovery and restart', () => {
         expect(target).toBeDefined()
 
         // Generation 2: a fresh provider over the same dirs models the restarted process
-        const second = new BoxliteProvider(logsDir, stateDir)
+        const second = new BoxliteProvider(logsDir, stateDir, onStatusChanged)
         await second.recover()
 
         const recovered = await second.getWorkload(started.id!)
@@ -75,7 +79,7 @@ describe('BoxliteProvider recovery and restart', () => {
         await second.stop(started.id!)
 
         // Generation 3: recovery after the stop — workload present but dormant
-        const third = new BoxliteProvider(logsDir, stateDir)
+        const third = new BoxliteProvider(logsDir, stateDir, onStatusChanged)
         await third.recover()
         expect((await third.getWorkload(started.id!)).status).toBe(WorkloadStatus.STOPPED)
         expect(await third.listLogTargets()).toEqual([])
@@ -88,6 +92,15 @@ describe('BoxliteProvider recovery and restart', () => {
 
         await third.destroy(started.id!)
         expect(existsSync(join(stateDir, `${started.id}.json`))).toBeFalse()
+
+        // The full arc as the status listener saw it: gen-1 start, gen-2 reattach and
+        // stop, gen-3 restart. Recovery of the already-STOPPED workload reports nothing.
+        expect(reported).toEqual([
+            WorkloadStatus.STARTING, WorkloadStatus.RUNNING,
+            WorkloadStatus.RUNNING,
+            WorkloadStatus.STOPPING, WorkloadStatus.STOPPED,
+            WorkloadStatus.STARTING, WorkloadStatus.RUNNING,
+        ])
     }, VM_TIMEOUT)
 
     itVm('rejects restarting a workload that is not stopped', async () => {

@@ -98,10 +98,14 @@ export class BoxliteProvider implements IVmProvider {
     private readonly stateDir: string
     // One boxlite runtime for the whole provider; every SimpleBox is bound to it
     private readonly runtime = getJsBoxlite().withDefaultConfig()
+    private readonly onStatusChanged: ((workload: Workload) => void) | null
 
-    constructor(logsBaseDir: string, stateDir: string) {
+    constructor(logsBaseDir: string,
+                stateDir: string,
+                onStatusChanged: ((workload: Workload) => void) | null = null) {
         this.logsBaseDir = logsBaseDir
         this.stateDir = stateDir
+        this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
     }
 
@@ -319,11 +323,13 @@ export class BoxliteProvider implements IVmProvider {
         return box
     }
 
-    // Written atomically (write + rename) so a crash mid-write cannot corrupt recovery state
+    // Written atomically (write + rename) so a crash mid-write cannot corrupt recovery state.
+    // Every status transition funnels through here, so the listener sees them all.
     private persist(workload: Workload): void {
         const file = this.stateFile(workload.id!)
         writeFileSync(`${file}.tmp`, JSON.stringify(workload))
         renameSync(`${file}.tmp`, file)
+        this.onStatusChanged?.(workload)
     }
 
     private stateFile(workloadId: string): string {
