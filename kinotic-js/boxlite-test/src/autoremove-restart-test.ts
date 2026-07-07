@@ -18,6 +18,9 @@ import { join } from "node:path";
 //     auto-start?); if that fails, runtime.get(name).start() then exec. Report whether
 //     /root marker survived, /tmp marker vanished, and whether the box id changed.
 //  3. autoRemove:true — same stop, then check record and files are actually removed.
+//  4. entrypoint — a box whose entrypoint appends a marker to /root/boots.log; after a
+//     stop/restart the file should hold a second line, proving the recorded entrypoint
+//     re-runs on every boot (restart really restarts the workload, not just the VM).
 //
 // Memory/process state is expected to be lost either way — stop() is not a snapshot;
 // the question here is purely rootfs-disk persistence and restartability.
@@ -132,6 +135,43 @@ async function main() {
   console.log(`  getInfo        : ${dropInfo ? `record still present (${dropInfo.state.status})` : "(no record — removed)"}`);
   console.log(`  box dir        : ${dirSummary(dropDir)}\n`);
 
+  // ---- Phase 4: does the entrypoint re-run on restart? ----------------------------
+  console.log(`=== Phase 4: entrypoint re-run on restart ===`);
+  const EP_NAME = `entry-${RUN}`;
+
+  // The entrypoint runs asynchronously after boot, so exec can race it — poll until the
+  // expected boot count (or timeout) before judging
+  async function bootCount(box: SimpleBox, expected: number): Promise<number> {
+    let count = 0;
+    for (let i = 0; i < 50 && count < expected; i++) {
+      const result = await box.exec("sh", ["-c", "wc -l < /root/boots.log 2>/dev/null || echo 0"]);
+      count = Number(result.stdout.trim());
+      if (count < expected) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    }
+    return count;
+  }
+
+  const entry = new SimpleBox({
+    image: "alpine:latest",
+    name: EP_NAME,
+    autoRemove: false,
+    runtime,
+    entrypoint: ["sh", "-c", "echo boot >> /root/boots.log"],
+  });
+  await entry.exec("true");
+  const firstBoot = await bootCount(entry, 1);
+  console.log(`  boots.log lines after first boot: ${firstBoot}`);
+  await entry.stop();
+
+  const entryAgain = new SimpleBox({ image: "alpine:latest", name: EP_NAME, autoRemove: false, reuseExisting: true, runtime });
+  await entryAgain.exec("true");
+  const secondBoot = await bootCount(entryAgain, 2);
+  console.log(`  boots.log lines after restart   : ${secondBoot}\n`);
+  await entryAgain.stop();
+  await runtime.remove(EP_NAME, true);
+
   // ---- Report ---------------------------------------------------------------------
   console.log("=== REPORT ===");
   console.log(`(a) autoRemove:false + stop keeps registry record: ${stoppedInfo ? "YES" : "NO"}`);
@@ -140,6 +180,7 @@ async function main() {
   console.log(`(d) rootfs state survives restart:                 ${rootMarker.stdout.trim() === MARKER ? "YES" : "NO"}`);
   console.log(`(e) autoRemove:true + stop removes record+files:   ${!dropInfo && !existsSync(dropDir) ? "YES" : "NO / partial"}`);
   console.log(`(f) runtime.get(name).start() boots a stopped box: ${afterStart?.state.running ? "YES" : "NO"}`);
+  console.log(`(g) entrypoint re-runs on restart:                 ${secondBoot >= 2 ? "YES" : firstBoot === 0 ? "INCONCLUSIVE (never ran on first boot)" : "NO"}`);
 }
 
 main().catch((error) => {
