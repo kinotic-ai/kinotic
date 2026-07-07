@@ -47,7 +47,7 @@ public class ServiceIdentifier {
         this.scope = scope;
         this.version = version;
 
-        cri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, this.scope, this.resourceName(), null, this.version);
+        cri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, this.scope, this.qualifiedName(), null, this.version);
     }
 
     /**
@@ -94,21 +94,13 @@ public class ServiceIdentifier {
     }
 
     /**
-     * Returns the qualified name for this {@link ServiceIdentifier}
-     * This is the namespace.name
+     * Returns the fully qualified name this {@link ServiceIdentifier} is addressed by
+     * This is the zone.namespace.name, omitting any part that is not set
      * @return string containing the qualified name
      */
     public String qualifiedName(){
-        return (namespace != null && !namespace.isEmpty() ? namespace + "." : "") + name;
-    }
-
-    /**
-     * Returns the CRI resourceName this {@link ServiceIdentifier} is addressed by
-     * This is the zone.namespace.name, or just the qualified name when un-zoned
-     * @return string containing the resourceName
-     */
-    public String resourceName(){
-        return zone != null ? zone + "." + qualifiedName() : qualifiedName();
+        String name = (namespace != null && !namespace.isEmpty() ? namespace + "." : "") + this.name;
+        return zone != null ? zone + "." + name : name;
     }
 
     /**

@@ -12,18 +12,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class ServiceIdentifierTest {
 
     @Test
-    public void resourceNameIsZonePrefixed() {
+    public void qualifiedNameIsZonePrefixed() {
         ServiceIdentifier identifier = new ServiceIdentifier("api", "org.kinotic.os.api.services.iam", "MemberService", null, "1.0.0");
-        assertEquals("org.kinotic.os.api.services.iam.MemberService", identifier.qualifiedName());
-        assertEquals("api.org.kinotic.os.api.services.iam.MemberService", identifier.resourceName());
+        assertEquals("api.org.kinotic.os.api.services.iam.MemberService", identifier.qualifiedName());
         assertEquals("srv://api.org.kinotic.os.api.services.iam.MemberService#1.0.0", identifier.cri().raw());
     }
 
     @Test
     public void scopeAndMissingNamespaceRoundTrip() {
         ServiceIdentifier identifier = new ServiceIdentifier("system", null, "VmManager", "node1", "0.1.0");
-        assertEquals("VmManager", identifier.qualifiedName());
-        assertEquals("system.VmManager", identifier.resourceName());
+        assertEquals("system.VmManager", identifier.qualifiedName());
         assertEquals("srv://node1@system.VmManager#0.1.0", identifier.cri().raw());
     }
 
@@ -38,7 +36,7 @@ public class ServiceIdentifierTest {
     @Test
     public void nullZoneMeansUnZonedAddress() {
         ServiceIdentifier identifier = new ServiceIdentifier(null, "com.example", "LegacyService", null, "1.0.0");
-        assertEquals("com.example.LegacyService", identifier.resourceName());
+        assertEquals("com.example.LegacyService", identifier.qualifiedName());
         assertEquals("srv://com.example.LegacyService#1.0.0", identifier.cri().raw());
     }
 
