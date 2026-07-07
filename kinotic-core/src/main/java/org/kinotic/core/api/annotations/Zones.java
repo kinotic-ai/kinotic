@@ -13,7 +13,7 @@ import java.lang.annotation.Target;
  *
  * May be placed on the service type or on a package via package-info.java to apply to every
  * {@link Publish}ed interface in that package. A type-level declaration overrides the package's.
- * When neither is present a service defaults to the {@code system} zone.
+ * When neither is present a service registers at its un-zoned address.
  */
 @Target({ElementType.TYPE, ElementType.PACKAGE})
 @Retention(RetentionPolicy.RUNTIME)

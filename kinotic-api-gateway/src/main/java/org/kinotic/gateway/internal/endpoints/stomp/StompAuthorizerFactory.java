@@ -4,7 +4,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.service.ServiceZones;
+import org.kinotic.domain.api.security.PlatformZones;
 import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.kinotic.domain.api.security.OrganizationParticipant;
 import org.kinotic.domain.api.security.SystemParticipant;
@@ -62,20 +62,20 @@ public class StompAuthorizerFactory {
 
             if (participant instanceof SystemParticipant) {
                 addAllZones(sendPatterns);
-                addZone(subscriptionPatterns, ServiceZones.API);
-                addZone(subscriptionPatterns, ServiceZones.SYSTEM);
+                addZone(subscriptionPatterns, PlatformZones.API);
+                addZone(subscriptionPatterns, PlatformZones.SYSTEM);
 
             } else if (participant instanceof ApplicationParticipant applicationParticipant) {
                 // appZone validates the ids, so an id that could act as a wildcard or extra
                 // label inside a pattern fails the connection instead of widening access
-                String appZone = ServiceZones.appZone(applicationParticipant.getOrganizationId(),
+                String appZone = PlatformZones.appZone(applicationParticipant.getOrganizationId(),
                                                       applicationParticipant.getApplicationId());
-                addZone(sendPatterns, ServiceZones.API);
+                addZone(sendPatterns, PlatformZones.API);
                 addZone(sendPatterns, appZone);
                 addZone(subscriptionPatterns, appZone);
 
             } else if (participant instanceof OrganizationParticipant) {
-                addZone(sendPatterns, ServiceZones.API);
+                addZone(sendPatterns, PlatformZones.API);
 
             } else {
                 throw new IllegalArgumentException("Unknown participant type " + participant.getClass().getName()

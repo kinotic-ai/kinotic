@@ -8,7 +8,6 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.RpcServiceProxy;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.service.ServiceIdentifier;
-import org.kinotic.core.api.service.ServiceZones;
 import org.kinotic.core.internal.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.slf4j.Logger;
@@ -106,11 +105,12 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                                 throw new FatalBeanException("Version must be specified on the Published interface " + inter.getName() + " or an ancestor package.");
                             }
 
-                            // A service registers one address per zone, defaulting to the system
-                            // zone so nothing is reachable by applications unless declared so
+                            // A service registers one address per declared zone; with no
+                            // declaration it registers a single un-zoned address, whose
+                            // reachability is whatever the gateway's routing rules allow
                             String[] zones = MetaUtil.getZones(inter);
                             if (zones == null || zones.length == 0) {
-                                zones = new String[]{ServiceZones.SYSTEM};
+                                zones = new String[]{null};
                             }
 
                             for (String zone : zones) {

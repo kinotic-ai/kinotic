@@ -32,13 +32,14 @@ public class ServiceIdentifier {
                              String name,
                              String scope,
                              String version) {
-        Validate.notEmpty(zone, "The zone must not be empty");
         Validate.notEmpty(name, "The name must not be empty");
         Validate.notEmpty(version, "The version must not be empty");
         // The name is the final dot separated label of the resourceName, so a dot inside it would
         // change where the zone and namespace end when the address is parsed or pattern matched
         Validate.isTrue(!name.contains("."), "The name must not contain '.' but was '%s'", name);
-        ServiceZones.validateZone(zone);
+        if (zone != null) {
+            ZoneUtil.validateZone(zone);
+        }
         this.zone = zone;
         this.namespace = namespace;
         this.name = name;
@@ -50,7 +51,7 @@ public class ServiceIdentifier {
 
     /**
      * The zone this {@link ServiceIdentifier} is addressable in
-     * @return string containing the zone
+     * @return string containing the zone or null if un-zoned
      */
     public String zone() {
         return zone;
@@ -102,11 +103,11 @@ public class ServiceIdentifier {
 
     /**
      * Returns the CRI resourceName this {@link ServiceIdentifier} is addressed by
-     * This is the zone.namespace.name
+     * This is the zone.namespace.name, or just the qualified name when un-zoned
      * @return string containing the resourceName
      */
     public String resourceName(){
-        return zone + "." + qualifiedName();
+        return zone != null ? zone + "." + qualifiedName() : qualifiedName();
     }
 
     /**

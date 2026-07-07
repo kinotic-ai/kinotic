@@ -36,9 +36,14 @@ public class ServiceIdentifierTest {
     }
 
     @Test
+    public void nullZoneMeansUnZonedAddress() {
+        ServiceIdentifier identifier = new ServiceIdentifier(null, "com.example", "LegacyService", null, "1.0.0");
+        assertEquals("com.example.LegacyService", identifier.resourceName());
+        assertEquals("srv://com.example.LegacyService#1.0.0", identifier.cri().raw());
+    }
+
+    @Test
     public void invalidPartsAreRejected() {
-        // commons-lang3 Validate.notEmpty semantics: NPE for null, IAE for empty
-        assertThrows(NullPointerException.class, () -> new ServiceIdentifier(null, "com.example", "Svc", null, "1.0.0"));
         assertThrows(IllegalArgumentException.class, () -> new ServiceIdentifier("Bad.Zone", "com.example", "Svc", null, "1.0.0"));
         // the name is the final label of the address, so it can never contain a dot
         assertThrows(IllegalArgumentException.class, () -> new ServiceIdentifier("api", "com.example", "Svc.Extra", null, "1.0.0"));
