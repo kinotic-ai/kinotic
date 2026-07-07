@@ -4,45 +4,32 @@ import { join } from "node:path";
 
 // Does boxlite support run-to-completion (batch) workloads — images whose entrypoint does
 // its work and exits, like kinotic-migration? The autoremove-restart probe saw an
-// instant-exit entrypoint fail create with youki's init-ready handshake error
-// (spawn_failed / "waiting for init ready" BrokenChannel). Three competing explanations:
-//   1. entrypoints must outlive the boot handshake (hard constraint)
-//   2. a race the integration loses only for near-instant exits (bug, flaky)
-//   3. create succeeded, the box ran to completion, and the probe's exec("true")
-//      auto-REBOOTED it — and the re-boot lost the same race
-// Boxes record an exit.previous file, so run-to-completion looks intended. This probe
-// separates the explanations:
+// instant-exit entrypoint fail a boot with youki's init-ready handshake error
+// (spawn_failed / "waiting for init ready" BrokenChannel).
 //
-//  A. entrypoint exits after ~3s. Boot via getId() — never exec, so nothing can re-boot
-//     it — then poll getInfo only. Does the box transition to stopped on its own, and
-//     with what status? This is the kinotic-migration case.
-//  B. instant-exit entrypoint, 5 fresh boxes. Count create failures — deterministic
-//     constraint (5/5) vs race (flaky) vs fine (0/5, blaming the old probe's exec).
-//  C. ~0.5s entrypoint, 3 boxes — the middle ground, sizes the hazard window if B fails.
+// A previous version of this probe established that box creation is lazy at the engine
+// level too: create/getId() only writes the registry record (status 'configured') and the
+// VM does not boot until first exec. So this probe boots explicitly via
+// runtime.get(name).start() — no exec anywhere near the boot — and then only observes
+// getInfo, so nothing can accidentally (re)boot a completed box.
+//
+//  A. entrypoint works ~3s then exits. Boot via start(), poll getInfo: does the box
+//     leave 'running' on its own, and what is the final status? The kinotic-migration case.
+//  B. instant-exit entrypoint, 5 fresh boxes: does start() fail deterministically (hard
+//     constraint), sometimes (race), or never?
+//  C. ~0.5s entrypoint, 3 boxes — sizes the hazard window if B fails.
 //
 // All boxes autoRemove:false so completed boxes can be inspected; every name is removed
 // in cleanup regardless of outcome.
 
 const RUN = Date.now().toString(36);
-const POLL_MS = 500;
+const POLL_MS = 250;
 const COMPLETE_TIMEOUT_MS = 60_000;
 
 const runtime = getJsBoxlite().withDefaultConfig();
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForCompletion(name: string): Promise<string> {
-  const start = Date.now();
-  while (Date.now() - start < COMPLETE_TIMEOUT_MS) {
-    const info = await runtime.getInfo(name);
-    if (info && !info.state.running) {
-      return info.state.status;
-    }
-    await sleep(POLL_MS);
-  }
-  return "(still running after timeout)";
 }
 
 async function removeIfPresent(name: string) {
@@ -55,16 +42,54 @@ async function removeIfPresent(name: string) {
   }
 }
 
-// Boots a fresh box with the given entrypoint via getId() (never exec) and reports
-// either the natural post-completion status or the create failure.
-async function runBatch(name: string, entrypoint: string[]): Promise<{ created: boolean; status?: string; error?: string }> {
+interface BatchResult {
+  createdStatus?: string;
+  bootError?: string;
+  observed: string[];      // distinct state.status values seen while polling, in order
+  finalStatus?: string;
+}
+
+// Creates a fresh box, boots it via runtime.get(name).start() (never exec), then polls
+// getInfo until it leaves 'running' or times out.
+async function runBatch(name: string, entrypoint: string[]): Promise<BatchResult> {
+  const result: BatchResult = { observed: [] };
+
   const box = new SimpleBox({ image: "alpine:latest", name, autoRemove: false, runtime, entrypoint });
+  await box.getId();
+  result.createdStatus = (await runtime.getInfo(name))?.state.status;
+
   try {
-    await box.getId();
+    const jsbox = await runtime.get(name);
+    await jsbox.start();
   } catch (error) {
-    return { created: false, error: String(error).split("\n")[0] };
+    result.bootError = String(error).split("\n")[0];
+    return result;
   }
-  return { created: true, status: await waitForCompletion(name) };
+
+  const start = Date.now();
+  let sawRunning = false;
+  while (Date.now() - start < COMPLETE_TIMEOUT_MS) {
+    const info = await runtime.getInfo(name);
+    const status = info?.state.status ?? "(no record)";
+    if (result.observed[result.observed.length - 1] !== status) {
+      result.observed.push(status);
+    }
+    sawRunning ||= info?.state.running === true;
+    if (sawRunning && !info?.state.running) {
+      result.finalStatus = status;
+      return result;
+    }
+    await sleep(POLL_MS);
+  }
+  result.finalStatus = sawRunning ? "(still running after timeout)" : "(never seen running)";
+  return result;
+}
+
+function describe(r: BatchResult): string {
+  if (r.bootError) {
+    return `boot FAILED: ${r.bootError}`;
+  }
+  return `created '${r.createdStatus}' -> observed [${r.observed.join(" -> ")}] -> final '${r.finalStatus}'`;
 }
 
 async function main() {
@@ -75,20 +100,18 @@ async function main() {
   console.log(`Platform        : ${process.platform} (${process.arch})  runtime: Bun ${Bun.version}\n`);
 
   // ---- Phase A: the kinotic-migration shape — work for a few seconds, then exit ----
-  console.log(`=== Phase A: entrypoint works ~3s then exits — natural completion ===`);
+  console.log(`=== Phase A: boot via start(), entrypoint works ~3s then exits ===`);
   const batchName = `batch-${RUN}`;
-  let phaseA: { created: boolean; status?: string; error?: string } = { created: false };
+  let phaseA: BatchResult = { observed: [] };
   try {
     phaseA = await runBatch(batchName, ["sh", "-c", "echo done > /root/result.txt && sleep 3"]);
-    if (!phaseA.created) {
-      console.log(`  create FAILED: ${phaseA.error}`);
-    } else {
-      console.log(`  status after natural completion: ${phaseA.status}`);
-      // Reading the result file requires exec, which re-boots the completed box —
-      // that behavior is itself part of the report
+    console.log(`  ${describe(phaseA)}`);
+    if (!phaseA.bootError) {
+      // Reading the result file requires exec, which boots the box again — that
+      // behavior is itself part of the report
       const reread = new SimpleBox({ image: "alpine:latest", name: batchName, autoRemove: false, reuseExisting: true, runtime });
-      const result = await reread.exec("cat", ["/root/result.txt"]);
-      console.log(`  exec after completion re-boots the box; /root/result.txt: ${result.stdout.trim() === "done" ? "PERSISTED" : `(${result.stdout.trim() || result.stderr.trim()})`}`);
+      const fileCheck = await reread.exec("cat", ["/root/result.txt"]);
+      console.log(`  exec after completion boots again; /root/result.txt: ${fileCheck.stdout.trim() === "done" ? "PERSISTED" : `(${fileCheck.stdout.trim() || fileCheck.stderr.trim()})`}`);
       await reread.stop();
     }
   } finally {
@@ -97,42 +120,43 @@ async function main() {
   console.log();
 
   // ---- Phase B: instant exit, 5 attempts — deterministic constraint or race? -------
-  console.log(`=== Phase B: instant-exit entrypoint x5 ===`);
-  const instantResults: string[] = [];
+  console.log(`=== Phase B: instant-exit entrypoint x5, booted via start() ===`);
+  const instant: BatchResult[] = [];
   for (let i = 0; i < 5; i++) {
     const name = `instant-${RUN}-${i}`;
     try {
       const r = await runBatch(name, ["sh", "-c", "true"]);
-      instantResults.push(r.created ? `ok (${r.status})` : `create failed: ${r.error}`);
-      console.log(`  attempt ${i + 1}: ${instantResults[i]}`);
+      instant.push(r);
+      console.log(`  attempt ${i + 1}: ${describe(r)}`);
     } finally {
       await removeIfPresent(name);
     }
   }
-  const instantFailures = instantResults.filter((r) => r.startsWith("create failed")).length;
+  const instantFailures = instant.filter((r) => r.bootError).length;
   console.log();
 
   // ---- Phase C: ~0.5s exit, 3 attempts — sizing the hazard window ------------------
-  console.log(`=== Phase C: ~0.5s entrypoint x3 ===`);
-  const halfSecResults: string[] = [];
+  console.log(`=== Phase C: ~0.5s entrypoint x3, booted via start() ===`);
+  const halfSec: BatchResult[] = [];
   for (let i = 0; i < 3; i++) {
     const name = `halfsec-${RUN}-${i}`;
     try {
       const r = await runBatch(name, ["sh", "-c", "sleep 0.5"]);
-      halfSecResults.push(r.created ? `ok (${r.status})` : `create failed: ${r.error}`);
-      console.log(`  attempt ${i + 1}: ${halfSecResults[i]}`);
+      halfSec.push(r);
+      console.log(`  attempt ${i + 1}: ${describe(r)}`);
     } finally {
       await removeIfPresent(name);
     }
   }
-  const halfSecFailures = halfSecResults.filter((r) => r.startsWith("create failed")).length;
+  const halfSecFailures = halfSec.filter((r) => r.bootError).length;
   console.log();
 
   // ---- Report -----------------------------------------------------------------------
   console.log("=== REPORT ===");
-  console.log(`(a) ~3s batch workload completes naturally:  ${phaseA.created ? `YES — final status '${phaseA.status}'` : `NO — ${phaseA.error}`}`);
-  console.log(`(b) instant-exit create failures:            ${instantFailures}/5 ${instantFailures === 5 ? "(deterministic constraint)" : instantFailures > 0 ? "(RACE — flaky)" : "(fine — old probe's failure was something else)"}`);
-  console.log(`(c) ~0.5s-exit create failures:              ${halfSecFailures}/3`);
+  console.log(`(a) create/getId boots the VM:               ${phaseA.createdStatus === "configured" ? "NO — record only, status 'configured'" : `status after create: '${phaseA.createdStatus}'`}`);
+  console.log(`(b) ~3s batch workload completes naturally:  ${phaseA.bootError ? `boot failed: ${phaseA.bootError}` : `final status '${phaseA.finalStatus}'`}`);
+  console.log(`(c) instant-exit boot failures:              ${instantFailures}/5 ${instantFailures === 5 ? "(deterministic constraint)" : instantFailures > 0 ? "(RACE — flaky)" : "(no failures)"}`);
+  console.log(`(d) ~0.5s-exit boot failures:                ${halfSecFailures}/3`);
 }
 
 main().catch((error) => {
