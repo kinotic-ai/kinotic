@@ -67,8 +67,11 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
             })),
             { hostPath: logDir, guestPath: GUEST_LOG_DIR },
         ],
-        autoRemove: workload.autoRemove,
-        detach: workload.detached,
+        // Workloads deserialized from the wire or from persisted state files may predate
+        // these fields; boxlite's own defaults (autoRemove true, detach false) are the
+        // opposite of the Workload model's, so absent values must not fall through
+        autoRemove: workload.autoRemove ?? false,
+        detach: workload.detached ?? true,
     }
 }
 

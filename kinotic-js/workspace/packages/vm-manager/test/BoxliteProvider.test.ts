@@ -47,6 +47,17 @@ describe('buildBoxOptions', () => {
         ])
     })
 
+    it('applies the Workload defaults when deserialized JSON omits detached and autoRemove', () => {
+        const w = JSON.parse(JSON.stringify(workload())) as Workload
+        delete (w as Partial<Workload>).detached
+        delete (w as Partial<Workload>).autoRemove
+
+        const options = buildBoxOptions(w, '/logs/wl-1')
+
+        expect(options.detach).toBeTrue()
+        expect(options.autoRemove).toBeFalse()
+    })
+
     it('rejects a host interface binding boxlite cannot honor', () => {
         const w = workload()
         w.portMappings = [{ hostPort: 8080, guestPort: 80, hostIp: '127.0.0.1' }]
