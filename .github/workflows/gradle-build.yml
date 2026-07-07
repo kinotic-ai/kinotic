@@ -86,16 +86,17 @@ jobs:
         with:
           version: v5.1.4
 
-      # Grant the runner user access to /dev/kvm so the boxlite VM tests run for real instead of
-      # skipping. The final check fails the job if the device is unusable — the VM suite must never
-      # silently stop running in CI.
-      - name: Enable KVM
+      # Let the boxlite VM tests run for real instead of skipping: the runner user needs to open
+      # /dev/kvm (chmod is immediate — no udev round-trip), and boxlite's bwrap sandbox needs
+      # unprivileged user namespaces, which Ubuntu 24.04's AppArmor blocks by default. The final
+      # check fails the job if KVM is unusable — the VM suite must never silently stop running in CI.
+      - name: Enable KVM and user namespaces for boxlite
         if: ${{ !cancelled() }}
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+          sudo chmod 0666 /dev/kvm
           test -r /dev/kvm -a -w /dev/kvm
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       # Run all workspace test suites. USE_GATEWAY_DOCKER makes the @kinotic-ai/core suite start the
       # server image (published above) via testcontainers; the other suites ignore it.
