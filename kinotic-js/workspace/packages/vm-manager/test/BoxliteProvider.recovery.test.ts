@@ -48,8 +48,13 @@ describe('BoxliteProvider recovery and restart', () => {
         rmSync(base, { recursive: true, force: true })
     })
 
+    // Pinned by digest (multi-arch manifest list, alpine 3.22): CI boots this image as a VM
+    // guest in the same job that holds publishing secrets, so a mutable tag must not be able
+    // to swap the guest code underneath us.
+    const GUEST_IMAGE = 'alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce'
+
     function longRunningWorkload(): Workload {
-        const w = new Workload('recovery-test', 'alpine:latest')
+        const w = new Workload('recovery-test', GUEST_IMAGE)
         w.entrypoint = ['sleep', '600']
         w.organizationId = 'acme'
         return w
