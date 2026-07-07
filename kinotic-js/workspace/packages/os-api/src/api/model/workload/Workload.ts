@@ -101,7 +101,9 @@ export class Workload implements Identifiable<string> {
     public entrypoint: string[] = []
 
     /**
-     * Overrides the image command (CMD). Empty keeps the image default.
+     * Overrides the image command (CMD). Empty keeps the image default, unless
+     * entrypoint is declared — then the image CMD is dropped so the entrypoint
+     * runs exactly as given.
      */
     public cmd: string[] = []
 

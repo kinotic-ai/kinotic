@@ -118,7 +118,9 @@ public class Workload implements Identifiable<String> {
     private List<String> entrypoint = new ArrayList<>();
 
     /**
-     * Overrides the image command (CMD). Empty keeps the image default.
+     * Overrides the image command (CMD). Empty keeps the image default, unless
+     * {@link #entrypoint} is declared — then the image CMD is dropped so the entrypoint
+     * runs exactly as given.
      */
     private List<String> cmd = new ArrayList<>();
 

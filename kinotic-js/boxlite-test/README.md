@@ -178,6 +178,12 @@ captured output. A feature request for surfacing container exit is filed upstrea
   `options.runtime`.
 - Port mapping `protocol` matches lowercase `"udp"` only; any other value silently means
   tcp.
+- `autoRemove: true` + `detach: true` is rejected at creation ("Detached boxes should use
+  auto_remove=false for manual lifecycle control") — auto-remove semantics for detached
+  boxes must be implemented by the caller.
+- Overriding `entrypoint` without `cmd` still appends the image's CMD (Docker semantics):
+  `entrypoint: ["sleep", "600"]` on alpine runs `sleep 600 /bin/sh`. Pass `cmd: []` to
+  suppress the image CMD.
 
 ---
 

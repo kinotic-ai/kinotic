@@ -51,8 +51,11 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
         cpus: workload.vcpus,
         memoryMib: workload.memoryMb,
         env: workload.environment,
-        ...(workload.entrypoint.length > 0 ? { entrypoint: workload.entrypoint } : {}),
-        ...(workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
+        // Kubernetes semantics: a declared entrypoint runs exactly as given — the image
+        // CMD is suppressed unless the workload declares its own cmd
+        ...(workload.entrypoint.length > 0
+            ? { entrypoint: workload.entrypoint, cmd: workload.cmd }
+            : workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
         ports: workload.portMappings.map(({ hostPort, guestPort, protocol }) => ({
             ...(hostPort !== undefined ? { hostPort } : {}),
             guestPort,
@@ -67,10 +70,11 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
             })),
             { hostPath: logDir, guestPath: GUEST_LOG_DIR },
         ],
-        // Workloads deserialized from the wire or from persisted state files may predate
-        // these fields; boxlite's own defaults (autoRemove true, detach false) are the
-        // opposite of the Workload model's, so absent values must not fall through
-        autoRemove: workload.autoRemove ?? false,
+        // boxlite rejects autoRemove on detached boxes, so Workload.autoRemove is
+        // implemented by stop() instead of this flag
+        autoRemove: false,
+        // A workload deserialized from the wire or a persisted state file may predate the
+        // detached field; boxlite's default (false) is the opposite of the model's
         detach: workload.detached ?? true,
     }
 }
@@ -142,7 +146,7 @@ export class BoxliteProvider implements IVmProvider {
             const box = new SimpleBox({ ...buildBoxOptions(workload, logDir), runtime: this.runtime })
 
             // Verify the box is responsive; also boots the lazily-created VM so box.id is assigned
-            await box.exec('echo ready')
+            await box.exec('echo', 'ready')
 
             this.activeVms.set(id, { box: await this.boxHandle(id), vmId: box.id, logDir })
 
@@ -212,6 +216,12 @@ export class BoxliteProvider implements IVmProvider {
         this.persist(workload)
 
         await vm.box.stop()
+
+        // Implements Workload.autoRemove: boxlite forbids its own autoRemove flag on
+        // detached boxes, so the provider discards the box explicitly
+        if (workload.autoRemove ?? false) {
+            await this.runtime.remove(workloadId, true)
+        }
 
         workload.status = WorkloadStatus.STOPPED
         workload.updated = Date.now()

@@ -47,15 +47,23 @@ describe('buildBoxOptions', () => {
         ])
     })
 
-    it('applies the Workload defaults when deserialized JSON omits detached and autoRemove', () => {
+    it('defaults to detached when deserialized JSON omits the field', () => {
         const w = JSON.parse(JSON.stringify(workload())) as Workload
         delete (w as Partial<Workload>).detached
-        delete (w as Partial<Workload>).autoRemove
 
         const options = buildBoxOptions(w, '/logs/wl-1')
 
         expect(options.detach).toBeTrue()
-        expect(options.autoRemove).toBeFalse()
+    })
+
+    it('suppresses the image CMD when an entrypoint is declared without a cmd', () => {
+        const w = workload()
+        w.entrypoint = ['sleep', '600']
+
+        const options = buildBoxOptions(w, '/logs/wl-1')
+
+        expect(options.entrypoint).toEqual(['sleep', '600'])
+        expect(options.cmd).toEqual([])
     })
 
     it('rejects a host interface binding boxlite cannot honor', () => {
