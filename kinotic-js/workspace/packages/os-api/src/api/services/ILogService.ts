@@ -28,7 +28,7 @@ export class LogService implements ILogService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy('api.org.kinotic.os.api.services.LogService')
+        this.serviceProxy = kinotic.serviceProxy('os_api.org.kinotic.os.api.services.LogService')
     }
 
     public tail(workloadId: string): Observable<Uint8Array> {

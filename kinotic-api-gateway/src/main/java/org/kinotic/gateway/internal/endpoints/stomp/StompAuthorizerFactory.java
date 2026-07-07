@@ -22,9 +22,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * Creates STOMP authorizers using the gateway's current participant routing rules.
  *
  * A participant may only address zones its type allows: application participants reach the
- * {@code api} zone and their own {@code app.<organizationId>.<applicationId>} zone and may host
- * services only inside their own zone, organization participants reach the {@code api} zone and
- * host nothing, and system participants reach everything and host in the platform zones.
+ * {@code app_api} data plane and their own {@code app.<organizationId>.<applicationId>} zone and
+ * may host services only inside their own zone, organization participants reach the {@code os_api}
+ * management surface and host nothing, and system participants reach everything and host in the
+ * platform zones.
  */
 @Component
 public class StompAuthorizerFactory {
@@ -62,7 +63,8 @@ public class StompAuthorizerFactory {
 
             if (participant instanceof SystemParticipant) {
                 addAllZones(sendPatterns);
-                addZone(subscriptionPatterns, PlatformZones.API);
+                addZone(subscriptionPatterns, PlatformZones.OS_API);
+                addZone(subscriptionPatterns, PlatformZones.APP_API);
                 addZone(subscriptionPatterns, PlatformZones.SYSTEM);
 
             } else if (participant instanceof ApplicationParticipant applicationParticipant) {
@@ -70,12 +72,12 @@ public class StompAuthorizerFactory {
                 // label inside a pattern fails the connection instead of widening access
                 String appZone = PlatformZones.appZone(applicationParticipant.getOrganizationId(),
                                                       applicationParticipant.getApplicationId());
-                addZone(sendPatterns, PlatformZones.API);
+                addZone(sendPatterns, PlatformZones.APP_API);
                 addZone(sendPatterns, appZone);
                 addZone(subscriptionPatterns, appZone);
 
             } else if (participant instanceof OrganizationParticipant) {
-                addZone(sendPatterns, PlatformZones.API);
+                addZone(sendPatterns, PlatformZones.OS_API);
 
             } else {
                 throw new IllegalArgumentException("Unknown participant type " + participant.getClass().getName()

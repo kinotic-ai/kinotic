@@ -2,7 +2,7 @@
  * Created by Navíd Mitchell 🤪 on 3/30/23.
  */
 @Version("1.0.0")
-@Zones(PlatformZones.API)
+@Zones(PlatformZones.OS_API)
 package org.kinotic.persistence.api.services.insights;
 
 import org.kinotic.core.api.annotations.Version;

@@ -25,7 +25,7 @@ export interface IApplicationService extends ICrudServiceProxy<Application> {
 export class ApplicationService extends CrudServiceProxy<Application> implements IApplicationService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy('api.org.kinotic.os.api.services.ApplicationService'))
+        super(kinotic.serviceProxy('os_api.org.kinotic.os.api.services.ApplicationService'))
     }
 
     public createApplicationIfNotExist(id: string, description: string): Promise<Application> {

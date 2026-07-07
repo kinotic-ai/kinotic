@@ -1,5 +1,5 @@
 @Version("1.0.0")
-@Zones(PlatformZones.API)
+@Zones(PlatformZones.OS_API)
 package org.kinotic.github.api.services;
 
 import org.kinotic.core.api.annotations.Version;

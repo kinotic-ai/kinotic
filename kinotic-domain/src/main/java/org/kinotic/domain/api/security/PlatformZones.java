@@ -5,16 +5,24 @@ import org.kinotic.core.internal.utils.ZoneUtil;
 /**
  * The zones the Kinotic platform partitions the event bus address space into:
  * {@code app.&lt;organizationId&gt;.&lt;applicationId&gt;} addresses belong to a single application,
- * {@link #SYSTEM} addresses are internal to the platform, and every other zone (such as
- * {@link #API}) contains platform services registered in process. The gateway enforces which
- * zones a participant may address on every send and subscribe.
+ * {@link #APP_API} contains the platform's data plane for applications, {@link #OS_API} contains
+ * the platform services organizations manage the system through, and {@link #SYSTEM} addresses
+ * are internal to the platform. The gateway enforces which zones a participant may address on
+ * every send and subscribe.
  */
 public final class PlatformZones {
 
     /**
-     * The zone for platform services that applications and organizations may call
+     * The zone for platform services organizations use to manage the system, such as member,
+     * application, and entity definition management
      */
-    public static final String API = "api";
+    public static final String OS_API = "os_api";
+
+    /**
+     * The zone for the platform's application facing data services, such as entity persistence
+     * and named query execution
+     */
+    public static final String APP_API = "app_api";
 
     /**
      * The zone for services internal to the platform, only reachable by system participants

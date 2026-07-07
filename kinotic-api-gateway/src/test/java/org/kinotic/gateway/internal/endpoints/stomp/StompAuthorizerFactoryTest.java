@@ -58,17 +58,28 @@ public class StompAuthorizerFactoryTest {
     public void applicationParticipantSendRules() {
         StompAuthorizer authorizer = applicationAuthorizer("acme-org", "orders-app");
 
-        // platform api and the app's own zone, including app declared sub zones
-        assertTrue(authorizer.sendAllowed(CRI.create("srv://api.org.kinotic.os.api.services.iam.MemberService/inviteMember#1.0.0")));
+        // the app_api data plane and the app's own zone, including app declared sub zones
+        assertTrue(authorizer.sendAllowed(CRI.create("srv://app_api.org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app.OrderService/create#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app.billing.InvoiceService/pay#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("stream://app.acme-org.orders-app.OrderEvents")));
 
-        // another application, another organization, the platform internals, and legacy un-zoned addresses
+        // the organization management surface, other applications, other organizations, the
+        // platform internals, and legacy un-zoned addresses
+        assertFalse(authorizer.sendAllowed(CRI.create("srv://os_api.org.kinotic.os.api.services.iam.MemberService/inviteMember#1.0.0")));
         assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme-org.other-app.OrderService/create#1.0.0")));
         assertFalse(authorizer.sendAllowed(CRI.create("srv://app.other-org.orders-app.OrderService/create#1.0.0")));
         assertFalse(authorizer.sendAllowed(CRI.create("srv://system.org.kinotic.orchestrator.api.workload.WorkloadOrchestrationService/startWorkload#0.1.0")));
         assertFalse(authorizer.sendAllowed(CRI.create("srv://org.kinotic.os.api.services.iam.MemberService/findMembers#1.0.0")));
+    }
+
+    @Test
+    public void slugifiedIdsWithUnderscoresFormValidZones() {
+        StompAuthorizer authorizer = applicationAuthorizer("acme_corp", "orders_app");
+
+        assertTrue(authorizer.sendAllowed(CRI.create("srv://app.acme_corp.orders_app.OrderService/create#1.0.0")));
+        assertTrue(authorizer.subscribeAllowed(CRI.create("srv://app.acme_corp.orders_app.OrderService#1.0.0")));
+        assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme_corp.other_app.OrderService/create#1.0.0")));
     }
 
     @Test
@@ -89,21 +100,23 @@ public class StompAuthorizerFactoryTest {
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://node1@app.acme-org.orders-app.OrderService#1.0.0")));
         assertTrue(authorizer.subscribeAllowed(CRI.create("stream://app.acme-org.orders-app.OrderEvents")));
 
-        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://api.org.kinotic.os.api.services.iam.MemberService#1.0.0")));
+        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app_api.org.kinotic.persistence.api.services.JsonEntitiesRepository#1.0.0")));
+        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://os_api.org.kinotic.os.api.services.iam.MemberService#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://system.kinotic-ai.vm-manager.VmManager#0.1.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.other-app.OrderService#1.0.0")));
     }
 
     @Test
-    public void organizationParticipantReachesOnlyTheApiZone() {
+    public void organizationParticipantReachesOnlyTheOsApiZone() {
         StompAuthorizer authorizer = organizationAuthorizer("acme-org");
 
-        assertTrue(authorizer.sendAllowed(CRI.create("srv://api.org.kinotic.persistence.api.services.EntityDefinitionService/publish#1.0.0")));
-        assertTrue(authorizer.sendAllowed(CRI.create("srv://api.org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
+        assertTrue(authorizer.sendAllowed(CRI.create("srv://os_api.org.kinotic.persistence.api.services.EntityDefinitionService/publish#1.0.0")));
+        assertTrue(authorizer.sendAllowed(CRI.create("srv://os_api.org.kinotic.os.api.services.iam.MemberService/findMembers#1.0.0")));
 
+        assertFalse(authorizer.sendAllowed(CRI.create("srv://app_api.org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
         assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app.OrderService/create#1.0.0")));
         assertFalse(authorizer.sendAllowed(CRI.create("srv://system.org.kinotic.os.api.services.LogManager/query#1.0.0")));
-        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://api.org.kinotic.os.api.services.iam.MemberService#1.0.0")));
+        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://os_api.org.kinotic.os.api.services.iam.MemberService#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.OrderService#1.0.0")));
     }
 
@@ -111,7 +124,8 @@ public class StompAuthorizerFactoryTest {
     public void systemParticipantSendsAnywhereAndHostsPlatformZones() {
         StompAuthorizer authorizer = systemAuthorizer();
 
-        assertTrue(authorizer.sendAllowed(CRI.create("srv://api.org.kinotic.os.api.services.iam.MemberService/findMembers#1.0.0")));
+        assertTrue(authorizer.sendAllowed(CRI.create("srv://os_api.org.kinotic.os.api.services.iam.MemberService/findMembers#1.0.0")));
+        assertTrue(authorizer.sendAllowed(CRI.create("srv://app_api.org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://system.org.kinotic.orchestrator.api.workload.WorkloadOrchestrationService/startWorkload#0.1.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app.OrderService/create#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://node1@system.kinotic-ai.vm-manager.VmManager/startWorkload#0.1.0")));
@@ -119,7 +133,8 @@ public class StompAuthorizerFactoryTest {
 
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://system.kinotic-ai.vm-manager.VmManager#0.1.0")));
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://node1@system.kinotic-ai.vm-manager.VmManager#0.1.0")));
-        assertTrue(authorizer.subscribeAllowed(CRI.create("srv://api.org.kinotic.some.PlatformService#1.0.0")));
+        assertTrue(authorizer.subscribeAllowed(CRI.create("srv://os_api.org.kinotic.some.PlatformService#1.0.0")));
+        assertTrue(authorizer.subscribeAllowed(CRI.create("srv://app_api.org.kinotic.some.DataService#1.0.0")));
 
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.OrderService#1.0.0")));
     }

@@ -124,7 +124,7 @@ export class AdminEntitiesRepository implements IAdminEntitiesRepository {
     protected serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy('api.org.kinotic.persistence.api.services.AdminJsonEntitiesRepository')
+        this.serviceProxy = kinotic.serviceProxy('app_api.org.kinotic.persistence.api.services.AdminJsonEntitiesRepository')
     }
 
     public count(entityDefinitionId: string, tenantSelection: TenantSelection): Promise<number> {

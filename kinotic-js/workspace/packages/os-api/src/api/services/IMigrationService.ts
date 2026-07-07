@@ -41,7 +41,7 @@ export class MigrationService implements IMigrationService {
     private readonly serviceProxy: IServiceProxy;
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy('api.org.kinotic.persistence.api.services.MigrationService');
+        this.serviceProxy = kinotic.serviceProxy('os_api.org.kinotic.persistence.api.services.MigrationService');
     }
 
     public executeMigrations(migrationRequest: MigrationRequest): Promise<MigrationResult> {
