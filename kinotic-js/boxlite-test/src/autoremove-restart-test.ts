@@ -64,7 +64,7 @@ async function main() {
   // ---- Phase 1: autoRemove:false — what survives stop()? -------------------------
   console.log(`=== Phase 1: create '${KEEP_NAME}' with autoRemove:false, write state, stop ===`);
   const keep = new SimpleBox({ image: "alpine:latest", name: KEEP_NAME, autoRemove: false, runtime });
-  await keep.exec("sh", ["-c", `echo ${MARKER} > /root/state.txt && echo ${MARKER} > /tmp/state.txt && cat /root/state.txt`]);
+  await keep.exec("sh", "-c", `echo ${MARKER} > /root/state.txt && echo ${MARKER} > /tmp/state.txt && cat /root/state.txt`);
   const keepId = keep.id;
   const keepDir = join(boxliteHome, "boxes", keepId);
   console.log(`box id          : ${keepId}`);
@@ -92,6 +92,9 @@ async function main() {
     console.log(`  exec on stopped box via reused SimpleBox failed: ${error}`);
     // 2b: explicit restart through the runtime handle
     const jsbox = await runtime.get(KEEP_NAME);
+    if (!jsbox) {
+      throw new Error(`box ${KEEP_NAME} not found`);
+    }
     console.log(`  runtime.get -> JsBox methods: ${Object.getOwnPropertyNames(Object.getPrototypeOf(jsbox)).join(" ")}`);
     await jsbox.start();
     const reused = new SimpleBox({ image: "alpine:latest", name: KEEP_NAME, autoRemove: false, reuseExisting: true, runtime });
@@ -99,8 +102,8 @@ async function main() {
     restartPath = "runtime.get(name).start() restarted it, exec via reused SimpleBox";
   }
 
-  const rootMarker = await restarted.exec("cat", ["/root/state.txt"]);
-  const tmpMarker = await restarted.exec("sh", ["-c", "cat /tmp/state.txt 2>&1 || true"]);
+  const rootMarker = await restarted.exec("cat", "/root/state.txt");
+  const tmpMarker = await restarted.exec("sh", "-c", "cat /tmp/state.txt 2>&1 || true");
   const restartedId = await restarted.getId();
   console.log(`  restart path   : ${restartPath}`);
   console.log(`  /root/state.txt: ${rootMarker.stdout.trim() === MARKER ? "SURVIVED" : `LOST (got: ${rootMarker.stdout.trim() || rootMarker.stderr.trim()})`}`);
@@ -111,13 +114,16 @@ async function main() {
   console.log(`=== Phase 2c: stop again, restart via runtime.get('${KEEP_NAME}').start() ===`);
   await restarted.stop();
   const jsbox = await runtime.get(KEEP_NAME);
+  if (!jsbox) {
+    throw new Error(`box ${KEEP_NAME} not found`);
+  }
   await jsbox.start();
   // Checked via getInfo BEFORE any exec — exec would auto-boot and mask whether start()
   // did the work
   const afterStart = await runtime.getInfo(KEEP_NAME);
   console.log(`  running after start(), before any exec: ${afterStart?.state.running}`);
   const viaStart = new SimpleBox({ image: "alpine:latest", name: KEEP_NAME, autoRemove: false, reuseExisting: true, runtime });
-  const marker2 = await viaStart.exec("cat", ["/root/state.txt"]);
+  const marker2 = await viaStart.exec("cat", "/root/state.txt");
   console.log(`  /root/state.txt: ${marker2.stdout.trim() === MARKER ? "SURVIVED" : `LOST (got: ${marker2.stdout.trim() || marker2.stderr.trim()})`}\n`);
   await viaStart.stop();
   await runtime.remove(KEEP_NAME, true);
@@ -144,7 +150,7 @@ async function main() {
   async function bootCount(box: SimpleBox, expected: number): Promise<number> {
     let count = 0;
     for (let i = 0; i < 50 && count < expected; i++) {
-      const result = await box.exec("sh", ["-c", "wc -l < /root/boots.log 2>/dev/null || echo 0"]);
+      const result = await box.exec("sh", "-c", "wc -l < /root/boots.log 2>/dev/null || echo 0");
       count = Number(result.stdout.trim());
       if (count < expected) {
         await new Promise((resolve) => setTimeout(resolve, 200));

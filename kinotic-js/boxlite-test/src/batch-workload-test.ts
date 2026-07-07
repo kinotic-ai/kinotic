@@ -86,6 +86,9 @@ async function main() {
     });
     await box.getId();
     const jsbox = await runtime.get(batchName);
+    if (!jsbox) {
+      throw new Error(`box ${batchName} not found`);
+    }
     await jsbox.start();
 
     // 12s window for a 3s entrypoint: if running never flips, the zombie is confirmed
@@ -106,7 +109,7 @@ async function main() {
     // runs.log = the first run persisted and the re-boot ran again
     await jsbox.stop();
     const reboot = new SimpleBox({ image: "alpine:latest", name: batchName, autoRemove: false, reuseExisting: true, runtime });
-    const runs = await reboot.exec("sh", ["-c", "wc -l < /root/runs.log"]);
+    const runs = await reboot.exec("sh", "-c", "wc -l < /root/runs.log");
     runsAfterReboot = runs.stdout.trim();
     console.log(`  runs.log lines after stop + exec re-boot: ${runsAfterReboot} (expect 2)`);
     await reboot.stop();
@@ -125,6 +128,9 @@ async function main() {
       await box.getId();
       try {
         const jsbox = await runtime.get(name);
+        if (!jsbox) {
+          throw new Error(`box ${name} not found`);
+        }
         await jsbox.start();
         const window = await observe(name, 3_000);
         console.log(`  attempt ${i + 1}: start() ok — statuses [${window.statuses.join(" -> ")}], left running: ${window.leftRunning}`);
