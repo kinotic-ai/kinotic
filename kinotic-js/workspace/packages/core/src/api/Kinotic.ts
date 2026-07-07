@@ -18,6 +18,20 @@ export interface IKinotic {
     eventBus: IEventBus
 
     /**
+     * The zone prefix every service published by this client registers under, such as
+     * `app.<organizationId>.<applicationId>` for an application or `system` for a platform
+     * workload. Must be set from static configuration before service classes are instantiated.
+     * When null, services register at un-zoned legacy addresses.
+     */
+    zonePrefix: string | null
+
+    /**
+     * The zones applied to published services that carry no {@link Zones} declaration of their
+     * own, typically loaded from the project package.json `kinotic.zones` field.
+     */
+    defaultZones: string[] | null
+
+    /**
      * Requests a connection to the given Stomp url
      * @param connectionInfo provides the information needed to connect to the kinoitc server
      * @return Promise containing the result of the initial connection attempt
@@ -61,6 +75,10 @@ export class KinoticSingleton implements IKinotic {
      * The {@link ServiceRegistry} that is used to manage the services that are available
      */
     readonly serviceRegistry!: ServiceRegistry
+
+    public zonePrefix: string | null = null
+
+    public defaultZones: string[] | null = null
 
     constructor() {
         this._eventBus = new EventBus()

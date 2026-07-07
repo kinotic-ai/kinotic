@@ -1,4 +1,4 @@
-import { Kinotic, SessionKeepAliveMode, createAuthenticatedWebSocketFactory } from '@kinotic-ai/core'
+import { Kinotic, SYSTEM_ZONE, SessionKeepAliveMode, createAuthenticatedWebSocketFactory } from '@kinotic-ai/core'
 import type { ConnectionInfo, ServerInfo } from '@kinotic-ai/core'
 import { VmNodeRegistration } from '@/model/VmNodeRegistration'
 import { VmNodeOrchestrationServiceProxy } from '@/internal/services/VmNodeOrchestrationServiceProxy'
@@ -57,6 +57,10 @@ function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy, vmMan
 }
 
 async function start() {
+    // The vm-manager runs as a system participant, so its VmManager service registers in the
+    // system zone. Must be set before DefaultVmManager is instantiated (@Publish registers there).
+    Kinotic.zonePrefix = SYSTEM_ZONE
+
     // Connect to the Kinotic server. As of @kinotic-ai/core 1.7.0 authentication
     // is performed during the WebSocket upgrade via a pluggable auth provider.
     const serverInfo: ServerInfo = {
@@ -73,7 +77,7 @@ async function start() {
     console.log(`Connected to Kinotic server at ${config.serverHost}:${config.serverPort}`)
 
     const nodeOrchestrator = new VmNodeOrchestrationServiceProxy(
-        Kinotic.serviceProxy('org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService')
+        Kinotic.serviceProxy('system.org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService')
     )
 
     // Reattach to workloads a previous vm-manager process left running before the

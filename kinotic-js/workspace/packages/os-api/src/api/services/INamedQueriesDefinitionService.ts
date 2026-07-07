@@ -15,7 +15,7 @@ export interface INamedQueriesDefinitionService extends ICrudServiceProxy<NamedQ
 export class NamedQueriesDefinitionService extends CrudServiceProxy<NamedQueriesDefinition> implements INamedQueriesDefinitionService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy('org.kinotic.persistence.api.services.NamedQueriesDefinitionService'))
+        super(kinotic.serviceProxy('api.org.kinotic.persistence.api.services.NamedQueriesDefinitionService'))
     }
 
     public syncIndex(): Promise<void> {

@@ -62,7 +62,7 @@ export class MemberService implements IMemberService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy('org.kinotic.os.api.services.iam.MemberService')
+        this.serviceProxy = kinotic.serviceProxy('api.org.kinotic.os.api.services.iam.MemberService')
     }
 
     public async findMembers(applicationId: string | null, pageable: Pageable): Promise<IterablePage<IamUser>> {

@@ -3,16 +3,18 @@ import {EventConstants} from '@/api/event/IEventBus'
 
 export class ServiceIdentifier {
 
-    public namespace: string
+    public namespace: string | null
     public name: string
+    public zone?: string
     public scope?: string
     public version?: string
     private _cri: CRI | null = null
 
 
-    constructor(namespace: string, name: string) {
+    constructor(namespace: string | null, name: string, zone?: string) {
         this.namespace = namespace
         this.name = name
+        this.zone = zone
     }
 
     /**
@@ -21,7 +23,16 @@ export class ServiceIdentifier {
      * @return string containing the qualified name
      */
     public qualifiedName(): string{
-        return this.namespace + "." + this.name;
+        return this.namespace ? this.namespace + "." + this.name : this.name;
+    }
+
+    /**
+     * Returns the CRI resourceName this {@link ServiceIdentifier} is addressed by
+     * This is the zone.namespace.name
+     * @return string containing the resourceName
+     */
+    public resourceName(): string{
+        return this.zone ? this.zone + "." + this.qualifiedName() : this.qualifiedName();
     }
 
     /**
@@ -33,7 +44,7 @@ export class ServiceIdentifier {
             this._cri = createCRI(
                 EventConstants.SERVICE_DESTINATION_SCHEME, // scheme
                 this.scope || null,                       // scope
-                this.qualifiedName(),                     // resourceName
+                this.resourceName(),                      // resourceName
                 null,                                     // path (null as per your example)
                 this.version || null                      // version
             );

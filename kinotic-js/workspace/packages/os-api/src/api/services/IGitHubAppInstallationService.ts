@@ -36,7 +36,7 @@ export class GitHubAppInstallationService extends CrudServiceProxy<GitHubAppInst
     implements IGitHubAppInstallationService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy('org.kinotic.github.api.services.GitHubAppInstallationService'))
+        super(kinotic.serviceProxy('api.org.kinotic.github.api.services.GitHubAppInstallationService'))
     }
 
     public startInstall(returnTo: string | null): Promise<string> {
