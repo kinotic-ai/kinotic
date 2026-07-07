@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from 'bun:test'
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { accessSync, constants, existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Workload, WorkloadStatus } from '@kinotic-ai/os-api'
@@ -7,8 +7,17 @@ import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
 
 // Real boxlite VMs need virtualization: Hypervisor.framework on macOS, /dev/kvm on Linux.
 // The boxlite runtime aborts the whole process on unsupported hosts, so the gate must be
-// checked without touching boxlite.
-const canRunBoxlite = process.platform === 'darwin' || existsSync('/dev/kvm')
+// checked without touching boxlite — and it must check rw access, not existence: GitHub
+// Actions runners have /dev/kvm but deny the runner user permission to open it.
+function kvmUsable(): boolean {
+    try {
+        accessSync('/dev/kvm', constants.R_OK | constants.W_OK)
+        return true
+    } catch {
+        return false
+    }
+}
+const canRunBoxlite = process.platform === 'darwin' || kvmUsable()
 const itVm = canRunBoxlite ? it : it.skip
 
 // First run may pull the alpine image; boots take seconds each
