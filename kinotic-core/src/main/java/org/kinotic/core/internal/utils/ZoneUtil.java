@@ -1,4 +1,4 @@
-package org.kinotic.core.api.service;
+package org.kinotic.core.internal.utils;
 
 import org.apache.commons.lang3.Validate;
 
@@ -13,7 +13,6 @@ public final class ZoneUtil {
 
     // DNS label rule per dot separated label, so a zone can never contain characters that would
     // break CRI parsing, dot-boundary prefix matching, or wildcard patterns
-    private static final Pattern LABEL_PATTERN = Pattern.compile("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$");
     private static final Pattern ZONE_PATTERN
             = Pattern.compile("^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$");
 
@@ -31,20 +30,6 @@ public final class ZoneUtil {
         Validate.isTrue(ZONE_PATTERN.matcher(zone).matches(),
                         "Invalid zone '%s'. Zones must be dot separated labels of lowercase letters, digits, and interior dashes",
                         zone);
-    }
-
-    /**
-     * Validates that the given value is a single zone label
-     *
-     * @param label the label to validate
-     * @throws IllegalArgumentException if the label is empty or is not a single label of
-     *         lowercase letters, digits, and interior dashes
-     */
-    public static void validateLabel(String label) {
-        Validate.notEmpty(label, "The label must not be empty");
-        Validate.isTrue(LABEL_PATTERN.matcher(label).matches(),
-                        "Invalid zone label '%s'. Labels must be lowercase letters, digits, and interior dashes",
-                        label);
     }
 
 }

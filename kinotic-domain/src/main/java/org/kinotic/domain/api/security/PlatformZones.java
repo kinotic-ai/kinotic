@@ -1,6 +1,8 @@
 package org.kinotic.domain.api.security;
 
-import org.kinotic.core.api.service.ZoneUtil;
+import org.apache.commons.lang3.Validate;
+
+import java.util.regex.Pattern;
 
 /**
  * The zones the Kinotic platform partitions the event bus address space into:
@@ -26,6 +28,9 @@ public final class PlatformZones {
      */
     public static final String APP_PREFIX = "app";
 
+    // Single dot-free label of the zone grammar
+    private static final Pattern LABEL_PATTERN = Pattern.compile("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$");
+
     private PlatformZones() {}
 
     /**
@@ -39,9 +44,16 @@ public final class PlatformZones {
         // Each id must be a single dot-free label: a dot inside an id would shift the
         // app.<organizationId>.<applicationId> label structure, letting one (org, app) pair
         // produce the same zone as a different pair plus a sub zone
-        ZoneUtil.validateLabel(organizationId);
-        ZoneUtil.validateLabel(applicationId);
+        validateLabel(organizationId);
+        validateLabel(applicationId);
         return APP_PREFIX + "." + organizationId + "." + applicationId;
+    }
+
+    private static void validateLabel(String label) {
+        Validate.notEmpty(label, "The label must not be empty");
+        Validate.isTrue(LABEL_PATTERN.matcher(label).matches(),
+                        "Invalid zone label '%s'. Labels must be lowercase letters, digits, and interior dashes",
+                        label);
     }
 
 }

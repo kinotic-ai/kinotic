@@ -1,5 +1,3 @@
-import { validateLabel } from '@kinotic-ai/core'
-
 /**
  * The zones the Kinotic platform partitions the event bus address space into:
  * `app.<organizationId>.<applicationId>` addresses belong to a single application, `system`
@@ -23,6 +21,9 @@ export const SYSTEM_ZONE = 'system'
  */
 export const APP_ZONE_PREFIX = 'app'
 
+// Single dot-free label of the zone grammar
+const LABEL_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
+
 /**
  * Builds the zone that all of an application's services live in
  * @param organizationId the id of the organization that owns the application
@@ -36,4 +37,10 @@ export function appZone(organizationId: string, applicationId: string): string {
     validateLabel(organizationId)
     validateLabel(applicationId)
     return `${APP_ZONE_PREFIX}.${organizationId}.${applicationId}`
+}
+
+function validateLabel(label: string): void {
+    if (!label || !LABEL_PATTERN.test(label)) {
+        throw new Error(`Invalid zone label '${label}'. Labels must be lowercase letters, digits, and interior dashes`)
+    }
 }
