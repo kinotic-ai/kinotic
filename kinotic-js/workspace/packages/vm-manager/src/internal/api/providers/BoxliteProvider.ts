@@ -173,7 +173,7 @@ export class BoxliteProvider implements IVmProvider {
 
             const logDir = join(this.logsBaseDir, workloadId)
             const box = new SimpleBox({ ...buildBoxOptions(workload, logDir), runtime: this.runtime, reuseExisting: true })
-            // Attach now: stop() on a SimpleBox whose box was never resolved is a no-op
+            // getId() resolves the lazy box; without it a later stop() would silently no-op
             await box.getId()
             this.activeVms.set(workloadId, { box, vmId: info.id, logDir })
 
@@ -279,7 +279,7 @@ export class BoxliteProvider implements IVmProvider {
                     runtime: this.runtime,
                     reuseExisting: true,
                 })
-                // Attach now: stop() on a SimpleBox whose box was never resolved is a no-op
+                // getId() resolves the lazy box; without it a later stop() would silently no-op
                 await box.getId()
                 this.activeVms.set(id, { box, vmId: info.id, logDir })
                 workload.status = WorkloadStatus.RUNNING
