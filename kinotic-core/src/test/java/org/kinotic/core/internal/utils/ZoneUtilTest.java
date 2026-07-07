@@ -38,4 +38,14 @@ public class ZoneUtilTest {
         assertThrows(IllegalArgumentException.class, () -> ZoneUtil.validateZone("api#1"));
     }
 
+    @Test
+    public void labelsMustBeSingleAndDotFree() {
+        assertDoesNotThrow(() -> ZoneUtil.validateLabel("acme-org"));
+        assertDoesNotThrow(() -> ZoneUtil.validateLabel("orders-app"));
+
+        assertThrows(IllegalArgumentException.class, () -> ZoneUtil.validateLabel("acme.org"));
+        assertThrows(IllegalArgumentException.class, () -> ZoneUtil.validateLabel("orders.*"));
+        assertThrows(IllegalArgumentException.class, () -> ZoneUtil.validateLabel("Acme-Org"));
+    }
+
 }
