@@ -12,6 +12,7 @@ import org.kinotic.orchestrator.api.config.VmNodeProperties;
 import org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService;
 import org.kinotic.domain.api.model.workload.VmNode;
 import org.kinotic.orchestrator.api.workload.VmNodeRegistration;
+import org.kinotic.orchestrator.api.workload.WorkloadStatusReport;
 import org.kinotic.domain.api.model.workload.VmNodeStatus;
 import org.kinotic.domain.api.model.workload.Workload;
 import org.kinotic.domain.api.services.VmNodeService;
@@ -19,6 +20,7 @@ import org.kinotic.domain.api.services.WorkloadService;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -101,6 +103,42 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         node.setStatus(VmNodeStatus.ONLINE);
                     }
                     return vmNodeService.saveSync(node);
+                });
+    }
+
+    @Override
+    public CompletableFuture<Void> reportWorkloadStatus(String nodeId, List<WorkloadStatusReport> reports) {
+        Validate.notNull(nodeId, "Node id cannot be null");
+        Validate.notNull(reports, "Reports cannot be null");
+
+        return CompletableFuture.allOf(reports.stream()
+                                              .map(report -> applyStatusReport(nodeId, report))
+                                              .toArray(CompletableFuture[]::new));
+    }
+
+    private CompletableFuture<Workload> applyStatusReport(String nodeId, WorkloadStatusReport report) {
+        return workloadService.findById(report.getWorkloadId())
+                .thenCompose(workload -> {
+                    if (workload == null) {
+                        // Destroyed since the node recorded the status — stale report
+                        return CompletableFuture.completedFuture(null);
+                    }
+                    if (!nodeId.equals(workload.getNodeId())) {
+                        log.warn("Ignoring status report from node {} for workload {} deployed on node {}",
+                                 nodeId, report.getWorkloadId(), workload.getNodeId());
+                        return CompletableFuture.completedFuture(workload);
+                    }
+                    // A report older than the record's last transition must not clobber it;
+                    // snapshot re-sends of an already-applied report are skipped the same way
+                    if (workload.getStatus() == report.getStatus()
+                            || (workload.getUpdated() != null
+                                && report.getUpdated() <= workload.getUpdated().getTime())) {
+                        return CompletableFuture.completedFuture(workload);
+                    }
+                    log.info("Workload {} status {} -> {} per report from node {}",
+                             report.getWorkloadId(), workload.getStatus(), report.getStatus(), nodeId);
+                    workload.setStatus(report.getStatus());
+                    return workloadService.saveSync(workload);
                 });
     }
 

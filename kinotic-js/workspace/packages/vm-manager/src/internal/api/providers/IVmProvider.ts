@@ -1,4 +1,4 @@
-import type { Workload } from '@kinotic-ai/os-api'
+import type { Workload, VmProviderType } from '@kinotic-ai/os-api'
 import type { LogTarget } from '@/model/LogTarget'
 
 /**
@@ -8,11 +8,31 @@ import type { LogTarget } from '@/model/LogTarget'
 export interface IVmProvider {
 
     /**
+     * The provider type workloads select via {@link Workload#providerType}.
+     */
+    readonly type: VmProviderType
+
+    /**
+     * Restores the workload state persisted by a previous vm-manager process on this node,
+     * reattaching to VMs that are still running.
+     */
+    recover(): Promise<void>
+
+    /**
      * Starts a new VM for the given workload.
      * @param workload the workload configuration
      * @return a Promise resolving to the workload with updated status
      */
     start(workload: Workload): Promise<Workload>
+
+    /**
+     * Restarts a stopped workload in place: the same VM boots again with its disk state
+     * intact and the workload's entrypoint runs again. Fails unless the workload is
+     * STOPPED and its VM still exists (a workload stopped with autoRemove has none).
+     * @param workloadId the id of the workload to restart
+     * @return a Promise resolving to the workload with updated status
+     */
+    restart(workloadId: string): Promise<Workload>
 
     /**
      * Stops a running VM for the given workload.

@@ -1,10 +1,9 @@
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
-import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
 import type { IVmManager } from '@/api/IVmManager'
 import type { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import type { LogTarget } from '@/model/LogTarget'
 import { Publish, Scope } from '@kinotic-ai/core'
-import { type Workload, VmProviderType } from '@kinotic-ai/os-api'
+import type { Workload, VmProviderType } from '@kinotic-ai/os-api'
 
 /**
  * Default implementation of {@link IVmManager}.
@@ -21,10 +20,12 @@ export class DefaultVmManager implements IVmManager {
     private readonly providers: Map<VmProviderType, IVmProvider> = new Map()
     private readonly alloyManager: AlloyManager | null
 
-    constructor(nodeId: string, vmLogsDir: string, alloyManager: AlloyManager | null = null) {
+    constructor(nodeId: string, provider: IVmProvider, alloyManager: AlloyManager | null = null) {
         this.nodeId = nodeId
         this.alloyManager = alloyManager
-        this.providers.set(VmProviderType.BOXLITE, new BoxliteProvider(vmLogsDir))
+        this.providers.set(provider.type, provider)
+        // Resume shipping logs of workloads the provider recovered before any workload operation
+        void this.refreshLogShipping()
     }
 
     async startWorkload(workload: Workload): Promise<Workload> {
@@ -32,6 +33,13 @@ export class DefaultVmManager implements IVmManager {
         const started = await provider.start(workload)
         await this.refreshLogShipping()
         return started
+    }
+
+    async restartWorkload(workloadId: string): Promise<Workload> {
+        const provider = await this.findProviderForWorkload(workloadId)
+        const restarted = await provider.restart(workloadId)
+        await this.refreshLogShipping()
+        return restarted
     }
 
     async stopWorkload(workloadId: string): Promise<void> {

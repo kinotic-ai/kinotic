@@ -3,30 +3,27 @@ import type { ConnectionInfo, ServerInfo } from '@kinotic-ai/core'
 import { VmNodeRegistration } from '@/model/VmNodeRegistration'
 import { VmNodeOrchestrationServiceProxy } from '@/internal/services/VmNodeOrchestrationServiceProxy'
 import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
-import { createAuthProviderFromEnv } from '@/api/auth/createAuthProviderFromEnv'
+import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
+import { VmManagerConfig } from '@/api/VmManagerConfig'
+import { createAuthProvider } from '@/api/createAuthProvider'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
+import type { Workload } from '@kinotic-ai/os-api'
+import type { WorkloadStatusReport } from '@/model/WorkloadStatusReport'
 import os from 'node:os'
-import path from 'node:path'
 
-// Required configuration
-const nodeId = process.env.KINOTIC_NODE_ID ?? Bun.argv[2]
+const config = new VmManagerConfig()
+
+const nodeId = config.nodeId ?? Bun.argv[2]
 if (!nodeId) {
     console.error('Error: KINOTIC_NODE_ID environment variable or command line argument is required')
     process.exit(1)
 }
 
-const serverHost = process.env.KINOTIC_SERVER_HOST ?? 'localhost'
-const serverPort = Number(process.env.KINOTIC_SERVER_PORT ?? '58503')
-const serverUseSSL = (process.env.KINOTIC_SERVER_USE_SSL ?? 'false').toLowerCase() === 'true'
-const heartbeatIntervalMs = Number(process.env.KINOTIC_HEARTBEAT_INTERVAL_MS ?? '30000')
-const vmLogsDir = process.env.KINOTIC_VM_LOGS_DIR ?? path.join(os.homedir(), '.kinotic', 'vm-logs')
-const lokiUrl = process.env.KINOTIC_LOKI_URL
-
-const alloyManager = lokiUrl
+const alloyManager = config.lokiUrl
     ? new AlloyManager({
-        lokiUrl,
-        nodeId: nodeId!,
-        dataDir: path.join(os.homedir(), '.kinotic', 'alloy'),
+        lokiUrl: config.lokiUrl,
+        nodeId,
+        dataDir: config.alloyDataDir,
     })
     : null
 if (!alloyManager) {
@@ -35,34 +32,62 @@ if (!alloyManager) {
 
 let heartbeatTimer: Timer | null = null
 
-function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy) {
+function toStatusReport(workload: Workload): WorkloadStatusReport {
+    return {
+        workloadId: workload.id!,
+        status: workload.status,
+        updated: workload.updated ?? Date.now(),
+    }
+}
+
+function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy, vmManager: DefaultVmManager) {
     heartbeatTimer = setInterval(async () => {
         try {
             await nodeOrchestrator.heartbeat(nodeId!)
+            // Snapshot reconciliation: re-reporting everything converges any transition
+            // whose push was lost while the server was unreachable
+            const workloads = await vmManager.listWorkloads()
+            if (workloads.length > 0) {
+                await nodeOrchestrator.reportWorkloadStatus(nodeId!, workloads.map(toStatusReport))
+            }
         } catch (error) {
             console.error('Heartbeat failed:', error)
         }
-    }, heartbeatIntervalMs)
+    }, config.heartbeatIntervalMs)
 }
 
 async function start() {
     // Connect to the Kinotic server. As of @kinotic-ai/core 1.7.0 authentication
     // is performed during the WebSocket upgrade via a pluggable auth provider.
     const serverInfo: ServerInfo = {
-        host: serverHost,
-        port: serverPort,
-        useSSL: serverUseSSL
+        host: config.serverHost,
+        port: config.serverPort,
+        useSSL: config.serverUseSSL
     }
     const connectionInfo: ConnectionInfo = {
         ...serverInfo,
         sessionKeepAlive: SessionKeepAliveMode.ACTIVITY,
-        webSocketFactory: createAuthenticatedWebSocketFactory(serverInfo, createAuthProviderFromEnv())
+        webSocketFactory: createAuthenticatedWebSocketFactory(serverInfo, createAuthProvider(config))
     }
     await Kinotic.connect(connectionInfo)
-    console.log(`Connected to Kinotic server at ${serverHost}:${serverPort}`)
+    console.log(`Connected to Kinotic server at ${config.serverHost}:${config.serverPort}`)
+
+    const nodeOrchestrator = new VmNodeOrchestrationServiceProxy(
+        Kinotic.serviceProxy('org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService')
+    )
+
+    // Reattach to workloads a previous vm-manager process left running before the
+    // VmManager service is published and can receive new workload operations. Every
+    // node-side status transition is pushed so the server tracks the workload's real
+    // state; a failed push is only logged — the heartbeat snapshot reconciles it.
+    const provider = new BoxliteProvider(config.vmLogsDir, config.vmStateDir, workload => {
+        nodeOrchestrator.reportWorkloadStatus(nodeId!, [toStatusReport(workload)])
+                        .catch(error => console.error('Failed to report workload status:', error))
+    })
+    await provider.recover()
 
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
-    const vmManager = new DefaultVmManager(nodeId!, vmLogsDir, alloyManager)
+    const vmManager = new DefaultVmManager(nodeId!, provider, alloyManager)
 
     // Build registration info from system resources
     const registration = new VmNodeRegistration(nodeId!, os.hostname(), os.hostname())
@@ -70,17 +95,14 @@ async function start() {
     registration.totalMemoryMb = Math.floor(os.totalmem() / (1024 * 1024))
 
     // Register this node with the VmNodeOrchestrationService on the server
-    const nodeOrchestrator = new VmNodeOrchestrationServiceProxy(
-        Kinotic.serviceProxy('org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService')
-    )
     await nodeOrchestrator.registerNode(registration)
 
     console.log(`VM Manager registered on node: ${nodeId}`)
     console.log(`  CPUs: ${registration.totalCpus}, Memory: ${registration.totalMemoryMb}MB`)
 
     // Start sending periodic heartbeats
-    startHeartbeat(nodeOrchestrator)
-    console.log(`Heartbeat started (every ${heartbeatIntervalMs / 1000}s)`)
+    startHeartbeat(nodeOrchestrator, vmManager)
+    console.log(`Heartbeat started (every ${config.heartbeatIntervalMs / 1000}s)`)
 }
 
 // Graceful shutdown
@@ -105,4 +127,5 @@ start().catch(error => {
 export type { IVmManager } from '@/api/IVmManager'
 export type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 export type { VolumeMount } from '@kinotic-ai/os-api'
-export { createAuthProviderFromEnv } from '@/api/auth/createAuthProviderFromEnv'
+export { VmManagerConfig } from '@/api/VmManagerConfig'
+export { createAuthProvider } from '@/api/createAuthProvider'
