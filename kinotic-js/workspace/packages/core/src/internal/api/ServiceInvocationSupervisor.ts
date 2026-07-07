@@ -7,7 +7,7 @@ import { BasicReturnValueConverter, type ReturnValueConverter } from './ReturnVa
 import { Subscription } from "rxjs"
 import { createDebugLogger, type Logger } from "./Logger"
 import type {ContextInterceptor, ServiceContext} from '@/api/ContextInterceptor'
-import { getContextParameterIndices } from '@/api/KinoticDecorators'
+import { receivesContext } from '@/api/KinoticDecorators'
 
 /**
  * Handles invoking services registered with Kinoitc in TypeScript.
@@ -172,7 +172,7 @@ export class ServiceInvocationSupervisor {
 
         const methodName = path;
         const args = this.argumentResolver.resolveArguments(event)
-        const contextIndices: number[] = getContextParameterIndices(this.serviceInstance, methodName);
+        const injectContext = receivesContext(this.serviceInstance, methodName);
 
         // Create context using interceptor
         let context: ServiceContext = {};
@@ -187,9 +187,9 @@ export class ServiceInvocationSupervisor {
             }
         }
 
-        // Inject context into arguments where @Context is used
-        for (const index of contextIndices) {
-            args[index] = context;
+        // A @Context method takes the context as its final parameter, appended after caller args
+        if (injectContext) {
+            args.push(context);
         }
 
         const expectedArgsCount = handlerMethod.length

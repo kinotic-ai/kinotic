@@ -10,7 +10,7 @@ import { ServiceIdentifier } from '@/api/ServiceIdentifier'
  */
 const scopeFunctions = new WeakSet<Function>()
 const versionRegistry = new WeakMap<Function, string>()
-const contextRegistry = new WeakMap<Function, number[]>()
+const contextMarkedFunctions = new WeakSet<Function>()
 
 // A Version above @Publish stamps the replacement class while one below it stamps the
 // original, so the lookup walks the constructor prototype chain to find either.
@@ -70,28 +70,24 @@ export function Version(version: string) {
 }
 
 /**
- * Marks which parameters of a service method receive the {@link ServiceContext} produced by the
- * registered {@link ContextInterceptor} instead of a caller-supplied argument.
- * @param parameterIndices zero-based indices of the context parameters
+ * Marks a service method whose final parameter receives the {@link ServiceContext} produced by
+ * the registered {@link ContextInterceptor}. Callers do not pass this parameter; the platform
+ * appends it after the caller-supplied arguments.
  */
-export function Context(...parameterIndices: number[]) {
-    // Keyed by the method function itself rather than context.addInitializer: Bun's TC39
-    // decorator transform attaches initializers to the wrong class when a module declares
-    // several decorated classes, and the function object needs no per-instance work.
-    return function (value: Function, _context: ClassMethodDecoratorContext): void {
-        contextRegistry.set(value, parameterIndices)
-    }
+export function Context(value: Function, _context: ClassMethodDecoratorContext): void {
+    // Keyed by the method function itself, like Scope, so Bun's decorator-context bugs
+    // cannot affect it.
+    contextMarkedFunctions.add(value)
 }
 
 /**
- * Returns the parameter indices marked with {@link Context} for the given method of a service
- * instance, or an empty array if none are marked.
+ * Returns whether the given method of a service instance is marked with {@link Context}.
  * @param serviceInstance the service instance to inspect
  * @param methodName the method to look up
  */
-export function getContextParameterIndices(serviceInstance: object, methodName: string): number[] {
+export function receivesContext(serviceInstance: object, methodName: string): boolean {
     const method = (serviceInstance as any)[methodName]
-    return (typeof method === 'function' ? contextRegistry.get(method) : undefined) ?? []
+    return typeof method === 'function' && contextMarkedFunctions.has(method)
 }
 
 /**
