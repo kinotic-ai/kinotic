@@ -86,10 +86,10 @@ jobs:
         with:
           version: v5.1.4
 
-      # Let the boxlite VM tests run for real instead of skipping: the runner user needs to open
-      # /dev/kvm (chmod is immediate — no udev round-trip), and boxlite's bwrap sandbox needs
-      # unprivileged user namespaces, which Ubuntu 24.04's AppArmor blocks by default. The final
-      # check fails the job if KVM is unusable — the VM suite must never silently stop running in CI.
+      # After this step the runner user can open /dev/kvm and create unprivileged user
+      # namespaces — everything boxlite needs to boot micro VMs — so the VM test suites below
+      # run for real instead of skipping. The final check fails the job if KVM is unusable
+      # rather than letting the VM tests silently skip.
       - name: Enable KVM and user namespaces for boxlite
         if: ${{ !cancelled() }}
         run: |
