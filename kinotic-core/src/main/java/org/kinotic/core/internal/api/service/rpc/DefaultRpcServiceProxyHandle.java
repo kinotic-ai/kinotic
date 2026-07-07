@@ -222,7 +222,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                 // TODO: use version string to determine how specific the invocation has to be like npm semantics ^1.0.0 ect
                 CRI requestCri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
                                             scope,
-                                            serviceIdentifier.qualifiedName(),
+                                            serviceIdentifier.resourceName(),
                                             "/" + method.getName(),
                                             serviceIdentifier.version());
 

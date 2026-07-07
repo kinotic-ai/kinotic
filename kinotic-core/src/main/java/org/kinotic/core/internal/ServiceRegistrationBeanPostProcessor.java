@@ -8,6 +8,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.RpcServiceProxy;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.service.ServiceIdentifier;
+import org.kinotic.core.api.service.ServiceZones;
 import org.kinotic.core.internal.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.slf4j.Logger;
@@ -105,12 +106,22 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                                 throw new FatalBeanException("Version must be specified on the Published interface " + inter.getName() + " or an ancestor package.");
                             }
 
-                            ServiceIdentifier serviceIdentifier = new ServiceIdentifier(namespace,
-                                                                                        name,
-                                                                                        scope,
-                                                                                        version);
+                            // A service registers one address per zone, defaulting to the system
+                            // zone so nothing is reachable by applications unless declared so
+                            String[] zones = MetaUtil.getZones(inter);
+                            if (zones == null || zones.length == 0) {
+                                zones = new String[]{ServiceZones.SYSTEM};
+                            }
 
-                            consumer.accept(serviceIdentifier, inter);
+                            for (String zone : zones) {
+                                ServiceIdentifier serviceIdentifier = new ServiceIdentifier(zone,
+                                                                                            namespace,
+                                                                                            name,
+                                                                                            scope,
+                                                                                            version);
+
+                                consumer.accept(serviceIdentifier, inter);
+                            }
 
                         }else{
                             // Ths should never happen

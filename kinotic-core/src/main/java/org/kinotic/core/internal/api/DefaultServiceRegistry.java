@@ -13,6 +13,7 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
 import org.kinotic.core.api.service.ServiceIdentifier;
+import org.kinotic.core.api.service.ServiceZones;
 import org.kinotic.core.internal.api.service.ExceptionConverterComposite;
 import org.kinotic.core.internal.api.service.invoker.ArgumentResolverComposite;
 import org.kinotic.core.internal.api.service.invoker.ReturnValueConverterComposite;
@@ -148,7 +149,20 @@ public class DefaultServiceRegistry implements ServiceRegistry {
         String name = proxyAnnotation.name().isEmpty() ? serviceInterface.getSimpleName() : proxyAnnotation.name();
         String version = MetaUtil.getVersion(serviceInterface);
 
-        ServiceIdentifier serviceIdentifier = new ServiceIdentifier(namespace,
+        // A proxy targets one address, so unlike a published service it must resolve to exactly one zone
+        String[] zones = MetaUtil.getZones(serviceInterface);
+        String zone;
+        if (zones == null || zones.length == 0) {
+            zone = ServiceZones.SYSTEM;
+        } else {
+            Validate.isTrue(zones.length == 1,
+                            "The @Proxy interface %s must resolve to exactly one zone but declares %s",
+                            serviceInterface.getName(), zones.length);
+            zone = zones[0];
+        }
+
+        ServiceIdentifier serviceIdentifier = new ServiceIdentifier(zone,
+                                                                    namespace,
                                                                     name,
                                                                     null,
                                                                     version);

@@ -14,6 +14,8 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
  */
 public class ServiceIdentifier {
 
+    private final String zone;
+
     private final String namespace;
 
     private final String name;
@@ -25,22 +27,33 @@ public class ServiceIdentifier {
 
     private final CRI cri;
 
-    public ServiceIdentifier(String name, String version) {
-        this(null, name, null, version);
-    }
-
-    public ServiceIdentifier(String namespace,
+    public ServiceIdentifier(String zone,
+                             String namespace,
                              String name,
                              String scope,
                              String version) {
-        Validate.notEmpty(name);
-        Validate.notEmpty(version);
+        Validate.notEmpty(zone, "The zone must not be empty");
+        Validate.notEmpty(name, "The name must not be empty");
+        Validate.notEmpty(version, "The version must not be empty");
+        // The name is the final dot separated label of the resourceName, so a dot inside it would
+        // change where the zone and namespace end when the address is parsed or pattern matched
+        Validate.isTrue(!name.contains("."), "The name must not contain '.' but was '%s'", name);
+        ServiceZones.validateZone(zone);
+        this.zone = zone;
         this.namespace = namespace;
         this.name = name;
         this.scope = scope;
         this.version = version;
 
-        cri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, this.scope, this.qualifiedName(),null, this.version);
+        cri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, this.scope, this.resourceName(), null, this.version);
+    }
+
+    /**
+     * The zone this {@link ServiceIdentifier} is addressable in
+     * @return string containing the zone
+     */
+    public String zone() {
+        return zone;
     }
 
     /**
@@ -88,6 +101,15 @@ public class ServiceIdentifier {
     }
 
     /**
+     * Returns the CRI resourceName this {@link ServiceIdentifier} is addressed by
+     * This is the zone.namespace.name
+     * @return string containing the resourceName
+     */
+    public String resourceName(){
+        return zone + "." + qualifiedName();
+    }
+
+    /**
      * The {@link CRI} that represents this {@link ServiceIdentifier}
      * @return the cri for this {@link ServiceIdentifier}
      */
@@ -104,7 +126,8 @@ public class ServiceIdentifier {
 
         ServiceIdentifier that = (ServiceIdentifier) o;
 
-        return new EqualsBuilder().append(namespace, that.namespace())
+        return new EqualsBuilder().append(zone, that.zone())
+                                  .append(namespace, that.namespace())
                                   .append(name, that.name())
                                   .append(scope, that.scope())
                                   .append(version, that.version())
@@ -113,7 +136,7 @@ public class ServiceIdentifier {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder(17, 37).append(namespace).append(name).append(scope).append(version).toHashCode();
+        return new HashCodeBuilder(17, 37).append(zone).append(namespace).append(name).append(scope).append(version).toHashCode();
     }
 
     @Override
