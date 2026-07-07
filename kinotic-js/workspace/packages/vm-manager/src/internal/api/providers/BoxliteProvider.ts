@@ -14,10 +14,19 @@ import { Workload, WorkloadStatus, VmProviderType } from '@kinotic-ai/os-api'
 export const GUEST_LOG_DIR = '/var/log/kinotic'
 
 /**
+ * Lifecycle handle to a boxlite box, as returned by the runtime's get(). The SDK exports
+ * no TS type for it (JsBox), so only the members this provider uses are declared.
+ */
+export interface BoxHandle {
+    start(): Promise<void>
+    stop(): Promise<void>
+}
+
+/**
  * A VM currently managed by this provider, with the resources that outlive the box itself.
  */
 export interface ActiveVm {
-    box: SimpleBox
+    box: BoxHandle
     /** boxlite box id (ULID), assigned once the VM boots. */
     vmId: string
     /** Host directory holding this VM's log files, mounted at {@link GUEST_LOG_DIR}. */
@@ -132,7 +141,7 @@ export class BoxliteProvider implements IVmProvider {
             // Verify the box is responsive; also boots the lazily-created VM so box.id is assigned
             await box.exec('echo ready')
 
-            this.activeVms.set(id, { box, vmId: box.id, logDir })
+            this.activeVms.set(id, { box: await this.boxHandle(id), vmId: box.id, logDir })
 
             workload.status = WorkloadStatus.RUNNING
         } catch (error) {
@@ -165,16 +174,10 @@ export class BoxliteProvider implements IVmProvider {
         this.persist(workload)
 
         try {
-            const jsbox = await this.runtime.get(workloadId)
-            if (!jsbox) {
-                throw new Error(`Box not found for workload: ${workloadId}`)
-            }
-            await jsbox.start()
+            const box = await this.boxHandle(workloadId)
+            await box.start()
 
             const logDir = join(this.logsBaseDir, workloadId)
-            const box = new SimpleBox({ ...buildBoxOptions(workload, logDir), runtime: this.runtime, reuseExisting: true })
-            // getId() resolves the lazy box; without it a later stop() would silently no-op
-            await box.getId()
             this.activeVms.set(workloadId, { box, vmId: info.id, logDir })
 
             workload.status = WorkloadStatus.RUNNING
@@ -274,14 +277,7 @@ export class BoxliteProvider implements IVmProvider {
             const info = await this.runtime.getInfo(id)
             if (info?.state.running) {
                 const logDir = join(this.logsBaseDir, id)
-                const box = new SimpleBox({
-                    ...buildBoxOptions(workload, logDir),
-                    runtime: this.runtime,
-                    reuseExisting: true,
-                })
-                // getId() resolves the lazy box; without it a later stop() would silently no-op
-                await box.getId()
-                this.activeVms.set(id, { box, vmId: info.id, logDir })
+                this.activeVms.set(id, { box: await this.boxHandle(id), vmId: info.id, logDir })
                 workload.status = WorkloadStatus.RUNNING
                 console.log(`Reattached to running workload ${id} (vm ${info.id})`)
             } else {
@@ -296,6 +292,15 @@ export class BoxliteProvider implements IVmProvider {
         }
         workload.updated = Date.now()
         this.persist(workload)
+    }
+
+    // The runtime's own handle to the box named by the workload id
+    private async boxHandle(workloadId: string): Promise<BoxHandle> {
+        const box: BoxHandle | null = await this.runtime.get(workloadId)
+        if (!box) {
+            throw new Error(`Box not found for workload: ${workloadId}`)
+        }
+        return box
     }
 
     // Written atomically (write + rename) so a crash mid-write cannot corrupt recovery state
