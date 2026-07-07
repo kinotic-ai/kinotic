@@ -18,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @Publish
 @Version("1.0.0")
-@Zones(PlatformZones.SYSTEM)
+@Zones(PlatformZones.OS_API)
 public interface ITestService {
 
     String testMethodWithString(String value);
