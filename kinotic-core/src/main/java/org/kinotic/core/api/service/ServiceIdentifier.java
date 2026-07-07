@@ -9,13 +9,16 @@ import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 /**
  * The {@link ServiceIdentifier} identifies a {@link ServiceDescriptor}
  * Created by Navíd Mitchell 🤪 on 8/18/21.
  */
 public class ServiceIdentifier {
 
-    private final String zone;
+    private final List<String> zones;
 
     private final String namespace;
 
@@ -26,36 +29,38 @@ public class ServiceIdentifier {
 
     private final String version;
 
-    private final CRI cri;
+    private final List<CRI> cris;
 
-    public ServiceIdentifier(String zone,
+    public ServiceIdentifier(List<String> zones,
                              String namespace,
                              String name,
                              String scope,
                              String version) {
         Validate.notEmpty(name, "The name must not be empty");
         Validate.notEmpty(version, "The version must not be empty");
-        // The name is the final dot separated label of the resourceName, so a dot inside it would
+        // The name is the final dot separated label of the address, so a dot inside it would
         // change where the zone and namespace end when the address is parsed or pattern matched
         Validate.isTrue(!name.contains("."), "The name must not contain '.' but was '%s'", name);
-        if (zone != null) {
-            ZoneUtil.validateZone(zone);
-        }
-        this.zone = zone;
+        this.zones = zones != null ? List.copyOf(zones) : List.of();
+        this.zones.forEach(ZoneUtil::validateZone);
         this.namespace = namespace;
         this.name = name;
         this.scope = scope;
         this.version = version;
 
-        cri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, this.scope, this.qualifiedName(), null, this.version);
+        cris = this.zones.isEmpty()
+                ? List.of(CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, scope, qualifiedName(null), null, version))
+                : this.zones.stream()
+                            .map(zone -> CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, scope, qualifiedName(zone), null, version))
+                            .toList();
     }
 
     /**
-     * The zone this {@link ServiceIdentifier} is addressable in
-     * @return string containing the zone or null if un-zoned
+     * The zones this {@link ServiceIdentifier} is addressable in
+     * @return the zones, empty if un-zoned
      */
-    public String zone() {
-        return zone;
+    public List<String> zones() {
+        return zones;
     }
 
     /**
@@ -97,18 +102,38 @@ public class ServiceIdentifier {
      * Returns the fully qualified name this {@link ServiceIdentifier} is addressed by
      * This is the zone.namespace.name, omitting any part that is not set
      * @return string containing the qualified name
+     * @throws IllegalStateException if this {@link ServiceIdentifier} has more than one zone and
+     *         therefore more than one qualified name
      */
     public String qualifiedName(){
+        Validate.validState(zones.size() <= 1,
+                            "ServiceIdentifier has %s zones so there is no single qualifiedName", zones.size());
+        return qualifiedName(zones.isEmpty() ? null : zones.getFirst());
+    }
+
+    private String qualifiedName(String zone) {
         String name = (namespace != null && !namespace.isEmpty() ? namespace + "." : "") + this.name;
         return zone != null ? zone + "." + name : name;
     }
 
     /**
+     * The {@link CRI}s this {@link ServiceIdentifier} is addressable by, one per zone
+     * @return the cris for this {@link ServiceIdentifier}, never empty
+     */
+    public List<CRI> cris(){
+        return cris;
+    }
+
+    /**
      * The {@link CRI} that represents this {@link ServiceIdentifier}
      * @return the cri for this {@link ServiceIdentifier}
+     * @throws IllegalStateException if this {@link ServiceIdentifier} has more than one zone and
+     *         therefore more than one cri
      */
     public CRI cri(){
-        return cri;
+        Validate.validState(cris.size() == 1,
+                            "ServiceIdentifier has %s cris so there is no single cri", cris.size());
+        return cris.getFirst();
     }
 
 
@@ -120,7 +145,7 @@ public class ServiceIdentifier {
 
         ServiceIdentifier that = (ServiceIdentifier) o;
 
-        return new EqualsBuilder().append(zone, that.zone())
+        return new EqualsBuilder().append(zones, that.zones())
                                   .append(namespace, that.namespace())
                                   .append(name, that.name())
                                   .append(scope, that.scope())
@@ -130,11 +155,11 @@ public class ServiceIdentifier {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder(17, 37).append(zone).append(namespace).append(name).append(scope).append(version).toHashCode();
+        return new HashCodeBuilder(17, 37).append(zones).append(namespace).append(name).append(scope).append(version).toHashCode();
     }
 
     @Override
     public String toString() {
-        return this.cri.raw();
+        return cris.stream().map(CRI::raw).collect(Collectors.joining(", "));
     }
 }

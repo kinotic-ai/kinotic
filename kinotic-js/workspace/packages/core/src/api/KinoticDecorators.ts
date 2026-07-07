@@ -114,18 +114,22 @@ export function receivesContext(serviceInstance: object, methodName: string): bo
 // Effective zones = zonePrefix . declaredZone. The prefix comes from the client's static
 // configuration (never from the service itself), so a wrong declaration can only route nowhere,
 // not into another application's zone — the gateway validates the prefix on every send/subscribe.
-function resolveEffectiveZones(constructor: Function): (string | undefined)[] {
+// An empty result means the service registers at its un-zoned legacy address.
+function resolveEffectiveZones(constructor: Function): string[] {
     const declaredZones = findInConstructorChain(zonesRegistry, constructor) ?? Kinotic.defaultZones ?? []
     const prefix = Kinotic.zonePrefix
+    let effectiveZones: string[]
     if (prefix != null && declaredZones.length > 0) {
-        return declaredZones.map(zone => `${prefix}.${zone}`)
+        effectiveZones = declaredZones.map(zone => `${prefix}.${zone}`)
     } else if (prefix != null) {
-        return [prefix]
-    } else if (declaredZones.length > 0) {
-        return [...declaredZones]
+        effectiveZones = [prefix]
+    } else {
+        effectiveZones = [...declaredZones]
     }
-    // No zone information at all: register at the un-zoned legacy address
-    return [undefined]
+    for (const zone of effectiveZones) {
+        validateZone(zone)
+    }
+    return effectiveZones
 }
 
 /**
@@ -141,22 +145,22 @@ export function Publish(namespace?: string | null, name?: string) {
             constructor(...args: any[]) {
                 super(...args)
 
-                const version = findInConstructorChain(versionRegistry, this.constructor)
-                const scope = resolveScope(this)
+                const zones = resolveEffectiveZones(this.constructor)
+                const serviceIdentifier = new ServiceIdentifier(namespace ?? null,
+                                                                name || value.name,
+                                                                zones.length > 0 ? zones : undefined)
 
-                for (const zone of resolveEffectiveZones(this.constructor)) {
-                    if (zone !== undefined) {
-                        validateZone(zone)
-                    }
-                    const serviceIdentifier = new ServiceIdentifier(namespace ?? null, name || value.name, zone)
-                    if (version) {
-                        serviceIdentifier.version = version
-                    }
-                    if (scope !== undefined) {
-                        serviceIdentifier.scope = scope as string
-                    }
-                    Kinotic.serviceRegistry.register(serviceIdentifier, this)
+                const version = findInConstructorChain(versionRegistry, this.constructor)
+                if (version) {
+                    serviceIdentifier.version = version
                 }
+
+                const scope = resolveScope(this)
+                if (scope !== undefined) {
+                    serviceIdentifier.scope = scope as string
+                }
+
+                Kinotic.serviceRegistry.register(serviceIdentifier, this)
             }
         }
     }

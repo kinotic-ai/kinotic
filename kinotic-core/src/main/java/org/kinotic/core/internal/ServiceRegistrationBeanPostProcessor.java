@@ -105,23 +105,17 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                                 throw new FatalBeanException("Version must be specified on the Published interface " + inter.getName() + " or an ancestor package.");
                             }
 
-                            // A service registers one address per declared zone; with no
-                            // declaration it registers a single un-zoned address, whose
-                            // reachability is whatever the gateway's routing rules allow
+                            // A service is addressable in each declared zone; with no declaration
+                            // it registers a single un-zoned address, whose reachability is
+                            // whatever the gateway's routing rules allow
                             String[] zones = MetaUtil.getZones(inter);
-                            if (zones == null || zones.length == 0) {
-                                zones = new String[]{null};
-                            }
+                            ServiceIdentifier serviceIdentifier = new ServiceIdentifier(zones != null ? List.of(zones) : null,
+                                                                                        namespace,
+                                                                                        name,
+                                                                                        scope,
+                                                                                        version);
 
-                            for (String zone : zones) {
-                                ServiceIdentifier serviceIdentifier = new ServiceIdentifier(zone,
-                                                                                            namespace,
-                                                                                            name,
-                                                                                            scope,
-                                                                                            version);
-
-                                consumer.accept(serviceIdentifier, inter);
-                            }
+                            consumer.accept(serviceIdentifier, inter);
 
                         }else{
                             // Ths should never happen
