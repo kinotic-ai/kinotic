@@ -116,11 +116,17 @@ export class ServiceInvocationSupervisor {
 
     private buildMethodMap(serviceInstance: any): Record<string, (...args: any[]) => any> {
         const methodMap: Record<string, (...args: any[]) => any> = {}
-        for (const key of Object.getOwnPropertyNames(Object.getPrototypeOf(serviceInstance))) {
-            const method = serviceInstance[key]
-            if (typeof method === "function" && key !== "constructor") {
-                methodMap[key] = method.bind(serviceInstance)
+        // Walks the prototype chain because Publish registers instances of a subclass whose own
+        // prototype is empty; descriptors are used so getters are not invoked while scanning.
+        let proto = Object.getPrototypeOf(serviceInstance)
+        while (proto && proto !== Object.prototype) {
+            for (const key of Object.getOwnPropertyNames(proto)) {
+                const descriptor = Object.getOwnPropertyDescriptor(proto, key)
+                if (typeof descriptor?.value === "function" && key !== "constructor" && !methodMap[key]) {
+                    methodMap[key] = descriptor.value.bind(serviceInstance)
+                }
             }
+            proto = Object.getPrototypeOf(proto)
         }
         return methodMap
     }

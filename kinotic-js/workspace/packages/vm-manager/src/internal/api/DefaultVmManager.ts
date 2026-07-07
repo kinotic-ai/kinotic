@@ -9,17 +9,21 @@ import { type Workload, VmProviderType } from '@kinotic-ai/os-api'
 /**
  * Default implementation of {@link IVmManager}.
  *
- * The {@link Scope} decorator naming nodeId ensures this service registers with a scope equal to
+ * The {@link Scope} getter ensures this service registers with a scope equal to
  * the node's unique id, allowing the orchestrator to route requests to a specific node's VmManager.
  */
 @Publish('kinotic-ai.vm-manager')
-@Scope('nodeId')
 export class DefaultVmManager implements IVmManager {
 
     public readonly nodeId: string
 
     private readonly providers: Map<VmProviderType, IVmProvider> = new Map()
     private readonly alloyManager: AlloyManager | null
+
+    @Scope
+    get scope(): string {
+        return this.nodeId
+    }
 
     constructor(nodeId: string, vmLogsDir: string, alloyManager: AlloyManager | null = null) {
         this.nodeId = nodeId

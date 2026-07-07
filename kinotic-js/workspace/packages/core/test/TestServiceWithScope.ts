@@ -1,9 +1,13 @@
 import { Publish, Scope } from "../src"
 
 @Publish("com.example")
-@Scope("scope")
 export class TestServiceWithScope {
     scope: string = "tenant"
+
+    @Scope
+    get serviceScope(): string {
+        return this.scope
+    }
 
     greet(name: string): string {
         return `Hello, ${name} from ${this.scope}!`

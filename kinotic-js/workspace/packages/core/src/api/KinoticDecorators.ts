@@ -8,12 +8,12 @@ import { ServiceIdentifier } from '@/api/ServiceIdentifier'
  * @author Navid Mitchell 🤝Grok
  * @since 3/25/2025
  */
-const scopeRegistry = new WeakMap<Function, string>()
+const scopeFunctions = new WeakSet<Function>()
 const versionRegistry = new WeakMap<Function, string>()
 const contextRegistry = new WeakMap<Function, number[]>()
 
-// Decorators above @Publish stamp the replacement class while decorators below it stamp
-// the original, so lookups walk the constructor prototype chain to find either.
+// A Version above @Publish stamps the replacement class while one below it stamps the
+// original, so the lookup walks the constructor prototype chain to find either.
 function findInConstructorChain<T>(registry: WeakMap<Function, T>, constructor: Function): T | undefined {
     let current: Function | null = constructor
     while (current) {
@@ -26,15 +26,34 @@ function findInConstructorChain<T>(registry: WeakMap<Function, T>, constructor: 
     return undefined
 }
 
-/**
- * Names the property that provides the service's scope. The property's value is read from
- * each instance when it registers; if the value is a function it is invoked to produce the scope.
- * @param propertyName the name of the property that yields the scope
- */
-export function Scope(propertyName: string) {
-    return function (value: Function, _context: ClassDecoratorContext<any>): void {
-        scopeRegistry.set(value, propertyName)
+// Scans prototype descriptors for the member marked @Scope; keyed by function identity,
+// so the member's name is irrelevant and getters are not invoked while scanning.
+function resolveScope(instance: object): unknown {
+    let proto = Object.getPrototypeOf(instance)
+    while (proto && proto !== Object.prototype) {
+        for (const key of Object.getOwnPropertyNames(proto)) {
+            if (key === 'constructor') {
+                continue
+            }
+            const descriptor = Object.getOwnPropertyDescriptor(proto, key)
+            if (descriptor?.get && scopeFunctions.has(descriptor.get)) {
+                return descriptor.get.call(instance)
+            }
+            if (typeof descriptor?.value === 'function' && scopeFunctions.has(descriptor.value)) {
+                return descriptor.value.call(instance)
+            }
+        }
+        proto = Object.getPrototypeOf(proto)
     }
+    return undefined
+}
+
+/**
+ * Marks the getter or method that provides the service's scope. It is invoked on each
+ * instance when the instance registers with the ServiceRegistry.
+ */
+export function Scope(value: Function, _context: ClassGetterDecoratorContext | ClassMethodDecoratorContext): void {
+    scopeFunctions.add(value)
 }
 
 /**
@@ -95,10 +114,9 @@ export function Publish(namespace: string, name?: string) {
                     serviceIdentifier.version = version
                 }
 
-                const scopeProperty = findInConstructorChain(scopeRegistry, this.constructor)
-                if (scopeProperty) {
-                    const scopeValue = (this as any)[scopeProperty]
-                    serviceIdentifier.scope = typeof scopeValue === 'function' ? scopeValue.call(this) : scopeValue
+                const scope = resolveScope(this)
+                if (scope !== undefined) {
+                    serviceIdentifier.scope = scope as string
                 }
 
                 Kinotic.serviceRegistry.register(serviceIdentifier, this)
