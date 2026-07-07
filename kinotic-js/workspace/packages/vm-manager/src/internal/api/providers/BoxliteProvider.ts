@@ -51,9 +51,7 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
             { hostPath: logDir, guestPath: GUEST_LOG_DIR },
         ],
         autoRemove: false,
-        // Workload VMs must outlive the vm-manager process so systemd can restart it without
-        // killing workloads; recover() reattaches to them afterwards
-        detach: true,
+        detach: workload.detached,
     }
 }
 

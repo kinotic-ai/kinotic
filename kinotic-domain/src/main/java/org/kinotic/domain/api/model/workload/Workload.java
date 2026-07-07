@@ -80,6 +80,12 @@ public class Workload implements Identifiable<String> {
     private int diskSizeMb = 1024;
 
     /**
+     * When {@code true} the VM runs detached from the vm-manager process and survives its
+     * restarts. Non-detached workloads end when the vm-manager exits.
+     */
+    private boolean detached = true;
+
+    /**
      * Current status of the workload.
      */
     private WorkloadStatus status = WorkloadStatus.PENDING;

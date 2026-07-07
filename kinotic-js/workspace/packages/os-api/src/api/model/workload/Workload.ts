@@ -63,6 +63,12 @@ export class Workload implements Identifiable<string> {
     public diskSizeMb: number = 1024
 
     /**
+     * When true the VM runs detached from the vm-manager process and survives its
+     * restarts. Non-detached workloads end when the vm-manager exits.
+     */
+    public detached: boolean = true
+
+    /**
      * Current status of the workload.
      */
     public status: WorkloadStatus = WorkloadStatus.PENDING
