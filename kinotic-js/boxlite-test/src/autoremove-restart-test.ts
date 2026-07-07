@@ -153,24 +153,29 @@ async function main() {
     return count;
   }
 
-  const entry = new SimpleBox({
-    image: "alpine:latest",
-    name: EP_NAME,
-    autoRemove: false,
-    runtime,
-    entrypoint: ["sh", "-c", "echo boot >> /root/boots.log"],
-  });
-  await entry.exec("true");
-  const firstBoot = await bootCount(entry, 1);
-  console.log(`  boots.log lines after first boot: ${firstBoot}`);
-  await entry.stop();
+  // The entrypoint must outlive the boot handshake: one that exits immediately fails the
+  // whole boot with spawn_failed / "waiting for init ready" BrokenChannel — so append the
+  // marker, then stay alive like a real workload
+  const entrypoint = ["sh", "-c", "echo boot >> /root/boots.log && sleep 300"];
+  let firstBoot = 0;
+  let secondBoot = 0;
+  try {
+    const entry = new SimpleBox({ image: "alpine:latest", name: EP_NAME, autoRemove: false, runtime, entrypoint });
+    await entry.exec("true");
+    firstBoot = await bootCount(entry, 1);
+    console.log(`  boots.log lines after first boot: ${firstBoot}`);
+    await entry.stop();
 
-  const entryAgain = new SimpleBox({ image: "alpine:latest", name: EP_NAME, autoRemove: false, reuseExisting: true, runtime });
-  await entryAgain.exec("true");
-  const secondBoot = await bootCount(entryAgain, 2);
-  console.log(`  boots.log lines after restart   : ${secondBoot}\n`);
-  await entryAgain.stop();
-  await runtime.remove(EP_NAME, true);
+    const entryAgain = new SimpleBox({ image: "alpine:latest", name: EP_NAME, autoRemove: false, reuseExisting: true, runtime });
+    await entryAgain.exec("true");
+    secondBoot = await bootCount(entryAgain, 2);
+    console.log(`  boots.log lines after restart   : ${secondBoot}\n`);
+    await entryAgain.stop();
+  } finally {
+    if (await runtime.getInfo(EP_NAME)) {
+      await runtime.remove(EP_NAME, true);
+    }
+  }
 
   // ---- Report ---------------------------------------------------------------------
   console.log("=== REPORT ===");
