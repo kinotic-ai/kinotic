@@ -35,3 +35,11 @@ export class YourService {
 
 The `@Publish` decorator takes an optional `namespace` and optional `name` (defaults to the class name). Related decorators include `@Scope` on a getter or method (for routing to specific service instances), `@Version` (for semantic versioning), and `@Zones` (declares the zones a service is addressable in, appended to `Kinotic.zonePrefix`; without a declaration, `Kinotic.defaultZones` from the project package.json `kinotic.zones` field applies).
 
+
+## Vitest and TC39 decorators
+
+The root `package.json` pins `"overrides": { "vite": "^7.3.5" }`. Vitest 4 otherwise
+resolves Vite 8, whose rolldown/oxc transform passes TC39 decorator syntax through
+untransformed (no error, raw `@` reaches Node as a SyntaxError). Vite 7 transforms TS
+with esbuild, which lowers stage-3 decorators correctly. Remove the override only once
+oxc lowers proposal decorators (tracked by rolldown/oxc upstream).
