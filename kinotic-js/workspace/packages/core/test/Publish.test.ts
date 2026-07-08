@@ -21,7 +21,7 @@ describe('Kinotic JS', () => {
         beforeAll(async () => {
             // Registers this client's services under ZONE; must be set before they are instantiated
             Kinotic.zonePrefix = ZONE
-            const connectionInfo = createConnectionInfo(undefined, { applicationId: APP_ID })
+            const connectionInfo = createConnectionInfo({ authHeaders: { applicationId: APP_ID } })
             const connectedInfo: ConnectedInfo = await logFailure(
                 Kinotic.connect(connectionInfo),
                 "Failed to connect to Kinotic Gateway"
