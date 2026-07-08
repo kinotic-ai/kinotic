@@ -2,6 +2,7 @@
 CREATE TABLE IF NOT EXISTS kinotic_application (
     id KEYWORD,
     organizationId KEYWORD,
+    name KEYWORD,
     description TEXT,
     oidcConfigurationIds KEYWORD,
     tenantPerUser BOOLEAN,
