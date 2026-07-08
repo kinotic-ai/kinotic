@@ -94,11 +94,11 @@ public class StompAuthorizerFactory {
         }
 
         private void addZone(List<PathPattern> target, String zone) {
+            // A CRI's scope (e.g. srv://node1@system...) is stripped before matching in
+            // StompAuthorizer, so only the un-scoped zone pattern is needed here
             for (String scheme : List.of(EventConstants.SERVICE_DESTINATION_SCHEME,
                                          EventConstants.STREAM_DESTINATION_SCHEME)) {
                 target.add(getPathPattern(scheme + "://" + zone + ".**"));
-                // CRIs may carry a scope, e.g. srv://node1@system.kinotic-ai.vm-manager.VmManager
-                target.add(getPathPattern(scheme + "://*@" + zone + ".**"));
             }
         }
 

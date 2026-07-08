@@ -9,6 +9,7 @@ import org.springframework.web.util.pattern.PathPattern;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 /**
  * Authorizes STOMP sends and subscriptions for a connected participant.
@@ -47,28 +48,34 @@ public class StompAuthorizer {
         int result = -1;
 
         if (!temporarySendPathPatterns.isEmpty()) {
-            result = checkMatches(cri.raw(), temporarySendPathPatterns);
+            result = checkMatches(cri, temporarySendPathPatterns);
             if (result != -1) {
                 temporarySendPathPatterns.remove(result);
             }
         }
 
         if (result == -1) {
-            result = checkMatches(cri.raw(), sendPathPatterns);
+            result = checkMatches(cri, sendPathPatterns);
         }
         return result != -1;
     }
 
     public boolean subscribeAllowed(CRI cri) {
         Validate.notNull(cri, "The CRI must not be null");
-        return checkMatches(cri.raw(), subscribePathPatterns) != -1;
+        return checkMatches(cri, subscribePathPatterns) != -1;
     }
 
-    private int checkMatches(String cri, List<PathPattern> patterns) {
+    private int checkMatches(CRI cri, List<PathPattern> patterns) {
+        PathContainer raw = PathContainer.parsePath(cri.raw(), parseOptions);
+        // Zone authorization is independent of scope, and a MESSAGE_ROUTE '*' cannot span a
+        // dotted scope (e.g. an FQDN node id), so also match a scope-stripped form of the CRI.
+        // The scope-bearing reply patterns still match against the raw form above.
+        PathContainer deScoped = cri.hasScope()
+                ? PathContainer.parsePath(cri.raw().replaceFirst(Pattern.quote(cri.scope() + "@"), ""), parseOptions)
+                : raw;
         int ret = -1;
-        PathContainer pathContainer = PathContainer.parsePath(cri, parseOptions);
         for (int i = 0; i < patterns.size(); i++) {
-            if (patterns.get(i).matches(pathContainer)) {
+            if (patterns.get(i).matches(raw) || patterns.get(i).matches(deScoped)) {
                 ret = i;
                 break;
             }

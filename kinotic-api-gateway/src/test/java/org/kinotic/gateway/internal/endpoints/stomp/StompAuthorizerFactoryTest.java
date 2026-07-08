@@ -143,6 +143,18 @@ public class StompAuthorizerFactoryTest {
     }
 
     @Test
+    public void dottedScopesAreAuthorizedByTheirZone() {
+        // a node id may be an FQDN; the scope is stripped before zone matching so it still routes
+        StompAuthorizer system = systemAuthorizer();
+        assertTrue(system.subscribeAllowed(CRI.create("srv://vm1.example.com@system.kinotic-ai.vm-manager.VmManager#0.1.0")));
+        assertTrue(system.sendAllowed(CRI.create("srv://vm1.example.com@system.kinotic-ai.vm-manager.VmManager/start#0.1.0")));
+
+        StompAuthorizer app = applicationAuthorizer("acme-org", "orders-app");
+        assertTrue(app.subscribeAllowed(CRI.create("srv://node.1.2@app.acme-org.orders-app.OrderService#1.0.0")));
+        assertFalse(app.subscribeAllowed(CRI.create("srv://node.1.2@app.acme-org.other-app.OrderService#1.0.0")));
+    }
+
+    @Test
     public void replyDestinationIsScopedToTheConnectionsReplyToId() {
         StompAuthorizer authorizer = organizationAuthorizer("acme-org");
 
