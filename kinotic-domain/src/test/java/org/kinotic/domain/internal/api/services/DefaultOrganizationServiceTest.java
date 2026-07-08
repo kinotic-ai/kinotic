@@ -28,6 +28,15 @@ class DefaultOrganizationServiceTest {
     }
 
     @Test
+    void mintsLabelSafeIdsFromPunctuatedNames() {
+        Organization organization = new Organization().setName("Acme Inc.");
+
+        service.beforeSave(organization).join();
+
+        assertEquals("acme_inc", organization.getId());
+    }
+
+    @Test
     void rejectsNamesThatMintReservedIds() {
         for (String name : List.of("Kinotic", "Kinotic System", "kinotic-system", "KINOTIC ops")) {
             assertThrows(IllegalArgumentException.class,

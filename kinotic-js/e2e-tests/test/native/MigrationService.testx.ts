@@ -36,8 +36,9 @@ describe('Kinotic JS', () => {
     }, 60000)
 
     beforeEach<LocalTestContext>(async (context) => {
-        // Create application and project
-        context.applicationId = generateRandomString(10)
+        // Create application and project; lowercased so the id survives the server's
+        // zone-label normalization and every later reference matches the stored id
+        context.applicationId = generateRandomString(10).toLowerCase()
         await Kinotic.applications.createApplicationIfNotExist(context.applicationId, 'Test Application')
         
         const project = new Project(null, context.applicationId, generateRandomString(5), 'Test Project')

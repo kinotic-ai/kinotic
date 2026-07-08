@@ -1,11 +1,11 @@
 package org.kinotic.domain.internal.api.services;
 
-import com.github.slugify.Slugify;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.internal.api.repositories.OrganizationRepository;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -21,8 +21,6 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
      */
     public static final String RESERVED_ID_PREFIX = "kinotic";
 
-    private final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
-
     public DefaultOrganizationService(OrganizationRepository repository) {
         super(repository);
     }
@@ -32,7 +30,7 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
         Validate.notNull(entity.getName(), "Organization name cannot be null");
 
         if (entity.getId() == null) {
-            entity.setId(slg.slugify(entity.getName()).toLowerCase());
+            entity.setId(DomainUtil.slugifyId(entity.getName()));
             entity.setCreated(new Date());
         }
         // Reserved-id organizations are only ever seeded by db migrations, which bypass this service

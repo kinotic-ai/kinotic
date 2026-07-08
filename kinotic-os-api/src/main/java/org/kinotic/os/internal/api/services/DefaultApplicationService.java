@@ -34,18 +34,33 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
 
     @Override
     public CompletableFuture<Application> createApplicationIfNotExist(String id, String description) {
-        DomainUtil.validateApplicationId(id);
+        String applicationId = DomainUtil.slugifyId(id);
         String organizationId = requireOrganizationId();
-        return findById(id)
+        return findById(applicationId)
                 .thenCompose(application -> {
                     if(application != null){
                         return CompletableFuture.completedFuture(application);
                     }else{
-                        Application newApplication = new Application(id, description);
+                        Application newApplication = new Application(applicationId, description);
                         newApplication.setOrganizationId(organizationId);
                         return save(newApplication);
                     }
                 });
+    }
+
+    // Creation is the moment the id is minted, so the given id is normalized here; save paths
+    // only validate via beforeSave, so an update carrying an id that is not a valid zone label
+    // fails loudly instead of being silently rewritten to a different document id
+    @Override
+    public CompletableFuture<Application> create(Application entity) {
+        entity.setId(DomainUtil.slugifyId(entity.getId()));
+        return super.create(entity);
+    }
+
+    @Override
+    public CompletableFuture<Application> createSync(Application entity) {
+        entity.setId(DomainUtil.slugifyId(entity.getId()));
+        return super.createSync(entity);
     }
 
     @Override
