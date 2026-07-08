@@ -7,15 +7,15 @@ import { Application } from '@/api/model/Application'
 export interface IApplicationService extends ICrudServiceProxy<Application> {
 
     /**
-     * Creates a new application if it does not already exist. The server normalizes the id to
-     * a slug of lowercase letters, digits, and interior dashes or underscores; the returned
-     * application carries the resulting id. The organization id is derived from the
-     * authenticated participant on the server.
-     * @param id the id of the application to create
+     * Creates a new application if it does not already exist, deriving its id from the
+     * slugified name. The organization id is derived from the authenticated participant on
+     * the server.
+     * @param name the name of the application to create
      * @param description the description of the application to create
-     * @return {@link Promise} emitting the created application
+     * @return {@link Promise} emitting the created application, or the existing application
+     *         whose id matches the slugified name
      */
-    createApplicationIfNotExist(id: string, description: string): Promise<Application>
+    createApplicationIfNotExist(name: string, description: string): Promise<Application>
 
     /**
      * This operation makes all the recent writes immediately available for search.

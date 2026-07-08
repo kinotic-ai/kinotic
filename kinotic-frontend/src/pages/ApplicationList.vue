@@ -22,7 +22,8 @@ const route = useRoute();
 const router = useRouter();
 
 const headers: CrudHeader[] = [
-  { field: "id", header: "Name", sortable: false },
+  { field: "name", header: "Name", sortable: false },
+  { field: "id", header: "Id", sortable: false },
   { field: "description", header: "Description", sortable: false },
   { field: "created", header: "Created", sortable: false },
   { field: "updated", header: "Updated", sortable: false },

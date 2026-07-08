@@ -9,22 +9,22 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Manages {@link Application}s. Creation normalizes the given id to a slug of lowercase
- * letters, digits, and interior dashes or underscores.
+ * Manages {@link Application}s. An application's id is derived from its slugified name at
+ * creation: lowercase letters, digits, and interior dashes or underscores.
  */
 // FIXME: add an OrganizationScopedServiceInterface
 @Publish
 public interface ApplicationService extends IdentifiableCrudService<Application, String> {
 
     /**
-     * Creates a new application if it does not already exist. The id is normalized to a slug;
-     * the returned application carries the resulting id. The organization id is derived from
-     * the authenticated participant.
-     * @param id the id of the application to create
+     * Creates a new application if it does not already exist, deriving its id from the
+     * slugified name. The organization id is derived from the authenticated participant.
+     * @param name the name of the application to create
      * @param description the description of the application to create
-     * @return {@link CompletableFuture} emitting the created application
+     * @return {@link CompletableFuture} emitting the created application, or the existing
+     *         application whose id matches the slugified name
      */
-    CompletableFuture<Application> createApplicationIfNotExist(String id, String description);
+    CompletableFuture<Application> createApplicationIfNotExist(String name, String description);
 
     /**
      * Returns the enabled OIDC configurations registered on the given application.

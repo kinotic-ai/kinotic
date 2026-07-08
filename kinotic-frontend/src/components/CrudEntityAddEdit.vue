@@ -16,7 +16,7 @@
         </h2>
         <div class="my-[60px]">
           <InputText
-            v-model="syncedEntity.id"
+            v-model="syncedEntity.name"
             :disabled="!identityEditable"
             :placeholder="identityLabel"
             class="w-full max-w-[540px] h-[56px]"
@@ -129,7 +129,7 @@ function close() {
 }
 
 function validateIdentity() {
-  valid.value = rulesForIdentity.value.every(rule => rule(syncedEntity.value.id) === true)
+  valid.value = rulesForIdentity.value.every(rule => rule(syncedEntity.value.name ?? '') === true)
 }
 
 async function save() {

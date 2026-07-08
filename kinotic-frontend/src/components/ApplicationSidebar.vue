@@ -36,19 +36,6 @@ const isDark = darkMode
 
 const isSubmitDisabled = computed(() => loading.value || form.name.trim() === '')
 
-function sanitizeId(name: string): string {
-  let sanitized = name
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-zA-Z0-9._-]/g, '')
-
-  if (!/^[a-zA-Z]/.test(sanitized)) {
-    sanitized = 'app-' + sanitized
-  }
-
-  return sanitized.toLowerCase()
-}
-
 function resetForm(): void {
   form.name = ''
   form.description = ''
@@ -57,15 +44,16 @@ function resetForm(): void {
 async function handleSubmit(): Promise<void> {
   loading.value = true
   try {
-    const applicationData: Application = {
-      id: sanitizeId(form.name),
+    // The server mints the id from the slugified name
+    const applicationData = {
+      name: form.name.trim(),
       organizationId: USER_STATE.getOrganizationId(),
       description: form.description,
       tenantPerUser: false,
       updated: null
     }
 
-    const createdApplication = await Kinotic.applications.createSync(applicationData)
+    const createdApplication = await Kinotic.applications.createSync(applicationData as Application)
 
     toast.add({
       severity: 'success',

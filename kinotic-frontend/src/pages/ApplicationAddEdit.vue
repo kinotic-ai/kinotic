@@ -17,7 +17,6 @@ import { ref } from 'vue'
 import InputText from 'primevue/inputtext'
 import CrudEntityAddEdit from '@/components/CrudEntityAddEdit.vue'
 import { Application } from '@kinotic-ai/os-api'
-import { IndexNameHelper } from '@/util/IndexNameHelper'
 
 type RuleValidator = (value: string) => string | boolean
 
@@ -32,10 +31,6 @@ const crudServiceIdentifier = 'os_api.org.kinotic.os.api.services.ApplicationSer
 const application = ref<Application>(new Application('', ''))
 
 const applicationRules: RuleValidator[] = [
-  (v: string) => !!v || 'Name is required',
-  (v: string) => {
-    const result: string = IndexNameHelper.checkNameAndNamespace(v, 'Name')
-    return result.length === 0 ? true : result
-  }
+  (v: string) => !!v || 'Name is required'
 ]
 </script>
