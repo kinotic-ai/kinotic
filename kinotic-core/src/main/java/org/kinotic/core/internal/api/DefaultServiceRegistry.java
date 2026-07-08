@@ -28,6 +28,7 @@ import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -148,7 +149,15 @@ public class DefaultServiceRegistry implements ServiceRegistry {
         String name = proxyAnnotation.name().isEmpty() ? serviceInterface.getSimpleName() : proxyAnnotation.name();
         String version = MetaUtil.getVersion(serviceInterface);
 
-        ServiceIdentifier serviceIdentifier = new ServiceIdentifier(namespace,
+        // A proxy targets one address, so unlike a published service it must resolve to at most
+        // one zone; with no declaration it targets the un-zoned address
+        String[] zones = MetaUtil.getZones(serviceInterface);
+        Validate.isTrue(zones == null || zones.length <= 1,
+                        "The @Proxy interface %s must resolve to at most one zone but declares %s",
+                        serviceInterface.getName(), zones != null ? zones.length : 0);
+
+        ServiceIdentifier serviceIdentifier = new ServiceIdentifier(zones != null ? List.of(zones) : null,
+                                                                    namespace,
                                                                     name,
                                                                     null,
                                                                     version);

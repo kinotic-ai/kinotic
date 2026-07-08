@@ -6,6 +6,11 @@ import { createConnectionInfo, logFailure, validateConnectedInfo } from "./TestH
 import { firstValueFrom, Observable } from "rxjs"
 import { v4 as uuidv4 } from "uuid"
 
+// The client hosts these services, so it connects as an application participant and registers
+// them in its own app zone (app.<org>.<app>); the org id is DEFAULT_AUTH_HEADERS.organizationId.
+const APP_ID = 'test-app'
+const ZONE = `app.kinotic-test.${APP_ID}`
+
 describe('Kinotic JS', () => {
   describe('packages/core', () => {
     describe("Publish Mechanism", () => {
@@ -14,7 +19,9 @@ describe('Kinotic JS', () => {
         let replyToId: string
 
         beforeAll(async () => {
-            const connectionInfo = createConnectionInfo()
+            // Registers this client's services under ZONE; must be set before they are instantiated
+            Kinotic.zonePrefix = ZONE
+            const connectionInfo = createConnectionInfo({ authHeaders: { applicationId: APP_ID } })
             const connectedInfo: ConnectedInfo = await logFailure(
                 Kinotic.connect(connectionInfo),
                 "Failed to connect to Kinotic Gateway"
@@ -29,10 +36,12 @@ describe('Kinotic JS', () => {
 
         afterAll(async () => {
             await expect(Kinotic.disconnect()).resolves.toBeUndefined()
+            Kinotic.zonePrefix = null
         })
 
+        // The services register in ZONE, so target their zoned address
         const createTestEvent = (cri: string, replyTo: string, args?: any[] | null): IEvent => {
-            const event = new Event(cri, new Map([
+            const event = new Event(cri.replace('com.example.', `${ZONE}.com.example.`), new Map([
                                                      [EventConstants.REPLY_TO_HEADER, replyTo],
                                                      [EventConstants.CONTENT_TYPE_HEADER, "application/json"],
                                                  ]))

@@ -6,6 +6,7 @@ import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.kinotic.core.api.annotations.Scope;
 import org.kinotic.core.api.annotations.Version;
+import org.kinotic.core.api.annotations.Zones;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.MethodParameter;
@@ -183,8 +184,29 @@ public class MetaUtil {
     }
 
     /**
+     * Gets the zones for the class by searching for a {@link Zones} annotation.
+     * If the class contains the annotation, those zones are returned; otherwise it returns the zones from the package-info.java file annotation if found.
+     * @param clazz to search for zones
+     * @return the zones or null if not found
+     */
+    public static String[] getZones(Class<?> clazz){
+        String[] ret = null;
+        Zones zones = AnnotationUtils.findAnnotation(clazz, Zones.class);
+        if(zones == null){
+            Package pkg = clazz.getPackage();
+            if(pkg != null){
+                zones = AnnotationUtils.findAnnotation(pkg, Zones.class);
+            }
+        }
+        if(zones != null){
+            ret = zones.value();
+        }
+        return ret;
+    }
+
+    /**
      * Gets the version for the class by searching for a {@link Version} annotation.
-     * If the class contains the annotation, that version is returned otherwise it returns the version from the package-info.java file annotation if found.
+     * If the class contains the annotation, that version is returned; otherwise it returns the version from the package-info.java file annotation if found.
      * @param clazz to search for a version
      * @return the version or null if not found
      */

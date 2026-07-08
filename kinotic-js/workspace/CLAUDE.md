@@ -33,7 +33,7 @@ export class YourService {
 }
 ```
 
-The `@Publish` decorator takes a `namespace` (required) and optional `name` (defaults to the class name). Related decorators include `@Scope` on a getter or method (for routing to specific service instances) and `@Version` (for semantic versioning).
+The `@Publish` decorator takes an optional `namespace` and optional `name` (defaults to the class name). Related decorators include `@Scope` on a getter or method (for routing to specific service instances), `@Version` (for semantic versioning), and `@Zones` (declares the zones a service is addressable in, appended to `Kinotic.zonePrefix`; without a declaration, `Kinotic.defaultZones` from the project package.json `kinotic.zones` field applies).
 
 
 ## Vitest and TC39 decorators

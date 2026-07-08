@@ -12,7 +12,7 @@
     },
     "packages/core": {
       "name": "@kinotic-ai/core",
-      "version": "2.0.0",
+      "version": "3.0.0",
       "dependencies": {
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/semantic-conventions": "^1.40.0",
@@ -60,7 +60,7 @@
     },
     "packages/os-api": {
       "name": "@kinotic-ai/os-api",
-      "version": "2.0.0",
+      "version": "3.0.0",
       "dependencies": {
         "@kinotic-ai/idl": "workspace:*",
         "@kinotic-ai/persistence": "workspace:*",
@@ -73,12 +73,12 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=2.0.0",
+        "@kinotic-ai/core": ">=3.0.0",
       },
     },
     "packages/persistence": {
       "name": "@kinotic-ai/persistence",
-      "version": "2.0.0",
+      "version": "3.0.0",
       "dependencies": {
         "@kinotic-ai/idl": "workspace:*",
         "rxjs": "^7.8.2",
@@ -90,7 +90,7 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=2.0.0",
+        "@kinotic-ai/core": ">=3.0.0",
       },
     },
     "packages/spawn": {
@@ -109,7 +109,7 @@
     },
     "packages/vm-manager": {
       "name": "@kinotic-ai/vm-manager",
-      "version": "2.0.0",
+      "version": "3.0.0",
       "dependencies": {
         "@boxlite-ai/boxlite": "^0.9.7",
         "@kinotic-ai/core": "workspace:*",
@@ -120,8 +120,8 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=2.0.0",
-        "@kinotic-ai/os-api": ">=1.15.0",
+        "@kinotic-ai/core": ">=3.0.0",
+        "@kinotic-ai/os-api": ">=3.0.0",
       },
     },
   },

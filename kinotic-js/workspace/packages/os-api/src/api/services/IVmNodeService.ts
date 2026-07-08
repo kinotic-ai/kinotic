@@ -1,3 +1,4 @@
+import { OS_API_ZONE } from '@/api/PlatformZones'
 import type { IKinotic } from '@kinotic-ai/core'
 import { CrudServiceProxy, type ICrudServiceProxy } from '@kinotic-ai/core'
 import { VmNode } from '@/api/model/workload/VmNode'
@@ -25,7 +26,7 @@ export interface IVmNodeService extends ICrudServiceProxy<VmNode> {
 export class VmNodeServiceProxy extends CrudServiceProxy<VmNode> implements IVmNodeService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy('org.kinotic.os.api.services.VmNodeService'))
+        super(kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.os.api.services.VmNodeService`))
     }
 
     public findAvailableNode(requiredCpus: number, requiredMemoryMb: number, requiredDiskMb: number): Promise<VmNode | null> {

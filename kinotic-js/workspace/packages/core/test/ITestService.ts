@@ -45,7 +45,7 @@ export class TestService implements ITestService {
 
     constructor(continuum?: KinoticSingleton) {
         let toUse = continuum || Kinotic
-        this.serviceProxy = toUse.serviceProxy('org.kinotic.server.clienttest.ITestService')
+        this.serviceProxy = toUse.serviceProxy('os_api.org.kinotic.server.clienttest.ITestService')
     }
 
     testMethodWithString(value: string): Promise<string> {

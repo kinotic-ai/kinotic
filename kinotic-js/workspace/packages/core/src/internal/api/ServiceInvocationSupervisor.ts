@@ -24,7 +24,8 @@ export class ServiceInvocationSupervisor {
     private readonly returnValueConverter: ReturnValueConverter
     private readonly serviceIdentifier: ServiceIdentifier
     private readonly serviceInstance: any
-    private methodSubscription: Subscription | null = null
+    // One subscription per zone address the service is addressable by
+    private methodSubscriptions: Subscription[] = []
     private readonly methodMap: Record<string, (...args: any[]) => any>
 
     constructor(
@@ -80,24 +81,27 @@ export class ServiceInvocationSupervisor {
         }
         this.active = true
 
-        const criBase = this.serviceIdentifier.cri().baseResource()
-        this.methodSubscription = this._eventBus
-                                      .observe(criBase)
-                                      .subscribe({
-                                                     next: async (event: IEvent) => {
-                                                         await this.processEvent(event);
-                                                     },
-                                                     error: (error: Error) => {
-                                                         this.log.error("Event listener error", error)
-                                                         this.active = false
-                                                     },
-                                                     complete: () => {
-                                                         this.log.error("Event listener stopped unexpectedly. Setting supervisor inactive.")
-                                                         this.active = false
-                                                     },
-                                                 })
+        // One subscription per zone address, all dispatching to the same invocation machinery
+        for (const cri of this.serviceIdentifier.cris()) {
+            const criBase = cri.baseResource()
+            this.methodSubscriptions.push(this._eventBus
+                                              .observe(criBase)
+                                              .subscribe({
+                                                             next: async (event: IEvent) => {
+                                                                 await this.processEvent(event);
+                                                             },
+                                                             error: (error: Error) => {
+                                                                 this.log.error("Event listener error", error)
+                                                                 this.active = false
+                                                             },
+                                                             complete: () => {
+                                                                 this.log.error("Event listener stopped unexpectedly. Setting supervisor inactive.")
+                                                                 this.active = false
+                                                             },
+                                                         }))
 
-        this.log.info(`ServiceInvocationSupervisor started for ${criBase}`)
+            this.log.info(`ServiceInvocationSupervisor started for ${criBase}`)
+        }
     }
 
     public stop(): void {
@@ -106,10 +110,10 @@ export class ServiceInvocationSupervisor {
         }
         this.active = false
 
-        if (this.methodSubscription) {
-            this.methodSubscription.unsubscribe()
-            this.methodSubscription = null
+        for (const subscription of this.methodSubscriptions) {
+            subscription.unsubscribe()
         }
+        this.methodSubscriptions = []
 
         this.log.info("ServiceInvocationSupervisor stopped")
     }

@@ -24,8 +24,8 @@ export function Discriminator(_propertyName: string) {
 }
 
 /**
- * Signifies that a class is a Structures Entity.
- * This is required to define the class as an entity in the Structures framework.
+ * Signifies that a class is a Entity.
+ * This is required to define the class as an entity in the Kinotic framework.
  * @param multiTenancyType the type of multi-tenancy to use for this entity
  * @param entityType the type of entity to use for this entity
  */
@@ -46,7 +46,7 @@ export function EntityServiceDecorators(_config: EntityServiceDecoratorsConfig) 
 
 /**
  * Provides configuration for the Elasticsearch index.
- * This can be used to override the default index settings and mappings used by Structures.
+ * This can be used to override the default index settings and mappings used by Kinotic.
  */
 export function EsIndexConfiguration(_value: EsIndexConfigurationData) {
     return function (_target: Function, _context: ClassDecoratorContext<any>): void {
