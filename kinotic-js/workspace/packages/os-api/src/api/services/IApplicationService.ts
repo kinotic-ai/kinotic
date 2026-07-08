@@ -1,3 +1,4 @@
+import { OS_API_ZONE } from '@/api/PlatformZones'
 import type { IKinotic } from '@kinotic-ai/core'
 import { CrudServiceProxy, type ICrudServiceProxy } from '@kinotic-ai/core'
 import { Application } from '@/api/model/Application'
@@ -25,7 +26,7 @@ export interface IApplicationService extends ICrudServiceProxy<Application> {
 export class ApplicationService extends CrudServiceProxy<Application> implements IApplicationService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy('os_api.org.kinotic.os.api.services.ApplicationService'))
+        super(kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.os.api.services.ApplicationService`))
     }
 
     public createApplicationIfNotExist(id: string, description: string): Promise<Application> {

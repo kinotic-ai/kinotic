@@ -1,3 +1,4 @@
+import { OS_API_ZONE } from '@/api/PlatformZones'
 import type { IKinotic } from '@kinotic-ai/core'
 import type { IServiceProxy } from '@kinotic-ai/core'
 import type { MigrationRequest } from '@/api/model/MigrationRequest'
@@ -41,7 +42,7 @@ export class MigrationService implements IMigrationService {
     private readonly serviceProxy: IServiceProxy;
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy('os_api.org.kinotic.persistence.api.services.MigrationService');
+        this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.persistence.api.services.MigrationService`);
     }
 
     public executeMigrations(migrationRequest: MigrationRequest): Promise<MigrationResult> {

@@ -1,3 +1,4 @@
+import { OS_API_ZONE } from '@/api/PlatformZones'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 
 /**
@@ -20,7 +21,7 @@ export class DeviceApprovalService implements IDeviceApprovalService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy('os_api.org.kinotic.os.api.services.iam.DeviceApprovalService')
+        this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.os.api.services.iam.DeviceApprovalService`)
     }
 
     public approve(userCode: string): Promise<void> {

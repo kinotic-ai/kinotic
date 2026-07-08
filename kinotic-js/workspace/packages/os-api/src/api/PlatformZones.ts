@@ -1,3 +1,5 @@
+import { validateLabel } from '@kinotic-ai/core'
+
 /**
  * The zones the Kinotic platform partitions the event bus address space into:
  * `app.<organizationId>.<applicationId>` addresses belong to a single application, `app_api`
@@ -6,17 +8,15 @@
  * The gateway enforces which zones a participant may address on every send and subscribe.
  */
 
+// The data plane zone lives in @kinotic-ai/persistence, whose services occupy it, and is
+// re-exported here so consumers of the platform zones can reach every zone from one import
+export { APP_API_ZONE } from '@kinotic-ai/persistence'
+
 /**
  * The zone for platform services organizations use to manage the system, such as member,
  * application, and entity definition management
  */
 export const OS_API_ZONE = 'os_api'
-
-/**
- * The zone for the platform's application facing data services, such as entity persistence
- * and named query execution
- */
-export const APP_API_ZONE = 'app_api'
 
 /**
  * The zone for services internal to the platform, only reachable by system participants
@@ -27,9 +27,6 @@ export const SYSTEM_ZONE = 'system'
  * The leading label of application zones, which follow the form app.<organizationId>.<applicationId>
  */
 export const APP_ZONE_PREFIX = 'app'
-
-// Single dot-free label of the zone grammar
-const LABEL_PATTERN = /^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$/
 
 /**
  * Builds the zone that all of an application's services live in
@@ -44,10 +41,4 @@ export function appZone(organizationId: string, applicationId: string): string {
     validateLabel(organizationId)
     validateLabel(applicationId)
     return `${APP_ZONE_PREFIX}.${organizationId}.${applicationId}`
-}
-
-function validateLabel(label: string): void {
-    if (!label || !LABEL_PATTERN.test(label)) {
-        throw new Error(`Invalid zone label '${label}'. Labels must be lowercase letters, digits, and interior dashes or underscores`)
-    }
 }

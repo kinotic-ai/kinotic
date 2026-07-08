@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/vm-manager",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "type": "module",
   "files": [
     "bin",
@@ -31,8 +31,8 @@
     "coverage": "bun test --coverage --pass-with-no-tests"
   },
   "peerDependencies": {
-    "@kinotic-ai/core": ">=2.0.0",
-    "@kinotic-ai/os-api": ">=1.15.0"
+    "@kinotic-ai/core": ">=3.0.0",
+    "@kinotic-ai/os-api": ">=3.0.0"
   },
   "dependencies": {
     "@boxlite-ai/boxlite": "^0.9.7",

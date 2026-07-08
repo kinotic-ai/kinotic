@@ -107,16 +107,19 @@ public class StompAuthorizerFactoryTest {
     }
 
     @Test
-    public void organizationParticipantReachesOnlyTheOsApiZone() {
+    public void organizationParticipantReachesTheOsApiAndAppApiZones() {
         StompAuthorizer authorizer = organizationAuthorizer("acme-org");
 
+        // the management surface and the data plane
         assertTrue(authorizer.sendAllowed(CRI.create("srv://os_api.org.kinotic.persistence.api.services.EntityDefinitionService/publish#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://os_api.org.kinotic.os.api.services.iam.MemberService/findMembers#1.0.0")));
+        assertTrue(authorizer.sendAllowed(CRI.create("srv://app_api.org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
 
-        assertFalse(authorizer.sendAllowed(CRI.create("srv://app_api.org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
+        // not an application's own services, the platform internals, and hosts nothing
         assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app.OrderService/create#1.0.0")));
         assertFalse(authorizer.sendAllowed(CRI.create("srv://system.org.kinotic.os.api.services.LogManager/query#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://os_api.org.kinotic.os.api.services.iam.MemberService#1.0.0")));
+        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app_api.org.kinotic.persistence.api.services.JsonEntitiesRepository#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.OrderService#1.0.0")));
     }
 
@@ -137,6 +140,18 @@ public class StompAuthorizerFactoryTest {
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://app_api.org.kinotic.some.DataService#1.0.0")));
 
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.OrderService#1.0.0")));
+    }
+
+    @Test
+    public void dottedScopesAreAuthorizedByTheirZone() {
+        // a node id may be an FQDN; the scope is stripped before zone matching so it still routes
+        StompAuthorizer system = systemAuthorizer();
+        assertTrue(system.subscribeAllowed(CRI.create("srv://vm1.example.com@system.kinotic-ai.vm-manager.VmManager#0.1.0")));
+        assertTrue(system.sendAllowed(CRI.create("srv://vm1.example.com@system.kinotic-ai.vm-manager.VmManager/start#0.1.0")));
+
+        StompAuthorizer app = applicationAuthorizer("acme-org", "orders-app");
+        assertTrue(app.subscribeAllowed(CRI.create("srv://node.1.2@app.acme-org.orders-app.OrderService#1.0.0")));
+        assertFalse(app.subscribeAllowed(CRI.create("srv://node.1.2@app.acme-org.other-app.OrderService#1.0.0")));
     }
 
     @Test

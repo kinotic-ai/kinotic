@@ -27,7 +27,7 @@ withDefaults(defineProps<{
   id: null,
 })
 
-const crudServiceIdentifier = 'org.kinotic.structures.api.services.ApplicationService'
+const crudServiceIdentifier = 'os_api.org.kinotic.os.api.services.ApplicationService'
 
 const application = ref<Application>(new Application('', ''))
 

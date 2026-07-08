@@ -1,3 +1,4 @@
+import { OS_API_ZONE } from '@/api/PlatformZones'
 import type { IKinotic } from '@kinotic-ai/core'
 import { CrudServiceProxy, type ICrudServiceProxy } from '@kinotic-ai/core'
 import { Organization } from '@/api/model/Organization'
@@ -19,7 +20,7 @@ export interface IOrganizationService extends ICrudServiceProxy<Organization> {
 export class OrganizationService extends CrudServiceProxy<Organization> implements IOrganizationService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy('os_api.org.kinotic.os.api.services.OrganizationService'))
+        super(kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.os.api.services.OrganizationService`))
     }
 
     public getOidcConfigurations(organizationId: string): Promise<any[]> {

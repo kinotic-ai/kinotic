@@ -1,3 +1,4 @@
+export * from '@/api/PlatformZones'
 // Models
 export * from '@/api/model/QueryParameter'
 export * from '@/api/model/QueryOptions'

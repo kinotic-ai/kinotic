@@ -5,7 +5,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Version;
 import org.kinotic.core.api.annotations.Zones;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.domain.api.security.PlatformZones;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -18,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @Publish
 @Version("1.0.0")
-@Zones(PlatformZones.OS_API)
+@Zones(DomainUtil.OS_API_ZONE)
 public interface ITestService {
 
     String testMethodWithString(String value);

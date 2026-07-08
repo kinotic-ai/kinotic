@@ -2,7 +2,7 @@ package org.kinotic.persistence.api.services;
 
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Zones;
-import org.kinotic.domain.api.security.PlatformZones;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
@@ -17,7 +17,7 @@ import java.util.concurrent.CompletableFuture;
  * Created by Navíd Mitchell 🤪 on 4/23/24.
  */
 @Publish
-@Zones(PlatformZones.APP_API)
+@Zones(DomainUtil.APP_API_ZONE)
 public interface NamedQueriesService {
 
     /**
