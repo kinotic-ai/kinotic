@@ -46,6 +46,11 @@ onMounted(async () => {
       }
     });
 
+    if (route.query.add === "true") {
+      showSidebar.value = true;
+      router.replace({ query: {} });
+    }
+
     if (route.query.created === "true") {
       router.replace({ query: {} });
     }

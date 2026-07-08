@@ -199,15 +199,6 @@ const pageRoutes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/application-add',
-    component: () => import('@/pages/ApplicationAddEdit.vue'),
-    meta: {
-      showInMainNav: false,
-      icon: 'settings.svg',
-      label: 'Add Application',
-    } as RouteMeta,
-  },
-  {
     path: '/new-structure',
     component: () => import('@/pages/NewStructure.vue'),
     meta: {

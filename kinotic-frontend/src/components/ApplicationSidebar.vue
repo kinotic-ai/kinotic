@@ -44,8 +44,10 @@ function resetForm(): void {
 async function handleSubmit(): Promise<void> {
   loading.value = true
   try {
-    // The server mints the id from the slugified name
+    // The server mints the id from the slugified name; the cast bridges the 2.x typings,
+    // which lack the name field until the os-api 3.x bump
     const applicationData = {
+      id: '',
       name: form.name.trim(),
       organizationId: USER_STATE.getOrganizationId(),
       description: form.description,

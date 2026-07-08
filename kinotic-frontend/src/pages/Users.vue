@@ -91,7 +91,7 @@ function refreshTable(): void {
 }
 
 function onAddItem(): void {
-  router.push('/application-add')
+  router.push({ path: '/applications', query: { add: 'true' } })
 }
 
 function onEditItem(item: Identifiable<string>): void {
