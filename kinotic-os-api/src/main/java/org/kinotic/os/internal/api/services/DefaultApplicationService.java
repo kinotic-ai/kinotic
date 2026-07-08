@@ -50,6 +50,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
 
     @Override
     public CompletableFuture<Application> create(Application entity) {
+        // Ids are minted at creation, so normalize here
         entity.setId(DomainUtil.slugifyId(entity.getId()));
         return super.create(entity);
     }
@@ -71,9 +72,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
 
     @Override
     protected CompletableFuture<Void> beforeSave(Application entity) {
-        // Validates rather than normalizes so an update carrying an invalid id fails loudly
-        // instead of being silently rewritten to a different document id; creation paths
-        // normalize the id before saving
+        // Validate only; normalizing an update's id would silently write a new document
         DomainUtil.validateApplicationId(entity.getId());
         entity.setUpdated(new Date());
         return CompletableFuture.completedFuture(null);
