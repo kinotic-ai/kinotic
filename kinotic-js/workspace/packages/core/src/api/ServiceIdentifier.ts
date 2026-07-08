@@ -57,10 +57,11 @@ export class ServiceIdentifier {
      */
     public cri(): CRI {
         const cris = this.cris()
-        if (cris.length !== 1) {
+        const cri = cris[0]
+        if (cris.length !== 1 || !cri) {
             throw new Error(`ServiceIdentifier has ${cris.length} cris so there is no single cri`)
         }
-        return cris[0]
+        return cri
     }
 
     private qualifiedNameFor(zone: string | undefined): string {

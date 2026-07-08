@@ -22,7 +22,9 @@ describe('Kinotic JS', () => {
         })
 
         it('should fail invalid service request', async () => {
-            const toSend: IEvent = new Event('srv://org.mindignited.continuum.gatewayserver.clienttest.ITestService/testMethodWithString')
+            // Target a zone this organization participant may send to, so the request reaches
+            // reply-to validation (the behavior under test) rather than being denied by zone rules
+            const toSend: IEvent = new Event('srv://os_api.org.kinotic.server.clienttest.ITestService/testMethodWithString')
             toSend.setHeader(EventConstants.REPLY_TO_HEADER, '')
             toSend.setHeader(EventConstants.CONTENT_TYPE_HEADER, EventConstants.CONTENT_JSON)
             const correlationId = uuidv4()
