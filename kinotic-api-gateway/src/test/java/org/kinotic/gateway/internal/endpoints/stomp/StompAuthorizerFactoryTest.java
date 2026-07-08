@@ -155,6 +155,19 @@ public class StompAuthorizerFactoryTest {
     }
 
     @Test
+    public void craftedScopeEmbeddingTheOwnZoneCannotReachAnotherApp() {
+        StompAuthorizer authorizer = applicationAuthorizer("acme-org", "orders-app");
+
+        // The scope precedes the resourceName in the raw CRI, so an attacker could try to prefix
+        // the raw string with its own allowed zone and target another app after the '@'. Zone
+        // authorization must run against the resource the message actually routes to, not the scope.
+        assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app.x@app.acme-org.other-app.OrderService/create#1.0.0")));
+        assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app@os_api.org.kinotic.os.api.services.iam.MemberService/inviteMember#1.0.0")));
+        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.x@app.acme-org.other-app.OrderService#1.0.0")));
+        assertFalse(authorizer.sendAllowed(CRI.create("stream://app.acme-org.orders-app.x@app.acme-org.other-app.OrderEvents")));
+    }
+
+    @Test
     public void replyDestinationIsScopedToTheConnectionsReplyToId() {
         StompAuthorizer authorizer = organizationAuthorizer("acme-org");
 

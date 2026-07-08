@@ -3,13 +3,13 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.event.EventConstants;
 import org.springframework.http.server.PathContainer;
 import org.springframework.web.util.pattern.PathPattern;
 
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Function;
-import java.util.regex.Pattern;
 
 /**
  * Authorizes STOMP sends and subscriptions for a connected participant.
@@ -66,21 +66,29 @@ public class StompAuthorizer {
     }
 
     private int checkMatches(CRI cri, List<PathPattern> patterns) {
-        PathContainer raw = PathContainer.parsePath(cri.raw(), parseOptions);
-        // Zone authorization is independent of scope, and a MESSAGE_ROUTE '*' cannot span a
-        // dotted scope (e.g. an FQDN node id), so also match a scope-stripped form of the CRI.
-        // The scope-bearing reply patterns still match against the raw form above.
-        PathContainer deScoped = cri.hasScope()
-                ? PathContainer.parsePath(cri.raw().replaceFirst(Pattern.quote(cri.scope() + "@"), ""), parseOptions)
-                : raw;
+        // A srv/stream scope is a node-targeting id (possibly a dotted FQDN a MESSAGE_ROUTE '*'
+        // cannot span), so it is stripped and the message is authorized on the zone it routes to.
+        // Matching the raw form for these would let a crafted scope prefix the string with an
+        // allowed zone and target another zone after the '@'. Reply CRIs are the exception: their
+        // scope carries the replyToId the reply pattern authorizes against, so they match raw.
+        boolean deScope = cri.hasScope()
+                && !EventConstants.REPLY_DESTINATION_SCHEME.equals(cri.scheme());
+        PathContainer target = PathContainer.parsePath(deScope ? deScope(cri) : cri.raw(), parseOptions);
         int ret = -1;
         for (int i = 0; i < patterns.size(); i++) {
-            if (patterns.get(i).matches(raw) || patterns.get(i).matches(deScoped)) {
+            if (patterns.get(i).matches(target)) {
                 ret = i;
                 break;
             }
         }
         return ret;
+    }
+
+    // Removes the leading "scope@" from a scoped CRI without a per-call regex compile
+    private static String deScope(CRI cri) {
+        String raw = cri.raw();
+        String prefix = cri.scheme() + "://" + cri.scope() + "@";
+        return raw.startsWith(prefix) ? cri.scheme() + "://" + raw.substring(prefix.length()) : raw;
     }
 
 }
