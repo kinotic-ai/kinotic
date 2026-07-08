@@ -1,7 +1,7 @@
 import { Kinotic } from '@/api/Kinotic'
 
 import { ServiceIdentifier } from '@/api/ServiceIdentifier'
-import { validateZone } from '@/internal/ZoneUtil'
+import { validateZone } from '@/api/ZoneUtil'
 
 /**
  * Decorator for registering services with the Kinotic ServiceRegistry.

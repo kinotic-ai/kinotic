@@ -1,5 +1,5 @@
 /**
- * An identifier that can be used to find a Entity for a specific id and tenant
+ * An identifier that can be used to find an Entity for a specific id and tenant
  */
 export class TenantSpecificId {
     /**
