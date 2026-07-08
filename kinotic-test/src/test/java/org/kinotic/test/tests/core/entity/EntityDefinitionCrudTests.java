@@ -37,8 +37,8 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 		EntityDefinition entityDefinition = new EntityDefinition();
 		entityDefinition.setName("PersonWat")
 						.setOrganizationId(TEST_ORG_ID)
-						.setApplicationId("org.kinotic.sample")
-						.setProjectId("org.kinotic.sample_default")
+						.setApplicationId(TEST_APP_ID)
+						.setProjectId(TestDataService.SAMPLE_PROJECT_ID)
 						.setDescription("Defines a Person")
 						.setSchema(testDataService.createPersonSchema(MultiTenancyType.NONE, false));
 
@@ -75,8 +75,8 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 		EntityDefinition entityDefinition = new EntityDefinition();
 		entityDefinition.setName("PersonBum")
 						.setOrganizationId(TEST_ORG_ID)
-						.setApplicationId("org.kinotic.sample")
-						.setProjectId("org.kinotic.sample_default")
+						.setApplicationId(TEST_APP_ID)
+						.setProjectId(TestDataService.SAMPLE_PROJECT_ID)
 						.setDescription("Defines a Person")
 						.setSchema(testDataService.createPersonSchema(MultiTenancyType.NONE, false));
 
@@ -111,8 +111,8 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 		EntityDefinition entityDefinition = new EntityDefinition();
 		entityDefinition.setName("PersonStupid")
 						.setOrganizationId(TEST_ORG_ID)
-						.setApplicationId("org.kinotic.sample")
-						.setProjectId("org.kinotic.sample_default")
+						.setApplicationId(TEST_APP_ID)
+						.setProjectId(TestDataService.SAMPLE_PROJECT_ID)
 						.setDescription("Defines a Person")
 						.setSchema(testDataService.createPersonSchema(MultiTenancyType.NONE, true));
 
@@ -126,8 +126,8 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 		EntityDefinition entityDefinition = new EntityDefinition();
 		entityDefinition.setName("PersonHomer")
 						.setOrganizationId(TEST_ORG_ID)
-						.setApplicationId("org.kinotic.sample")
-						.setProjectId("org.kinotic.sample_default")
+						.setApplicationId(TEST_APP_ID)
+						.setProjectId(TestDataService.SAMPLE_PROJECT_ID)
 						.setDescription("Defines a Person")
 						.setSchema(testDataService.createPersonSchema(MultiTenancyType.NONE, false));
 
@@ -160,8 +160,8 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 		EntityDefinition entityDefinition = new EntityDefinition();
 		entityDefinition.setName("PersonStoned")
 						.setOrganizationId(TEST_ORG_ID)
-						.setApplicationId("org.kinotic.sample")
-						.setProjectId("org.kinotic.sample_default")
+						.setApplicationId(TEST_APP_ID)
+						.setProjectId(TestDataService.SAMPLE_PROJECT_ID)
 						.setDescription("Defines a Person")
 						.setSchema(testDataService.createPersonSchema(MultiTenancyType.NONE, false));
 

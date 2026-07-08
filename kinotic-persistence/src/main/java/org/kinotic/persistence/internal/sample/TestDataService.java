@@ -32,6 +32,21 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class TestDataService {
 
+    /**
+     * The organization id all sample data belongs to
+     */
+    public static final String SAMPLE_ORG_ID = "kinotic";
+
+    /**
+     * The id of the Application the sample {@link EntityDefinition}s are created under
+     */
+    public static final String SAMPLE_APP_ID = "org_kinotic_sample";
+
+    /**
+     * The id of the Project the sample {@link EntityDefinition}s are created under
+     */
+    public static final String SAMPLE_PROJECT_ID = SAMPLE_APP_ID + "_default";
+
     private static final String PEOPLE_FILE = "classpath:people.json";
     private static final String PEOPLE_WITH_ID_FILE = "classpath:people-with-id.json";
     private static final String PEOPLE_KEY = "people";
@@ -78,8 +93,8 @@ public class TestDataService {
      * @return a {@link CompletableFuture} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
      */
     public CompletableFuture<Pair<EntityDefinition, Boolean>> createCarEntityDefinitionIfNotExists(String structureNameSuffix){
-        String structureId = PersistenceUtil.createEntityDefinitionId("kinotic",
-                                                                      "org.kinotic.sample",
+        String structureId = PersistenceUtil.createEntityDefinitionId(SAMPLE_ORG_ID,
+                                                                      SAMPLE_APP_ID,
                                                                       "Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
         return entityDefinitionService.findById(structureId)
                                       .thenCompose(structure -> {
@@ -99,16 +114,16 @@ public class TestDataService {
     public CompletableFuture<EntityDefinition> createCarEntityDefinition(String structureNameSuffix) {
         EntityDefinition structure = new EntityDefinition();
         structure.setName("Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
-        structure.setOrganizationId("kinotic");
-        structure.setApplicationId("org.kinotic.sample");
-        structure.setProjectId("org.kinotic.sample_default");
+        structure.setOrganizationId(SAMPLE_ORG_ID);
+        structure.setApplicationId(SAMPLE_APP_ID);
+        structure.setProjectId(SAMPLE_PROJECT_ID);
         structure.setDescription("Defines a Car");
 
         ObjectC3Type carType = createCarSchema(MultiTenancyType.SHARED);
 
         structure.setSchema(carType);
 
-        return applicationService.createApplicationIfNotExist("org.kinotic.sample", "Sample application")
+        return applicationService.createApplicationIfNotExist(SAMPLE_APP_ID, "Sample application")
                                .thenCompose(v -> entityDefinitionService.create(structure)
                                                                         .thenCompose(saved -> entityDefinitionService.publish(saved.getId())
                                                                                                                      .thenApply(published -> saved)));
@@ -164,8 +179,8 @@ public class TestDataService {
      * @return a {@link CompletableFuture} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
      */
     public CompletableFuture<Pair<EntityDefinition, Boolean>> createPersonEntityDefinitionIfNotExists(String structureNameSuffix){
-        String structureId = PersistenceUtil.createEntityDefinitionId("kinotic",
-                                                                      "org.kinotic.sample",
+        String structureId = PersistenceUtil.createEntityDefinitionId(SAMPLE_ORG_ID,
+                                                                      SAMPLE_APP_ID,
                                                                       "Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
         return entityDefinitionService.findById(structureId)
                                       .thenCompose(structure -> {
@@ -185,16 +200,16 @@ public class TestDataService {
     public CompletableFuture<EntityDefinition> createPersonEntityDefinition(String structureNameSuffix) {
         EntityDefinition structure = new EntityDefinition();
         structure.setName("Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
-        structure.setOrganizationId("kinotic");
-        structure.setApplicationId("org.kinotic.sample");
-        structure.setProjectId("org.kinotic.sample_default");
+        structure.setOrganizationId(SAMPLE_ORG_ID);
+        structure.setApplicationId(SAMPLE_APP_ID);
+        structure.setProjectId(SAMPLE_PROJECT_ID);
         structure.setDescription("Defines a Person");
 
         ObjectC3Type personType = createPersonSchema(MultiTenancyType.SHARED);
 
         structure.setSchema(personType);
 
-        return applicationService.createApplicationIfNotExist("org.kinotic.sample", "Sample application")
+        return applicationService.createApplicationIfNotExist(SAMPLE_APP_ID, "Sample application")
                                .thenCompose(v -> entityDefinitionService.create(structure)
                                                                         .thenCompose(saved -> entityDefinitionService.publish(saved.getId())
                                                                                                                      .thenApply(published -> saved)));

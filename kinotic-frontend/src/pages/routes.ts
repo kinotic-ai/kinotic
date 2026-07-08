@@ -199,36 +199,12 @@ const pageRoutes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/application-add',
-    component: () => import('@/pages/ApplicationAddEdit.vue'),
-    meta: {
-      showInMainNav: false,
-      icon: 'settings.svg',
-      label: 'Add Application',
-    } as RouteMeta,
-  },
-  {
     path: '/new-structure',
     component: () => import('@/pages/NewStructure.vue'),
     meta: {
       showInMainNav: false,
       label: 'New Entity',
     } as RouteMeta,
-  },
-  {
-    path: '/users',
-    component: () => import('@/layouts/MainLayout.vue'),
-    meta: {
-      showInMainNav: true,
-      icon: 'icon-man.svg',
-      label: 'Users',
-    } as RouteMeta,
-    children: [
-      {
-        path: '',
-        component: () => import('@/pages/Users.vue'),
-      },
-    ]
   },
   {
     path: '/settings',
