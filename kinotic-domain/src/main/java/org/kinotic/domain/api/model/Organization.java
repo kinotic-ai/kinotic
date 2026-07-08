@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.domain.api.model.iam.OidcConfiguration;
 
 import java.util.Date;
 
