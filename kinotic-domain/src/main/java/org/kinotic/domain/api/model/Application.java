@@ -22,7 +22,7 @@ public class Application implements OrganizationScoped<String> {
     private String description;
 
     private List<String> oidcConfigurationIds;
-Ø
+
     /**
      * When true, every APPLICATION-scope {@link IamUser}
      * created for this application receives an auto-generated unique {@code tenantId},
