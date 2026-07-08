@@ -1,5 +1,4 @@
 import type { QueryParameter } from '@/api/model/QueryParameter'
-import { APP_API_ZONE } from '@/api/PlatformZones'
 import type { IKinotic } from '@kinotic-ai/core'
 import {
     type IServiceProxy,
@@ -8,6 +7,12 @@ import {
     type IterablePage,
     FunctionalIterablePage
 } from '@kinotic-ai/core'
+
+/**
+ * The zone for the platform's application facing data services, such as entity persistence
+ * and named query execution — where the services backing these repositories are hosted.
+ */
+export const APP_API_ZONE = 'app_api'
 
 export interface IEntitiesRepository {
 

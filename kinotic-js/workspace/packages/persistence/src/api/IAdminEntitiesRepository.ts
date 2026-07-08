@@ -1,6 +1,6 @@
 import type { QueryParameter } from '@/api/model/QueryParameter'
 import type { TenantSpecificId } from '@/api/model/TenantSpecificId'
-import { APP_API_ZONE } from '@/api/PlatformZones'
+import { APP_API_ZONE } from '@/api/IEntitiesRepository'
 import type { IKinotic } from '@kinotic-ai/core'
 import {
     type IServiceProxy,
