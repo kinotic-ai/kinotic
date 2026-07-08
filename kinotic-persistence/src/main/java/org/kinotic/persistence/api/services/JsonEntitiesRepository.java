@@ -9,7 +9,7 @@ import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Zones;
-import org.kinotic.domain.api.security.PlatformZones;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.domain.api.security.ApplicationParticipant;
 import tools.jackson.databind.util.TokenBuffer;
 
@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
  * Created by Nic Padilla 🤪on 6/18/23.
  */
 @Publish
-@Zones(PlatformZones.APP_API)
+@Zones(DomainUtil.APP_API_ZONE)
 public interface JsonEntitiesRepository {
 
     /**

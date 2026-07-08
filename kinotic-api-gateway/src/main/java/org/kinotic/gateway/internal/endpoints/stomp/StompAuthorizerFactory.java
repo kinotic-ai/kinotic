@@ -5,7 +5,7 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.internal.utils.ZoneUtil;
-import org.kinotic.domain.api.security.PlatformZones;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.kinotic.domain.api.security.OrganizationParticipant;
 import org.kinotic.domain.api.security.SystemParticipant;
@@ -65,23 +65,23 @@ public class StompAuthorizerFactory {
             if (participant instanceof SystemParticipant) {
 
                 addAllZones(sendPatterns);
-                addZone(subscriptionPatterns, PlatformZones.OS_API);
-                addZone(subscriptionPatterns, PlatformZones.APP_API);
-                addZone(subscriptionPatterns, PlatformZones.SYSTEM);
+                addZone(subscriptionPatterns, DomainUtil.OS_API_ZONE);
+                addZone(subscriptionPatterns, DomainUtil.APP_API_ZONE);
+                addZone(subscriptionPatterns, DomainUtil.SYSTEM_ZONE);
 
             } else if (participant instanceof ApplicationParticipant applicationParticipant) {
                 // appZone validates the ids, so an id that could act as a wildcard or extra
                 // label inside a pattern fails the connection instead of widening access
                 String appZone = appZone(applicationParticipant.getOrganizationId(),
                                          applicationParticipant.getApplicationId());
-                addZone(sendPatterns, PlatformZones.APP_API);
+                addZone(sendPatterns, DomainUtil.APP_API_ZONE);
                 addZone(sendPatterns, appZone);
                 addZone(subscriptionPatterns, appZone);
 
             } else if (participant instanceof OrganizationParticipant) {
 
-                addZone(sendPatterns, PlatformZones.OS_API);
-                addZone(sendPatterns, PlatformZones.APP_API);
+                addZone(sendPatterns, DomainUtil.OS_API_ZONE);
+                addZone(sendPatterns, DomainUtil.APP_API_ZONE);
 
             } else {
                 throw new IllegalArgumentException("Unknown participant type " + participant.getClass().getName()
@@ -122,7 +122,7 @@ public class StompAuthorizerFactory {
             // produce the same zone as a different pair plus a sub zone
             ZoneUtil.validateLabel(organizationId);
             ZoneUtil.validateLabel(applicationId);
-            return PlatformZones.APP_PREFIX + "." + organizationId + "." + applicationId;
+            return DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId;
         }
     }
 

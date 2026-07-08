@@ -7,7 +7,7 @@ import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.model.*;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Zones;
-import org.kinotic.domain.api.security.PlatformZones;
+import org.kinotic.domain.internal.utils.DomainUtil;
 import org.kinotic.domain.api.security.ApplicationParticipant;
 
 import java.util.List;
@@ -19,7 +19,7 @@ import java.util.concurrent.CompletableFuture;
  * Created by Nic Padilla 🤪on 6/18/23.
  */
 @Publish
-@Zones(PlatformZones.APP_API)
+@Zones(DomainUtil.APP_API_ZONE)
 public interface AdminJsonEntitiesRepository {
 
     /**

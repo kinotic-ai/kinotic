@@ -25,6 +25,28 @@ import java.util.regex.Pattern;
  */
 public class DomainUtil {
 
+    /**
+     * The zone for platform services organizations use to manage the system, such as member,
+     * application, and entity definition management
+     */
+    public static final String OS_API_ZONE = "os_api";
+
+    /**
+     * The zone for the platform's application facing data services, such as entity persistence
+     * and named query execution
+     */
+    public static final String APP_API_ZONE = "app_api";
+
+    /**
+     * The zone for services internal to the platform, only reachable by system participants
+     */
+    public static final String SYSTEM_ZONE = "system";
+
+    /**
+     * The leading label of application zones, which follow the form app.&lt;organizationId&gt;.&lt;applicationId&gt;
+     */
+    public static final String APP_ZONE_PREFIX = "app";
+
     private static final Pattern ApplicationPattern = Pattern.compile("^[A-Za-z][A-Za-z0-9._-]*$");
     private static final Pattern ProjectIdPattern = Pattern.compile("^[a-z][a-z0-9._-]*$");
     private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
