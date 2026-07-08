@@ -60,6 +60,10 @@ export default defineConfig(
         build: {
             sourcemap: true,
             rollupOptions: {
+                // Pre-bundled deps (e.g. @vueuse/core) ship /* #__PURE__ */ annotations in
+                // positions Rolldown cannot attach to an expression; we never author these
+                // annotations ourselves, so silencing the check only quiets third-party noise.
+                checks: { invalidAnnotation: false },
                 output: {
                     sourcemapExcludeSources: false
                 }
