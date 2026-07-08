@@ -17,8 +17,14 @@ class DefaultCRI implements CRI {
     private final URI uri;
 
     public DefaultCRI(String scheme, String scope, String resourceName, String path, String version) {
+        // Assemble the authority ourselves and use the authority-form URI constructor rather than
+        // the (userInfo, host, port) form: that form validates the host as an RFC-2396 hostname and
+        // rejects the underscores zone labels use (os_api, app_api, slugified ids like org_kinotic_x).
+        String authority = resourceName != null
+                ? (scope != null ? scope + "@" : "") + resourceName
+                : null;
         try {
-            uri = new URI(scheme, scope,  resourceName, -1, path,null, version);
+            uri = new URI(scheme, authority, path, null, version);
         } catch (URISyntaxException x) {
             throw new IllegalArgumentException(x.getMessage(), x);
         }
@@ -40,17 +46,31 @@ class DefaultCRI implements CRI {
 
     @Override
     public String scope() {
-        return uri.getRawUserInfo();
+        // Split off the raw authority rather than using getRawUserInfo()/getHost(): java.net.URI
+        // only populates those for a valid RFC-2396 server-based authority, and a zone label's
+        // underscore makes the authority registry-based, nulling them. scope is the part before
+        // '@' (null when absent); resourceName is the remainder.
+        String authority = uri.getRawAuthority();
+        if (authority == null) {
+            return null;
+        }
+        int at = authority.indexOf('@');
+        return at >= 0 ? authority.substring(0, at) : null;
     }
 
     @Override
     public boolean hasScope() {
-        return uri.getRawUserInfo() != null;
+        return scope() != null;
     }
 
     @Override
     public String resourceName() {
-        return uri.getHost();
+        String authority = uri.getRawAuthority();
+        if (authority == null) {
+            return null;
+        }
+        int at = authority.indexOf('@');
+        return at >= 0 ? authority.substring(at + 1) : authority;
     }
 
     @Override

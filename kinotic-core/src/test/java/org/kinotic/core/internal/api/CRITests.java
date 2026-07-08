@@ -7,8 +7,13 @@ import org.kinotic.core.api.event.EventConstants;
 import org.apache.commons.lang3.Validate;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 /**
- * CRI's internally are implemented using the Java URI class, so we don't need to verify the logic there.
+ * CRIs are backed by {@link java.net.URI}, whose server-based authority parsing rejects the
+ * underscores zone labels use (os_api, app_api, slugified ids), so these tests pin that CRIs
+ * resolve their scope and resourceName from such addresses regardless.
  * Created by navid on 1/23/20
  */
 public class CRITests {
@@ -30,6 +35,9 @@ public class CRITests {
                                                         + "#"
                                                         + SERVICE_VERSION;
 
+    // A zone label carries an underscore, which java.net.URI will not accept as a hostname
+    private static final String ZONED_NAME = "os_api.org.kinotic.server.clienttest.ITestService";
+
     @Test
     public void testRawCRI1(){
         validateCRI(CRI.create(SERVICE_LITERAL1), false);
@@ -40,8 +48,44 @@ public class CRITests {
         validateCRI(CRI.create(SERVICE_LITERAL2), true);
     }
 
+    @Test
+    public void parsesZonedResourceNameWithUnderscore(){
+        CRI cri = CRI.create("srv://" + ZONED_NAME + "/testMethodWithString#1.0.0");
 
+        assertEquals(ZONED_NAME, cri.resourceName());
+        assertEquals("srv://" + ZONED_NAME, cri.baseResource());
+        assertEquals("/testMethodWithString", cri.path());
+        assertEquals("1.0.0", cri.version());
+        assertNull(cri.scope());
+    }
 
+    @Test
+    public void parsesScopedZonedResourceNameWithUnderscore(){
+        CRI cri = CRI.create("srv://node1@" + ZONED_NAME + "/save#1.0.0");
+
+        assertEquals("node1", cri.scope());
+        assertEquals(ZONED_NAME, cri.resourceName());
+        assertEquals("srv://node1@" + ZONED_NAME, cri.baseResource());
+    }
+
+    @Test
+    public void buildsZonedResourceNameFromComponents(){
+        CRI cri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, null, ZONED_NAME, "/save", "1.0.0");
+
+        assertEquals(ZONED_NAME, cri.resourceName());
+        assertEquals("srv://" + ZONED_NAME, cri.baseResource());
+        // The raw form round-trips back to a CRI that resolves the same resourceName
+        assertEquals(ZONED_NAME, CRI.create(cri.raw()).resourceName());
+    }
+
+    @Test
+    public void buildsScopedZonedResourceNameFromComponents(){
+        CRI cri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, "node1", ZONED_NAME, "/save", "1.0.0");
+
+        assertEquals("node1", cri.scope());
+        assertEquals(ZONED_NAME, cri.resourceName());
+        assertEquals("srv://node1@" + ZONED_NAME, cri.baseResource());
+    }
 
     private void validateCRI(CRI cri, boolean checkScope){
         Validate.isTrue(cri.resourceName().equals(SERVICE_NAME), "CRI resourceName does not match expected got "+ cri.resourceName());
