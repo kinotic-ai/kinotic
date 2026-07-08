@@ -49,8 +49,8 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     }
 
     // Creation is the moment the id is minted, so the given id is normalized here; save paths
-    // only validate via beforeSave, so an update carrying an id that is not a valid zone label
-    // fails loudly instead of being silently rewritten to a different document id
+    // only validate via beforeSave, so an update carrying an invalid id fails loudly instead
+    // of being silently rewritten to a different document id
     @Override
     public CompletableFuture<Application> create(Application entity) {
         entity.setId(DomainUtil.slugifyId(entity.getId()));

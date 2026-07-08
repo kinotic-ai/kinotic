@@ -8,10 +8,9 @@ export interface IApplicationService extends ICrudServiceProxy<Application> {
 
     /**
      * Creates a new application if it does not already exist. The server normalizes the id to
-     * a zone-safe slug of lowercase letters, digits, and interior dashes or underscores — an
-     * application's id forms the final label of its zone `app.<organizationId>.<applicationId>`
-     * — so the returned application carries the resulting id. The organization id is derived
-     * from the authenticated participant on the server.
+     * a slug of lowercase letters, digits, and interior dashes or underscores; the returned
+     * application carries the resulting id. The organization id is derived from the
+     * authenticated participant on the server.
      * @param id the id of the application to create
      * @param description the description of the application to create
      * @return {@link Promise} emitting the created application

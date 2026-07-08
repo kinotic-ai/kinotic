@@ -39,7 +39,7 @@ public class ApplicationTests extends KinoticTestBase {
 	}
 
 	@Test
-	public void createNormalizesTheIdToAZoneLabel() {
+	public void createNormalizesTheId() {
 		Application test = new Application();
 		test.setId("Test.App");
 		test.setOrganizationId(TEST_ORG_ID);

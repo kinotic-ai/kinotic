@@ -50,19 +50,19 @@ public class DomainUtil {
      */
     public static final String APP_ZONE_PREFIX = "app";
 
-    // Project ids may start with a digit because they embed application ids, which are zone
-    // labels and may themselves start with a digit
+    // Project ids may start with a digit because they embed application ids, which may
+    // themselves start with a digit
     private static final Pattern ProjectIdPattern = Pattern.compile("^[a-z0-9][a-z0-9._-]*$");
     private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final Slugify SLUGIFY = Slugify.builder().underscoreSeparator(true).build();
 
     /**
-     * Validates that the given application id satisfies the zone label grammar, since it forms
-     * the final label of the application's zone {@code app.<organizationId>.<applicationId>}.
+     * Validates that the given application id contains only lowercase letters, digits, and
+     * interior dashes or underscores.
      *
      * @param applicationId to validate
-     * @throws IllegalArgumentException if the application id is null or not a valid zone label
+     * @throws IllegalArgumentException if the application id is null or invalid
      */
     public static void validateApplicationId(String applicationId) {
         if (applicationId == null) {
@@ -82,9 +82,8 @@ public class DomainUtil {
     }
 
     /**
-     * Derives a zone-safe id from the given text: lowercase letters, digits, and interior
-     * dashes or underscores, so the result can always form a single label of a platform zone
-     * such as {@code app.<organizationId>.<applicationId>}.
+     * Derives an id from the given text, slugified to lowercase letters, digits, and interior
+     * dashes or underscores.
      *
      * @param text to derive the id from
      * @return the derived id
@@ -92,12 +91,12 @@ public class DomainUtil {
      */
     public static String slugifyId(String text) {
         Validate.notBlank(text, "Cannot derive an id from a blank value");
-        // Slugify keeps separators it produced at the edges ("Acme Inc." -> "acme_inc_"), but a
-        // zone label must start and end alphanumeric
+        // Slugify keeps separators it produced at the edges ("Acme Inc." -> "acme_inc_"), but
+        // the id must start and end alphanumeric
         String id = StringUtils.strip(SLUGIFY.slugify(text), "-_");
         Validate.notEmpty(id, "Cannot derive an id from '%s', it has no usable characters", text);
-        // Guards the zone grammar against a Slugify behavior change; the version in use only
-        // emits lowercase letters, digits, dashes, and underscores
+        // Guards against a Slugify behavior change; the version in use only emits lowercase
+        // letters, digits, dashes, and underscores
         ZoneUtil.validateLabel(id);
         return id;
     }
