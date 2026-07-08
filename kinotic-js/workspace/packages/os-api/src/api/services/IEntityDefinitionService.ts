@@ -1,3 +1,4 @@
+import { OS_API_ZONE } from '@/api/PlatformZones'
 import { CrudServiceProxy, FunctionalIterablePage, type IKinotic, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import type { EntityDefinition } from '@/api/model/EntityDefinition'
 
@@ -67,7 +68,7 @@ export interface IEntityDefinitionService extends ICrudServiceProxy<EntityDefini
 export class EntityDefinitionService extends CrudServiceProxy<EntityDefinition> implements IEntityDefinitionService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy('os_api.org.kinotic.persistence.api.services.EntityDefinitionService'))
+        super(kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.persistence.api.services.EntityDefinitionService`))
     }
 
     public countForApplication(applicationId: string): Promise<number> {

@@ -1,4 +1,5 @@
 import type { QueryParameter } from '@/api/model/QueryParameter'
+import { APP_API_ZONE } from '@/api/PlatformZones'
 import type { IKinotic } from '@kinotic-ai/core'
 import {
     type IServiceProxy,
@@ -174,7 +175,7 @@ export class EntitiesRepository implements IEntitiesRepository {
     protected serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy('app_api.org.kinotic.persistence.api.services.JsonEntitiesRepository')
+        this.serviceProxy = kinotic.serviceProxy(`${APP_API_ZONE}.org.kinotic.persistence.api.services.JsonEntitiesRepository`)
     }
 
     public bulkSave<T>(entityDefinitionId: string, entities: T[]): Promise<void> {

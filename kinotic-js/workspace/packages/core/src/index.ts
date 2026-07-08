@@ -7,6 +7,7 @@ export * from './api/Kinotic'
 export * from './api/KinoticDecorators'
 export * from './api/IServiceRegistry'
 export * from './api/ServiceRegistry'
+export * from './internal/ZoneUtil'
 
 
 export * from './api/crud/AbstractIterablePage'

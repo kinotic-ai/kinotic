@@ -1,3 +1,4 @@
+import { OS_API_ZONE } from '@/api/PlatformZones'
 import { CrudServiceProxy, type IKinotic, type ICrudServiceProxy } from '@kinotic-ai/core'
 import { GitHubAppInstallation } from '@/api/model/github/GitHubAppInstallation'
 import { GitHubInstallCompletion } from '@/api/model/github/GitHubInstallCompletion'
@@ -36,7 +37,7 @@ export class GitHubAppInstallationService extends CrudServiceProxy<GitHubAppInst
     implements IGitHubAppInstallationService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy('os_api.org.kinotic.github.api.services.GitHubAppInstallationService'))
+        super(kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.github.api.services.GitHubAppInstallationService`))
     }
 
     public startInstall(returnTo: string | null): Promise<string> {

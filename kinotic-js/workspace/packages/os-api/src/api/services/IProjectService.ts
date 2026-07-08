@@ -1,3 +1,4 @@
+import { OS_API_ZONE } from '@/api/PlatformZones'
 import { CrudServiceProxy, FunctionalIterablePage, type IKinotic, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import { Project } from '@/api/model/Project'
 
@@ -44,7 +45,7 @@ export interface IProjectService extends ICrudServiceProxy<Project> {
 export class ProjectService extends CrudServiceProxy<Project> implements IProjectService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy('os_api.org.kinotic.os.api.services.ProjectService'))
+        super(kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.os.api.services.ProjectService`))
     }
 
     public countForApplication(applicationId: string): Promise<number> {
