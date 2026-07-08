@@ -4,6 +4,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.internal.utils.ZoneUtil;
 import org.kinotic.domain.api.security.PlatformZones;
 import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.kinotic.domain.api.security.OrganizationParticipant;
@@ -62,6 +63,7 @@ public class StompAuthorizerFactory {
         public ParticipantPathPatterns(Participant participant, String replyToId) {
 
             if (participant instanceof SystemParticipant) {
+
                 addAllZones(sendPatterns);
                 addZone(subscriptionPatterns, PlatformZones.OS_API);
                 addZone(subscriptionPatterns, PlatformZones.APP_API);
@@ -70,14 +72,16 @@ public class StompAuthorizerFactory {
             } else if (participant instanceof ApplicationParticipant applicationParticipant) {
                 // appZone validates the ids, so an id that could act as a wildcard or extra
                 // label inside a pattern fails the connection instead of widening access
-                String appZone = PlatformZones.appZone(applicationParticipant.getOrganizationId(),
-                                                      applicationParticipant.getApplicationId());
+                String appZone = appZone(applicationParticipant.getOrganizationId(),
+                                         applicationParticipant.getApplicationId());
                 addZone(sendPatterns, PlatformZones.APP_API);
                 addZone(sendPatterns, appZone);
                 addZone(subscriptionPatterns, appZone);
 
             } else if (participant instanceof OrganizationParticipant) {
+
                 addZone(sendPatterns, PlatformZones.OS_API);
+                addZone(sendPatterns, PlatformZones.APP_API);
 
             } else {
                 throw new IllegalArgumentException("Unknown participant type " + participant.getClass().getName()
@@ -103,6 +107,22 @@ public class StompAuthorizerFactory {
                                          EventConstants.STREAM_DESTINATION_SCHEME)) {
                 target.add(getPathPattern(scheme + "://*.**"));
             }
+        }
+
+        /**
+         * Builds the zone that all of an application's services live in
+         *
+         * @param organizationId the id of the organization that owns the application
+         * @param applicationId the id of the application
+         * @return the application zone, app.&lt;organizationId&gt;.&lt;applicationId&gt;
+         */
+        private String appZone(String organizationId, String applicationId) {
+            // Each id must be a single dot-free label: a dot inside an id would shift the
+            // app.<organizationId>.<applicationId> label structure, letting one (org, app) pair
+            // produce the same zone as a different pair plus a sub zone
+            ZoneUtil.validateLabel(organizationId);
+            ZoneUtil.validateLabel(applicationId);
+            return PlatformZones.APP_PREFIX + "." + organizationId + "." + applicationId;
         }
     }
 
