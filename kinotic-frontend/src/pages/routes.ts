@@ -207,21 +207,6 @@ const pageRoutes: RouteRecordRaw[] = [
     } as RouteMeta,
   },
   {
-    path: '/users',
-    component: () => import('@/layouts/MainLayout.vue'),
-    meta: {
-      showInMainNav: true,
-      icon: 'icon-man.svg',
-      label: 'Users',
-    } as RouteMeta,
-    children: [
-      {
-        path: '',
-        component: () => import('@/pages/Users.vue'),
-      },
-    ]
-  },
-  {
     path: '/settings',
     component: () => import('@/layouts/MainLayout.vue'),
     meta: {
