@@ -38,6 +38,10 @@ public class ServiceIdentifier {
         // The name is the final dot separated label of the address, so a dot inside it would
         // change where the zone and namespace end when the address is parsed or pattern matched
         Validate.isTrue(!name.contains("."), "The name must not contain '.' but was '%s'", name);
+        // The namespace forms interior labels of the address; an underscore is illegal in a URI
+        // host, so a segment carrying one would make the CRI an invalid URI
+        Validate.isTrue(namespace == null || !namespace.contains("_"),
+                        "The namespace must not contain '_' but was '%s'", namespace);
         if (zone != null) {
             ZoneUtil.validateZone(zone);
         }

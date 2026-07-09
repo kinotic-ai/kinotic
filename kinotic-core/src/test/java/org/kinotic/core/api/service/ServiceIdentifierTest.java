@@ -52,6 +52,8 @@ public class ServiceIdentifierTest {
         assertThrows(IllegalArgumentException.class, () -> new ServiceIdentifier("Bad.Zone", "com.example", "Svc", null, "1.0.0"));
         // the name is the final label of the address, so it can never contain a dot
         assertThrows(IllegalArgumentException.class, () -> new ServiceIdentifier("api", "com.example", "Svc.Extra", null, "1.0.0"));
+        // an underscore in a namespace segment would make the CRI an invalid URI
+        assertThrows(IllegalArgumentException.class, () -> new ServiceIdentifier("api", "com.my_example", "Svc", null, "1.0.0"));
     }
 
 }

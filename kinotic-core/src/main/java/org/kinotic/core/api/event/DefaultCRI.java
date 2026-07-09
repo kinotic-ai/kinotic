@@ -18,8 +18,8 @@ class DefaultCRI implements CRI {
 
     public DefaultCRI(String scheme, String scope, String resourceName, String path, String version) {
         // Assemble the authority ourselves and use the authority-form URI constructor rather than
-        // the (userInfo, host, port) form: that form validates the host as an RFC-2396 hostname and
-        // rejects underscores; a zone label never has one, but a namespace segment can.
+        // the (userInfo, host, port) form, which reparses and validates the host: scope and
+        // resourceName are already the two halves of the authority, split on '@'.
         String authority = resourceName != null
                 ? (scope != null ? scope + "@" : "") + resourceName
                 : null;
@@ -46,10 +46,9 @@ class DefaultCRI implements CRI {
 
     @Override
     public String scope() {
-        // Split off the raw authority rather than using getRawUserInfo()/getHost(): java.net.URI
-        // only populates those for a valid RFC-2396 server-based authority, and a zone label's
-        // underscore makes the authority registry-based, nulling them. scope is the part before
-        // '@' (null when absent); resourceName is the remainder.
+        // Split the raw authority rather than using getRawUserInfo()/getHost(): java.net.URI only
+        // populates those for a server-based authority, so splitting on '@' keeps parsing correct
+        // for any resourceName. scope is the part before '@' (null when absent), resourceName the rest.
         String authority = uri.getRawAuthority();
         if (authority == null) {
             return null;
