@@ -14,7 +14,6 @@ declare module 'vue' {
     Button: typeof import('primevue/button')['default']
     CascadeSelect: typeof import('primevue/cascadeselect')['default']
     Confirm: typeof import('./src/components/Confirm.vue')['default']
-    CrudEntityAddEdit: typeof import('./src/components/CrudEntityAddEdit.vue')['default']
     CrudTable: typeof import('./src/components/CrudTable.vue')['default']
     DashboardWidgetCard: typeof import('./src/components/DashboardWidgetCard.vue')['default']
     Dialog: typeof import('primevue/dialog')['default']
