@@ -11,7 +11,7 @@ import { validateZone } from '@/api/ZoneUtil'
  */
 const scopeFunctions = new WeakSet<Function>()
 const versionRegistry = new WeakMap<Function, string>()
-const zonesRegistry = new WeakMap<Function, string[]>()
+const zonesRegistry = new WeakMap<Function, string>()
 const contextMarkedFunctions = new WeakSet<Function>()
 
 // A Version above @Publish stamps the replacement class while one below it stamps the
@@ -73,20 +73,18 @@ export function Version(version: string) {
 }
 
 /**
- * Declares the zones a service is addressable in, relative to this client's trust context: the
- * declared zones are appended to {@link KinoticSingleton#zonePrefix}, so an application's service
- * can never leave its own `app.<organizationId>.<applicationId>` zone. A service declaring
- * multiple zones registers one address per zone. When absent, {@link KinoticSingleton#defaultZones}
- * (typically loaded from the project package.json `kinotic.zones` field) applies.
- * @param zones each zone is one or more dot separated labels of lowercase letters, digits, and
- *        interior dashes, e.g. `billing` or `billing.internal`
+ * Declares the zone a service is addressable in, relative to this client's trust context: the
+ * declared zone is appended to {@link KinoticSingleton#zonePrefix}, so an application's service
+ * can never leave its own `app.<organizationId>.<applicationId>` zone. When absent,
+ * {@link KinoticSingleton#defaultZone} (typically loaded from the project package.json
+ * `kinotic.zone` field) applies.
+ * @param zone one or more dot separated labels of lowercase letters, digits, and interior
+ *        dashes, e.g. `billing` or `billing.internal`
  */
-export function Zones(zones: string[]) {
-    for (const zone of zones) {
-        validateZone(zone)
-    }
+export function Zone(zone: string) {
+    validateZone(zone)
     return function (value: Function, _context: ClassDecoratorContext<any>): void {
-        zonesRegistry.set(value, zones)
+        zonesRegistry.set(value, zone)
     }
 }
 
@@ -111,30 +109,30 @@ export function receivesContext(serviceInstance: object, methodName: string): bo
     return typeof method === 'function' && contextMarkedFunctions.has(method)
 }
 
-// Effective zones = zonePrefix . declaredZone. The prefix comes from the client's static
+// Effective zone = zonePrefix . declaredZone. The prefix comes from the client's static
 // configuration (never from the service itself), so a wrong declaration can only route nowhere,
 // not into another application's zone — the gateway validates the prefix on every send/subscribe.
-// An empty result means the service registers at its un-zoned legacy address.
-function resolveEffectiveZones(constructor: Function): string[] {
-    const declaredZones = findInConstructorChain(zonesRegistry, constructor) ?? Kinotic.defaultZones ?? []
+// A null result means the service registers at its un-zoned legacy address.
+function resolveEffectiveZone(constructor: Function): string | null {
+    const declaredZone = findInConstructorChain(zonesRegistry, constructor) ?? Kinotic.defaultZone
     const prefix = Kinotic.zonePrefix
-    let effectiveZones: string[]
-    if (prefix != null && declaredZones.length > 0) {
-        effectiveZones = declaredZones.map(zone => `${prefix}.${zone}`)
+    let effectiveZone: string | null
+    if (prefix != null && declaredZone != null) {
+        effectiveZone = `${prefix}.${declaredZone}`
     } else if (prefix != null) {
-        effectiveZones = [prefix]
+        effectiveZone = prefix
     } else {
-        effectiveZones = [...declaredZones]
+        effectiveZone = declaredZone ?? null
     }
-    for (const zone of effectiveZones) {
-        validateZone(zone)
+    if (effectiveZone != null) {
+        validateZone(effectiveZone)
     }
-    return effectiveZones
+    return effectiveZone
 }
 
 /**
  * Registers each instance of the decorated class with the Kinotic ServiceRegistry.
- * The service name defaults to the class name; {@link Version}, {@link Scope}, and {@link Zones}
+ * The service name defaults to the class name; {@link Version}, {@link Scope}, and {@link Zone}
  * on the same class refine the registration.
  * @param namespace the optional namespace the service is published under
  * @param name the service name, defaults to the class name
@@ -145,10 +143,10 @@ export function Publish(namespace?: string | null, name?: string) {
             constructor(...args: any[]) {
                 super(...args)
 
-                const zones = resolveEffectiveZones(this.constructor)
+                const zone = resolveEffectiveZone(this.constructor)
                 const serviceIdentifier = new ServiceIdentifier(namespace ?? null,
                                                                 name || value.name,
-                                                                zones.length > 0 ? zones : undefined)
+                                                                zone ?? undefined)
 
                 const version = findInConstructorChain(versionRegistry, this.constructor)
                 if (version) {

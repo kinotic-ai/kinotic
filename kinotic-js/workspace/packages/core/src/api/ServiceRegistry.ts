@@ -83,7 +83,7 @@ export class ServiceRegistry implements IServiceRegistry {
     }
 
     public register(serviceIdentifier: ServiceIdentifier, service: any): void {
-        const criString = serviceIdentifier.cris().map(cri => cri.raw()).join(', ')
+        const criString = serviceIdentifier.cri().raw()
         if (!this.supervisors.has(criString)) {
             this.debugLogger(`Registering service for CRI: ${criString}`)
             const supervisor = new ServiceInvocationSupervisor(
@@ -98,7 +98,7 @@ export class ServiceRegistry implements IServiceRegistry {
     }
 
     public unRegister(serviceIdentifier: ServiceIdentifier): void {
-        const criString = serviceIdentifier.cris().map(cri => cri.raw()).join(', ')
+        const criString = serviceIdentifier.cri().raw()
         const supervisor = this.supervisors.get(criString)
         if (supervisor) {
             this.debugLogger(`Unregistering service for CRI: ${criString}`)

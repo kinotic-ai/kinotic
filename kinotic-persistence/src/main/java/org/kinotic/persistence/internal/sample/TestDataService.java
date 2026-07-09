@@ -40,12 +40,12 @@ public class TestDataService {
     /**
      * The id of the Application the sample {@link EntityDefinition}s are created under
      */
-    public static final String SAMPLE_APP_ID = "org_kinotic_sample";
+    public static final String SAMPLE_APP_ID = "org-kinotic-sample";
 
     /**
      * The id of the Project the sample {@link EntityDefinition}s are created under
      */
-    public static final String SAMPLE_PROJECT_ID = SAMPLE_APP_ID + "_default";
+    public static final String SAMPLE_PROJECT_ID = SAMPLE_APP_ID + "-default";
 
     private static final String PEOPLE_FILE = "classpath:people.json";
     private static final String PEOPLE_WITH_ID_FILE = "classpath:people-with-id.json";

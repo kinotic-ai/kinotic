@@ -102,13 +102,9 @@ public class ServiceInvocationSupervisor {
      */
     public Future<Void> start(){
         if(active.compareAndSet(false, true)){
-            // begin listening on the event bus for service invocation requests, one consumer
-            // per zone address, all dispatching to the same invocation machinery
-            methodInvocationEventConsumers = serviceDescriptor.serviceIdentifier()
-                                                              .cris()
-                                                              .stream()
-                                                              .map(eventBusService::listen)
-                                                              .toList();
+            // begin listening on the event bus for service invocation requests at the service's
+            // zone address
+            methodInvocationEventConsumers = List.of(eventBusService.listen(serviceDescriptor.serviceIdentifier().cri()));
 
             for (EventConsumer eventConsumer : methodInvocationEventConsumers) {
                 eventConsumer

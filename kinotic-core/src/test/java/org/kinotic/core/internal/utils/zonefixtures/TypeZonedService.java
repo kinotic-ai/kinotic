@@ -1,10 +1,10 @@
 package org.kinotic.core.internal.utils.zonefixtures;
 
-import org.kinotic.core.api.annotations.Zones;
+import org.kinotic.core.api.annotations.Zone;
 
 /**
  * The type level declaration overrides the package-info declaration.
  */
-@Zones({"billing", "system"})
+@Zone("billing")
 public interface TypeZonedService {
 }

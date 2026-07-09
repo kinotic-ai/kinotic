@@ -26,10 +26,10 @@ export interface IKinotic {
     zonePrefix: string | null
 
     /**
-     * The zones applied to published services that carry no {@link Zones} declaration of their
-     * own, typically loaded from the project package.json `kinotic.zones` field.
+     * The zone applied to published services that carry no {@link Zone} declaration of their
+     * own, typically loaded from the project package.json `kinotic.zone` field.
      */
-    defaultZones: string[] | null
+    defaultZone: string | null
 
     /**
      * Requests a connection to the given Stomp url
@@ -78,7 +78,7 @@ export class KinoticSingleton implements IKinotic {
 
     public zonePrefix: string | null = null
 
-    public defaultZones: string[] | null = null
+    public defaultZone: string | null = null
 
     constructor() {
         this._eventBus = new EventBus()
