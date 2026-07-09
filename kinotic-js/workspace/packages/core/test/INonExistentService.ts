@@ -11,7 +11,9 @@ class NonExistentService implements INonExistentService {
     private readonly serviceProxy: IServiceProxy
 
     constructor() {
-        this.serviceProxy = Kinotic.serviceProxy('com.namespace.NonExistentService')
+        // Zoned into os-api so the org participant is authorized to send here and routing returns
+        // NO_HANDLERS; an un-zoned address is denied at authorization and drops the connection.
+        this.serviceProxy = Kinotic.serviceProxy('os-api.com.namespace.NonExistentService')
     }
 
     probablyNotHome(): Promise<void> {
