@@ -7,17 +7,3 @@ plugins {
 dependencies {
     implementation 'org.springframework.boot:spring-boot-autoconfigure'
 }
-
-java {
-    withJavadocJar()
-    withSourcesJar()
-}
-
-javadoc {
-    // suppress warnings
-    options.addStringOption('Xdoclint:none', '-quiet')
-
-    if(JavaVersion.current().isJava9Compatible()) {
-        options.addBooleanOption('html5', true)
-    }
-}
