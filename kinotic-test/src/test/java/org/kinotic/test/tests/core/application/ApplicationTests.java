@@ -23,7 +23,7 @@ public class ApplicationTests extends KinoticTestBase {
 		test.setOrganizationId(TEST_ORG_ID);
 
 		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.save(test))))
-					.expectNextMatches(application -> application.getId().equals("test_app") && application.getUpdated() != null)
+					.expectNextMatches(application -> application.getId().equals("test-app") && application.getUpdated() != null)
 					.expectComplete()
 					.verify();
 
@@ -42,12 +42,12 @@ public class ApplicationTests extends KinoticTestBase {
 		test.setOrganizationId(TEST_ORG_ID);
 
 		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.create(test))))
-					.expectNextMatches(application -> application.getId().equals("slugs_and_snails")
+					.expectNextMatches(application -> application.getId().equals("slugs-and-snails")
 							&& application.getName().equals("Slugs. And Snails!"))
 					.expectComplete()
 					.verify();
 
-		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.deleteById("slugs_and_snails"))))
+		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.deleteById("slugs-and-snails"))))
 					.expectComplete()
 					.verify();
 	}

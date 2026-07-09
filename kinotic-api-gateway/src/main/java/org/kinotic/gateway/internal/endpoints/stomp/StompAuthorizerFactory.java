@@ -23,8 +23,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Creates STOMP authorizers using the gateway's current participant routing rules.
  *
  * A participant may only address zones its type allows: application participants reach the
- * {@code app_api} data plane and their own {@code app.<organizationId>.<applicationId>} zone and
- * may host services only inside their own zone, organization participants reach the {@code os_api}
+ * {@code app-api} data plane and their own {@code app.<organizationId>.<applicationId>} zone and
+ * may host services only inside their own zone, organization participants reach the {@code os-api}
  * management surface and host nothing, and system participants reach everything and host in the
  * platform zones.
  */

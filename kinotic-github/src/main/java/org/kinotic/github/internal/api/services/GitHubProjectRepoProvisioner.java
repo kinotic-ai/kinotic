@@ -48,7 +48,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
 
-    private static final Slugify SLUGIFY = Slugify.builder().underscoreSeparator(true).build();
+    private static final Slugify SLUGIFY = Slugify.builder().build();
     private static final int GITHUB_REPO_NAME_MAX = 100;
     private static final int TARBALL_MAX_ATTEMPTS = 10;
     private static final Duration TARBALL_RETRY_DELAY = Duration.ofSeconds(2);

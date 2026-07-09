@@ -23,7 +23,7 @@ class DefaultOrganizationServiceTest {
 
         service.beforeSave(organization).join();
 
-        assertEquals("acme_rockets", organization.getId());
+        assertEquals("acme-rockets", organization.getId());
         assertNotNull(organization.getCreated());
     }
 
@@ -33,7 +33,7 @@ class DefaultOrganizationServiceTest {
 
         service.beforeSave(organization).join();
 
-        assertEquals("acme_inc", organization.getId());
+        assertEquals("acme-inc", organization.getId());
     }
 
     @Test
@@ -51,7 +51,7 @@ class DefaultOrganizationServiceTest {
 
         service.beforeSave(organization).join();
 
-        assertEquals("kinetic_corp", organization.getId());
+        assertEquals("kinetic-corp", organization.getId());
     }
 
     @Test

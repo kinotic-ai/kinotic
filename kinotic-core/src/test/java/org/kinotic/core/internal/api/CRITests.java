@@ -11,9 +11,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
- * CRIs are backed by {@link java.net.URI}, whose server-based authority parsing rejects the
- * underscores zone labels use (os_api, app_api, slugified ids), so these tests pin that CRIs
- * resolve their scope and resourceName from such addresses regardless.
+ * CRIs are backed by {@link java.net.URI}, whose server-based authority parsing rejects
+ * underscores. Zone labels never carry one (the grammar forbids it), but a namespace segment
+ * still can, so these tests pin that CRIs resolve their scope and resourceName from an
+ * underscore-bearing address regardless.
  * Created by navid on 1/23/20
  */
 public class CRITests {
@@ -35,8 +36,8 @@ public class CRITests {
                                                         + "#"
                                                         + SERVICE_VERSION;
 
-    // A zone label carries an underscore, which java.net.URI will not accept as a hostname
-    private static final String ZONED_NAME = "os_api.org.kinotic.server.clienttest.ITestService";
+    // A namespace segment carries an underscore, which java.net.URI will not accept as a hostname
+    private static final String ZONED_NAME = "os-api.org.kinotic.my_service.ITestService";
 
     @Test
     public void testRawCRI1(){

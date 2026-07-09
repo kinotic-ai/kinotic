@@ -19,10 +19,10 @@ public class ServiceIdentifierTest {
     }
 
     @Test
-    public void zoneWithUnderscoreAddresses() {
-        ServiceIdentifier identifier = new ServiceIdentifier("os_api", "com.example", "LogManager", null, "1.0.0");
-        assertEquals("os_api.com.example.LogManager", identifier.qualifiedName());
-        assertEquals("srv://os_api.com.example.LogManager#1.0.0", identifier.cri().raw());
+    public void platformZoneAddresses() {
+        ServiceIdentifier identifier = new ServiceIdentifier("os-api", "com.example", "LogManager", null, "1.0.0");
+        assertEquals("os-api.com.example.LogManager", identifier.qualifiedName());
+        assertEquals("srv://os-api.com.example.LogManager#1.0.0", identifier.cri().raw());
     }
 
     @Test

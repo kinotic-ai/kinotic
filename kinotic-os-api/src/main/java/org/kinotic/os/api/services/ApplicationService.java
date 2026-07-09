@@ -10,7 +10,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Manages {@link Application}s. An application's id is derived from its slugified name at
- * creation: lowercase letters, digits, and interior dashes or underscores.
+ * creation: lowercase letters, digits, and interior dashes.
  */
 // FIXME: add an OrganizationScopedServiceInterface
 @Publish

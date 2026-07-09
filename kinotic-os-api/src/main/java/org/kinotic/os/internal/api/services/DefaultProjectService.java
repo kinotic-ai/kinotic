@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultProjectService extends AbstractApplicationScopedService<Project> implements ProjectService {
 
-    final Slugify slg = Slugify.builder().underscoreSeparator(true).build();
+    final Slugify slg = Slugify.builder().build();
 
     private final ProjectRepository projectRepository;
     private final ProjectRepoProvisioner repoProvisioner;
@@ -112,7 +112,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     }
 
     private String deriveId(Project project) {
-        return (project.getApplicationId() + "_" + slg.slugify(project.getName())).toLowerCase();
+        return (project.getApplicationId() + "-" + slg.slugify(project.getName())).toLowerCase();
     }
 
 }

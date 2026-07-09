@@ -19,7 +19,7 @@ class DefaultCRI implements CRI {
     public DefaultCRI(String scheme, String scope, String resourceName, String path, String version) {
         // Assemble the authority ourselves and use the authority-form URI constructor rather than
         // the (userInfo, host, port) form: that form validates the host as an RFC-2396 hostname and
-        // rejects the underscores zone labels use (os_api, app_api, slugified ids like org_kinotic_x).
+        // rejects underscores; a zone label never has one, but a namespace segment can.
         String authority = resourceName != null
                 ? (scope != null ? scope + "@" : "") + resourceName
                 : null;

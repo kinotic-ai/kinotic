@@ -11,8 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Covers id handling in {@link DefaultApplicationService#beforeSave}: minting the id from the
- * slugified name and rejecting ids that are not lowercase letters, digits, and interior dashes
- * or underscores. The collaborators are unused by beforeSave, so none are given.
+ * slugified name and rejecting ids that are not lowercase letters, digits, and interior
+ * dashes. The collaborators are unused by beforeSave, so none are given.
  */
 class DefaultApplicationServiceTest {
 
@@ -24,18 +24,18 @@ class DefaultApplicationServiceTest {
 
         service.beforeSave(application).join();
 
-        assertEquals("orders_app", application.getId());
+        assertEquals("orders-app", application.getId());
         assertNotNull(application.getUpdated());
     }
 
     @Test
     void keepsAnExistingId() {
         Application application = new Application("Orders App", "desc");
-        application.setId("orders-app_v2");
+        application.setId("orders-app-v2");
 
         service.beforeSave(application).join();
 
-        assertEquals("orders-app_v2", application.getId());
+        assertEquals("orders-app-v2", application.getId());
     }
 
     @Test
