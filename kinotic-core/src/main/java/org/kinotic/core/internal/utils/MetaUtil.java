@@ -6,7 +6,7 @@ import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.kinotic.core.api.annotations.Scope;
 import org.kinotic.core.api.annotations.Version;
-import org.kinotic.core.api.annotations.Zones;
+import org.kinotic.core.api.annotations.Zone;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.MethodParameter;
@@ -184,22 +184,22 @@ public class MetaUtil {
     }
 
     /**
-     * Gets the zones for the class by searching for a {@link Zones} annotation.
-     * If the class contains the annotation, those zones are returned; otherwise it returns the zones from the package-info.java file annotation if found.
-     * @param clazz to search for zones
-     * @return the zones or null if not found
+     * Gets the zone for the class by searching for a {@link Zone} annotation.
+     * If the class contains the annotation, that zone is returned; otherwise it returns the zone from the package-info.java file annotation if found.
+     * @param clazz to search for a zone
+     * @return the zone or null if not found
      */
-    public static String[] getZones(Class<?> clazz){
-        String[] ret = null;
-        Zones zones = AnnotationUtils.findAnnotation(clazz, Zones.class);
-        if(zones == null){
+    public static String getZone(Class<?> clazz){
+        String ret = null;
+        Zone zone = AnnotationUtils.findAnnotation(clazz, Zone.class);
+        if(zone == null){
             Package pkg = clazz.getPackage();
             if(pkg != null){
-                zones = AnnotationUtils.findAnnotation(pkg, Zones.class);
+                zone = AnnotationUtils.findAnnotation(pkg, Zone.class);
             }
         }
-        if(zones != null){
-            ret = zones.value();
+        if(zone != null){
+            ret = zone.value();
         }
         return ret;
     }

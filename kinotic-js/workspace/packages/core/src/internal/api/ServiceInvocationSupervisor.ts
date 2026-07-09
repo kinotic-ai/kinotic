@@ -81,27 +81,25 @@ export class ServiceInvocationSupervisor {
         }
         this.active = true
 
-        // One subscription per zone address, all dispatching to the same invocation machinery
-        for (const cri of this.serviceIdentifier.cris()) {
-            const criBase = cri.baseResource()
-            this.methodSubscriptions.push(this._eventBus
-                                              .observe(criBase)
-                                              .subscribe({
-                                                             next: async (event: IEvent) => {
-                                                                 await this.processEvent(event);
-                                                             },
-                                                             error: (error: Error) => {
-                                                                 this.log.error("Event listener error", error)
-                                                                 this.active = false
-                                                             },
-                                                             complete: () => {
-                                                                 this.log.error("Event listener stopped unexpectedly. Setting supervisor inactive.")
-                                                                 this.active = false
-                                                             },
-                                                         }))
+        // Subscribe at the service's zone address, dispatching to the invocation machinery
+        const criBase = this.serviceIdentifier.cri().baseResource()
+        this.methodSubscriptions.push(this._eventBus
+                                          .observe(criBase)
+                                          .subscribe({
+                                                         next: async (event: IEvent) => {
+                                                             await this.processEvent(event);
+                                                         },
+                                                         error: (error: Error) => {
+                                                             this.log.error("Event listener error", error)
+                                                             this.active = false
+                                                         },
+                                                         complete: () => {
+                                                             this.log.error("Event listener stopped unexpectedly. Setting supervisor inactive.")
+                                                             this.active = false
+                                                         },
+                                                     }))
 
-            this.log.info(`ServiceInvocationSupervisor started for ${criBase}`)
-        }
+        this.log.info(`ServiceInvocationSupervisor started for ${criBase}`)
     }
 
     public stop(): void {
