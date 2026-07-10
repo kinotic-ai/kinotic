@@ -113,10 +113,11 @@ override):
   composition-by-config is the established idiom. Two profiles in
   `kinotic-server/src/main/resources` — `application-os-server.yml` and
   `application-app-gateway.yml` — hold the *entire* per-deployment difference **explicitly in
-  YAML**: the disable flags and the publishable-zone allowlist
-  (`kinotic.publishableZones`). Beans that differ per deployment are selected with plain
-  `@Profile`; JWT env-claim behavior keys off whether `kinotic.applicationGateway.environmentId`
-  is set. No enum, no derivation, nothing spread through code. The **allowlist startup guard is
+  YAML**: the disable flags, the auth-route flags, and `kinotic.zones` — one list consumed by
+  both the publish guard and the STOMP authorizer (the hardcoded participant rules, temporary
+  until Gateway ABAC, are intersected with it). JWT env-claim behavior keys off whether
+  `kinotic.applicationGateway.environmentId` is set. No enum, no derivation, no
+  deployment-conditional beans — nothing spread through code. The **allowlist startup guard is
   what makes this safe**: any drift — a forgotten flag on a new module, a stray env var
   override — that lets an `os-api`/`system` service register in a gateway kills the process at
   boot. Accepted trade-offs of one image: the gateway jar carries the OS admin SPA and OS
@@ -354,7 +355,7 @@ ordinary property, visible and greppable in one file per deployment shape.
 | `kinotic.disableOsApi` (includes definition management after Phase 3) | false | **true** |
 | `kinotic.disableGithub` | false | **true** |
 | `kinotic.disablePersistence` (= the data plane after Phase 3) | false *(flips to true at the Phase 8 cutover)* | false |
-| `kinotic.publishableZones` | `os-api`, `system` (+ `app-api` until the Phase 8 cutover) | `app-api`, `app` |
+| `kinotic.zones` (publish guard ∩ authorizer) | `os-api`, `system` (+ `app-api` until the Phase 8 cutover) | `app-api`, `app` |
 
 ```yaml
 # kinotic-server/src/main/resources/application-app-gateway.yml  (new profile — flags, allowlist,
@@ -363,7 +364,7 @@ kinotic:
   disableOsApi: true
   disableGithub: true
   disablePersistence: false
-  publishableZones: [app-api, app]
+  zones: [app-api, app]
   applicationGateway:
     environmentId: ${KINOTIC_ENVIRONMENT_ID}
     elastic-connections:
@@ -377,16 +378,17 @@ profile to their active set (e.g. `production,os-server`).
 
 The three mechanisms that consume this configuration:
 
-- **`kinotic.publishableZones`** (`List<String>` on `KinoticProperties`): when set,
-  `ServiceRegistrationBeanPostProcessor` fails startup for any `@Publish` registration whose
-  zone is outside the list (`app` matching the leading label of `app.<org>.<app>` zones), and
-  for **un-zoned** registrations. When unset, registration is unrestricted — today's behavior,
-  so plain dev/test contexts keep working; both deployment profiles always set it.
-- **`@Profile` on deployment-specific beans**: the zone-policy bean and the role-specific route
-  suppliers are selected by the active profile (`@Profile("app-gateway")` /
-  `@Profile("os-server")`) — standard Spring, no new mechanism.
+- **`kinotic.zones`** (`List<String>` on `KinoticProperties`) — the zones this deployment
+  serves, consumed by two mechanisms: `ServiceRegistrationBeanPostProcessor` fails startup for
+  any `@Publish` registration whose zone is outside the list (`app` matching the leading label
+  of `app.<org>.<app>` zones) or **un-zoned**; and the `StompAuthorizer` intersects its
+  hardcoded per-participant patterns with it (work item 1). When unset, both are unrestricted —
+  today's behavior, so plain dev/test contexts keep working; both deployment profiles always
+  set it.
+- **Auth-route flags** (work item 2) gate which login route groups mount, in the existing
+  `disable*` idiom — no `@Profile`, no deployment-conditional beans.
 - **`kinotic.applicationGateway.environmentId` presence** drives the JWT env-claim behavior
-  (item 3 below): set ⇒ this deployment is an environment gateway.
+  (work item 3): set ⇒ this deployment is an environment gateway.
 
 Accepted trade, stated plainly: profile YAML can drift — a *new* module gate added later and
 forgotten in a profile is silently ON (`matchIfMissing = true`), the same misconfiguration risk
@@ -406,27 +408,38 @@ path, replacing Phase 2's alias; the base `application.yml` defaults those conne
 
 Work items in this phase:
 
-1. **Zone policy per role.** `StompAuthorizerFactory` currently encodes one global policy. Make
-   the policy a bean selected by profile: `app-gateway` — application participants keep
-   today's rules (`app-api.**` + `app.<org>.<app>.**`), organization participants (frontend
-   browsing data) get `app-api.**` send only, no participant reaches `os-api`/`system`;
-   `os-server` — conversely drops `app-api` for application participants (after the Phase 8
-   cutover; they have no business on the OS bus). Don't fork the class — check how
-   `StompAuthorizerFactory` is constructed and pick the smallest seam.
-2. **Auth surface per role.** `SuppliesGatewayRoutes` beans are mounted by discovery
-   (`ApiGatewayVertcleFactory` iterates all beans), so the REST surface follows which route
-   beans exist in the context. GitHub routes disappear via the profile's `disableGithub`.
-   The kinotic-domain handlers need profile gates: the gateway mounts app-scope routes only
-   (`ApplicationLoginHandler`, `SessionEndpointHandler`, invite acceptance if app-scoped); org
-   login, signup, and CLI device-login handlers are os-server-only. Verify which module
-   contributes each `SuppliesGatewayRoutes` bean and gate accordingly.
+1. **Zone authorization = the hardcoded rules ∩ `kinotic.zones`.** `StompAuthorizerFactory`'s
+   per-participant-type patterns stay hardcoded exactly as they are — they are temporary until
+   the Gateway ABAC work (`docs/future-prompts/Gateway ABAC.md`) replaces them with real
+   RBAC-defined path patterns — but every allowed pattern is additionally filtered by the
+   deployment's `kinotic.zones` list. The intersection lands every case where it should with
+   zero per-deployment policy code:
+
+   | participant | hardcoded today | ∩ gateway `[app-api, app]` | ∩ os-server `[os-api, system]` (post-cutover) |
+   |---|---|---|---|
+   | Organization | `os-api.**` + `app-api.**` | `app-api.**` (frontend data browsing) | `os-api.**` — `app-api` drops out at cutover automatically |
+   | Application | `app-api.**` + `app.<org>.<app>.**` | unchanged — the customer surface | ∅ — app participants have nothing on the OS bus |
+   | System | everything | `app-api.**` + `app.**` | `os-api.**` + `system.**` — VmManager orchestration intact |
+
+   (`reply://` destinations stay exempt from the intersection, as they are from de-scoping
+   today.)
+2. **Auth-route surface via flags, not profiles.** Org users never log in at an app gateway —
+   they log in at the OS server and present the minted JWT to the gateway. So the route split
+   is coarse and flag-shaped: GitHub routes already disappear via `disableGithub`; add a small
+   number of `disable*`-idiom flags for the kinotic-domain route groups (e.g.
+   `kinotic.domain.disableOrgAuthRoutes` covering org login/signup/CLI device-login,
+   `kinotic.domain.disableAppAuthRoutes` covering app login) set in the profile YAML — gateway:
+   org auth off, app auth on; os-server: the reverse as needed. Verify the actual
+   `SuppliesGatewayRoutes` bean inventory and group them into the fewest flags that make sense;
+   don't invent one flag per handler.
 3. **JWT environment binding.** `KinoticJwtIssuer` (kinotic-domain) mints platform JWTs; signing
    keys come from `platformSecrets` shared across deployments. When
    `kinotic.applicationGateway.environmentId` is set, add an
-   `environmentId` claim at mint and reject tokens whose claim doesn't match this deployment's
-   `environmentId` in the `KinoticSecurityService` validation path (a dev token must not work
-   against prod). The OS server accepts only tokens without the claim (or ignores — decide during
-   implementation and document with the auth docs).
+   `environmentId` claim at mint and reject app-participant tokens whose claim doesn't match
+   this deployment's `environmentId` in the `KinoticSecurityService` validation path (a dev
+   token must not work against prod). Organization-participant tokens are minted at the OS
+   server and carry no env claim — the gateway accepts them (their authorization is already
+   narrowed to `app-api.**` by item 1); the OS server accepts only claimless tokens.
 4. **Ignite cluster identity.** A gateway deployment joins Ignite cluster
    `env-<environmentId>`; verify how `KinoticIgniteConfig` names/discovers the cluster
    (`kinotic.ignite.*`) and ensure two clusters on one network can't merge. Also audit what the
@@ -452,7 +465,7 @@ Work items in this phase:
    `kinotic-domain` publishes **nothing** (`LocalAuthenticationService` is deliberately not
    `@Publish` — raw passwords never travel over RPC). The **publishable-zone allowlist** turns
    this table from configuration into an invariant: `ServiceRegistrationBeanPostProcessor`
-   (kinotic-core) checks every registration's single `@Zone` against `kinotic.publishableZones`
+   (kinotic-core) checks every registration's single `@Zone` against `kinotic.zones`
    and **fails startup** on a violation — a future module gate that's forgotten, renamed, or
    fail-opens can never silently publish an OS service in a gateway process. A service with
    **no** `@Zone` registers at an un-zoned address (per the `Zone` javadoc): treat un-zoned
@@ -580,7 +593,7 @@ One image (`kinoticai/kinotic-server`) everywhere; the active profile decides wh
   kinotic namespace (OS admin user, index-management-only ES role); OS ES reachable from kinotic
   + gateway namespaces. Provision the two distinct ES users per env cluster (Phase 5 least
   privilege) in the ECK/compose setups.
-- **Cutover**: set `disablePersistence: true` and drop `app-api` from `kinotic.publishableZones`
+- **Cutover**: set `disablePersistence: true` and drop `app-api` from `kinotic.zones`
   in `application-os-server.yml` (flagged in Phase 4), once the frontend
   (Phase 7) talks to gateways for entity data. From here the OS bus carries no entity data
   plane.
@@ -658,7 +671,7 @@ Follow the repo rule: behavioral tests through real infrastructure over mocked u
   assert: the `ServiceRegistry` contains **zero** registrations in `os-api`/`system` zones (the
   no-OS-services invariant), os-api CRIs are rejected by the authorizer for an application
   participant, app login routes respond, org signup routes 404.
-- **Allowlist guard**: with `kinotic.publishableZones` set, a context that registers a bean
+- **Allowlist guard**: with `kinotic.zones` set, a context that registers a bean
   carrying an out-of-list (or missing) `@Zone` fails startup (drive through
   `ServiceRegistrationBeanPostProcessor` with a real context, not a mock).
 - **JWT env binding**: token minted with `environmentId=development` rejected by a gateway
