@@ -66,6 +66,12 @@ override):
   The GraphQL/OpenAPI/MCP HTTP surfaces are dropped from scope: the code under
   `kinotic-persistence/.../internal/endpoints/` is deliberately dormant (nothing calls
   `PersistenceVerticleFactory`) and is kept for reference — leave it unwired and undeleted.
+- **No OS service exists on the gateway — absence, not just authorization.** Service publication
+  is bean-driven (`ServiceRegistrationBeanPostProcessor` registers every Spring bean implementing
+  a `@Publish` interface), so a service that is not on the gateway's classpath/context cannot be
+  invoked there no matter what the authorizer does. The gateway's dependency set + the Phase 3
+  split already achieve this (see Phase 4 item 5 for the inventory and the startup guard that
+  makes it a hard invariant instead of an emergent property).
 
 ---
 
@@ -314,6 +320,27 @@ Work items in this phase:
 5. **No entity HTTP surface.** The GraphQL/OpenAPI/MCP code stays dormant (see design
    decisions) — the gateway's only entity-data surface is the `app_api` RPC path.
 6. **No SPA.** `WebServerProperties.enabled=false` by default; the gateway serves no frontend.
+7. **No OS services published — verified inventory + startup guard.** The full `@Publish`
+   inventory on the gateway's classpath (core + domain + persistence + api-gateway) is:
+
+   | Service | Zone | On gateway? |
+   |---|---|---|
+   | `JsonEntitiesRepository`, `AdminJsonEntitiesRepository`, `NamedQueriesService` | `app_api` (explicit `@Zones`) | yes — the data plane |
+   | `EntityDefinitionService`, `NamedQueriesDefinitionService`, `MigrationService`, `DataInsightsService` | `os_api` (package-level `@Zones` in `api/services/package-info.java` + `insights/package-info.java`) | no — definition-management auto-config is off (Phase 3) |
+
+   `kinotic-domain` publishes **nothing** (`LocalAuthenticationService` is deliberately not
+   `@Publish` — raw passwords never travel over RPC). `kinotic-os-api`, `kinotic-github`, and
+   `kinotic-orchestrator` are not dependencies, so their `os_api` services cannot exist here.
+   To turn this from an emergent property into an invariant, add a per-deployable **publishable
+   zone allowlist** checked in `ServiceRegistrationBeanPostProcessor` (kinotic-core): a
+   `KinoticProperties` list (gateway: `app_api`, `app`; kinotic-server: `os_api`, `system`) —
+   registration of a bean whose `@Publish` zones fall outside the allowlist **fails startup**,
+   so accidentally adding a dependency that carries an OS service breaks the build/boot loudly
+   instead of silently widening the gateway's surface. Client-*hosted* services are already
+   constrained by the authorizer (an `ApplicationParticipant` may only host inside its own
+   `app.<org>.<app>` zone). Note the resulting depth: even if the `StompAuthorizer` had a bug
+   allowing an `os_api` send, there is no `os_api` listener on the environment bus — the send
+   has nothing to reach.
 
 ## Phase 5 — entity index reconciler (gateway side)
 
@@ -329,9 +356,13 @@ own cluster match:
   (mapping changes) the same way the current update path does. Deletions: remove index/template.
 - Make creation idempotent and concurrency-safe across gateway replicas (ES create-index races
   return `resource_already_exists_exception` — treat as success).
-- `MigrationService` (data migrations over entity indices) becomes per-environment by
-  construction since it runs where the data-plane runs. Verify nothing in it still assumes the
-  OS cluster.
+- **Stranded os_api data services.** `MigrationService` and `DataInsightsService` are
+  `os_api`-zoned (published by kinotic-server, callable by the frontend via `@kinotic-ai/os-api`)
+  but operate on **entity data**, which now lives only in env clusters that kinotic-server cannot
+  reach. They don't touch OS config, so hosting them on the gateway would not violate the
+  no-OS-services invariant — but they'd need re-zoning out of `os_api` (e.g. into `app_api` with
+  organization-participant authorization, invoked over the frontend's per-environment connection)
+  or deferring. See open question 7 — do not silently leave them published-but-broken.
 
 ## Phase 6 — environment-scoped workloads
 
@@ -395,8 +426,12 @@ Follow the repo rule: behavioral tests through real infrastructure over mocked u
   reconciler against cluster B, assert the entity index exists only in B and `kinotic_*` domain
   indices only in A, then exercise `JsonEntitiesRepository` CRUD end-to-end.
 - **Gateway boot test**: start `KinoticApplicationGatewayApplication` (test profile), assert:
-  os_api CRIs are rejected by the authorizer for an application participant, app login routes
-  respond, org signup routes 404.
+  the `ServiceRegistry` contains **zero** registrations in `os_api`/`system` zones (the
+  no-OS-services invariant), os_api CRIs are rejected by the authorizer for an application
+  participant, app login routes respond, org signup routes 404.
+- **Zone allowlist guard**: a context that registers a bean with an out-of-allowlist `@Publish`
+  zone fails startup (drive through `ServiceRegistrationBeanPostProcessor` with a real context,
+  not a mock).
 - **JWT env binding**: token minted with `environmentId=development` rejected by a gateway
   configured as `production` (drive through the real `SecurityService.authenticate`).
 - **Existing e2e** (`compose.kinotic-e2e-test.yml`, `kinotic-js/workspace/packages/e2e-tests`):
@@ -418,6 +453,9 @@ Follow the repo rule: behavioral tests through real infrastructure over mocked u
 5. **Wiring kinotic-orchestrator into kinotic-server** (Phase 6) — intended now, or is the
    orchestrator's orphan status deliberate?
 6. **Customer app CORS/origins** at the gateway — per-application allowed-origins data?
+7. **`MigrationService` / `DataInsightsService`**: both are `os_api`-zoned but operate on entity
+   data that moves to the env clusters (see Phase 5). Re-home them on the gateway under an
+   org-participant-authorized surface, or defer the functionality for now?
 
 ## Guardrails for the implementer
 
