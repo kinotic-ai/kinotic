@@ -168,39 +168,42 @@ environments are platform infrastructure shared by all orgs.
 ## Phase 2 — split the ES client seam (no behavior change yet)
 
 Goal: make "which cluster" an explicit dependency while kinotic-server keeps today's behavior
-(both roles → same cluster) so this phase is a pure refactor.
+(both roles → same cluster) so this phase is a pure refactor. The mechanism is **two named
+`ElasticsearchAsyncClient` beans** (plus a `CrudServiceTemplate` per client) — no new abstraction.
 
 1. Demote `CrudServiceTemplate` from `@Component` to a plain class constructed per client.
-2. In `KinoticElasticsearchConfig`, build clients from a reusable factory method and expose named
-   beans:
+2. In `KinoticElasticsearchConfig`, extract the client construction into a reusable factory
+   method and expose the OS pair as `@Primary` named beans:
 
 ```java
 // kinotic-domain/.../internal/config/KinoticElasticsearchConfig.java  (target shape)
-@Bean @Primary
+@Bean(OS_ELASTIC_CLIENT) @Primary
 public ElasticsearchAsyncClient osElasticClient(JsonpMapper mapper) { ... }        // kinotic.domain.elastic-*
 
-@Bean @Primary
+@Bean(OS_CRUD_SERVICE_TEMPLATE) @Primary
 public CrudServiceTemplate osCrudServiceTemplate(ElasticsearchAsyncClient osElasticClient, ...) { ... }
 ```
 
    `@Primary` keeps every existing injection point (all OS repositories, `kinotic-github`,
-   secret storage, etc.) compiling and resolving to the OS cluster untouched.
-3. Introduce the entity-data-side abstraction in **kinotic-persistence**:
+   secret storage, etc.) compiling and resolving to the OS cluster untouched. Declare the bean
+   names as constants next to the config that defines them.
+3. Switch the entity-data path to qualified injection of a second pair,
+   `entityDataElasticClient` / `entityDataCrudServiceTemplate`:
 
 ```java
-// kinotic-persistence/.../api/services/EntityDataClients.java  (new)
-public interface EntityDataClients {
-    ElasticsearchAsyncClient client();
-    CrudServiceTemplate template();
-}
+// kinotic-persistence/.../internal/api/services/EntityServiceCache.java  (target shape)
+public EntityServiceCache(@Qualifier(ENTITY_DATA_CRUD_SERVICE_TEMPLATE) CrudServiceTemplate crudServiceTemplate,
+                          @Qualifier(ENTITY_DATA_ELASTIC_CLIENT) ElasticsearchAsyncClient esAsyncClient,
+                          ...)
 ```
 
-   Inject `EntityDataClients` (instead of the bare beans) into `EntityServiceCache`,
-   `DefaultEntityService` construction, `DefaultEntityDefinitionService`'s index-lifecycle calls,
-   and `PersistenceInitializer`'s health checks. In kinotic-server the default implementation
-   delegates to the OS client — identical behavior, one seam.
+   Same treatment for `DefaultEntityService` construction, `DefaultEntityDefinitionService`'s
+   index-lifecycle calls, and `PersistenceInitializer`'s health checks. The entity-data beans are
+   **supplied by the deployable**, not by kinotic-persistence: kinotic-server defines them as
+   aliases of the OS beans (identical behavior today); the gateway builds them from its own
+   connection properties (Phase 4).
 4. `EntityDefinitionRepository` / `NamedQueriesDefinitionRepository` are **metadata**, not entity
-   data — they stay on the OS template.
+   data — they stay on the OS (`@Primary`) template.
 
 Verify with a full `:kinotic-server:test` run; this phase must be invisible at runtime.
 
@@ -263,9 +266,10 @@ private String elasticUsername; private String elasticPassword;
 ```
 
 The OS cluster connection reuses the existing `kinotic.domain.elastic-*` properties (that's what
-all the domain repositories bind to). The gateway's `EntityDataClients` implementation builds the
-env-cluster client from `kinotic.applicationGateway.*` — this replaces the server's
-delegate-to-OS default from Phase 2.
+all the domain repositories bind to). The gateway defines the `entityDataElasticClient` /
+`entityDataCrudServiceTemplate` beans (Phase 2 qualifiers) from `kinotic.applicationGateway.*` —
+where kinotic-server aliases them to the OS beans, the gateway points them at its environment's
+cluster.
 
 Work items in this phase:
 
