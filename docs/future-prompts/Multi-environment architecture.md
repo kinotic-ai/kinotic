@@ -7,7 +7,7 @@ writing — re-verify with fresh inspection before acting on any of them (files 
 **STOP AT EVERY PHASE BOUNDARY.** When a phase is complete (implemented, tested, committed,
 pushed), report what was done and wait for Navid's explicit approval before starting the next
 phase. Do not begin any work belonging to a later phase while waiting — no "preparatory"
-refactors, no scaffolding. This applies between every pair of consecutive phases, 1 through 8.
+refactors, no scaffolding. This applies between every pair of consecutive phases, 1 through 9.
 
 ## Goal
 
@@ -48,8 +48,15 @@ One container image; the role decides what a process is.
 Design decisions baked into this plan (each has an "open questions" entry if Navid may want to
 override):
 
-- **Environments are platform-level (SYSTEM-scoped) entities**, a small fixed set operated by
-  Kinotic (`development`, `production`), stored in the OS cluster. Not per-organization.
+- **Environments are platform-level (SYSTEM-scoped) entities** (owner decision — confirmed, not
+  an open question): a fixed set operated by Kinotic (`development`, `production`), stored in the
+  OS cluster. They never belong to an organization.
+- **An application reaches an environment through an explicit Promotion** (owner decision), a
+  Kinotic-managed flow: sync the app's `EntityDefinition` ES mappings to the target env cluster,
+  deploy the application's artifacts to the target environment, and run predefined Git
+  branching/tagging actions on the app's project repos. Presence in an environment is therefore
+  a *record* written by promotion, not an implicit property of existing (see Phase 9). The
+  development environment is assumed to sync continuously on publish (open question).
 - **Event-bus topology: one Ignite/Vert.x cluster per environment**, separate from the
   kinotic-server cluster. Gateways of the same environment cluster together (so a UI on replica
   A reaches a microservice on replica B). Because each environment has its own bus, the existing
@@ -67,9 +74,11 @@ override):
 - **Entity definitions stay environment-agnostic** (one schema, data per environment). Entity
   index naming inside each env cluster is unchanged: `kinotic_<orgId>.<appId>.<entityName>` —
   the cluster itself is the environment namespace.
-- **Entity index creation moves to a gateway-side reconciler** (desired state = published
-  `EntityDefinition`s in the OS cluster; each gateway creates missing indices/templates in its
-  own cluster lazily + on startup).
+- **Entity index creation moves to a gateway-side reconciler**, driven by per-environment
+  **deployment records** in the OS cluster (written by promotion / dev auto-sync), *not* by the
+  raw set of published `EntityDefinition`s — a definition edited after promotion must not leak
+  into prod until the next promotion. Each gateway creates/updates indices and templates in its
+  own cluster to match its environment's records (lazily + on startup + periodic).
 - **kinotic-server stops serving the entity data plane.** `kinotic-frontend` browses entity data
   (data views) against the *selected environment's* gateway URL.
 - **Entity data is served over the STOMP/RPC path only** (`JsonEntitiesRepository` in `app_api`).
@@ -376,7 +385,7 @@ Work items in this phase:
    |---|---|---|
    | `JsonEntitiesRepository`, `AdminJsonEntitiesRepository`, `NamedQueriesService` (persistence) | `app_api` (explicit `@Zones`) | yes — the data plane |
    | `EntityDefinitionService`, `NamedQueriesDefinitionService`, `MigrationService` (persistence) | `os_api` (package-level `@Zones` in `api/services/package-info.java`) | no — `disableEntityDefinitionManagement` (role-derived) |
-   | `ApplicationService`, `ProjectService`, `MemberService`, `LogService`/`LogManager`, `DeviceApprovalService`, `InviteEmailTemplateService`, `KinoticClusterInfoService`, `EnvironmentService` (os-api) | `os_api` | no — `disableOsApi` (role-derived) gates the whole `KinoticOsApiLibrary` |
+   | `ApplicationService`, `ProjectService`, `MemberService`, `LogService`/`LogManager`, `DeviceApprovalService`, `InviteEmailTemplateService`, `KinoticClusterInfoService`, `EnvironmentService` (Phase 1), `PromotionService` (Phase 9) — all os-api | `os_api` | no — `disableOsApi` (role-derived) gates the whole `KinoticOsApiLibrary` |
    | `GitHubAppInstallationService`, `GitHubWebhookEventService`, `GitHubProjectRepoService` (github) | `os_api` | no — `disableGithub` (role-derived) |
    | `WorkloadOrchestrationService`, `VmNodeOrchestrationService` (orchestrator, once Phase 6 wires it in) | verify | no — verify the orchestrator library has (or add) the same `disable*` gate, driven by the role |
    | `DataInsightsService` | `os_api` (`insights/package-info.java`) | published nowhere — dropped from scope (see design decisions) |
@@ -392,27 +401,54 @@ Work items in this phase:
    bug allowing an `os_api` send, there is no `os_api` listener on the environment bus — the
    send has nothing to reach.
 
-## Phase 5 — entity index reconciler (gateway side)
+## Phase 5 — deployment records + entity index reconciler (gateway side)
 
-The OS cluster's `kinotic_entity_definition` index is the desired state; each gateway makes its
-own cluster match:
+Desired state per environment is a **deployment record**, not the raw definition set — this is
+what makes promotion (Phase 9) possible: prod's indices reflect the last *promoted* state, never
+a definition edit made after promotion.
 
-- On `EntityServiceCache` miss (already loads the `EntityDefinition` from the OS cluster via
-  `EntityDefinitionRepository`): before constructing the `DefaultEntityService`, ensure
-  `itemIndex` exists in the env cluster — reuse the exact create logic that Phase 3 lifted out of
-  `DefaultEntityDefinitionService` (mappings via `entityDefinitionConversionService`, data-stream
-  vs index decision by `isStream()`).
-- On startup + a periodic Vert.x timer: sweep published definitions, create missing indices, and handle definition **updates**
-  (mapping changes) the same way the current update path does. Deletions: remove index/template.
+New domain object in kinotic-domain (`kinotic_application_deployment` index + migration SQL):
+
+```java
+@Getter @Setter @Accessors(chain = true) @NoArgsConstructor
+public class ApplicationDeployment implements ApplicationScoped<String> {
+    private String id;                     // <organizationId>.<applicationId>.<environmentId>
+    private String organizationId;
+    private String applicationId;
+    private String environmentId;
+    private List<EntityDefinition> entityDefinitions;  // snapshot taken at deploy/promotion time
+    private DeploymentStatus status;       // enum: PENDING, SYNCING, ACTIVE, FAILED — new file
+    private Date created; private Date updated;
+}
+```
+
+Whether the record embeds full definition snapshots (shown) or references immutable definition
+versions is open question 8 — resolve it with Navid before implementing this phase.
+
+- **Dev auto-sync (assumed, open question)**: publishing an `EntityDefinition` upserts the
+  `development` deployment record for its application, so the dev env tracks publishes
+  continuously through the same mechanism promotion uses.
+- **Reconciler (gateway role)**: on startup + a periodic Vert.x timer, load this environment's
+  deployment records from the OS cluster and make the env cluster match — create missing
+  indices/templates, apply mapping updates, remove indices for withdrawn definitions. Reuse the
+  exact create logic Phase 3 lifted out of `DefaultEntityDefinitionService` (mappings via
+  `entityDefinitionConversionService`, data-stream vs index decision by `isStream()`).
+  `EntityServiceCache` also verifies-on-miss before constructing a `DefaultEntityService`, and
+  must serve entity RPCs from the **record's** definitions, not the live `kinotic_entity_definition`
+  docs, so wire schema and index mappings can't drift apart within an environment.
+- The reconciler reports per-record sync status back onto the deployment record (`status`,
+  plus error detail on failure) — the gateway already has scoped OS-cluster write access; add
+  this index to its ES role. Promotion (Phase 9) awaits this status.
 - Make creation idempotent and concurrency-safe across gateway replicas (ES create-index races
-  return `resource_already_exists_exception` — treat as success).
+  return `resource_already_exists_exception` — treat as success; last-writer-wins on status is
+  acceptable).
 - **Stranded os_api data service.** `MigrationService` is `os_api`-zoned (published by
   kinotic-server, callable by the frontend via `@kinotic-ai/os-api`) but operates on **entity
   data**, which now lives only in env clusters that kinotic-server cannot reach. It doesn't touch
   OS config, so hosting it on the gateway would not violate the no-OS-services invariant — but it
   would need re-zoning out of `os_api` (e.g. into `app_api` with organization-participant
   authorization, invoked over the frontend's per-environment connection) or deferring. See open
-  question 7 — do not silently leave it published-but-broken.
+  question 5 — do not silently leave it published-but-broken.
 
 ## Phase 6 — environment-scoped workloads
 
@@ -479,6 +515,57 @@ One image (`kinoticai/kinotic-server`) everywhere; the role/profile decides what
   GraphQL/OpenAPI/MCP HTTP endpoints describe dropped functionality — flag them to Navid (remove
   vs mark unsupported) rather than silently leaving them. Add an environments concept page.
 
+## Phase 9 — Promotion (Develop → Prod)
+
+A Kinotic-managed, predefined flow that moves an application into a target environment. Runs
+entirely in the `OS_SERVER` role (it needs kinotic-github, the orchestrator, and OS data — all
+OS-role modules). Builds on Phase 5 (deployment records/reconciler) and Phase 6 (env-scoped
+workloads).
+
+**Service surface**: `PromotionService` (`@Publish`, zone `os_api`) in kinotic-os-api —
+`promote(organizationId, applicationId, targetEnvironmentId)` returning progress the frontend
+can render, plus promotion history/status reads. Authorization: organization participants for
+their own applications (verify against the participant-check pattern in
+`DefaultApplicationService`).
+
+**Flow engine**: the Grind job framework in kinotic-orchestrator is the natural fit — a
+predefined multi-step flow with progress and diagnostics is exactly its shape:
+
+```java
+// kinotic-orchestrator/.../api/grind/JobService.java:18
+Flux<Result<?>> assemble(JobDefinition jobDefinition);   // Steps/Tasks with Progress + Diagnostic results
+```
+
+Verify it end-to-end before committing to it (it has `src/testx/` tests but has never run inside
+a deployable — Phase 6 wires the module in); if it proves unfit, a plain service method
+executing the steps sequentially is acceptable — do not build a *third* flow mechanism.
+
+**The predefined steps** (Kinotic-managed; not user-customizable in this iteration):
+
+1. **Git actions** — branch/tag each of the application's project repos per the predefined
+   promotion convention (e.g. tag the promoted commit, cut/advance a release branch — exact
+   convention from Navid at implementation time). Uses kinotic-github
+   (`GitHubProjectRepoService` / the GitHub client it wraps); `Project` already carries
+   `repoFullName`/`repoDefaultBranch`.
+2. **Definition sync** — snapshot the application's current `EntityDefinition`s into the target
+   environment's `ApplicationDeployment` record (Phase 5). The target gateway's reconciler
+   applies the mappings; the job awaits the record's `status` turning `ACTIVE` (or surfaces the
+   failure detail). No direct OS-server → env-cluster ES connection is ever needed.
+3. **Artifact deployment** — create/update the application's `Workload`s with
+   `environmentId = target` from the promoted artifacts, via `WorkloadOrchestrationService`
+   (Phase 6). What an "artifact" is (image reference, who built it, where it's recorded) is
+   open question 10 — pin it down before this phase.
+4. **Record + report** — promotion history persisted (who, when, what versions, outcome), and
+   the deployment record is the durable statement of what's live in the environment.
+
+**Ordering/rollback**: steps are sequential with fail-fast; a failed promotion leaves the
+previous deployment record intact (snapshot-swap, not in-place edit) so the environment keeps
+serving the last good state. Rollback = re-promote a previous snapshot; don't build a separate
+rollback mechanism.
+
+**Frontend**: promotion trigger + progress/history UI (extends the Phase 7 environment
+selector); regenerate `@kinotic-ai/os-api` for `PromotionService`.
+
 ## Testing strategy
 
 Follow the repo rule: behavioral tests through real infrastructure over mocked units.
@@ -497,28 +584,52 @@ Follow the repo rule: behavioral tests through real infrastructure over mocked u
   mock).
 - **JWT env binding**: token minted with `environmentId=development` rejected by a gateway
   configured as `production` (drive through the real `SecurityService.authenticate`).
+- **Promotion end-to-end** (two ES containers, OS role + gateway role processes): publish a
+  definition (dev auto-sync creates indices in the dev cluster), promote to `production`, assert
+  the prod cluster gains the promoted mappings and the deployment record goes `ACTIVE`; then
+  edit the definition *without* promoting and assert the prod cluster is untouched — that last
+  assertion is the whole point of deployment records. Git steps against a test repo or stubbed
+  at the GitHub client boundary (the flow logic, not GitHub, is under test).
 - **Existing e2e** (`compose.kinotic-e2e-test.yml`, `kinotic-js/workspace/packages/e2e-tests`):
   extend the compose topology; the JS SDK tests should pass unmodified against a gateway — that
   is the wire-compat check.
 
+## Decided (owner answers — no longer open)
+
+- Environments are a system-level construct with a fixed, Kinotic-operated set — never
+  per-organization.
+- An application reaches an environment via explicit Promotion (Phase 9): definition-mapping
+  sync to the target env cluster, artifact deployment, and predefined Git branching/tagging.
+- Single binary with roles (Phase 4); GraphQL/OpenAPI/MCP and Data Insights dropped as dormant
+  reference code.
+
 ## Open questions for Navid (answer before/at handoff)
 
-1. **Environment set**: platform-global fixed set (assumed here) vs per-organization custom
-   environments? Per-org changes `Environment` to `OrganizationScoped` and multiplies clusters.
-2. **App ↔ environment enablement**: is every application implicitly present in every
-   environment (assumed), or is there an explicit "deploy app X to env Y" record?
-3. **App end-users per environment?** Assumed shared (`IamUser` unchanged; env binding only via
+1. **App end-users per environment?** Assumed shared (`IamUser` unchanged; env binding only via
    the JWT claim from whichever gateway they logged into). If dev/prod user separation is wanted,
    `IamUser` needs an `environmentId` and the login handlers need env context.
-4. **Frontend data browsing via env gateway** (assumed) vs kinotic-server holding connections to
+2. **Frontend data browsing via env gateway** (assumed) vs kinotic-server holding connections to
    every env cluster. The latter avoids the dual-connection frontend work but couples the OS
    server to every environment's ES.
-5. **Wiring kinotic-orchestrator into kinotic-server** (Phase 6) — intended now, or is the
-   orchestrator's orphan status deliberate?
-6. **Customer app CORS/origins** at the gateway — per-application allowed-origins data?
-7. **`MigrationService`**: `os_api`-zoned but operates on entity data that moves to the env
+3. **Wiring kinotic-orchestrator into kinotic-server** (Phase 6) — intended now, or is the
+   orchestrator's orphan status deliberate? (Phase 9 assumes it: both the Grind flow engine and
+   `WorkloadOrchestrationService` live there.)
+4. **Customer app CORS/origins** at the gateway — per-application allowed-origins data?
+5. **`MigrationService`**: `os_api`-zoned but operates on entity data that moves to the env
    clusters (see Phase 5). Re-home it on the gateway under an org-participant-authorized
    surface, or defer the functionality for now?
+6. **Dev auto-sync**: does publishing an `EntityDefinition` auto-update the `development`
+   environment (assumed in Phase 5), or does even dev require an explicit deploy action?
+7. **Promotion path**: is the flow strictly `development → production`, or is the environment
+   ordering something the `Environment` model must express (a field/sequence) once more
+   environments exist? With a fixed set, the flow can start as a constant.
+8. **Definition snapshot semantics** (Phase 5): does the `ApplicationDeployment` record embed
+   full `EntityDefinition` snapshots (assumed — simple, immutable) or reference versioned
+   definitions (requires definition versioning that doesn't exist today)?
+9. **Git promotion convention** (Phase 9): the exact branch/tag actions per promotion (tag name
+   scheme, release branch policy, which commit is promoted).
+10. **What is an application artifact** (Phase 9): image reference on `Workload`? Built by what
+    (kinotic-github CI? external)? Where is the promotable artifact version recorded?
 
 ## Guardrails for the implementer
 
