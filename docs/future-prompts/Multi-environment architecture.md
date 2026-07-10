@@ -74,11 +74,19 @@ override):
 - **Entity definitions stay environment-agnostic** (one schema, data per environment). Entity
   index naming inside each env cluster is unchanged: `kinotic_<orgId>.<appId>.<entityName>` —
   the cluster itself is the environment namespace.
-- **Entity index creation moves to a gateway-side reconciler**, driven by per-environment
-  **deployment records** in the OS cluster (written by promotion / dev auto-sync), *not* by the
-  raw set of published `EntityDefinition`s — a definition edited after promotion must not leak
-  into prod until the next promotion. Each gateway creates/updates indices and templates in its
-  own cluster to match its environment's records (lazily + on startup + periodic).
+- **ES index/mapping lifecycle is performed by the OS server directly, per environment** (owner
+  decision). The OS server holds one **admin-scoped** ES client per environment, used only
+  during promotion and dev auto-sync to create/update indices, templates, and mappings. Least
+  privilege via ES security roles — each env cluster has two users: the gateway's data user
+  (document CRUD on entity indices, no index management) and the OS server's admin user
+  (index/template/mapping management, **no document read or write**) — so the OS server can
+  shape env clusters but can never touch customer data. What is applied is recorded in
+  per-environment **deployment records** (written by promotion / dev auto-sync), *not* inferred
+  from the raw set of published `EntityDefinition`s — a definition edited after promotion must
+  not leak into prod until the next promotion, and gateways serve entity RPCs from the record's
+  snapshot. (The alternative — a gateway-side reconciler pulling desired state, keeping the OS
+  server off env clusters entirely — was considered and rejected as more moving parts for
+  little gain given the fixed, Kinotic-operated environment set.)
 - **kinotic-server stops serving the entity data plane.** `kinotic-frontend` browses entity data
   (data views) against the *selected environment's* gateway URL.
 - **Entity data is served over the STOMP/RPC path only** (`JsonEntitiesRepository` in `app_api`).
@@ -294,8 +302,9 @@ In this phase both default ON — **no behavior change**; the role mechanism (Ph
 setting them. Important nuance: **publishing an EntityDefinition no longer creates indices** on
 the definition-management side — `DefaultEntityDefinitionService.validateAndCreate` keeps
 computing/persisting `itemIndex` but the `createIndex`/`createIndexTemplate`/`createDataStream`
-calls move behind the data-plane half (Phase 5 reconciler). Deletion likewise: the OS side
-marks/deletes the definition; gateways reconcile index removal.
+calls move into the Phase 5 mapping-sync service, which applies them per target environment.
+Deletion likewise: deleting/withdrawing a definition takes effect in an env cluster through the
+same sync path.
 
 ## Phase 4 — the `APPLICATION_GATEWAY` role (single binary, Spring profiles)
 
@@ -401,11 +410,12 @@ Work items in this phase:
    bug allowing an `os_api` send, there is no `os_api` listener on the environment bus — the
    send has nothing to reach.
 
-## Phase 5 — deployment records + entity index reconciler (gateway side)
+## Phase 5 — deployment records + per-environment mapping sync (OS side)
 
 Desired state per environment is a **deployment record**, not the raw definition set — this is
 what makes promotion (Phase 9) possible: prod's indices reflect the last *promoted* state, never
-a definition edit made after promotion.
+a definition edit made after promotion. The OS server applies that state to env clusters
+directly, synchronously, through admin-scoped clients.
 
 New domain object in kinotic-domain (`kinotic_application_deployment` index + migration SQL):
 
@@ -425,23 +435,32 @@ public class ApplicationDeployment implements ApplicationScoped<String> {
 Whether the record embeds full definition snapshots (shown) or references immutable definition
 versions is open question 8 — resolve it with Navid before implementing this phase.
 
+- **Per-environment admin clients (OS role only).** Properties map the fixed environment set to
+  cluster connections — `kinotic.environmentClusters.<envId>.{elastic-connections, username,
+  password}` — and a bean (e.g. `EnvironmentClusterClients`, `Map<String, CrudServiceTemplate>`
+  built with the Phase 2 factory method) exposes one admin client per environment. Gated to the
+  `OS_SERVER` role. A publish/promotion targeting an environment with no configured cluster
+  fails fast with a clear message.
+- **Mapping sync service (OS role).** The index/template/create/update logic Phase 3 lifted out
+  of `DefaultEntityDefinitionService` (mappings via `entityDefinitionConversionService`,
+  data-stream vs index decision by `isStream()`) becomes a service invoked with a *target
+  environment's* template: apply a deployment record's definitions to that env cluster —
+  create missing indices/templates, update mappings, remove indices for withdrawn definitions.
+  Idempotent (ES create-index races return `resource_already_exists_exception` — treat as
+  success); errors surface synchronously to the caller (publish flow or promotion job), which
+  sets the record `status`.
 - **Dev auto-sync (assumed, open question)**: publishing an `EntityDefinition` upserts the
-  `development` deployment record for its application, so the dev env tracks publishes
-  continuously through the same mechanism promotion uses.
-- **Reconciler (gateway role)**: on startup + a periodic Vert.x timer, load this environment's
-  deployment records from the OS cluster and make the env cluster match — create missing
-  indices/templates, apply mapping updates, remove indices for withdrawn definitions. Reuse the
-  exact create logic Phase 3 lifted out of `DefaultEntityDefinitionService` (mappings via
-  `entityDefinitionConversionService`, data-stream vs index decision by `isStream()`).
-  `EntityServiceCache` also verifies-on-miss before constructing a `DefaultEntityService`, and
-  must serve entity RPCs from the **record's** definitions, not the live `kinotic_entity_definition`
-  docs, so wire schema and index mappings can't drift apart within an environment.
-- The reconciler reports per-record sync status back onto the deployment record (`status`,
-  plus error detail on failure) — the gateway already has scoped OS-cluster write access; add
-  this index to its ES role. Promotion (Phase 9) awaits this status.
-- Make creation idempotent and concurrency-safe across gateway replicas (ES create-index races
-  return `resource_already_exists_exception` — treat as success; last-writer-wins on status is
-  acceptable).
+  `development` deployment record for its application and applies the mappings to the dev
+  cluster in the same operation — dev goes through the same record + sync path promotion uses,
+  just triggered by publish.
+- **Gateway side**: `EntityServiceCache` serves entity RPCs from its environment's **deployment
+  record** definitions, not the live `kinotic_entity_definition` docs — wire schema and index
+  mappings must come from the same snapshot or they drift within an environment. A cache miss
+  with no deployment record (or a missing index) is an error to surface, not something the
+  gateway repairs — the OS server owns index lifecycle; gateways never create indices.
+- **ES least privilege** (per env cluster): gateway data user — document CRUD on entity
+  indices, no index management; OS admin user — index/template/mapping management, no document
+  read/write. Wire these as distinct users in the ECK/compose setups (Phase 8).
 - **Stranded os_api data service.** `MigrationService` is `os_api`-zoned (published by
   kinotic-server, callable by the frontend via `@kinotic-ai/os-api`) but operates on **entity
   data**, which now lives only in env clusters that kinotic-server cannot reach. It doesn't touch
@@ -500,8 +519,10 @@ One image (`kinoticai/kinotic-server`) everywhere; the role/profile decides what
 - **Helm**: parameterize the existing `deployment/helm/kinotic` chart by role (profile +
   `KINOTIC_APPLICATIONGATEWAY_*` env vars for gateway releases) rather than cloning a second
   chart — one gateway release per environment via values overlays. One eck-stack release per
-  environment. NetworkPolicy: env ES reachable only from its gateway namespace, OS ES reachable
-  from kinotic + gateway namespaces.
+  environment. NetworkPolicy: env ES reachable from its gateway namespace (data user) and the
+  kinotic namespace (OS admin user, index-management-only ES role); OS ES reachable from kinotic
+  + gateway namespaces. Provision the two distinct ES users per env cluster (Phase 5 least
+  privilege) in the ECK/compose setups.
 - **Cutover**: flip the `OS_SERVER` role mapping to `disableEntityDataPlane=true` and drop
   `app_api` from its zone allowlist (the one-line code changes flagged in Phase 4), once the
   frontend (Phase 7) talks to gateways for entity data. From here the OS bus carries no entity
@@ -519,7 +540,7 @@ One image (`kinoticai/kinotic-server`) everywhere; the role/profile decides what
 
 A Kinotic-managed, predefined flow that moves an application into a target environment. Runs
 entirely in the `OS_SERVER` role (it needs kinotic-github, the orchestrator, and OS data — all
-OS-role modules). Builds on Phase 5 (deployment records/reconciler) and Phase 6 (env-scoped
+OS-role modules). Builds on Phase 5 (deployment records + mapping sync) and Phase 6 (env-scoped
 workloads).
 
 **Service surface**: `PromotionService` (`@Publish`, zone `os_api`) in kinotic-os-api —
@@ -548,9 +569,10 @@ executing the steps sequentially is acceptable — do not build a *third* flow m
    (`GitHubProjectRepoService` / the GitHub client it wraps); `Project` already carries
    `repoFullName`/`repoDefaultBranch`.
 2. **Definition sync** — snapshot the application's current `EntityDefinition`s into the target
-   environment's `ApplicationDeployment` record (Phase 5). The target gateway's reconciler
-   applies the mappings; the job awaits the record's `status` turning `ACTIVE` (or surfaces the
-   failure detail). No direct OS-server → env-cluster ES connection is ever needed.
+   environment's `ApplicationDeployment` record and apply the mappings to the target env
+   cluster via the Phase 5 mapping-sync service (the env's admin-scoped client). Synchronous:
+   mapping conflicts and cluster errors fail this step directly with the ES error detail, and
+   the step sets the record `status` (`ACTIVE` on success, `FAILED` with detail otherwise).
 3. **Artifact deployment** — create/update the application's `Workload`s with
    `environmentId = target` from the promoted artifacts, via `WorkloadOrchestrationService`
    (Phase 6). What an "artifact" is (image reference, who built it, where it's recorded) is
@@ -571,9 +593,10 @@ selector); regenerate `@kinotic-ai/os-api` for `PromotionService`.
 Follow the repo rule: behavioral tests through real infrastructure over mocked units.
 
 - **Two-cluster integration test** (Testcontainers, two ES containers): publish an
-  `EntityDefinition` via the definition-management path against cluster A, run the data plane +
-  reconciler against cluster B, assert the entity index exists only in B and `kinotic_*` domain
-  indices only in A, then exercise `JsonEntitiesRepository` CRUD end-to-end.
+  `EntityDefinition` via the definition-management path against OS cluster A with the
+  environment cluster B configured in `kinotic.environmentClusters`; assert the mapping-sync
+  service creates the entity index only in B and `kinotic_*` domain indices exist only in A,
+  then exercise `JsonEntitiesRepository` CRUD (data plane pointed at B) end-to-end.
 - **Gateway-role boot test**: start `KinoticServerApplication` with the `app-gateway` profile,
   assert: the `ServiceRegistry` contains **zero** registrations in `os_api`/`system` zones (the
   no-OS-services invariant), os_api CRIs are rejected by the authorizer for an application
