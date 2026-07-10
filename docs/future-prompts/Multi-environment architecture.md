@@ -4,6 +4,11 @@ This is a phased implementation plan. Each phase compiles and passes tests on it
 reasonable PR boundary. Current-state claims below were verified against the tree at the time of
 writing — re-verify with fresh inspection before acting on any of them (files move).
 
+**STOP AT EVERY PHASE BOUNDARY.** When a phase is complete (implemented, tested, committed,
+pushed), report what was done and wait for Navid's explicit approval before starting the next
+phase. Do not begin any work belonging to a later phase while waiting — no "preparatory"
+refactors, no scaffolding. This applies between every pair of consecutive phases, 1 through 8.
+
 ## Goal
 
 Support multiple runtime environments (e.g. `development`, `production`) for customer
@@ -468,6 +473,10 @@ Follow the repo rule: behavioral tests through real infrastructure over mocked u
 
 ## Guardrails for the implementer
 
+- **One phase per approval.** Finish the phase, report, and wait for Navid's go-ahead before
+  touching the next one (see the stop rule at the top of this document). If a phase turns out to
+  need something from a later phase, stop and raise it — don't pull the later work forward on
+  your own.
 - Re-verify every `path:line` anchor in this plan before editing; don't trust the plan over the
   tree.
 - CLAUDE.md rules apply in full: Lombok, enums over string constants, `api/` vs `internal/`
