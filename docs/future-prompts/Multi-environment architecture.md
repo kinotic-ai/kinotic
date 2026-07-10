@@ -364,8 +364,8 @@ flags. The profile YAML selects property values; the properties gate behavior.
 |---|---|---|
 | `kinotic.disableOsApi` (includes definition management after Phase 3) | false | **true** |
 | `kinotic.disableGithub` | false | **true** |
-| `kinotic.disablePersistence` (= the data plane after Phase 3) | false *(flips to true at the Phase 8 cutover)* | false |
-| `kinotic.zones` (publish guard ∩ authorizer) | `os-api`, `system` (+ `app-api` until the Phase 8 cutover) | `app-api`, `app` |
+| `kinotic.disablePersistence` (= the data plane after Phase 3) | false *(flips to true at the cloud cutover — companion plan)* | false |
+| `kinotic.zones` (publish guard ∩ authorizer) | `os-api`, `system` (+ `app-api` until the cloud cutover — companion plan) | `app-api`, `app` |
 
 ```yaml
 # kinotic-server/src/main/resources/application-app-gateway.yml  (new profile — flags, allowlist,
@@ -545,7 +545,8 @@ versions is open question 8 — resolve it with Navid before implementing this p
   gateway repairs — the OS server owns index lifecycle; gateways never create indices.
 - **ES least privilege** (per env cluster): gateway data user — document CRUD on entity
   indices, no index management; OS admin user — index/template/mapping management, no document
-  read/write. Wire these as distinct users in the ECK/compose setups (Phase 8).
+  read/write. Wire these as distinct users in the cloud ES clusters (companion cloud-deployment
+  plan); the local single-ES compose does not need them.
 - **Stranded os-api data service.** `MigrationService` is `os-api`-zoned (published by
   kinotic-server, callable by the frontend via `@kinotic-ai/os-api`) but operates on **entity
   data**, which now lives only in env clusters that kinotic-server cannot reach. It doesn't touch
@@ -593,37 +594,33 @@ versions is open question 8 — resolve it with Navid before implementing this p
 - `@kinotic-ai/persistence` itself is unchanged (same `app-api` zone, same service CRI) — it just
   gets pointed at a gateway instead of kinotic-server.
 
-## Phase 8 — deployment, cutover, local dev + docs
+## Phase 8 — local compose, local dev + docs
 
-One image (`kinoticai/kinotic-server`) everywhere; the active profile decides what a container is.
+Local is deliberately simple: **only the `development` environment exists locally, and one
+kinotic-server runs everything.** The cloud deployment (per-env clusters, gateway releases,
+Terraform, and the cutover) is captured in the companion plan
+`docs/future-prompts/Multi-environment cloud deployment.md` — it is blocked on infra budget and
+is NOT part of this plan's phases.
 
-- **Compose** (`deployment/docker-compose/`): second ES service (env cluster) +
-  `compose.kinotic-app-gateway.yml` running the *same* kinotic-server image with
-  `SPRING_PROFILES_ACTIVE` including `app-gateway` (env=`development`, distinct STOMP/HTTP
-  ports). `compose.yml` wires: OS ES + env ES + migration + kinotic-server + one gateway.
-- **Helm/Terraform**: parameterize the existing `deployment/helm/kinotic` chart by profile
-  (profile + `KINOTIC_APPLICATIONGATEWAY_*` env vars for gateway releases) rather than cloning a
-  second chart — one gateway release per environment via values overlays. One eck-stack release
-  per environment. **Ignite bus isolation happens here, not in app config**: each release gets
-  its own Ignite discovery Service (the chart already templates one — `kinotic.cluster.*`
-  values), and Terraform places prod on a dedicated node pool or a separate k8s cluster;
-  membership is whatever each discovery Service selects. NetworkPolicy: env ES reachable from
-  its gateway namespace (data user) and the kinotic namespace (OS admin user,
-  index-management-only ES role); OS ES reachable from kinotic + gateway namespaces. Provision
-  the two distinct ES users per env cluster (Phase 5 least privilege) in the ECK/compose
-  setups.
-- **Cutover**: set `disablePersistence: true` and drop `app-api` from `kinotic.zones`
-  in `application-os-server.yml` (flagged in Phase 4), once the frontend
-  (Phase 7) talks to gateways for entity data. From here the OS bus carries no entity data
-  plane.
-- **Local dev without containers**: document running the same app twice from the IDE —
-  `KinoticServerApplication` with the default (OS) profile and again with `app-gateway` — against
-  one local ES playing both roles (both connection property sets default to `localhost:9200`).
-  That keeps a one-ES laptop workflow.
-- **Docs**: `website/content/**` — grep for `app-api`, `58503`, login routes, and anything
-  describing "the server" as the single endpoint; reconcile every hit. Any pages advertising the
-  GraphQL/OpenAPI/MCP HTTP endpoints describe dropped functionality — flag them to Navid (remove
-  vs mark unsupported) rather than silently leaving them. Add an environments concept page.
+- **Compose** (`deployment/docker-compose/`): stays single-ES, single-server. The one
+  kinotic-server runs with **no deployment profile** — the base defaults (all modules enabled,
+  `kinotic.zones` unset = unrestricted) *are* the all-in-one shape. The only addition:
+  `kinotic.environmentClusters.development` points at the same local ES, so dev auto-sync and
+  the deployment-record path work locally against one cluster playing both roles.
+- **Local dev without containers**: same picture from the IDE — one `KinoticServerApplication`,
+  no deployment profile, one local ES at `localhost:9200` serving as both OS and dev-env
+  cluster (both connection property sets default there). Running a second process with the
+  `app-gateway` profile is possible for gateway-specific work but is not the daily workflow.
+- **Docs**: `website/content/**` — grep for `app-api`, `58503`, login routes, and
+  anything describing "the server" as the single endpoint; reconcile every hit. Any pages
+  advertising the GraphQL/OpenAPI/MCP HTTP endpoints describe dropped functionality — flag them
+  to Navid (remove vs mark unsupported) rather than silently leaving them. Add an environments
+  concept page.
+
+The `application-os-server.yml` / `application-app-gateway.yml` profiles built in Phase 4 are
+exercised locally only by tests (the gateway boot test, the two-cluster and promotion
+integration tests run on Testcontainers, not compose) until the cloud deployment activates
+them.
 
 ## Phase 9 — Promotion (Develop → Prod)
 
@@ -702,8 +699,10 @@ Follow the repo rule: behavioral tests through real infrastructure over mocked u
   assertion is the whole point of deployment records. Git steps against a test repo or stubbed
   at the GitHub client boundary (the flow logic, not GitHub, is under test).
 - **Existing e2e** (`compose.kinotic-e2e-test.yml`, `kinotic-js/workspace/packages/e2e-tests`):
-  extend the compose topology; the JS SDK tests should pass unmodified against a gateway — that
-  is the wire-compat check.
+  the compose topology stays all-in-one (Phase 8), so the suite must keep passing unmodified
+  throughout — that is the wire-compat check for every phase. JS-SDK-against-a-gateway coverage
+  comes from a Testcontainers-based run of the gateway profile (or waits for the cloud
+  deployment) — don't add a second compose stack for it.
 
 ## Decided (owner answers — no longer open)
 
