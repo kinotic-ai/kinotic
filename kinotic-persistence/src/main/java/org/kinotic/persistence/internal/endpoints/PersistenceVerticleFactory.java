@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
  * Creates all necessary verticles at runtime so multiple instances can be used
  * Created By navidmitchell 🤯on 3/6/24
  */
-@Component
 @RequiredArgsConstructor
 public class PersistenceVerticleFactory {
 

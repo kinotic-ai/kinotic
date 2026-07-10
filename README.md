@@ -45,8 +45,7 @@ A centralized registry providing a source of truth for all services within an ap
 * RBAC policies required for access.
 * Metadata for AI-agent discovery and documentation.
 
-### **3. Security & Identity (Powered by Cedar)**
-We use the **Cedar Policy Language** for fine-grained, high-performance authorization across three hierarchies:
+### **3. Security & Identity **
 * **System Level:** For Kinotic OS administrators.
 * **Organization Level:** For development teams.
 * **Application Level:** For end-users and machine-to-machine connections.
@@ -92,9 +91,7 @@ Kinotic OS isn't just a development platform; it is a **SaaS Launchpad**. Develo
 ## 💻 Technical Stack
 
 * **Orchestration:** Kinotic OS / Kubernetes
-* **Policy Engine:** [Cedar](https://www.cedarpolicy.com/)
-* **Runtimes:** Firecracker VM, Bun
-* **Database:** Postgres (Hibernate Reactive)
+* **Runtimes:** Firecracker VM, Boxlite, Bun
 * **Logging:** Grafana Loki
 * **Payments:** Stripe Connect
 

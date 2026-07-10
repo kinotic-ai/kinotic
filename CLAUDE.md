@@ -2,7 +2,7 @@
 
 ## Building in Claude Code Cloud
 
-The cloud environment has JDK 21 installed but the project requires JDK 25. Download it first if not already present (Oracle CDN is in the egress allowlist):
+The cloud environment has JDK 21 installed, but the project requires JDK 25. Download it first if not already present (Oracle CDN is in the egress allowlist):
 
 ```bash
 curl -sL "https://download.oracle.com/java/25/latest/jdk-25_linux-x64_bin.tar.gz" -o /tmp/jdk25.tar.gz
