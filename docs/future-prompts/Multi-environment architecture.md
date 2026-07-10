@@ -125,7 +125,7 @@ override):
 - **No OS service *bean* exists in a gateway process — absence, not just authorization.**
   Service publication is bean-driven (`ServiceRegistrationBeanPostProcessor` registers every
   Spring bean implementing a `@Publish` interface), so a bean the role gates keep out of the
-  context cannot be invoked no matter what the authorizer does. The per-profile gates + the
+  context cannot be invoked no matter what the authorizer does. The `kinotic.disable*` gates + the
   Phase 3 split achieve this (see Phase 4 for the inventory and the startup allowlist that makes
   it a hard invariant instead of an emergent property), and the guards that don't depend on the
   process at all remain underneath: separate env bus (no `os-api` listener to reach), the
@@ -350,6 +350,11 @@ No new Gradle module, and **no role concept in code**. The entire per-deployment
 lives in two Spring profiles in `kinotic-server/src/main/resources`; everything they set is an
 ordinary property, visible and greppable in one file per deployment shape.
 
+**Repo convention (binding):** Spring profiles are *property bundles only* — never gate a bean
+on `@Profile` except in test contexts; it's hard to audit. Every bean/module gate is an explicit
+`kinotic.*` property read by `@ConditionalOnProperty`, exactly like the existing `disable*`
+flags. The profile YAML selects property values; the properties gate behavior.
+
 | profile sets | `application-os-server.yml` | `application-app-gateway.yml` |
 |---|---|---|
 | `kinotic.disableOsApi` (includes definition management after Phase 3) | false | **true** |
@@ -451,7 +456,7 @@ Work items in this phase:
    disabled (`WebServerProperties`); the SPA files remain in the jar — accepted single-image
    trade-off — but are never served.
 7. **No OS services published — verified inventory + startup guard.** Everything is on the
-   classpath in a single binary, so what matters is which *beans* the profile admits. The full
+   classpath in a single binary, so what matters is which *beans* the disable props admit. The full
    `@Publish` inventory and its fate in a gateway process:
 
    | Service | Zone | In a gateway process? |
