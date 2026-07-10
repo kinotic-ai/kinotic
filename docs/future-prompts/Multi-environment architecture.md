@@ -1,8 +1,10 @@
 # Multi-environment support for Kinotic Applications
 
 This is a phased implementation plan. Each phase compiles and passes tests on its own and is a
-reasonable PR boundary. Current-state claims below were verified against the tree at the time of
-writing — re-verify with fresh inspection before acting on any of them (files move).
+reasonable PR boundary. Current-state claims below were verified against `develop` at `d2487ff`
+("Update Application e2e tests for dash-slugified ids", 2026-07) — re-verify with fresh
+inspection before acting on any of them (files move; the zone model was reworked once already:
+single `@Zone`, dash names).
 
 **STOP AT EVERY PHASE BOUNDARY.** When a phase is complete (implemented, tested, committed,
 pushed), report what was done and wait for Navid's explicit approval before starting the next
@@ -30,7 +32,7 @@ applications:
 ```
                         ┌────────────────────────────────────────────┐
  kinotic-frontend ────► │ kinotic-server, role OS_SERVER              │──► OS ES cluster
- kinotic-cli      ────► │ (Ignite cluster "os"): os_api/system zones, │    (kinotic_* domain
+ kinotic-cli      ────► │ (Ignite cluster "os"): os-api/system zones, │    (kinotic_* domain
  VmManagers (STOMP)───► │ OIDC login, GitHub, orchestrator,           │     indices)
                         │ entity-definition mgmt                      │
                         └────────────────────────────────────────────┘
@@ -38,7 +40,7 @@ applications:
  customer UI  ─────────► ┌──────────────────────────────────────────┴─┐
  customer microservices─►│ kinotic-server, role APPLICATION_GATEWAY   │──► env ES cluster
  (STOMP, per env)        │ (per env, Ignite cluster "env-<id>"):      │    (entity data only)
-                         │ app login, app.<org>.<app> + app_api       │
+                         │ app login, app.<org>.<app> + app-api       │
                          │ zones, entity data plane (RPC over STOMP)  │
                          └────────────────────────────────────────────┘
 
@@ -60,9 +62,9 @@ override):
 - **Event-bus topology: one Ignite/Vert.x cluster per environment**, separate from the
   kinotic-server cluster. Gateways of the same environment cluster together (so a UI on replica
   A reaches a microservice on replica B). Because each environment has its own bus, the existing
-  zone grammar (`app.<orgId>.<appId>`, `app_api`) is unchanged — no collisions between a dev and
-  prod instance of the same app, and `@kinotic-ai/persistence`'s hardcoded `app_api` CRI keeps
-  working.
+  zone grammar (`app.<orgId>.<appId>`, `app-api`) is unchanged — no collisions between a dev and
+  prod instance of the same app, and the `APP_API_ZONE` CRIs built by `@kinotic-ai/persistence`
+  keep working.
 - **VmManagers stay on the kinotic-server bus** (they are platform infrastructure, connected via
   `@kinotic-ai/core` STOMP). Customer microservices running *inside* the VMs connect to their
   environment's gateway. This keeps `WorkloadOrchestrationService` → `VmManagerProxy` routing
@@ -89,7 +91,7 @@ override):
   little gain given the fixed, Kinotic-operated environment set.)
 - **kinotic-server stops serving the entity data plane.** `kinotic-frontend` browses entity data
   (data views) against the *selected environment's* gateway URL.
-- **Entity data is served over the STOMP/RPC path only** (`JsonEntitiesRepository` in `app_api`).
+- **Entity data is served over the STOMP/RPC path only** (`JsonEntitiesRepository` in `app-api`).
   The GraphQL/OpenAPI/MCP HTTP surfaces are dropped from scope: the code under
   `kinotic-persistence/.../internal/endpoints/` is deliberately dormant (nothing calls
   `PersistenceVerticleFactory`) and is kept for reference — leave it unwired and undeleted.
@@ -113,7 +115,7 @@ override):
   context cannot be invoked no matter what the authorizer does. The role-derived gates + the
   Phase 3 split achieve this (see Phase 4 for the inventory and the startup allowlist that makes
   it a hard invariant instead of an emergent property), and the guards that don't depend on the
-  process at all remain underneath: separate env bus (no `os_api` listener to reach), the
+  process at all remain underneath: separate env bus (no `os-api` listener to reach), the
   `StompAuthorizer` policy, and OS-cluster ES credentials that physically cannot write OS config
   indices.
 
@@ -164,8 +166,14 @@ entityDefinition.setItemIndex(this.persistenceProperties.getIndexPrefix() + logi
 // PersistenceProperties.indexPrefix = "kinotic_" (final)
 ```
 
-**Zones** (`kinotic-domain/.../internal/utils/DomainUtil.java:35-51`): `os_api`, `app_api`,
-`system`, `APP_ZONE_PREFIX="app"` → `app.<orgId>.<appId>`. Per-connection enforcement in
+**Zones** (`kinotic-domain/.../internal/utils/DomainUtil.java`, constants near the top): `os-api`,
+`app-api`, `system`, `APP_ZONE_PREFIX="app"` → `app.<orgId>.<appId>`. Names use **dashes**, not
+underscores (CRIs are valid URIs by convention; ids are dash-slugified). A service declares
+**exactly one zone** via `@Zone` (`kinotic-core/.../api/annotations/Zone.java`) on the type or its
+`package-info.java` — type-level overrides package-level, and **no declaration means the service
+registers at an un-zoned address**. The JS side mirrors the constants in
+`@kinotic-ai/os-api`'s `PlatformZones.ts` (re-exporting `APP_API_ZONE` from
+`@kinotic-ai/persistence`). Per-connection enforcement in
 `kinotic-api-gateway/.../internal/endpoints/stomp/StompAuthorizerFactory.java` keyed on participant
 type (`SystemParticipant` / `OrganizationParticipant` / `ApplicationParticipant`).
 
@@ -226,7 +234,7 @@ environments are platform infrastructure shared by all orgs.
   `kinotic-migration/src/main/resources/migrations/V<next>__environment.sql` (mirror the columns
   from the model; follow `V1__init.sql` style).
 - Publish CRUD in **kinotic-os-api** (next to `ApplicationService`):
-  `api/services/EnvironmentService` (`@Publish`, `@Version`, zone `os_api`, extends
+  `api/services/EnvironmentService` (`@Publish`, `@Version`, zone `os-api`, extends
   `IdentifiableCrudService<Environment, String>`) → `internal/api/services/DefaultEnvironmentService`.
   Authorization: mutations SYSTEM participants only; reads allowed to organization participants
   (the frontend needs the list + `gatewayUrl`). Follow whatever participant-check pattern
@@ -289,9 +297,9 @@ Both roles need `kinotic-persistence` (the gateway role needs `EntityDefinition`
 behind `kinotic.disablePersistence`. Split the Spring wiring, keep one Gradle module:
 
 - **Definition-management half** — definition/named-query management services
-  (`DefaultEntityDefinitionService`, `NamedQueries*`, their `@Publish` registrations in `os_api`).
+  (`DefaultEntityDefinitionService`, `NamedQueries*`, their `@Publish` registrations in `os-api`).
 - **Data-plane half** — `EntityServiceCache`, `DefaultEntityService` wiring,
-  `JsonEntitiesRepository`/`AdminJsonEntitiesRepository` (`app_api` zone),
+  `JsonEntitiesRepository`/`AdminJsonEntitiesRepository` (`app-api` zone),
   `PersistenceInitializer`. The dormant GraphQL/OpenAPI endpoint code stays outside both halves —
   unwired, kept for reference.
 
@@ -330,7 +338,7 @@ and lose to nothing):
 | `kinotic.disableGithub` | false | **true** |
 | `kinotic.disableEntityDefinitionManagement` (Phase 3) | false | **true** |
 | `kinotic.disableEntityDataPlane` (Phase 3) | false *(flips to true at the Phase 8 cutover — a one-line code change in this mapping)* | false |
-| publishable-zone allowlist | `os_api`, `system` (+ `app_api` until the Phase 8 cutover) | `app_api`, `app` |
+| publishable-zone allowlist | `os-api`, `system` (+ `app-api` until the Phase 8 cutover) | `app-api`, `app` |
 
 ```yaml
 # kinotic-server/src/main/resources/application-app-gateway.yml  (new profile — sets ONE role value
@@ -358,9 +366,9 @@ Work items in this phase:
 
 1. **Zone policy per role.** `StompAuthorizerFactory` currently encodes one global policy. Make
    the policy a bean selected by role: `APPLICATION_GATEWAY` — application participants keep
-   today's rules (`app_api.**` + `app.<org>.<app>.**`), organization participants (frontend
-   browsing data) get `app_api.**` send only, no participant reaches `os_api`/`system`;
-   `OS_SERVER` — conversely drops `app_api` for application participants (after the Phase 8
+   today's rules (`app-api.**` + `app.<org>.<app>.**`), organization participants (frontend
+   browsing data) get `app-api.**` send only, no participant reaches `os-api`/`system`;
+   `OS_SERVER` — conversely drops `app-api` for application participants (after the Phase 8
    cutover; they have no business on the OS bus). Don't fork the class — check how
    `StompAuthorizerFactory` is constructed and pick the smallest seam.
 2. **Auth surface per role.** `SuppliesGatewayRoutes` beans are mounted by discovery
@@ -382,7 +390,7 @@ Work items in this phase:
    gateway role actually uses Ignite for (session store, eventbus, caches in
    `KinoticIgniteConfigCaches`) — anything OS-specific should not be created on env clusters.
 5. **No entity HTTP surface.** The GraphQL/OpenAPI/MCP code stays dormant (see design
-   decisions) — the gateway role's only entity-data surface is the `app_api` RPC path.
+   decisions) — the gateway role's only entity-data surface is the `app-api` RPC path.
 6. **No SPA in the gateway role.** The role mapping (or profile) sets the web-server verticle
    disabled (`WebServerProperties`); the SPA files remain in the jar — accepted single-image
    trade-off — but are never served.
@@ -392,22 +400,25 @@ Work items in this phase:
 
    | Service | Zone | In a gateway process? |
    |---|---|---|
-   | `JsonEntitiesRepository`, `AdminJsonEntitiesRepository`, `NamedQueriesService` (persistence) | `app_api` (explicit `@Zones`) | yes — the data plane |
-   | `EntityDefinitionService`, `NamedQueriesDefinitionService`, `MigrationService` (persistence) | `os_api` (package-level `@Zones` in `api/services/package-info.java`) | no — `disableEntityDefinitionManagement` (role-derived) |
-   | `ApplicationService`, `ProjectService`, `MemberService`, `LogService`/`LogManager`, `DeviceApprovalService`, `InviteEmailTemplateService`, `KinoticClusterInfoService`, `EnvironmentService` (Phase 1), `PromotionService` (Phase 9) — all os-api | `os_api` | no — `disableOsApi` (role-derived) gates the whole `KinoticOsApiLibrary` |
-   | `GitHubAppInstallationService`, `GitHubWebhookEventService`, `GitHubProjectRepoService` (github) | `os_api` | no — `disableGithub` (role-derived) |
-   | `WorkloadOrchestrationService`, `VmNodeOrchestrationService` (orchestrator, once Phase 6 wires it in) | verify | no — verify the orchestrator library has (or add) the same `disable*` gate, driven by the role |
-   | `DataInsightsService` | `os_api` (`insights/package-info.java`) | published nowhere — dropped from scope (see design decisions) |
+   | `JsonEntitiesRepository`, `AdminJsonEntitiesRepository`, `NamedQueriesService` (persistence) | `app-api` (explicit `@Zone`) | yes — the data plane |
+   | `EntityDefinitionService`, `NamedQueriesDefinitionService`, `MigrationService` (persistence) | `os-api` (package-level `@Zone` in `api/services/package-info.java`) | no — `disableEntityDefinitionManagement` (role-derived) |
+   | `ApplicationService`, `ProjectService`, `MemberService`, `LogService`/`LogManager`, `DeviceApprovalService`, `InviteEmailTemplateService`, `KinoticClusterInfoService`, `EnvironmentService` (Phase 1), `PromotionService` (Phase 9) — all os-api | `os-api` | no — `disableOsApi` (role-derived) gates the whole `KinoticOsApiLibrary` |
+   | `GitHubAppInstallationService`, `GitHubWebhookEventService`, `GitHubProjectRepoService` (github) | `os-api` | no — `disableGithub` (role-derived) |
+   | `WorkloadOrchestrationService`, `VmNodeOrchestrationService` (orchestrator, once Phase 6 wires it in) | `system` (`@Zone` in `api/workload/package-info.java`) | no — verify the orchestrator library has (or add) the same `disable*` gate, driven by the role |
+   | `DataInsightsService` | `os-api` (`insights/package-info.java`) | published nowhere — dropped from scope (see design decisions) |
 
    `kinotic-domain` publishes **nothing** (`LocalAuthenticationService` is deliberately not
    `@Publish` — raw passwords never travel over RPC). The **publishable-zone allowlist** turns
    this table from configuration into an invariant: `ServiceRegistrationBeanPostProcessor`
-   (kinotic-core) checks every registration against the role-derived allowlist and **fails
-   startup** on a violation — a future module gate that's forgotten, renamed, or fail-opens can
-   never silently publish an OS service in a gateway process. Client-*hosted* services are
+   (kinotic-core) checks every registration's single `@Zone` against the role-derived allowlist
+   and **fails startup** on a violation — a future module gate that's forgotten, renamed, or
+   fail-opens can never silently publish an OS service in a gateway process. A service with
+   **no** `@Zone` registers at an un-zoned address (per the `Zone` javadoc): treat un-zoned
+   registrations as allowlist violations in the gateway role — every service a gateway publishes
+   must be deliberately zoned. Client-*hosted* services are
    already constrained by the authorizer (an `ApplicationParticipant` may only host inside its
    own `app.<org>.<app>` zone). Depth beneath all of this: even if the `StompAuthorizer` had a
-   bug allowing an `os_api` send, there is no `os_api` listener on the environment bus — the
+   bug allowing an `os-api` send, there is no `os-api` listener on the environment bus — the
    send has nothing to reach.
 
 ## Phase 5 — deployment records + per-environment mapping sync (OS side)
@@ -461,11 +472,11 @@ versions is open question 8 — resolve it with Navid before implementing this p
 - **ES least privilege** (per env cluster): gateway data user — document CRUD on entity
   indices, no index management; OS admin user — index/template/mapping management, no document
   read/write. Wire these as distinct users in the ECK/compose setups (Phase 8).
-- **Stranded os_api data service.** `MigrationService` is `os_api`-zoned (published by
+- **Stranded os-api data service.** `MigrationService` is `os-api`-zoned (published by
   kinotic-server, callable by the frontend via `@kinotic-ai/os-api`) but operates on **entity
   data**, which now lives only in env clusters that kinotic-server cannot reach. It doesn't touch
   OS config, so hosting it on the gateway would not violate the no-OS-services invariant — but it
-  would need re-zoning out of `os_api` (e.g. into `app_api` with organization-participant
+  would need re-zoning out of `os-api` (e.g. into `app-api` with organization-participant
   authorization, invoked over the frontend's per-environment connection) or deferring. See open
   question 5 — do not silently leave it published-but-broken.
 
@@ -505,7 +516,7 @@ versions is open question 8 — resolve it with Navid before implementing this p
   keep the source for reference.
 - Gateway CORS must allow the frontend origin (and later customer app origins — flag as open
   question; likely per-application allowed-origins data on `Application`).
-- `@kinotic-ai/persistence` itself is unchanged (same `app_api` zone, same service CRI) — it just
+- `@kinotic-ai/persistence` itself is unchanged (same `app-api` zone, same service CRI) — it just
   gets pointed at a gateway instead of kinotic-server.
 
 ## Phase 8 — deployment, cutover, local dev + docs
@@ -524,14 +535,14 @@ One image (`kinoticai/kinotic-server`) everywhere; the role/profile decides what
   + gateway namespaces. Provision the two distinct ES users per env cluster (Phase 5 least
   privilege) in the ECK/compose setups.
 - **Cutover**: flip the `OS_SERVER` role mapping to `disableEntityDataPlane=true` and drop
-  `app_api` from its zone allowlist (the one-line code changes flagged in Phase 4), once the
+  `app-api` from its zone allowlist (the one-line code changes flagged in Phase 4), once the
   frontend (Phase 7) talks to gateways for entity data. From here the OS bus carries no entity
   data plane.
 - **Local dev without containers**: document running the same app twice from the IDE —
   `KinoticServerApplication` with the default (OS) profile and again with `app-gateway` — against
   one local ES playing both roles (both connection property sets default to `localhost:9200`).
   That keeps a one-ES laptop workflow.
-- **Docs**: `website/content/**` — grep for `app_api`, `58503`, login routes, and anything
+- **Docs**: `website/content/**` — grep for `app-api`, `58503`, login routes, and anything
   describing "the server" as the single endpoint; reconcile every hit. Any pages advertising the
   GraphQL/OpenAPI/MCP HTTP endpoints describe dropped functionality — flag them to Navid (remove
   vs mark unsupported) rather than silently leaving them. Add an environments concept page.
@@ -543,7 +554,7 @@ entirely in the `OS_SERVER` role (it needs kinotic-github, the orchestrator, and
 OS-role modules). Builds on Phase 5 (deployment records + mapping sync) and Phase 6 (env-scoped
 workloads).
 
-**Service surface**: `PromotionService` (`@Publish`, zone `os_api`) in kinotic-os-api —
+**Service surface**: `PromotionService` (`@Publish`, zone `os-api`) in kinotic-os-api —
 `promote(organizationId, applicationId, targetEnvironmentId)` returning progress the frontend
 can render, plus promotion history/status reads. Authorization: organization participants for
 their own applications (verify against the participant-check pattern in
@@ -598,8 +609,8 @@ Follow the repo rule: behavioral tests through real infrastructure over mocked u
   service creates the entity index only in B and `kinotic_*` domain indices exist only in A,
   then exercise `JsonEntitiesRepository` CRUD (data plane pointed at B) end-to-end.
 - **Gateway-role boot test**: start `KinoticServerApplication` with the `app-gateway` profile,
-  assert: the `ServiceRegistry` contains **zero** registrations in `os_api`/`system` zones (the
-  no-OS-services invariant), os_api CRIs are rejected by the authorizer for an application
+  assert: the `ServiceRegistry` contains **zero** registrations in `os-api`/`system` zones (the
+  no-OS-services invariant), os-api CRIs are rejected by the authorizer for an application
   participant, app login routes respond, org signup routes 404.
 - **Role guard**: booting with no `kinotic.role` fails startup with a clear message; booting the
   gateway role with a context that registers a bean carrying an out-of-allowlist `@Publish` zone
@@ -638,7 +649,7 @@ Follow the repo rule: behavioral tests through real infrastructure over mocked u
    orchestrator's orphan status deliberate? (Phase 9 assumes it: both the Grind flow engine and
    `WorkloadOrchestrationService` live there.)
 4. **Customer app CORS/origins** at the gateway — per-application allowed-origins data?
-5. **`MigrationService`**: `os_api`-zoned but operates on entity data that moves to the env
+5. **`MigrationService`**: `os-api`-zoned but operates on entity data that moves to the env
    clusters (see Phase 5). Re-home it on the gateway under an org-participant-authorized
    surface, or defer the functionality for now?
 6. **Dev auto-sync**: does publishing an `EntityDefinition` auto-update the `development`
