@@ -66,6 +66,11 @@ override):
   The GraphQL/OpenAPI/MCP HTTP surfaces are dropped from scope: the code under
   `kinotic-persistence/.../internal/endpoints/` is deliberately dormant (nothing calls
   `PersistenceVerticleFactory`) and is kept for reference — leave it unwired and undeleted.
+- **Data Insights is dropped from scope** (owner decision), same reference-code treatment:
+  unwire `DataInsightsServiceImpl` and `InsightsContextService` (remove their `@Service`
+  stereotypes) so `DataInsightsService` is published nowhere; keep the classes. Its internals
+  are already mostly commented out pending Spring AI 2 (`DataInsightsConfiguration`'s
+  `ChatClient` bean is disabled), so this completes an unwiring that is half-done today.
 - **No OS service exists on the gateway — absence, not just authorization.** Service publication
   is bean-driven (`ServiceRegistrationBeanPostProcessor` registers every Spring bean implementing
   a `@Publish` interface), so a service that is not on the gateway's classpath/context cannot be
@@ -326,7 +331,8 @@ Work items in this phase:
    | Service | Zone | On gateway? |
    |---|---|---|
    | `JsonEntitiesRepository`, `AdminJsonEntitiesRepository`, `NamedQueriesService` | `app_api` (explicit `@Zones`) | yes — the data plane |
-   | `EntityDefinitionService`, `NamedQueriesDefinitionService`, `MigrationService`, `DataInsightsService` | `os_api` (package-level `@Zones` in `api/services/package-info.java` + `insights/package-info.java`) | no — definition-management auto-config is off (Phase 3) |
+   | `EntityDefinitionService`, `NamedQueriesDefinitionService`, `MigrationService` | `os_api` (package-level `@Zones` in `api/services/package-info.java`) | no — definition-management auto-config is off (Phase 3) |
+   | `DataInsightsService` | `os_api` (`insights/package-info.java`) | no — dropped from scope entirely, published nowhere (see design decisions) |
 
    `kinotic-domain` publishes **nothing** (`LocalAuthenticationService` is deliberately not
    `@Publish` — raw passwords never travel over RPC). `kinotic-os-api`, `kinotic-github`, and
@@ -356,13 +362,13 @@ own cluster match:
   (mapping changes) the same way the current update path does. Deletions: remove index/template.
 - Make creation idempotent and concurrency-safe across gateway replicas (ES create-index races
   return `resource_already_exists_exception` — treat as success).
-- **Stranded os_api data services.** `MigrationService` and `DataInsightsService` are
-  `os_api`-zoned (published by kinotic-server, callable by the frontend via `@kinotic-ai/os-api`)
-  but operate on **entity data**, which now lives only in env clusters that kinotic-server cannot
-  reach. They don't touch OS config, so hosting them on the gateway would not violate the
-  no-OS-services invariant — but they'd need re-zoning out of `os_api` (e.g. into `app_api` with
-  organization-participant authorization, invoked over the frontend's per-environment connection)
-  or deferring. See open question 7 — do not silently leave them published-but-broken.
+- **Stranded os_api data service.** `MigrationService` is `os_api`-zoned (published by
+  kinotic-server, callable by the frontend via `@kinotic-ai/os-api`) but operates on **entity
+  data**, which now lives only in env clusters that kinotic-server cannot reach. It doesn't touch
+  OS config, so hosting it on the gateway would not violate the no-OS-services invariant — but it
+  would need re-zoning out of `os_api` (e.g. into `app_api` with organization-participant
+  authorization, invoked over the frontend's per-environment connection) or deferring. See open
+  question 7 — do not silently leave it published-but-broken.
 
 ## Phase 6 — environment-scoped workloads
 
@@ -388,9 +394,12 @@ own cluster match:
   `@kinotic-ai/core` singleton (`Kinotic`) must support two live connections or the persistence
   plugin needs a per-connection instance — inspect `KinoticSingleton` before choosing; this is
   the riskiest client-side change.
-- The GraphQL/OpenAPI playground pages embed the dropped HTTP surfaces — hide or remove the
-  frontend entry points for them (confirm with Navid which), since there is no backend to point
-  them at.
+- The GraphQL/OpenAPI playground pages embed the dropped HTTP surfaces, and the Data Insights UI
+  (`src/pages/DataInsights.vue`, `DashboardView.vue`, `SavedWidgets.vue`, widget components/
+  entity repos) calls the dropped `DataInsightsService` — hide or remove the frontend entry
+  points for both (confirm with Navid which), since there is no backend behind them. Same for
+  `IDataInsightsService` in `@kinotic-ai/os-api` (`OsApiPlugin`): stop wiring it into the plugin;
+  keep the source for reference.
 - Gateway CORS must allow the frontend origin (and later customer app origins — flag as open
   question; likely per-application allowed-origins data on `Application`).
 - `@kinotic-ai/persistence` itself is unchanged (same `app_api` zone, same service CRI) — it just
@@ -453,9 +462,9 @@ Follow the repo rule: behavioral tests through real infrastructure over mocked u
 5. **Wiring kinotic-orchestrator into kinotic-server** (Phase 6) — intended now, or is the
    orchestrator's orphan status deliberate?
 6. **Customer app CORS/origins** at the gateway — per-application allowed-origins data?
-7. **`MigrationService` / `DataInsightsService`**: both are `os_api`-zoned but operate on entity
-   data that moves to the env clusters (see Phase 5). Re-home them on the gateway under an
-   org-participant-authorized surface, or defer the functionality for now?
+7. **`MigrationService`**: `os_api`-zoned but operates on entity data that moves to the env
+   clusters (see Phase 5). Re-home it on the gateway under an org-participant-authorized
+   surface, or defer the functionality for now?
 
 ## Guardrails for the implementer
 
