@@ -91,6 +91,13 @@ override):
   little gain given the fixed, Kinotic-operated environment set.)
 - **kinotic-server stops serving the entity data plane.** `kinotic-frontend` browses entity data
   (data views) against the *selected environment's* gateway URL.
+- **Definition management is OS management code, not persistence code** (owner decision): the
+  `EntityDefinition`/`NamedQueriesDefinition` models and their repositories move to
+  **kinotic-domain** (with the other OS domain objects), the `@Publish` management services move
+  to **kinotic-os-api** (with `ApplicationService`/`ProjectService`), and kinotic-persistence
+  publishes **only** the `app-api` data-access services. The JS packages already have this shape
+  — `IEntityDefinitionService` lives in `@kinotic-ai/os-api` — so the move aligns the server
+  modules with it, at the cost of a CRI namespace change (Phase 3).
 - **Entity data is served over the STOMP/RPC path only** (`JsonEntitiesRepository` in `app-api`).
   The GraphQL/OpenAPI/MCP HTTP surfaces are dropped from scope: the code under
   `kinotic-persistence/.../internal/endpoints/` is deliberately dormant (nothing calls
@@ -286,33 +293,49 @@ public EntityServiceCache(@Qualifier(ENTITY_DATA_CRUD_SERVICE_TEMPLATE) CrudServ
    entity-data beans are defined as **aliases of the OS pair** (identical behavior); Phase 4
    replaces the alias with construction from `kinotic.applicationGateway.elastic-*` properties.
 4. `EntityDefinitionRepository` / `NamedQueriesDefinitionRepository` are **metadata**, not entity
-   data — they stay on the OS (`@Primary`) template.
+   data — they stay on the OS (`@Primary`) template (and move to kinotic-domain in Phase 3).
 
 Verify with a full `:kinotic-server:test` run; this phase must be invisible at runtime.
 
-## Phase 3 — split kinotic-persistence wiring into definition-management vs data-plane
+## Phase 3 — move definition management out of kinotic-persistence
 
-Both roles need `kinotic-persistence` (the gateway role needs `EntityDefinition`, converters,
-`EntityService`; the OS role needs definition CRUD). Today one library config wires everything
-behind `kinotic.disablePersistence`. Split the Spring wiring, keep one Gradle module:
+Definitions are OS domain objects; they move to the modules that own OS management. After this
+phase, **kinotic-persistence is the data plane only and publishes only `app-api` data-access
+services**. The dependency direction supports the move without cycles (persistence → os-api →
+domain → core):
 
-- **Definition-management half** — definition/named-query management services
-  (`DefaultEntityDefinitionService`, `NamedQueries*`, their `@Publish` registrations in `os-api`).
-- **Data-plane half** — `EntityServiceCache`, `DefaultEntityService` wiring,
-  `JsonEntitiesRepository`/`AdminJsonEntitiesRepository` (`app-api` zone),
-  `PersistenceInitializer`. The dormant GraphQL/OpenAPI endpoint code stays outside both halves —
-  unwired, kept for reference.
+- **To kinotic-domain** (with the other OS domain models/repos):
+  - `EntityDefinition`, `NamedQueriesDefinition` models — plus whichever supporting model types
+    they reference (`MultiTenancyType`, decorators, …); enumerate by following the imports, don't
+    guess. kinotic-domain gains a **kinotic-idl dependency** (the `schema` field is
+    `ObjectC3Type`) — it has `elasticsearch-java` already.
+  - `EntityDefinitionRepository`, `NamedQueriesDefinitionRepository` (they already extend
+    domain's `AbstractProjectScopedRepository`; today they just live in the wrong module).
+  - The **Elastic mapping conversion** (`EntityDefinitionConversionService.convertToElasticMapping`
+    + `internal/converters/elastic` + `common`) — needed by the Phase 5 mapping-sync service,
+    which also lands in kinotic-domain (next to the ES client config it uses). Split it out of
+    `EntityDefinitionConversionService`, whose GraphQL/OpenAPI conversion parts stay behind in
+    kinotic-persistence with the dormant endpoint code they serve.
+- **To kinotic-os-api** (with `ApplicationService`/`ProjectService`):
+  - `EntityDefinitionService`, `NamedQueriesDefinitionService`, `MigrationService` interfaces +
+    `Default*` impls (`@Publish`, `os-api` zone — os-api's `package-info.java` already declares
+    it). **Publishing an EntityDefinition no longer creates indices here** —
+    `validateAndCreate` keeps computing/persisting `itemIndex` but the
+    `createIndex`/`createIndexTemplate`/`createDataStream` calls move into the Phase 5
+    mapping-sync service. Deletion likewise.
+- **Stays in kinotic-persistence**: `EntityServiceCache`, `DefaultEntityService`,
+  `JsonEntitiesRepository`/`AdminJsonEntitiesRepository`/`NamedQueriesService` (`app-api`),
+  `PersistenceInitializer`, and the dormant GraphQL/OpenAPI/insights reference code. The
+  existing `kinotic.disablePersistence` gate now means exactly "the data plane" — **no new
+  flags needed**.
 
-Gate each half with the module-gate idiom already in the codebase:
-`kinotic.disableEntityDefinitionManagement` / `kinotic.disableEntityDataPlane`
-(`@ConditionalOnProperty`, same shape as `KinoticPersistenceLibrary`'s gate, nested under it).
-In this phase both default ON — **no behavior change**; the role mechanism (Phase 4) takes over
-setting them. Important nuance: **publishing an EntityDefinition no longer creates indices** on
-the definition-management side — `DefaultEntityDefinitionService.validateAndCreate` keeps
-computing/persisting `itemIndex` but the `createIndex`/`createIndexTemplate`/`createDataStream`
-calls move into the Phase 5 mapping-sync service, which applies them per target environment.
-Deletion likewise: deleting/withdrawing a definition takes effect in an env cluster through the
-same sync path.
+**Wire-contract change**: the management services' CRI namespace changes
+(`org.kinotic.persistence.api.services` → `org.kinotic.os.api.services`). Update the proxy
+targets in `@kinotic-ai/os-api` in the same change — e.g. `IEntityDefinitionService.ts:71`
+currently binds `` `${OS_API_ZONE}.org.kinotic.persistence.api.services.EntityDefinitionService` ``
+(the JS *package* layout already matches the target module layout; only the CRI strings move).
+Server and JS ship together at this phase boundary. Preserve authorship comments verbatim on
+every moved file.
 
 ## Phase 4 — the `APPLICATION_GATEWAY` role (single binary, Spring profiles)
 
@@ -334,10 +357,9 @@ and lose to nothing):
 
 | derived value | `OS_SERVER` | `APPLICATION_GATEWAY` |
 |---|---|---|
-| `kinotic.disableOsApi` | false | **true** |
+| `kinotic.disableOsApi` (includes definition management after Phase 3) | false | **true** |
 | `kinotic.disableGithub` | false | **true** |
-| `kinotic.disableEntityDefinitionManagement` (Phase 3) | false | **true** |
-| `kinotic.disableEntityDataPlane` (Phase 3) | false *(flips to true at the Phase 8 cutover — a one-line code change in this mapping)* | false |
+| `kinotic.disablePersistence` (= the data plane after Phase 3) | false *(flips to true at the Phase 8 cutover — a one-line code change in this mapping)* | false |
 | publishable-zone allowlist | `os-api`, `system` (+ `app-api` until the Phase 8 cutover) | `app-api`, `app` |
 
 ```yaml
@@ -356,8 +378,8 @@ kinotic:
 `ApplicationGatewayProperties` (`environmentId`, env-cluster `elasticConnections`/credentials)
 binds under `kinotic.applicationGateway` and lives in kinotic-core next to `KinoticProperties`
 (both kinotic-domain — JWT env claim — and kinotic-persistence — entity-data clients — need it,
-and both depend on core). The OS-cluster connection keeps using `kinotic.domain.elastic-*`. The
-data-plane half (Phase 3) now constructs the `entityDataElasticClient`/
+and both depend on core). The OS-cluster connection keeps using `kinotic.domain.elastic-*`.
+kinotic-persistence (data-plane-only after Phase 3) now constructs the `entityDataElasticClient`/
 `entityDataCrudServiceTemplate` beans from `kinotic.applicationGateway.elastic-*` — one code
 path, replacing Phase 2's alias; the base `application.yml` defaults those connections to
 `localhost:9200` so single-ES local dev keeps working without extra config.
@@ -400,9 +422,8 @@ Work items in this phase:
 
    | Service | Zone | In a gateway process? |
    |---|---|---|
-   | `JsonEntitiesRepository`, `AdminJsonEntitiesRepository`, `NamedQueriesService` (persistence) | `app-api` (explicit `@Zone`) | yes — the data plane |
-   | `EntityDefinitionService`, `NamedQueriesDefinitionService`, `MigrationService` (persistence) | `os-api` (package-level `@Zone` in `api/services/package-info.java`) | no — `disableEntityDefinitionManagement` (role-derived) |
-   | `ApplicationService`, `ProjectService`, `MemberService`, `LogService`/`LogManager`, `DeviceApprovalService`, `InviteEmailTemplateService`, `KinoticClusterInfoService`, `EnvironmentService` (Phase 1), `PromotionService` (Phase 9) — all os-api | `os-api` | no — `disableOsApi` (role-derived) gates the whole `KinoticOsApiLibrary` |
+   | `JsonEntitiesRepository`, `AdminJsonEntitiesRepository`, `NamedQueriesService` (persistence — its entire published surface after Phase 3) | `app-api` (explicit `@Zone`) | yes — the data plane |
+   | `ApplicationService`, `ProjectService`, `MemberService`, `LogService`/`LogManager`, `DeviceApprovalService`, `InviteEmailTemplateService`, `KinoticClusterInfoService`, `EntityDefinitionService`/`NamedQueriesDefinitionService`/`MigrationService` (moved in Phase 3), `EnvironmentService` (Phase 1), `PromotionService` (Phase 9) — all os-api | `os-api` | no — `disableOsApi` (role-derived) gates the whole `KinoticOsApiLibrary` |
    | `GitHubAppInstallationService`, `GitHubWebhookEventService`, `GitHubProjectRepoService` (github) | `os-api` | no — `disableGithub` (role-derived) |
    | `WorkloadOrchestrationService`, `VmNodeOrchestrationService` (orchestrator, once Phase 6 wires it in) | `system` (`@Zone` in `api/workload/package-info.java`) | no — verify the orchestrator library has (or add) the same `disable*` gate, driven by the role |
    | `DataInsightsService` | `os-api` (`insights/package-info.java`) | published nowhere — dropped from scope (see design decisions) |
@@ -452,10 +473,13 @@ versions is open question 8 — resolve it with Navid before implementing this p
   built with the Phase 2 factory method) exposes one admin client per environment. Gated to the
   `OS_SERVER` role. A publish/promotion targeting an environment with no configured cluster
   fails fast with a clear message.
-- **Mapping sync service (OS role).** The index/template/create/update logic Phase 3 lifted out
-  of `DefaultEntityDefinitionService` (mappings via `entityDefinitionConversionService`,
-  data-stream vs index decision by `isStream()`) becomes a service invoked with a *target
-  environment's* template: apply a deployment record's definitions to that env cluster —
+- **Mapping sync service (OS role, kinotic-domain internal).** The index/template/create/update
+  logic Phase 3 lifted out of `DefaultEntityDefinitionService` (mappings via the Elastic
+  conversion moved to kinotic-domain, data-stream vs index decision by `isStream()`) becomes a
+  domain-internal service — next to `EnvironmentClusterClients` and the repositories it reads —
+  invoked with a *target environment's* template by its two callers, `DefaultEntityDefinitionService`
+  (os-api, dev auto-sync) and the promotion job (Phase 9): apply a deployment record's
+  definitions to that env cluster —
   create missing indices/templates, update mappings, remove indices for withdrawn definitions.
   Idempotent (ES create-index races return `resource_already_exists_exception` — treat as
   success); errors surface synchronously to the caller (publish flow or promotion job), which
@@ -534,7 +558,7 @@ One image (`kinoticai/kinotic-server`) everywhere; the role/profile decides what
   kinotic namespace (OS admin user, index-management-only ES role); OS ES reachable from kinotic
   + gateway namespaces. Provision the two distinct ES users per env cluster (Phase 5 least
   privilege) in the ECK/compose setups.
-- **Cutover**: flip the `OS_SERVER` role mapping to `disableEntityDataPlane=true` and drop
+- **Cutover**: flip the `OS_SERVER` role mapping to `disablePersistence=true` and drop
   `app-api` from its zone allowlist (the one-line code changes flagged in Phase 4), once the
   frontend (Phase 7) talks to gateways for entity data. From here the OS bus carries no entity
   data plane.
