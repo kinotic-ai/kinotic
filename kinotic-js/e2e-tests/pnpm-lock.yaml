@@ -22,8 +22,8 @@ importers:
         specifier: ^1.0.9
         version: 1.0.9(typescript@5.9.3)
       '@kinotic-ai/kinotic-cli':
-        specifier: ^3.0.0
-        version: 3.0.0(@types/node@25.0.6)(magicast@0.5.1)(typescript@5.9.3)
+        specifier: ^3.1.0
+        version: 3.1.0(@types/node@25.0.6)(magicast@0.5.1)(typescript@5.9.3)
       '@kinotic-ai/os-api':
         specifier: ^3.1.0
         version: 3.1.0(@kinotic-ai/core@3.1.0(typescript@5.9.3))(typescript@5.9.3)
@@ -471,8 +471,8 @@ packages:
       typescript:
         optional: true
 
-  '@kinotic-ai/kinotic-cli@3.0.0':
-    resolution: {integrity: sha512-QaC5oRX8Sthmfwb9EXx5L6zzPkuL+8oo+W+AItBk/bJjtYg1OXeAivODo/WLpyPDJJJX9OyXndYPpZVE6HBdDQ==}
+  '@kinotic-ai/kinotic-cli@3.1.0':
+    resolution: {integrity: sha512-CYwDw1yDBsKLGsLiBuBiHvl1hvhe/HyWS05DOFR54a/ZsOwVybEJdZFRfR1guXCIG8/7bW72PpiVKDiVmQ9RnQ==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -2509,7 +2509,7 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
-  '@kinotic-ai/kinotic-cli@3.0.0(@types/node@25.0.6)(magicast@0.5.1)(typescript@5.9.3)':
+  '@kinotic-ai/kinotic-cli@3.1.0(@types/node@25.0.6)(magicast@0.5.1)(typescript@5.9.3)':
     dependencies:
       '@inquirer/prompts': 8.3.2(@types/node@25.0.6)
       '@kinotic-ai/core': 3.1.0(typescript@5.9.3)
