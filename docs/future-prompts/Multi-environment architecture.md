@@ -32,14 +32,15 @@ applications:
 ```
                         ┌────────────────────────────────────────────┐
  kinotic-frontend ────► │ kinotic-server, profile "os-server"         │──► OS ES cluster
- kinotic-cli      ────► │ (Ignite cluster "os"): os-api/system zones, │    (kinotic_* domain
+ kinotic-cli      ────► │ (own Ignite cluster): os-api/system zones,  │    (kinotic_* domain
  VmManagers (STOMP)───► │ OIDC login, GitHub, orchestrator,           │     indices)
                         │ entity-definition mgmt                      │
                         └────────────────────────────────────────────┘
                                                                    ▲ read/write OS metadata
  customer UI  ─────────► ┌──────────────────────────────────────────┴─┐
  customer microservices─►│ kinotic-server, profile "app-gateway"      │──► env ES cluster
- (STOMP, per env)        │ (per env, Ignite cluster "env-<id>"):      │    (entity data only)
+ (STOMP, per env)        │ (per env, own Ignite cluster via k8s       │    (entity data only)
+                         │ Service discovery — Terraform-scoped):     │
                          │ app login, app.<org>.<app> + app-api       │
                          │ zones, entity data plane (RPC over STOMP)  │
                          └────────────────────────────────────────────┘
@@ -60,7 +61,11 @@ override):
   a *record* written by promotion, not an implicit property of existing (see Phase 9). The
   development environment is assumed to sync continuously on publish (open question).
 - **Event-bus topology: one Ignite/Vert.x cluster per environment**, separate from the
-  kinotic-server cluster. Gateways of the same environment cluster together (so a UI on replica
+  kinotic-server cluster. Isolation is **infrastructure-level, not app config** (owner
+  decision): Ignite discovers peers via Kubernetes-topology discovery resolving to a k8s
+  Service, and Terraform gives each environment its own discovery Service (prod: a dedicated
+  node pool or a separate k8s cluster) — membership is whatever the Service selects, so no
+  cluster naming in code. Gateways of the same environment cluster together (so a UI on replica
   A reaches a microservice on replica B). Because each environment has its own bus, the existing
   zone grammar (`app.<orgId>.<appId>`, `app-api`) is unchanged — no collisions between a dev and
   prod instance of the same app, and the `APP_API_ZONE` CRIs built by `@kinotic-ai/persistence`
@@ -445,11 +450,16 @@ Work items in this phase:
    token must not work against prod). Organization-participant tokens are minted at the OS
    server and carry no env claim — the gateway accepts them (their authorization is already
    narrowed to `app-api.**` by item 1); the OS server accepts only claimless tokens.
-4. **Ignite cluster identity.** A gateway deployment joins Ignite cluster
-   `env-<environmentId>`; verify how `KinoticIgniteConfig` names/discovers the cluster
-   (`kinotic.ignite.*`) and ensure two clusters on one network can't merge. Also audit what the
-   gateway actually uses Ignite for (session store, eventbus, caches in
-   `KinoticIgniteConfigCaches`) — anything OS-specific should not be created on env clusters.
+4. **Ignite bus isolation is infrastructure-level — no app-side cluster naming.** Per-env bus
+   separation comes from the Terraform deployment: Ignite uses Kubernetes-topology discovery
+   resolving to a k8s Service, so cluster membership is exactly the pods that Service selects —
+   each environment gets its own discovery Service (and prod gets a dedicated node pool or a
+   separate k8s cluster). Do not add cluster-name/merge-prevention machinery in code. What
+   remains app-side: audit what the gateway actually uses Ignite for (session store, eventbus,
+   caches in `KinoticIgniteConfigCaches`) — anything OS-specific should not be created on env
+   clusters — and for local dev/compose, running os-server + app-gateway on one machine must
+   not form one cluster (use the existing `kinotic.ignite.*` discovery settings per process, or
+   `kinotic.disableClustering` for single-replica local runs).
 5. **No entity HTTP surface.** The GraphQL/OpenAPI/MCP code stays dormant (see design
    decisions) — the gateway's only entity-data surface is the `app-api` RPC path.
 6. **No SPA in the gateway.** The app-gateway profile sets the web-server verticle
@@ -591,13 +601,17 @@ One image (`kinoticai/kinotic-server`) everywhere; the active profile decides wh
   `compose.kinotic-app-gateway.yml` running the *same* kinotic-server image with
   `SPRING_PROFILES_ACTIVE` including `app-gateway` (env=`development`, distinct STOMP/HTTP
   ports). `compose.yml` wires: OS ES + env ES + migration + kinotic-server + one gateway.
-- **Helm**: parameterize the existing `deployment/helm/kinotic` chart by role (profile +
-  `KINOTIC_APPLICATIONGATEWAY_*` env vars for gateway releases) rather than cloning a second
-  chart — one gateway release per environment via values overlays. One eck-stack release per
-  environment. NetworkPolicy: env ES reachable from its gateway namespace (data user) and the
-  kinotic namespace (OS admin user, index-management-only ES role); OS ES reachable from kinotic
-  + gateway namespaces. Provision the two distinct ES users per env cluster (Phase 5 least
-  privilege) in the ECK/compose setups.
+- **Helm/Terraform**: parameterize the existing `deployment/helm/kinotic` chart by profile
+  (profile + `KINOTIC_APPLICATIONGATEWAY_*` env vars for gateway releases) rather than cloning a
+  second chart — one gateway release per environment via values overlays. One eck-stack release
+  per environment. **Ignite bus isolation happens here, not in app config**: each release gets
+  its own Ignite discovery Service (the chart already templates one — `kinotic.cluster.*`
+  values), and Terraform places prod on a dedicated node pool or a separate k8s cluster;
+  membership is whatever each discovery Service selects. NetworkPolicy: env ES reachable from
+  its gateway namespace (data user) and the kinotic namespace (OS admin user,
+  index-management-only ES role); OS ES reachable from kinotic + gateway namespaces. Provision
+  the two distinct ES users per env cluster (Phase 5 least privilege) in the ECK/compose
+  setups.
 - **Cutover**: set `disablePersistence: true` and drop `app-api` from `kinotic.zones`
   in `application-os-server.yml` (flagged in Phase 4), once the frontend
   (Phase 7) talks to gateways for entity data. From here the OS bus carries no entity data
