@@ -350,10 +350,35 @@ public enum KinoticRole { OS_SERVER, APPLICATION_GATEWAY }
 ```
 
 `kinotic.role` has **no default** — a process without a role fails startup with a clear message.
-The role→flags mapping lives *in code* (an `EnvironmentPostProcessor` or equivalent that sets the
-properties before binding — verify the right Spring Boot 4 hook rather than assuming; the
-requirement is that the derived values win over the fail-open `matchIfMissing = true` defaults
-and lose to nothing):
+The role→flags mapping lives *in code*. Mechanism: the disable flags are consumed by
+`@ConditionalOnProperty` on the library classes, which evaluates against the Spring `Environment`
+during context refresh — so the role must be translated into `Environment` properties *before*
+refresh. That is exactly what an `EnvironmentPostProcessor` is for (registered in
+`META-INF/spring.factories`; verify the registration and ordering against Spring Boot 4
+specifically — the repo is on Boot 4.0.7):
+
+```java
+// kinotic-core/.../internal/config/KinoticRoleEnvironmentPostProcessor.java  (target shape)
+public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
+    String raw = environment.getProperty("kinotic.role");
+    if (raw == null) throw new IllegalStateException(
+        "kinotic.role is required: one of " + Arrays.toString(KinoticRole.values()));
+    KinoticRole role = KinoticRole.valueOf(raw.trim().toUpperCase());   // unknown value → hard failure
+
+    Map<String, Object> derived = switch (role) { /* the table below */ };
+    // addFirst = highest precedence: profile YAML or a stray env var can never override the role,
+    // and the fail-open matchIfMissing defaults never engage because every flag is set explicitly
+    environment.getPropertySources().addFirst(new MapPropertySource("kinoticRoleDerived", derived));
+}
+```
+
+It runs after the `application-*.yml` files load (so it can read `kinotic.role` from the
+profile) but before any condition evaluates — the existing library gates need zero changes. The
+**zone allowlist never becomes a property at all**: it is consumed at runtime by
+`ServiceRegistrationBeanPostProcessor`, which asks the enum directly
+(`KinoticRole.getPublishableZones()`, a `Set<String>` field on each constant — `"app"` matching
+the leading label of `app.<org>.<app>` zones). Only the disable flags pass through the
+`Environment`, because only `@ConditionalOnProperty` needs them there.
 
 | derived value | `OS_SERVER` | `APPLICATION_GATEWAY` |
 |---|---|---|
