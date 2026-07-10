@@ -20,10 +20,10 @@ applications:
    (organizations, applications, projects, IAM, entity *definitions*, workloads, …).
 2. **One Elasticsearch cluster per environment** holds customer entity *data* only.
 3. **One application-gateway deployment per environment** — the *same* `kinotic-server` binary
-   running with `kinotic.role: APPLICATION_GATEWAY` (a Spring profile per role; **no new Gradle
-   module**). It is the edge for customer applications: UI ↔ backend-microservice RPC, and
-   entity-data reads/writes for that environment.
-4. **One `kinotic-server` cluster in the `OS_SERVER` role** remains the single edge for
+   running with the `app-gateway` Spring profile (**no new Gradle module, no role concept in
+   code** — the profile YAML is the whole difference). It is the edge for customer applications:
+   UI ↔ backend-microservice RPC, and entity-data reads/writes for that environment.
+4. **One `kinotic-server` cluster with the `os-server` profile** remains the single edge for
    `kinotic-frontend` — all OS configuration (orgs, apps, projects, members, entity definitions,
    environments) goes there.
 
@@ -31,20 +31,20 @@ applications:
 
 ```
                         ┌────────────────────────────────────────────┐
- kinotic-frontend ────► │ kinotic-server, role OS_SERVER              │──► OS ES cluster
+ kinotic-frontend ────► │ kinotic-server, profile "os-server"         │──► OS ES cluster
  kinotic-cli      ────► │ (Ignite cluster "os"): os-api/system zones, │    (kinotic_* domain
  VmManagers (STOMP)───► │ OIDC login, GitHub, orchestrator,           │     indices)
                         │ entity-definition mgmt                      │
                         └────────────────────────────────────────────┘
                                                                    ▲ read/write OS metadata
  customer UI  ─────────► ┌──────────────────────────────────────────┴─┐
- customer microservices─►│ kinotic-server, role APPLICATION_GATEWAY   │──► env ES cluster
+ customer microservices─►│ kinotic-server, profile "app-gateway"      │──► env ES cluster
  (STOMP, per env)        │ (per env, Ignite cluster "env-<id>"):      │    (entity data only)
                          │ app login, app.<org>.<app> + app-api       │
                          │ zones, entity data plane (RPC over STOMP)  │
                          └────────────────────────────────────────────┘
 
-One container image; the role decides what a process is.
+One container image; the active profile decides what a process is.
 ```
 
 Design decisions baked into this plan (each has an "open questions" entry if Navid may want to
@@ -107,23 +107,24 @@ override):
   stereotypes) so `DataInsightsService` is published nowhere; keep the classes. Its internals
   are already mostly commented out pending Spring AI 2 (`DataInsightsConfiguration`'s
   `ChatClient` bean is disabled), so this completes an unwiring that is half-done today.
-- **Single binary, two roles, explicit profiles** (owner decision). Every library module already
-  has a whole-module gate (`kinotic.disableOsApi`, `disableGithub`, `disablePersistence`,
-  `disableApiGateway`, `disableDomain` — see current state), so role composition is the
-  established idiom. Two profiles in `kinotic-server/src/main/resources` —
-  `application-os-server.yml` and `application-app-gateway.yml` — each set `kinotic.role` plus
-  the disable flags **explicitly in YAML** (no derivation mechanism, no hidden property
-  sources). `kinotic.role` is a required (`@NotNull`) enum — a roleless boot fails validation —
-  consumed at runtime by the publishable-zone allowlist (a field on the enum constants), role
-  conditions on beans, and the JWT env claim. The **allowlist startup guard is what makes this
-  safe**: any drift — a forgotten flag on a new module, a stray env var override — that lets an
-  `os-api`/`system` service register in a gateway kills the process at boot. Accepted
-  trade-offs of one image: the gateway jar carries the OS admin SPA and OS module bytecode
-  (never instantiated); image size is not optimized per role.
+- **Single binary, two profiles, no role concept in code** (owner decision). Every library
+  module already has a whole-module gate (`kinotic.disableOsApi`, `disableGithub`,
+  `disablePersistence`, `disableApiGateway`, `disableDomain` — see current state), so
+  composition-by-config is the established idiom. Two profiles in
+  `kinotic-server/src/main/resources` — `application-os-server.yml` and
+  `application-app-gateway.yml` — hold the *entire* per-deployment difference **explicitly in
+  YAML**: the disable flags and the publishable-zone allowlist
+  (`kinotic.publishableZones`). Beans that differ per deployment are selected with plain
+  `@Profile`; JWT env-claim behavior keys off whether `kinotic.applicationGateway.environmentId`
+  is set. No enum, no derivation, nothing spread through code. The **allowlist startup guard is
+  what makes this safe**: any drift — a forgotten flag on a new module, a stray env var
+  override — that lets an `os-api`/`system` service register in a gateway kills the process at
+  boot. Accepted trade-offs of one image: the gateway jar carries the OS admin SPA and OS
+  module bytecode (never instantiated); image size is not optimized per deployment shape.
 - **No OS service *bean* exists in a gateway process — absence, not just authorization.**
   Service publication is bean-driven (`ServiceRegistrationBeanPostProcessor` registers every
   Spring bean implementing a `@Publish` interface), so a bean the role gates keep out of the
-  context cannot be invoked no matter what the authorizer does. The per-role profile gates + the
+  context cannot be invoked no matter what the authorizer does. The per-profile gates + the
   Phase 3 split achieve this (see Phase 4 for the inventory and the startup allowlist that makes
   it a hard invariant instead of an emergent property), and the guards that don't depend on the
   process at all remain underneath: separate env bus (no `os-api` listener to reach), the
@@ -201,8 +202,9 @@ module depends on it, so `WorkloadOrchestrationService` is not currently wired i
 
 **Module gates:** every library module is wholly gated by a `kinotic.disable*` property on its
 `@Import`ed library class — the seams role composition builds on. Note the fail-open default
-(`matchIfMissing = true`: a *missing* flag means *enabled*), which is why the role mechanism
-(Phase 4) must set these explicitly rather than relying on profile YAML remembering to:
+(`matchIfMissing = true`: a *missing* flag means *enabled*), which is why the deployment
+profiles (Phase 4) set every flag explicitly and the publishable-zone guard backstops a
+forgotten one:
 
 ```java
 // kinotic-os-api/src/main/java/org/kinotic/os/KinoticOsApiLibrary.java:14
@@ -341,59 +343,27 @@ currently binds `` `${OS_API_ZONE}.org.kinotic.persistence.api.services.EntityDe
 Server and JS ship together at this phase boundary. Preserve authorship comments verbatim on
 every moved file.
 
-## Phase 4 — the `APPLICATION_GATEWAY` role (single binary, Spring profiles)
+## Phase 4 — the `app-gateway` profile (single binary, pure YAML)
 
-No new Gradle module. The role mechanism lives in kinotic-core; the role's runtime shape is a
-Spring profile in `kinotic-server/src/main/resources`.
-
-**The role mechanism.** A required enum on the `kinotic` prefix:
-
-```java
-// kinotic-core/.../api/config/KinoticRole.java  (new file)
-public enum KinoticRole { OS_SERVER, APPLICATION_GATEWAY }
-```
-
-`kinotic.role` has **no default** — declare it `@NotNull` on `KinoticProperties` so a roleless
-boot fails property validation with a clear message (the codebase already validates properties
-this way; verify `KinoticProperties` participates in validation the same way `DomainProperties`
-does). **No flag derivation, no `EnvironmentPostProcessor`** (owner decision — explicit YAML
-over hidden property sources): each role is a Spring profile in
-`kinotic-server/src/main/resources` that sets the role *and* the disable flags visibly, per the
-table below.
-
-The role property's runtime consumers:
-- **Publishable-zone allowlist** — a `Set<String>` field on each `KinoticRole` constant, read by
-  `ServiceRegistrationBeanPostProcessor` at registration time (`"app"` matching the leading
-  label of `app.<org>.<app>` zones). Never a property; nothing evaluates it via the
-  `Environment`.
-- **Zone policy + route gating** — plain
-  `@ConditionalOnProperty(name = "kinotic.role", havingValue = "...")` on the policy beans and
-  role-specific `SuppliesGatewayRoutes` beans; conditions can check the role directly, no
-  derived flags needed.
-- **JWT environment claim** behavior (item 3 below).
-
-Accepted trade, stated plainly: profile YAML can drift — a *new* module gate added later and
-forgotten in a profile is silently ON (`matchIfMissing = true`). The allowlist guard and the
-gateway-role boot test exist precisely to convert that drift into a **startup failure** (the
-new module's `os-api`/`system` services register → allowlist violation → the process dies
-loudly). The same guard neutralizes a stray `KINOTIC_DISABLE*` env var overriding profile YAML.
+No new Gradle module, and **no role concept in code**. The entire per-deployment difference
+lives in two Spring profiles in `kinotic-server/src/main/resources`; everything they set is an
+ordinary property, visible and greppable in one file per deployment shape.
 
 | profile sets | `application-os-server.yml` | `application-app-gateway.yml` |
 |---|---|---|
-| `kinotic.role` | `OS_SERVER` | `APPLICATION_GATEWAY` |
 | `kinotic.disableOsApi` (includes definition management after Phase 3) | false | **true** |
 | `kinotic.disableGithub` | false | **true** |
 | `kinotic.disablePersistence` (= the data plane after Phase 3) | false *(flips to true at the Phase 8 cutover)* | false |
-| publishable-zone allowlist *(in code, on the enum — not YAML)* | `os-api`, `system` (+ `app-api` until the Phase 8 cutover) | `app-api`, `app` |
+| `kinotic.publishableZones` | `os-api`, `system` (+ `app-api` until the Phase 8 cutover) | `app-api`, `app` |
 
 ```yaml
-# kinotic-server/src/main/resources/application-app-gateway.yml  (new profile — role, flags, and
-# per-deployment data, all visible in one place)
+# kinotic-server/src/main/resources/application-app-gateway.yml  (new profile — flags, allowlist,
+# and per-deployment data, all visible in one place)
 kinotic:
-  role: APPLICATION_GATEWAY
   disableOsApi: true
   disableGithub: true
   disablePersistence: false
+  publishableZones: [app-api, app]
   applicationGateway:
     environmentId: ${KINOTIC_ENVIRONMENT_ID}
     elastic-connections:
@@ -402,8 +372,28 @@ kinotic:
         scheme: http
 ```
 
-`application-os-server.yml` mirrors it with the `OS_SERVER` values; existing deployments add the
-new profile to their active set (e.g. `production,os-server`).
+`application-os-server.yml` mirrors it with the OS values; existing deployments add the new
+profile to their active set (e.g. `production,os-server`).
+
+The three mechanisms that consume this configuration:
+
+- **`kinotic.publishableZones`** (`List<String>` on `KinoticProperties`): when set,
+  `ServiceRegistrationBeanPostProcessor` fails startup for any `@Publish` registration whose
+  zone is outside the list (`app` matching the leading label of `app.<org>.<app>` zones), and
+  for **un-zoned** registrations. When unset, registration is unrestricted — today's behavior,
+  so plain dev/test contexts keep working; both deployment profiles always set it.
+- **`@Profile` on deployment-specific beans**: the zone-policy bean and the role-specific route
+  suppliers are selected by the active profile (`@Profile("app-gateway")` /
+  `@Profile("os-server")`) — standard Spring, no new mechanism.
+- **`kinotic.applicationGateway.environmentId` presence** drives the JWT env-claim behavior
+  (item 3 below): set ⇒ this deployment is an environment gateway.
+
+Accepted trade, stated plainly: profile YAML can drift — a *new* module gate added later and
+forgotten in a profile is silently ON (`matchIfMissing = true`), the same misconfiguration risk
+every env-specific property already carries. The allowlist guard and the gateway boot test
+exist precisely to convert the dangerous case into a **startup failure** (the new module's
+`os-api`/`system` services register → allowlist violation → the process dies loudly). The same
+guard neutralizes a stray `KINOTIC_DISABLE*` env var overriding profile YAML.
 
 `ApplicationGatewayProperties` (`environmentId`, env-cluster `elasticConnections`/credentials)
 binds under `kinotic.applicationGateway` and lives in kinotic-core next to `KinoticProperties`
@@ -417,55 +407,56 @@ path, replacing Phase 2's alias; the base `application.yml` defaults those conne
 Work items in this phase:
 
 1. **Zone policy per role.** `StompAuthorizerFactory` currently encodes one global policy. Make
-   the policy a bean selected by role: `APPLICATION_GATEWAY` — application participants keep
+   the policy a bean selected by profile: `app-gateway` — application participants keep
    today's rules (`app-api.**` + `app.<org>.<app>.**`), organization participants (frontend
    browsing data) get `app-api.**` send only, no participant reaches `os-api`/`system`;
-   `OS_SERVER` — conversely drops `app-api` for application participants (after the Phase 8
+   `os-server` — conversely drops `app-api` for application participants (after the Phase 8
    cutover; they have no business on the OS bus). Don't fork the class — check how
    `StompAuthorizerFactory` is constructed and pick the smallest seam.
 2. **Auth surface per role.** `SuppliesGatewayRoutes` beans are mounted by discovery
    (`ApiGatewayVertcleFactory` iterates all beans), so the REST surface follows which route
    beans exist in the context. GitHub routes disappear via the profile's `disableGithub`.
-   The kinotic-domain handlers need role gates: gateway role mounts app-scope routes only
+   The kinotic-domain handlers need profile gates: the gateway mounts app-scope routes only
    (`ApplicationLoginHandler`, `SessionEndpointHandler`, invite acceptance if app-scoped); org
-   login, signup, and CLI device-login handlers are OS_SERVER-only. Verify which module
+   login, signup, and CLI device-login handlers are os-server-only. Verify which module
    contributes each `SuppliesGatewayRoutes` bean and gate accordingly.
 3. **JWT environment binding.** `KinoticJwtIssuer` (kinotic-domain) mints platform JWTs; signing
-   keys come from `platformSecrets` shared across deployments. In the gateway role, add an
+   keys come from `platformSecrets` shared across deployments. When
+   `kinotic.applicationGateway.environmentId` is set, add an
    `environmentId` claim at mint and reject tokens whose claim doesn't match this deployment's
    `environmentId` in the `KinoticSecurityService` validation path (a dev token must not work
-   against prod). The OS role accepts only tokens without the claim (or ignores — decide during
+   against prod). The OS server accepts only tokens without the claim (or ignores — decide during
    implementation and document with the auth docs).
 4. **Ignite cluster identity.** A gateway deployment joins Ignite cluster
    `env-<environmentId>`; verify how `KinoticIgniteConfig` names/discovers the cluster
    (`kinotic.ignite.*`) and ensure two clusters on one network can't merge. Also audit what the
-   gateway role actually uses Ignite for (session store, eventbus, caches in
+   gateway actually uses Ignite for (session store, eventbus, caches in
    `KinoticIgniteConfigCaches`) — anything OS-specific should not be created on env clusters.
 5. **No entity HTTP surface.** The GraphQL/OpenAPI/MCP code stays dormant (see design
-   decisions) — the gateway role's only entity-data surface is the `app-api` RPC path.
-6. **No SPA in the gateway role.** The app-gateway profile sets the web-server verticle
+   decisions) — the gateway's only entity-data surface is the `app-api` RPC path.
+6. **No SPA in the gateway.** The app-gateway profile sets the web-server verticle
    disabled (`WebServerProperties`); the SPA files remain in the jar — accepted single-image
    trade-off — but are never served.
 7. **No OS services published — verified inventory + startup guard.** Everything is on the
-   classpath in a single binary, so what matters is which *beans* the role admits. The full
-   `@Publish` inventory and its fate in the gateway role:
+   classpath in a single binary, so what matters is which *beans* the profile admits. The full
+   `@Publish` inventory and its fate in a gateway process:
 
    | Service | Zone | In a gateway process? |
    |---|---|---|
    | `JsonEntitiesRepository`, `AdminJsonEntitiesRepository`, `NamedQueriesService` (persistence — its entire published surface after Phase 3) | `app-api` (explicit `@Zone`) | yes — the data plane |
    | `ApplicationService`, `ProjectService`, `MemberService`, `LogService`/`LogManager`, `DeviceApprovalService`, `InviteEmailTemplateService`, `KinoticClusterInfoService`, `EntityDefinitionService`/`NamedQueriesDefinitionService`/`MigrationService` (moved in Phase 3), `EnvironmentService` (Phase 1), `PromotionService` (Phase 9) — all os-api | `os-api` | no — `disableOsApi` (app-gateway profile) gates the whole `KinoticOsApiLibrary` |
    | `GitHubAppInstallationService`, `GitHubWebhookEventService`, `GitHubProjectRepoService` (github) | `os-api` | no — `disableGithub` (app-gateway profile) |
-   | `WorkloadOrchestrationService`, `VmNodeOrchestrationService` (orchestrator, once Phase 6 wires it in) | `system` (`@Zone` in `api/workload/package-info.java`) | no — verify the orchestrator library has (or add) the same `disable*` gate, driven by the role |
+   | `WorkloadOrchestrationService`, `VmNodeOrchestrationService` (orchestrator, once Phase 6 wires it in) | `system` (`@Zone` in `api/workload/package-info.java`) | no — verify the orchestrator library has (or add) the same `disable*` gate, set in the deployment profiles |
    | `DataInsightsService` | `os-api` (`insights/package-info.java`) | published nowhere — dropped from scope (see design decisions) |
 
    `kinotic-domain` publishes **nothing** (`LocalAuthenticationService` is deliberately not
    `@Publish` — raw passwords never travel over RPC). The **publishable-zone allowlist** turns
    this table from configuration into an invariant: `ServiceRegistrationBeanPostProcessor`
-   (kinotic-core) checks every registration's single `@Zone` against the role's allowlist (a field on the `KinoticRole` enum)
+   (kinotic-core) checks every registration's single `@Zone` against `kinotic.publishableZones`
    and **fails startup** on a violation — a future module gate that's forgotten, renamed, or
    fail-opens can never silently publish an OS service in a gateway process. A service with
    **no** `@Zone` registers at an un-zoned address (per the `Zone` javadoc): treat un-zoned
-   registrations as allowlist violations in the gateway role — every service a gateway publishes
+   registrations as allowlist violations whenever the allowlist is set — every service a gateway publishes
    must be deliberately zoned. Client-*hosted* services are
    already constrained by the authorizer (an `ApplicationParticipant` may only host inside its
    own `app.<org>.<app>` zone). Depth beneath all of this: even if the `StompAuthorizer` had a
@@ -497,13 +488,14 @@ public class ApplicationDeployment implements ApplicationScoped<String> {
 Whether the record embeds full definition snapshots (shown) or references immutable definition
 versions is open question 8 — resolve it with Navid before implementing this phase.
 
-- **Per-environment admin clients (OS role only).** Properties map the fixed environment set to
+- **Per-environment admin clients (OS server only).** Properties map the fixed environment set to
   cluster connections — `kinotic.environmentClusters.<envId>.{elastic-connections, username,
   password}` — and a bean (e.g. `EnvironmentClusterClients`, `Map<String, CrudServiceTemplate>`
-  built with the Phase 2 factory method) exposes one admin client per environment. Gated to the
-  `OS_SERVER` role. A publish/promotion targeting an environment with no configured cluster
+  built with the Phase 2 factory method) exposes one admin client per environment. The bean
+  exists only when `kinotic.environmentClusters` is configured — the app-gateway profile never
+  sets it. A publish/promotion targeting an environment with no configured cluster
   fails fast with a clear message.
-- **Mapping sync service (OS role, kinotic-domain internal).** The index/template/create/update
+- **Mapping sync service (OS server, kinotic-domain internal).** The index/template/create/update
   logic Phase 3 lifted out of `DefaultEntityDefinitionService` (mappings via the Elastic
   conversion moved to kinotic-domain, data-stream vs index decision by `isStream()`) becomes a
   domain-internal service — next to `EnvironmentClusterClients` and the repositories it reads —
@@ -575,7 +567,7 @@ versions is open question 8 — resolve it with Navid before implementing this p
 
 ## Phase 8 — deployment, cutover, local dev + docs
 
-One image (`kinoticai/kinotic-server`) everywhere; the role/profile decides what a container is.
+One image (`kinoticai/kinotic-server`) everywhere; the active profile decides what a container is.
 
 - **Compose** (`deployment/docker-compose/`): second ES service (env cluster) +
   `compose.kinotic-app-gateway.yml` running the *same* kinotic-server image with
@@ -588,8 +580,8 @@ One image (`kinoticai/kinotic-server`) everywhere; the role/profile decides what
   kinotic namespace (OS admin user, index-management-only ES role); OS ES reachable from kinotic
   + gateway namespaces. Provision the two distinct ES users per env cluster (Phase 5 least
   privilege) in the ECK/compose setups.
-- **Cutover**: set `disablePersistence: true` in `application-os-server.yml` and drop `app-api`
-  from `OS_SERVER`'s allowlist on the `KinoticRole` enum (flagged in Phase 4), once the frontend
+- **Cutover**: set `disablePersistence: true` and drop `app-api` from `kinotic.publishableZones`
+  in `application-os-server.yml` (flagged in Phase 4), once the frontend
   (Phase 7) talks to gateways for entity data. From here the OS bus carries no entity data
   plane.
 - **Local dev without containers**: document running the same app twice from the IDE —
@@ -604,8 +596,8 @@ One image (`kinoticai/kinotic-server`) everywhere; the role/profile decides what
 ## Phase 9 — Promotion (Develop → Prod)
 
 A Kinotic-managed, predefined flow that moves an application into a target environment. Runs
-entirely in the `OS_SERVER` role (it needs kinotic-github, the orchestrator, and OS data — all
-OS-role modules). Builds on Phase 5 (deployment records + mapping sync) and Phase 6 (env-scoped
+entirely on the OS server (it needs kinotic-github, the orchestrator, and OS data — all
+os-server modules). Builds on Phase 5 (deployment records + mapping sync) and Phase 6 (env-scoped
 workloads).
 
 **Service surface**: `PromotionService` (`@Publish`, zone `os-api`) in kinotic-os-api —
@@ -662,17 +654,16 @@ Follow the repo rule: behavioral tests through real infrastructure over mocked u
   environment cluster B configured in `kinotic.environmentClusters`; assert the mapping-sync
   service creates the entity index only in B and `kinotic_*` domain indices exist only in A,
   then exercise `JsonEntitiesRepository` CRUD (data plane pointed at B) end-to-end.
-- **Gateway-role boot test**: start `KinoticServerApplication` with the `app-gateway` profile,
+- **Gateway boot test**: start `KinoticServerApplication` with the `app-gateway` profile,
   assert: the `ServiceRegistry` contains **zero** registrations in `os-api`/`system` zones (the
   no-OS-services invariant), os-api CRIs are rejected by the authorizer for an application
   participant, app login routes respond, org signup routes 404.
-- **Role guard**: booting with no `kinotic.role` fails startup with a clear message; booting the
-  gateway role with a context that registers a bean carrying an out-of-allowlist `@Publish` zone
-  fails startup (drive through `ServiceRegistrationBeanPostProcessor` with a real context, not a
-  mock).
+- **Allowlist guard**: with `kinotic.publishableZones` set, a context that registers a bean
+  carrying an out-of-list (or missing) `@Zone` fails startup (drive through
+  `ServiceRegistrationBeanPostProcessor` with a real context, not a mock).
 - **JWT env binding**: token minted with `environmentId=development` rejected by a gateway
   configured as `production` (drive through the real `SecurityService.authenticate`).
-- **Promotion end-to-end** (two ES containers, OS role + gateway role processes): publish a
+- **Promotion end-to-end** (two ES containers, os-server + app-gateway processes): publish a
   definition (dev auto-sync creates indices in the dev cluster), promote to `production`, assert
   the prod cluster gains the promoted mappings and the deployment record goes `ACTIVE`; then
   edit the definition *without* promoting and assert the prod cluster is untouched — that last
@@ -688,8 +679,8 @@ Follow the repo rule: behavioral tests through real infrastructure over mocked u
   per-organization.
 - An application reaches an environment via explicit Promotion (Phase 9): definition-mapping
   sync to the target env cluster, artifact deployment, and predefined Git branching/tagging.
-- Single binary with roles (Phase 4); GraphQL/OpenAPI/MCP and Data Insights dropped as dormant
-  reference code.
+- Single binary with per-deployment Spring profiles, all differences in YAML (Phase 4);
+  GraphQL/OpenAPI/MCP and Data Insights dropped as dormant reference code.
 
 ## Open questions for Navid (answer before/at handoff)
 
@@ -730,7 +721,7 @@ Follow the repo rule: behavioral tests through real infrastructure over mocked u
 - CLAUDE.md rules apply in full: Lombok, enums over string constants, `api/` vs `internal/`
   layout, one top-level type per file, no version literals in module `build.gradle`, docs synced
   in the same change, and the smells catalog (in particular: no speculative config beyond the
-  role mechanism and per-role flags specified here, no test-only seams).
+  per-profile flags and allowlist specified here, no test-only seams).
 - `docs/future-prompts/Gateway ABAC.md` describes a planned authorization overhaul that will land
   in this same gateway — keep the authorizer seam (Phase 4 item 1) small and policy-shaped so
   ABAC can replace it without another restructuring.
