@@ -90,7 +90,9 @@ public class DefaultGitHubAppInstallationService
                 .setAccountType(details.accountType())
                 .setCreated(now)
                 .setUpdated(now);
-        return Future.fromCompletionStage(save(install));
+        // saveSync (not save) so the row is searchable before completeInstall resolves —
+        // the SPA reads it straight back via findForCurrentOrg(), which is a search.
+        return Future.fromCompletionStage(saveSync(install));
     }
 
     @Override
