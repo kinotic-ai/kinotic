@@ -3,9 +3,9 @@ import { computed, ref } from "vue"
 import InputText from "primevue/inputtext"
 import Button from "primevue/button"
 import Popover from "primevue/popover"
-import PropertyType from "@/components/structures/flow-components/PropertyType.vue"
-import { useStructureStore } from "@/stores/editor.ts"
-import {usePropertyTypes} from "@/composables/structure/usePropertyTypes.ts";
+import PropertyType from "@/components/entity-definitions/flow-components/PropertyType.vue"
+import { useEntityDefinitionStore } from "@/stores/editor.ts"
+import {usePropertyTypes} from "@/composables/entity-definition/usePropertyTypes.ts";
 import {Handle, Position} from "@vue-flow/core";
 import type { PropertyDefinition } from "@kinotic-ai/idl";
 import type {FieldData} from "@/util/graph.ts";
@@ -25,7 +25,7 @@ const popover = ref<InstanceType<typeof Popover>>()
 const addButton = ref<HTMLElement>()
 const typeEditPopover = ref<InstanceType<typeof Popover>>()
 
-const structureStore = useStructureStore()
+const entityDefinitionStore = useEntityDefinitionStore()
 
 const editingNameIndex = ref<number | null>(null)
 const selectedPropertyIndex = ref<number | null>(null)
@@ -38,8 +38,8 @@ const errors = ref<{ name?: string; type?: string }>({
 });
 
 const objectType = computed(() => {
-  return structureStore.findObjectById(
-      structureStore.structure!.schema,
+  return entityDefinitionStore.findObjectById(
+      entityDefinitionStore.entityDefinition!.schema,
       props.data.label
   )
 })
@@ -97,7 +97,7 @@ function finishEditingName(index: number) {
 
   // 3. Apply rename in store if name changed
   if (oldName !== newName) {
-    structureStore.renameProperty(props.data.label, oldName, newName);
+    entityDefinitionStore.renameProperty(props.data.label, oldName, newName);
   }
 
   editingNameIndex.value = null;
@@ -145,7 +145,7 @@ function addProperty() {
   }
 
   // ✅ Passed all checks — add property
-  structureStore.addProperty(
+  entityDefinitionStore.addProperty(
       props.data.label,
       newPropertyName.value,
       newPropertyTypeClass.value
@@ -185,7 +185,7 @@ function updateTypeForSelectedProperty() {
   const property = properties.value[selectedPropertyIndex.value];
   if (!property) return;
 
-  structureStore.updatePropertyType(
+  entityDefinitionStore.updatePropertyType(
       props.data.label,
       property.name,
       newPropertyTypeClass.value
@@ -205,10 +205,10 @@ function updateTypeForSelectedProperty() {
         :class="[
         'flex','items-center','gap-2','rounded-t-lg','font-bold','px-3','py-2',
         data.color,
-        { 'text-white !bg-black': data.type === 'structure' },
+        { 'text-white !bg-black': data.type === 'entityDefinition' },
         ]"
     >
-      <i v-if="data.type === 'structure'" class="pi pi-table" style="color: var(--p-lime-300)"/>
+      <i v-if="data.type === 'entityDefinition'" class="pi pi-table" style="color: var(--p-lime-300)"/>
       <span>{{ data.label }}</span>
     </div>
 
@@ -258,7 +258,7 @@ function updateTypeForSelectedProperty() {
 
     <!-- Add Property Button -->
     <div
-        v-if="['structure', 'object'].includes(data.type)"
+        v-if="['entityDefinition', 'object'].includes(data.type)"
         ref="addButton"
         class="flex justify-center items-center gap-2 font-bold hover:bg-primary-50 px-3 py-2 text-primary cursor-pointer"
         @click="togglePopover"

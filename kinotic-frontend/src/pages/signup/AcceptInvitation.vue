@@ -83,7 +83,7 @@ import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 import SetPasswordFields from '@/components/auth/SetPasswordFields.vue'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
 import { CONTINUUM_UI } from '@/IContinuumUI'
-import { StructuresStates } from '@/states'
+import { KinoticStates } from '@/states'
 import { apiUrl } from '@/util/helpers'
 
 interface InviteProvider {
@@ -121,7 +121,7 @@ const invalidMessage = ref('Open this page from the link in your invitation emai
 
 const token = ref('')
 const toast = useToast()
-const userState = StructuresStates.getUserState()
+const userState = KinoticStates.getUserState()
 
 const passwordFields = ref<InstanceType<typeof SetPasswordFields>>()
 

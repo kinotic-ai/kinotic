@@ -16,7 +16,7 @@ export interface IApplicationState {
 
     countsLoaded: boolean
     projectsCount: number
-    structuresCount: number
+    entityDefinitionsCount: number
 
     currentApplication: Application | null
 
@@ -36,7 +36,7 @@ class ApplicationState implements IApplicationState {
 
     public countsLoaded = false
     public projectsCount = 0
-    public structuresCount = 0
+    public entityDefinitionsCount = 0
 
     public _currentApplication: Application | null = null
 
@@ -81,14 +81,14 @@ class ApplicationState implements IApplicationState {
             Promise.all([
                 Kinotic.projects.countForApplication(app.id),
                 Kinotic.entityDefinitions.countForApplication(app.id)
-            ]).then(([projectsCount, structuresCount]) => {
+            ]).then(([projectsCount, entityDefinitionsCount]) => {
                 this.projectsCount = projectsCount
-                this.structuresCount = structuresCount
+                this.entityDefinitionsCount = entityDefinitionsCount
                 this.countsLoaded = true
             }).catch(error => {
                 debug('Failed to load counts: %O', error)
                 this.projectsCount = -1
-                this.structuresCount = -1
+                this.entityDefinitionsCount = -1
                 this.countsLoaded = true
             })
         }

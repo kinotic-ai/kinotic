@@ -94,7 +94,7 @@ import IconField from 'primevue/iconfield'
 import { useToast } from 'primevue/usetoast'
 
 import { CONTINUUM_UI } from '@/IContinuumUI'
-import { StructuresStates } from '@/states'
+import { KinoticStates } from '@/states'
 import { type IUserState } from '@/states/IUserState'
 import { createDebug } from '@/util/debug'
 import { apiUrl } from '@/util/helpers'
@@ -120,7 +120,7 @@ const emailInput = ref<any>()
 const passwordInput = ref<any>()
 
 const toast = useToast()
-const userState: IUserState = StructuresStates.getUserState()
+const userState: IUserState = KinoticStates.getUserState()
 
 const route = useRoute()
 const router = useRouter()

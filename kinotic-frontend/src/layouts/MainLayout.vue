@@ -45,7 +45,7 @@
 // import SideNav from '@/components/SideNav.vue'
 import Header from '@/layouts/Header.vue'
 import { isDark as darkMode } from '@/composables/useTheme'
-// import { StructuresStates } from '@/states/index.js'
+// import { KinoticStates } from '@/states/index.js'
 // import Avatar from 'primevue/avatar'
 // import MainLayoutBreadcrumb from './MainLayoutBreadcrumb.vue'
 // import { ref } from 'vue'
@@ -54,6 +54,6 @@ import { isDark as darkMode } from '@/composables/useTheme'
 
 const isDark = darkMode
 
-// const applicationState = StructuresStates.getApplicationState()
+// const applicationState = KinoticStates.getApplicationState()
 
 </script>

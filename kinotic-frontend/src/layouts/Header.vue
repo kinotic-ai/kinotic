@@ -5,7 +5,7 @@
         <img src="@/assets/header-logo.svg" class="h-6 w-[27px]" alt="Kinotic" />
       </RouterLink>
 
-      <template v-if="isApplicationDetailsPage || isProjectStructuresPage || isApplicationSettingsPage">
+      <template v-if="isApplicationDetailsPage || isProjectEntityDefinitionsPage || isApplicationSettingsPage">
         <span class="text-lg text-surface-600">/</span>
 
         <div ref="appDropdownRef" class="relative inline-block mr-8">
@@ -141,7 +141,7 @@ const searchTextApp = ref('');
 const searchTextProject = ref('');
 
 const isApplicationDetailsPage = ref(false);
-const isProjectStructuresPage = ref(false);
+const isProjectEntityDefinitionsPage = ref(false);
 const isApplicationSettingsPage = ref(false);
 
 const projectsForCurrentApp = ref<Project[]>([]);
@@ -216,21 +216,21 @@ function onGlobalApplicationChange() {
 function updateRouteState() {
   const path = route.path;
   isApplicationDetailsPage.value = /^\/application\/[^/]+$/.test(path);
-  isProjectStructuresPage.value = /^\/application\/[^/]+\/project\/[^/]+\/structures$/.test(path);
+  isProjectEntityDefinitionsPage.value = /^\/application\/[^/]+\/project\/[^/]+\/entity-definitions$/.test(path);
   isApplicationSettingsPage.value = /^\/application\/[^/]+\/settings$/.test(path);
 
   // Set current application based on route
-  if (isApplicationDetailsPage.value || isProjectStructuresPage.value || isApplicationSettingsPage.value) {
+  if (isApplicationDetailsPage.value || isProjectEntityDefinitionsPage.value || isApplicationSettingsPage.value) {
     const applicationId = route.params.applicationId as string;
     if (applicationId && currentApp.value?.id !== applicationId) {
       setActiveAppById(applicationId);
     }
   }
 
-  if (isApplicationDetailsPage.value && !isProjectStructuresPage.value) {
+  if (isApplicationDetailsPage.value && !isProjectEntityDefinitionsPage.value) {
     currentProject.value = null;
   }
-  else if (isProjectStructuresPage.value) {
+  else if (isProjectEntityDefinitionsPage.value) {
     const projectId = route.params.projectId as string;
     if (projectId && currentProject.value?.id !== projectId) {
       setCurrentProjectById(projectId);
@@ -288,7 +288,7 @@ async function loadProjectsForCurrentApp() {
     const result = await Kinotic.projects.findAllForApplication(currentApp.value.id, pageable);
     projectsForCurrentApp.value = result.content ?? [];
 
-    if (isProjectStructuresPage.value) {
+    if (isProjectEntityDefinitionsPage.value) {
       const projectId = route.params.projectId as string;
       const routeAppId = route.params.applicationId as string;
 
@@ -327,7 +327,7 @@ function selectProject(proj: Project) {
   currentProject.value = proj;
   const projectId = proj.id ?? '';
   const applicationId = currentApp.value?.id ?? '';
-  router.push(`/application/${encodeURIComponent(applicationId)}/project/${encodeURIComponent(projectId)}/structures`);
+  router.push(`/application/${encodeURIComponent(applicationId)}/project/${encodeURIComponent(projectId)}/entity-definitions`);
   projectDropdownOpen.value = false;
   searchTextProject.value = '';
 }
@@ -385,7 +385,7 @@ async function tryAutoSelectAppAndProject() {
     await APPLICATION_STATE.loadAllApplications();
   }
 
-  if (isProjectStructuresPage.value) {
+  if (isProjectEntityDefinitionsPage.value) {
     const applicationId = route.params.applicationId as string;
     const projectId = route.params.projectId as string;
     await setActiveProjectById(applicationId, projectId);

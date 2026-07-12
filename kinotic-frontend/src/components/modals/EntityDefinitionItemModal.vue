@@ -114,17 +114,17 @@ function setupGraph() {
     return nodeId;
   };
 
-  const processedStructures = new Map<string, string>();
+  const processedEntityDefinitions = new Map<string, string>();
 
   const processProperties = (
     properties: any[],
     label: string,
     depth = 0
   ): string => {
-    const structureKey =
+    const entityDefinitionKey =
       label + JSON.stringify(properties.map((p) => p.name));
-    if (processedStructures.has(structureKey))
-      return processedStructures.get(structureKey)!;
+    if (processedEntityDefinitions.has(entityDefinitionKey))
+      return processedEntityDefinitions.get(entityDefinitionKey)!;
 
     const fields: { name: string; type: string }[] = [];
     const nodeId = createNode(
@@ -134,7 +134,7 @@ function setupGraph() {
       depth,
       depth === 0 ? "globalObject" : "objectNode"
     );
-    processedStructures.set(structureKey, nodeId);
+    processedEntityDefinitions.set(entityDefinitionKey, nodeId);
 
     properties.forEach((prop: any, idx: number) => {
       const propName = prop.name || `prop${idx}`;
@@ -211,8 +211,8 @@ function setupGraph() {
           }));
           const enumKey = JSON.stringify(enumFields) + containsName;
           let enumNodeId: string;
-          if (processedStructures.has(enumKey)) {
-            enumNodeId = processedStructures.get(enumKey)!;
+          if (processedEntityDefinitions.has(enumKey)) {
+            enumNodeId = processedEntityDefinitions.get(enumKey)!;
           } else {
             enumNodeId = createNode(
               `${propName}_enum_array`,
@@ -221,7 +221,7 @@ function setupGraph() {
               depth + 1,
               "enumNode"
             );
-            processedStructures.set(enumKey, enumNodeId);
+            processedEntityDefinitions.set(enumKey, enumNodeId);
           }
           flowEdges.value.push({
             id: `e-${nodeId}-${enumNodeId}`,
@@ -279,8 +279,8 @@ function setupGraph() {
         }));
         const enumKey = JSON.stringify(enumFields) + enumLabel;
         let enumNodeId: string;
-        if (processedStructures.has(enumKey)) {
-          enumNodeId = processedStructures.get(enumKey)!;
+        if (processedEntityDefinitions.has(enumKey)) {
+          enumNodeId = processedEntityDefinitions.get(enumKey)!;
         } else {
           enumNodeId = createNode(
             `${propName}_enum`,
@@ -289,7 +289,7 @@ function setupGraph() {
             depth + 1,
             "enumNode"
           );
-          processedStructures.set(enumKey, enumNodeId);
+          processedEntityDefinitions.set(enumKey, enumNodeId);
         }
         flowEdges.value.push({
           id: `e-${nodeId}-${enumNodeId}`,

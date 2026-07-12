@@ -24,7 +24,7 @@ interface HeaderDef {
 }
 
 import DatetimeUtil from '@/util/DatetimeUtil'
-import { StructureUtil } from '@/util/StructureUtil'
+import { EntityDefinitionUtil } from '@/util/EntityDefinitionUtil'
 import { rowColors } from '@/util/rowColors'
 import {
   EntityTableToolbar,
@@ -42,7 +42,7 @@ import Button from 'primevue/button'
 import { isDark as darkMode } from '@/composables/useTheme'
 
 const props = defineProps<{
-  structureId?: string
+  entityDefinitionId?: string
 }>()
 
 const route = useRoute()
@@ -55,8 +55,8 @@ const searchText = ref<string | null>(null)
 
 const keys = ref<string[]>([])
 const headers = ref<HeaderDef[]>([])
-const structureProperties = ref<any>({})
-const structure = ref<EntityDefinition>()
+const entityDefinitionProperties = ref<any>({})
+const entityDefinition = ref<EntityDefinition>()
 
 // Child components render from expansion/inspector state through the provided context,
 // so these managers are reactive proxies to keep those reads tracked. The cast restores
@@ -79,7 +79,7 @@ const _pendingResizeEvent = ref<MouseEvent | null>(null)
 const _pendingResizeKind = ref<ResizeKind | null>(null)
 
 const entitiesService: IEntitiesRepository = Kinotic.entities
-const structureService: IEntityDefinitionService = Kinotic.entityDefinitions
+const entityDefinitionService: IEntityDefinitionService = Kinotic.entityDefinitions
 
 const options = ref({
   rows: 50,
@@ -481,27 +481,27 @@ onMounted(() => {
   find()
 
   const paramId = route.params.id
-  const id = props.structureId || (Array.isArray(paramId) ? paramId[0] : paramId)
+  const id = props.entityDefinitionId || (Array.isArray(paramId) ? paramId[0] : paramId)
 
   if (!id) {
     displayAlert("Missing entity ID.")
     return
   }
 
-  structureService.findById(id)
-    .then((structureDef: EntityDefinition) => {
-      structure.value = structureDef
-      structureProperties.value = structureDef.schema.properties
+  entityDefinitionService.findById(id)
+    .then((definition: EntityDefinition) => {
+      entityDefinition.value = definition
+      entityDefinitionProperties.value = definition.schema.properties
 
-      _inspector.setStructureProperties(structureProperties.value)
+      _inspector.setEntityDefinitionProperties(entityDefinitionProperties.value)
 
-      for (const property of structureProperties.value) {
+      for (const property of entityDefinitionProperties.value) {
         if (property) {
           const fieldName = property.name[0].toUpperCase() + property.name.slice(1)
           let sortable = true
           if (
             ['ref', 'array', 'object'].includes(property.type.type) ||
-            (property.type.type === 'string' && StructureUtil.hasDecorator('Text', property.decorators))
+            (property.type.type === 'string' && EntityDefinitionUtil.hasDecorator('Text', property.decorators))
           ) {
             sortable = false
           }
@@ -524,7 +524,7 @@ onMounted(() => {
       find()
     })
     .catch((error: Error) => {
-      debug('Error during structure retrieval: %O', error)
+      debug('Error during entityDefinition retrieval: %O', error)
       displayAlert(error.message)
     })
 })
@@ -579,7 +579,7 @@ function find() {
 
   const pageable = Pageable.create(page, options.value.rows, { orders })
   const paramId = route.params.id
-  const id = props.structureId || (Array.isArray(paramId) ? paramId[0] : paramId)
+  const id = props.entityDefinitionId || (Array.isArray(paramId) ? paramId[0] : paramId)
 
   const queryPromise = (searchText.value?.length)
     ? entitiesService.search(id, searchText.value, pageable)
