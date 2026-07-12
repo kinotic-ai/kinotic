@@ -69,7 +69,22 @@ const pageRoutes: RouteRecordRaw[] = [
   organizationPlaceholderRoute('/roles-permissions', 'organization-roles', 'Roles & permissions', 'Define roles and control access across your organization.', 'pi-shield', 30),
   organizationPlaceholderRoute('/authentication-providers', 'organization-auth-providers', 'Authentication providers', 'Configure the identity providers available to this organization.', 'pi-key', 40),
   organizationPlaceholderRoute('/identity-mapping', 'organization-identity-mapping', 'Identity mapping', 'Map external identities to your organization users and roles.', 'pi-sort-alt', 50),
-  organizationPlaceholderRoute('/organization-settings', 'organization-settings', 'Organization settings', 'Update organization-wide settings and preferences.', 'pi-cog', 60),
+  {
+    path: '/organization-settings',
+    component: () => import('@/layouts/LayoutForPage.vue'),
+    meta: {
+      showInMainNav: false,
+      label: 'Organization settings',
+      sidebar: organizationSidebarItem('Organization settings', 'pi-cog', 60)
+    } as RouteMeta,
+    children: [
+      {
+        name: 'organization-settings',
+        path: '',
+        component: () => import('@/pages/OrganizationSettings.vue')
+      }
+    ]
+  },
   organizationPlaceholderRoute('/billing-plan', 'organization-billing-plan', 'Billing & plan', 'Review subscription, billing, and usage details for this organization.', 'pi-credit-card', 70),
 
   {
@@ -233,22 +248,6 @@ const pageRoutes: RouteRecordRaw[] = [
         name: "GraphQLPlayground",
         path: '',
         component: () => import('@/pages/GraphQLPlayground.vue'),
-      }
-    ]
-  },
-  {
-    path: '/integrations/github',
-    component: () => import('@/layouts/MainLayout.vue'),
-    meta: {
-      showInMainNav: false,
-      icon: 'settings.svg',
-      label: 'GitHub',
-    } as RouteMeta,
-    children: [
-      {
-        name: 'github-integration',
-        path: '',
-        component: () => import('@/pages/GitHubIntegrationSettings.vue'),
       }
     ]
   },

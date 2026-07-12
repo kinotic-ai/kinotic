@@ -7,7 +7,7 @@
     <div v-else-if="state === 'error'" class="max-w-md p-6 text-sm">
       <h2 class="mb-2 text-lg font-semibold text-red-600">Couldn't finish linking GitHub</h2>
       <p class="mb-4 text-surface-600">{{ errorMessage }}</p>
-      <Button label="Back to GitHub settings" severity="secondary" @click="goToSettings" />
+      <Button label="Back to organization settings" severity="secondary" @click="goToSettings" />
     </div>
   </div>
 </template>
@@ -24,7 +24,7 @@ const router = useRouter()
 const state = ref<'working' | 'error'>('working')
 const errorMessage = ref('')
 
-const SETTINGS_PATH = '/integrations/github'
+const SETTINGS_PATH = '/organization-settings'
 
 function goToSettings() {
   router.replace(SETTINGS_PATH)
