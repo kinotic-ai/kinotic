@@ -6,7 +6,7 @@ import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import CrudTable from '@/components/CrudTable.vue'
 import NewProjectSidebar from '@/components/NewProjectSidebar.vue'
-import ProjectStructuresTable from '@/components/ProjectStructuresTable.vue'
+import ProjectEntityDefinitionsTable from '@/components/ProjectEntityDefinitionsTable.vue'
 import type { IDataSource, Identifiable, IterablePage, Pageable } from '@kinotic-ai/core'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { Kinotic } from '@kinotic-ai/core'
@@ -169,7 +169,7 @@ async function toProjectPage(item: Identifiable<string>): Promise<void> {
 
     debug('Navigating to project: %s, ID: %s, App ID: %s', (item as any).name, projectId, appId)
 
-    await router.push(`/application/${encodeURIComponent(appId)}/project/${encodeURIComponent(projectId)}/structures`)
+    await router.push(`/application/${encodeURIComponent(appId)}/project/${encodeURIComponent(projectId)}/entity-definitions`)
   } catch (error) {
     debug('Failed to navigate to project page: %O', error)
   }
@@ -268,7 +268,7 @@ async function retryRepoInit(project: Project): Promise<void> {
         </h2>
         <Button label="Back to Projects" icon="pi pi-arrow-left" @click="clearSelectedProject" />
       </div>
-      <ProjectStructuresTable :projectId="selectedProjectId" />
+      <ProjectEntityDefinitionsTable :projectId="selectedProjectId" />
     </div>
 
     <NewProjectSidebar

@@ -309,7 +309,7 @@ function displayAlert(text: string) {
   });
 }
 
-// displayAlert is exposed because ProjectStructuresTable and StructuresList
+// displayAlert is exposed because ProjectEntityDefinitionsTable and EntityDefinitionsList
 // surface publish errors through their crudTable ref.
 defineExpose({ find, displayAlert });
 </script>

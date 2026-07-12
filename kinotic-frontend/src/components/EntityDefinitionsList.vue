@@ -1,8 +1,8 @@
 <script lang="ts">
 import { defineComponent } from "vue";
 import CrudTable from "@/components/CrudTable.vue";
-import StructureDataViewModal from "@/components/modals/StructureDataViewModal.vue";
-import StructureItemModal from "@/components/modals/StructureItemModal.vue";
+import EntityDataViewModal from "@/components/modals/EntityDataViewModal.vue";
+import EntityDefinitionItemModal from "@/components/modals/EntityDefinitionItemModal.vue";
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
 import Tag from "primevue/tag";
@@ -17,16 +17,16 @@ import type { CrudHeader } from "@/types/CrudHeader";
 import DatetimeUtil from "@/util/DatetimeUtil";
 import { createDebug } from "@/util/debug";
 
-const debug = createDebug("structures-list");
+const debug = createDebug("entityDefinitions-list");
 
 export default defineComponent({
-  name: "StructuresList",
+  name: "EntityDefinitionsList",
   components: {
     Button,
     CrudTable,
     Dialog,
-    StructureDataViewModal,
-    StructureItemModal,
+    EntityDataViewModal,
+    EntityDefinitionItemModal,
     Tag,
   },
   props: {
@@ -44,12 +44,12 @@ export default defineComponent({
       required: false,
       default: "",
     },
-    showNewStructureButton: {
+    showNewEntityDefinitionButton: {
       type: Boolean,
       required: false,
       default: false,
     },
-    newStructureButtonText: {
+    newEntityDefinitionButtonText: {
       type: String,
       required: false,
       default: "New Entity",
@@ -61,12 +61,12 @@ export default defineComponent({
       dataSource1: Kinotic.entityDefinitions as IEntityDefinitionService,
       isInitialized: false,
       searchText: "",
-      selectedStructure: null as EntityDefinition | null,
+      selectedEntityDefinition: null as EntityDefinition | null,
       showItemModal: false,
       showModal: false,
       showPublishModal: false,
       showUnpublishModal: false,
-      structureTableHeaders: [
+      entityDefinitionTableHeaders: [
         { field: "name", header: "Entity name", sortable: true },
         { field: "projectId", header: "Project", sortable: true },
         { field: "description", header: "Description", sortable: false },
@@ -85,7 +85,7 @@ export default defineComponent({
             ? await service.findAllForProject(this.projectId, pageable)
             : await service.findAllForApplication(this.applicationId, pageable);
 
-          APPLICATION_STATE.structuresCount = result.totalElements ?? 0;
+          APPLICATION_STATE.entityDefinitionsCount = result.totalElements ?? 0;
           return result;
         },
         search: async (
@@ -101,10 +101,10 @@ export default defineComponent({
       };
     },
     isPublishing(): boolean {
-      return (this.selectedStructure as any)?.publishing || false;
+      return (this.selectedEntityDefinition as any)?.publishing || false;
     },
-    structuresCount(): number {
-      return APPLICATION_STATE.structuresCount;
+    entityDefinitionsCount(): number {
+      return APPLICATION_STATE.entityDefinitionsCount;
     },
   },
   watch: {
@@ -135,45 +135,45 @@ export default defineComponent({
       const query = { ...this.$route.query };
 
       if (newSearch) {
-        query["search-structure"] = newSearch;
+        query["search-entityDefinition"] = newSearch;
       } else {
-        delete query["search-structure"];
+        delete query["search-entityDefinition"];
       }
 
       this.$router.replace({ query }).catch(() => {});
       this.refreshTable();
     },
     openModal(item: EntityDefinition): void {
-      this.selectedStructure = item;
+      this.selectedEntityDefinition = item;
       this.showModal = true;
     },
     closeModal(): void {
       this.showModal = false;
-      this.selectedStructure = null;
+      this.selectedEntityDefinition = null;
     },
     openItemModal(item: EntityDefinition): void {
-      this.selectedStructure = item;
+      this.selectedEntityDefinition = item;
       this.showItemModal = true;
     },
     closeItemModal(): void {
       this.showItemModal = false;
-      this.selectedStructure = null;
+      this.selectedEntityDefinition = null;
     },
     openPublishModal(item: EntityDefinition): void {
-      this.selectedStructure = item;
+      this.selectedEntityDefinition = item;
       this.showPublishModal = true;
     },
     closePublishModal(): void {
       this.showPublishModal = false;
-      this.selectedStructure = null;
+      this.selectedEntityDefinition = null;
     },
     openUnpublishModal(item: EntityDefinition): void {
-      this.selectedStructure = item;
+      this.selectedEntityDefinition = item;
       this.showUnpublishModal = true;
     },
     closeUnpublishModal(): void {
       this.showUnpublishModal = false;
-      this.selectedStructure = null;
+      this.selectedEntityDefinition = null;
     },
     handleRowClick(item: EntityDefinition): void {
       if (item.published) {
@@ -195,9 +195,9 @@ export default defineComponent({
       }
     },
     async publishFromModal(): Promise<void> {
-      if (!this.selectedStructure) return;
+      if (!this.selectedEntityDefinition) return;
 
-      const item = this.selectedStructure as any;
+      const item = this.selectedEntityDefinition as any;
       item["publishing"] = true;
 
       try {
@@ -207,16 +207,16 @@ export default defineComponent({
         delete item["publishing"];
       } catch (error: any) {
         delete item["publishing"];
-        debug("Error publishing structure: %O", error);
+        debug("Error publishing entityDefinition: %O", error);
       }
     },
     async unPublish(item: any): Promise<void> {
       this.openUnpublishModal(item);
     },
     async unpublishFromModal(): Promise<void> {
-      if (!this.selectedStructure) return;
+      if (!this.selectedEntityDefinition) return;
 
-      const item = this.selectedStructure as any;
+      const item = this.selectedEntityDefinition as any;
       item["publishing"] = true;
 
       try {
@@ -226,7 +226,7 @@ export default defineComponent({
         delete item["publishing"];
       } catch (error: any) {
         delete item["publishing"];
-        debug("Error unpublishing structure: %O", error);
+        debug("Error unpublishing entityDefinition: %O", error);
       }
     },
     getActionMenu(item: EntityDefinition) {
@@ -258,13 +258,13 @@ export default defineComponent({
       ref="crudTable"
       rowHoverColor=""
       :data-source="dataSource"
-      :headers="structureTableHeaders"
+      :headers="entityDefinitionTableHeaders"
       :singleExpand="false"
       :search="searchText"
       @update:search="updateRouteQuery"
       @onRowClick="handleRowClick"
-      :isShowAddNew="showNewStructureButton"
-      :createNewButtonText="newStructureButtonText"
+      :isShowAddNew="showNewEntityDefinitionButton"
+      :createNewButtonText="newEntityDefinitionButtonText"
       :row-actions="getActionMenu"
       class="!text-sm"
       emptyStateText="No entities yet"
@@ -287,17 +287,17 @@ export default defineComponent({
       </template>
     </CrudTable>
 
-    <StructureDataViewModal
-      v-if="selectedStructure"
+    <EntityDataViewModal
+      v-if="selectedEntityDefinition"
       v-model="showModal"
-      :title="selectedStructure?.name || 'Data View'"
-      :entity-props="{ structureId: selectedStructure?.id }"
+      :title="selectedEntityDefinition?.name || 'Data View'"
+      :entity-props="{ entityDefinitionId: selectedEntityDefinition?.id }"
       @close="closeModal"
     />
 
-    <StructureItemModal
-      v-if="showItemModal && selectedStructure"
-      :item="selectedStructure"
+    <EntityDefinitionItemModal
+      v-if="showItemModal && selectedEntityDefinition"
+      :item="selectedEntityDefinition"
       @close="closeItemModal"
     />
 
@@ -309,12 +309,12 @@ export default defineComponent({
     >
       <template #header>
         <div class="flex items-center">
-          <span>{{ selectedStructure?.name || 'Entity' }}</span>
+          <span>{{ selectedEntityDefinition?.name || 'Entity' }}</span>
           <div 
             class="ml-2 px-3 py-1 rounded-full text-sm font-medium"
-            :class="selectedStructure?.published ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+            :class="selectedEntityDefinition?.published ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
           >
-            {{ selectedStructure?.published ? 'Published' : 'Unpublished' }}
+            {{ selectedEntityDefinition?.published ? 'Published' : 'Unpublished' }}
           </div>
         </div>
       </template>
@@ -351,12 +351,12 @@ export default defineComponent({
     >
       <template #header>
         <div class="flex items-center">
-          <span>{{ selectedStructure?.name || 'Entity' }}</span>
+          <span>{{ selectedEntityDefinition?.name || 'Entity' }}</span>
           <div 
             class="ml-2 px-3 py-1 rounded-full text-sm font-medium"
-            :class="selectedStructure?.published ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+            :class="selectedEntityDefinition?.published ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
           >
-            {{ selectedStructure?.published ? 'Published' : 'Unpublished' }}
+            {{ selectedEntityDefinition?.published ? 'Published' : 'Unpublished' }}
           </div>
         </div>
       </template>
