@@ -109,9 +109,6 @@ function resolvePath(path: string): string {
 }
 
 function isActive(path: string): boolean {
-  if (path.includes('/dashboards') && !path.includes('/dashboards/')) {
-    return route.path === path || route.path.startsWith(path + '/')
-  }
   return route.path === path
 }
 

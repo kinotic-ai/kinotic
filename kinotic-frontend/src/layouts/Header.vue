@@ -5,7 +5,7 @@
         <img src="@/assets/header-logo.svg" class="h-6 w-[27px]" alt="Kinotic" />
       </RouterLink>
 
-      <template v-if="isApplicationDetailsPage || isProjectStructuresPage || isApplicationSettingsPage || isDashboardsPage">
+      <template v-if="isApplicationDetailsPage || isProjectStructuresPage || isApplicationSettingsPage">
         <span class="text-lg text-surface-600">/</span>
 
         <div ref="appDropdownRef" class="relative inline-block mr-8">
@@ -40,7 +40,7 @@
           </div>
         </div>
 
-                 <template v-if="currentApp && !isApplicationSettingsPage && !isDashboardsPage">
+                 <template v-if="currentApp && !isApplicationSettingsPage">
            <span class="text-lg text-surface-600">/</span>
            <div ref="projectDropdownRef" class="relative inline-block">
             <button @click="toggleProjectDropdown"
@@ -143,7 +143,6 @@ const searchTextProject = ref('');
 const isApplicationDetailsPage = ref(false);
 const isProjectStructuresPage = ref(false);
 const isApplicationSettingsPage = ref(false);
-const isDashboardsPage = ref(false);
 
 const projectsForCurrentApp = ref<Project[]>([]);
 const currentApp = ref<Application | null>(null);
@@ -219,10 +218,9 @@ function updateRouteState() {
   isApplicationDetailsPage.value = /^\/application\/[^/]+$/.test(path);
   isProjectStructuresPage.value = /^\/application\/[^/]+\/project\/[^/]+\/structures$/.test(path);
   isApplicationSettingsPage.value = /^\/application\/[^/]+\/settings$/.test(path);
-  isDashboardsPage.value = /^\/application\/[^/]+\/dashboards(\/.*)?$/.test(path);
 
   // Set current application based on route
-  if (isApplicationDetailsPage.value || isProjectStructuresPage.value || isApplicationSettingsPage.value || isDashboardsPage.value) {
+  if (isApplicationDetailsPage.value || isProjectStructuresPage.value || isApplicationSettingsPage.value) {
     const applicationId = route.params.applicationId as string;
     if (applicationId && currentApp.value?.id !== applicationId) {
       setActiveAppById(applicationId);
@@ -238,7 +236,7 @@ function updateRouteState() {
       setCurrentProjectById(projectId);
     }
   }
-  else if (isApplicationSettingsPage.value || isDashboardsPage.value) {
+  else if (isApplicationSettingsPage.value) {
     currentProject.value = null;
   }
 }
