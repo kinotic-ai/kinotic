@@ -25,6 +25,14 @@ export function createConnectionInfo(): ConnectionInfo {
  * same-origin production deployment — SPA served from kinotic-server's webroot —
  * still works).
  */
+/**
+ * Extracts a human-readable message from a caught error, falling back to the
+ * given text when the value is not an Error or carries no message.
+ */
+export function errorMessage(err: unknown, fallback: string): string {
+    return err instanceof Error && err.message ? err.message : fallback
+}
+
 export function apiUrl(path: string): string {
     const host = import.meta.env.VITE_KINOTIC_HOST
     const suffix = path.startsWith('/') ? path : `/${path}`

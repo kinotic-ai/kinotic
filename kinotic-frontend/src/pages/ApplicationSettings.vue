@@ -155,6 +155,7 @@
 <script setup lang="ts">
 // @ts-ignore
 import { ref, defineProps, onMounted, watch, computed } from 'vue'
+import { errorMessage } from '@/util/helpers'
 import { InputText, Textarea, Button, Tabs, TabList, Tab, TabPanels, TabPanel, Dialog, IconField, InputIcon, ToggleSwitch } from 'primevue'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
@@ -237,8 +238,8 @@ const saveSettings = async () => {
   } catch (error) {
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to save application settings',
+      summary: 'Failed to save application settings',
+      detail: errorMessage(error, 'An unexpected error occurred'),
       life: 3000
     })
   } finally {
@@ -259,8 +260,8 @@ const loadSavedWidgets = async () => {
   } catch (error) {
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to load saved widgets',
+      summary: 'Failed to load saved widgets',
+      detail: errorMessage(error, 'An unexpected error occurred'),
       life: 3000
     })
   } finally {
@@ -289,8 +290,8 @@ const deleteWidget = async () => {
   } catch (error) {
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to delete widget',
+      summary: 'Failed to delete widget',
+      detail: errorMessage(error, 'An unexpected error occurred'),
       life: 3000
     })
   } finally {

@@ -99,7 +99,7 @@ import CrudTable from '@/components/CrudTable.vue'
 import type { CrudHeader } from '@/types/CrudHeader'
 import type { DescriptiveIdentifiable } from '@/types/DescriptiveIdentifiable'
 import { StructuresStates } from '@/states'
-import { apiUrl } from '@/util/helpers'
+import { apiUrl, errorMessage } from '@/util/helpers'
 import { createDebug } from '@/util/debug'
 
 const debug = createDebug('members')
@@ -347,9 +347,5 @@ async function run(action: () => Promise<void>, successMessage: string, failureM
 
 function refreshTable() {
   crudTable.value?.find()
-}
-
-function errorMessage(err: unknown, fallback: string): string {
-  return err instanceof Error && err.message ? err.message : fallback
 }
 </script>

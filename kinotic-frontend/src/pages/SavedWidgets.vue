@@ -97,6 +97,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { errorMessage } from '@/util/helpers'
 import { InputText, Button, Dialog, IconField, InputIcon } from 'primevue'
 import { useToast } from 'primevue/usetoast'
 import { DataInsightsWidgetEntityRepository } from '@/services/DataInsightsWidgetEntityRepository'
@@ -137,8 +138,8 @@ const loadSavedWidgets = async () => {
     debug('Failed to load saved widgets: %O', error)
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to load saved widgets',
+      summary: 'Failed to load saved widgets',
+      detail: errorMessage(error, 'An unexpected error occurred'),
       life: 3000
     })
   } finally {
@@ -169,8 +170,8 @@ const deleteWidget = async () => {
     debug('Failed to delete widget: %O', error)
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to delete widget',
+      summary: 'Failed to delete widget',
+      detail: errorMessage(error, 'An unexpected error occurred'),
       life: 3000
     })
   } finally {

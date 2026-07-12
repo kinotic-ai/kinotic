@@ -114,8 +114,8 @@ async function handleSubmit(): Promise<void> {
         } else {
             toast.add({
                 severity: 'error',
-                summary: 'Error',
-                detail: 'Failed to create project.',
+                summary: 'Failed to create project',
+                detail: message || 'An unexpected error occurred',
                 life: 3000
             });
         }

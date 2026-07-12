@@ -5,6 +5,7 @@ import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@/util/debug'
+import { errorMessage } from '@/util/helpers'
 import type {Application} from "@kinotic-ai/os-api";
 import {Kinotic} from "@kinotic-ai/core";
 import { USER_STATE } from '@/states/IUserState'
@@ -70,7 +71,7 @@ async function handleSubmit(): Promise<void> {
     toast.add({
       severity: 'error',
       summary: 'Failed to create application',
-      detail: error instanceof Error ? error.message : 'An unexpected error occurred',
+      detail: errorMessage(error, 'An unexpected error occurred'),
       life: 5000
     })
   } finally {
