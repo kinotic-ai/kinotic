@@ -53,6 +53,13 @@ public class KinoticSQLBaseVisitor<T> extends AbstractParseTreeVisitor<T> implem
 	 * <p>The default implementation returns the result of calling
 	 * {@link #visitChildren} on {@code ctx}.</p>
 	 */
+	@Override public T visitAssignOp(KinoticSQLParser.AssignOpContext ctx) { return visitChildren(ctx); }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation returns the result of calling
+	 * {@link #visitChildren} on {@code ctx}.</p>
+	 */
 	@Override public T visitCreateComponentTemplateStatement(KinoticSQLParser.CreateComponentTemplateStatementContext ctx) { return visitChildren(ctx); }
 	/**
 	 * {@inheritDoc}
