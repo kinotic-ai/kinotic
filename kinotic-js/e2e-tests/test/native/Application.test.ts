@@ -18,7 +18,7 @@ describe('Kinotic JS', () => {
     it('derives the application id from the slugified name', async () => {
         const application = await Kinotic.applications.createApplicationIfNotExist('E2E Slug. Test!', 'Application id derivation')
         try {
-            expect(application.id).toBe('e2e_slug_test')
+            expect(application.id).toBe('e2e-slug-test')
         } finally {
             await Kinotic.applications.deleteById(application.id)
         }
@@ -28,7 +28,7 @@ describe('Kinotic JS', () => {
         const first = await Kinotic.applications.createApplicationIfNotExist('E2E Idempotent App', 'first')
         try {
             // The slug itself and the punctuated name mint the same id
-            const second = await Kinotic.applications.createApplicationIfNotExist('e2e_idempotent_app', 'second')
+            const second = await Kinotic.applications.createApplicationIfNotExist('e2e-idempotent-app', 'second')
             expect(second.id).toBe(first.id)
             expect(second.description).toBe('first')
         } finally {
