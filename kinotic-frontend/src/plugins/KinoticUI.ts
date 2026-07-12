@@ -1,8 +1,8 @@
 import type { NavigationGuardNext, RouteLocationNormalized, Router } from 'vue-router'
 import type { App, Plugin } from 'vue'
-import {StructuresStates} from '@/states/index'
+import {KinoticStates} from '@/states/index'
 
-export function createStructuresUI(): Plugin {
+export function createKinoticUI(): Plugin {
     return {
         install(_: App, options: {router: Router, sessionProbe: Promise<void>}) {
             options.router.beforeEach(async (to: RouteLocationNormalized, _: RouteLocationNormalized, next: NavigationGuardNext) => {
@@ -12,7 +12,7 @@ export function createStructuresUI(): Plugin {
                     // Settles once the session-cookie connect attempt finishes, so the guard sees
                     // the real auth state on the initial navigation.
                     await options.sessionProbe
-                    if (!StructuresStates.getUserState().isAuthenticated()) {
+                    if (!KinoticStates.getUserState().isAuthenticated()) {
                         next({ path: '/login', query: { referer: to.fullPath } })
                         return
                     }
@@ -20,7 +20,7 @@ export function createStructuresUI(): Plugin {
                 next()
             })
 
-            StructuresStates.getApplicationState().initialize(options.router)
+            KinoticStates.getApplicationState().initialize(options.router)
         }
     }
 }

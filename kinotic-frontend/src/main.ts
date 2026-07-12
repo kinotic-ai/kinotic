@@ -1,9 +1,9 @@
-import { createStructuresUI } from '@/plugins/StructuresUI.js'
+import { createKinoticUI } from '@/plugins/KinoticUI.js'
 import './style.css'
 import './theme.css'
 import PrimeVue from 'primevue/config'
 import StyleClass from 'primevue/styleclass'
-import { StructuresPreset } from '@/StructuresPreset'
+import { KinoticPreset } from '@/KinoticPreset'
 import router from '@/router'
 import ToastService from 'primevue/toastservice'
 import ConfirmationService from 'primevue/confirmationservice'
@@ -11,7 +11,7 @@ import { CONTINUUM_UI } from '@/IContinuumUI'
 import 'primeicons/primeicons.css'
 import { createApp } from 'vue'
 import App from './App.vue'
-import { StructuresStates } from '@/states'
+import { KinoticStates } from '@/states'
 
 import { Kinotic } from '@kinotic-ai/core'
 import { OsApiPlugin } from '@kinotic-ai/os-api'
@@ -66,7 +66,7 @@ const app = createApp(App)
 
 app.use(PrimeVue, {
     theme: {
-        preset: StructuresPreset,
+        preset: KinoticPreset,
         options: {
             darkModeSelector: '.dark',
             cssLayer: false,
@@ -80,11 +80,11 @@ CONTINUUM_UI.initialize(router);
 // Probe for an existing browser session in the background. The auth guard awaits this promise
 // before checking auth state, so protected routes wait for the real result while public routes
 // (login, signup, verify) render immediately instead of blanking until the probe settles.
-const sessionProbe = StructuresStates.getUserState().login().catch(() => {})
+const sessionProbe = KinoticStates.getUserState().login().catch(() => {})
 
 app.directive('styleclass', StyleClass)
 app.use(ToastService)
 app.use(ConfirmationService)
-app.use(createStructuresUI(), { router, sessionProbe })
+app.use(createKinoticUI(), { router, sessionProbe })
 app.use(router)
 app.mount('#app')
