@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import { showErrorToast } from '@/util/helpers';
@@ -23,7 +23,7 @@ interface ProjectForm {
     repoPrivate: boolean;
 }
 
-type LinkingState = 'idle' | 'awaiting' | 'completing' | 'error';
+type LinkingState = 'idle' | 'redirecting' | 'error';
 
 const props = defineProps<{
     visible: boolean
@@ -51,16 +51,9 @@ const githubLinked = ref<boolean | null>(null);
 const linkingState = ref<LinkingState>('idle');
 const linkingError = ref<string | null>(null);
 
-const popup = ref<Window | null>(null);
-const installListener = ref<((e: MessageEvent) => void) | null>(null);
-const popupWatcher = ref<number | null>(null);
-
 watch(() => props.visible, onVisibleChanged);
 async function onVisibleChanged(isOpen: boolean): Promise<void> {
-    if (!isOpen) {
-        cleanupPopupListeners();
-        return;
-    }
+    if (!isOpen) return;
     githubLinked.value = null;
     linkingState.value = 'idle';
     linkingError.value = null;
@@ -74,10 +67,6 @@ async function onVisibleChanged(isOpen: boolean): Promise<void> {
         githubLinked.value = true;
     }
 }
-
-onBeforeUnmount(() => {
-    cleanupPopupListeners();
-});
 
 const isDark = darkMode;
 
@@ -121,72 +110,27 @@ async function handleSubmit(): Promise<void> {
 }
 
 function handleClose(): void {
-    cleanupPopupListeners();
     resetForm();
     emit('close');
 }
 
 /**
- * Opens GitHub's install page in a popup. The sidebar stays in the main window
- * showing an "awaiting install" panel. When the popup hits our /github/install/callback
- * route it posts back installation_id + state and closes itself; we then run
- * completeInstall and transition to the project form.
+ * Sends the whole tab to GitHub's install page. GitHub redirects back to
+ * {@code /github/install/callback}, which runs completeInstall and lands on the
+ * returnTo — {@code ProjectList} re-opens this sidebar via {@code openNewProject=1}.
  *
- * The popup must be opened synchronously inside the click handler — any await
- * before window.open hands control back to the event loop and the browser stops
- * treating it as a user-initiated popup.
+ * A popup can't be used here: after the popup round-trips through github.com,
+ * GitHub's Cross-Origin-Opener-Policy triggers a browsing-context-group swap that
+ * severs window.opener, so the popup could never signal back to this window.
  */
-function linkGitHub(): void {
+async function linkGitHub(): Promise<void> {
+    linkingState.value = 'redirecting';
     linkingError.value = null;
-
-    const popupWindow = window.open('about:blank', 'kinotic-github-install', 'width=900,height=900');
-    if (!popupWindow) {
-        // Popup blocked — fall back to same-window navigation.
-        linkGitHubSameWindow();
-        return;
-    }
-
-    popup.value = popupWindow;
-    linkingState.value = 'awaiting';
-
-    // Resolve the GitHub URL asynchronously and aim the popup at it.
-    Kinotic.githubAppInstallations.startInstall(buildReturnTo())
-        .then(url => {
-            if (popup.value && !popup.value.closed) {
-                popup.value.location.href = url;
-            }
-        })
-        .catch(err => {
-            debug('Failed to start GitHub install: %O', err);
-            if (popup.value && !popup.value.closed) {
-                popup.value.close();
-            }
-            cleanupPopupListeners();
-            linkingState.value = 'error';
-            linkingError.value = (err as Error)?.message ?? 'Failed to start GitHub install.';
-        });
-
-    installListener.value = onInstallMessage;
-    window.addEventListener('message', installListener.value);
-
-    // Watch for the user closing the popup without finishing.
-    popupWatcher.value = window.setInterval(() => {
-        if (popup.value && popup.value.closed) {
-            const wasAwaiting = linkingState.value === 'awaiting';
-            cleanupPopupListeners();
-            if (wasAwaiting) {
-                linkingState.value = 'idle';
-            }
-        }
-    }, 500);
-}
-
-async function linkGitHubSameWindow(): Promise<void> {
     try {
         const url = await Kinotic.githubAppInstallations.startInstall(buildReturnTo());
         window.location.href = url;
     } catch (err) {
-        debug('Failed to start GitHub install (same-window fallback): %O', err);
+        debug('Failed to start GitHub install: %O', err);
         linkingState.value = 'error';
         linkingError.value = (err as Error)?.message ?? 'Failed to start GitHub install.';
     }
@@ -201,53 +145,6 @@ function buildReturnTo(): string {
     const fullPath = route.fullPath;
     const sep = fullPath.includes('?') ? '&' : '?';
     return `${fullPath}${sep}openNewProject=1`;
-}
-
-async function onInstallMessage(event: MessageEvent): Promise<void> {
-    if (event.origin !== window.location.origin) return;
-    const data = event.data as { type?: string; installationId?: number; state?: string; message?: string } | undefined;
-    if (!data?.type) return;
-
-    if (data.type === 'kinotic-github-install-complete'
-            && typeof data.installationId === 'number'
-            && typeof data.state === 'string') {
-        cleanupPopupListeners();
-        linkingState.value = 'completing';
-        try {
-            await Kinotic.githubAppInstallations.completeInstall(data.installationId, data.state);
-            const install = await Kinotic.githubAppInstallations.findForCurrentOrg();
-            githubLinked.value = install != null;
-            linkingState.value = 'idle';
-        } catch (err) {
-            debug('Failed to complete GitHub install: %O', err);
-            linkingState.value = 'error';
-            linkingError.value = (err as Error)?.message ?? 'Failed to complete GitHub install.';
-        }
-    } else if (data.type === 'kinotic-github-install-error') {
-        cleanupPopupListeners();
-        linkingState.value = 'error';
-        linkingError.value = data.message ?? 'GitHub install was cancelled or failed.';
-    }
-}
-
-function cleanupPopupListeners(): void {
-    if (installListener.value) {
-        window.removeEventListener('message', installListener.value);
-        installListener.value = null;
-    }
-    if (popupWatcher.value !== null) {
-        window.clearInterval(popupWatcher.value);
-        popupWatcher.value = null;
-    }
-    popup.value = null;
-}
-
-function cancelLinking(): void {
-    if (popup.value && !popup.value.closed) {
-        popup.value.close();
-    }
-    cleanupPopupListeners();
-    linkingState.value = 'idle';
 }
 
 function resetForm(): void {
@@ -291,28 +188,11 @@ function resetForm(): void {
                     </Button>
                 </div>
 
-                <!-- Linking flow: awaiting popup -->
-                <div v-if="linkingState === 'awaiting'" class="flex flex-col gap-4 p-4">
-                    <div class="flex items-center gap-3">
-                        <i class="pi pi-spin pi-spinner text-lg"></i>
-                        <p :class="['text-sm', isDark ? 'text-surface-200' : 'text-surface-700']">
-                            Complete the GitHub install in the popup window.
-                        </p>
-                    </div>
-                    <p :class="['text-xs', isDark ? 'text-surface-400' : 'text-surface-500']">
-                        Don't see it? Your browser may have blocked the popup.
-                        <a class="underline cursor-pointer" @click="linkGitHubSameWindow">Continue in this window</a>.
-                    </p>
-                    <div class="flex justify-end">
-                        <Button type="button" @click="cancelLinking" severity="secondary">Cancel</Button>
-                    </div>
-                </div>
-
-                <!-- Linking flow: completing (popup posted back, calling completeInstall) -->
-                <div v-else-if="linkingState === 'completing'" class="flex items-center gap-3 p-4">
+                <!-- Linking flow: redirecting to GitHub -->
+                <div v-if="linkingState === 'redirecting'" class="flex items-center gap-3 p-4">
                     <i class="pi pi-spin pi-spinner text-lg"></i>
                     <span :class="['text-sm', isDark ? 'text-surface-200' : 'text-surface-700']">
-                        Finishing GitHub install…
+                        Redirecting to GitHub…
                     </span>
                 </div>
 
