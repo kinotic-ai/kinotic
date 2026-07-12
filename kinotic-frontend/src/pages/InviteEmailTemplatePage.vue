@@ -67,6 +67,7 @@ import { useToast } from 'primevue/usetoast'
 
 import { Kinotic } from '@kinotic-ai/core'
 import { InviteEmailTemplate } from '@kinotic-ai/os-api'
+import { showErrorToast } from '@/util/helpers'
 
 /**
  * Editor for an application's customized invitation email. Without a saved template the
@@ -99,7 +100,7 @@ onMounted(async () => {
       customizing.value = true
     }
   } catch (err) {
-    toast.add({ severity: 'error', summary: 'Error', detail: message(err, 'Failed to load template'), life: 8000 })
+    showErrorToast(toast, 'Failed to load template', err, { life: 8000 })
   } finally {
     loading.value = false
   }
@@ -140,7 +141,7 @@ async function save() {
     toast.add({ severity: 'success', summary: 'Template saved', life: 4000 })
   } catch (err) {
     // Server-side Handlebars validation messages carry the parse position.
-    toast.add({ severity: 'error', summary: 'Error', detail: message(err, 'Failed to save template'), life: 10000 })
+    showErrorToast(toast, 'Failed to save template', err, { life: 10000 })
   } finally {
     saving.value = false
   }
@@ -168,13 +169,10 @@ async function revert() {
     customizing.value = false
     toast.add({ severity: 'success', summary: 'Reverted to the built-in email', life: 4000 })
   } catch (err) {
-    toast.add({ severity: 'error', summary: 'Error', detail: message(err, 'Failed to revert'), life: 8000 })
+    showErrorToast(toast, 'Failed to revert', err, { life: 8000 })
   }
 }
 
-function message(err: unknown, fallback: string): string {
-  return err instanceof Error && err.message ? err.message : fallback
-}
 </script>
 
 <style scoped>

@@ -62,6 +62,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { showErrorToast } from '@/util/helpers'
 // import { GridStack } from 'gridstack'
 import 'gridstack/dist/gridstack.min.css'
 import { DashboardEntityRepository } from '@/services/DashboardEntityRepository'
@@ -256,12 +257,7 @@ const loadDashboard = async () => {
     }
   } catch (error) {
     debug('Error loading dashboard: %O', error)
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to load dashboard',
-      life: 3000
-    })
+    showErrorToast(toast, 'Failed to load dashboard', error)
   } finally {
     loading.value = false
   }

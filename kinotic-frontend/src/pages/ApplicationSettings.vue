@@ -155,6 +155,7 @@
 <script setup lang="ts">
 // @ts-ignore
 import { ref, defineProps, onMounted, watch, computed } from 'vue'
+import { showErrorToast } from '@/util/helpers'
 import { InputText, Textarea, Button, Tabs, TabList, Tab, TabPanels, TabPanel, Dialog, IconField, InputIcon, ToggleSwitch } from 'primevue'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
@@ -235,12 +236,7 @@ const saveSettings = async () => {
       life: 3000
     })
   } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to save application settings',
-      life: 3000
-    })
+    showErrorToast(toast, 'Failed to save application settings', error)
   } finally {
     loading.value = false
   }
@@ -257,12 +253,7 @@ const loadSavedWidgets = async () => {
     const widgets = await widgetService.findByApplicationId(APPLICATION_STATE.currentApplication.id)
     savedWidgets.value = widgets
   } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to load saved widgets',
-      life: 3000
-    })
+    showErrorToast(toast, 'Failed to load saved widgets', error)
   } finally {
     loadingWidgets.value = false
   }
@@ -287,12 +278,7 @@ const deleteWidget = async () => {
       life: 3000
     })
   } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to delete widget',
-      life: 3000
-    })
+    showErrorToast(toast, 'Failed to delete widget', error)
   } finally {
     showDeleteDialog.value = false
     widgetToDelete.value = null

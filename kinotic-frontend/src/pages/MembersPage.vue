@@ -99,7 +99,7 @@ import CrudTable from '@/components/CrudTable.vue'
 import type { CrudHeader } from '@/types/CrudHeader'
 import type { DescriptiveIdentifiable } from '@/types/DescriptiveIdentifiable'
 import { StructuresStates } from '@/states'
-import { apiUrl } from '@/util/helpers'
+import { apiUrl, showErrorToast } from '@/util/helpers'
 import { createDebug } from '@/util/debug'
 
 const debug = createDebug('members')
@@ -290,7 +290,7 @@ async function sendInvite() {
       refreshTable()
     }
   } catch (err) {
-    toast.add({ severity: 'error', summary: 'Error', detail: errorMessage(err, 'Failed to send invitation'), life: 8000 })
+    showErrorToast(toast, 'Failed to send invitation', err, { life: 8000 })
   } finally {
     inviting.value = false
   }
@@ -341,15 +341,11 @@ async function run(action: () => Promise<void>, successMessage: string, failureM
     toast.add({ severity: 'success', summary: successMessage, life: 4000 })
     refreshTable()
   } catch (err) {
-    toast.add({ severity: 'error', summary: 'Error', detail: errorMessage(err, failureMessage), life: 8000 })
+    showErrorToast(toast, failureMessage, err, { life: 8000 })
   }
 }
 
 function refreshTable() {
   crudTable.value?.find()
-}
-
-function errorMessage(err: unknown, fallback: string): string {
-  return err instanceof Error && err.message ? err.message : fallback
 }
 </script>

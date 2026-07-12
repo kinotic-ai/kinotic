@@ -5,6 +5,7 @@ import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@/util/debug'
+import { showErrorToast } from '@/util/helpers'
 import type {Application} from "@kinotic-ai/os-api";
 import {Kinotic} from "@kinotic-ai/core";
 import { USER_STATE } from '@/states/IUserState'
@@ -44,9 +45,8 @@ function resetForm(): void {
 async function handleSubmit(): Promise<void> {
   loading.value = true
   try {
-    // The server mints the id from the slugified name; the cast bridges the 2.x typings,
-    // which lack the name field until the os-api 3.x bump
-    const applicationData = {
+    // The server mints the id from the slugified name, so send an empty id.
+    const applicationData: Application = {
       id: '',
       name: form.name.trim(),
       organizationId: USER_STATE.getOrganizationId(),
@@ -55,7 +55,7 @@ async function handleSubmit(): Promise<void> {
       updated: null
     }
 
-    const createdApplication = await Kinotic.applications.createSync(applicationData as Application)
+    const createdApplication = await Kinotic.applications.createSync(applicationData)
 
     toast.add({
       severity: 'success',
@@ -68,12 +68,7 @@ async function handleSubmit(): Promise<void> {
     emit('submit', createdApplication)
   } catch (error) {
     debug('Failed to create application: %O', error)
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to create application. Please check name validity.',
-      life: 3000
-    })
+    showErrorToast(toast, 'Failed to create application', error)
   } finally {
     loading.value = false
   }
