@@ -96,9 +96,6 @@ const pageRoutes: RouteRecordRaw[] = [
       {
         name: 'application-dashboards',
         path: 'dashboards',
-        meta: {
-          sidebar: { group: 'application', label: 'Dashboards', icon: 'pi pi-chart-line', order: 20 } as SidebarItemMeta
-        } as RouteMeta,
         component: () => import('@/pages/Dashboards.vue'),
         props: (route) => ({ applicationId: route.params.applicationId })
       },
