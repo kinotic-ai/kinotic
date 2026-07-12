@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.api.secret;
+package org.kinotic.domain.internal.api.secret;
 
 import com.azure.core.exception.ResourceNotFoundException;
 import com.azure.identity.DefaultAzureCredentialBuilder;
@@ -6,7 +6,7 @@ import com.azure.security.keyvault.secrets.SecretAsyncClient;
 import com.azure.security.keyvault.secrets.SecretClientBuilder;
 import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
@@ -32,7 +32,7 @@ public class AzureKeyVaultSecretReferenceResolver implements SecretReferenceReso
 
     private final SecretAsyncClient client;
 
-    public AzureKeyVaultSecretReferenceResolver(KinoticProperties properties) {
+    public AzureKeyVaultSecretReferenceResolver(KinoticDomainProperties properties) {
         String vaultUrl = properties.getSecretStorage().getAzure().getVaultUrl();
         log.info("Resolving named secrets from Azure Key Vault at {}", vaultUrl);
         this.client = new SecretClientBuilder()

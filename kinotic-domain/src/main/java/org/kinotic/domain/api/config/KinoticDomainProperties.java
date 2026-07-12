@@ -25,4 +25,9 @@ public class KinoticDomainProperties extends KinoticProperties {
 
     private DomainProperties domain = new DomainProperties();
 
+    /**
+     * Secret storage configuration. If null, an in-memory backend is used.
+     */
+    private SecretStorageProperties secretStorage;
+
 }

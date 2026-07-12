@@ -87,11 +87,6 @@ public class KinoticProperties {
     private long maxOffHeapMemory = DataStorageConfiguration.DFLT_DATA_REGION_MAX_SIZE;
 
     /**
-     * Secret storage configuration. If null, an in-memory backend is used.
-     */
-    private SecretStorageProperties secretStorage;
-
-    /**
      * Paths to platform-level secret files (JWT signing keys, secret-storage master keys).
      * Files are mounted into the pod by the Azure Key Vault CSI driver in production or
      * by a Kubernetes Secret volume locally, and watched for changes so rotation flows

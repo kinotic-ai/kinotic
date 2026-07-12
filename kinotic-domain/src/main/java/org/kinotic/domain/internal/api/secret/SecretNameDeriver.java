@@ -1,8 +1,8 @@
-package org.kinotic.core.internal.api.secret;
+package org.kinotic.domain.internal.api.secret;
 
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.core.api.config.SecretStorageProperties;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.config.SecretStorageProperties;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;
@@ -26,7 +26,7 @@ public class SecretNameDeriver {
 
     private final byte[] masterKey;
 
-    public SecretNameDeriver(KinoticProperties properties) {
+    public SecretNameDeriver(KinoticDomainProperties properties) {
         SecretStorageProperties settings = properties.getSecretStorage();
         if (settings != null && settings.getMasterKey() != null) {
             this.masterKey = Base64.getDecoder().decode(settings.getMasterKey());

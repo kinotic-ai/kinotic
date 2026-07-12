@@ -1,7 +1,7 @@
-package org.kinotic.core.internal.api.secret;
+package org.kinotic.domain.internal.api.secret;
 
 import net.openhft.chronicle.map.ChronicleMap;
-import org.kinotic.core.api.config.ChronicleMapProperties;
+import org.kinotic.domain.api.config.ChronicleMapProperties;
 import org.springframework.beans.factory.DisposableBean;
 
 import java.io.File;

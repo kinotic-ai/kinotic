@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.api.secret;
+package org.kinotic.domain.internal.api.secret;
 
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
