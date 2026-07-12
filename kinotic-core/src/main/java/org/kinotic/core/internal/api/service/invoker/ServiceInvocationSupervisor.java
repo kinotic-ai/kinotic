@@ -102,8 +102,7 @@ public class ServiceInvocationSupervisor {
      */
     public Future<Void> start(){
         if(active.compareAndSet(false, true)){
-            // begin listening on the event bus for service invocation requests at the service's
-            // zone address
+            // begin listening on the event bus for service invocation requests
             methodInvocationEventConsumers = List.of(eventBusService.listen(serviceDescriptor.serviceIdentifier().cri()));
 
             for (EventConsumer eventConsumer : methodInvocationEventConsumers) {
