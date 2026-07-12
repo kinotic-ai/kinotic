@@ -53,7 +53,7 @@ import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
 
 import { CONTINUUM_UI } from '@/IContinuumUI'
-import { StructuresStates } from '@/states/index'
+import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
 import { apiUrl } from '@/util/helpers'
 import AuthPageShell from '@/components/auth/AuthPageShell.vue'
@@ -70,7 +70,7 @@ const orgDescription = ref('')
 const loading = ref(false)
 
 const toast = useToast()
-const userState: IUserState = StructuresStates.getUserState()
+const userState: IUserState = KinoticStates.getUserState()
 const route = useRoute()
 
 const orgNameInput = useTemplateRef<any>('orgName')

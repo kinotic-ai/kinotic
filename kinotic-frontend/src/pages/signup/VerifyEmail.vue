@@ -52,11 +52,11 @@ import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 import SetPasswordFields from '@/components/auth/SetPasswordFields.vue'
 import { apiUrl } from '@/util/helpers'
 import { CONTINUUM_UI } from '@/IContinuumUI'
-import { StructuresStates } from '@/states/index'
+import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
 
 const toast = useToast()
-const userState: IUserState = StructuresStates.getUserState()
+const userState: IUserState = KinoticStates.getUserState()
 const route = useRoute()
 
 const request = ref<SignUpCompleteRequest>({

@@ -1,10 +1,10 @@
 import { definePreset } from '@primeuix/themes'
-import StructuresTheme from '@/theme'
+import KinoticTheme from '@/theme'
 
 /**
  * This is kinda a hack since the Theme Designer does not allow colors to be defined properly.
  */
-export const StructuresPreset = definePreset(StructuresTheme, {
+export const KinoticPreset = definePreset(KinoticTheme, {
     primitive:{
         brand: {
             50:  "#FFF0F4",

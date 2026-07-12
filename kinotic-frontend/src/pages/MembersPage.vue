@@ -98,7 +98,7 @@ import type { IamUser, PendingInviteSummary } from '@kinotic-ai/os-api'
 import CrudTable from '@/components/CrudTable.vue'
 import type { CrudHeader } from '@/types/CrudHeader'
 import type { DescriptiveIdentifiable } from '@/types/DescriptiveIdentifiable'
-import { StructuresStates } from '@/states'
+import { KinoticStates } from '@/states'
 import { apiUrl, showErrorToast } from '@/util/helpers'
 import { createDebug } from '@/util/debug'
 
@@ -144,7 +144,7 @@ const tableSearch = ref('')
 
 const toast = useToast()
 const confirm = useConfirm()
-const userState = StructuresStates.getUserState()
+const userState = KinoticStates.getUserState()
 
 const crudTable = ref<InstanceType<typeof CrudTable>>()
 

@@ -42,6 +42,16 @@ export class UserState implements IUserState {
                 debug('No existing connection to disconnect')
             }
 
+            this.connectedInfo = null
+
+            // Reject immediately when the backend is unreachable or there is no valid session,
+            // rather than letting Kinotic.connect retry the websocket indefinitely — callers
+            // (the auth guard on app start) need a settled answer to route to /login.
+            const sessionCheck = await fetch(apiUrl('/api/auth/me'), { credentials: 'include' })
+            if (!sessionCheck.ok) {
+                throw new Error('Session authentication failed')
+            }
+
             try {
                 this.connectedInfo = await Kinotic.connect(createConnectionInfo())
             } catch (reason: any) {
