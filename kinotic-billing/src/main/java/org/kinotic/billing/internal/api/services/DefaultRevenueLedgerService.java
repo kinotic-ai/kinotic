@@ -1,9 +1,8 @@
 package org.kinotic.billing.internal.api.services;
 
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.billing.api.model.EarningsStatement;
 import org.kinotic.billing.api.model.LedgerBalance;
-import org.kinotic.billing.api.model.LedgerEntry;
 import org.kinotic.billing.api.services.RevenueLedgerService;
 import org.kinotic.billing.internal.api.repositories.LedgerEntryRepository;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -11,29 +10,20 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.security.OrganizationParticipant;
 import org.kinotic.domain.api.security.SystemParticipant;
-import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.springframework.stereotype.Component;
 
-import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 
 @Component
-public class DefaultRevenueLedgerService extends AbstractOrganizationScopedService<LedgerEntry>
-        implements RevenueLedgerService {
+@RequiredArgsConstructor
+public class DefaultRevenueLedgerService implements RevenueLedgerService {
 
     private final LedgerEntryRepository ledgerEntryRepository;
-
-    public DefaultRevenueLedgerService(LedgerEntryRepository ledgerEntryRepository,
-                                       SecurityContext securityContext) {
-        super(ledgerEntryRepository, securityContext);
-        this.ledgerEntryRepository = ledgerEntryRepository;
-    }
+    private final SecurityContext securityContext;
 
     @Override
     public CompletableFuture<LedgerBalance> balanceFor(String organizationId) {
         Validate.notBlank(organizationId, "organizationId cannot be blank");
-        // Org participants may only read their own balance; system participants (payout
-        // scheduler, internal tooling) may read any org's.
         Participant participant = securityContext.requireParticipant(Participant.class);
         if (participant instanceof OrganizationParticipant orgParticipant) {
             if (!orgParticipant.getOrganizationId().equals(organizationId)) {
@@ -48,13 +38,5 @@ public class DefaultRevenueLedgerService extends AbstractOrganizationScopedServi
         }
         return ledgerEntryRepository.sumAmountsByEntryType(organizationId)
                                     .thenApply(sums -> LedgerBalanceCalculator.fromSums(organizationId, sums));
-    }
-
-    @Override
-    public CompletableFuture<EarningsStatement> statementFor(String organizationId,
-                                                             Date periodStart,
-                                                             Date periodEnd) {
-        return CompletableFuture.failedFuture(new UnsupportedOperationException(
-                "statementFor is not implemented yet — statements land in the dashboards round"));
     }
 }

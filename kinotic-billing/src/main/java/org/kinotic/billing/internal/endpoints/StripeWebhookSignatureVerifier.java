@@ -6,8 +6,6 @@ import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 
 import java.time.Clock;
-import java.time.Instant;
-import java.util.Date;
 
 /**
  * Verifies a Stripe webhook delivery against its {@code Stripe-Signature} header and
@@ -53,8 +51,7 @@ public class StripeWebhookSignatureVerifier {
                 .setType(json.getString("type"))
                 .setLivemode(json.getBoolean("livemode"))
                 .setStripeAccountId(stripeAccountId)
-                .setRelatedObjectId(extractRelatedObjectId(json))
-                .setCreated(extractCreated(json.getValue("created")));
+                .setRelatedObjectId(extractRelatedObjectId(json));
     }
 
     private String extractRelatedObjectId(JsonObject json) {
@@ -72,14 +69,4 @@ public class StripeWebhookSignatureVerifier {
         return null;
     }
 
-    private Date extractCreated(Object created) {
-        // v1 events use epoch seconds, v2 events an RFC 3339 string
-        if (created instanceof Number number) {
-            return new Date(number.longValue() * 1000);
-        }
-        if (created instanceof String text) {
-            return Date.from(Instant.parse(text));
-        }
-        return null;
-    }
 }

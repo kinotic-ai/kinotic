@@ -1,15 +1,14 @@
 package org.kinotic.billing.api.services;
 
 import org.kinotic.billing.api.model.RevenueSplit;
-import org.kinotic.core.api.crud.IdentifiableCrudService;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Records the charge-side lifecycle of the revenue-share ledger: settled charges become
- * {@link RevenueSplit}s plus ledger earnings; refunds and disputes claw them back.
+ * {@link RevenueSplit}s plus ledger earnings.
  */
-public interface RevenueSplitService extends IdentifiableCrudService<RevenueSplit, String> {
+public interface RevenueSplitService {
 
     /**
      * Records the revenue split for a settled charge and credits the owning organization's
@@ -23,21 +22,4 @@ public interface RevenueSplitService extends IdentifiableCrudService<RevenueSpli
      * @return the recorded (or pre-existing) split
      */
     CompletableFuture<RevenueSplit> recordCharge(String stripeChargeId);
-
-    /**
-     * Records a refund against a previously recorded charge, debiting the organization's
-     * share from the ledger.
-     */
-    CompletableFuture<RevenueSplit> recordRefund(String stripeChargeId, String stripeRefundId);
-
-    /**
-     * Freezes the organization's share of a charge while a dispute is open.
-     */
-    CompletableFuture<RevenueSplit> recordDisputeOpened(String stripeChargeId, String stripeDisputeId);
-
-    /**
-     * Settles a closed dispute: releases the hold when won, converts it to a permanent
-     * debit when lost.
-     */
-    CompletableFuture<RevenueSplit> recordDisputeClosed(String stripeChargeId, String stripeDisputeId);
 }

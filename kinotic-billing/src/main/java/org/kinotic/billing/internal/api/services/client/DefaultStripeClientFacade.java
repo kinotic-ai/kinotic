@@ -51,9 +51,6 @@ public class DefaultStripeClientFacade implements StripeClientFacade {
         return new StripeChargeDetails()
                 .setChargeId(charge.getId())
                 .setPaymentIntentId(charge.getPaymentIntent())
-                // Charge.invoice no longer exists on current API versions; the invoice linkage
-                // arrives via invoice webhooks in the end-user-billing round.
-                .setInvoiceId(null)
                 .setEndUserCustomerId(charge.getCustomer())
                 .setAmountTotal(charge.getAmount() != null ? charge.getAmount() : 0L)
                 .setCurrency(charge.getCurrency())

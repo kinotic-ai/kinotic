@@ -72,17 +72,3 @@ CREATE TABLE IF NOT EXISTS kinotic_organization_billing_profile (
     created DATE,
     updated DATE
 );
-
--- One batched transfer of earned balance to an organization's recipient account.
--- id doubles as the Stripe idempotency key and transfer_group.
-CREATE TABLE IF NOT EXISTS kinotic_payout (
-    id KEYWORD,
-    organizationId KEYWORD,
-    amount LONG,
-    currency KEYWORD,
-    stripeTransferId KEYWORD,
-    cutoffDate DATE,
-    status KEYWORD,
-    created DATE,
-    updated DATE
-);

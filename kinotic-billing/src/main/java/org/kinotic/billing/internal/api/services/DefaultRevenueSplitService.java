@@ -1,5 +1,6 @@
 package org.kinotic.billing.internal.api.services;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.billing.api.model.LedgerEntry;
@@ -14,8 +15,6 @@ import org.kinotic.billing.internal.api.repositories.OrganizationBillingProfileR
 import org.kinotic.billing.internal.api.repositories.RevenueSplitRepository;
 import org.kinotic.billing.internal.api.services.client.StripeChargeDetails;
 import org.kinotic.billing.internal.api.services.client.StripeClientFacade;
-import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -23,8 +22,8 @@ import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Component
-public class DefaultRevenueSplitService extends AbstractOrganizationScopedService<RevenueSplit>
-        implements RevenueSplitService {
+@RequiredArgsConstructor
+public class DefaultRevenueSplitService implements RevenueSplitService {
 
     private final RevenueSplitRepository revenueSplitRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
@@ -32,25 +31,11 @@ public class DefaultRevenueSplitService extends AbstractOrganizationScopedServic
     private final StripeClientFacade stripeClientFacade;
     private final PlatformFeePolicy platformFeePolicy;
 
-    public DefaultRevenueSplitService(RevenueSplitRepository revenueSplitRepository,
-                                      LedgerEntryRepository ledgerEntryRepository,
-                                      OrganizationBillingProfileRepository profileRepository,
-                                      StripeClientFacade stripeClientFacade,
-                                      PlatformFeePolicy platformFeePolicy,
-                                      SecurityContext securityContext) {
-        super(revenueSplitRepository, securityContext);
-        this.revenueSplitRepository = revenueSplitRepository;
-        this.ledgerEntryRepository = ledgerEntryRepository;
-        this.profileRepository = profileRepository;
-        this.stripeClientFacade = stripeClientFacade;
-        this.platformFeePolicy = platformFeePolicy;
-    }
-
     @Override
     public CompletableFuture<RevenueSplit> recordCharge(String stripeChargeId) {
         Validate.notBlank(stripeChargeId, "stripeChargeId cannot be blank");
         // Org resolution comes from the charge's own metadata (webhooks carry no participant),
-        // so the explicit-orgId repository overloads are used throughout — no elevated access.
+        // so the explicit-orgId repository overloads are used throughout.
         return stripeClientFacade.fetchChargeDetails(stripeChargeId)
                                  .thenCompose(details -> {
                                      if (details == null) {
@@ -110,7 +95,6 @@ public class DefaultRevenueSplitService extends AbstractOrganizationScopedServic
                                             .setApplicationId(details.getApplicationId())
                                             .setTenantId(details.getTenantId())
                                             .setStripePaymentIntentId(details.getPaymentIntentId())
-                                            .setStripeInvoiceId(details.getInvoiceId())
                                             .setEndUserStripeCustomerId(details.getEndUserCustomerId())
                                             .setAmountTotal(details.getAmountTotal())
                                             .setTaxAmount(details.getTaxAmount())
@@ -139,23 +123,5 @@ public class DefaultRevenueSplitService extends AbstractOrganizationScopedServic
                                                                  .thenCompose(saved -> ledgerEntryRepository.save(earning, orgId)
                                                                                                             .thenApply(entry -> saved));
                                 });
-    }
-
-    @Override
-    public CompletableFuture<RevenueSplit> recordRefund(String stripeChargeId, String stripeRefundId) {
-        return CompletableFuture.failedFuture(new UnsupportedOperationException(
-                "recordRefund is not implemented yet — refunds land in a later round"));
-    }
-
-    @Override
-    public CompletableFuture<RevenueSplit> recordDisputeOpened(String stripeChargeId, String stripeDisputeId) {
-        return CompletableFuture.failedFuture(new UnsupportedOperationException(
-                "recordDisputeOpened is not implemented yet — disputes land in a later round"));
-    }
-
-    @Override
-    public CompletableFuture<RevenueSplit> recordDisputeClosed(String stripeChargeId, String stripeDisputeId) {
-        return CompletableFuture.failedFuture(new UnsupportedOperationException(
-                "recordDisputeClosed is not implemented yet — disputes land in a later round"));
     }
 }

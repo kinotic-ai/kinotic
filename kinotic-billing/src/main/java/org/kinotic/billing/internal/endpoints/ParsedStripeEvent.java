@@ -5,8 +5,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
-import java.util.Date;
-
 /**
  * The minimal envelope extracted from a verified Stripe webhook payload — just enough to
  * persist the idempotency record and route processing. Handles both v1 snapshot events
@@ -30,7 +28,5 @@ public class ParsedStripeEvent {
 
     /** Id of the Stripe object the event is about; null when the payload names none. */
     private String relatedObjectId;
-
-    private Date created;
 
 }

@@ -5,8 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.billing.api.model.RevenueSplit;
 import org.kinotic.billing.api.model.StripeWebhookEvent;
 import org.kinotic.billing.api.services.RevenueSplitService;
-import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -85,80 +83,6 @@ public class StripeEventDispatcherTest {
             }
             recordedCharges.add(stripeChargeId);
             return CompletableFuture.completedFuture(new RevenueSplit().setId(stripeChargeId));
-        }
-
-        @Override
-        public CompletableFuture<RevenueSplit> recordRefund(String stripeChargeId, String stripeRefundId) {
-            return unsupported();
-        }
-
-        @Override
-        public CompletableFuture<RevenueSplit> recordDisputeOpened(String stripeChargeId, String stripeDisputeId) {
-            return unsupported();
-        }
-
-        @Override
-        public CompletableFuture<RevenueSplit> recordDisputeClosed(String stripeChargeId, String stripeDisputeId) {
-            return unsupported();
-        }
-
-        @Override
-        public CompletableFuture<RevenueSplit> save(RevenueSplit entity) {
-            return unsupported();
-        }
-
-        @Override
-        public CompletableFuture<RevenueSplit> saveSync(RevenueSplit entity) {
-            return unsupported();
-        }
-
-        @Override
-        public CompletableFuture<RevenueSplit> create(RevenueSplit entity) {
-            return unsupported();
-        }
-
-        @Override
-        public CompletableFuture<RevenueSplit> createSync(RevenueSplit entity) {
-            return unsupported();
-        }
-
-        @Override
-        public CompletableFuture<RevenueSplit> findById(String id) {
-            return unsupported();
-        }
-
-        @Override
-        public CompletableFuture<Long> count() {
-            return unsupported();
-        }
-
-        @Override
-        public CompletableFuture<Void> deleteById(String id) {
-            return unsupported();
-        }
-
-        @Override
-        public CompletableFuture<Void> deleteByIdSync(String id) {
-            return unsupported();
-        }
-
-        @Override
-        public CompletableFuture<Page<RevenueSplit>> findAll(Pageable pageable) {
-            return unsupported();
-        }
-
-        @Override
-        public CompletableFuture<Page<RevenueSplit>> search(String searchText, Pageable pageable) {
-            return unsupported();
-        }
-
-        @Override
-        public CompletableFuture<Void> syncIndex() {
-            return unsupported();
-        }
-
-        private <T> CompletableFuture<T> unsupported() {
-            return CompletableFuture.failedFuture(new UnsupportedOperationException("not used in this test"));
         }
     }
 }

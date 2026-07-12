@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -83,7 +82,6 @@ public class StripeWebhookSignatureVerifierTest {
         assertEquals("ch_888", event.getRelatedObjectId());
         assertEquals("acct_456", event.getStripeAccountId());
         assertEquals(Boolean.FALSE, event.getLivemode());
-        assertEquals(new Date(1_770_000_000L * 1000), event.getCreated());
     }
 
     @Test
@@ -95,7 +93,6 @@ public class StripeWebhookSignatureVerifierTest {
         assertEquals("ch_777", event.getRelatedObjectId());
         assertEquals("acct_123", event.getStripeAccountId());
         assertEquals(Boolean.TRUE, event.getLivemode());
-        assertEquals(Date.from(Instant.parse("2026-02-01T12:00:00Z")), event.getCreated());
     }
 
     @Test
@@ -107,6 +104,5 @@ public class StripeWebhookSignatureVerifierTest {
                 SECRET);
         assertNull(event.getRelatedObjectId());
         assertNull(event.getStripeAccountId());
-        assertNull(event.getCreated());
     }
 }

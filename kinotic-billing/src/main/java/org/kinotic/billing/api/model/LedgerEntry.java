@@ -42,7 +42,7 @@ public class LedgerEntry implements OrganizationScoped<String> {
     /** The {@link RevenueSplit} this entry decomposes, when charge-derived. */
     private String revenueSplitId;
 
-    /** The {@link Payout} that settled this entry, when payout-derived. */
+    /** The payout that settled this entry, when payout-derived. */
     private String payoutId;
 
     private String memo;

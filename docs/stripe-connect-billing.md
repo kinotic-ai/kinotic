@@ -192,6 +192,8 @@ Plus `OrganizationBillingProfileService extends IdentifiableCrudService<Organiza
 
 `recordCharge` takes only the charge id (thin-event philosophy, §10): the implementation fetches the authoritative charge + balance transaction from Stripe (the exact `stripeFeeAmount` lives on the balance transaction, only available once the charge settles), resolves org/app from the metadata contract, resolves the fee from the org's pricing plan, then persists the split and posts the `EARNING` entry.
 
+The interfaces above show the full design; per YAGNI each method is **declared only in the round that implements it** — the MVP ships `recordCharge` and `balanceFor`. The refund/dispute methods, `statementFor`, and the `Payout` entity/repository join with their rounds. The ledger and split services deliberately expose **no generic CRUD**: entries and splits are append-only, written exclusively through `recordCharge` — a save/delete surface on the journal would let its own history be rewritten.
+
 ### 7.4 Flows
 
 ```
@@ -361,7 +363,7 @@ Gotchas: `livemode` guard in the dispatcher (Stripe sends test events to live UR
 
 ## 13. Implementation order (proposed)
 
-1. **Spike:** platform account + one recipient account end-to-end in test mode (v2 `recipient` configuration, hosted onboarding, embedded components, one SCT charge → transfer). Validates the light-onboarding claim and SDK ergonomics; produces the `StripeClient` facade.
+1. **Spike:** platform account + one recipient account end-to-end in test mode (v2 `recipient` configuration, hosted onboarding, embedded components, one SCT charge → transfer). DONE — validated recipient onboarding, transfer gating, fee timing, and the +24 h delay; the spike project was removed after completion (findings live in §6 and git history).
 2. **Webhook skeleton:** `StripeWebhookEventService`, verifier verticle, dispatcher, DLQ — the idempotency machinery is the costliest thing to retrofit.
 3. **Ledger core (§7):** entities, `RevenueSplitService.recordCharge`, derived balances — provable with test-mode charges before any UI exists.
 4. **Org integration:** `OrganizationBillingProfile`, onboarding UI, monetization review gate wiring.

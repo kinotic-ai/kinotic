@@ -14,7 +14,6 @@ import org.kinotic.billing.internal.api.repositories.OrganizationBillingProfileR
 import org.kinotic.billing.internal.api.repositories.RevenueSplitRepository;
 import org.kinotic.billing.internal.api.services.client.StripeChargeDetails;
 import org.kinotic.billing.internal.api.services.client.StripeClientFacade;
-import org.kinotic.core.api.security.SecurityContext;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -49,8 +48,7 @@ public class DefaultRevenueSplitServiceTest {
                                                  ledgerRepository,
                                                  profileRepository,
                                                  facade,
-                                                 profile -> CompletableFuture.completedFuture(500L),
-                                                 new SecurityContext());
+                                                 profile -> CompletableFuture.completedFuture(500L));
 
         profileRepository.profile = new OrganizationBillingProfile()
                 .setId(ORG_ID)

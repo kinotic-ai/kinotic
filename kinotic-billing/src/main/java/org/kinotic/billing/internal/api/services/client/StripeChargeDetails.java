@@ -19,8 +19,6 @@ public class StripeChargeDetails {
 
     private String paymentIntentId;
 
-    private String invoiceId;
-
     private String endUserCustomerId;
 
     /** Full charge amount in minor units, tax-inclusive. */
