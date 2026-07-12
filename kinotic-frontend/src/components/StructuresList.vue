@@ -8,7 +8,6 @@ import Button from "primevue/button";
 import Menu from "primevue/menu";
 import Tag from "primevue/tag";
 import type {
-  Identifiable,
   IterablePage,
   Pageable,
 } from "@kinotic-ai/core";
@@ -187,9 +186,6 @@ export default defineComponent({
         this.openPublishModal(item);
       }
     },
-    onEditItem(item: Identifiable<string>): void {
-      this.$router.push(`${this.$route.path}/edit/${item.id}`);
-    },
     toggleMenu(event: Event, item: EntityDefinition, index: string | number): void {
       this.currentActionItem = item;
       const menu = this.actionMenus[index];
@@ -275,7 +271,6 @@ export default defineComponent({
       :singleExpand="false"
       :search="searchText"
       @update:search="updateRouteQuery"
-      @edit-item="onEditItem"
       @onRowClick="handleRowClick"
       :isShowAddNew="showNewStructureButton"
       :createNewButtonText="newStructureButtonText"

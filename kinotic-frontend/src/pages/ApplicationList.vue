@@ -12,6 +12,9 @@ import type { CrudHeader } from "@/types/CrudHeader";
 import type { Identifiable } from "@kinotic-ai/core";
 import { onMounted, ref, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useConfirm } from "primevue/useconfirm";
+import { useToast } from "primevue/usetoast";
+import { showErrorToast } from "@/util/helpers";
 import DatetimeUtil from "@/util/DatetimeUtil";
 import { createDebug } from "@/util/debug";
 import { isDark as darkMode } from '@/composables/useTheme'
@@ -20,6 +23,8 @@ const debug = createDebug('application-list');
 
 const route = useRoute();
 const router = useRouter();
+const confirm = useConfirm();
+const toast = useToast();
 
 const headers: CrudHeader[] = [
   { field: "name", header: "Name", sortable: false },
@@ -34,6 +39,7 @@ const showSidebar = ref(false);
 const searchText = ref<string>((route.query.search as string) || "");
 const sidebarWrapper = ref<HTMLElement>();
 const crudTable = ref<InstanceType<typeof CrudTable>>();
+const actionMenus = ref<any[]>([]);
 
 onMounted(async () => {
   try {
@@ -115,8 +121,40 @@ function onApplicationSubmit(created: Application): void {
   showSidebar.value = false;
 }
 
-function onEditItem(item: Identifiable<string>): void {
-  router.push(`${route.path}/edit/${item.id}`);
+function toggleMenu(event: Event, itemId: string): void {
+  actionMenus.value[itemId as any]?.toggle(event);
+}
+
+function getActionMenu(item: Application) {
+  return [
+    {
+      label: "Delete",
+      icon: "pi pi-trash",
+      command: () => confirmDelete(item),
+    },
+  ];
+}
+
+function confirmDelete(item: Application): void {
+  confirm.require({
+    header: "Delete application",
+    message: `Permanently delete ${item.name}? An application that still contains projects cannot be deleted.`,
+    icon: "pi pi-exclamation-triangle",
+    acceptProps: { label: "Delete", severity: "danger" },
+    rejectProps: { label: "Cancel", severity: "secondary", outlined: true },
+    accept: async () => {
+      try {
+        await dataSource.deleteById(item.id!);
+        toast.add({ severity: "success", summary: "Application deleted", life: 4000 });
+        APPLICATION_STATE.allApplications = APPLICATION_STATE.allApplications.filter(
+          (a) => a.id !== item.id
+        );
+        refreshTable();
+      } catch (err) {
+        showErrorToast(toast, "Failed to delete application", err, { life: 8000 });
+      }
+    },
+  });
 }
 </script>
 
@@ -136,7 +174,6 @@ function onEditItem(item: Identifiable<string>): void {
       :search="searchText"
       @update:search="updateRouteQuery"
       @add-item="onAddItem"
-      @edit-item="onEditItem"
       @onRowClick="toApplicationPage"
       class="application-list__table !text-sm"
     >
@@ -159,6 +196,25 @@ function onEditItem(item: Identifiable<string>): void {
       <span>
         {{ DatetimeUtil.formatRelativeDate(item.updated) }}
       </span>
+    </template>
+    <template #additional-actions="{ item }">
+      <div class="flex items-center justify-center">
+        <Button
+          icon="pi pi-ellipsis-v"
+          @click.stop="(event) => toggleMenu(event, item.id)"
+          aria-haspopup="true"
+          :aria-controls="'action_menu_' + item.id"
+          type="button"
+          severity="secondary"
+          variant="text"
+        />
+        <Menu
+          :ref="(el) => (actionMenus[item.id] = el)"
+          :model="getActionMenu(item)"
+          :popup="true"
+          :id="'action_menu_' + item.id"
+        />
+      </div>
     </template>
     </CrudTable>
 

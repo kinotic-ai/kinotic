@@ -39,7 +39,6 @@ const props = withDefaults(defineProps<{
   singleExpand?: boolean
   disableModifications?: boolean
   isShowAddNew?: boolean
-  isShowDelete?: boolean
   initialSearch?: string
   rowHoverColor?: string
   createNewButtonText?: string
@@ -56,7 +55,6 @@ const props = withDefaults(defineProps<{
   singleExpand: false,
   disableModifications: false,
   isShowAddNew: true,
-  isShowDelete: true,
   initialSearch: '',
   rowHoverColor: '#f5f5f5',
   createNewButtonText: 'Add new',
@@ -72,9 +70,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: "update:search", value: string): void;
   (e: "addItem"): void;
-  // any: listeners type these payloads as their concrete entity (EntityDefinition,
+  // any: listeners type this payload as their concrete entity (EntityDefinition,
   // Dashboard, ...), which is narrower than the Identifiable<string> rows the table holds.
-  (e: "editItem", item: any): void;
   (e: "onRowClick", data: any): void;
   (e: "items-count", count: number): void;
 }>();

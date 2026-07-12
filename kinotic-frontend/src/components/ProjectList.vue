@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showErrorToast } from '@/util/helpers'
 import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
 import CrudTable from '@/components/CrudTable.vue'
 import NewProjectSidebar from '@/components/NewProjectSidebar.vue'
 import ProjectStructuresTable from '@/components/ProjectStructuresTable.vue'
@@ -24,8 +25,10 @@ const props = defineProps<{
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const confirm = useConfirm()
 
 const crudTable = ref<InstanceType<typeof CrudTable>>()
+const actionMenus = ref<any[]>([])
 
 const searchText = ref<string>('')
 const showProjectSidebar = ref(false)
@@ -129,8 +132,37 @@ async function onProjectSubmit(): Promise<void> {
   }
 }
 
-function onEditItem(item: Identifiable<string>): void {
-  router.push(`${route.path}/edit/${item.id}`)
+function toggleMenu(event: Event, itemId: string): void {
+  actionMenus.value[itemId as any]?.toggle(event)
+}
+
+function getActionMenu(item: Project) {
+  return [
+    {
+      label: 'Delete',
+      icon: 'pi pi-trash',
+      command: () => confirmDelete(item)
+    }
+  ]
+}
+
+function confirmDelete(item: Project): void {
+  confirm.require({
+    header: 'Delete project',
+    message: `Permanently delete ${item.name}? This cannot be undone.`,
+    icon: 'pi pi-exclamation-triangle',
+    acceptProps: { label: 'Delete', severity: 'danger' },
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    accept: async () => {
+      try {
+        await Kinotic.projects.deleteById(item.id!)
+        toast.add({ severity: 'success', summary: 'Project deleted', life: 4000 })
+        refreshTable()
+      } catch (err) {
+        showErrorToast(toast, 'Failed to delete project', err, { life: 8000 })
+      }
+    }
+  })
 }
 
 async function toProjectPage(item: Identifiable<string>): Promise<void> {
@@ -193,7 +225,6 @@ async function retryRepoInit(project: Project): Promise<void> {
       :search="searchText"
       @update:search="updateRouteQuery"
       @add-item="onAddProject"
-      @edit-item="onEditItem"
       @onRowClick="toProjectPage"
       createNewButtonText="New Project"
       emptyStateText="No projects yet"
@@ -231,6 +262,25 @@ async function retryRepoInit(project: Project): Promise<void> {
         <span>
           {{ DatetimeUtil.formatMonthDayYear(item.created) }}
         </span>
+      </template>
+      <template #additional-actions="{ item }">
+        <div class="flex items-center justify-center">
+          <Button
+            icon="pi pi-ellipsis-v"
+            @click.stop="(event) => toggleMenu(event, item.id)"
+            aria-haspopup="true"
+            :aria-controls="'action_menu_' + item.id"
+            type="button"
+            severity="secondary"
+            variant="text"
+          />
+          <Menu
+            :ref="(el) => (actionMenus[item.id] = el)"
+            :model="getActionMenu(item)"
+            :popup="true"
+            :id="'action_menu_' + item.id"
+          />
+        </div>
       </template>
     </CrudTable>
 

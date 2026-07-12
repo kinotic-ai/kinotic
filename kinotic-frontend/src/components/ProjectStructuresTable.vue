@@ -10,7 +10,7 @@ import { Kinotic } from '@kinotic-ai/core'
 import { EntityDefinition } from '@kinotic-ai/os-api'
 import type { CrudHeader } from '@/types/CrudHeader'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
-import type { Identifiable, IterablePage, Pageable } from '@kinotic-ai/core'
+import type { IterablePage, Pageable } from '@kinotic-ai/core'
 import DatetimeUtil from "@/util/DatetimeUtil"
 import { createDebug } from '@/util/debug'
 
@@ -203,10 +203,6 @@ function onAddItem() {
   // this.$router.push("/new-entityDefinition")
 }
 
-function onEditItem(item: Identifiable<string>) {
-  router.push(`${route.path}/edit/${item.id}`)
-}
-
 function handleRowClick(item: EntityDefinition) {
   if (item.published) {
     debug('Opening data modal for published entityDefinition');
@@ -321,7 +317,6 @@ async function markProjectAsActive() {
       :search="searchText"
       @update:search="updateRouteQuery"
       @add-item="onAddItem"
-      @edit-item="onEditItem"
       @onRowClick="handleRowClick"
       :isShowAddNew="showNewStructureButton"
       :createNewButtonText="newStructureButtonText"

@@ -213,8 +213,6 @@ watch(() => router.currentRoute.value.query.refresh, () => {
         :headers="tableHeaders"
         :defaultPageSize="50"
         :isShowAddNew="true"
-        :isShowDelete="true"
-        @delete="deleteDashboard"
         @onRowClick="openDashboard"
         @add-item="createNewDashboard"
         createNewButtonText="New dashboard"
