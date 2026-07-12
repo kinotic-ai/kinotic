@@ -5,6 +5,7 @@ import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@/util/debug'
+import { showErrorToast } from '@/util/helpers'
 import type {Application} from "@kinotic-ai/os-api";
 import {Kinotic} from "@kinotic-ai/core";
 import { USER_STATE } from '@/states/IUserState'
@@ -36,19 +37,6 @@ const isDark = darkMode
 
 const isSubmitDisabled = computed(() => loading.value || form.name.trim() === '')
 
-function sanitizeId(name: string): string {
-  let sanitized = name
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-zA-Z0-9._-]/g, '')
-
-  if (!/^[a-zA-Z]/.test(sanitized)) {
-    sanitized = 'app-' + sanitized
-  }
-
-  return sanitized.toLowerCase()
-}
-
 function resetForm(): void {
   form.name = ''
   form.description = ''
@@ -57,8 +45,10 @@ function resetForm(): void {
 async function handleSubmit(): Promise<void> {
   loading.value = true
   try {
+    // The server mints the id from the slugified name, so send an empty id.
     const applicationData: Application = {
-      id: sanitizeId(form.name),
+      id: '',
+      name: form.name.trim(),
       organizationId: USER_STATE.getOrganizationId(),
       description: form.description,
       tenantPerUser: false,
@@ -78,12 +68,7 @@ async function handleSubmit(): Promise<void> {
     emit('submit', createdApplication)
   } catch (error) {
     debug('Failed to create application: %O', error)
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to create application. Please check name validity.',
-      life: 3000
-    })
+    showErrorToast(toast, 'Failed to create application', error)
   } finally {
     loading.value = false
   }

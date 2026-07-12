@@ -27,8 +27,8 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { computed } from 'vue'
 import Toast from 'primevue/toast'
 
 import loginBgDark from '@/assets/left_background_dark.png'
@@ -42,18 +42,18 @@ import '@/pages/auth-pages.css'
  * Page chrome shared by every unauthenticated auth page: background art, theme toggle,
  * brand mark, footer, and the Toast outlet. Page content renders in the default slot.
  */
-@Component({
-  components: { Toast }
-})
-export default class AuthPageShell extends Vue {
+const props = withDefaults(defineProps<{
   /** Overrides the theme-aware background art when set. */
-  @Prop({ default: null }) art!: string | null
+  art?: string | null
 
-  @Prop({ default: true }) showThemeToggle!: boolean
+  showThemeToggle?: boolean
+}>(), {
+  art: null,
+  showThemeToggle: true,
+})
 
-  get backgroundArt() { return this.art ?? (darkMode.value ? loginBgDark : loginBgLight) }
-  get brandMark() { return darkMode.value ? loginPageLogo : loginPageLogoLight }
-  get isDark() { return darkMode.value }
-  toggleTheme() { toggleDark() }
-}
+const backgroundArt = computed(() => props.art ?? (darkMode.value ? loginBgDark : loginBgLight))
+const brandMark = computed(() => darkMode.value ? loginPageLogo : loginPageLogoLight)
+const isDark = darkMode
+function toggleTheme() { toggleDark() }
 </script>

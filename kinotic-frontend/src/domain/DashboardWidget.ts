@@ -21,4 +21,3 @@ export class DashboardWidget {
     public created!: Date
     public updated!: Date
 }
-

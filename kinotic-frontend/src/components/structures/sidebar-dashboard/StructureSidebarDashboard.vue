@@ -1,13 +1,5 @@
-<script lang="ts">
-import { Component, Vue } from 'vue-facing-decorator'
+<script setup lang="ts">
 import StructureSettings from './StructureSettings.vue'
-
-@Component({
-  components: {
-    StructureSettings
-  }
-})
-export default class SidebarSettings extends Vue {}
 </script>
 
 <template>

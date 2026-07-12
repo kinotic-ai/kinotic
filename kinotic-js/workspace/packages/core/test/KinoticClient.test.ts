@@ -61,8 +61,9 @@ describe('Kinotic JS', () => {
             const testService = new TestService(kinotic);
             console.log(`Connecting to Kinotic Gateway running at`)
 
-            let connectedInfo: ConnectedInfo = await logFailure(kinotic.connect(createConnectionInfo(SessionKeepAliveMode.ACTIVITY,
-                                                                                                       {clientId: ParticipantConstants.CLI_PARTICIPANT_ID})),
+            let connectedInfo: ConnectedInfo = await logFailure(kinotic.connect(createConnectionInfo({
+                                                                    sessionKeepAlive: SessionKeepAliveMode.ACTIVITY,
+                                                                    authHeaders: {clientId: ParticipantConstants.CLI_PARTICIPANT_ID}})),
                                                                 'Failed to connect to Kinotic Gateway')
 
             validateConnectedInfo(connectedInfo, ['ANONYMOUS'])

@@ -1,5 +1,5 @@
-<script lang="ts">
-import { Vue, Component, Prop, Ref } from "vue-facing-decorator"
+<script setup lang="ts">
+import { computed, ref } from "vue"
 import InputText from "primevue/inputtext"
 import Button from "primevue/button"
 import Popover from "primevue/popover"
@@ -17,190 +17,184 @@ interface INodeData {
   color: string
 }
 
-@Component({
-  components: {Handle, InputText, Button, Popover, PropertyType } })
-export default class StructureNode extends Vue {
-  @Prop({ required: true }) data!: INodeData
-  @Ref() popover!: InstanceType<typeof Popover>
-  @Ref() addButton!: HTMLElement
-  @Ref() typeEditPopover!: InstanceType<typeof Popover>;
+const props = defineProps<{
+  data: INodeData
+}>()
 
-  get Position() {
-    return Position
+const popover = ref<InstanceType<typeof Popover>>()
+const addButton = ref<HTMLElement>()
+const typeEditPopover = ref<InstanceType<typeof Popover>>()
+
+const structureStore = useStructureStore()
+
+const editingNameIndex = ref<number | null>(null)
+const selectedPropertyIndex = ref<number | null>(null)
+const newPropertyName = ref('')
+const newPropertyTypeClass = ref('')
+
+const errors = ref<{ name?: string; type?: string }>({
+  name: '',
+  type: ''
+});
+
+const objectType = computed(() => {
+  return structureStore.findObjectById(
+      structureStore.structure!.schema,
+      props.data.label
+  )
+})
+
+const properties = computed(() => {
+  return objectType.value?.properties ?? []
+})
+
+const types = usePropertyTypes();
+
+const typeOptions = computed(() => {
+  return types.typeOptions
+})
+
+function startEditingName(index: number) {
+  editingNameIndex.value = index
+}
+
+function finishEditingName(index: number) {
+  if (!objectType.value || !properties.value[index]) {
+    editingNameIndex.value = null;
+    return;
   }
 
-  structureStore = useStructureStore()
+  // Reset errors before validating
+  errors.value = {};
 
-  editingNameIndex: number | null = null
-  selectedPropertyIndex: number | null = null
-  newPropertyName = ''
-  newPropertyTypeClass = ''
+  const oldName = properties.value[index].name;
+  let newName = props.data.fields[index].label.trim();
 
-  errors: { name?: string; type?: string } = {
-    name: '',
-    type: ''
-  };
+  // Remove all spaces from the name
+  newName = newName.replace(/\s+/g, "");
 
-  get objectType() {
-    return this.structureStore.findObjectById(
-        this.structureStore.structure!.schema,
-        this.data.label
-    )
+  // 1. Empty name check
+  if (!newName) {
+    errors.value.name = "Name is required";
   }
 
-  get properties() {
-    return this.objectType?.properties ?? []
-  }
-
-  types = usePropertyTypes();
-
-  get typeOptions() {
-    return this.types.typeOptions
-  }
-
-  startEditingName(index: number) {
-    this.editingNameIndex = index
-  }
-
-  finishEditingName(index: number) {
-    if (!this.objectType || !this.properties[index]) {
-      this.editingNameIndex = null;
-      return;
-    }
-
-    // Reset errors before validating
-    this.errors = {};
-
-    const oldName = this.properties[index].name;
-    let newName = this.data.fields[index].label.trim();
-
-    // Remove all spaces from the name
-    newName = newName.replace(/\s+/g, "");
-
-    // 1. Empty name check
-    if (!newName) {
-      this.errors.name = "Name is required";
-    }
-
-    // 2. Duplicate check (exclude current property)
-    if (!this.errors.name) {
-      const exists = this.properties.some(
-          (p: PropertyDefinition, i: number) => i !== index && p.name === newName
-      );
-      if (exists) {
-        this.errors.name = `Name already exists`;
-      }
-    }
-
-    // If validation failed, revert the visual label to the old name
-    if (this.errors.name) {
-      this.data.fields[index].label = oldName;
-      this.editingNameIndex = null;
-      return;
-    }
-
-    // 3. Apply rename in store if name changed
-    if (oldName !== newName) {
-      this.structureStore.renameProperty(this.data.label, oldName, newName);
-    }
-
-    this.editingNameIndex = null;
-  }
-
-
-  selectProperty(index: number) {
-    this.selectedPropertyIndex = index
-  }
-
-  togglePopover(event: MouseEvent) {
-    this.popover?.toggle(event, this.addButton)
-  }
-
-  addProperty() {
-    // reset errors before validating
-    this.errors = {};
-
-    // 1. Remove all spaces from the name
-    this.newPropertyName = this.newPropertyName.replace(/\s+/g, "");
-
-    // 2. Name empty check
-    if (!this.newPropertyName) {
-      this.errors.name = "Name is required";
-    }
-
-    // 3. Name uniqueness check (only if not empty)
-    if (!this.errors.name) {
-      const exists = this.properties.some(
-          (p: PropertyDefinition) => p.name === this.newPropertyName
-      );
-      if (exists) {
-        this.errors.name = `Name already exists`;
-      }
-    }
-
-    // 4. Type required check
-    if (!this.newPropertyTypeClass) {
-      this.errors.type = "Type is required";
-    }
-
-    // 5. Stop if any error
-    if (this.errors.name || this.errors.type) {
-      return;
-    }
-
-    // ✅ Passed all checks — add property
-    this.structureStore.addProperty(
-        this.data.label,
-        this.newPropertyName,
-        this.newPropertyTypeClass
+  // 2. Duplicate check (exclude current property)
+  if (!errors.value.name) {
+    const exists = properties.value.some(
+        (p: PropertyDefinition, i: number) => i !== index && p.name === newName
     );
-
-    // reset form
-    this.newPropertyName = '';
-    this.newPropertyTypeClass = '';
-    this.popover?.hide();
-  }
-
-  editType(e: MouseEvent, index: number) {
-    this.errors = {};
-
-    const property = this.properties[index];
-    if (!property) return;
-
-    this.newPropertyTypeClass =
-        property.type?.type ||
-        property.type?.constructor?.name?.toLowerCase() ||
-        '';
-
-    this.selectedPropertyIndex = index;
-    this.typeEditPopover?.toggle(e, undefined);
-  }
-
-  updateTypeForSelectedProperty() {
-    if (this.selectedPropertyIndex === null) return;
-
-    this.errors = {};
-
-    if (!this.newPropertyTypeClass) {
-      this.errors.type = "Type is required";
-      return;
+    if (exists) {
+      errors.value.name = `Name already exists`;
     }
-
-    const property = this.properties[this.selectedPropertyIndex];
-    if (!property) return;
-
-    this.structureStore.updatePropertyType(
-        this.data.label,
-        property.name,
-        this.newPropertyTypeClass
-    );
-
-    // Reset
-    this.newPropertyTypeClass = '';
-    this.selectedPropertyIndex = null;
-    this.typeEditPopover?.hide();
   }
 
+  // If validation failed, revert the visual label to the old name
+  if (errors.value.name) {
+    props.data.fields[index].label = oldName;
+    editingNameIndex.value = null;
+    return;
+  }
+
+  // 3. Apply rename in store if name changed
+  if (oldName !== newName) {
+    structureStore.renameProperty(props.data.label, oldName, newName);
+  }
+
+  editingNameIndex.value = null;
+}
+
+
+function selectProperty(index: number) {
+  selectedPropertyIndex.value = index
+}
+
+function togglePopover(event: MouseEvent) {
+  popover.value?.toggle(event, addButton.value)
+}
+
+function addProperty() {
+  // reset errors before validating
+  errors.value = {};
+
+  // 1. Remove all spaces from the name
+  newPropertyName.value = newPropertyName.value.replace(/\s+/g, "");
+
+  // 2. Name empty check
+  if (!newPropertyName.value) {
+    errors.value.name = "Name is required";
+  }
+
+  // 3. Name uniqueness check (only if not empty)
+  if (!errors.value.name) {
+    const exists = properties.value.some(
+        (p: PropertyDefinition) => p.name === newPropertyName.value
+    );
+    if (exists) {
+      errors.value.name = `Name already exists`;
+    }
+  }
+
+  // 4. Type required check
+  if (!newPropertyTypeClass.value) {
+    errors.value.type = "Type is required";
+  }
+
+  // 5. Stop if any error
+  if (errors.value.name || errors.value.type) {
+    return;
+  }
+
+  // ✅ Passed all checks — add property
+  structureStore.addProperty(
+      props.data.label,
+      newPropertyName.value,
+      newPropertyTypeClass.value
+  );
+
+  // reset form
+  newPropertyName.value = '';
+  newPropertyTypeClass.value = '';
+  popover.value?.hide();
+}
+
+function editType(e: MouseEvent, index: number) {
+  errors.value = {};
+
+  const property = properties.value[index];
+  if (!property) return;
+
+  newPropertyTypeClass.value =
+      property.type?.type ||
+      property.type?.constructor?.name?.toLowerCase() ||
+      '';
+
+  selectedPropertyIndex.value = index;
+  typeEditPopover.value?.toggle(e, undefined);
+}
+
+function updateTypeForSelectedProperty() {
+  if (selectedPropertyIndex.value === null) return;
+
+  errors.value = {};
+
+  if (!newPropertyTypeClass.value) {
+    errors.value.type = "Type is required";
+    return;
+  }
+
+  const property = properties.value[selectedPropertyIndex.value];
+  if (!property) return;
+
+  structureStore.updatePropertyType(
+      props.data.label,
+      property.name,
+      newPropertyTypeClass.value
+  );
+
+  // Reset
+  newPropertyTypeClass.value = '';
+  selectedPropertyIndex.value = null;
+  typeEditPopover.value?.hide();
 }
 </script>
 

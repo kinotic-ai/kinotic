@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { Workload } from '@kinotic-ai/os-api'
+import { PortProtocol, Workload } from '@kinotic-ai/os-api'
 import { GUEST_LOG_DIR, buildBoxOptions } from '@/internal/api/providers/BoxliteProvider'
 
 function workload(): Workload {
@@ -27,6 +27,50 @@ describe('buildBoxOptions', () => {
 
         expect('entrypoint' in options).toBeFalse()
         expect('cmd' in options).toBeFalse()
+    })
+
+    it('maps port mappings to boxlite ports with lowercase protocols', () => {
+        const w = workload()
+        w.portMappings = [
+            { hostPort: 8080, guestPort: 80, protocol: PortProtocol.TCP },
+            { guestPort: 53, protocol: PortProtocol.UDP },
+            { guestPort: 443 },
+        ]
+
+        const options = buildBoxOptions(w, '/logs/wl-1')
+
+        // boxlite recognizes only lowercase 'udp'; anything else silently means tcp
+        expect(options.ports).toEqual([
+            { hostPort: 8080, guestPort: 80, protocol: 'tcp' },
+            { guestPort: 53, protocol: 'udp' },
+            { guestPort: 443 },
+        ])
+    })
+
+    it('defaults to detached when deserialized JSON omits the field', () => {
+        const w = JSON.parse(JSON.stringify(workload())) as Workload
+        delete (w as Partial<Workload>).detached
+
+        const options = buildBoxOptions(w, '/logs/wl-1')
+
+        expect(options.detach).toBeTrue()
+    })
+
+    it('suppresses the image CMD when an entrypoint is declared without a cmd', () => {
+        const w = workload()
+        w.entrypoint = ['sleep', '600']
+
+        const options = buildBoxOptions(w, '/logs/wl-1')
+
+        expect(options.entrypoint).toEqual(['sleep', '600'])
+        expect(options.cmd).toEqual([])
+    })
+
+    it('rejects a host interface binding boxlite cannot honor', () => {
+        const w = workload()
+        w.portMappings = [{ hostPort: 8080, guestPort: 80, hostIp: '127.0.0.1' }]
+
+        expect(() => buildBoxOptions(w, '/logs/wl-1')).toThrow('hostIp')
     })
 
     it('passes declared entrypoint and cmd through unmodified', () => {

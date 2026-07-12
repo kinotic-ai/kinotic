@@ -20,17 +20,16 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Prop } from 'vue-facing-decorator'
+<script setup lang="ts">
 import Button from 'primevue/button'
 
-@Component({
-  components: { Button },
-  emits: ['page']
-})
-export default class EntityPagination extends Vue {
-  @Prop({ type: Number, required: true }) first!: number
-  @Prop({ type: Number, required: true }) rows!: number
-  @Prop({ type: Number, required: true }) totalItems!: number
-}
+defineProps<{
+  first: number
+  rows: number
+  totalItems: number
+}>()
+
+defineEmits<{
+  (e: 'page', event: { first: number, rows: number }): void
+}>()
 </script>

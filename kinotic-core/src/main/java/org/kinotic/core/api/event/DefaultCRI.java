@@ -17,8 +17,13 @@ class DefaultCRI implements CRI {
     private final URI uri;
 
     public DefaultCRI(String scheme, String scope, String resourceName, String path, String version) {
+        // Compose the authority as scope@resourceName and pass it to the authority-form URI
+        // constructor, which stores it verbatim.
+        String authority = resourceName != null
+                ? (scope != null ? scope + "@" : "") + resourceName
+                : null;
         try {
-            uri = new URI(scheme, scope,  resourceName, -1, path,null, version);
+            uri = new URI(scheme, authority, path, null, version);
         } catch (URISyntaxException x) {
             throw new IllegalArgumentException(x.getMessage(), x);
         }
@@ -40,17 +45,28 @@ class DefaultCRI implements CRI {
 
     @Override
     public String scope() {
-        return uri.getRawUserInfo();
+        // The raw authority is scope@resourceName; scope is the part before '@', null when absent.
+        String authority = uri.getRawAuthority();
+        if (authority == null) {
+            return null;
+        }
+        int at = authority.indexOf('@');
+        return at >= 0 ? authority.substring(0, at) : null;
     }
 
     @Override
     public boolean hasScope() {
-        return uri.getRawUserInfo() != null;
+        return scope() != null;
     }
 
     @Override
     public String resourceName() {
-        return uri.getHost();
+        String authority = uri.getRawAuthority();
+        if (authority == null) {
+            return null;
+        }
+        int at = authority.indexOf('@');
+        return at >= 0 ? authority.substring(at + 1) : authority;
     }
 
     @Override

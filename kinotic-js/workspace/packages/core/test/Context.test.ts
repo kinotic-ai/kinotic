@@ -5,6 +5,11 @@ import { createConnectionInfo, logFailure, validateConnectedInfo } from "./TestH
 import { firstValueFrom, Observable } from "rxjs"
 import { v4 as uuidv4 } from "uuid"
 
+// The client hosts this service, so it connects as an application participant and registers it
+// in its own app zone (app.<org>.<app>); the org id is DEFAULT_AUTH_HEADERS.organizationId.
+const APP_ID = 'test-app'
+const ZONE = `app.kinotic-test.${APP_ID}`
+
 describe('Kinotic JS', () => {
   describe('packages/core', () => {
     describe("Context Injection", () => {
@@ -13,7 +18,9 @@ describe('Kinotic JS', () => {
         let testInterceptor: { intercept: (event: IEvent, context: any) => Promise<any> }
 
         beforeAll(async () => {
-            const connectionInfo = createConnectionInfo()
+            // Registers this client's service under ZONE; must be set before it is instantiated
+            Kinotic.zonePrefix = ZONE
+            const connectionInfo = createConnectionInfo({ authHeaders: { applicationId: APP_ID } })
             const connectedInfo: ConnectedInfo = await logFailure(
                 Kinotic.connect(connectionInfo),
                 "Failed to connect to Kinotic Gateway"
@@ -43,13 +50,15 @@ describe('Kinotic JS', () => {
 
         afterAll(async () => {
             await expect(Kinotic.disconnect()).resolves.toBeUndefined()
+            Kinotic.zonePrefix = null
         })
 
+        // The service registers in ZONE, so target its zoned address
         const createTestEvent = (cri: string, replyTo: string, args?: any[] | null, headers?: Map<string, string>): IEvent => {
             const eventHeaders = headers ? new Map(headers) : new Map()
             eventHeaders.set(EventConstants.REPLY_TO_HEADER, replyTo)
             eventHeaders.set(EventConstants.CONTENT_TYPE_HEADER, "application/json")
-            const event = new Event(cri, eventHeaders)
+            const event = new Event(cri.replace('com.example.', `${ZONE}.com.example.`), eventHeaders)
             if (args != null) {
                 event.setDataString(JSON.stringify(args))
             }

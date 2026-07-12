@@ -19,13 +19,11 @@ public class ApplicationTests extends KinoticTestBase {
 
 	@Test
 	public void createAndDeleteApplication() {
-		Application test = new Application();
-		test.setId("Test");
+		Application test = new Application("Test App", "Testing This Application");
 		test.setOrganizationId(TEST_ORG_ID);
-		test.setDescription("Testing This Application");
 
 		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.save(test))))
-					.expectNextMatches(application -> application.getId().equals("Test") && application.getUpdated() != null)
+					.expectNextMatches(application -> application.getId().equals("test-app") && application.getUpdated() != null)
 					.expectComplete()
 					.verify();
 
@@ -34,6 +32,22 @@ public class ApplicationTests extends KinoticTestBase {
 					.verify();
 
 		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.findById(test.getId()))))
+					.expectComplete()
+					.verify();
+	}
+
+	@Test
+	public void createDerivesTheIdFromTheSlugifiedName() {
+		Application test = new Application("Slugs. And Snails!", "Testing id derivation");
+		test.setOrganizationId(TEST_ORG_ID);
+
+		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.create(test))))
+					.expectNextMatches(application -> application.getId().equals("slugs-and-snails")
+							&& application.getName().equals("Slugs. And Snails!"))
+					.expectComplete()
+					.verify();
+
+		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.deleteById("slugs-and-snails"))))
 					.expectComplete()
 					.verify();
 	}

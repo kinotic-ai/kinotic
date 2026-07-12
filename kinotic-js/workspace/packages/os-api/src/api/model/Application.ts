@@ -1,7 +1,11 @@
 import type { Identifiable } from '@kinotic-ai/core'
 
 export class Application implements Identifiable<string> {
-    public id: string
+
+    /**
+     * The slugified {@link name}, minted by the server at creation
+     */
+    public id!: string
 
     /**
      * The id of the organization that owns this application.
@@ -9,6 +13,8 @@ export class Application implements Identifiable<string> {
      * with a missing or mismatched organizationId.
      */
     public organizationId!: string
+
+    public name: string
 
     public description: string
 
@@ -21,8 +27,8 @@ export class Application implements Identifiable<string> {
 
     public updated: number | null = null
 
-    constructor(id: string, description: string) {
-        this.id = id
+    constructor(name: string, description: string) {
+        this.name = name
         this.description = description
     }
 

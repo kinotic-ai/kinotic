@@ -11,3 +11,6 @@ node_modules
 .yalc
 oclif.manifest.json
 structures.json
+
+# bin/ holds the oclif launcher (run.js); the repo-root .gitignore blanket-ignores bin/
+!/bin/

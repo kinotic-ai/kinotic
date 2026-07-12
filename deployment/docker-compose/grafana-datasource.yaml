@@ -7,11 +7,16 @@ datasources:
     access: proxy
     isDefault: false
     jsonData:
+      # Loki runs multi-tenant; browse the system tenant by default. Multi-tenant
+      # queries accept pipe-separated ids (e.g. "acme|kinotic-system").
+      httpHeaderName1: X-Scope-OrgID
       derivedFields:
         - datasourceUid: Tempo
           matcherRegex: "trace_id=(\\w+)"
           name: TraceID
           url: "$${__value.raw}"
+    secureJsonData:
+      httpHeaderValue1: kinotic-system
     fields:
       - name: trace_id
         matcherRegex: "trace_id=([\\w]+)"

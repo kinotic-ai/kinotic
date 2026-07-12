@@ -31,9 +31,8 @@ public class ApiGatewayConfiguration {
 
     @Bean
     public SessionStore sessionStore(Vertx vertx, JsonMapper jsonMapper){
-        // ConnectedInfo rides in the web session and is marshalled by this store when clustered.
-        // Vert.x rebuilds it reflectively on read, so it can't be injected — hand it the
-        // participant-aware mapper once here, before any session is written.
+        // ConnectedInfo is stored in the SessionStore and is marshalled by this store when clustered.
+        // Vert.x rebuilds it reflectively on read, so the jsonMapper cannot be injected, so we use a static field.
         ConnectedInfo.setSerializationMapper(jsonMapper);
         return SessionStore.create(vertx);
     }

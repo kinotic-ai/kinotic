@@ -55,6 +55,9 @@ kinotic:
       endpoint: ""
       senderAddress: ""
       managedIdentityClientId: ""
+    # kinotic.domain.loki.url — Loki HTTP API backing the LogService
+    loki:
+      url: "http://loki.observability.svc:3100"
   # kinotic.webServer.* — static-file server for the SPA. Disabled in deployments
   # where the SPA is hosted outside the cluster (e.g. Azure Storage).
   # Bound to kinotic.apiGateway.webServer.* on the Spring side.

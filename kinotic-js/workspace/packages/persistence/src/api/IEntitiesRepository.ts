@@ -8,6 +8,12 @@ import {
     FunctionalIterablePage
 } from '@kinotic-ai/core'
 
+/**
+ * The zone for the platform's application facing data services, such as entity persistence
+ * and named query execution — where the services backing these repositories are hosted.
+ */
+export const APP_API_ZONE = 'app-api'
+
 export interface IEntitiesRepository {
 
     /**
@@ -174,7 +180,7 @@ export class EntitiesRepository implements IEntitiesRepository {
     protected serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy('org.kinotic.persistence.api.services.JsonEntitiesRepository')
+        this.serviceProxy = kinotic.serviceProxy(`${APP_API_ZONE}.org.kinotic.persistence.api.services.JsonEntitiesRepository`)
     }
 
     public bulkSave<T>(entityDefinitionId: string, entities: T[]): Promise<void> {

@@ -1,6 +1,7 @@
 package org.kinotic.os.internal.api.services;
 
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
@@ -33,19 +34,41 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     }
 
     @Override
-    public CompletableFuture<Application> createApplicationIfNotExist(String id, String description) {
-        DomainUtil.validateApplicationId(id);
+    public CompletableFuture<Application> createApplicationIfNotExist(String name, String description) {
+        String applicationId = DomainUtil.slugifyId(name);
         String organizationId = requireOrganizationId();
-        return findById(id)
+        return findById(applicationId)
                 .thenCompose(application -> {
                     if(application != null){
                         return CompletableFuture.completedFuture(application);
                     }else{
-                        Application newApplication = new Application(id, description);
+                        Application newApplication = new Application(name, description);
                         newApplication.setOrganizationId(organizationId);
                         return save(newApplication);
                     }
                 });
+    }
+
+    @Override
+    public CompletableFuture<Application> create(Application entity) {
+        // Force the id to derive from the name; beforeSave mints it from the slug.
+        entity.setId(null);
+        return failOnDuplicateName(super.create(entity), entity);
+    }
+
+    @Override
+    public CompletableFuture<Application> createSync(Application entity) {
+        entity.setId(null);
+        return failOnDuplicateName(super.createSync(entity), entity);
+    }
+
+    // The caller supplied a name, not the derived id an AlreadyExistsException would reference
+    private static CompletableFuture<Application> failOnDuplicateName(CompletableFuture<Application> created,
+                                                                      Application entity) {
+        return created.exceptionallyCompose(ex -> AlreadyExistsException.isCause(ex)
+                ? CompletableFuture.failedFuture(new AlreadyExistsException(
+                        "An application named '" + entity.getName() + "' already exists"))
+                : CompletableFuture.failedFuture(ex));
     }
 
     @Override
@@ -59,6 +82,12 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
 
     @Override
     protected CompletableFuture<Void> beforeSave(Application entity) {
+        Validate.notNull(entity.getName(), "Application name cannot be null");
+
+        if (entity.getId() == null) {
+            entity.setId(DomainUtil.slugifyId(entity.getName()));
+        }
+        // Validate only; re-minting an update's id would silently write a new document
         DomainUtil.validateApplicationId(entity.getId());
         entity.setUpdated(new Date());
         return CompletableFuture.completedFuture(null);

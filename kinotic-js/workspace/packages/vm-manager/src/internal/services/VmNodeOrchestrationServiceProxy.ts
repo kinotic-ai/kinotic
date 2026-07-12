@@ -1,6 +1,7 @@
 import type { IServiceProxy } from '@kinotic-ai/core'
 import type { VmNode } from '@kinotic-ai/os-api'
 import type { VmNodeRegistration } from '@/model/VmNodeRegistration'
+import type { WorkloadStatusReport } from '@/model/WorkloadStatusReport'
 
 /**
  * Proxy for communicating with the VmNodeOrchestrationService on the Kinotic server.
@@ -30,6 +31,16 @@ export class VmNodeOrchestrationServiceProxy {
      */
     public heartbeat(nodeId: string): Promise<VmNode> {
         return this.serviceProxy.invoke('heartbeat', [nodeId])
+    }
+
+    /**
+     * Reports the actual status of workloads on this node so the server's records track
+     * transitions the orchestrator did not initiate.
+     * @param nodeId the id of this node
+     * @param reports one report per workload
+     */
+    public reportWorkloadStatus(nodeId: string, reports: WorkloadStatusReport[]): Promise<void> {
+        return this.serviceProxy.invoke('reportWorkloadStatus', [nodeId, reports])
     }
 
     /**

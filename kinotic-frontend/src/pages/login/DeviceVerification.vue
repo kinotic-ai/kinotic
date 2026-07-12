@@ -34,8 +34,9 @@
   </AuthPageShell>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { Kinotic } from '@kinotic-ai/core'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
@@ -48,38 +49,34 @@ import AuthPageShell from '@/components/auth/AuthPageShell.vue'
  * (`/device?user_code=<code>`); the signed-in user confirms the code, which binds their
  * account to the pending CLI authorization grant.
  */
-@Component({
-  components: { AuthPageShell, Button }
+const loading = ref(false)
+const approved = ref(false)
+
+const loginBackgroundArt = loginPageLeft
+const toast = useToast()
+const route = useRoute()
+
+const userCode = computed<string | null>(() => {
+  const code = route.query.user_code
+  return typeof code === 'string' && code.length > 0 ? code : null
 })
-export default class DeviceVerification extends Vue {
-  loading = false
-  approved = false
 
-  private readonly loginBackgroundArt = loginPageLeft
-  private toast = useToast()
-
-  get userCode(): string | null {
-    const code = this.$route.query.user_code
-    return typeof code === 'string' && code.length > 0 ? code : null
+async function handleApprove() {
+  const userCodeValue = userCode.value
+  if (!userCodeValue) return
+  loading.value = true
+  try {
+    await Kinotic.deviceApproval.approve(userCodeValue)
+    approved.value = true
+  } catch (err) {
+    displayError(err instanceof Error ? err.message : 'Could not approve the device')
+  } finally {
+    loading.value = false
   }
+}
 
-  async handleApprove() {
-    const userCode = this.userCode
-    if (!userCode) return
-    this.loading = true
-    try {
-      await Kinotic.deviceApproval.approve(userCode)
-      this.approved = true
-    } catch (err) {
-      this.displayError(err instanceof Error ? err.message : 'Could not approve the device')
-    } finally {
-      this.loading = false
-    }
-  }
-
-  private displayError(text: string) {
-    this.toast.add({ severity: 'error', summary: 'Error', detail: text, life: 10000 })
-  }
+function displayError(text: string) {
+  toast.add({ severity: 'error', summary: 'Error', detail: text, life: 10000 })
 }
 </script>
 

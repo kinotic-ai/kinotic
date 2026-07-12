@@ -68,22 +68,6 @@ export function createTsMorphProject(): Project {
        manipulationSettings: {
            indentationText: IndentationText.TwoSpaces
        }
-
-       // compilerOptions: {
-       //     target: ScriptTarget.ES2020,
-       //     useDefineForClassFields: true,
-       //     module: ModuleKind.ES2020,
-       //     lib: ["ES2020"],
-       //     skipLibCheck: true,
-       //     downlevelIteration: true,
-       //     emitDecoratorMetadata: true,
-       //     experimentalDecorators: true,
-       //     esModuleInterop: true,
-       //     moduleResolution: ModuleResolutionKind.NodeNext,
-       //     resolveJsonModule: true,
-       //     isolatedModules: true,
-       //     noEmit: true,
-       // }
     })
 }
 

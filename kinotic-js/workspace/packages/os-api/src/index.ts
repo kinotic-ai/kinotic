@@ -86,6 +86,7 @@ export * from '@/api/services/IGitHubAppInstallationService'
 
 // Plugin
 export * from '@/api/OsApiPlugin'
+export * from '@/api/PlatformZones'
 
 import type { IOsApiExtension } from '@/api/OsApiPlugin'
 

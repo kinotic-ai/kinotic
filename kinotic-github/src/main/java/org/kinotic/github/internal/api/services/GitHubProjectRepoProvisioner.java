@@ -48,7 +48,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
 
-    private static final Slugify SLUGIFY = Slugify.builder().underscoreSeparator(true).build();
+    private static final Slugify SLUGIFY = Slugify.builder().build();
     private static final int GITHUB_REPO_NAME_MAX = 100;
     private static final int TARBALL_MAX_ATTEMPTS = 10;
     private static final Duration TARBALL_RETRY_DELAY = Duration.ofSeconds(2);
@@ -68,8 +68,9 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
         return requireInstallation().compose(install -> {
             long installationId = install.getGithubInstallationId();
             // repoId is null — the repo doesn't exist yet, so we mint an
-            // installation-wide WRITE_CONTENTS token to create it.
-            return apiClient.getToken(installationId, null, GitHubApiClient.WRITE_CONTENTS)
+            // installation-wide CREATE_REPOSITORY token to create it. The generate
+            // endpoint 404s when the token lacks administration:write.
+            return apiClient.getToken(installationId, null, GitHubApiClient.CREATE_REPOSITORY)
                             .compose(token -> apiClient.createRepoFromTemplate(
                                     token.getToken(),
                                     properties.getGithub().getRepoTemplate(),

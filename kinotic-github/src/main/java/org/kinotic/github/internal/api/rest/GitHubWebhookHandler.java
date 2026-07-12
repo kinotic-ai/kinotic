@@ -9,6 +9,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.github.api.config.KinoticGithubProperties;
 import org.kinotic.github.api.model.GitHubWebhookEvent;
 import org.kinotic.github.api.services.GitHubWebhookEventService;
@@ -36,7 +37,7 @@ import java.security.MessageDigest;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class GitHubWebhookHandler {
+public class GitHubWebhookHandler implements SuppliesGatewayRoutes {
 
     private static final String HEADER_EVENT = "X-GitHub-Event";
     private static final String HEADER_DELIVERY = "X-GitHub-Delivery";
@@ -52,7 +53,7 @@ public class GitHubWebhookHandler {
     private final KinoticGithubProperties properties;
     private final GitHubWebhookEventService webhookEventService;
 
-    public void mountRoute(Router router) {
+    public void mountRoutes(Router router) {
         router.post("/api/github/webhook")
               .handler(BodyHandler.create().setBodyLimit(WEBHOOK_BODY_LIMIT_BYTES))
               .handler(this::handleWebhook);
@@ -94,10 +95,14 @@ public class GitHubWebhookHandler {
                 ctx.response().setStatusCode(400).end();
                 return;
             }
+
             GitHubWebhookEvent event = buildEvent(eventType, deliveryId, payload);
             // Ack first; processing is best-effort. GitHub's redelivery logic is based on
             // the HTTP response, not the downstream outcome.
             ctx.response().setStatusCode(204).end();
+
+            log.trace("Processing webhook {} {} with payload {}", eventType, deliveryId, payload);
+
             webhookEventService.process(event).whenComplete((v, err) -> {
                 if (err != null) {
                     log.warn("Webhook processing failed for {} {}: {}",

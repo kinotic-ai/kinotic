@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import org.apache.commons.lang3.builder.ToStringBuilder;
 
 import java.util.List;
 import java.util.Map;
@@ -39,5 +40,17 @@ public class DefaultApplicationParticipant implements ApplicationParticipant {
         this.tenantId = tenantId;
         this.metadata = metadata;
         this.roles = roles;
+    }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this)
+                .append("applicationId", applicationId)
+                .append("id", id)
+                .append("organizationId", organizationId)
+                .append("tenantId", tenantId)
+                .append("metadata", metadata)
+                .append("roles", roles)
+                .toString();
     }
 }

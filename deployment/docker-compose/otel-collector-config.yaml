@@ -25,6 +25,9 @@ exporters:
   # exporter was removed from otelcol-contrib; otlphttp is the supported path.
   otlphttp/loki:
     endpoint: "http://loki:3100/otlp"
+    # Loki runs multi-tenant; platform (server) logs belong to the system tenant
+    headers:
+      X-Scope-OrgID: kinotic-system
     tls:
       insecure: true
   otlphttp/mimir:  # Metrics to Mimir via OTLP

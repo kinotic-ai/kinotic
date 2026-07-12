@@ -80,6 +80,19 @@ public class Workload implements Identifiable<String> {
     private int diskSizeMb = 1024;
 
     /**
+     * When {@code true} the VM runs detached from the vm-manager process and survives its
+     * restarts. Non-detached workloads end when the vm-manager exits.
+     */
+    private boolean detached = true;
+
+    /**
+     * When {@code true} the VM and its disk are discarded when the workload stops, so a
+     * stopped workload cannot be restarted. When {@code false} the disk is kept and the
+     * workload may be restarted in place.
+     */
+    private boolean autoRemove = false;
+
+    /**
      * Current status of the workload.
      */
     private WorkloadStatus status = WorkloadStatus.PENDING;
@@ -105,7 +118,9 @@ public class Workload implements Identifiable<String> {
     private List<String> entrypoint = new ArrayList<>();
 
     /**
-     * Overrides the image command (CMD). Empty keeps the image default.
+     * Overrides the image command (CMD). Empty keeps the image default, unless
+     * {@link #entrypoint} is declared — then the image CMD is dropped so the entrypoint
+     * runs exactly as given.
      */
     private List<String> cmd = new ArrayList<>();
 

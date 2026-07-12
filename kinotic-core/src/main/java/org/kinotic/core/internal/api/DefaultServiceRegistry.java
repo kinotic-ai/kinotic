@@ -148,7 +148,11 @@ public class DefaultServiceRegistry implements ServiceRegistry {
         String name = proxyAnnotation.name().isEmpty() ? serviceInterface.getSimpleName() : proxyAnnotation.name();
         String version = MetaUtil.getVersion(serviceInterface);
 
-        ServiceIdentifier serviceIdentifier = new ServiceIdentifier(namespace,
+        // A proxy targets one address; with no declaration it targets the un-zoned address
+        String zone = MetaUtil.getZone(serviceInterface);
+
+        ServiceIdentifier serviceIdentifier = new ServiceIdentifier(zone,
+                                                                    namespace,
                                                                     name,
                                                                     null,
                                                                     version);

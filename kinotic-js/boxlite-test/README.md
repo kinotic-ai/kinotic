@@ -3,9 +3,10 @@
 Evaluation harness for [BoxLite](https://docs.boxlite.ai/) — a set of standalone
 scripts probing detach behavior, named-box reuse, and shared-volume semantics.
 
-**Verified against:** `@boxlite-ai/boxlite@0.9.5`, Bun 1.3.10, macOS arm64
-(`@boxlite-ai/boxlite-darwin-arm64`). The original detach bug was filed on
-Linux/WSL2; findings here reproduce cross-platform.
+**Verified against:** `@boxlite-ai/boxlite@0.9.5` (findings 1–4) and `0.9.7`
+(findings 5–8), Bun 1.3.10, macOS arm64 (`@boxlite-ai/boxlite-darwin-arm64`). The
+original detach bug was filed on Linux/WSL2; findings here reproduce cross-platform.
+Re-run the probes after a boxlite upgrade to confirm the findings still hold.
 
 ```bash
 bun install
@@ -118,6 +119,72 @@ not this case.)
 no polling fallback needed, so no constant re-reads of every per-VM file even at high VM
 density.
 
+### 5. `autoRemove: false` makes stop a pause, not an end (`autoremove-restart-test.ts`)
+
+A box is a persistent record (SQLite registry + `~/.boxlite/boxes/<id>/` dir) plus an
+optional running VM. What `stop()` means depends entirely on `autoRemove`:
+
+| Behavior | Verified |
+|---|---|
+| `autoRemove: false` + `stop()` keeps the registry record (`stopped`) and the disks — the box is dormant, not dead | ✅ |
+| A dormant box restarts via `runtime.get(name).start()` **or** implicitly via any `exec`; same box id | ✅ |
+| Rootfs state (`/root/...`) survives the stop/restart cycle; `/tmp` (tmpfs) does not | ✅ |
+| The recorded entrypoint re-runs on every boot — restart restarts the *workload*, not just the VM | ✅ |
+| `autoRemove: true` + `stop()` removes record and files — stop is terminal | ✅ |
+| A dormant box costs ~45 MiB on disk — almost all per-box copies of `boxlite-shim` + `libkrunfw`; the state disks were <1.5 MiB | ✅ |
+
+Two corollaries: options passed to a `reuseExisting` box are **silently ignored** (a spec
+change is a recreate, never a reuse), and `create`/`getId()` alone does *not* boot the VM —
+the record sits at status `configured` until the first `exec` or an explicit `start()`.
+
+### 6. Run-to-completion entrypoints zombie the box (`batch-workload-test.ts`)
+
+Batch images (entrypoint does its work and exits — e.g. a db migration) boot reliably,
+including instant-exit entrypoints. But completion is invisible:
+
+- After the entrypoint exits, the VM stays up and `getInfo` reports `running: true`
+  **indefinitely** — the box never transitions.
+- In that zombie state `exec` fails with `spawn_failed: Container init process exited —
+  cannot exec ... container status: 'Stopped'` — currently the only external completion
+  signal.
+- The exit code is not exposed by the API (an `exit.previous` file is written inside the
+  box dir).
+
+So completion detection and cleanup are the host's job, and the VM holds its memory until
+`stop()`. For observable batch semantics, boot with an idle entrypoint (`sleep infinity`)
+and run the work via `exec` — the promise resolves on completion with the exit code and
+captured output. A feature request for surfacing container exit is filed upstream.
+
+### 7. The entrypoint is opaque; exec is fully observable (`log-capture-gaps-test.ts`, `console-log-test.ts`)
+
+- Entrypoint stdout/stderr goes nowhere host-visible. `boxes/<id>/logs/console.log`
+  (0.9+) holds kernel/guest-agent output only. This is why kinotic workloads must write
+  log files to the mounted `/var/log/kinotic` instead — and why a stdio-capture feature
+  request is filed upstream.
+- `exec` is a separate channel through the guest agent (`docker exec` equivalent): runs
+  alongside the entrypoint, streams stdout/stderr, returns `{ exitCode, stdout, stderr }`,
+  and does **not** throw on nonzero exit.
+- `entrypoint` *replaces* the image ENTRYPOINT; `cmd` *appends to* the image entrypoint.
+
+### 8. SDK sharp edges
+
+- `SimpleBox` is lazy: before the first `exec`/`getId()`, `box.id` throws and `stop()`
+  **silently no-ops** — force attachment with `getId()` before trusting a handle.
+- `exec` boots a non-running box as a side effect; inspect with `runtime.getInfo(name)`
+  to avoid booting.
+- `JsBoxlite.withDefaultConfig()` hard-aborts the whole process (uncatchable Rust panic)
+  on hosts without virtualization (`/dev/kvm` on Linux).
+- Each `SimpleBox` creates its own runtime instance unless one is passed via
+  `options.runtime`.
+- Port mapping `protocol` matches lowercase `"udp"` only; any other value silently means
+  tcp.
+- `autoRemove: true` + `detach: true` is rejected at creation ("Detached boxes should use
+  auto_remove=false for manual lifecycle control") — auto-remove semantics for detached
+  boxes must be implemented by the caller.
+- Overriding `entrypoint` without `cmd` still appends the image's CMD (Docker semantics):
+  `entrypoint: ["sleep", "600"]` on alpine runs `sleep 600 /bin/sh`. Pass `cmd: []` to
+  suppress the image CMD.
+
 ---
 
 ## Scripts (`src/`)
@@ -131,6 +198,11 @@ density.
 | `volume-share-test.ts` | Two-box shared volume with `bun --watch` — shows the inotify limitation (finding #3). | self-cleaning |
 | `volume-poll-test.ts` | Same setup with chokidar `{ usePolling }` (recursive, nested file) — shows the fix works. | self-cleaning |
 | `volume-host-notify-test.ts` | **Guest→host** notify (finding #4): a box writes to a host-mounted volume while the host process watches via `fs.watch` (event) vs `fs.watchFile` (poll). Decides whether host-side Alloy can use inotify or must poll. | self-cleaning |
+| `autoremove-restart-test.ts` | Stop/restart lifecycle (finding #5): what `autoRemove` keeps or removes, restart via `start()` vs implicit exec-boot, rootfs persistence, entrypoint re-run. | self-cleaning |
+| `batch-workload-test.ts` | Run-to-completion semantics (finding #6): the post-entrypoint zombie state, exec failure as the only completion signal, instant-exit boots. | self-cleaning |
+| `console-log-test.ts` | Does `boxes/<id>/logs/console.log` capture entrypoint stdout/stderr live? (finding #7 — it does not; kernel/guest-agent output only.) | self-cleaning |
+| `console-output-discovery-test.ts` | Sweeps `$BOXLITE_HOME` for any file that receives entrypoint output. | self-cleaning |
+| `log-capture-gaps-test.ts` | Demonstrates every entrypoint/exec output-capture gap in one run (basis of the upstream stdio-capture feature request). | self-cleaning |
 
 Note: `node/` is a separate mini-project running the smoke test under **Node.js**
 (`node --experimental-strip-types`) to confirm cross-runtime support.

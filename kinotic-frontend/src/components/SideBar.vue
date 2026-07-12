@@ -1,6 +1,6 @@
-<script lang="ts">
-import { Component, Vue, Watch } from 'vue-facing-decorator'
-import type { RouteLocationNormalizedLoaded } from 'vue-router'
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import SidebarItem from './SidebarItem.vue'
 import type { SidebarItemMeta } from '@/types/SidebarItemMeta'
 import strCollapse from '@/assets/str-collapse.svg'
@@ -16,122 +16,103 @@ interface SidebarNavItem {
   section?: string
 }
 
-@Component({
-  components: {
-    SidebarItem
-  }
+const route = useRoute()
+const router = useRouter()
+
+const collapsed = ref(false)
+const sidebarItems = ref<SidebarNavItem[]>([])
+
+onMounted(() => {
+  const stored = localStorage.getItem(COLLAPSE_KEY)
+  collapsed.value = stored === 'true'
+
+  generateSidebarItems()
 })
-export default class Sidebar extends Vue {
-  collapsed = false
-  sidebarItems: SidebarNavItem[] = []
 
-  strCollapse = strCollapse
-  strExpand = strExpand
+watch(route, () => {
+  generateSidebarItems()
+})
 
-  mounted() {
-    const stored = localStorage.getItem(COLLAPSE_KEY)
-    this.collapsed = stored === 'true'
+const isDark = darkMode
 
-    this.generateSidebarItems()
-  }
+function toggleSidebar() {
+  collapsed.value = !collapsed.value
+  localStorage.setItem(COLLAPSE_KEY, String(collapsed.value))
+}
 
-  @Watch('$route')
-  onRouteChange() {
-    this.generateSidebarItems()
-  }
-
-  get router() {
-    return this.$router
-  }
-
-  get route(): RouteLocationNormalizedLoaded {
-    return this.$route
-  }
-
-  get isDark() {
-    return darkMode.value
-  }
-
-  toggleSidebar() {
-    this.collapsed = !this.collapsed
-    localStorage.setItem(COLLAPSE_KEY, String(this.collapsed))
-  }
-
-  navigateTo(path: string) {
-    if (this.route.path !== path) {
-      this.router.push(path) 
-    }
-  }
-
-  get groupedSidebarItems(): Array<{ section: string; items: SidebarNavItem[] }> {
-    const groups = new Map<string, SidebarNavItem[]>()
-
-    this.sidebarItems.forEach((item) => {
-      const section = item.section ?? ''
-      const existing = groups.get(section)
-      if (existing) {
-        existing.push(item)
-      } else {
-        groups.set(section, [item])
-      }
-    })
-
-    return Array.from(groups.entries()).map(([section, items]) => ({ section, items }))
-  }
-
-  /**
-   * Builds the sidebar from route meta. The active group comes from the matched route
-   * chain ({@code meta.sidebarGroup} on layout routes, or the route's own
-   * {@code meta.sidebar.group}); items are every registered route declaring a
-   * {@link SidebarItemMeta} for that group, ordered by {@code order}, with the current
-   * route's params substituted into dynamic paths. Without a group, falls back to the
-   * main-nav routes ({@code meta.showInMainNav}).
-   */
-  generateSidebarItems() {
-    const matched = this.route.matched.find(
-        r => r.meta?.sidebarGroup || (r.meta?.sidebar as SidebarItemMeta | undefined)?.group)
-    const group = matched
-        ? (matched.meta.sidebarGroup as string | undefined) ?? (matched.meta.sidebar as SidebarItemMeta).group
-        : null
-
-    if (group) {
-      const itemsByPath = new Map<string, SidebarNavItem & { order: number }>()
-      for (const record of this.router.getRoutes()) {
-        const meta = record.meta?.sidebar as SidebarItemMeta | undefined
-        if (meta?.group !== group) continue
-        const path = this.resolvePath(record.path)
-        itemsByPath.set(path, { icon: meta.icon, label: meta.label, path, section: meta.section, order: meta.order })
-      }
-      this.sidebarItems = Array.from(itemsByPath.values())
-          .sort((a, b) => a.order - b.order)
-          .map(({ icon, label, path, section }) => ({ icon, label, path, section }))
-    } else {
-      const allRoutes = this.router.getRoutes()
-      this.sidebarItems = allRoutes
-        .filter(r => r.meta?.showInMainNav)
-        .map(r => ({
-          icon: r.meta.icon,
-          label: r.meta.label,
-          path: r.path
-        })) as SidebarNavItem[]
-    }
-  }
-
-  /** Substitutes the current route's params into a route record path (e.g. :applicationId). */
-  private resolvePath(path: string): string {
-    return path.replace(/:([A-Za-z0-9_]+)/g, (token, name) => {
-      const value = this.route.params[name]
-      return value != null ? String(value) : token
-    })
-  }
-
-  isActive(path: string): boolean {
-    if (path.includes('/dashboards') && !path.includes('/dashboards/')) {
-      return this.route.path === path || this.route.path.startsWith(path + '/')
-    }
-    return this.route.path === path
+function navigateTo(path: string) {
+  if (route.path !== path) {
+    router.push(path)
   }
 }
+
+const groupedSidebarItems = computed((): Array<{ section: string; items: SidebarNavItem[] }> => {
+  const groups = new Map<string, SidebarNavItem[]>()
+
+  sidebarItems.value.forEach((item) => {
+    const section = item.section ?? ''
+    const existing = groups.get(section)
+    if (existing) {
+      existing.push(item)
+    } else {
+      groups.set(section, [item])
+    }
+  })
+
+  return Array.from(groups.entries()).map(([section, items]) => ({ section, items }))
+})
+
+/**
+ * Builds the sidebar from route meta. The active group comes from the matched route
+ * chain ({@code meta.sidebarGroup} on layout routes, or the route's own
+ * {@code meta.sidebar.group}); items are every registered route declaring a
+ * {@link SidebarItemMeta} for that group, ordered by {@code order}, with the current
+ * route's params substituted into dynamic paths. Without a group, falls back to the
+ * main-nav routes ({@code meta.showInMainNav}).
+ */
+function generateSidebarItems() {
+  const matched = route.matched.find(
+      r => r.meta?.sidebarGroup || (r.meta?.sidebar as SidebarItemMeta | undefined)?.group)
+  const group = matched
+      ? (matched.meta.sidebarGroup as string | undefined) ?? (matched.meta.sidebar as SidebarItemMeta).group
+      : null
+
+  if (group) {
+    const itemsByPath = new Map<string, SidebarNavItem & { order: number }>()
+    for (const record of router.getRoutes()) {
+      const meta = record.meta?.sidebar as SidebarItemMeta | undefined
+      if (meta?.group !== group) continue
+      const path = resolvePath(record.path)
+      itemsByPath.set(path, { icon: meta.icon, label: meta.label, path, section: meta.section, order: meta.order })
+    }
+    sidebarItems.value = Array.from(itemsByPath.values())
+        .sort((a, b) => a.order - b.order)
+        .map(({ icon, label, path, section }) => ({ icon, label, path, section }))
+  } else {
+    const allRoutes = router.getRoutes()
+    sidebarItems.value = allRoutes
+      .filter(r => r.meta?.showInMainNav)
+      .map(r => ({
+        icon: r.meta.icon,
+        label: r.meta.label,
+        path: r.path
+      })) as SidebarNavItem[]
+  }
+}
+
+/** Substitutes the current route's params into a route record path (e.g. :applicationId). */
+function resolvePath(path: string): string {
+  return path.replace(/:([A-Za-z0-9_]+)/g, (token, name) => {
+    const value = route.params[name]
+    return value != null ? String(value) : token
+  })
+}
+
+function isActive(path: string): boolean {
+  return route.path === path
+}
+
+defineExpose({ collapsed })
 </script>
 
 <template>

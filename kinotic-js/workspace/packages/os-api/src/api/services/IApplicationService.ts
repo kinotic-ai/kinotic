@@ -1,3 +1,4 @@
+import { OS_API_ZONE } from '@/api/PlatformZones'
 import type { IKinotic } from '@kinotic-ai/core'
 import { CrudServiceProxy, type ICrudServiceProxy } from '@kinotic-ai/core'
 import { Application } from '@/api/model/Application'
@@ -6,13 +7,15 @@ import { Application } from '@/api/model/Application'
 export interface IApplicationService extends ICrudServiceProxy<Application> {
 
     /**
-     * Creates a new application if it does not already exist. The organization id is derived
-     * from the authenticated participant on the server.
-     * @param id the id of the application to create
+     * Creates a new application if it does not already exist, deriving its id from the
+     * slugified name. The organization id is derived from the authenticated participant on
+     * the server.
+     * @param name the name of the application to create
      * @param description the description of the application to create
-     * @return {@link Promise} emitting the created application
+     * @return {@link Promise} emitting the created application, or the existing application
+     *         whose id matches the slugified name
      */
-    createApplicationIfNotExist(id: string, description: string): Promise<Application>
+    createApplicationIfNotExist(name: string, description: string): Promise<Application>
 
     /**
      * This operation makes all the recent writes immediately available for search.
@@ -25,7 +28,7 @@ export interface IApplicationService extends ICrudServiceProxy<Application> {
 export class ApplicationService extends CrudServiceProxy<Application> implements IApplicationService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy('org.kinotic.os.api.services.ApplicationService'))
+        super(kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.os.api.services.ApplicationService`))
     }
 
     public createApplicationIfNotExist(id: string, description: string): Promise<Application> {

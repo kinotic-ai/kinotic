@@ -1,38 +1,40 @@
-<script lang="ts">
-import { Vue, Component, Prop, Emit } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { computed } from 'vue'
 
-@Component
-export default class PropertyType extends Vue {
-  @Prop({ required: true }) readonly type!: string
-  @Prop({ required: true }) readonly color!: string
+const props = defineProps<{
+  type: string
+  color: string
+}>()
 
-  @Emit('edit')
-  onEdit(event: MouseEvent) {
-    return event
+const emit = defineEmits<{
+  (e: 'edit', event: MouseEvent): void
+}>()
+
+function onEdit(event: MouseEvent) {
+  emit('edit', event)
+}
+
+const parsedTypes = computed(() => {
+  const match = props.type?.match(/^(.+)\[\]$/);
+  const baseType = match ? match[1] : props.type
+
+  const isSpecialType = (type: string) => ['object', 'enum', 'union'].includes(type)
+
+  const getClass = (type: string) =>
+      isSpecialType(type) ? `${props.color}` : 'bg-surface-100'
+
+  if (match) {
+    return [
+      { label: 'Array', className: 'bg-surface-100' },
+      { label: capitalize(baseType), className: getClass(baseType) }
+    ]
   }
 
-  get parsedTypes() {
-    const match = this.type?.match(/^(.+)\[\]$/);
-    const baseType = match ? match[1] : this.type
+  return [{ label: capitalize(props.type), className: getClass(props.type) }]
+})
 
-    const isSpecialType = (type: string) => ['object', 'enum', 'union'].includes(type)
-
-    const getClass = (type: string) =>
-        isSpecialType(type) ? `${this.color}` : 'bg-surface-100'
-
-    if (match) {
-      return [
-        { label: 'Array', className: 'bg-surface-100' },
-        { label: this.capitalize(baseType), className: getClass(baseType) }
-      ]
-    }
-
-    return [{ label: this.capitalize(this.type), className: getClass(this.type) }]
-  }
-
-  capitalize(str: string) {
-    return str ? str.charAt(0).toUpperCase() + str.slice(1) : ''
-  }
+function capitalize(str: string) {
+  return str ? str.charAt(0).toUpperCase() + str.slice(1) : ''
 }
 </script>
 

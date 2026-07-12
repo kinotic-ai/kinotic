@@ -27,52 +27,45 @@
     </Dialog>
   </template>
   
-  <script lang="ts">
-  import { Vue, Component } from 'vue-facing-decorator'
+  <script setup lang="ts">
+  import { ref } from 'vue'
   import Dialog from 'primevue/dialog'
   import Button from 'primevue/button'
-  
+
   export interface ConfirmOptions {
     width?: number
   }
-  
-  @Component({
-    components: {
-      Dialog,
-      Button
-    }
+
+  const dialog = ref(false)
+  let resolve!: (value: boolean) => void
+  const message = ref<string | null>(null)
+  const title = ref<string | null>(null)
+
+  const options = ref<ConfirmOptions>({
+    width: 400
   })
-  export default class Confirm extends Vue {
-    private dialog = false
-    private resolve!: (value: boolean) => void
-    public reject!: (reason?: any) => void
-    private message: string | null = null
-    private title: string | null = null
-  
-    private options: ConfirmOptions = {
-      width: 400
-    }
-  
-    public open(title: string, message: string, options: ConfirmOptions = {}): Promise<boolean> {
-      this.title = title
-      this.message = message
-      this.options = { ...this.options, ...options }
-      this.dialog = true
-      return new Promise<boolean>((resolve, reject) => {
-        this.resolve = resolve
-        this.reject = reject
-      })
-    }
-  
-    public agree() {
-      this.resolve(true)
-      this.dialog = false
-    }
-  
-    public cancel() {
-      this.resolve(false)
-      this.dialog = false
-    }
+
+  function open(newTitle: string, newMessage: string, newOptions: ConfirmOptions = {}): Promise<boolean> {
+    title.value = newTitle
+    message.value = newMessage
+    options.value = { ...options.value, ...newOptions }
+    dialog.value = true
+    return new Promise<boolean>((res) => {
+      resolve = res
+    })
   }
+
+  function agree() {
+    resolve(true)
+    dialog.value = false
+  }
+
+  function cancel() {
+    resolve(false)
+    dialog.value = false
+  }
+
+  // open is the dialog's public API, invoked by parents through a template ref.
+  defineExpose({ open })
   </script>
   

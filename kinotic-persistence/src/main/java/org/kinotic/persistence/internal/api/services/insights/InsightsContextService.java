@@ -203,9 +203,9 @@ public class InsightsContextService {
                 this.attachShadow({ mode: 'open' });
                 this.currentDateRange = { startDate: null, endDate: null };
                 this.unsubscribe = null;
-                this.applicationId = 'org.kinotic.sample';
+                this.applicationId = 'org-kinotic-sample';
                 this.entityDefinitionName = 'sales_data';
-                this.entityDefinitionId = 'org.kinotic.sample.sales_data';
+                this.entityDefinitionId = 'kinotic.org-kinotic-sample.sales_data';
                 this.dateField = 'orderDate'; // Hardcoded from schema analysis
               }
           
@@ -321,9 +321,9 @@ public class InsightsContextService {
               constructor() {
                 super();
                 this.attachShadow({ mode: 'open' });
-                this.applicationId = 'org.kinotic.sample';
+                this.applicationId = 'org-kinotic-sample';
                 this.entityDefinitionName = 'person_datainsightstest';
-                this.entityDefinitionId = 'org.kinotic.sample.person_datainsightstest';
+                this.entityDefinitionId = 'kinotic.org-kinotic-sample.person_datainsightstest';
               }
               
               connectedCallback() {
@@ -387,7 +387,7 @@ public class InsightsContextService {
                 "name": "Customer Age Distribution",
                 "description": "Bar chart showing the distribution of customers across different age groups",
                 "rawHtml": "class CustomerAgeDistributionChart extends HTMLElement { ... }",
-                "applicationId": "org.kinotic.sample",
+                "applicationId": "org-kinotic-sample",
                 "modifiedAt": "2024-01-01T00:00:00Z",
                 "supportsDateRangeFiltering": false
               },
@@ -396,7 +396,7 @@ public class InsightsContextService {
                 "name": "Revenue Trend Analysis",
                 "description": "Line chart showing revenue trends over time",
                 "rawHtml": "class RevenueTrendChart extends HTMLElement { ... }",
-                "applicationId": "org.kinotic.sample",
+                "applicationId": "org-kinotic-sample",
                 "modifiedAt": "2024-01-01T00:00:00Z",
                 "supportsDateRangeFiltering": true
               }

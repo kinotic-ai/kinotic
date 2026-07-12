@@ -56,8 +56,8 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import Button from 'primevue/button'
 import ConfirmDialog from 'primevue/confirmdialog'
 import InputText from 'primevue/inputtext'
@@ -67,117 +67,112 @@ import { useToast } from 'primevue/usetoast'
 
 import { Kinotic } from '@kinotic-ai/core'
 import { InviteEmailTemplate } from '@kinotic-ai/os-api'
+import { showErrorToast } from '@/util/helpers'
 
 /**
  * Editor for an application's customized invitation email. Without a saved template the
  * application uses the built-in email; saving validates the Handlebars sources on the
  * server, and reverting deletes the template.
  */
-@Component({
-  components: { Button, ConfirmDialog, InputText, Textarea }
+const props = defineProps<{
+  applicationId: string
+}>()
+
+const loading = ref(true)
+const customizing = ref(false)
+const saving = ref(false)
+const savedTemplateId = ref<string | null>(null)
+const subject = ref('')
+const htmlBody = ref('')
+const textBody = ref('')
+
+const toast = useToast()
+const confirm = useConfirm()
+
+onMounted(async () => {
+  try {
+    const template = await Kinotic.inviteEmailTemplates.findByApplication(props.applicationId)
+    if (template) {
+      savedTemplateId.value = template.id
+      subject.value = template.subject
+      htmlBody.value = template.htmlBody
+      textBody.value = template.textBody
+      customizing.value = true
+    }
+  } catch (err) {
+    showErrorToast(toast, 'Failed to load template', err, { life: 8000 })
+  } finally {
+    loading.value = false
+  }
 })
-export default class InviteEmailTemplatePage extends Vue {
-  @Prop({ required: true }) applicationId!: string
 
-  loading = true
-  customizing = false
-  saving = false
-  savedTemplateId: string | null = null
-  subject = ''
-  htmlBody = ''
-  textBody = ''
-
-  private toast = useToast()
-  private confirm = useConfirm()
-
-  async mounted() {
-    try {
-      const template = await Kinotic.inviteEmailTemplates.findByApplication(this.applicationId)
-      if (template) {
-        this.savedTemplateId = template.id
-        this.subject = template.subject
-        this.htmlBody = template.htmlBody
-        this.textBody = template.textBody
-        this.customizing = true
-      }
-    } catch (err) {
-      this.toast.add({ severity: 'error', summary: 'Error', detail: this.message(err, 'Failed to load template'), life: 8000 })
-    } finally {
-      this.loading = false
-    }
+function startCustomizing() {
+  // Working scaffold so the first save succeeds; every field can be rewritten.
+  if (!subject.value && !htmlBody.value && !textBody.value) {
+    subject.value = "You're invited to join {{applicationName}}"
+    htmlBody.value = [
+      '<p>{{inviterName}} has invited you to join {{applicationName}}.</p>',
+      '<p><a href="{{{acceptUrl}}}">Accept the invitation</a></p>',
+      '<p>This invitation expires in {{expiresInDays}} days.</p>'
+    ].join('\n')
+    textBody.value = [
+      '{{inviterName}} has invited you to join {{applicationName}}.',
+      '',
+      'Accept the invitation: {{acceptUrl}}',
+      '',
+      'This invitation expires in {{expiresInDays}} days.'
+    ].join('\n')
   }
+  customizing.value = true
+}
 
-  startCustomizing() {
-    // Working scaffold so the first save succeeds; every field can be rewritten.
-    if (!this.subject && !this.htmlBody && !this.textBody) {
-      this.subject = "You're invited to join {{applicationName}}"
-      this.htmlBody = [
-        '<p>{{inviterName}} has invited you to join {{applicationName}}.</p>',
-        '<p><a href="{{{acceptUrl}}}">Accept the invitation</a></p>',
-        '<p>This invitation expires in {{expiresInDays}} days.</p>'
-      ].join('\n')
-      this.textBody = [
-        '{{inviterName}} has invited you to join {{applicationName}}.',
-        '',
-        'Accept the invitation: {{acceptUrl}}',
-        '',
-        'This invitation expires in {{expiresInDays}} days.'
-      ].join('\n')
-    }
-    this.customizing = true
-  }
+async function save() {
+  saving.value = true
+  try {
+    const template = new InviteEmailTemplate()
+    template.id = savedTemplateId.value
+    template.applicationId = props.applicationId
+    template.subject = subject.value
+    template.htmlBody = htmlBody.value
+    template.textBody = textBody.value
 
-  async save() {
-    this.saving = true
-    try {
-      const template = new InviteEmailTemplate()
-      template.id = this.savedTemplateId
-      template.applicationId = this.applicationId
-      template.subject = this.subject
-      template.htmlBody = this.htmlBody
-      template.textBody = this.textBody
-
-      const saved = await Kinotic.inviteEmailTemplates.save(template)
-      this.savedTemplateId = saved.id
-      this.toast.add({ severity: 'success', summary: 'Template saved', life: 4000 })
-    } catch (err) {
-      // Server-side Handlebars validation messages carry the parse position.
-      this.toast.add({ severity: 'error', summary: 'Error', detail: this.message(err, 'Failed to save template'), life: 10000 })
-    } finally {
-      this.saving = false
-    }
-  }
-
-  confirmRevert() {
-    this.confirm.require({
-      header: 'Revert to built-in email',
-      message: 'Delete this template? Invitations for this application go back to the built-in email.',
-      icon: 'pi pi-exclamation-triangle',
-      acceptProps: { label: 'Revert', severity: 'danger' },
-      rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-      accept: () => this.revert()
-    })
-  }
-
-  private async revert() {
-    if (!this.savedTemplateId) return
-    try {
-      await Kinotic.inviteEmailTemplates.deleteById(this.savedTemplateId)
-      this.savedTemplateId = null
-      this.subject = ''
-      this.htmlBody = ''
-      this.textBody = ''
-      this.customizing = false
-      this.toast.add({ severity: 'success', summary: 'Reverted to the built-in email', life: 4000 })
-    } catch (err) {
-      this.toast.add({ severity: 'error', summary: 'Error', detail: this.message(err, 'Failed to revert'), life: 8000 })
-    }
-  }
-
-  private message(err: unknown, fallback: string): string {
-    return err instanceof Error && err.message ? err.message : fallback
+    const saved = await Kinotic.inviteEmailTemplates.save(template)
+    savedTemplateId.value = saved.id
+    toast.add({ severity: 'success', summary: 'Template saved', life: 4000 })
+  } catch (err) {
+    // Server-side Handlebars validation messages carry the parse position.
+    showErrorToast(toast, 'Failed to save template', err, { life: 10000 })
+  } finally {
+    saving.value = false
   }
 }
+
+function confirmRevert() {
+  confirm.require({
+    header: 'Revert to built-in email',
+    message: 'Delete this template? Invitations for this application go back to the built-in email.',
+    icon: 'pi pi-exclamation-triangle',
+    acceptProps: { label: 'Revert', severity: 'danger' },
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    accept: () => revert()
+  })
+}
+
+async function revert() {
+  if (!savedTemplateId.value) return
+  try {
+    await Kinotic.inviteEmailTemplates.deleteById(savedTemplateId.value)
+    savedTemplateId.value = null
+    subject.value = ''
+    htmlBody.value = ''
+    textBody.value = ''
+    customizing.value = false
+    toast.add({ severity: 'success', summary: 'Reverted to the built-in email', life: 4000 })
+  } catch (err) {
+    showErrorToast(toast, 'Failed to revert', err, { life: 8000 })
+  }
+}
+
 </script>
 
 <style scoped>

@@ -61,7 +61,7 @@ class GitHubProjectRepoProvisionerTest {
         install.setAccountLogin("acme");
         when(installationService.findForCurrentOrg())
                 .thenReturn(CompletableFuture.completedFuture(install));
-        when(apiClient.getToken(eq(42L), isNull(), eq(GitHubApiClient.WRITE_CONTENTS)))
+        when(apiClient.getToken(eq(42L), isNull(), eq(GitHubApiClient.CREATE_REPOSITORY)))
                 .thenReturn(Future.succeededFuture(new GitHubToken("install-token", Instant.now().plusSeconds(3600))));
         when(apiClient.getToken(eq(42L), eq(99L), eq(GitHubApiClient.WRITE_CONTENTS)))
                 .thenReturn(Future.succeededFuture(new GitHubToken("repo-token", Instant.now().plusSeconds(3600))));

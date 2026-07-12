@@ -1,31 +1,24 @@
-<script lang="ts">
-import { Vue, Component } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { ref } from 'vue'
 import RadioButton from 'primevue/radiobutton'
 import Textarea from 'primevue/textarea'
 import { isDark as darkMode } from '@/composables/useTheme'
 
-@Component({
-  components: { RadioButton, Textarea },
-})
-export default class StructureSidebarDashboard extends Vue {
-  categories = [
-    { key: 'table', name: 'Table' },
-    { key: 'stream', name: 'Stream' },
-  ]
+const categories = [
+  { key: 'table', name: 'Table' },
+  { key: 'stream', name: 'Stream' },
+]
 
-  accessModes = [
-    { key: 'none', name: 'None' },
-    { key: 'shared', name: 'Shared' },
-  ]
+const accessModes = [
+  { key: 'none', name: 'None' },
+  { key: 'shared', name: 'Shared' },
+]
 
-  selectedCategory: string = 'Table'
-  selectedAccess: string = 'None'
-  notes: string = ''
+const selectedCategory = ref<string>('Table')
+const selectedAccess = ref<string>('None')
+const notes = ref<string>('')
 
-  get isDark() {
-    return darkMode.value
-  }
-}
+const isDark = darkMode
 </script>
 
 <template>
