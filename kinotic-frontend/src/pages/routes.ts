@@ -300,10 +300,9 @@ const pageRoutes: RouteRecordRaw[] = [
     component: () => import('@/pages/GitHubInstallCallback.vue'),
     meta: {
       showInMainNav: false,
-      // Popup-mode callback runs in a fresh window with no STOMP connection;
-      // it just postMessages installation_id + state back to the opener and
-      // closes itself. No platform call, no auth needed.
-      authenticationRequired: false,
+      // Runs completeInstall against the platform, so the session must be present;
+      // an unauthenticated hit bounces through /login and returns here via referer.
+      authenticationRequired: true,
     } as RouteMeta,
   },
 ];
