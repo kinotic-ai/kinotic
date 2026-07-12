@@ -50,8 +50,6 @@ const showPublishModal = ref(false)
 const showUnpublishModal = ref(false)
 const selectedStructure = ref<EntityDefinition | null>(null)
 const isInitialized = ref(false)
-const actionMenus = ref<any[]>([])
-const currentActionItem = ref<EntityDefinition | null>(null)
 const dataSource1 = Kinotic.entityDefinitions
 
 onMounted(() => {
@@ -213,14 +211,6 @@ function handleRowClick(item: EntityDefinition) {
   }
 }
 
-function toggleMenu(event: Event, item: EntityDefinition, index: number) {
-  currentActionItem.value = item
-  const menu = actionMenus.value[index]
-  if (menu) {
-    menu.toggle(event)
-  }
-}
-
 async function publish(item: any) {
   item['publishing'] = true
   let table: any = crudTable.value
@@ -320,6 +310,7 @@ async function markProjectAsActive() {
       @onRowClick="handleRowClick"
       :isShowAddNew="showNewStructureButton"
       :createNewButtonText="newStructureButtonText"
+      :row-actions="getActionMenu"
       emptyStateText="No entities yet for this project"
       rowHoverColor=""
       class="!text-sm"
@@ -348,25 +339,6 @@ async function markProjectAsActive() {
       </template>
       <template #item.description="{ item }">
         <span>{{ item.description }}</span>
-      </template>
-      <template #additional-actions="{ item }">
-        <div class="flex items-center justify-center">
-          <Button
-            icon="pi pi-ellipsis-v"
-            @click.stop="(event) => toggleMenu(event, item, item.id)"
-            aria-haspopup="true"
-            :aria-controls="'action_menu_' + item.id"
-            type="button"
-            severity="secondary"
-            variant="text"
-          />
-          <Menu
-            :ref="(el) => (actionMenus[item.id] = el)"
-            :model="getActionMenu(item)"
-            :popup="true"
-            :id="'action_menu_' + item.id"
-          />
-        </div>
       </template>
     </CrudTable>
 

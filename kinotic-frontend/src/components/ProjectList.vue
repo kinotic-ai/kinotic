@@ -28,7 +28,6 @@ const toast = useToast()
 const confirm = useConfirm()
 
 const crudTable = ref<InstanceType<typeof CrudTable>>()
-const actionMenus = ref<any[]>([])
 
 const searchText = ref<string>('')
 const showProjectSidebar = ref(false)
@@ -132,11 +131,7 @@ async function onProjectSubmit(): Promise<void> {
   }
 }
 
-function toggleMenu(event: Event, itemId: string): void {
-  actionMenus.value[itemId as any]?.toggle(event)
-}
-
-function getActionMenu(item: Project) {
+function rowActions(item: Project) {
   return [
     {
       label: 'Delete',
@@ -228,6 +223,7 @@ async function retryRepoInit(project: Project): Promise<void> {
       @onRowClick="toProjectPage"
       createNewButtonText="New Project"
       emptyStateText="No projects yet"
+      :row-actions="rowActions"
       :isShowAddNew="true"
       class="!text-sm"
     >
@@ -262,25 +258,6 @@ async function retryRepoInit(project: Project): Promise<void> {
         <span>
           {{ DatetimeUtil.formatMonthDayYear(item.created) }}
         </span>
-      </template>
-      <template #additional-actions="{ item }">
-        <div class="flex items-center justify-center">
-          <Button
-            icon="pi pi-ellipsis-v"
-            @click.stop="(event) => toggleMenu(event, item.id)"
-            aria-haspopup="true"
-            :aria-controls="'action_menu_' + item.id"
-            type="button"
-            severity="secondary"
-            variant="text"
-          />
-          <Menu
-            :ref="(el) => (actionMenus[item.id] = el)"
-            :model="getActionMenu(item)"
-            :popup="true"
-            :id="'action_menu_' + item.id"
-          />
-        </div>
       </template>
     </CrudTable>
 

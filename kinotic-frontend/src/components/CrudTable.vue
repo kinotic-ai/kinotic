@@ -8,6 +8,8 @@ import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 import ConfirmDialog from "primevue/confirmdialog";
 import Card from "primevue/card";
+import Menu from "primevue/menu";
+import type { MenuItem } from "primevue/menuitem";
 import Paginator, { type PageState } from "primevue/paginator";
 import SelectButton from "primevue/selectbutton";
 import { useToast } from "primevue/usetoast";
@@ -19,7 +21,6 @@ import {
   type Page,
   Pageable,
   Direction,
-  DataSourceUtils,
 } from "@kinotic-ai/core";
 
 import type { CrudHeader } from "@/types/CrudHeader";
@@ -49,6 +50,9 @@ const props = withDefaults(defineProps<{
   enableRowHover?: boolean
   defaultPageSize?: number
   transparentDarkCards?: boolean
+  // When set, each row gets an ellipsis button opening a popup menu with these
+  // items. Rendered before the additional-actions slot content.
+  rowActions?: (item: any) => MenuItem[]
 }>(), {
   multiSort: false,
   mustSort: true,
@@ -106,12 +110,11 @@ const viewOptions = [
   { icon: "pi pi-th-large", value: "column" },
 ];
 
-const editable = computed<boolean>(() => {
-  return (
-    props.dataSource &&
-    DataSourceUtils.instanceOfEditableDataSource(props.dataSource)
-  );
-});
+const rowMenus = ref<Record<string, any>>({});
+
+function toggleRowMenu(event: Event, itemId: string): void {
+  rowMenus.value[itemId]?.toggle(event);
+}
 
 const computedHeaders = computed<CrudHeader[]>(() => {
   return props.headers;
@@ -487,9 +490,26 @@ defineExpose({ find, displayAlert });
               </template>
             </Column>
 
-            <Column v-if="editable || $slots['additional-actions']" header="">
+            <Column v-if="rowActions || $slots['additional-actions']" header="">
               <template #body="slotProps">
                 <div class="flex min-h-[48px] w-full items-center justify-center">
+                  <template v-if="rowActions">
+                    <Button
+                      icon="pi pi-ellipsis-v"
+                      @click.stop="(event) => toggleRowMenu(event, slotProps.data.id)"
+                      aria-haspopup="true"
+                      :aria-controls="'action_menu_' + slotProps.data.id"
+                      type="button"
+                      severity="secondary"
+                      variant="text"
+                    />
+                    <Menu
+                      :ref="(el) => (rowMenus[slotProps.data.id] = el)"
+                      :model="rowActions(slotProps.data)"
+                      :popup="true"
+                      :id="'action_menu_' + slotProps.data.id"
+                    />
+                  </template>
                   <slot name="additional-actions" :item="slotProps.data" />
                 </div>
               </template>

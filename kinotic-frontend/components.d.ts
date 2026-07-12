@@ -30,7 +30,6 @@ declare module 'vue' {
     GlobalObjectNode: typeof import('./src/components/nodes/GlobalObjectNode.vue')['default']
     IconField: typeof import('primevue/iconfield')['default']
     InputIcon: typeof import('primevue/inputicon')['default']
-    Menu: typeof import('primevue/menu')['default']
     NewProjectSidebar: typeof import('./src/components/NewProjectSidebar.vue')['default']
     ObjectNode: typeof import('./src/components/nodes/ObjectNode.vue')['default']
     ProjectList: typeof import('./src/components/ProjectList.vue')['default']

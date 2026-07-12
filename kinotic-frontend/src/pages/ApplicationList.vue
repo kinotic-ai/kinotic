@@ -39,7 +39,6 @@ const showSidebar = ref(false);
 const searchText = ref<string>((route.query.search as string) || "");
 const sidebarWrapper = ref<HTMLElement>();
 const crudTable = ref<InstanceType<typeof CrudTable>>();
-const actionMenus = ref<any[]>([]);
 
 onMounted(async () => {
   try {
@@ -121,11 +120,7 @@ function onApplicationSubmit(created: Application): void {
   showSidebar.value = false;
 }
 
-function toggleMenu(event: Event, itemId: string): void {
-  actionMenus.value[itemId as any]?.toggle(event);
-}
-
-function getActionMenu(item: Application) {
+function rowActions(item: Application) {
   return [
     {
       label: "Delete",
@@ -171,6 +166,7 @@ function confirmDelete(item: Application): void {
       :singleExpand="false"
       :enableViewSwitcher="true"
       emptyStateText="No applications yet"
+      :row-actions="rowActions"
       :search="searchText"
       @update:search="updateRouteQuery"
       @add-item="onAddItem"
@@ -196,25 +192,6 @@ function confirmDelete(item: Application): void {
       <span>
         {{ DatetimeUtil.formatRelativeDate(item.updated) }}
       </span>
-    </template>
-    <template #additional-actions="{ item }">
-      <div class="flex items-center justify-center">
-        <Button
-          icon="pi pi-ellipsis-v"
-          @click.stop="(event) => toggleMenu(event, item.id)"
-          aria-haspopup="true"
-          :aria-controls="'action_menu_' + item.id"
-          type="button"
-          severity="secondary"
-          variant="text"
-        />
-        <Menu
-          :ref="(el) => (actionMenus[item.id] = el)"
-          :model="getActionMenu(item)"
-          :popup="true"
-          :id="'action_menu_' + item.id"
-        />
-      </div>
     </template>
     </CrudTable>
 
