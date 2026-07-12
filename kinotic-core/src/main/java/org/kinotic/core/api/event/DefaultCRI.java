@@ -17,9 +17,8 @@ class DefaultCRI implements CRI {
     private final URI uri;
 
     public DefaultCRI(String scheme, String scope, String resourceName, String path, String version) {
-        // Assemble the authority ourselves and use the authority-form URI constructor rather than
-        // the (userInfo, host, port) form, which reparses and validates the host: scope and
-        // resourceName are already the two halves of the authority, split on '@'.
+        // Compose the authority as scope@resourceName and pass it to the authority-form URI
+        // constructor, which stores it verbatim.
         String authority = resourceName != null
                 ? (scope != null ? scope + "@" : "") + resourceName
                 : null;
@@ -46,9 +45,7 @@ class DefaultCRI implements CRI {
 
     @Override
     public String scope() {
-        // Split the raw authority rather than using getRawUserInfo()/getHost(): java.net.URI only
-        // populates those for a server-based authority, so splitting on '@' keeps parsing correct
-        // for any resourceName. scope is the part before '@' (null when absent), resourceName the rest.
+        // The raw authority is scope@resourceName; scope is the part before '@', null when absent.
         String authority = uri.getRawAuthority();
         if (authority == null) {
             return null;
