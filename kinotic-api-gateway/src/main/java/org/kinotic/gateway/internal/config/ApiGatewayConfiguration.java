@@ -3,7 +3,6 @@ package org.kinotic.gateway.internal.config;
 import io.vertx.core.Vertx;
 import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.web.sstore.SessionStore;
-import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
