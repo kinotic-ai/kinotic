@@ -69,9 +69,9 @@ async function handleSubmit(): Promise<void> {
     debug('Failed to create application: %O', error)
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to create application. Please check name validity.',
-      life: 3000
+      summary: 'Failed to create application',
+      detail: error instanceof Error ? error.message : 'An unexpected error occurred',
+      life: 5000
     })
   } finally {
     loading.value = false
