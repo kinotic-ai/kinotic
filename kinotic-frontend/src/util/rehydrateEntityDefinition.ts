@@ -11,7 +11,7 @@ import {
 /**
  * Recursively reconstructs C3Type objects from plain JSON
  */
-export const rehydrateStructure = (json: any): C3Type => {
+export const rehydrateEntityDefinition = (json: any): C3Type => {
     if (!json) return json;
 
     switch (json.type) {
@@ -30,7 +30,7 @@ export const rehydrateStructure = (json: any): C3Type => {
                 obj.properties = json.properties.map((p: any) => {
                     return new PropertyDefinition(
                         p.name,
-                        rehydrateStructure(p.type),
+                        rehydrateEntityDefinition(p.type),
                         (p.decorators || []).map((d: any) => {
                             const dec = new C3Decorator();
                             Object.assign(dec, d);
@@ -51,12 +51,12 @@ export const rehydrateStructure = (json: any): C3Type => {
 
         case 'union': {
             const un = new UnionC3Type(json.name, json.namespace);
-            un.types = (json.types || []).map((t: any) => rehydrateStructure(t));
+            un.types = (json.types || []).map((t: any) => rehydrateEntityDefinition(t));
             return un;
         }
 
         case 'array': {
-            return new ArrayC3Type(rehydrateStructure(json.contains));
+            return new ArrayC3Type(rehydrateEntityDefinition(json.contains));
         }
 
         default:

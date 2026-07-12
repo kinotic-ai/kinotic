@@ -147,8 +147,8 @@ const pageRoutes: RouteRecordRaw[] = [
     } as RouteMeta,
   },
   {
-    path: '/application/:applicationId/project/:projectId/structures',
-    name: 'project-structures-wrapper',
+    path: '/application/:applicationId/project/:projectId/entity-definitions',
+    name: 'project-entity-definitions-wrapper',
     component: () => import('@/layouts/LayoutForPage.vue'),
     meta: {
       showInMainNav: false,
@@ -158,12 +158,12 @@ const pageRoutes: RouteRecordRaw[] = [
     } as RouteMeta,
     children: [
       {
-        name: 'project-structures',
+        name: 'project-entity-definitions',
         path: '',
         meta: {
           sidebar: { group: 'project', label: 'Entities', icon: 'pi pi-table', order: 10 } as SidebarItemMeta
         } as RouteMeta,
-        component: () => import('@/pages/ProjectStructuresPage.vue'),
+        component: () => import('@/pages/ProjectEntityDefinitionsPage.vue'),
         props: (route) => ({
           applicationId: route.params.applicationId,
           projectId: route.params.projectId,
@@ -172,8 +172,8 @@ const pageRoutes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/new-structure',
-    component: () => import('@/pages/NewStructure.vue'),
+    path: '/new-entity-definition',
+    component: () => import('@/pages/NewEntityDefinition.vue'),
     meta: {
       showInMainNav: false,
       label: 'New Entity',

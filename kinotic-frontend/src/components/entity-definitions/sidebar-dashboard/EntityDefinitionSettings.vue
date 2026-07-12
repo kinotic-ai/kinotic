@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import {useStructureStore} from "@/stores/editor.ts"
+import {useEntityDefinitionStore} from "@/stores/editor.ts"
 import { isDark as darkMode } from '@/composables/useTheme'
 
-const structureStore = useStructureStore()
+const entityDefinitionStore = useEntityDefinitionStore()
 
 const categories = [
   {key: 'TABLE', name: 'Table'},
@@ -16,34 +16,34 @@ const accessModes = [
 
 const entityType = computed({
   get() {
-    const entityDecorator = structureStore.structure?.schema?.decorators?.find(
+    const entityDecorator = entityDefinitionStore.entityDefinition?.schema?.decorators?.find(
       (d: any) => d.type === 'Entity'
     ) as any
     return entityDecorator?.entityType || 'TABLE'
   },
   set(value: string) {
-    structureStore.updateEntityType(value)
+    entityDefinitionStore.updateEntityType(value)
   }
 })
 
 const multiTenancyType = computed({
   get() {
-    const entityDecorator = structureStore.structure?.schema?.decorators?.find(
+    const entityDecorator = entityDefinitionStore.entityDefinition?.schema?.decorators?.find(
       (d: any) => d.type === 'Entity'
     ) as any
     return entityDecorator?.multiTenancyType || 'NONE'
   },
   set(value: string) {
-    structureStore.updateMultiTenancyType(value)
+    entityDefinitionStore.updateMultiTenancyType(value)
   }
 })
 
 const description = computed({
   get() {
-    return structureStore.structure?.description || ''
+    return entityDefinitionStore.entityDefinition?.description || ''
   },
   set(value: string) {
-    structureStore.updateStructureDescription(value)
+    entityDefinitionStore.updateEntityDefinitionDescription(value)
   }
 })
 
@@ -51,7 +51,7 @@ const isDark = computed(() => darkMode.value)
 </script>
 
 <template>
-  <div v-if="structureStore.structure">
+  <div v-if="entityDefinitionStore.entityDefinition">
     <div :class="['border-b p-6', isDark ? 'border-surface-800' : 'border-surface-200']">
       <h3 class="text-sm font-semibold">Entity settings</h3>
     </div>

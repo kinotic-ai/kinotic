@@ -23,17 +23,17 @@ import type {Edge, Node} from "@vue-flow/core"
 import {generateVueFlowGraphFromSchema} from '@/util/graph.ts'
 import {EntityDefinition} from "@kinotic-ai/os-api";
 
-export interface IStructureStore {
-    structure: EntityDefinition | null
+export interface IEntityDefinitionStore {
+    entityDefinition: EntityDefinition | null
     nodes: Node[];
     edges: Edge[]
 
-    initNewStructure(organizationId: string, applicationId: string, projectId: string): void
+    initNewEntityDefinition(organizationId: string, applicationId: string, projectId: string): void
     addProperty(parentId: string, propertyName: string, typeCode: string, decorators?: C3Decorator[]): void
     renameProperty(parentId: string, oldName: string, newName: string): void
     updatePropertyType(parentId: string, propertyName: string, typeCode: string): void
-    updateStructureName(newName: string): void
-    updateStructureDescription(description: string): void
+    updateEntityDefinitionName(newName: string): void
+    updateEntityDefinitionDescription(description: string): void
     updateEntityType(entityType: string): void
     updateMultiTenancyType(multiTenancyType: string): void
     findObjectById(obj: ObjectC3Type, id: string): ObjectC3Type | null
@@ -44,17 +44,17 @@ interface EntityDecorator extends C3Decorator {
     multiTenancyType?: string
 }
 
-class StructureStore implements IStructureStore {
-    private readonly structureRef = shallowRef<EntityDefinition | null>(null)
+class EntityDefinitionStore implements IEntityDefinitionStore {
+    private readonly entityDefinitionRef = shallowRef<EntityDefinition | null>(null)
     private readonly nodesRef = shallowRef<Node[]>([])
     private readonly edgesRef = shallowRef<Edge[]>([])
 
-    get structure(): EntityDefinition | null {
-        return this.structureRef.value
+    get entityDefinition(): EntityDefinition | null {
+        return this.entityDefinitionRef.value
     }
 
-    set structure(value: EntityDefinition | null) {
-        this.structureRef.value = value
+    set entityDefinition(value: EntityDefinition | null) {
+        this.entityDefinitionRef.value = value
     }
 
     get nodes(): Node[] {
@@ -73,22 +73,22 @@ class StructureStore implements IStructureStore {
         this.edgesRef.value = value
     }
 
-    initNewStructure(organizationId: string, applicationId: string, projectId: string) {
-        const rootType = new ObjectC3Type('NewStructure123', 'default.namespace')
+    initNewEntityDefinition(organizationId: string, applicationId: string, projectId: string) {
+        const rootType = new ObjectC3Type('NewEntityDefinition123', 'default.namespace')
         rootType.addDecorator({
             type: 'Entity',
             multiTenancyType: 'NONE',
             entityType: 'TABLE'
         } as C3Decorator)
-        this.structure = new EntityDefinition(organizationId, applicationId, projectId, rootType.name, rootType)
+        this.entityDefinition = new EntityDefinition(organizationId, applicationId, projectId, rootType.name, rootType)
 
         this.generateGraph()
     }
 
     addProperty(parentId: string, propertyName: string, typeCode: string, decorators?: C3Decorator[]) {
-        if (!this.structure) return
+        if (!this.entityDefinition) return
 
-        const parent = this.findObjectById(this.structure.schema, parentId)
+        const parent = this.findObjectById(this.entityDefinition.schema, parentId)
         if (!parent) return
 
         const newType = this.buildType(typeCode, propertyName)
@@ -99,8 +99,8 @@ class StructureStore implements IStructureStore {
     }
 
     renameProperty(parentId: string, oldName: string, newName: string) {
-        if (!this.structure) return
-        const parent = this.findObjectById(this.structure.schema, parentId)
+        if (!this.entityDefinition) return
+        const parent = this.findObjectById(this.entityDefinition.schema, parentId)
         if (!parent) return
 
         const prop = parent.properties.find(p => p.name === oldName)
@@ -112,25 +112,25 @@ class StructureStore implements IStructureStore {
             }
             prop.name = newName
         }
-        triggerRef(this.structureRef)
+        triggerRef(this.entityDefinitionRef)
         this.generateGraph()
     }
 
     updatePropertyType(parentId: string, propertyName: string, typeCode: string) {
-        if (!this.structure) return
-        const parent = this.findObjectById(this.structure.schema, parentId)
+        if (!this.entityDefinition) return
+        const parent = this.findObjectById(this.entityDefinition.schema, parentId)
         if (!parent) return
 
         const prop = parent.properties.find(p => p.name === propertyName)
         if (prop) {
             prop.type = this.buildType(typeCode, propertyName)
         }
-        triggerRef(this.structureRef)
+        triggerRef(this.entityDefinitionRef)
         this.generateGraph()
     }
 
     private buildType(typeCode: string, name: string): C3Type {
-        const namespace = this.structure?.schema.namespace || 'default'
+        const namespace = this.entityDefinition?.schema.namespace || 'default'
 
         switch (typeCode) {
             case 'string': return new StringC3Type()
@@ -166,45 +166,45 @@ class StructureStore implements IStructureStore {
         throw new Error(`Unknown type code: ${typeCode}`)
     }
 
-    updateStructureName(newName: string) {
-        if (this.structure) {
+    updateEntityDefinitionName(newName: string) {
+        if (this.entityDefinition) {
             const finalName = newName.replace(/\s+/g, "")
-            this.structure.name = finalName
-            this.structure.schema.name = finalName
-            triggerRef(this.structureRef)
+            this.entityDefinition.name = finalName
+            this.entityDefinition.schema.name = finalName
+            triggerRef(this.entityDefinitionRef)
             this.generateGraph()
         }
     }
 
-    updateStructureDescription(description: string) {
-        if (!this.structure) return
-        this.structure.description = description
-        triggerRef(this.structureRef)
+    updateEntityDefinitionDescription(description: string) {
+        if (!this.entityDefinition) return
+        this.entityDefinition.description = description
+        triggerRef(this.entityDefinitionRef)
     }
 
     updateEntityType(entityType: string) {
         const entityDecorator = this.getEntityDecorator()
         if (!entityDecorator) return
         entityDecorator.entityType = entityType
-        triggerRef(this.structureRef)
+        triggerRef(this.entityDefinitionRef)
     }
 
     updateMultiTenancyType(multiTenancyType: string) {
         const entityDecorator = this.getEntityDecorator()
         if (!entityDecorator) return
         entityDecorator.multiTenancyType = multiTenancyType
-        triggerRef(this.structureRef)
+        triggerRef(this.entityDefinitionRef)
     }
 
     private generateGraph() {
-        if (!this.structure) return
-        const {nodes, edges} = generateVueFlowGraphFromSchema(this.structure.schema)
+        if (!this.entityDefinition) return
+        const {nodes, edges} = generateVueFlowGraphFromSchema(this.entityDefinition.schema)
         this.nodes = nodes
         this.edges = edges
     }
 
     private getEntityDecorator(): EntityDecorator | undefined {
-        return this.structure?.schema.decorators?.find(
+        return this.entityDefinition?.schema.decorators?.find(
             (decorator): decorator is EntityDecorator => decorator.type === 'Entity'
         )
     }
@@ -227,8 +227,8 @@ class StructureStore implements IStructureStore {
     }
 }
 
-const STRUCTURE_STORE: IStructureStore = new StructureStore()
+const ENTITY_DEFINITION_STORE: IEntityDefinitionStore = new EntityDefinitionStore()
 
-export const useStructureStore = (): IStructureStore => {
-    return STRUCTURE_STORE
+export const useEntityDefinitionStore = (): IEntityDefinitionStore => {
+    return ENTITY_DEFINITION_STORE
 }
