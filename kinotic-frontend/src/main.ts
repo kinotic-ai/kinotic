@@ -77,16 +77,14 @@ app.use(PrimeVue, {
 
 CONTINUUM_UI.initialize(router);
 
+// Probe for an existing browser session in the background. The auth guard awaits this promise
+// before checking auth state, so protected routes wait for the real result while public routes
+// (login, signup, verify) render immediately instead of blanking until the probe settles.
+const sessionProbe = StructuresStates.getUserState().login().catch(() => {})
+
 app.directive('styleclass', StyleClass)
 app.use(ToastService)
 app.use(ConfirmationService)
-app.use(createStructuresUI(), { router })
-
-// Installing the router fires its initial navigation, which runs the auth guard. Do that after the
-// session probe resolves, so the guard sees the real auth state.
-StructuresStates.getUserState().login()
-    .catch(() => {})
-    .finally(() => {
-        app.use(router)
-        app.mount('#app')
-    })
+app.use(createStructuresUI(), { router, sessionProbe })
+app.use(router)
+app.mount('#app')
