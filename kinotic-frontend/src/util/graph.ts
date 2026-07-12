@@ -11,7 +11,7 @@ export function generateVueFlowGraphFromSchema(rootType: ObjectC3Type) {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
     let nodeCounter = 0;
-    const processedStructures = new Map<string, string>();
+    const processedEntityDefinitions = new Map<string, string>();
 
     const levelColors = [
         'bg-lime-200',
@@ -36,7 +36,7 @@ export function generateVueFlowGraphFromSchema(rootType: ObjectC3Type) {
         const nodeId = `${idBase}_${nodeCounter++}`;
         nodes.push({
             id: nodeId,
-            type: 'structure',
+            type: 'entityDefinition',
             data: { label, fields, type, color: getColorForDepth(depth) },
             position: { x: 0, y: 0 },
         });
@@ -51,13 +51,13 @@ export function generateVueFlowGraphFromSchema(rootType: ObjectC3Type) {
         depth = 0
     ): string {
         const key = label + JSON.stringify(properties.map((p) => p.name));
-        if (processedStructures.has(key)) {
-            return processedStructures.get(key)!;
+        if (processedEntityDefinitions.has(key)) {
+            return processedEntityDefinitions.get(key)!;
         }
 
         const fields: FieldData[] = [];
-        const nodeId = createNode(label, label, isRoot ? "structure" : nodeType, fields, depth);
-        processedStructures.set(key, nodeId);
+        const nodeId = createNode(label, label, isRoot ? "entityDefinition" : nodeType, fields, depth);
+        processedEntityDefinitions.set(key, nodeId);
 
         properties.forEach((prop: PropertyDefinition, idx: number) => {
             const propName = prop.name || `prop${idx}`;
@@ -120,11 +120,11 @@ export function generateVueFlowGraphFromSchema(rootType: ObjectC3Type) {
     function createEnumNode(propName: string, enumName: string, values: string[], depth: number) {
         const enumFields: FieldData[] = values.map((v) => ({ label: v, type: 'enum-value' }));
         const enumKey = JSON.stringify(enumFields) + enumName;
-        if (processedStructures.has(enumKey)) {
-            return processedStructures.get(enumKey)!;
+        if (processedEntityDefinitions.has(enumKey)) {
+            return processedEntityDefinitions.get(enumKey)!;
         }
         const enumNodeId = createNode(`${propName}_enum`, enumName, 'enum', enumFields, depth);
-        processedStructures.set(enumKey, enumNodeId);
+        processedEntityDefinitions.set(enumKey, enumNodeId);
         return enumNodeId;
     }
 

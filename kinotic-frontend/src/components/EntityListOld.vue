@@ -14,13 +14,13 @@ import { EntityDefinition, type IEntityDefinitionService } from '@kinotic-ai/os-
 import { type IEntitiesRepository } from '@kinotic-ai/persistence'
 
 import DatetimeUtil from '@/util/DatetimeUtil'
-import { StructureUtil } from '@/util/StructureUtil'
+import { EntityDefinitionUtil } from '@/util/EntityDefinitionUtil'
 import { createDebug } from '@/util/debug'
 
 const debug = createDebug('entity-list-old');
 
 const props = defineProps<{
-  structureId?: string
+  entityDefinitionId?: string
 }>()
 
 const loading = ref(false)
@@ -31,11 +31,11 @@ const searchText = ref<string | null>(null)
 
 const keys = ref<string[]>([])
 const headers = ref<any[]>([])
-const structureProperties = ref<any>({})
-const structure = ref<EntityDefinition>()
+const entityDefinitionProperties = ref<any>({})
+const entityDefinition = ref<EntityDefinition>()
 
 const entitiesService: IEntitiesRepository = Kinotic.entities
-const structureService: IEntityDefinitionService = Kinotic.entityDefinitions
+const entityDefinitionService: IEntityDefinitionService = Kinotic.entityDefinitions
 
 const options = ref({
   rows: 10,
@@ -50,24 +50,24 @@ const route = useRoute()
 
 onMounted(() => {
   const paramId = route.params.id
-  const id = props.structureId || (Array.isArray(paramId) ? paramId[0] : paramId)
+  const id = props.entityDefinitionId || (Array.isArray(paramId) ? paramId[0] : paramId)
 
   if (!id) {
     displayAlert("Missing entity ID.")
     return
   }
 
-  structureService.findById(id)
+  entityDefinitionService.findById(id)
     .then((definition: EntityDefinition) => {
-      structure.value = definition
-      structureProperties.value = definition.schema.properties
-      for (const property of structureProperties.value) {
+      entityDefinition.value = definition
+      entityDefinitionProperties.value = definition.schema.properties
+      for (const property of entityDefinitionProperties.value) {
         if (property) {
           const fieldName = property.name[0].toUpperCase() + property.name.slice(1)
           let sortable = true
           if (
             ['ref', 'array', 'object'].includes(property.type.type) ||
-            (property.type.type === 'string' && StructureUtil.hasDecorator('Text', property.decorators))
+            (property.type.type === 'string' && EntityDefinitionUtil.hasDecorator('Text', property.decorators))
           ) {
             sortable = false
           }
@@ -87,7 +87,7 @@ onMounted(() => {
       find()
     })
     .catch((error: Error) => {
-      debug('Error during structure retrieval: %O', error)
+      debug('Error during entityDefinition retrieval: %O', error)
       displayAlert(error.message)
     })
 })
@@ -97,7 +97,7 @@ function formatDate(date: string): string {
 }
 
 function isDateField(field: string): boolean {
-  return StructureUtil.getPropertyDefinition(field, structureProperties.value)?.type?.type === 'date'
+  return EntityDefinitionUtil.getPropertyDefinition(field, entityDefinitionProperties.value)?.type?.type === 'date'
 }
 
 function onPage(event: any) {
@@ -142,7 +142,7 @@ function find() {
 
   const pageable = Pageable.create(page, options.value.rows, { orders })
   const paramId = route.params.id
-  const id = props.structureId || (Array.isArray(paramId) ? paramId[0] : paramId)
+  const id = props.entityDefinitionId || (Array.isArray(paramId) ? paramId[0] : paramId)
 
   const queryPromise = (searchText.value?.length)
   ? entitiesService.search(id, searchText.value, pageable)

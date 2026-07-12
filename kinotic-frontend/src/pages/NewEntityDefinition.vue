@@ -6,14 +6,14 @@ import { MiniMap } from "@vue-flow/minimap"
 import { computed, markRaw, onBeforeMount, ref } from "vue"
 import Button from "primevue/button"
 import InputText from "primevue/inputtext"
-import StructureNode from "@/components/structures/flow-components/StructureNode.vue"
-import { useStructureStore } from "@/stores/editor"
+import EntityDefinitionNode from "@/components/entity-definitions/flow-components/EntityDefinitionNode.vue"
+import { useEntityDefinitionStore } from "@/stores/editor"
 import { USER_STATE } from "@/states/IUserState"
 import "@vue-flow/core/dist/style.css"
 import "@vue-flow/core/dist/theme-default.css"
 import "@vue-flow/minimap/dist/style.css"
 import "@vue-flow/controls/dist/style.css"
-import StructureSidebarDashboard from "@/components/structures/sidebar-dashboard/StructureSidebarDashboard.vue";
+import EntityDefinitionSidebarDashboard from "@/components/entity-definitions/sidebar-dashboard/EntityDefinitionSidebarDashboard.vue";
 import { isDark as darkMode } from '@/composables/useTheme'
 
 const visible = ref(true)
@@ -24,27 +24,27 @@ const textHeight = ref(0)
 const nameTextEl = ref<HTMLElement | null>(null)
 
 // Store
-const structureStore = useStructureStore();
+const entityDefinitionStore = useEntityDefinitionStore();
 
 const name = computed<string>({
-  get: () => structureStore.structure?.name ?? "",
+  get: () => entityDefinitionStore.entityDefinition?.name ?? "",
   set: (value) => {
-    structureStore.updateStructureName(value)
+    entityDefinitionStore.updateEntityDefinitionName(value)
   },
 })
 
-const flowNodes = computed<Node[]>(() => structureStore.nodes)
-const flowEdges = computed<Edge[]>(() => structureStore.edges)
+const flowNodes = computed<Node[]>(() => entityDefinitionStore.nodes)
+const flowEdges = computed<Edge[]>(() => entityDefinitionStore.edges)
 
 // Cast: VueFlow's NodeTypesObject wants NodeComponent values, which SFC-typed
 // components don't structurally satisfy even though they work at runtime.
 const nodeTypes = {
-  structure: markRaw(StructureNode),
+  entityDefinition: markRaw(EntityDefinitionNode),
 } as unknown as NodeTypesObject
 
 onBeforeMount(() => {
-  // Initialize structure once when modal opens
-  structureStore.initNewStructure(USER_STATE.getOrganizationId(), "app-123", "proj-456")
+  // Initialize entityDefinition once when modal opens
+  entityDefinitionStore.initNewEntityDefinition(USER_STATE.getOrganizationId(), "app-123", "proj-456")
 })
 
 function handleMouseEnter() {
@@ -132,7 +132,7 @@ const isDark = darkMode
         </div>
 
         <!-- Sidebar -->
-         <StructureSidebarDashboard />
+         <EntityDefinitionSidebarDashboard />
       </div>
     </div>
   </div>

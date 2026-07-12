@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProjectList from '@/components/ProjectList.vue'
-import StructuresList from '@/components/StructuresList.vue'
+import EntityDefinitionsList from '@/components/EntityDefinitionsList.vue'
 import Tabs from 'primevue/tabs'
 import TabList from 'primevue/tablist'
 import Tab from 'primevue/tab'
@@ -25,8 +25,8 @@ const projectsCount = computed<number>(() => {
   return APPLICATION_STATE.projectsCount ?? 0
 })
 
-const structuresCount = computed<number>(() => {
-  return APPLICATION_STATE.structuresCount ?? 0
+const entityDefinitionsCount = computed<number>(() => {
+  return APPLICATION_STATE.entityDefinitionsCount ?? 0
 })
 
 const isDark = darkMode
@@ -35,8 +35,8 @@ const searchProduct = computed<string | undefined>(() => {
   return route.query['search-project'] as string | undefined
 })
 
-const searchStructure = computed<string | undefined>(() => {
-  return route.query['search-structure'] as string | undefined
+const searchEntityDefinition = computed<string | undefined>(() => {
+  return route.query['search-entityDefinition'] as string | undefined
 })
 
 const activeTabFromQuery = computed<number>(() => {
@@ -78,7 +78,7 @@ isInitialized.value = true
     <div class="flex justify-between items-center mb-6 h-[58px]">
       <div>
         <h1 :class="['mb-3 text-2xl font-semibold', isDark ? 'text-white' : 'text-surface-950']">{{ applicationId }}</h1>
-        <span :class="[isDark ? 'text-surface-400' : 'text-surface-600']">{{ projectsCount }} projects, {{ structuresCount }} entities</span>
+        <span :class="[isDark ? 'text-surface-400' : 'text-surface-600']">{{ projectsCount }} projects, {{ entityDefinitionsCount }} entities</span>
       </div>
     </div>
 
@@ -112,9 +112,9 @@ isInitialized.value = true
         </TabPanel>
         <TabPanel class="flex flex-1 flex-col" :value="1">
           <div v-show="activeTab === 1" class="flex flex-1 flex-col">
-            <StructuresList
+            <EntityDefinitionsList
               :applicationId="applicationId"
-              :initialSearch="searchStructure"
+              :initialSearch="searchEntityDefinition"
             />
           </div>
         </TabPanel>
