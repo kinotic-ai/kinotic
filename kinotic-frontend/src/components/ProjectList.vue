@@ -3,7 +3,6 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showErrorToast } from '@/util/helpers'
 import { useToast } from 'primevue/usetoast'
-import { useConfirm } from 'primevue/useconfirm'
 import CrudTable from '@/components/CrudTable.vue'
 import NewProjectSidebar from '@/components/NewProjectSidebar.vue'
 import ProjectEntityDefinitionsTable from '@/components/ProjectEntityDefinitionsTable.vue'
@@ -25,7 +24,6 @@ const props = defineProps<{
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
-const confirm = useConfirm()
 
 const crudTable = ref<InstanceType<typeof CrudTable>>()
 
@@ -131,33 +129,14 @@ async function onProjectSubmit(): Promise<void> {
   }
 }
 
-function rowActions(item: Project) {
-  return [
-    {
-      label: 'Delete',
-      icon: 'pi pi-trash',
-      command: () => confirmDelete(item)
-    }
-  ]
-}
-
-function confirmDelete(item: Project): void {
-  confirm.require({
-    header: 'Delete project',
-    message: `Permanently delete ${item.name}? This cannot be undone.`,
-    icon: 'pi pi-exclamation-triangle',
-    acceptProps: { label: 'Delete', severity: 'danger' },
-    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-    accept: async () => {
-      try {
-        await Kinotic.projects.deleteById(item.id!)
-        toast.add({ severity: 'success', summary: 'Project deleted', life: 4000 })
-        refreshTable()
-      } catch (err) {
-        showErrorToast(toast, 'Failed to delete project', err, { life: 8000 })
-      }
-    }
-  })
+async function deleteProject(item: Project): Promise<void> {
+  try {
+    await Kinotic.projects.deleteById(item.id!)
+    toast.add({ severity: 'success', summary: 'Project deleted', life: 4000 })
+    refreshTable()
+  } catch (err) {
+    showErrorToast(toast, 'Failed to delete project', err, { life: 8000 })
+  }
 }
 
 async function toProjectPage(item: Identifiable<string>): Promise<void> {
@@ -220,10 +199,11 @@ async function retryRepoInit(project: Project): Promise<void> {
       :search="searchText"
       @update:search="updateRouteQuery"
       @add-item="onAddProject"
+      @delete-item="deleteProject"
       @onRowClick="toProjectPage"
       createNewButtonText="New Project"
       emptyStateText="No projects yet"
-      :row-actions="rowActions"
+      :isShowDelete="true"
       :isShowAddNew="true"
       class="!text-sm"
     >

@@ -13,6 +13,7 @@ import type { MenuItem } from "primevue/menuitem";
 import Paginator, { type PageState } from "primevue/paginator";
 import SelectButton from "primevue/selectbutton";
 import { useToast } from "primevue/usetoast";
+import { useConfirm } from "primevue/useconfirm";
 
 import {
   type IDataSource,
@@ -53,12 +54,16 @@ const props = withDefaults(defineProps<{
   // When set, each row gets an ellipsis button opening a popup menu with these
   // items. Rendered before the additional-actions slot content.
   rowActions?: (item: any) => MenuItem[]
+  // Appends a Delete item to the row menu that confirms with the user, then
+  // emits deleteItem. The parent performs the actual deletion.
+  isShowDelete?: boolean
 }>(), {
   multiSort: false,
   mustSort: true,
   singleExpand: false,
   disableModifications: false,
   isShowAddNew: true,
+  isShowDelete: false,
   initialSearch: '',
   rowHoverColor: '#f5f5f5',
   createNewButtonText: 'Add new',
@@ -74,8 +79,9 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: "update:search", value: string): void;
   (e: "addItem"): void;
-  // any: listeners type this payload as their concrete entity (EntityDefinition,
+  // any: listeners type these payloads as their concrete entity (EntityDefinition,
   // Dashboard, ...), which is narrower than the Identifiable<string> rows the table holds.
+  (e: "deleteItem", item: any): void;
   (e: "onRowClick", data: any): void;
   (e: "items-count", count: number): void;
 }>();
@@ -111,9 +117,37 @@ const viewOptions = [
 ];
 
 const rowMenus = ref<Record<string, any>>({});
+const confirm = useConfirm();
 
 function toggleRowMenu(event: Event, itemId: string): void {
   rowMenus.value[itemId]?.toggle(event);
+}
+
+const hasRowMenu = computed<boolean>(() => {
+  return !!props.rowActions || props.isShowDelete;
+});
+
+function rowMenuItems(item: DescriptiveIdentifiable): MenuItem[] {
+  const menuItems = props.rowActions ? [...props.rowActions(item)] : [];
+  if (props.isShowDelete) {
+    menuItems.push({
+      label: "Delete",
+      icon: "pi pi-trash",
+      command: () => confirmDelete(item),
+    });
+  }
+  return menuItems;
+}
+
+function confirmDelete(item: DescriptiveIdentifiable): void {
+  confirm.require({
+    header: "Confirm delete",
+    message: `Permanently delete ${item.name ?? "this item"}? This cannot be undone.`,
+    icon: "pi pi-exclamation-triangle",
+    acceptProps: { label: "Delete", severity: "danger" },
+    rejectProps: { label: "Cancel", severity: "secondary", outlined: true },
+    accept: () => emit("deleteItem", item),
+  });
 }
 
 const computedHeaders = computed<CrudHeader[]>(() => {
@@ -490,10 +524,10 @@ defineExpose({ find, displayAlert });
               </template>
             </Column>
 
-            <Column v-if="rowActions || $slots['additional-actions']" header="">
+            <Column v-if="hasRowMenu || $slots['additional-actions']" header="">
               <template #body="slotProps">
                 <div class="flex min-h-[48px] w-full items-center justify-center">
-                  <template v-if="rowActions">
+                  <template v-if="hasRowMenu">
                     <Button
                       icon="pi pi-ellipsis-v"
                       @click.stop="(event) => toggleRowMenu(event, slotProps.data.id)"
@@ -505,7 +539,7 @@ defineExpose({ find, displayAlert });
                     />
                     <Menu
                       :ref="(el) => (rowMenus[slotProps.data.id] = el)"
-                      :model="rowActions(slotProps.data)"
+                      :model="rowMenuItems(slotProps.data)"
                       :popup="true"
                       :id="'action_menu_' + slotProps.data.id"
                     />

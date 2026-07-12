@@ -12,7 +12,6 @@ import type { CrudHeader } from "@/types/CrudHeader";
 import type { Identifiable } from "@kinotic-ai/core";
 import { onMounted, ref, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useConfirm } from "primevue/useconfirm";
 import { useToast } from "primevue/usetoast";
 import { showErrorToast } from "@/util/helpers";
 import DatetimeUtil from "@/util/DatetimeUtil";
@@ -23,7 +22,6 @@ const debug = createDebug('application-list');
 
 const route = useRoute();
 const router = useRouter();
-const confirm = useConfirm();
 const toast = useToast();
 
 const headers: CrudHeader[] = [
@@ -120,36 +118,17 @@ function onApplicationSubmit(created: Application): void {
   showSidebar.value = false;
 }
 
-function rowActions(item: Application) {
-  return [
-    {
-      label: "Delete",
-      icon: "pi pi-trash",
-      command: () => confirmDelete(item),
-    },
-  ];
-}
-
-function confirmDelete(item: Application): void {
-  confirm.require({
-    header: "Delete application",
-    message: `Permanently delete ${item.name}? An application that still contains projects cannot be deleted.`,
-    icon: "pi pi-exclamation-triangle",
-    acceptProps: { label: "Delete", severity: "danger" },
-    rejectProps: { label: "Cancel", severity: "secondary", outlined: true },
-    accept: async () => {
-      try {
-        await dataSource.deleteById(item.id!);
-        toast.add({ severity: "success", summary: "Application deleted", life: 4000 });
-        APPLICATION_STATE.allApplications = APPLICATION_STATE.allApplications.filter(
-          (a) => a.id !== item.id
-        );
-        refreshTable();
-      } catch (err) {
-        showErrorToast(toast, "Failed to delete application", err, { life: 8000 });
-      }
-    },
-  });
+async function deleteApplication(item: Application): Promise<void> {
+  try {
+    await dataSource.deleteById(item.id!);
+    toast.add({ severity: "success", summary: "Application deleted", life: 4000 });
+    APPLICATION_STATE.allApplications = APPLICATION_STATE.allApplications.filter(
+      (a) => a.id !== item.id
+    );
+    refreshTable();
+  } catch (err) {
+    showErrorToast(toast, "Failed to delete application", err, { life: 8000 });
+  }
 }
 </script>
 
@@ -166,10 +145,11 @@ function confirmDelete(item: Application): void {
       :singleExpand="false"
       :enableViewSwitcher="true"
       emptyStateText="No applications yet"
-      :row-actions="rowActions"
+      :isShowDelete="true"
       :search="searchText"
       @update:search="updateRouteQuery"
       @add-item="onAddItem"
+      @delete-item="deleteApplication"
       @onRowClick="toApplicationPage"
       class="application-list__table !text-sm"
     >
