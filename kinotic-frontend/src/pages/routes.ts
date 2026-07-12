@@ -252,22 +252,6 @@ const pageRoutes: RouteRecordRaw[] = [
     ]
   },
   {
-    path: '/integrations/github',
-    component: () => import('@/layouts/MainLayout.vue'),
-    meta: {
-      showInMainNav: false,
-      icon: 'settings.svg',
-      label: 'GitHub',
-    } as RouteMeta,
-    children: [
-      {
-        name: 'github-integration',
-        path: '',
-        component: () => import('@/pages/GitHubIntegrationSettings.vue'),
-      }
-    ]
-  },
-  {
     name: 'github-install-callback',
     path: '/github/install/callback',
     component: () => import('@/pages/GitHubInstallCallback.vue'),
