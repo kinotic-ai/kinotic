@@ -1,17 +1,10 @@
-<script lang="ts">
-import {
-  Vue,
-  Prop,
-  Emit,
-  toNative,
-  Component,
-  Watch,
-} from "vue-facing-decorator";
+<script setup lang="ts">
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
+import { useRoute } from "vue-router";
 
 import DataTable from "primevue/datatable";
 import Column from "primevue/column";
 import Button from "primevue/button";
-import Toolbar from "primevue/toolbar";
 import InputText from "primevue/inputtext";
 import ConfirmDialog from "primevue/confirmdialog";
 import Card from "primevue/card";
@@ -36,283 +29,289 @@ import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('crud-table');
 
-@Component({
-  components: {
-    DataTable,
-    Column,
-    Button,
-    Toolbar,
-    InputText,
-    ConfirmDialog,
-    Card,
-    Paginator,
-    SelectButton,
-  },
-})
-class CrudTable extends Vue {
-  @Prop({ required: true }) dataSource!: IDataSource<DescriptiveIdentifiable>
-  @Prop({ required: true }) headers!: CrudHeader[]
-  @Prop({ default: false }) multiSort!: boolean
-  @Prop({ default: true }) mustSort!: boolean
-  @Prop({ default: false }) singleExpand!: boolean
-  @Prop({ default: false }) disableModifications!: boolean
-  @Prop({ default: true }) isShowAddNew!: boolean
-  @Prop({ default: true }) isShowDelete!: boolean
-  @Prop({ default: '' }) initialSearch!: string
-  @Prop({ default: '#f5f5f5' }) rowHoverColor!: string
-  @Prop({ default: 'Add new' }) createNewButtonText!: string
-  @Prop({ default: false }) enableViewSwitcher!: boolean
-  @Prop({ default: 'No items yet' }) emptyStateText!: string
-  @Prop({ default: '' }) search!: string
-  @Prop({ default: true }) showPagination!: boolean
-  @Prop({ default: true }) enableRowHover!: boolean
-  @Prop({ default: 10 }) defaultPageSize!: number
-  @Prop({ default: false }) transparentDarkCards!: boolean
+const props = withDefaults(defineProps<{
+  // any: parents bind entity-specific IDataSource implementations (EntityDefinition,
+  // Dashboard, ...) and IDataSource's type parameter is invariant.
+  dataSource: IDataSource<any>
+  headers: CrudHeader[]
+  multiSort?: boolean
+  mustSort?: boolean
+  singleExpand?: boolean
+  disableModifications?: boolean
+  isShowAddNew?: boolean
+  isShowDelete?: boolean
+  initialSearch?: string
+  rowHoverColor?: string
+  createNewButtonText?: string
+  enableViewSwitcher?: boolean
+  emptyStateText?: string
+  search?: string
+  showPagination?: boolean
+  enableRowHover?: boolean
+  defaultPageSize?: number
+  transparentDarkCards?: boolean
+}>(), {
+  multiSort: false,
+  mustSort: true,
+  singleExpand: false,
+  disableModifications: false,
+  isShowAddNew: true,
+  isShowDelete: true,
+  initialSearch: '',
+  rowHoverColor: '#f5f5f5',
+  createNewButtonText: 'Add new',
+  enableViewSwitcher: false,
+  emptyStateText: 'No items yet',
+  search: '',
+  showPagination: true,
+  enableRowHover: true,
+  defaultPageSize: 10,
+  transparentDarkCards: false,
+});
 
-  private toast = useToast()
+const emit = defineEmits<{
+  (e: "update:search", value: string): void;
+  (e: "addItem"): void;
+  // any: listeners type these payloads as their concrete entity (EntityDefinition,
+  // Dashboard, ...), which is narrower than the Identifiable<string> rows the table holds.
+  (e: "editItem", item: any): void;
+  (e: "onRowClick", data: any): void;
+  (e: "items-count", count: number): void;
+}>();
 
-  getRowClass() {
-    return {
-      "dynamic-hover": this.enableRowHover,
-      "transition-all": true,
-    };
-  }
+const toast = useToast()
+const route = useRoute()
 
-  items: DescriptiveIdentifiable[] = [];
-  totalItems = 0;
-  loading = false;
-  initialSearchCompleted = false;
-  searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  activeView: "burger" | "column" = "burger";
-  searchText: string | null = "";
-  options = {
-    page: 0,
-    rows: 10,
-    first: 0,
-    sortField: "",
-    sortOrder: 1 as 1 | -1,
+function getRowClass() {
+  return {
+    "dynamic-hover": props.enableRowHover,
+    "transition-all": true,
   };
+}
 
-  viewOptions = [
-    { icon: "pi pi-bars", value: "burger" },
-    { icon: "pi pi-th-large", value: "column" },
-  ];
+const items = ref<DescriptiveIdentifiable[]>([]);
+const totalItems = ref(0);
+const loading = ref(false);
+const initialSearchCompleted = ref(false);
+const searchDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+const activeView = ref<"burger" | "column">("burger");
+const searchText = ref<string | null>("");
+const options = ref({
+  page: 0,
+  rows: 10,
+  first: 0,
+  sortField: "",
+  sortOrder: 1 as 1 | -1,
+});
 
-  get editable(): boolean {
-    return (
-      this.dataSource &&
-      DataSourceUtils.instanceOfEditableDataSource(this.dataSource)
-    );
+const viewOptions = [
+  { icon: "pi pi-bars", value: "burger" },
+  { icon: "pi pi-th-large", value: "column" },
+];
+
+const editable = computed<boolean>(() => {
+  return (
+    props.dataSource &&
+    DataSourceUtils.instanceOfEditableDataSource(props.dataSource)
+  );
+});
+
+const computedHeaders = computed<CrudHeader[]>(() => {
+  return props.headers;
+});
+
+const isBurgerView = computed<boolean>(() => {
+  return props.enableViewSwitcher ? activeView.value === "burger" : true;
+});
+
+const isColumnView = computed<boolean>(() => {
+  return props.enableViewSwitcher && activeView.value === "column";
+});
+
+const paginationOptions = computed<number[]>(() => {
+  const options = [5, 10, 20, 50];
+  if (!options.includes(props.defaultPageSize)) {
+    options.push(props.defaultPageSize);
+    options.sort((a, b) => a - b);
   }
+  return options;
+});
 
-  get computedHeaders(): CrudHeader[] {
-    return this.headers;
-  }
+const isDark = darkMode;
 
-  get isBurgerView(): boolean {
-    return this.enableViewSwitcher ? this.activeView === "burger" : true;
-  }
-
-  get isColumnView(): boolean {
-    return this.enableViewSwitcher && this.activeView === "column";
-  }
-
-  get paginationOptions(): number[] {
-    const options = [5, 10, 20, 50];
-    if (!options.includes(this.defaultPageSize)) {
-      options.push(this.defaultPageSize);
-      options.sort((a, b) => a - b);
+const dataTablePt = computed(() => {
+  return {
+    root: {
+      class: 'bg-transparent'
+    },
+    tableContainer: {
+      class: 'bg-transparent'
+    },
+    table: {
+      class: 'bg-transparent border-separate border-spacing-0'
+    },
+    header: {
+      class: 'hidden'
+    },
+    headerCell: {
+      class: [
+        'bg-transparent px-[14px] pb-[0.9rem] pt-4 text-sm font-semibold',
+        isDark.value ? 'border-surface-700 text-surface-100' : 'border-surface-200 text-surface-950'
+      ]
+    },
+    bodyRow: {
+      class: [
+        'bg-transparent',
+        isDark.value ? 'border-surface-800 text-surface-200' : 'border-surface-100 text-surface-950'
+      ]
+    },
+    bodyCell: {
+      class: [
+        'bg-transparent px-[14px] py-2 text-sm align-middle',
+        isDark.value ? 'border-surface-700 text-surface-200' : 'border-surface-200 text-surface-950'
+      ]
+    },
+    // The empty state renders outside the DataTable (in the flex filler below it),
+    // so suppress the built-in empty-message row.
+    emptyMessage: {
+      class: 'hidden'
     }
-    return options;
-  }
+  };
+});
 
-  get isDark(): boolean {
-    return darkMode.value;
-  }
-  
-  get dataTablePt() {
-    return {
-      root: {
-        class: 'bg-transparent'
-      },
-      tableContainer: {
-        class: 'bg-transparent'
-      },
-      table: {
-        class: 'bg-transparent border-separate border-spacing-0'
-      },
-      header: {
-        class: 'hidden'
-      },
-      headerCell: {
-        class: [
-          'bg-transparent px-[14px] pb-[0.9rem] pt-4 text-sm font-semibold',
-          this.isDark ? 'border-surface-700 text-surface-100' : 'border-surface-200 text-surface-950'
-        ]
-      },
-      bodyRow: {
-        class: [
-          'bg-transparent',
-          this.isDark ? 'border-surface-800 text-surface-200' : 'border-surface-100 text-surface-950'
-        ]
-      },
-      bodyCell: {
-        class: [
-          'bg-transparent px-[14px] py-2 text-sm align-middle',
-          this.isDark ? 'border-surface-700 text-surface-200' : 'border-surface-200 text-surface-950'
-        ]
-      },
-      // The empty state renders outside the DataTable (in the flex filler below it),
-      // so suppress the built-in empty-message row.
-      emptyMessage: {
-        class: 'hidden'
-      }
-    };
-  }
+onMounted(() => {
+  const urlSearch = (route.query.search as string) || ''
+  loading.value = true
+  initialSearchCompleted.value = false
 
-  mounted() {
-    const urlSearch = (this.$route.query.search as string) || ''
-    this.loading = true
-    this.initialSearchCompleted = false 
-    
-    this.options.rows = this.defaultPageSize;
-    
-    if (urlSearch) {
-      this.searchText = urlSearch;
-    }
-    this.options.page = 0;
-    this.options.first = 0;
-    this.find();
-  }
+  options.value.rows = props.defaultPageSize;
 
-  updateUrlSearchParam(value: string) {
-    const newQuery = { ...this.$route.query };
-    if (value) {
-      newQuery.search = value;
-    } else {
-      delete newQuery.search;
-    }
-    this.$router.replace({ query: newQuery });
+  if (urlSearch) {
+    searchText.value = urlSearch;
   }
+  options.value.page = 0;
+  options.value.first = 0;
+  find();
+});
 
-  @Watch("search", { immediate: true })
-  onSearchPropChange(newVal: string) {
+watch(
+  () => props.search,
+  (newVal) => {
     // Parents that two-way bind echo every update:search emit back into this prop;
     // without this guard each keystroke triggers an immediate find() on top of the
     // debounced one from the searchText watch.
-    if (newVal === this.searchText) {
+    if (newVal === searchText.value) {
       return;
     }
-    this.searchText = newVal;
-    this.options.page = 0;
-    this.options.first = 0;
-    this.find();
-  }
+    searchText.value = newVal;
+    options.value.page = 0;
+    options.value.first = 0;
+    find();
+  },
+  { immediate: true }
+);
 
-  @Emit("update:search")
-  emitSearchUpdate(val: string): string {
-    return val;
-  }
-  @Emit()
-  addItem(): void {}
-
-  @Emit()
-  editItem(item: Identifiable<string>): Identifiable<string> {
-    return { ...item };
-  }
-
-  @Emit()
-  onRowClick(event: {
-    data: Identifiable<string>;
-    index: number;
-  }): Identifiable<string> {
-    return { ...event.data };
-  }
-  @Watch("searchText")
-  onSearchTextChanged(newVal: string) {
-    this.emitSearchUpdate(newVal);
-
-    if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
-    this.searchDebounceTimer = setTimeout(() => {
-      this.options.page = 0;
-      this.options.first = 0;
-      this.find();
-    }, 400);
-  }
-  onPaginatorPage(event: PageState) {
-    this.options.page = event.page;
-    this.options.rows = event.rows;
-    this.options.first = event.first;
-    this.find();
-  }
-
-  beforeUnmount() {
-    if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
-  }
-
-  onSearchChange() {
-    if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
-    this.searchDebounceTimer = setTimeout(() => {
-      this.options.page = 0;
-      this.options.first = 0;
-      this.find();
-    }, 400);
-  }
-
-  handleCardClick(item: Identifiable<string>, index: number) {
-    this.onRowClick({ data: item, index });
-  }
-
-  find() {
-    if (!this.loading && this.dataSource) {
-      this.loading = true;
-    }
-
-    const orders: Order[] = [];
-    if (this.options.sortField) {
-      orders.push(
-        new Order(
-          this.options.sortField,
-          this.options.sortOrder === -1 ? Direction.DESC : Direction.ASC
-        )
-      );
-    }
-
-    const pageable = Pageable.create(this.options.page, this.options.rows, {
-      orders,
-    });
-    const queryPromise: Promise<Page<Identifiable<string>>> = this.searchText
-      ? this.dataSource.search(this.searchText, pageable)
-      : this.dataSource.findAll(pageable);
-
-    queryPromise
-      .then((page: Page<Identifiable<string>>) => {
-        this.loading = false;
-        this.totalItems = page.totalElements ?? 0;
-        this.items = page.content ?? [];
-        this.initialSearchCompleted = true;
-
-        this.$emit("items-count", this.items.length);
-      })
-
-      .catch((error: unknown) => {
-        debug('Error loading data: %O', error);
-        this.loading = false;
-        this.initialSearchCompleted = true;
-      });
-  }
-
-  displayAlert(text: string) {
-    this.toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: text,
-      life: 3000
-    });
-  }
+function emitSearchUpdate(val: string) {
+  emit("update:search", val);
 }
 
-export default toNative(CrudTable);
+function addItem() {
+  emit("addItem");
+}
+
+function onRowClick(event: {
+  data: Identifiable<string>;
+  index: number;
+}) {
+  emit("onRowClick", { ...event.data });
+}
+
+watch(searchText, (newVal) => {
+  emitSearchUpdate(newVal as string);
+
+  if (searchDebounceTimer.value) clearTimeout(searchDebounceTimer.value);
+  searchDebounceTimer.value = setTimeout(() => {
+    options.value.page = 0;
+    options.value.first = 0;
+    find();
+  }, 400);
+});
+
+function onPaginatorPage(event: PageState) {
+  options.value.page = event.page;
+  options.value.rows = event.rows;
+  options.value.first = event.first;
+  find();
+}
+
+onBeforeUnmount(() => {
+  if (searchDebounceTimer.value) clearTimeout(searchDebounceTimer.value);
+});
+
+function onSearchChange() {
+  if (searchDebounceTimer.value) clearTimeout(searchDebounceTimer.value);
+  searchDebounceTimer.value = setTimeout(() => {
+    options.value.page = 0;
+    options.value.first = 0;
+    find();
+  }, 400);
+}
+
+function handleCardClick(item: Identifiable<string>, index: number) {
+  onRowClick({ data: item, index });
+}
+
+function find() {
+  if (!loading.value && props.dataSource) {
+    loading.value = true;
+  }
+
+  const orders: Order[] = [];
+  if (options.value.sortField) {
+    orders.push(
+      new Order(
+        options.value.sortField,
+        options.value.sortOrder === -1 ? Direction.DESC : Direction.ASC
+      )
+    );
+  }
+
+  const pageable = Pageable.create(options.value.page, options.value.rows, {
+    orders,
+  });
+  const queryPromise: Promise<Page<Identifiable<string>>> = searchText.value
+    ? props.dataSource.search(searchText.value, pageable)
+    : props.dataSource.findAll(pageable);
+
+  queryPromise
+    .then((page: Page<Identifiable<string>>) => {
+      loading.value = false;
+      totalItems.value = page.totalElements ?? 0;
+      items.value = page.content ?? [];
+      initialSearchCompleted.value = true;
+
+      emit("items-count", items.value.length);
+    })
+
+    .catch((error: unknown) => {
+      debug('Error loading data: %O', error);
+      loading.value = false;
+      initialSearchCompleted.value = true;
+    });
+}
+
+function displayAlert(text: string) {
+  toast.add({
+    severity: 'error',
+    summary: 'Error',
+    detail: text,
+    life: 3000
+  });
+}
+
+// displayAlert is exposed because ProjectEntityDefinitionsTable and EntityDefinitionsList
+// surface publish errors through their crudTable ref.
+defineExpose({ find, displayAlert });
 </script>
 
 <template>

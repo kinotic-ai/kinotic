@@ -3,7 +3,7 @@ import {APPLICATION_STATE, type IApplicationState} from './IApplicationState'
 import {USER_STATE, type IUserState} from './IUserState'
 import {INSIGHTS_STATE, type IInsightsState} from './IInsightsState'
 
-export namespace StructuresStates {
+export namespace KinoticStates {
 
     export function getApplicationState(): Reactive<IApplicationState> {
         return APPLICATION_STATE

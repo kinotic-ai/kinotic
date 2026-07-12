@@ -1,8 +1,8 @@
-<script lang="ts">
-import { Component, Vue, Watch } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ProjectList from '@/components/ProjectList.vue'
-import StructuresList from '@/components/StructuresList.vue'
-import StructureItemModal from '@/components/modals/StructureItemModal.vue'
+import EntityDefinitionsList from '@/components/EntityDefinitionsList.vue'
 import Tabs from 'primevue/tabs'
 import TabList from 'primevue/tablist'
 import Tab from 'primevue/tab'
@@ -11,83 +11,64 @@ import TabPanel from 'primevue/tabpanel'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { isDark as darkMode } from '@/composables/useTheme'
 
-@Component({
-  components: {
-    ProjectList,
-    StructuresList,
-    StructureItemModal,
-    Tabs,
-    TabList,
-    Tab,
-    TabPanels,
-    TabPanel
-  }
+const route = useRoute()
+const router = useRouter()
+
+const activeTab = ref<string | number>(0)
+const isInitialized = ref<boolean>(false)
+
+const applicationId = computed<string>(() => {
+  return APPLICATION_STATE.currentApplication?.id || ''
 })
-export default class ApplicationDetails extends Vue {
-  activeTab: string | number  = 0
-  isInitialized: boolean = false
 
-  get applicationId(): string {
-    return APPLICATION_STATE.currentApplication?.id || ''
+const projectsCount = computed<number>(() => {
+  return APPLICATION_STATE.projectsCount ?? 0
+})
+
+const entityDefinitionsCount = computed<number>(() => {
+  return APPLICATION_STATE.entityDefinitionsCount ?? 0
+})
+
+const isDark = darkMode
+
+const searchProduct = computed<string | undefined>(() => {
+  return route.query['search-project'] as string | undefined
+})
+
+const searchEntityDefinition = computed<string | undefined>(() => {
+  return route.query['search-entityDefinition'] as string | undefined
+})
+
+const activeTabFromQuery = computed<number>(() => {
+  const query = route.query
+  if ('tab' in query) {
+    const parsed = parseInt(query.tab as string)
+    return isNaN(parsed) ? 0 : parsed
   }
+  return 0
+})
 
-  get projectsCount(): number {
-    return APPLICATION_STATE.projectsCount ?? 0
+watch(() => route.query, () => {
+  const tabFromQuery = activeTabFromQuery.value
+  if (activeTab.value !== tabFromQuery) {
+    activeTab.value = tabFromQuery
   }
+}, { immediate: true })
 
-  get structuresCount(): number {
-    return APPLICATION_STATE.structuresCount ?? 0
-  }
+watch(() => APPLICATION_STATE.currentApplication, () => {
+})
 
-  get isDark() {
-    return darkMode.value
-  }
+watch(activeTab, (newTab) => {
+  if (!isInitialized.value) return
 
-  get searchProduct(): string | undefined {
-    return this.$route.query['search-project'] as string | undefined
-  }
+  const query = { ...route.query }
+  query.tab = String(newTab)
 
-  get searchStructure(): string | undefined {
-    return this.$route.query['search-structure'] as string | undefined
-  }
+  router.replace({ query }).catch(() => {})
+})
 
-  get activeTabFromQuery(): number {
-    const query = this.$route.query
-    if ('tab' in query) {
-      const parsed = parseInt(query.tab as string)
-      return isNaN(parsed) ? 0 : parsed
-    }
-    return 0
-  }
-
-  created() {
-    this.activeTab = this.activeTabFromQuery
-    this.isInitialized = true
-  }
-
-  @Watch('$route.query', { immediate: true })
-  onQueryChanged() {
-    const tabFromQuery = this.activeTabFromQuery
-    if (this.activeTab !== tabFromQuery) {
-      this.activeTab = tabFromQuery
-    }
-  }
-
-  @Watch('APPLICATION_STATE.currentApplication')
-  onApplicationChange() {
-  }
-
-  @Watch('activeTab')
-  onTabChanged(newTab: number) {
-    if (!this.isInitialized) return
-
-    const query = { ...this.$route.query }
-    query.tab = String(newTab)
-
-    this.$router.replace({ query }).catch(() => {})
-  }
-
-}
+activeTab.value = activeTabFromQuery.value
+isInitialized.value = true
 </script>
 
 <template>
@@ -97,7 +78,7 @@ export default class ApplicationDetails extends Vue {
     <div class="flex justify-between items-center mb-6 h-[58px]">
       <div>
         <h1 :class="['mb-3 text-2xl font-semibold', isDark ? 'text-white' : 'text-surface-950']">{{ applicationId }}</h1>
-        <span :class="[isDark ? 'text-surface-400' : 'text-surface-600']">{{ projectsCount }} projects, {{ structuresCount }} entities</span>
+        <span :class="[isDark ? 'text-surface-400' : 'text-surface-600']">{{ projectsCount }} projects, {{ entityDefinitionsCount }} entities</span>
       </div>
     </div>
 
@@ -131,9 +112,9 @@ export default class ApplicationDetails extends Vue {
         </TabPanel>
         <TabPanel class="flex flex-1 flex-col" :value="1">
           <div v-show="activeTab === 1" class="flex flex-1 flex-col">
-            <StructuresList
+            <EntityDefinitionsList
               :applicationId="applicationId"
-              :initialSearch="searchStructure"
+              :initialSearch="searchEntityDefinition"
             />
           </div>
         </TabPanel>

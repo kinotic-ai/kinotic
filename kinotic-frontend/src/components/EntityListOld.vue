@@ -1,5 +1,6 @@
-<script lang="ts">
-import { Component, Vue, Prop } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Toolbar from 'primevue/toolbar'
@@ -13,169 +14,158 @@ import { EntityDefinition, type IEntityDefinitionService } from '@kinotic-ai/os-
 import { type IEntitiesRepository } from '@kinotic-ai/persistence'
 
 import DatetimeUtil from '@/util/DatetimeUtil'
-import { StructureUtil } from '@/util/StructureUtil'
+import { EntityDefinitionUtil } from '@/util/EntityDefinitionUtil'
 import { createDebug } from '@/util/debug'
 
 const debug = createDebug('entity-list-old');
 
-@Component({
-  components: {
-    DataTable,
-    Column,
-    Toolbar,
-    Button,
-    InputText
-  }
+const props = defineProps<{
+  entityDefinitionId?: string
+}>()
+
+const loading = ref(false)
+const finishedInitialLoad = ref(false)
+const items = ref<Array<Identifiable<string>>>([])
+const totalItems = ref(0)
+const searchText = ref<string | null>(null)
+
+const keys = ref<string[]>([])
+const headers = ref<any[]>([])
+const entityDefinitionProperties = ref<any>({})
+const entityDefinition = ref<EntityDefinition>()
+
+const entitiesService: IEntitiesRepository = Kinotic.entities
+const entityDefinitionService: IEntityDefinitionService = Kinotic.entityDefinitions
+
+const options = ref({
+  rows: 10,
+  first: 0,
+  sortField: '',
+  sortOrder: 1
 })
-class EntityList extends Vue {
-  @Prop({ type: String }) structureId?: string
 
-  loading = false
-  finishedInitialLoad = false
-  items: Array<Identifiable<string>> = []
-  totalItems = 0
-  searchText: string | null = null
+const isDark = darkMode
 
-  keys: string[] = []
-  headers: any[] = []
-  structureProperties: any = {}
-  structure!: EntityDefinition
+const route = useRoute()
 
-  entitiesService: IEntitiesRepository = Kinotic.entities
-  structureService: IEntityDefinitionService = Kinotic.entityDefinitions
+onMounted(() => {
+  const paramId = route.params.id
+  const id = props.entityDefinitionId || (Array.isArray(paramId) ? paramId[0] : paramId)
 
-  options = {
-    rows: 10,
-    first: 0,
-    sortField: '',
-    sortOrder: 1
+  if (!id) {
+    displayAlert("Missing entity ID.")
+    return
   }
 
-  get isDark(): boolean {
-    return darkMode.value
-  }
-
-  mounted() {
-const paramId = this.$route.params.id
-const id = this.structureId || (Array.isArray(paramId) ? paramId[0] : paramId)
-
-if (!id) {
-      this.displayAlert("Missing entity ID.")
-      return
-    }
-
-    this.structureService.findById(id)
-      .then((structure: EntityDefinition) => {
-        this.structure = structure
-        this.structureProperties = structure.schema.properties
-        for (const property of this.structureProperties) {
-          if (property) {
-            const fieldName = property.name[0].toUpperCase() + property.name.slice(1)
-            let sortable = true
-            if (
-              ['ref', 'array', 'object'].includes(property.type.type) ||
-              (property.type.type === 'string' && StructureUtil.hasDecorator('Text', property.decorators))
-            ) {
-              sortable = false
-            }
-            const isComplex = ['ref', 'array', 'object'].includes(property.type.type)
-            const headerDef: any = {
-              header: fieldName,
-              field: property.name,
-              sortable: sortable,
-              width: property.name === 'id' ? 220 : (isComplex ? 240 : (sortable ? 120 : 160)),
-              isCollapsable: isComplex || property?.name === 'addresses' || property?.name === 'pet'
-            }
-            this.headers.push(headerDef)
-            this.keys.push(property.name)
+  entityDefinitionService.findById(id)
+    .then((definition: EntityDefinition) => {
+      entityDefinition.value = definition
+      entityDefinitionProperties.value = definition.schema.properties
+      for (const property of entityDefinitionProperties.value) {
+        if (property) {
+          const fieldName = property.name[0].toUpperCase() + property.name.slice(1)
+          let sortable = true
+          if (
+            ['ref', 'array', 'object'].includes(property.type.type) ||
+            (property.type.type === 'string' && EntityDefinitionUtil.hasDecorator('Text', property.decorators))
+          ) {
+            sortable = false
           }
+          const isComplex = ['ref', 'array', 'object'].includes(property.type.type)
+          const headerDef: any = {
+            header: fieldName,
+            field: property.name,
+            sortable: sortable,
+            width: property.name === 'id' ? 220 : (isComplex ? 240 : (sortable ? 120 : 160)),
+            isCollapsable: isComplex || property?.name === 'addresses' || property?.name === 'pet'
+          }
+          headers.value.push(headerDef)
+          keys.value.push(property.name)
         }
+      }
 
-        this.find()
-      })
-      .catch((error: Error) => {
-        debug('Error during structure retrieval: %O', error)
-        this.displayAlert(error.message)
-      })
-  }
+      find()
+    })
+    .catch((error: Error) => {
+      debug('Error during entityDefinition retrieval: %O', error)
+      displayAlert(error.message)
+    })
+})
 
-  formatDate(date: string): string {
-    return DatetimeUtil.formatDate(date)
-  }
-
-  isDateField(field: string): boolean {
-    return StructureUtil.getPropertyDefinition(field, this.structureProperties)?.type?.type === 'date'
-  }
-
-  onPage(event: any) {
-    this.options.rows = event.rows
-    this.options.first = event.first
-    this.find()
-  }
-
-  onSort(event: any) {
-    this.options.sortField = event.sortField
-    this.options.sortOrder = event.sortOrder
-    this.find()
-  }
-
-  clearSearch() {
-    this.searchText = null
-    this.options.first = 0
-    this.find()
-  }
-  
-  search() {
-    this.options.first = 0
-    this.find()
-  }
-
-  displayAlert(text: string) {
-    debug('Display alert: %s', text)
-    // alert(text)
-  }
-
-  find() {
-    if (this.loading) return
-
-    this.loading = true
-
-    const page = this.options.first / this.options.rows
-    const orders: Order[] = []
-    
-    if (this.options.sortField) {
-      orders.push(new Order(this.options.sortField, this.options.sortOrder === 1 ? Direction.ASC : Direction.DESC))
-    }
-
-    const pageable = Pageable.create(page, this.options.rows, { orders })
-    const paramId = this.$route.params.id
-    const id = this.structureId || (Array.isArray(paramId) ? paramId[0] : paramId)
-    
-    const queryPromise = (this.searchText?.length)
-    ? this.entitiesService.search(id, this.searchText, pageable)
-    : this.entitiesService.findAll(id, pageable)
-
-    queryPromise
-    .then((page: Page<any>) => {
-        this.items = page.content ?? []
-        this.totalItems = page.totalElements ?? 0
-        this.loading = false
-        
-        if (!this.finishedInitialLoad) {
-          setTimeout(() => { this.finishedInitialLoad = true }, 500)
-        }
-      })
-      .catch((error: any) => {
-        this.displayAlert(error.message)
-        this.loading = false
-        if (!this.finishedInitialLoad) {
-          setTimeout(() => { this.finishedInitialLoad = true }, 500)
-        }
-      })
-  }
+function formatDate(date: string): string {
+  return DatetimeUtil.formatDate(date)
 }
 
-export default EntityList
+function isDateField(field: string): boolean {
+  return EntityDefinitionUtil.getPropertyDefinition(field, entityDefinitionProperties.value)?.type?.type === 'date'
+}
+
+function onPage(event: any) {
+  options.value.rows = event.rows
+  options.value.first = event.first
+  find()
+}
+
+function onSort(event: any) {
+  options.value.sortField = event.sortField
+  options.value.sortOrder = event.sortOrder
+  find()
+}
+
+function clearSearch() {
+  searchText.value = null
+  options.value.first = 0
+  find()
+}
+
+function search() {
+  options.value.first = 0
+  find()
+}
+
+function displayAlert(text: string) {
+  debug('Display alert: %s', text)
+  // alert(text)
+}
+
+function find() {
+  if (loading.value) return
+
+  loading.value = true
+
+  const page = options.value.first / options.value.rows
+  const orders: Order[] = []
+
+  if (options.value.sortField) {
+    orders.push(new Order(options.value.sortField, options.value.sortOrder === 1 ? Direction.ASC : Direction.DESC))
+  }
+
+  const pageable = Pageable.create(page, options.value.rows, { orders })
+  const paramId = route.params.id
+  const id = props.entityDefinitionId || (Array.isArray(paramId) ? paramId[0] : paramId)
+
+  const queryPromise = (searchText.value?.length)
+  ? entitiesService.search(id, searchText.value, pageable)
+  : entitiesService.findAll(id, pageable)
+
+  queryPromise
+  .then((page: Page<any>) => {
+      items.value = page.content ?? []
+      totalItems.value = page.totalElements ?? 0
+      loading.value = false
+
+      if (!finishedInitialLoad.value) {
+        setTimeout(() => { finishedInitialLoad.value = true }, 500)
+      }
+    })
+    .catch((error: any) => {
+      displayAlert(error.message)
+      loading.value = false
+      if (!finishedInitialLoad.value) {
+        setTimeout(() => { finishedInitialLoad.value = true }, 500)
+      }
+    })
+}
 </script>
 
 <template>

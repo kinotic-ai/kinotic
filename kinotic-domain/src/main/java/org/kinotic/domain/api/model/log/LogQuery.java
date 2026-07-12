@@ -6,7 +6,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * Parameters for a historical log query against Loki's {@code query_range} endpoint.
+ * Parameters for a historical log query: one workload's logs over a time range.
  */
 @Getter
 @Setter
@@ -15,9 +15,9 @@ import lombok.experimental.Accessors;
 public class LogQuery {
 
     /**
-     * LogQL query selecting the log streams to return.
+     * Id of the workload whose logs to return.
      */
-    private String query;
+    private String workloadId;
 
     /**
      * Start of the time range, epoch milliseconds (inclusive).

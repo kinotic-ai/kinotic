@@ -23,6 +23,12 @@ datasources:
         access: proxy
         url: http://loki:3100
         isDefault: true
+        jsonData:
+          # Loki runs multi-tenant; browse the system tenant by default. Multi-tenant
+          # queries accept pipe-separated ids (e.g. "acme|kinotic-system").
+          httpHeaderName1: X-Scope-OrgID
+        secureJsonData:
+          httpHeaderValue1: kinotic-system
 
 # Admin credentials (override in environment-specific values or secrets)
 adminUser: admin

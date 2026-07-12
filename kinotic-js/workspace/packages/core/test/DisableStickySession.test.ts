@@ -15,7 +15,7 @@ describe('Kinotic JS', () => {
         beforeAll(async () => {
             console.log('Starting Kinotic Gateway for sticky session test')
 
-            connectionInfo = createConnectionInfo(SessionKeepAliveMode.NONE)
+            connectionInfo = createConnectionInfo({ sessionKeepAlive: SessionKeepAliveMode.NONE })
         }, 1000 * 60 * 10) // 10 minutes
 
         afterAll(async () => {

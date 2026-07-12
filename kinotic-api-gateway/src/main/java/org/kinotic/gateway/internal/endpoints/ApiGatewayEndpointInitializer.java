@@ -10,6 +10,8 @@ import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 
@@ -37,9 +39,15 @@ public class ApiGatewayEndpointInitializer {
         vertx.deployVerticle(apiGatewayVertcleFactory::createApiGatewayVerticle, options);
 
         if (apiGatewayProperties.getApiGateway().getWebServer().isEnabled()) {
-            log.info("Deploying static web server on port {}", apiGatewayProperties.getApiGateway().getWebServer().getPort());
             vertx.deployVerticle(apiGatewayVertcleFactory::createWebServerVerticle, new DeploymentOptions());
         }
+    }
+
+        @EventListener
+    public void onApplicationReadyEvent(ApplicationReadyEvent event) {
+            if (apiGatewayProperties.getApiGateway().getWebServer().isEnabled()) {
+                log.info("Deploying static web server on port {}", apiGatewayProperties.getApiGateway().getWebServer().getPort());
+            }
     }
 
 }

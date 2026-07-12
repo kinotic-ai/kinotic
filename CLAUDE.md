@@ -2,7 +2,7 @@
 
 ## Building in Claude Code Cloud
 
-The cloud environment has JDK 21 installed but the project requires JDK 25. Download it first if not already present (Oracle CDN is in the egress allowlist):
+The cloud environment has JDK 21 installed, but the project requires JDK 25. Download it first if not already present (Oracle CDN is in the egress allowlist):
 
 ```bash
 curl -sL "https://download.oracle.com/java/25/latest/jdk-25_linux-x64_bin.tar.gz" -o /tmp/jdk25.tar.gz
@@ -88,6 +88,8 @@ Never remove or alter an existing authorship comment — `Created by <name> on <
 ## Properties
 Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant.
 
+Never gate a bean on a Spring profile — `@Profile` is for test contexts only; profile-gated beans are hard to audit. Profiles are property bundles: an `application-<name>.yml` selects property values for a deployment shape. Enabling or disabling behavior is done with explicit `kinotic.*` properties read by `@ConditionalOnProperty` (the `kinotic.disable*` module flags are the established idiom), so what a deployment runs can be read from its YAML alone.
+
 ## Dependency Versions
 
 Never hardcode a dependency version in a module `build.gradle`. Every version lives as a `*Version` property in `gradle.properties` (kept alphabetical) and is pinned once in the `dependencyManagement` block of `buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle`. The module declares the artifact with no version, so the managed version applies.
@@ -149,3 +151,11 @@ internals. Prefer one behavioral test with real infrastructure (processes, temp 
 containers) — gated to skip when the environment lacks it — over unit tests that each
 cost a structural concession. Behavior unobservable through any public interface is a
 production API gap: raise it, don't add a test-only door.
+
+The same preference governs test level: an e2e/integration test against real
+collaborators beats a unit test that must fake or mock significant functionality — the
+faked collaborator is where the bugs live (wire dispatch, deserialization, persistence
+hooks), and a slower test that exercises them is worth more than a fast one that assumes
+them. The exception is logic with no external collaborators (parsing, guards, pure
+transforms): there a unit test localizes failures earlier and more precisely than any
+e2e test can, and needs no fakes to begin with.

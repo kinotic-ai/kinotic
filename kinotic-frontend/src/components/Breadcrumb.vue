@@ -9,24 +9,19 @@
     </Breadcrumb>
 </template>
 
-<script lang="ts">
-import { StructuresStates } from '@/states/index.js'
-import { Vue, Component } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { KinoticStates } from '@/states/index.js'
+import { computed } from 'vue'
 import Breadcrumb from 'primevue/breadcrumb'
+import type { MenuItem } from 'primevue/menuitem'
 import { NavItem } from '@/components/NavItem'
-@Component({
-    components: {
-        Breadcrumb
-    }
-})
-export default class AppBreadcrumb extends Vue {
-    get breadcrumbModel(): NavItem[] {
-        return StructuresStates.getApplicationState().breadcrumbItems
-    }
 
-    navigate(item: NavItem): void {
-        item.navigate()
-    }
+const breadcrumbModel = computed<NavItem[]>(() => KinoticStates.getApplicationState().breadcrumbItems)
+
+// The #item slot types its argument as PrimeVue's MenuItem, but breadcrumbModel
+// only ever holds NavItems.
+function navigate(item: MenuItem): void {
+    (item as NavItem).navigate()
 }
 </script>
 

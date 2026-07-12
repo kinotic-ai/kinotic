@@ -28,6 +28,7 @@ import reactor.core.publisher.SignalType;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -55,7 +56,8 @@ public class ServiceInvocationSupervisor {
     private final Vertx vertx;
 
 
-    private EventConsumer methodInvocationEventConsumer;
+    // One consumer per zone address the service is addressable by
+    private List<EventConsumer> methodInvocationEventConsumers = List.of();
 
 
     public ServiceInvocationSupervisor(ServiceDescriptor serviceDescriptor,
@@ -101,20 +103,25 @@ public class ServiceInvocationSupervisor {
     public Future<Void> start(){
         if(active.compareAndSet(false, true)){
             // begin listening on the event bus for service invocation requests
-            methodInvocationEventConsumer = eventBusService.listen(serviceDescriptor.serviceIdentifier().cri());
+            methodInvocationEventConsumers = List.of(eventBusService.listen(serviceDescriptor.serviceIdentifier().cri()));
 
-            methodInvocationEventConsumer
-                    .handler(event -> vertx.executeBlocking(() -> {
-                        processEvent(event);
-                        return null;
-                    }))
-                    .exceptionHandler(throwable -> log.error("Event listener error", throwable))
-                    .endHandler(_ -> {
-                        log.error("Should not happen! Event listener stopped for some reason!! Changing supervisor state to inactive");
-                        active.set(false);
-                    });
+            for (EventConsumer eventConsumer : methodInvocationEventConsumers) {
+                eventConsumer
+                        .handler(event -> vertx.executeBlocking(() -> {
+                            processEvent(event);
+                            return null;
+                        }))
+                        .exceptionHandler(throwable -> log.error("Event listener error", throwable))
+                        .endHandler(_ -> {
+                            log.error("Should not happen! Event listener stopped for some reason!! Changing supervisor state to inactive");
+                            active.set(false);
+                        });
+            }
 
-            return methodInvocationEventConsumer.completion();
+            return Future.all(methodInvocationEventConsumers.stream()
+                                                            .map(EventConsumer::completion)
+                                                            .toList())
+                         .mapEmpty();
         }else{
             return Future.failedFuture(new IllegalStateException("Service already started"));
         }
@@ -130,10 +137,10 @@ public class ServiceInvocationSupervisor {
                 streamSubscribers.getValue().cancel();
             }
 
-            if(methodInvocationEventConsumer != null){
-                return methodInvocationEventConsumer.unregister();
-            }
-            return Future.succeededFuture();
+            return Future.all(methodInvocationEventConsumers.stream()
+                                                            .map(EventConsumer::unregister)
+                                                            .toList())
+                         .mapEmpty();
         }else{
             return Future.failedFuture(new IllegalStateException("Service already stopped"));
         }

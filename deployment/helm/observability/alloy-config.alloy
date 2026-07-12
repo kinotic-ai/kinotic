@@ -90,6 +90,13 @@ loki.process "pipeline" {
     drop_counter_reason = "health_probe"
   }
 
+  // Loki runs multi-tenant; cluster infrastructure logs belong to the system tenant.
+  // Customer workload logs are shipped separately by each vm-manager node, routed to
+  // the workload organization's tenant.
+  stage.tenant {
+    value = "kinotic-system"
+  }
+
   forward_to = [loki.write.default.receiver]
 }
 

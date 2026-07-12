@@ -14,17 +14,20 @@
   </Toolbar>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Prop } from 'vue-facing-decorator'
+<script setup lang="ts">
 import Toolbar from 'primevue/toolbar'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 
-@Component({
-  components: { Toolbar, Button, InputText },
-  emits: ['update:searchText', 'search', 'clearSearch']
+withDefaults(defineProps<{
+  searchText?: string | null
+}>(), {
+  searchText: null,
 })
-export default class EntityTableToolbar extends Vue {
-  @Prop({ type: String, default: null }) searchText!: string | null
-}
+
+defineEmits<{
+  (e: 'update:searchText', value: string | undefined): void
+  (e: 'search'): void
+  (e: 'clearSearch'): void
+}>()
 </script>

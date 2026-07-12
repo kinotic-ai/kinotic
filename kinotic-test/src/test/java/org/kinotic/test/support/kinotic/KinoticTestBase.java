@@ -8,6 +8,7 @@ import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.kinotic.domain.api.security.DefaultApplicationParticipant;
 import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.security.OrganizationParticipant;
+import org.kinotic.persistence.internal.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
@@ -37,9 +38,9 @@ public abstract class KinoticTestBase {
 
     /**
      * Default application id used by test fixtures. Matches the Application that the sample
-     * {@code TestDataService} creates its EntityDefinitions under.
+     * {@link TestDataService} creates its EntityDefinitions under.
      */
-    public static final String TEST_APP_ID = "org.kinotic.sample";
+    public static final String TEST_APP_ID = TestDataService.SAMPLE_APP_ID;
 
     /**
      * The {@link OrganizationParticipant} that {@link #runAsOrganization(Supplier)} binds to

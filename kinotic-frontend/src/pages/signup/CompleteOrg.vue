@@ -45,14 +45,15 @@
   </AuthPageShell>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { computed, nextTick, onMounted, ref, useTemplateRef } from 'vue'
+import { useRoute } from 'vue-router'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
 
 import { CONTINUUM_UI } from '@/IContinuumUI'
-import { StructuresStates } from '@/states/index'
+import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
 import { apiUrl } from '@/util/helpers'
 import AuthPageShell from '@/components/auth/AuthPageShell.vue'
@@ -64,80 +65,83 @@ import type { CompleteOrgRequest } from '@kinotic-ai/os-api'
  * `/api/auth/org/signup/social/complete`, the backend creates the Organization + admin IamUser and
  * establishes the browser session, which we then use to open the realtime connection.
  */
-@Component({
-  components: { AuthPageShell, InputText, Button }
+const orgName = ref('')
+const orgDescription = ref('')
+const loading = ref(false)
+
+const toast = useToast()
+const userState: IUserState = KinoticStates.getUserState()
+const route = useRoute()
+
+const orgNameInput = useTemplateRef<any>('orgName')
+const orgDescriptionInput = useTemplateRef<any>('orgDescription')
+const inputRefs: Record<string, { readonly value: any }> = {
+  orgName: orgNameInput,
+  orgDescription: orgDescriptionInput,
+}
+
+const token = computed<string | null>(() => {
+  const t = route.query.token ?? new URLSearchParams(window.location.search).get('token')
+  return typeof t === 'string' && t.length > 0 ? t : null
 })
-export default class CompleteOrg extends Vue {
-  orgName = ''
-  orgDescription = ''
-  loading = false
 
-  private toast = useToast()
-  private userState: IUserState = StructuresStates.getUserState()
+onMounted(() => {
+  if (token.value) nextTick(() => focusNext('orgName'))
+})
 
-  get token(): string | null {
-    const t = this.$route.query.token ?? new URLSearchParams(window.location.search).get('token')
-    return typeof t === 'string' && t.length > 0 ? t : null
+function focusNext(refName: string) {
+  const el = inputRefs[refName]?.value as any
+  el?.$el?.querySelector?.('input')?.focus?.() ?? el?.focus?.()
+}
+
+async function handleSubmit() {
+  const tokenValue = token.value
+  if (!tokenValue) return
+  const orgNameValue = orgName.value.trim()
+  if (!orgNameValue) {
+    displayError('Organization name is required')
+    return
   }
 
-  mounted() {
-    if (this.token) this.$nextTick(() => this.focusNext('orgName'))
-  }
-
-  focusNext(refName: string) {
-    const el = this.$refs[refName] as any
-    el?.$el?.querySelector?.('input')?.focus?.() ?? el?.focus?.()
-  }
-
-  async handleSubmit() {
-    const token = this.token
-    if (!token) return
-    const orgName = this.orgName.trim()
-    if (!orgName) {
-      this.displayError('Organization name is required')
+  loading.value = true
+  try {
+    const req: CompleteOrgRequest = {
+      token: tokenValue,
+      orgName: orgNameValue,
+      orgDescription: orgDescription.value.trim() || null,
+    }
+    const res = await fetch(apiUrl('/api/auth/org/signup/social/complete'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(req)
+    })
+    if (!res.ok) {
+      const message = await readError(res, 'Could not create organization')
+      displayError(message)
       return
     }
-
-    this.loading = true
-    try {
-      const req: CompleteOrgRequest = {
-        token,
-        orgName,
-        orgDescription: this.orgDescription.trim() || null,
-      }
-      const res = await fetch(apiUrl('/api/auth/org/signup/social/complete'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(req)
-      })
-      if (!res.ok) {
-        const message = await this.readError(res, 'Could not create organization')
-        this.displayError(message)
-        return
-      }
-      // The org and admin user are created and the session established; connect with it.
-      await this.userState.login()
-      await CONTINUUM_UI.navigate('/applications')
-    } catch (err) {
-      this.displayError(err instanceof Error ? err.message : 'Sign-up failed')
-    } finally {
-      this.loading = false
-    }
+    // The org and admin user are created and the session established; connect with it.
+    await userState.login()
+    await CONTINUUM_UI.navigate('/applications')
+  } catch (err) {
+    displayError(err instanceof Error ? err.message : 'Sign-up failed')
+  } finally {
+    loading.value = false
   }
+}
 
-  private async readError(res: Response, fallback: string): Promise<string> {
-    try {
-      const body = await res.json()
-      return body?.error ?? fallback
-    } catch {
-      return fallback
-    }
+async function readError(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json()
+    return body?.error ?? fallback
+  } catch {
+    return fallback
   }
+}
 
-  private displayError(text: string) {
-    this.toast.add({ severity: 'error', summary: 'Error', detail: text, life: 10000 })
-  }
+function displayError(text: string) {
+  toast.add({ severity: 'error', summary: 'Error', detail: text, life: 10000 })
 }
 </script>
 

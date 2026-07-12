@@ -9,7 +9,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-    "experimentalDecorators": true,
     "module": "ESNext",
     "types": ["node"],
     "paths": {

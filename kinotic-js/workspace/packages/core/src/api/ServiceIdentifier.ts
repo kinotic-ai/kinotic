@@ -3,25 +3,38 @@ import {EventConstants} from '@/api/event/IEventBus'
 
 export class ServiceIdentifier {
 
-    public namespace: string
+    public namespace: string | null
     public name: string
+    public zone?: string
     public scope?: string
     public version?: string
     private _cri: CRI | null = null
 
 
-    constructor(namespace: string, name: string) {
+    constructor(namespace: string | null, name: string, zone?: string) {
+        // The name is the final dot separated label of the address, so a dot inside it would
+        // change where the zone and namespace end when the address is parsed or pattern matched
+        if (name.includes('.')) {
+            throw new Error(`The name must not contain '.' but was '${name}'`)
+        }
+        // The namespace forms interior labels of the address; an underscore is illegal in a URI
+        // host, so a segment carrying one would make the CRI an invalid URI
+        if (namespace != null && namespace.includes('_')) {
+            throw new Error(`The namespace must not contain '_' but was '${namespace}'`)
+        }
         this.namespace = namespace
         this.name = name
+        this.zone = zone
     }
 
     /**
-     * Returns the qualified name for this {@link ServiceIdentifier}
-     * This is the namespace.name
+     * Returns the fully qualified name this {@link ServiceIdentifier} is addressed by
+     * This is the zone.namespace.name, omitting any part that is not set
      * @return string containing the qualified name
      */
-    public qualifiedName(): string{
-        return this.namespace + "." + this.name;
+    public qualifiedName(): string {
+        const name = this.namespace ? this.namespace + "." + this.name : this.name
+        return this.zone ? this.zone + "." + name : name
     }
 
     /**
@@ -29,15 +42,15 @@ export class ServiceIdentifier {
      * @return the cri for this {@link ServiceIdentifier}
      */
     public cri(): CRI {
-        if(this._cri == null) {
+        if (this._cri == null) {
             this._cri = createCRI(
                 EventConstants.SERVICE_DESTINATION_SCHEME, // scheme
                 this.scope || null,                       // scope
                 this.qualifiedName(),                     // resourceName
-                null,                                     // path (null as per your example)
+                null,                                     // path
                 this.version || null                      // version
-            );
+            )
         }
-        return this._cri;
+        return this._cri
     }
 }

@@ -1,4 +1,5 @@
 import {ConnectionInfo} from "@kinotic-ai/core";
+import type {ToastServiceMethods} from "primevue/toastservice";
 
 export function createConnectionInfo(): ConnectionInfo {
     // Use build time variable if available, otherwise use default
@@ -39,4 +40,26 @@ export function apiUrl(path: string): string {
 
     const protocol = useSSL ? 'https' : 'http'
     return `${protocol}://${host}:${port}${suffix}`
+}
+
+/**
+ * Shows an error toast whose summary names the failed operation and whose detail is the
+ * caught error's message. Falls back to {@link opts.fallback} (default "An unexpected error
+ * occurred") when the value is not an Error or carries no message.
+ *
+ * @param toast the PrimeVue toast service from {@code useToast()}
+ * @param summary the operation that failed, shown as the toast title
+ * @param err the caught error
+ * @param opts optional fallback detail and toast lifetime in milliseconds (default 5000)
+ */
+export function showErrorToast(toast: ToastServiceMethods,
+                               summary: string,
+                               err: unknown,
+                               opts: { fallback?: string; life?: number } = {}): void {
+    toast.add({
+        severity: 'error',
+        summary,
+        detail: err instanceof Error && err.message ? err.message : (opts.fallback ?? 'An unexpected error occurred'),
+        life: opts.life ?? 5000
+    })
 }

@@ -4,6 +4,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.domain.api.model.workload.VmNode;
 import org.kinotic.domain.api.services.VmNodeService;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -33,6 +34,19 @@ public interface VmNodeOrchestrationService {
      * @return a future that will complete with the updated node, or fail if the node is not registered
      */
     CompletableFuture<VmNode> heartbeat(String nodeId);
+
+    /**
+     * Applies a node's report of its workloads' actual statuses. The vm-manager sends a
+     * report whenever a workload changes state on the node — including transitions the
+     * orchestrator did not initiate, such as recovery after a vm-manager restart — and a
+     * periodic full snapshot for reconciliation. Reports older than the workload's last
+     * transition, or for workloads that no longer exist, are ignored.
+     *
+     * @param nodeId the id of the reporting node
+     * @param reports one report per workload
+     * @return a future that will complete when the reports have been applied
+     */
+    CompletableFuture<Void> reportWorkloadStatus(String nodeId, List<WorkloadStatusReport> reports);
 
     /**
      * Removes a node from the orchestrator. The node must have no active workloads.

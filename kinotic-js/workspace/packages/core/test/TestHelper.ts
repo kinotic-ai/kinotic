@@ -85,8 +85,11 @@ export function authedWebSocketFactory(host: string,
     }
 }
 
-export function createConnectionInfo(sessionKeepAlive: SessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY,
-                                     authHeaders?: Partial<AuthHeaders> | (() => Promise<Partial<AuthHeaders>>)): ConnectionInfo {
+export function createConnectionInfo(options: {
+    sessionKeepAlive?: SessionKeepAliveMode
+    authHeaders?: Partial<AuthHeaders> | (() => Promise<Partial<AuthHeaders>>)
+} = {}): ConnectionInfo {
+    const { sessionKeepAlive = SessionKeepAliveMode.ACTIVITY, authHeaders } = options
     const connectionInfo = new ConnectionInfo()
     // @ts-ignore
     connectionInfo.host = inject('KINOTIC_HOST')

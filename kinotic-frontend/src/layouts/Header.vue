@@ -5,7 +5,7 @@
         <img src="@/assets/header-logo.svg" class="h-6 w-[27px]" alt="Kinotic" />
       </RouterLink>
 
-      <template v-if="isApplicationDetailsPage || isProjectStructuresPage || isApplicationSettingsPage || isDashboardsPage || isDataInsightsPage || isSavedWidgetsPage">
+      <template v-if="isApplicationDetailsPage || isProjectEntityDefinitionsPage || isApplicationSettingsPage">
         <span class="text-lg text-surface-600">/</span>
 
         <div ref="appDropdownRef" class="relative inline-block mr-8">
@@ -40,7 +40,7 @@
           </div>
         </div>
 
-                 <template v-if="currentApp && !isApplicationSettingsPage && !isDashboardsPage && !isDataInsightsPage && !isSavedWidgetsPage">
+                 <template v-if="currentApp && !isApplicationSettingsPage">
            <span class="text-lg text-surface-600">/</span>
            <div ref="projectDropdownRef" class="relative inline-block">
             <button @click="toggleProjectDropdown"
@@ -114,8 +114,9 @@
   </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Watch } from 'vue-facing-decorator';
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { APPLICATION_STATE } from '@/states/IApplicationState';
 import { USER_STATE } from '@/states/IUserState';
 import { Kinotic } from '@kinotic-ai/core';
@@ -125,306 +126,296 @@ import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import { isDark as darkMode, toggleDark } from '@/composables/useTheme'
 
-@Component({
-  components: {
-    InputText,
-    IconField,
-    InputIcon
+const emit = defineEmits<{
+  (e: 'application-changed', app: Application): void
+}>();
+
+const route = useRoute();
+const router = useRouter();
+
+const appDropdownOpen = ref(false);
+const projectDropdownOpen = ref(false);
+const avatarDropdownOpen = ref(false);
+
+const searchTextApp = ref('');
+const searchTextProject = ref('');
+
+const isApplicationDetailsPage = ref(false);
+const isProjectEntityDefinitionsPage = ref(false);
+const isApplicationSettingsPage = ref(false);
+
+const projectsForCurrentApp = ref<Project[]>([]);
+const currentApp = ref<Application | null>(null);
+const currentProject = ref<Project | null>(null);
+const isLoadingProjects = ref<boolean>(false);
+const isSwitchingApplication = ref<boolean>(false);
+
+const appDropdownRef = ref<HTMLElement>();
+const projectDropdownRef = ref<HTMLElement>();
+const avatarDropdownRef = ref<HTMLElement>();
+
+onMounted(() => {
+  updateRouteState();
+  loadApplicationsIfNeeded();
+  if (!APPLICATION_STATE.currentApplication) {
+    tryAutoSelectAppAndProject();
   }
-})
-export default class Header extends Vue {
-  appDropdownOpen = false;
-  projectDropdownOpen = false;
-  avatarDropdownOpen = false;
+  document.addEventListener('click', handleClickOutside);
+});
 
-  searchTextApp = '';
-  searchTextProject = '';
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
 
-  isApplicationDetailsPage = false;
-  isProjectStructuresPage = false;
-  isApplicationSettingsPage = false;
-  isDashboardsPage = false;
-  isDataInsightsPage = false;
-  isSavedWidgetsPage = false;
+const allApplications = computed(() => {
+  return APPLICATION_STATE.allApplications;
+});
 
-  projectsForCurrentApp: Project[] = [];
-  currentApp: Application | null = null;
-  currentProject: Project | null = null;
-  isLoadingProjects: boolean = false;
-  isSwitchingApplication: boolean = false;
+const filteredApplications = computed(() => {
+  return allApplications.value.filter(app =>
+    app.id.toLowerCase().includes(searchTextApp.value.toLowerCase())
+  );
+});
 
-  mounted() {
-    this.updateRouteState();
-    this.loadApplicationsIfNeeded();
-    if (!APPLICATION_STATE.currentApplication) {
-      this.tryAutoSelectAppAndProject();
+const filteredProjects = computed(() => {
+  return projectsForCurrentApp.value.filter(proj =>
+    proj.name.toLowerCase().includes(searchTextProject.value.toLowerCase())
+  );
+});
+
+const currentAppName = computed(() => {
+  return currentApp.value?.id || 'Select Application';
+});
+
+const currentProjectName = computed(() => {
+  return currentProject.value?.name || 'Select Project';
+});
+
+const isDark = darkMode;
+
+function toggleTheme() {
+  toggleDark();
+}
+
+watch(() => route.fullPath, onRouteChange, { immediate: true });
+function onRouteChange() {
+  updateRouteState();
+  if (!APPLICATION_STATE.currentApplication) {
+    tryAutoSelectAppAndProject();
+  }
+}
+
+watch(() => APPLICATION_STATE.currentApplication, onGlobalApplicationChange, { immediate: true });
+function onGlobalApplicationChange() {
+  currentApp.value = APPLICATION_STATE.currentApplication;
+  if (currentApp.value && !isSwitchingApplication.value) {
+    loadProjectsForCurrentApp();
+  }
+}
+
+function updateRouteState() {
+  const path = route.path;
+  isApplicationDetailsPage.value = /^\/application\/[^/]+$/.test(path);
+  isProjectEntityDefinitionsPage.value = /^\/application\/[^/]+\/project\/[^/]+\/entity-definitions$/.test(path);
+  isApplicationSettingsPage.value = /^\/application\/[^/]+\/settings$/.test(path);
+
+  // Set current application based on route
+  if (isApplicationDetailsPage.value || isProjectEntityDefinitionsPage.value || isApplicationSettingsPage.value) {
+    const applicationId = route.params.applicationId as string;
+    if (applicationId && currentApp.value?.id !== applicationId) {
+      setActiveAppById(applicationId);
     }
-    document.addEventListener('click', this.handleClickOutside);
   }
 
-  beforeUnmount() {
-    document.removeEventListener('click', this.handleClickOutside);
+  if (isApplicationDetailsPage.value && !isProjectEntityDefinitionsPage.value) {
+    currentProject.value = null;
   }
-
-  get allApplications() {
-    return APPLICATION_STATE.allApplications;
-  }
-
-  get filteredApplications() {
-    return this.allApplications.filter(app =>
-      app.id.toLowerCase().includes(this.searchTextApp.toLowerCase())
-    );
-  }
-
-  get filteredProjects() {
-    return this.projectsForCurrentApp.filter(proj =>
-      proj.name.toLowerCase().includes(this.searchTextProject.toLowerCase())
-    );
-  }
-
-  get currentAppName() {
-    return this.currentApp?.id || 'Select Application';
-  }
-
-  get currentProjectName() {
-    return this.currentProject?.name || 'Select Project';
-  }
-
-  get isDark() {
-    return darkMode.value;
-  }
-
-  toggleTheme() {
-    toggleDark();
-  }
-
-  @Watch('$route.fullPath', { immediate: true })
-  onRouteChange() {
-    this.updateRouteState();
-    if (!APPLICATION_STATE.currentApplication) {
-      this.tryAutoSelectAppAndProject();
+  else if (isProjectEntityDefinitionsPage.value) {
+    const projectId = route.params.projectId as string;
+    if (projectId && currentProject.value?.id !== projectId) {
+      setCurrentProjectById(projectId);
     }
   }
-
-  @Watch('APPLICATION_STATE.currentApplication', { immediate: true })
-  onGlobalApplicationChange() {
-    this.currentApp = APPLICATION_STATE.currentApplication;
-    if (this.currentApp && !this.isSwitchingApplication) {
-      this.loadProjectsForCurrentApp();
-    }
+  else if (isApplicationSettingsPage.value) {
+    currentProject.value = null;
   }
+}
 
-  updateRouteState() {
-    const path = this.$route.path;
-    this.isApplicationDetailsPage = /^\/application\/[^/]+$/.test(path);
-    this.isProjectStructuresPage = /^\/application\/[^/]+\/project\/[^/]+\/structures$/.test(path);
-    this.isApplicationSettingsPage = /^\/application\/[^/]+\/settings$/.test(path);
-    this.isDashboardsPage = /^\/application\/[^/]+\/dashboards(\/.*)?$/.test(path);
-    this.isDataInsightsPage = /^\/application\/[^/]+\/data-insights$/.test(path);
-    this.isSavedWidgetsPage = /^\/application\/[^/]+\/saved-widgets$/.test(path);
-    
-    // Set current application based on route
-    if (this.isApplicationDetailsPage || this.isProjectStructuresPage || this.isApplicationSettingsPage || this.isDashboardsPage || this.isDataInsightsPage || this.isSavedWidgetsPage) {
-      const applicationId = this.$route.params.applicationId as string;
-      if (applicationId && this.currentApp?.id !== applicationId) {
-        this.setActiveAppById(applicationId);
+function loadApplicationsIfNeeded() {
+  if (APPLICATION_STATE.allApplications.length === 0) {
+    APPLICATION_STATE.loadAllApplications();
+  }
+}
+
+function toggleAppDropdown() {
+  appDropdownOpen.value = !appDropdownOpen.value;
+  if (appDropdownOpen.value) projectDropdownOpen.value = false;
+}
+
+function toggleProjectDropdown() {
+  if (!currentApp.value) return;
+  projectDropdownOpen.value = !projectDropdownOpen.value;
+  if (projectDropdownOpen.value) appDropdownOpen.value = false;
+
+  if (projectsForCurrentApp.value.length === 0) {
+    loadProjectsForCurrentApp();
+  }
+}
+
+function toggleAvatarDropdown() {
+  avatarDropdownOpen.value = !avatarDropdownOpen.value;
+  if (avatarDropdownOpen.value) {
+    appDropdownOpen.value = false;
+    projectDropdownOpen.value = false;
+  }
+}
+
+async function handleLogout() {
+  try {
+    await USER_STATE.logout();
+    router.push('/login');
+  } catch (error) {
+    router.push('/login');
+  }
+}
+
+async function loadProjectsForCurrentApp() {
+  if (!currentApp.value || isLoadingProjects.value) return;
+
+  isLoadingProjects.value = true;
+  try {
+    const pageable = { pageNumber: 0, pageSize: 100 } as any;
+    const result = await Kinotic.projects.findAllForApplication(currentApp.value.id, pageable);
+    projectsForCurrentApp.value = result.content ?? [];
+
+    if (isProjectEntityDefinitionsPage.value) {
+      const projectId = route.params.projectId as string;
+      const routeAppId = route.params.applicationId as string;
+
+      if (projectId && routeAppId === currentApp.value.id && currentProject.value?.id !== projectId) {
+        setCurrentProjectById(projectId);
       }
     }
-
-    if (this.isApplicationDetailsPage && !this.isProjectStructuresPage) {
-      this.currentProject = null;
-    }
-    else if (this.isProjectStructuresPage) {
-      const projectId = this.$route.params.projectId as string;
-      if (projectId && this.currentProject?.id !== projectId) {
-        this.setCurrentProjectById(projectId);
-      }
-    }
-    else if (this.isApplicationSettingsPage || this.isDashboardsPage || this.isDataInsightsPage || this.isSavedWidgetsPage) {
-      this.currentProject = null;
-    }
+  } catch (e) {
+  } finally {
+    isLoadingProjects.value = false;
   }
+}
 
-  loadApplicationsIfNeeded() {
-    if (APPLICATION_STATE.allApplications.length === 0) {
-      APPLICATION_STATE.loadAllApplications();
-    }
+async function selectApp(app: Application) {
+  isSwitchingApplication.value = true;
+
+  try {
+    currentApp.value = app;
+    APPLICATION_STATE.currentApplication = app;
+    appDropdownOpen.value = false;
+    currentProject.value = null;
+    projectsForCurrentApp.value = [];
+    searchTextApp.value = '';
+
+    await router.push(`/application/${encodeURIComponent(app.id)}`);
+    await new Promise(resolve => setTimeout(resolve, 50));
+    await loadProjectsForCurrentApp();
+
+    emit('application-changed', app);
+  } finally {
+    isSwitchingApplication.value = false;
   }
+}
 
-  toggleAppDropdown() {
-    this.appDropdownOpen = !this.appDropdownOpen;
-    if (this.appDropdownOpen) this.projectDropdownOpen = false;
+function selectProject(proj: Project) {
+  currentProject.value = proj;
+  const projectId = proj.id ?? '';
+  const applicationId = currentApp.value?.id ?? '';
+  router.push(`/application/${encodeURIComponent(applicationId)}/project/${encodeURIComponent(projectId)}/entity-definitions`);
+  projectDropdownOpen.value = false;
+  searchTextProject.value = '';
+}
+
+async function setActiveAppById(applicationId: string) {
+  const app = allApplications.value.find(a => a.id === applicationId);
+  if (app) {
+    currentApp.value = app;
+    APPLICATION_STATE.currentApplication = app;
+  } else {
+    setTimeout(() => setActiveAppById(applicationId), 500);
   }
+}
 
-  toggleProjectDropdown() {
-    if (!this.currentApp) return;
-    this.projectDropdownOpen = !this.projectDropdownOpen;
-    if (this.projectDropdownOpen) this.appDropdownOpen = false;
-
-    if (this.projectsForCurrentApp.length === 0) {
-      this.loadProjectsForCurrentApp();
-    }
-  }
-
-  toggleAvatarDropdown() {
-    this.avatarDropdownOpen = !this.avatarDropdownOpen;
-    if (this.avatarDropdownOpen) {
-      this.appDropdownOpen = false;
-      this.projectDropdownOpen = false;
-    }
-  }
-
-  async handleLogout() {
-    try {
-      await USER_STATE.logout();
-      this.$router.push('/login');
-    } catch (error) {
-      this.$router.push('/login');
-    }
-  }
-
-  async loadProjectsForCurrentApp() {
-    if (!this.currentApp || this.isLoadingProjects) return;
-    
-    this.isLoadingProjects = true;
-    try {
-      const pageable = { pageNumber: 0, pageSize: 100 } as any;
-      const result = await Kinotic.projects.findAllForApplication(this.currentApp.id, pageable);
-      this.projectsForCurrentApp = result.content ?? [];
-      
-      if (this.isProjectStructuresPage) {
-        const projectId = this.$route.params.projectId as string;
-        const routeAppId = this.$route.params.applicationId as string;
-        
-        if (projectId && routeAppId === this.currentApp.id && this.currentProject?.id !== projectId) {
-          this.setCurrentProjectById(projectId);
-        }
-      }
-    } catch (e) {
-    } finally {
-      this.isLoadingProjects = false;
-    }
-  }
-
-  async selectApp(app: Application) {
-    this.isSwitchingApplication = true;
-    
-    try {
-      this.currentApp = app;
-      APPLICATION_STATE.currentApplication = app;
-      this.appDropdownOpen = false;
-      this.currentProject = null;
-      this.projectsForCurrentApp = [];
-      this.searchTextApp = '';
-
-      await this.$router.push(`/application/${encodeURIComponent(app.id)}`);
-      await new Promise(resolve => setTimeout(resolve, 50));
-      await this.loadProjectsForCurrentApp();
-
-      this.$emit('application-changed', app);
-    } finally {
-      this.isSwitchingApplication = false;
-    }
-  }
-
-  selectProject(proj: Project) {
-    this.currentProject = proj;
-    const projectId = proj.id ?? '';
-    const applicationId = this.currentApp?.id ?? '';
-    this.$router.push(`/application/${encodeURIComponent(applicationId)}/project/${encodeURIComponent(projectId)}/structures`);
-    this.projectDropdownOpen = false;
-    this.searchTextProject = '';
-  }
-
-  async setActiveAppById(applicationId: string) {
-    const app = this.allApplications.find(a => a.id === applicationId);
+async function setActiveProjectById(applicationId: string, projectId: string): Promise<void> {
+  try {
+    const app = allApplications.value.find(a => a.id === applicationId);
     if (app) {
-      this.currentApp = app;
+      currentApp.value = app;
       APPLICATION_STATE.currentApplication = app;
-    } else {
-      setTimeout(() => this.setActiveAppById(applicationId), 500);
-    }
-  }
 
-  async setActiveProjectById(applicationId: string, projectId: string): Promise<void> {
-    try {
-      const app = this.allApplications.find(a => a.id === applicationId);
-      if (app) {
-        this.currentApp = app;
-        APPLICATION_STATE.currentApplication = app;
+      const pageable = { pageNumber: 0, pageSize: 100 } as any;
+      const result = await Kinotic.projects.findAllForApplication(applicationId, pageable);
+      projectsForCurrentApp.value = result.content ?? [];
 
-        const pageable = { pageNumber: 0, pageSize: 100 } as any;
-        const result = await Kinotic.projects.findAllForApplication(applicationId, pageable);
-        this.projectsForCurrentApp = result.content ?? [];
-
-        const proj = this.projectsForCurrentApp.find(p => p.id === projectId);
-        if (proj) {
-          this.currentProject = proj;
-        }
-      }
-    } catch (error) {
-    }
-  }
-
-  setCurrentProjectById(projectId: string): void {
-    if (this.projectsForCurrentApp.length > 0) {
-      const proj = this.projectsForCurrentApp.find(p => p.id === projectId);
+      const proj = projectsForCurrentApp.value.find(p => p.id === projectId);
       if (proj) {
-        this.currentProject = proj;
-      } else {
-        this.currentProject = null;
+        currentProject.value = proj;
       }
+    }
+  } catch (error) {
+  }
+}
+
+function setCurrentProjectById(projectId: string): void {
+  if (projectsForCurrentApp.value.length > 0) {
+    const proj = projectsForCurrentApp.value.find(p => p.id === projectId);
+    if (proj) {
+      currentProject.value = proj;
     } else {
-      const routeAppId = this.$route.params.applicationId as string;
-      if (routeAppId === this.currentApp?.id && !this.isLoadingProjects && !this.isSwitchingApplication) {
-        this.loadProjectsForCurrentApp();
-      } else {
-        this.currentProject = null;
-      }
+      currentProject.value = null;
+    }
+  } else {
+    const routeAppId = route.params.applicationId as string;
+    if (routeAppId === currentApp.value?.id && !isLoadingProjects.value && !isSwitchingApplication.value) {
+      loadProjectsForCurrentApp();
+    } else {
+      currentProject.value = null;
     }
   }
+}
 
-  async tryAutoSelectAppAndProject() {
-    if (APPLICATION_STATE.allApplications.length === 0) {
-      await APPLICATION_STATE.loadAllApplications();
-    }
-
-    if (this.isProjectStructuresPage) {
-      const applicationId = this.$route.params.applicationId as string;
-      const projectId = this.$route.params.projectId as string;
-      await this.setActiveProjectById(applicationId, projectId);
-    } else if (this.isApplicationDetailsPage || this.isApplicationSettingsPage) {
-      const path = this.$route.path;
-      const match = path.match(/^\/application\/([^/]+)/);
-      if (match) {
-        const applicationId = decodeURIComponent(match[1]);
-        await this.setActiveAppById(applicationId);
-      }
-    }
+async function tryAutoSelectAppAndProject() {
+  if (APPLICATION_STATE.allApplications.length === 0) {
+    await APPLICATION_STATE.loadAllApplications();
   }
 
-  handleClickOutside(event: MouseEvent) {
-    const appDropdownEl = this.$refs.appDropdownRef as HTMLElement;
-    const projectDropdownEl = this.$refs.projectDropdownRef as HTMLElement;
-    const avatarDropdownEl = this.$refs.avatarDropdownRef as HTMLElement;
-
-    const clickedOutsideApp = appDropdownEl && !appDropdownEl.contains(event.target as Node);
-    const clickedOutsideProject = projectDropdownEl && !projectDropdownEl.contains(event.target as Node);
-    const clickedOutsideAvatar = avatarDropdownEl && !avatarDropdownEl.contains(event.target as Node);
-
-    if (this.appDropdownOpen && clickedOutsideApp) {
-      this.appDropdownOpen = false;
-    }
-    if (this.projectDropdownOpen && clickedOutsideProject) {
-      this.projectDropdownOpen = false;
-    }
-    if (this.avatarDropdownOpen && clickedOutsideAvatar) {
-      this.avatarDropdownOpen = false;
+  if (isProjectEntityDefinitionsPage.value) {
+    const applicationId = route.params.applicationId as string;
+    const projectId = route.params.projectId as string;
+    await setActiveProjectById(applicationId, projectId);
+  } else if (isApplicationDetailsPage.value || isApplicationSettingsPage.value) {
+    const path = route.path;
+    const match = path.match(/^\/application\/([^/]+)/);
+    if (match) {
+      const applicationId = decodeURIComponent(match[1]);
+      await setActiveAppById(applicationId);
     }
   }
+}
 
-  notifyApplicationChange(app: Application) {
-    this.$emit('application-changed', app);
+function handleClickOutside(event: MouseEvent) {
+  const appDropdownEl = appDropdownRef.value;
+  const projectDropdownEl = projectDropdownRef.value;
+  const avatarDropdownEl = avatarDropdownRef.value;
+
+  const clickedOutsideApp = appDropdownEl && !appDropdownEl.contains(event.target as Node);
+  const clickedOutsideProject = projectDropdownEl && !projectDropdownEl.contains(event.target as Node);
+  const clickedOutsideAvatar = avatarDropdownEl && !avatarDropdownEl.contains(event.target as Node);
+
+  if (appDropdownOpen.value && clickedOutsideApp) {
+    appDropdownOpen.value = false;
+  }
+  if (projectDropdownOpen.value && clickedOutsideProject) {
+    projectDropdownOpen.value = false;
+  }
+  if (avatarDropdownOpen.value && clickedOutsideAvatar) {
+    avatarDropdownOpen.value = false;
   }
 }
 </script>

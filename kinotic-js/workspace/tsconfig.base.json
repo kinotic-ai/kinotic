@@ -18,10 +18,7 @@
 
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
-		"noPropertyAccessFromIndexSignature": false,
-
-		"experimentalDecorators": true,
-		"emitDecoratorMetadata": true
+		"noPropertyAccessFromIndexSignature": false
 	},
 
 	"exclude": ["node_modules", "dist"]

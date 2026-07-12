@@ -16,6 +16,23 @@ java {
     withSourcesJar()
 }
 
+javadoc {
+    // Delombok generates the sources javadoc runs on, so the entities and test services it emits
+    // carry no doc comments; Xdoclint:none keeps those missing-comment notes off the build log
+    options.addStringOption('Xdoclint:none', '-quiet')
+
+    if (JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
+}
+
+// Byte-identical archives for identical inputs, so CI can key "already published" checks
+// on a jar's hash and skip republishing images whose contents did not change
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
 
 repositories {
     // Use Maven Central for resolving dependencies.

@@ -1,8 +1,11 @@
 package org.kinotic.domain.internal.utils;
 
+import com.github.slugify.Slugify;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
+import org.kinotic.core.internal.utils.ZoneUtil;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.security.DefaultApplicationParticipant;
 import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
@@ -25,25 +28,49 @@ import java.util.regex.Pattern;
  */
 public class DomainUtil {
 
-    private static final Pattern ApplicationPattern = Pattern.compile("^[A-Za-z][A-Za-z0-9._-]*$");
-    private static final Pattern ProjectIdPattern = Pattern.compile("^[a-z][a-z0-9._-]*$");
-    private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    /**
+     * The zone for platform services organizations use to manage the system, such as member,
+     * application, and entity definition management
+     */
+    public static final String OS_API_ZONE = "os-api";
 
     /**
-     * Function will validate the structure application name
+     * The zone for the platform's application facing data services, such as entity persistence
+     * and named query execution
+     */
+    public static final String APP_API_ZONE = "app-api";
+
+    /**
+     * The zone for services internal to the platform, only reachable by system participants
+     */
+    public static final String SYSTEM_ZONE = "system";
+
+    /**
+     * The leading label of application zones, which follow the form app.&lt;organizationId&gt;.&lt;applicationId&gt;
+     */
+    public static final String APP_ZONE_PREFIX = "app";
+
+    // Project ids may start with a digit because they embed application ids, which may
+    // themselves start with a digit
+    private static final Pattern ProjectIdPattern = Pattern.compile("^[a-z0-9][a-z0-9.-]*$");
+    private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    // Dash separator, not underscore: slugified ids become zone labels, and underscores are
+    // illegal in a URI host (CRIs are valid URIs by convention)
+    private static final Slugify SLUGIFY = Slugify.builder().build();
+
+    /**
+     * Validates that the given application id contains only lowercase letters, digits, and
+     * interior dashes.
      *
      * @param applicationId to validate
-     * @throws IllegalArgumentException will be thrown if the structure application is invalid
+     * @throws IllegalArgumentException if the application id is null or invalid
      */
     public static void validateApplicationId(String applicationId) {
         if (applicationId == null) {
             throw new IllegalArgumentException("Application Id must not be null");
         }
-        if (!ApplicationPattern.matcher(applicationId).matches()){
-            throw new IllegalArgumentException("Kinotic Application Id Invalid, first character must be a " +
-                                                       "letter. And contain only letters, numbers, periods, underscores or dashes. Got "+ applicationId);
-        }
+        ZoneUtil.validateLabel(applicationId);
     }
 
     public static void validateProjectId(String projectId){
@@ -52,8 +79,28 @@ public class DomainUtil {
         }
         if (!ProjectIdPattern.matcher(projectId).matches()){
             throw new IllegalArgumentException("Kinotic Project Id Invalid, first character must be a " +
-                                                       "letter. And contain only letters, numbers, periods, underscores or dashes. Got "+ projectId);
+                                                       "letter or number. And contain only letters, numbers, periods or dashes. Got "+ projectId);
         }
+    }
+
+    /**
+     * Derives an id from the given text, slugified to lowercase letters, digits, and interior
+     * dashes.
+     *
+     * @param text to derive the id from
+     * @return the derived id
+     * @throws IllegalArgumentException if the text is blank or has no usable characters
+     */
+    public static String slugifyId(String text) {
+        Validate.notBlank(text, "Cannot derive an id from a blank value");
+        // Slugify keeps separators it produced at the edges ("Acme Inc." -> "acme-inc-"), but
+        // the id must start and end alphanumeric
+        String id = StringUtils.strip(SLUGIFY.slugify(text), "-");
+        Validate.notEmpty(id, "Cannot derive an id from '%s', it has no usable characters", text);
+        // Guards against a Slugify behavior change; the version in use only emits lowercase
+        // letters, digits, and dashes
+        ZoneUtil.validateLabel(id);
+        return id;
     }
 
     /**

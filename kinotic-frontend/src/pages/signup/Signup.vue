@@ -71,8 +71,8 @@
   </AuthPageShell>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-facing-decorator';
+<script setup lang="ts">
+import { ref, onMounted, type Ref } from 'vue'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
@@ -82,92 +82,87 @@ import { apiUrl } from '@/util/helpers'
 import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
 
-@Component({
-  components: {
-    AuthPageShell,
-    InputText,
-    Button,
-    SocialAuthButton,
+const toast = useToast()
+
+const request = ref<SignUpRequest>({
+  email: '',
+  displayName: '',
+})
+const loading = ref(false)
+const submitted = ref(false)
+const providers = ref<string[]>([])
+
+const displayName = ref<InstanceType<typeof InputText>>()
+const email = ref<InstanceType<typeof InputText>>()
+
+onMounted(async () => {
+  try {
+    const res = await fetch(apiUrl('/api/auth/org/login/providers'), { credentials: 'same-origin' })
+    if (res.ok) {
+      const data = await res.json()
+      if (Array.isArray(data)) providers.value = data
+    }
+  } catch {
+    // No social providers configured — silent; the email/password form still works.
   }
 })
-export default class Signup extends Vue {
-  private toast = useToast()
 
-  request: SignUpRequest = {
-    email: '',
-    displayName: '',
+function focusNext(refName: string) {
+  const refs: Record<string, Ref<InstanceType<typeof InputText> | undefined>> = {
+    displayName,
+    email,
   }
-  loading = false
-  submitted = false
-  providers: string[] = []
-
-  async mounted() {
-    try {
-      const res = await fetch(apiUrl('/api/auth/org/login/providers'), { credentials: 'same-origin' })
-      if (res.ok) {
-        const data = await res.json()
-        if (Array.isArray(data)) this.providers = data
-      }
-    } catch {
-      // No social providers configured — silent; the email/password form still works.
-    }
+  const el = refs[refName]?.value as any
+  if (el?.$el) {
+    el.$el.querySelector('input')?.focus()
+  } else if (el?.focus) {
+    el.focus()
   }
+}
 
-  apiUrl(path: string): string { return apiUrl(path) }
+async function handleSubmit() {
+  request.value.email = request.value.email.trim()
+  request.value.displayName = request.value.displayName.trim()
 
-  private focusNext(refName: string) {
-    const el = this.$refs[refName] as any
-    if (el?.$el) {
-      el.$el.querySelector('input')?.focus()
-    } else if (el?.focus) {
-      el.focus()
-    }
+  if (!request.value.email || !request.value.email.includes('@')) {
+    displayAlert('Please enter a valid email address')
+    return
+  }
+  if (!request.value.displayName) {
+    displayAlert('Your name is required')
+    return
   }
 
-  async handleSubmit() {
-    this.request.email = this.request.email.trim()
-    this.request.displayName = this.request.displayName.trim()
-
-    if (!this.request.email || !this.request.email.includes('@')) {
-      this.displayAlert('Please enter a valid email address')
-      return
-    }
-    if (!this.request.displayName) {
-      this.displayAlert('Your name is required')
-      return
-    }
-
-    this.loading = true
-    try {
-      const response = await fetch(apiUrl('/api/auth/org/signup'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(this.request),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        this.displayAlert(data.error || 'Sign-up failed')
-        return
-      }
-
-      this.submitted = true
-    } catch (error: unknown) {
-      this.displayAlert(error instanceof Error ? error.message : 'Sign-up failed')
-    } finally {
-      this.loading = false
-    }
-  }
-
-  private displayAlert(text: string) {
-    this.toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: text,
-      life: 10000
+  loading.value = true
+  try {
+    const response = await fetch(apiUrl('/api/auth/org/signup'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request.value),
     })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      displayAlert(data.error || 'Sign-up failed')
+      return
+    }
+
+    submitted.value = true
+  } catch (error: unknown) {
+    displayAlert(error instanceof Error ? error.message : 'Sign-up failed')
+  } finally {
+    loading.value = false
   }
+}
+
+function displayAlert(text: string) {
+  toast.add({
+    severity: 'error',
+    summary: 'Error',
+    detail: text,
+    life: 10000
+  })
 }
 </script>
 

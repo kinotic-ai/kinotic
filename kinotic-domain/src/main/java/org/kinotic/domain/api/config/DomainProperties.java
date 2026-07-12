@@ -46,6 +46,11 @@ public class DomainProperties {
      */
     private EmailProperties email = new EmailProperties();
 
+    /**
+     * Loki configuration for the {@code LogService}.
+     */
+    private LokiProperties loki = new LokiProperties();
+
     @NotNull
     private Duration elasticConnectionTimeout = Duration.ofSeconds(5);
 

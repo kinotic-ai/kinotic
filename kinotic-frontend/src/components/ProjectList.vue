@@ -1,8 +1,11 @@
-<script lang="ts">
-import { Component, Vue, Prop, Ref, Watch } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { showErrorToast } from '@/util/helpers'
+import { useToast } from 'primevue/usetoast'
 import CrudTable from '@/components/CrudTable.vue'
 import NewProjectSidebar from '@/components/NewProjectSidebar.vue'
-import ProjectStructuresTable from '@/components/ProjectStructuresTable.vue'
+import ProjectEntityDefinitionsTable from '@/components/ProjectEntityDefinitionsTable.vue'
 import type { IDataSource, Identifiable, IterablePage, Pageable } from '@kinotic-ai/core'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { Kinotic } from '@kinotic-ai/core'
@@ -14,186 +17,166 @@ import { isDark as darkMode } from '@/composables/useTheme'
 
 const debug = createDebug('project-list');
 
-@Component({
-  components: { CrudTable, NewProjectSidebar, ProjectStructuresTable }
+const props = defineProps<{
+  applicationId: string
+}>()
+
+const route = useRoute()
+const router = useRouter()
+const toast = useToast()
+
+const crudTable = ref<InstanceType<typeof CrudTable>>()
+
+const searchText = ref<string>('')
+const showProjectSidebar = ref(false)
+const selectedProjectId = ref<string | null>(null)
+const isInitialized = ref(false)
+
+const projectTableHeaders: CrudHeader[] = [
+  { field: 'name', header: 'Project Name', sortable: true },
+  { field: 'repoConnectionStatus', header: 'Repository', sortable: false },
+  { field: 'sourceOfTruth', header: 'Source of Truth', sortable: true },
+  { field: 'description', header: 'Description', sortable: false },
+  { field: 'created', header: 'Created', sortable: false },
+  { field: 'updated', header: 'Updated', sortable: false }
+]
+
+// Ids of projects whose repository initialization is currently being retried,
+// to drive the per-row Retry button's loading state.
+const retryingIds = ref<string[]>([])
+
+const RepoStatus = RepositoryConnectionStatus
+
+onMounted(() => {
+  searchText.value = (route.query['search-project'] as string) || ''
+  isInitialized.value = true
+  handleOpenNewProjectQuery()
 })
-export default class ProjectList extends Vue {
-  @Prop({ required: true }) applicationId!: string
 
-  @Ref('crudTable') crudTable!: InstanceType<typeof CrudTable>
+/**
+ * Honors the post-install handoff from `GitHubInstallCallback`. When the user
+ * started a GitHub link from the new-project sidebar, the callback redirects
+ * back here with `?openNewProject=1` so we re-open the sidebar automatically.
+ */
+function handleOpenNewProjectQuery(): void {
+  if (route.query.openNewProject === '1') {
+    showProjectSidebar.value = true
+    const cleaned = { ...route.query }
+    delete cleaned.openNewProject
+    router.replace({ query: cleaned }).catch(() => {})
+  }
+}
 
-  searchText: string = ''
-  showProjectSidebar = false
-  selectedProjectId: string | null = null
-  isInitialized = false
+watch(() => route.query['search-project'] as string, (newVal) => {
+  if (isInitialized.value) {
+    searchText.value = newVal || ''
+    refreshTable()
+  }
+})
 
-  projectTableHeaders: CrudHeader[] = [
-    { field: 'name', header: 'Project Name', sortable: true },
-    { field: 'repoConnectionStatus', header: 'Repository', sortable: false },
-    { field: 'sourceOfTruth', header: 'Source of Truth', sortable: true },
-    { field: 'description', header: 'Description', sortable: false },
-    { field: 'created', header: 'Created', sortable: false },
-    { field: 'updated', header: 'Updated', sortable: false }
-  ]
+watch(() => props.applicationId, () => {
+  refreshTable()
+})
 
-  // Ids of projects whose repository initialization is currently being retried,
-  // to drive the per-row Retry button's loading state.
-  retryingIds: string[] = []
+const dataSource = computed<IDataSource<Project>>(() => ({
+  findAll: async (pageable: Pageable): Promise<IterablePage<Project>> => {
+    const result = await Kinotic.projects.findAllForApplication(props.applicationId, pageable)
+    APPLICATION_STATE.projectsCount = result.totalElements ?? 0
+    return result
+  },
+  search: async (_searchText: string, pageable: Pageable): Promise<IterablePage<Project>> => {
+    const search = `applicationId:${props.applicationId} && ${searchText.value}`
+    return Kinotic.projects.search(search, pageable)
+  }
+}))
 
-  public RepoStatus = RepositoryConnectionStatus
+const isDark = darkMode
 
-  mounted() {
-    this.searchText = (this.$route.query['search-project'] as string) || ''
-    this.isInitialized = true
-    this.handleOpenNewProjectQuery()
+function refreshTable(): void {
+  crudTable.value?.find?.()
+}
+
+function updateRouteQuery(newSearch: string) {
+  searchText.value = newSearch
+  const newQuery = { ...route.query }
+
+  if (newSearch) {
+    newQuery['search-project'] = newSearch
+  } else {
+    delete newQuery['search-project']
   }
 
-  /**
-   * Honors the post-install handoff from `GitHubInstallCallback`. When the user
-   * started a GitHub link from the new-project sidebar, the callback redirects
-   * back here with `?openNewProject=1` so we re-open the sidebar automatically.
-   */
-  private handleOpenNewProjectQuery(): void {
-    if (this.$route.query.openNewProject === '1') {
-      this.showProjectSidebar = true
-      const cleaned = { ...this.$route.query }
-      delete cleaned.openNewProject
-      this.$router.replace({ query: cleaned }).catch(() => {})
-    }
+  router.replace({ query: newQuery }).catch(() => {})
+  refreshTable()
+}
+
+function onAddProject(): void {
+  showProjectSidebar.value = true
+}
+
+function onProjectSidebarClose(): void {
+  showProjectSidebar.value = false
+}
+
+async function onProjectSubmit(): Promise<void> {
+  try {
+    refreshTable()
+  } catch (error) {
+    debug('Refresh after project creation failed: %O', error)
+    showErrorToast(toast, 'Failed to refresh project list', error)
+  } finally {
+    showProjectSidebar.value = false
   }
+}
 
-  @Watch('$route.query.search-project')
-  onSearchQueryChange(newVal: string) {
-    if (this.isInitialized) {
-      this.searchText = newVal || ''
-      this.refreshTable()
-    }
+function onEditItem(item: Identifiable<string>): void {
+  router.push(`${route.path}/edit/${item.id}`)
+}
+
+async function toProjectPage(item: Identifiable<string>): Promise<void> {
+  if (!item.id) return
+
+  try {
+    const appId = props.applicationId
+    const projectId = item.id
+
+    debug('Navigating to project: %s, ID: %s, App ID: %s', (item as any).name, projectId, appId)
+
+    await router.push(`/application/${encodeURIComponent(appId)}/project/${encodeURIComponent(projectId)}/entity-definitions`)
+  } catch (error) {
+    debug('Failed to navigate to project page: %O', error)
   }
+}
 
-  @Watch('applicationId')
-  onAppChange() {
-    this.refreshTable()
-  }
+function clearSelectedProject() {
+  selectedProjectId.value = null
+}
 
-  get dataSource(): IDataSource<Project> {
-    return {
-      findAll: async (pageable: Pageable): Promise<IterablePage<Project>> => {
-        const result = await Kinotic.projects.findAllForApplication(this.applicationId, pageable)
-        APPLICATION_STATE.projectsCount = result.totalElements ?? 0
-        return result
-      },
-      search: async (_searchText: string, pageable: Pageable): Promise<IterablePage<Project>> => {
-        const search = `applicationId:${this.applicationId} && ${this.searchText}`
-        return Kinotic.projects.search(search, pageable)
-      }
-    }
-  }
+function isRetrying(id: string | null): boolean {
+  return id != null && retryingIds.value.includes(id)
+}
 
-  get projectsCount() {
-    return APPLICATION_STATE.projectsCount
-  }
-
-  get isDark() {
-    return darkMode.value
-  }
-
-  public DatetimeUtil = DatetimeUtil
-  refreshTable(): void {
-    this.crudTable?.find?.()
-  }
-
-  updateRouteQuery(newSearch: string) {
-    this.searchText = newSearch
-    const newQuery = { ...this.$route.query }
-
-    if (newSearch) {
-      newQuery['search-project'] = newSearch
-    } else {
-      delete newQuery['search-project']
-    }
-
-    this.$router.replace({ query: newQuery }).catch(() => {})
-    this.refreshTable()
-  }
-
-  onAddProject(): void {
-    this.showProjectSidebar = true
-  }
-
-  onProjectSidebarClose(): void {
-    this.showProjectSidebar = false
-  }
-
-  async onProjectSubmit(): Promise<void> {
-    try {
-      this.refreshTable()
-    } catch (error) {
-      debug('Refresh after project creation failed: %O', error)
-      this.$toast.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'Failed to refresh project list.',
-        life: 3000
-      })
-    } finally {
-      this.showProjectSidebar = false
-    }
-  }
-
-  onEditItem(item: Identifiable<string>): void {
-    this.$router.push(`${this.$route.path}/edit/${item.id}`)
-  }
-
-  async toProjectPage(item: Identifiable<string>): Promise<void> {
-    if (!item.id) return
-    
-    try {
-      const appId = this.applicationId
-      const projectId = item.id
-      
-      debug('Navigating to project: %s, ID: %s, App ID: %s', (item as any).name, projectId, appId)
-      
-      await this.$router.push(`/application/${encodeURIComponent(appId)}/project/${encodeURIComponent(projectId)}/structures`)
-    } catch (error) {
-      debug('Failed to navigate to project page: %O', error)
-    }
-  }
-
-  clearSelectedProject() {
-    this.selectedProjectId = null
-  }
-
-  isRetrying(id: string | null): boolean {
-    return id != null && this.retryingIds.includes(id)
-  }
-
-  /**
-   * Re-runs repository initialization for a project left INITIALIZATION_FAILED
-   * at create time, then refreshes the list so the updated status shows.
-   */
-  async retryRepoInit(project: Project): Promise<void> {
-    if (!project.id) return
-    this.retryingIds = [...this.retryingIds, project.id]
-    try {
-      await Kinotic.projects.retryRepoInitialization(project.id)
-      this.$toast.add({
-        severity: 'success',
-        summary: 'Repository initialized',
-        detail: `Initialization succeeded for ${project.name}.`,
-        life: 3000
-      })
-      this.refreshTable()
-    } catch (error) {
-      debug('Retry repo initialization failed for %s: %O', project.id, error)
-      this.$toast.add({
-        severity: 'error',
-        summary: 'Retry failed',
-        detail: `Repository initialization failed again for ${project.name}.`,
-        life: 5000
-      })
-    } finally {
-      this.retryingIds = this.retryingIds.filter(id => id !== project.id)
-    }
+/**
+ * Re-runs repository initialization for a project left INITIALIZATION_FAILED
+ * at create time, then refreshes the list so the updated status shows.
+ */
+async function retryRepoInit(project: Project): Promise<void> {
+  if (!project.id) return
+  retryingIds.value = [...retryingIds.value, project.id]
+  try {
+    await Kinotic.projects.retryRepoInitialization(project.id)
+    toast.add({
+      severity: 'success',
+      summary: 'Repository initialized',
+      detail: `Initialization succeeded for ${project.name}.`,
+      life: 3000
+    })
+    refreshTable()
+  } catch (error) {
+    debug('Retry repo initialization failed for %s: %O', project.id, error)
+    showErrorToast(toast, 'Retry failed', error, { fallback: `Repository initialization failed again for ${project.name}.` })
+  } finally {
+    retryingIds.value = retryingIds.value.filter(id => id !== project.id)
   }
 }
 </script>
@@ -258,7 +241,7 @@ export default class ProjectList extends Vue {
         </h2>
         <Button label="Back to Projects" icon="pi pi-arrow-left" @click="clearSelectedProject" />
       </div>
-      <ProjectStructuresTable :projectId="selectedProjectId" />
+      <ProjectEntityDefinitionsTable :projectId="selectedProjectId" />
     </div>
 
     <NewProjectSidebar

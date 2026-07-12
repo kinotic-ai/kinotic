@@ -2,15 +2,7 @@
     <Glitch style="font-size: 10em" message="Not Found" />
 </template>
 
-<script lang="ts">
-    import { Component, Vue } from 'vue-facing-decorator'
+<script setup lang="ts">
     import Glitch from '@/components/Glitch.vue'
-
-    @Component({
-    components: { Glitch }
-})
-export default class FourOFour extends Vue {
-
-}
 </script>
 

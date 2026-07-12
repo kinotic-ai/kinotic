@@ -12,8 +12,8 @@ importers:
         specifier: ^10.4.0
         version: 10.4.0
       '@kinotic-ai/core':
-        specifier: ^1.2.1
-        version: 1.2.1(typescript@6.0.2)
+        specifier: ^2.0.0
+        version: 2.0.0(typescript@6.0.2)
       '@kinotic-ai/idl':
         specifier: ^1.0.9
         version: 1.0.9(typescript@6.0.2)
@@ -21,11 +21,11 @@ importers:
         specifier: ^2.2.0
         version: 2.2.0(@types/node@25.5.2)(typescript@6.0.2)
       '@kinotic-ai/os-api':
-        specifier: ^1.2.0
-        version: 1.2.0(@kinotic-ai/core@1.2.1(typescript@6.0.2))(typescript@6.0.2)
+        specifier: ^2.0.0
+        version: 2.0.0(@kinotic-ai/core@2.0.0(typescript@6.0.2))(typescript@6.0.2)
       '@kinotic-ai/persistence':
-        specifier: ^1.2.1
-        version: 1.2.1(@kinotic-ai/core@1.2.1(typescript@6.0.2))(typescript@6.0.2)
+        specifier: ^2.0.0
+        version: 2.0.0(@kinotic-ai/core@2.0.0(typescript@6.0.2))(typescript@6.0.2)
       '@opentelemetry/api':
         specifier: 1.9.1
         version: 1.9.1
@@ -573,6 +573,22 @@ packages:
       typescript:
         optional: true
 
+  '@kinotic-ai/core@2.0.0':
+    resolution: {integrity: sha512-uy9c/5Pk+oGpUDIybXDr5y0AdzT7xKdjdWKVQ4rJcvA1HFD3f06JLlbWGw85OfwDMWiRNDxzpPSxsgZ9H4LBnA==}
+    peerDependencies:
+      typescript: '*'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  '@kinotic-ai/idl@1.0.10':
+    resolution: {integrity: sha512-+bhCgJmtCI/6EuPScyy8xzxEofS6Lj9NFi2MLxulftKe7Azid4yyIn/XuaKsCx8zTGjUOXYC9hOmIOBS2TjecA==}
+    peerDependencies:
+      typescript: '*'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   '@kinotic-ai/idl@1.0.9':
     resolution: {integrity: sha512-YcUNlUeTlv8YavhFNDVgQgDmTPBEKGMRaRjr5p92WPACH52l/ZuFGOyE7kJZqjfe0lQhUEGolADwnYkwVxSBVg==}
     peerDependencies:
@@ -595,10 +611,28 @@ packages:
       typescript:
         optional: true
 
+  '@kinotic-ai/os-api@2.0.0':
+    resolution: {integrity: sha512-cEuZihG3UcwltUtIJ7zz8o40ROhhJxDnBnpzQI6ZOqBfbeAhInhPf4EGDEi8x650JDpHQPQnEJ8rihatPi01SA==}
+    peerDependencies:
+      '@kinotic-ai/core': '>=2.0.0'
+      typescript: '*'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   '@kinotic-ai/persistence@1.2.1':
     resolution: {integrity: sha512-ZFCAkbwwKwwEsZwlHaR6sqjYML7po8sF0J+iZZPRLkJfazjAEB06B7gMA7IZCA9MCbqpMk0642DcOPugXzKghg==}
     peerDependencies:
       '@kinotic-ai/core': '>=1.2.0'
+      typescript: '*'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  '@kinotic-ai/persistence@2.0.0':
+    resolution: {integrity: sha512-wrPa82zbtzROL4qSg8jOmWcZkVOTYdfiOIwjZTPt/ceRBukRolN/yvA4EVBNqEHtPwoHH53/0kNLjogrKsKvng==}
+    peerDependencies:
+      '@kinotic-ai/core': '>=2.0.0'
       typescript: '*'
     peerDependenciesMeta:
       typescript:
@@ -1109,6 +1143,13 @@ packages:
       rxjs: ^7.2.0
       uuid: '>=9.0.0 <12.0.0'
 
+  '@stomp/rx-stomp@2.4.0':
+    resolution: {integrity: sha512-F6UI5W31Q4FNg8VYwBqbTIu8pFl5L1UP9vmg2TN4W7y7OZfbmcS2OXhht+qBwDG31tjn96Cq1zgeoz7lvrzKug==}
+    peerDependencies:
+      '@stomp/stompjs': ^7.2.0
+      rxjs: ^7.2.0
+      uuid: '>=9.0.0 <15.0.0'
+
   '@stomp/stompjs@7.3.0':
     resolution: {integrity: sha512-nKMLoFfJhrQAqkvvKd1vLq/cVBGCMwPRCD0LqW7UT1fecRx9C3GoKEIR2CYwVuErGeZu8w0kFkl2rlhPlqHVgQ==}
 
@@ -1130,6 +1171,9 @@ packages:
 
   '@types/debug@4.1.12':
     resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
+
+  '@types/debug@4.1.13':
+    resolution: {integrity: sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw==}
 
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
@@ -1676,7 +1720,7 @@ packages:
 
   glob@7.2.3:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
-    deprecated: Glob versions prior to v9 are no longer supported
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   globby@10.0.1:
     resolution: {integrity: sha512-sSs4inE1FB2YQiymcmTv6NWENryABjUNPeWhOvmn4SjtKybglsyPZxFB3U1/+L1bYi0rNZDqCLlHyLYDl1Pq5A==}
@@ -3248,6 +3292,27 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@kinotic-ai/core@2.0.0(typescript@6.0.2)':
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      '@opentelemetry/semantic-conventions': 1.40.0
+      '@stomp/rx-stomp': 2.4.0(@stomp/stompjs@7.3.0)(rxjs@7.8.2)(uuid@13.0.0)
+      '@stomp/stompjs': 7.3.0
+      '@types/debug': 4.1.13
+      debug: 4.4.3(supports-color@8.1.1)
+      p-tap: 4.0.0
+      rxjs: 7.8.2
+      typescript-optional: 3.0.0-alpha.3
+      uuid: 13.0.0
+    optionalDependencies:
+      typescript: 6.0.2
+    transitivePeerDependencies:
+      - supports-color
+
+  '@kinotic-ai/idl@1.0.10(typescript@6.0.2)':
+    optionalDependencies:
+      typescript: 6.0.2
+
   '@kinotic-ai/idl@1.0.9(typescript@6.0.2)':
     dependencies:
       reflect-metadata: 0.2.2
@@ -3304,11 +3369,28 @@ snapshots:
     optionalDependencies:
       typescript: 6.0.2
 
+  '@kinotic-ai/os-api@2.0.0(@kinotic-ai/core@2.0.0(typescript@6.0.2))(typescript@6.0.2)':
+    dependencies:
+      '@kinotic-ai/core': 2.0.0(typescript@6.0.2)
+      '@kinotic-ai/idl': 1.0.10(typescript@6.0.2)
+      '@kinotic-ai/persistence': 2.0.0(@kinotic-ai/core@2.0.0(typescript@6.0.2))(typescript@6.0.2)
+      rxjs: 7.8.2
+    optionalDependencies:
+      typescript: 6.0.2
+
   '@kinotic-ai/persistence@1.2.1(@kinotic-ai/core@1.2.1(typescript@6.0.2))(typescript@6.0.2)':
     dependencies:
       '@kinotic-ai/core': 1.2.1(typescript@6.0.2)
       '@kinotic-ai/idl': 1.0.9(typescript@6.0.2)
       reflect-metadata: 0.2.2
+      rxjs: 7.8.2
+    optionalDependencies:
+      typescript: 6.0.2
+
+  '@kinotic-ai/persistence@2.0.0(@kinotic-ai/core@2.0.0(typescript@6.0.2))(typescript@6.0.2)':
+    dependencies:
+      '@kinotic-ai/core': 2.0.0(typescript@6.0.2)
+      '@kinotic-ai/idl': 1.0.10(typescript@6.0.2)
       rxjs: 7.8.2
     optionalDependencies:
       typescript: 6.0.2
@@ -3850,6 +3932,12 @@ snapshots:
       rxjs: 7.8.2
       uuid: 11.1.1
 
+  '@stomp/rx-stomp@2.4.0(@stomp/stompjs@7.3.0)(rxjs@7.8.2)(uuid@13.0.0)':
+    dependencies:
+      '@stomp/stompjs': 7.3.0
+      rxjs: 7.8.2
+      uuid: 13.0.0
+
   '@stomp/stompjs@7.3.0': {}
 
   '@szmarczak/http-timer@5.0.1':
@@ -3874,6 +3962,10 @@ snapshots:
       '@types/deep-eql': 4.0.2
 
   '@types/debug@4.1.12':
+    dependencies:
+      '@types/ms': 2.1.0
+
+  '@types/debug@4.1.13':
     dependencies:
       '@types/ms': 2.1.0
 

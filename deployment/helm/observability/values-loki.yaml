@@ -4,7 +4,18 @@
 deploymentMode: SingleBinary
 
 loki:
-  auth_enabled: false
+  # Pinned so chart bumps can't silently change the app version. Keep in sync with the
+  # canonical version in deployment/docker-compose/compose-otel.yml.
+  image:
+    tag: "3.4.2"
+
+  # Multi-tenant: X-Scope-OrgID routes each org's workload logs to its own tenant
+  auth_enabled: true
+
+  # Lets platform operators query across tenants with pipe-separated ids
+  # (e.g. "acme|kinotic-system")
+  querier:
+    multi_tenant_queries_enabled: true
 
   commonConfig:
     replication_factor: 1

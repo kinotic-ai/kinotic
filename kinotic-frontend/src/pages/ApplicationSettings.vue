@@ -2,167 +2,60 @@
   <div :class="['application-settings', isDark ? 'application-settings--dark' : 'application-settings--light']">
     <h1 class="application-settings__title">Application settings</h1>
 
-    <Tabs class="application-settings__tabs" :value="activeTab" @update:value="(value: string | number) => activeTab = Number(value)">
-      <TabList>
-        <Tab :value="0">General</Tab>
-        <Tab :value="1">Saved widgets</Tab>
-      </TabList>
-      <TabPanels class="!p-0">
-        <TabPanel :value="0">
-          <div v-show="activeTab === 0">
-            <div class="application-settings__general-shell">
-              <form @submit.prevent="saveSettings" class="application-settings__form">
-                <div class="application-settings__fields">
-                  <div class="application-settings__field">
-                    <label class="application-settings__label">Name</label>
-                    <InputText 
-                      v-model="appName" 
-                      type="text" 
-                      class="application-settings__input w-full" 
-                      disabled
-                    />
-                  </div>
-                  <div class="application-settings__field">
-                    <label class="application-settings__label">Description</label>
-                    <Textarea
-                      v-model="appDescription"
-                      class="application-settings__input application-settings__textarea w-full h-[100px]"
-                      rows="3"
-                    />
-                  </div>
-                  <div class="application-settings__field">
-                    <label class="application-settings__label">Tenant per user</label>
-                    <div class="flex items-center gap-3">
-                      <ToggleSwitch v-model="tenantPerUser" />
-                      <span class="text-sm text-muted-color">
-                        Each user of this application gets their own isolated tenant.
-                        Applies to users created after enabling.
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div class="application-settings__actions">
-                  <Button 
-                    class="application-settings__save-btn"
-                    type="submit" 
-                    :disabled="loading" 
-                    severity="primary" 
-                    label="Save changes" 
-                  />
-                </div>
-              </form>
+    <div class="application-settings__general-shell">
+      <form @submit.prevent="saveSettings" class="application-settings__form">
+        <div class="application-settings__fields">
+          <div class="application-settings__field">
+            <label class="application-settings__label">Name</label>
+            <InputText
+              v-model="appName"
+              type="text"
+              class="application-settings__input w-full"
+              disabled
+            />
+          </div>
+          <div class="application-settings__field">
+            <label class="application-settings__label">Description</label>
+            <Textarea
+              v-model="appDescription"
+              class="application-settings__input application-settings__textarea w-full h-[100px]"
+              rows="3"
+            />
+          </div>
+          <div class="application-settings__field">
+            <label class="application-settings__label">Tenant per user</label>
+            <div class="flex items-center gap-3">
+              <ToggleSwitch v-model="tenantPerUser" />
+              <span class="text-sm text-muted-color">
+                Each user of this application gets their own isolated tenant.
+                Applies to users created after enabling.
+              </span>
             </div>
           </div>
-        </TabPanel>
-        <TabPanel :value="1">
-          <div v-show="activeTab === 1">
-            <!-- Loading state -->
-            <div v-if="loadingWidgets" class="flex justify-center py-12">
-              <i class="pi pi-spin pi-spinner text-3xl text-primary-500"></i>
-            </div>
-
-            <!-- Empty state -->
-            <div v-else-if="savedWidgets.length === 0" class="text-center py-12">
-              <div class="mb-4">
-                <i class="pi pi-chart-bar text-6xl text-surface-300"></i>
-              </div>
-              <h3 class="text-lg font-semibold text-surface-800 mb-2">No saved widgets yet</h3>
-              <p class="text-surface-500">
-                Create data insights in the Data Insights page to save widgets here.
-              </p>
-            </div>
-
-            <div v-else class="">
-              <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-4">
-                <div class="w-full sm:w-auto flex items-center gap-2">
-                  <IconField icon-position="left" class="w-full sm:w-80">
-                    <InputIcon class="pi pi-search" />
-                    <InputText 
-                      v-model="widgetSearchText" 
-                      placeholder="Search widgets..." 
-                      class="w-full"
-                    />
-                  </IconField>
-                  <Button 
-                    v-if="widgetSearchText"
-                    icon="pi pi-times" 
-                    severity="secondary"
-                    text
-                    rounded
-                    @click="widgetSearchText = ''"
-                    aria-label="Clear search"
-                  />
-                </div>
-              </div>
-              
-              <!-- No search results -->
-              <div v-if="filteredWidgets.length === 0 && widgetSearchText" class="text-center py-12">
-                <div class="mb-4">
-                  <i class="pi pi-search text-4xl text-surface-300"></i>
-                </div>
-                <h3 class="text-lg font-semibold text-surface-800 mb-2">No widgets found</h3>
-                <p class="text-surface-500">
-                  No widgets match your search "{{ widgetSearchText }}"
-                </p>
-              </div>
-              
-              <!-- Widgets grid -->
-              <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                <SavedWidgetItem
-                  v-for="widget in filteredWidgets"
-                  :key="widget.id || 'unknown'"
-                  :widget="widget"
-                  @delete="confirmDelete"
-                />
-              </div>
-            </div>
-          </div>
-        </TabPanel>
-      </TabPanels>
-    </Tabs>
-
-    <!-- Delete Confirmation Dialog -->
-    <Dialog
-      v-model:visible="showDeleteDialog"
-      modal
-      header="Delete Widget"
-      :style="{ width: '450px' }"
-    >
-      <div class="flex items-start gap-3">
-        <i class="pi pi-exclamation-triangle text-3xl text-orange-500"></i>
-        <div>
-          <p class="text-surface-700">
-            Are you sure you want to delete this widget? This action cannot be undone.
-          </p>
         </div>
-      </div>
-      <template #footer>
-        <Button
-          label="Cancel"
-          severity="secondary"
-          @click="showDeleteDialog = false"
-        />
-        <Button
-          label="Delete"
-          severity="danger"
-          @click="deleteWidget"
-        />
-      </template>
-    </Dialog>
+        <div class="application-settings__actions">
+          <Button
+            class="application-settings__save-btn"
+            type="submit"
+            :disabled="loading"
+            severity="primary"
+            label="Save changes"
+          />
+        </div>
+      </form>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 // @ts-ignore
-import { ref, defineProps, onMounted, watch, computed } from 'vue'
-import { InputText, Textarea, Button, Tabs, TabList, Tab, TabPanels, TabPanel, Dialog, IconField, InputIcon, ToggleSwitch } from 'primevue'
+import { ref, defineProps, onMounted, watch } from 'vue'
+import { showErrorToast } from '@/util/helpers'
+import { InputText, Textarea, Button, ToggleSwitch } from 'primevue'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 import { Kinotic } from '@kinotic-ai/core'
 import { useToast } from 'primevue/usetoast'
-import { DataInsightsWidgetEntityRepository } from '@/services/DataInsightsWidgetEntityRepository'
-import type { DataInsightsWidget } from '@/domain/DataInsightsWidget'
-import SavedWidgetItem from '@/components/SavedWidgetItem.vue'
 import { isDark as darkMode } from '@/composables/useTheme'
 
 defineProps({
@@ -177,14 +70,6 @@ const appName = ref('')
 const appDescription = ref('')
 const tenantPerUser = ref(false)
 const loading = ref(false)
-const activeTab = ref(0)
-
-const widgetService = new DataInsightsWidgetEntityRepository()
-const savedWidgets = ref<DataInsightsWidget[]>([])
-const loadingWidgets = ref(false)
-const showDeleteDialog = ref(false)
-const widgetToDelete = ref<string | null>(null)
-const widgetSearchText = ref('')
 const isDark = darkMode
 
 watch(() => APPLICATION_STATE.currentApplication, (newApp) => {
@@ -235,108 +120,11 @@ const saveSettings = async () => {
       life: 3000
     })
   } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to save application settings',
-      life: 3000
-    })
+    showErrorToast(toast, 'Failed to save application settings', error)
   } finally {
     loading.value = false
   }
 }
-
-const loadSavedWidgets = async () => {
-  if (!APPLICATION_STATE.currentApplication?.id) {
-    savedWidgets.value = []
-    return
-  }
-
-  loadingWidgets.value = true
-  try {
-    const widgets = await widgetService.findByApplicationId(APPLICATION_STATE.currentApplication.id)
-    savedWidgets.value = widgets
-  } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to load saved widgets',
-      life: 3000
-    })
-  } finally {
-    loadingWidgets.value = false
-  }
-}
-
-const confirmDelete = (widgetId: string) => {
-  widgetToDelete.value = widgetId
-  showDeleteDialog.value = true
-}
-
-const deleteWidget = async () => {
-  if (!widgetToDelete.value) return
-
-  try {
-    await widgetService.deleteById(widgetToDelete.value)
-    savedWidgets.value = savedWidgets.value.filter(w => w.id !== widgetToDelete.value)
-    
-    toast.add({
-      severity: 'success',
-      summary: 'Success',
-      detail: 'Widget deleted successfully',
-      life: 3000
-    })
-  } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to delete widget',
-      life: 3000
-    })
-  } finally {
-    showDeleteDialog.value = false
-    widgetToDelete.value = null
-  }
-}
-
-watch(activeTab, (newTab) => {
-  if (newTab === 1) {
-    loadSavedWidgets()
-  }
-})
-
-watch(() => APPLICATION_STATE.currentApplication, () => {
-  if (activeTab.value === 1) {
-    loadSavedWidgets()
-  }
-})
-
-const filteredWidgets = computed(() => {
-  if (!widgetSearchText.value) return savedWidgets.value
-  
-  const searchLower = widgetSearchText.value.toLowerCase()
-  return savedWidgets.value.filter(widget => {
-    const name = (widget as any).name?.toLowerCase() || ''
-    const description = (widget as any).description?.toLowerCase() || ''
-    const widgetType = (widget as any).widgetType?.toLowerCase() || ''
-      
-    try {
-      const config = JSON.parse((widget as any).config || '{}')
-      const aiTitle = config.aiTitle?.toLowerCase() || ''
-      const aiSubtitle = config.aiSubtitle?.toLowerCase() || ''
-      
-      return name.includes(searchLower) || 
-             description.includes(searchLower) || 
-             widgetType.includes(searchLower) ||
-             aiTitle.includes(searchLower) ||
-             aiSubtitle.includes(searchLower)
-    } catch {
-      return name.includes(searchLower) || 
-             description.includes(searchLower) || 
-             widgetType.includes(searchLower)
-    }
-  })
-})
 </script>
 
 <style scoped>
@@ -406,57 +194,6 @@ const filteredWidgets = computed(() => {
   display: flex;
   justify-content: flex-start;
   padding-top: 1.5rem;
-}
-
-.application-settings--dark :deep(.p-tablist) {
-  border-bottom: 1px solid #525252;
-  background: transparent;
-}
-
-.application-settings--light :deep(.p-tablist) {
-  border-bottom: 1px solid #e6e7eb;
-  background: transparent;
-}
-
-.application-settings :deep(.p-tablist-tab-list) {
-  background: transparent;
-}
-
-.application-settings--dark :deep(.p-tab) {
-  min-height: 47px;
-  padding: 14px 15px;
-  color: #a3a3a3;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  font-size: 0.875rem;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.application-settings--light :deep(.p-tab) {
-  min-height: 47px;
-  padding: 14px 15px;
-  color: #71717a;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  font-size: 0.875rem;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.application-settings :deep(.p-tab-active) {
-  color: #ffffff;
-}
-
-.application-settings--light :deep(.p-tab-active) {
-  color: #101010;
-}
-
-.application-settings :deep(.p-tablist-active-bar) {
-  height: 2px;
-  background: var(--p-primary-500);
 }
 
 .application-settings--dark :deep(.p-inputtext),

@@ -40,8 +40,9 @@
   </AuthPageShell>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-facing-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import { useToast } from 'primevue/usetoast'
@@ -51,108 +52,100 @@ import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 import SetPasswordFields from '@/components/auth/SetPasswordFields.vue'
 import { apiUrl } from '@/util/helpers'
 import { CONTINUUM_UI } from '@/IContinuumUI'
-import { StructuresStates } from '@/states/index'
+import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
 
-@Component({
-  components: {
-    AuthPageShell,
-    SetPasswordFields,
-    Button,
-    InputText,
+const toast = useToast()
+const userState: IUserState = KinoticStates.getUserState()
+const route = useRoute()
+
+const request = ref<SignUpCompleteRequest>({
+  token: '',
+  orgName: '',
+  password: '',
+})
+const confirmPassword = ref('')
+const loading = ref(false)
+
+const passwordFields = ref<InstanceType<typeof SetPasswordFields>>()
+
+const canSubmit = computed<boolean>(() => {
+  return !!request.value.orgName
+      && !!request.value.password
+      && !!confirmPassword.value
+      && request.value.password === confirmPassword.value
+})
+
+onMounted(() => {
+  request.value.token = (route.query.token as string) || ''
+  if (!request.value.token) {
+    displayAlert('No verification token provided.')
   }
 })
-export default class VerifyEmail extends Vue {
-  private toast = useToast()
-  private userState: IUserState = StructuresStates.getUserState()
 
-  get canSubmit(): boolean {
-    return !!this.request.orgName
-        && !!this.request.password
-        && !!this.confirmPassword
-        && this.request.password === this.confirmPassword
+function focusPassword() {
+  passwordFields.value?.focus()
+}
+
+async function handleSubmit() {
+  if (!request.value.token) {
+    displayAlert('No verification token provided.')
+    return
+  }
+  request.value.orgName = request.value.orgName.trim()
+  if (!request.value.orgName) {
+    displayAlert('Organization name is required')
+    return
+  }
+  if (!request.value.password) {
+    displayAlert('Password is required')
+    return
+  }
+  if (request.value.password !== confirmPassword.value) {
+    displayAlert('Passwords do not match')
+    return
   }
 
-  request: SignUpCompleteRequest = {
-    token: '',
-    orgName: '',
-    password: '',
-  }
-  confirmPassword = ''
-  loading = false
-
-  mounted() {
-    this.request.token = (this.$route.query.token as string) || ''
-    if (!this.request.token) {
-      this.displayAlert('No verification token provided.')
-    }
-  }
-
-  private focusPassword() {
-    const fields = this.$refs.passwordFields as InstanceType<typeof SetPasswordFields> | undefined
-    fields?.focus()
-  }
-
-  async handleSubmit() {
-    if (!this.request.token) {
-      this.displayAlert('No verification token provided.')
-      return
-    }
-    this.request.orgName = this.request.orgName.trim()
-    if (!this.request.orgName) {
-      this.displayAlert('Organization name is required')
-      return
-    }
-    if (!this.request.password) {
-      this.displayAlert('Password is required')
-      return
-    }
-    if (this.request.password !== this.confirmPassword) {
-      this.displayAlert('Passwords do not match')
-      return
-    }
-
-    this.loading = true
-    try {
-      const response = await fetch(apiUrl('/api/auth/org/signup/complete'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(this.request),
-      })
-
-      if (!response.ok) {
-        this.displayAlert(await this.readError(response, 'Account creation failed'))
-        return
-      }
-
-      // The org, admin user, and browser session are created; connect with it and go to the app.
-      await this.userState.login()
-      await CONTINUUM_UI.navigate('/applications')
-    } catch (error: unknown) {
-      this.displayAlert(error instanceof Error ? error.message : 'Account creation failed')
-    } finally {
-      this.loading = false
-    }
-  }
-
-  private async readError(res: Response, fallback: string): Promise<string> {
-    try {
-      const body = await res.json()
-      return body?.error ?? fallback
-    } catch {
-      return fallback
-    }
-  }
-
-  private displayAlert(text: string) {
-    this.toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: text,
-      life: 10000
+  loading.value = true
+  try {
+    const response = await fetch(apiUrl('/api/auth/org/signup/complete'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(request.value),
     })
+
+    if (!response.ok) {
+      displayAlert(await readError(response, 'Account creation failed'))
+      return
+    }
+
+    // The org, admin user, and browser session are created; connect with it and go to the app.
+    await userState.login()
+    await CONTINUUM_UI.navigate('/applications')
+  } catch (error: unknown) {
+    displayAlert(error instanceof Error ? error.message : 'Account creation failed')
+  } finally {
+    loading.value = false
   }
+}
+
+async function readError(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json()
+    return body?.error ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+function displayAlert(text: string) {
+  toast.add({
+    severity: 'error',
+    summary: 'Error',
+    detail: text,
+    life: 10000
+  })
 }
 </script>
 

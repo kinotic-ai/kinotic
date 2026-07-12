@@ -84,8 +84,9 @@
   </AuthPageShell>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { nextTick, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
 import Button from 'primevue/button'
@@ -93,7 +94,7 @@ import IconField from 'primevue/iconfield'
 import { useToast } from 'primevue/usetoast'
 
 import { CONTINUUM_UI } from '@/IContinuumUI'
-import { StructuresStates } from '@/states'
+import { KinoticStates } from '@/states'
 import { type IUserState } from '@/states/IUserState'
 import { createDebug } from '@/util/debug'
 import { apiUrl } from '@/util/helpers'
@@ -109,165 +110,164 @@ interface LookupResponse {
   redirect?: string
 }
 
-@Component({
-  components: { AuthPageShell, InputText, Password, Button, IconField, SocialAuthButton }
+const email = ref<string>('')
+const password = ref<string>('')
+const step = ref<Step>('email')
+const loading = ref<boolean>(false)
+const providers = ref<string[]>([])
+
+const emailInput = ref<any>()
+const passwordInput = ref<any>()
+
+const toast = useToast()
+const userState: IUserState = KinoticStates.getUserState()
+
+const route = useRoute()
+const router = useRouter()
+
+onMounted(async () => {
+  consumeUrlError()
+  await loadProviders()
+  nextTick(() => focusEmailInput())
 })
-export default class Login extends Vue {
-  email: string = ''
-  password: string = ''
-  step: Step = 'email'
-  loading: boolean = false
-  providers: string[] = []
 
-  private toast = useToast()
-  private userState: IUserState = StructuresStates.getUserState()
+function consumeUrlError() {
+  const error = (route.query.error as string | undefined)
+      ?? new URLSearchParams(window.location.search).get('error')
+  if (!error) return
 
-  async mounted() {
-    this.consumeUrlError()
-    await this.loadProviders()
-    this.$nextTick(() => this.focusEmailInput())
+  displayError(errorCodeToMessage(error))
+
+  // Clean the query string so a refresh doesn't replay the error.
+  const newQuery = { ...route.query }
+  delete newQuery.error
+  router.replace({ query: newQuery })
+}
+
+function errorCodeToMessage(code: string): string {
+  switch (code) {
+    case 'no_account':       return 'No account is linked to that identity. Please sign up first.'
+    case 'account_exists':   return 'An account already exists for this identity. Please sign in instead.'
+    case 'email_not_verified': return 'Your identity provider has not verified your email address.'
+    case 'state_mismatch':   return 'Login session expired or was tampered with. Please try again.'
+    case 'access_denied':    return 'You declined to authorize Kinotic. Please try again to continue.'
+    case 'exchange_failed':
+    case 'provisioning_failed':
+    case 'lookup_failed':
+    case 'invalid_callback':
+    case 'invalid_token':    return 'Sign-in failed. Please try again.'
+    default:                 return `Sign-in failed: ${code}`
   }
+}
 
-  private consumeUrlError() {
-    const error = (this.$route.query.error as string | undefined)
-        ?? new URLSearchParams(window.location.search).get('error')
-    if (!error) return
-
-    this.displayError(this.errorCodeToMessage(error))
-
-    // Clean the query string so a refresh doesn't replay the error.
-    const newQuery = { ...this.$route.query }
-    delete newQuery.error
-    this.$router.replace({ query: newQuery })
-  }
-
-  private errorCodeToMessage(code: string): string {
-    switch (code) {
-      case 'no_account':       return 'No account is linked to that identity. Please sign up first.'
-      case 'account_exists':   return 'An account already exists for this identity. Please sign in instead.'
-      case 'email_not_verified': return 'Your identity provider has not verified your email address.'
-      case 'state_mismatch':   return 'Login session expired or was tampered with. Please try again.'
-      case 'access_denied':    return 'You declined to authorize Kinotic. Please try again to continue.'
-      case 'exchange_failed':
-      case 'provisioning_failed':
-      case 'lookup_failed':
-      case 'invalid_callback':
-      case 'invalid_token':    return 'Sign-in failed. Please try again.'
-      default:                 return `Sign-in failed: ${code}`
-    }
-  }
-
-  private async loadProviders() {
-    try {
-      const res = await fetch(apiUrl('/api/auth/org/login/providers'), { credentials: 'same-origin' })
-      if (!res.ok) {
-        debug('Provider list returned %d', res.status)
-        return
-      }
-      const data = await res.json()
-      if (Array.isArray(data)) this.providers = data
-    } catch (err) {
-      debug('Failed to load providers: %O', err)
-    }
-  }
-
-  async handleEmailSubmit() {
-    if (!this.email) {
-      this.displayError('Please enter an email address')
+async function loadProviders() {
+  try {
+    const res = await fetch(apiUrl('/api/auth/org/login/providers'), { credentials: 'same-origin' })
+    if (!res.ok) {
+      debug('Provider list returned %d', res.status)
       return
     }
-    this.loading = true
-    try {
-      const res = await fetch(apiUrl('/api/auth/org/login/lookup'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ email: this.email })
-      })
-      if (!res.ok) {
-        const message = await this.readError(res, 'Lookup failed')
-        this.displayError(message)
-        return
-      }
-      const data = await res.json() as LookupResponse
-      if (data.type === 'sso' && data.redirect) {
-        this.step = 'redirecting'
-        window.location.href = data.redirect
-        return
-      }
-      this.step = 'password'
-      this.$nextTick(() => this.focusPasswordInput())
-    } catch (err) {
-      debug('Email lookup failed: %O', err)
-      this.displayError('Could not contact the server')
-    } finally {
-      this.loading = false
-    }
+    const data = await res.json()
+    if (Array.isArray(data)) providers.value = data
+  } catch (err) {
+    debug('Failed to load providers: %O', err)
   }
+}
 
-  async handlePasswordSubmit() {
-    if (!this.password) {
-      this.displayError('Please enter your password')
+async function handleEmailSubmit() {
+  if (!email.value) {
+    displayError('Please enter an email address')
+    return
+  }
+  loading.value = true
+  try {
+    const res = await fetch(apiUrl('/api/auth/org/login/lookup'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ email: email.value })
+    })
+    if (!res.ok) {
+      const message = await readError(res, 'Lookup failed')
+      displayError(message)
       return
     }
-    this.loading = true
-    try {
-      // Verify the password; on success the gateway establishes the browser session and sets
-      // the session cookie. credentials:'include' so the cross-origin Set-Cookie is stored.
-      const res = await fetch(apiUrl('/api/auth/org/login'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email: this.email, password: this.password })
-      })
-      if (!res.ok) {
-        this.displayError(await this.readError(res, 'Invalid credentials'))
-        this.password = ''
-        return
-      }
-      // Open the realtime connection, authenticated by the freshly set session cookie.
-      await this.userState.login()
-      const referer = (this.$route.query.referer as string | undefined) || '/applications'
-      await CONTINUUM_UI.navigate(referer)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Invalid credentials'
-      this.displayError(message)
-      this.password = ''
-    } finally {
-      this.loading = false
+    const data = await res.json() as LookupResponse
+    if (data.type === 'sso' && data.redirect) {
+      step.value = 'redirecting'
+      window.location.href = data.redirect
+      return
     }
+    step.value = 'password'
+    nextTick(() => focusPasswordInput())
+  } catch (err) {
+    debug('Email lookup failed: %O', err)
+    displayError('Could not contact the server')
+  } finally {
+    loading.value = false
   }
+}
 
-  resetToEmail() {
-    this.password = ''
-    this.step = 'email'
-    this.$nextTick(() => this.focusEmailInput())
+async function handlePasswordSubmit() {
+  if (!password.value) {
+    displayError('Please enter your password')
+    return
   }
-
-  apiUrl(path: string): string { return apiUrl(path) }
-
-  private focusEmailInput() {
-    const ref = this.$refs.emailInput as any
-    ref?.$el?.focus?.() ?? ref?.focus?.()
-  }
-
-  private focusPasswordInput() {
-    const ref = this.$refs.passwordInput as any
-    const inner = ref?.$el?.querySelector('input[type="password"]') ?? ref?.$el?.querySelector('input')
-    inner?.focus?.()
-  }
-
-  private async readError(res: Response, fallback: string): Promise<string> {
-    try {
-      const body = await res.json()
-      return body?.error ?? fallback
-    } catch {
-      return fallback
+  loading.value = true
+  try {
+    // Verify the password; on success the gateway establishes the browser session and sets
+    // the session cookie. credentials:'include' so the cross-origin Set-Cookie is stored.
+    const res = await fetch(apiUrl('/api/auth/org/login'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email: email.value, password: password.value })
+    })
+    if (!res.ok) {
+      displayError(await readError(res, 'Invalid credentials'))
+      password.value = ''
+      return
     }
+    // Open the realtime connection, authenticated by the freshly set session cookie.
+    await userState.login()
+    const referer = (route.query.referer as string | undefined) || '/applications'
+    await CONTINUUM_UI.navigate(referer)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Invalid credentials'
+    displayError(message)
+    password.value = ''
+  } finally {
+    loading.value = false
   }
+}
 
-  private displayError(text: string) {
-    this.toast.add({ severity: 'error', summary: 'Error', detail: text, life: 10000 })
+function resetToEmail() {
+  password.value = ''
+  step.value = 'email'
+  nextTick(() => focusEmailInput())
+}
+
+function focusEmailInput() {
+  const input = emailInput.value
+  input?.$el?.focus?.() ?? input?.focus?.()
+}
+
+function focusPasswordInput() {
+  const input = passwordInput.value
+  const inner = input?.$el?.querySelector('input[type="password"]') ?? input?.$el?.querySelector('input')
+  inner?.focus?.()
+}
+
+async function readError(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json()
+    return body?.error ?? fallback
+  } catch {
+    return fallback
   }
+}
+
+function displayError(text: string) {
+  toast.add({ severity: 'error', summary: 'Error', detail: text, life: 10000 })
 }
 </script>

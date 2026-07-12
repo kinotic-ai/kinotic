@@ -12,10 +12,9 @@ import org.kinotic.persistence.internal.endpoints.openapi.OpenApiVertxRouterFact
 import org.springframework.stereotype.Component;
 
 /**
- * Creates all needed verticles at runtime so multiple instances can be used
+ * Creates all necessary verticles at runtime so multiple instances can be used
  * Created By navidmitchell 🤯on 3/6/24
  */
-@Component
 @RequiredArgsConstructor
 public class PersistenceVerticleFactory {
 

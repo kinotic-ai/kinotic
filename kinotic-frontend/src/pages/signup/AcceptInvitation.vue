@@ -72,8 +72,9 @@
   </AuthPageShell>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-facing-decorator'
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import { useToast } from 'primevue/usetoast'
@@ -82,7 +83,7 @@ import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 import SetPasswordFields from '@/components/auth/SetPasswordFields.vue'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
 import { CONTINUUM_UI } from '@/IContinuumUI'
-import { StructuresStates } from '@/states'
+import { KinoticStates } from '@/states'
 import { apiUrl } from '@/util/helpers'
 
 interface InviteProvider {
@@ -109,149 +110,148 @@ type Phase = 'loading' | 'ready' | 'appAccepted' | 'invalid'
  * here with `?accepted=app` (application members see a confirmation since this web app is
  * not their UI) or `?error=<code>` on failure.
  */
-@Component({
-  components: { AuthPageShell, SetPasswordFields, SocialAuthButton, Button, InputText }
+const phase = ref<Phase>('loading')
+const details = ref<InviteDetails>({ email: '', displayName: null, organizationName: null, applicationId: null, invitedByName: '', providers: [] })
+const displayName = ref('')
+const password = ref('')
+const confirmPassword = ref('')
+const accepting = ref(false)
+const acceptedApplicationId = ref('')
+const invalidMessage = ref('Open this page from the link in your invitation email, or ask to be invited again.')
+
+const token = ref('')
+const toast = useToast()
+const userState = KinoticStates.getUserState()
+
+const passwordFields = ref<InstanceType<typeof SetPasswordFields>>()
+
+const route = useRoute()
+const router = useRouter()
+
+const canSubmit = computed<boolean>(() => {
+  return !!password.value && !!confirmPassword.value && password.value === confirmPassword.value
 })
-export default class AcceptInvitation extends Vue {
-  phase: Phase = 'loading'
-  details: InviteDetails = { email: '', displayName: null, organizationName: null, applicationId: null, invitedByName: '', providers: [] }
-  displayName = ''
-  password = ''
-  confirmPassword = ''
-  accepting = false
-  acceptedApplicationId = ''
-  invalidMessage = 'Open this page from the link in your invitation email, or ask to be invited again.'
 
-  private token = ''
-  private toast = useToast()
-  private userState = StructuresStates.getUserState()
+onMounted(async () => {
+  const query = route.query
 
-  get canSubmit(): boolean {
-    return !!this.password && !!this.confirmPassword && this.password === this.confirmPassword
+  if (query.accepted === 'app') {
+    acceptedApplicationId.value = (query.application as string) || 'the application'
+    phase.value = 'appAccepted'
+    return
   }
 
-  async mounted() {
-    const query = this.$route.query
+  token.value = (query.token as string) || ''
+  const error = query.error as string | undefined
+  if (error) {
+    toast.add({ severity: 'error', summary: 'Error', detail: errorCodeToMessage(error), life: 10000 })
+    // Drop the error from the URL so a refresh doesn't replay it.
+    const newQuery = { ...query }
+    delete newQuery.error
+    router.replace({ query: newQuery })
+  }
 
-    if (query.accepted === 'app') {
-      this.acceptedApplicationId = (query.application as string) || 'the application'
-      this.phase = 'appAccepted'
+  if (!token.value) {
+    phase.value = 'invalid'
+    return
+  }
+  await loadDetails()
+})
+
+async function loadDetails() {
+  try {
+    const res = await fetch(apiUrl('/api/auth/invite/details?token=' + encodeURIComponent(token.value)), { credentials: 'include' })
+    if (!res.ok) {
+      invalidMessage.value = await readError(res, invalidMessage.value)
+      phase.value = 'invalid'
       return
     }
-
-    this.token = (query.token as string) || ''
-    const error = query.error as string | undefined
-    if (error) {
-      this.toast.add({ severity: 'error', summary: 'Error', detail: this.errorCodeToMessage(error), life: 10000 })
-      // Drop the error from the URL so a refresh doesn't replay it.
-      const newQuery = { ...query }
-      delete newQuery.error
-      this.$router.replace({ query: newQuery })
+    const data = await res.json()
+    details.value = {
+      email: data.email,
+      displayName: data.displayName ?? null,
+      organizationName: data.organizationName ?? null,
+      applicationId: data.applicationId ?? null,
+      invitedByName: data.invitedByName,
+      providers: Array.isArray(data.providers) ? data.providers : []
     }
-
-    if (!this.token) {
-      this.phase = 'invalid'
-      return
-    }
-    await this.loadDetails()
+    displayName.value = details.value.displayName ?? ''
+    phase.value = 'ready'
+  } catch {
+    invalidMessage.value = 'Could not contact the server. Please try the link again.'
+    phase.value = 'invalid'
   }
+}
 
-  private async loadDetails() {
-    try {
-      const res = await fetch(apiUrl('/api/auth/invite/details?token=' + encodeURIComponent(this.token)), { credentials: 'include' })
-      if (!res.ok) {
-        this.invalidMessage = await this.readError(res, this.invalidMessage)
-        this.phase = 'invalid'
-        return
-      }
-      const data = await res.json()
-      this.details = {
-        email: data.email,
-        displayName: data.displayName ?? null,
-        organizationName: data.organizationName ?? null,
-        applicationId: data.applicationId ?? null,
-        invitedByName: data.invitedByName,
-        providers: Array.isArray(data.providers) ? data.providers : []
-      }
-      this.displayName = this.details.displayName ?? ''
-      this.phase = 'ready'
-    } catch {
-      this.invalidMessage = 'Could not contact the server. Please try the link again.'
-      this.phase = 'invalid'
-    }
+function startUrl(configId: string): string {
+  // The token rides as a query param; the start route reads form attributes or params.
+  return apiUrl('/api/auth/invite/oidc/start/' + encodeURIComponent(configId) + '?token=' + encodeURIComponent(token.value))
+}
+
+function focusPassword() {
+  passwordFields.value?.focus()
+}
+
+async function handleAccept() {
+  if (!canSubmit.value) {
+    toast.add({ severity: 'error', summary: 'Error', detail: 'Enter a password and confirm it', life: 6000 })
+    return
   }
-
-  startUrl(configId: string): string {
-    // The token rides as a query param; the start route reads form attributes or params.
-    return apiUrl('/api/auth/invite/oidc/start/' + encodeURIComponent(configId) + '?token=' + encodeURIComponent(this.token))
-  }
-
-  focusPassword() {
-    const fields = this.$refs.passwordFields as InstanceType<typeof SetPasswordFields> | undefined
-    fields?.focus()
-  }
-
-  async handleAccept() {
-    if (!this.canSubmit) {
-      this.toast.add({ severity: 'error', summary: 'Error', detail: 'Enter a password and confirm it', life: 6000 })
-      return
-    }
-    this.accepting = true
-    try {
-      const res = await fetch(apiUrl('/api/auth/invite/accept'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          token: this.token,
-          password: this.password,
-          displayName: this.displayName.trim() || null
-        })
+  accepting.value = true
+  try {
+    const res = await fetch(apiUrl('/api/auth/invite/accept'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        token: token.value,
+        password: password.value,
+        displayName: displayName.value.trim() || null
       })
-      if (!res.ok) {
-        this.toast.add({ severity: 'error', summary: 'Error', detail: await this.readError(res, 'Failed to accept invitation'), life: 8000 })
-        return
-      }
-
-      if (res.status === 204) {
-        // Organization member — the session is established; open the realtime connection.
-        await this.userState.login()
-        await CONTINUUM_UI.navigate('/applications')
-        return
-      }
-      const data = await res.json()
-      this.acceptedApplicationId = data.applicationId || 'the application'
-      this.phase = 'appAccepted'
-    } catch (err) {
-      this.toast.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: err instanceof Error ? err.message : 'Failed to accept invitation',
-        life: 8000
-      })
-    } finally {
-      this.accepting = false
+    })
+    if (!res.ok) {
+      toast.add({ severity: 'error', summary: 'Error', detail: await readError(res, 'Failed to accept invitation'), life: 8000 })
+      return
     }
+
+    if (res.status === 204) {
+      // Organization member — the session is established; open the realtime connection.
+      await userState.login()
+      await CONTINUUM_UI.navigate('/applications')
+      return
+    }
+    const data = await res.json()
+    acceptedApplicationId.value = data.applicationId || 'the application'
+    phase.value = 'appAccepted'
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: err instanceof Error ? err.message : 'Failed to accept invitation',
+      life: 8000
+    })
+  } finally {
+    accepting.value = false
   }
+}
 
-  private errorCodeToMessage(code: string): string {
-    switch (code) {
-      case 'invite_invalid':     return 'This invitation is invalid, expired, or already used. Ask for a new invitation.'
-      case 'email_mismatch':     return "That account's email doesn't match the invited address. Sign in with the matching account, or set a password instead."
-      case 'email_not_verified': return 'Your identity provider has not verified your email address.'
-      case 'state_mismatch':     return 'The sign-in attempt expired or was tampered with. Please try again.'
-      case 'access_denied':      return 'You declined to authorize the sign-in. Please try again to continue.'
-      default:                   return 'Sign-in failed. Please try again or set a password instead.'
-    }
+function errorCodeToMessage(code: string): string {
+  switch (code) {
+    case 'invite_invalid':     return 'This invitation is invalid, expired, or already used. Ask for a new invitation.'
+    case 'email_mismatch':     return "That account's email doesn't match the invited address. Sign in with the matching account, or set a password instead."
+    case 'email_not_verified': return 'Your identity provider has not verified your email address.'
+    case 'state_mismatch':     return 'The sign-in attempt expired or was tampered with. Please try again.'
+    case 'access_denied':      return 'You declined to authorize the sign-in. Please try again to continue.'
+    default:                   return 'Sign-in failed. Please try again or set a password instead.'
   }
+}
 
-  private async readError(res: Response, fallback: string): Promise<string> {
-    try {
-      const body = await res.json()
-      return body?.error ?? fallback
-    } catch {
-      return fallback
-    }
+async function readError(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = await res.json()
+    return body?.error ?? fallback
+  } catch {
+    return fallback
   }
 }
 </script>

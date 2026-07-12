@@ -69,7 +69,22 @@ const pageRoutes: RouteRecordRaw[] = [
   organizationPlaceholderRoute('/roles-permissions', 'organization-roles', 'Roles & permissions', 'Define roles and control access across your organization.', 'pi-shield', 30),
   organizationPlaceholderRoute('/authentication-providers', 'organization-auth-providers', 'Authentication providers', 'Configure the identity providers available to this organization.', 'pi-key', 40),
   organizationPlaceholderRoute('/identity-mapping', 'organization-identity-mapping', 'Identity mapping', 'Map external identities to your organization users and roles.', 'pi-sort-alt', 50),
-  organizationPlaceholderRoute('/organization-settings', 'organization-settings', 'Organization settings', 'Update organization-wide settings and preferences.', 'pi-cog', 60),
+  {
+    path: '/organization-settings',
+    component: () => import('@/layouts/LayoutForPage.vue'),
+    meta: {
+      showInMainNav: false,
+      label: 'Organization settings',
+      sidebar: organizationSidebarItem('Organization settings', 'pi-cog', 60)
+    } as RouteMeta,
+    children: [
+      {
+        name: 'organization-settings',
+        path: '',
+        component: () => import('@/pages/OrganizationSettings.vue')
+      }
+    ]
+  },
   organizationPlaceholderRoute('/billing-plan', 'organization-billing-plan', 'Billing & plan', 'Review subscription, billing, and usage details for this organization.', 'pi-credit-card', 70),
 
   {
@@ -79,8 +94,8 @@ const pageRoutes: RouteRecordRaw[] = [
       showInMainNav: false,
       label: 'Application Details',
       icon: 'microchip.svg',
-      // Children declare their own sidebar items; detail routes without one (dashboard
-      // view/edit) still render this group's sidebar.
+      // Children declare their own sidebar items; any without one still render
+      // this group's sidebar.
       sidebarGroup: 'application'
     }  as RouteMeta,
     children: [
@@ -91,67 +106,6 @@ const pageRoutes: RouteRecordRaw[] = [
           sidebar: { group: 'application', label: 'Overview', icon: 'pi-objects-column', order: 10 } as SidebarItemMeta
         } as RouteMeta,
         component: () => import('@/pages/ApplicationDetails.vue'),
-        props: (route) => ({ applicationId: route.params.applicationId })
-      },
-      {
-        name: 'application-dashboards',
-        path: 'dashboards',
-        meta: {
-          sidebar: { group: 'application', label: 'Dashboards', icon: 'pi pi-chart-line', order: 20 } as SidebarItemMeta
-        } as RouteMeta,
-        component: () => import('@/pages/Dashboards.vue'),
-        props: (route) => ({ applicationId: route.params.applicationId })
-      },
-      {
-        name: 'dashboard-view',
-        path: 'dashboards/:dashboardId',
-        meta: { fullWidth: true } as RouteMeta,
-        component: () => import('@/pages/DashboardDetails.vue'),
-        props: (route) => ({ 
-          applicationId: route.params.applicationId,
-          dashboardId: route.params.dashboardId,
-          mode: 'view'
-        })
-      },
-      {
-        name: 'dashboard-edit',
-        path: 'dashboards/:dashboardId/edit',
-        meta: { fullWidth: true } as RouteMeta,
-        component: () => import('@/pages/DashboardDetails.vue'),
-        props: (route) => ({ 
-          applicationId: route.params.applicationId,
-          dashboardId: route.params.dashboardId,
-          mode: 'edit'
-        })
-      },
-      {
-        name: 'dashboard-new',
-        path: 'dashboards/new',
-        meta: { fullWidth: true } as RouteMeta,
-        component: () => import('@/pages/DashboardDetails.vue'),
-        props: (route) => ({ 
-          applicationId: route.params.applicationId,
-          dashboardId: 'new',
-          mode: 'edit'
-        })
-      },
-      {
-        name: 'application-data-insights',
-        path: 'data-insights',
-        meta: {
-          fullWidth: true,
-          sidebar: { group: 'application', label: 'Data Insights', icon: 'pi pi-lightbulb', order: 30 } as SidebarItemMeta
-        } as RouteMeta,
-        component: () => import('@/pages/DataInsights.vue'),
-        props: (route) => ({ applicationId: route.params.applicationId })
-      },
-      {
-        name: 'application-saved-widgets',
-        path: 'saved-widgets',
-        meta: {
-          sidebar: { group: 'application', label: 'Data Insights Widgets', icon: 'pi pi-bookmark', order: 40 } as SidebarItemMeta
-        } as RouteMeta,
-        component: () => import('@/pages/SavedWidgets.vue'),
         props: (route) => ({ applicationId: route.params.applicationId })
       },
       {
@@ -193,8 +147,8 @@ const pageRoutes: RouteRecordRaw[] = [
     } as RouteMeta,
   },
   {
-    path: '/application/:applicationId/project/:projectId/structures',
-    name: 'project-structures-wrapper',
+    path: '/application/:applicationId/project/:projectId/entity-definitions',
+    name: 'project-entity-definitions-wrapper',
     component: () => import('@/layouts/LayoutForPage.vue'),
     meta: {
       showInMainNav: false,
@@ -204,12 +158,12 @@ const pageRoutes: RouteRecordRaw[] = [
     } as RouteMeta,
     children: [
       {
-        name: 'project-structures',
+        name: 'project-entity-definitions',
         path: '',
         meta: {
           sidebar: { group: 'project', label: 'Entities', icon: 'pi pi-table', order: 10 } as SidebarItemMeta
         } as RouteMeta,
-        component: () => import('@/pages/ProjectStructuresPage.vue'),
+        component: () => import('@/pages/ProjectEntityDefinitionsPage.vue'),
         props: (route) => ({
           applicationId: route.params.applicationId,
           projectId: route.params.projectId,
@@ -218,36 +172,12 @@ const pageRoutes: RouteRecordRaw[] = [
     ],
   },
   {
-    path: '/application-add',
-    component: () => import('@/pages/ApplicationAddEdit.vue'),
-    meta: {
-      showInMainNav: false,
-      icon: 'settings.svg',
-      label: 'Add Application',
-    } as RouteMeta,
-  },
-  {
-    path: '/new-structure',
-    component: () => import('@/pages/NewStructure.vue'),
+    path: '/new-entity-definition',
+    component: () => import('@/pages/NewEntityDefinition.vue'),
     meta: {
       showInMainNav: false,
       label: 'New Entity',
     } as RouteMeta,
-  },
-  {
-    path: '/users',
-    component: () => import('@/layouts/MainLayout.vue'),
-    meta: {
-      showInMainNav: true,
-      icon: 'icon-man.svg',
-      label: 'Users',
-    } as RouteMeta,
-    children: [
-      {
-        path: '',
-        component: () => import('@/pages/Users.vue'),
-      },
-    ]
   },
   {
     path: '/settings',
@@ -322,31 +252,14 @@ const pageRoutes: RouteRecordRaw[] = [
     ]
   },
   {
-    path: '/integrations/github',
-    component: () => import('@/layouts/MainLayout.vue'),
-    meta: {
-      showInMainNav: false,
-      icon: 'settings.svg',
-      label: 'GitHub',
-    } as RouteMeta,
-    children: [
-      {
-        name: 'github-integration',
-        path: '',
-        component: () => import('@/pages/GitHubIntegrationSettings.vue'),
-      }
-    ]
-  },
-  {
     name: 'github-install-callback',
     path: '/github/install/callback',
     component: () => import('@/pages/GitHubInstallCallback.vue'),
     meta: {
       showInMainNav: false,
-      // Popup-mode callback runs in a fresh window with no STOMP connection;
-      // it just postMessages installation_id + state back to the opener and
-      // closes itself. No platform call, no auth needed.
-      authenticationRequired: false,
+      // Runs completeInstall against the platform, so the session must be present;
+      // an unauthenticated hit bounces through /login and returns here via referer.
+      authenticationRequired: true,
     } as RouteMeta,
   },
 ];

@@ -1,3 +1,4 @@
+import { OS_API_ZONE } from '@/api/PlatformZones'
 import type { IKinotic } from '@kinotic-ai/core'
 import { CrudServiceProxy, type ICrudServiceProxy } from '@kinotic-ai/core'
 import type { NamedQueriesDefinition } from '@/api/model/NamedQueriesDefinition'
@@ -15,7 +16,7 @@ export interface INamedQueriesDefinitionService extends ICrudServiceProxy<NamedQ
 export class NamedQueriesDefinitionService extends CrudServiceProxy<NamedQueriesDefinition> implements INamedQueriesDefinitionService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy('org.kinotic.persistence.api.services.NamedQueriesDefinitionService'))
+        super(kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.persistence.api.services.NamedQueriesDefinitionService`))
     }
 
     public syncIndex(): Promise<void> {

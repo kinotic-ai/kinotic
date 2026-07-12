@@ -40,6 +40,11 @@ export async function setup(project: TestProject) {
 
 // Run once after all tests
 export async function teardown() {
+    // container is only assigned when USE_GATEWAY_DOCKER started one; without the guard a
+    // non-docker run fails in teardown and the suite exits 1 even when every test passed.
+    if (!container) {
+        return
+    }
     console.log('Shutting down Kinotic Gateway...')
     await container.stop()
     console.log('Kinotic Gateway shut down.')

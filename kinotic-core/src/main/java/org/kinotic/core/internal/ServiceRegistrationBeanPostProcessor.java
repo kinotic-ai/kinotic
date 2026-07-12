@@ -105,7 +105,12 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                                 throw new FatalBeanException("Version must be specified on the Published interface " + inter.getName() + " or an ancestor package.");
                             }
 
-                            ServiceIdentifier serviceIdentifier = new ServiceIdentifier(namespace,
+                            // A service is addressable in its declared zone; with no declaration
+                            // it registers a single un-zoned address, whose reachability is
+                            // whatever the gateway's routing rules allow
+                            String zone = MetaUtil.getZone(inter);
+                            ServiceIdentifier serviceIdentifier = new ServiceIdentifier(zone,
+                                                                                        namespace,
                                                                                         name,
                                                                                         scope,
                                                                                         version);

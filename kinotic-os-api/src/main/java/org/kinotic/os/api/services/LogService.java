@@ -8,25 +8,26 @@ import reactor.core.publisher.Flux;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Streams and queries container logs stored in Loki, scoped to the authenticated participant's organization.
+ * Streams and queries the logs of workloads the authenticated participant may view: an
+ * organization participant sees its own organization's workloads, a system participant sees any.
  * Both methods return the raw Loki response bytes; the caller parses Loki's wire format.
  */
 @Publish
 public interface LogService {
 
     /**
-     * Opens a live tail of logs matching the given LogQL query. Each emitted element is a raw Loki tail
+     * Opens a live tail of the given workload's logs. Each emitted element is a raw Loki tail
      * frame, and the stream stays open until the caller unsubscribes.
      *
-     * @param query the LogQL query selecting the log streams to follow
+     * @param workloadId the id of the workload to follow
      * @return a {@link Flux} emitting raw Loki tail frames
      */
-    Flux<Buffer> tail(String query);
+    Flux<Buffer> tail(String workloadId);
 
     /**
-     * Returns historical logs for the given query and time range.
+     * Returns a workload's historical logs for the given time range.
      *
-     * @param query the {@link LogQuery} describing the LogQL selector, time range, and limit
+     * @param query the {@link LogQuery} naming the workload, time range, and limit
      * @return a {@link CompletableFuture} emitting the raw Loki {@code query_range} response
      */
     CompletableFuture<Buffer> history(LogQuery query);

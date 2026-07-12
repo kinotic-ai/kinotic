@@ -64,16 +64,16 @@ public class PersistenceInitializer {
                                       }
                                   }));
     }
-
-    @EventListener
-    public void onApplicationReadyEvent(ApplicationReadyEvent event) {
-        log.info("Rest API listening on port {}", properties.getOpenApiPort());
-        log.info("OpenApi Json available at http://localhost:{}/api-docs/[KINOTIC APPLICATION]/openapi.json",
-                 properties.getOpenApiPort());
-        log.info("GraphQL listening on port {}", properties.getGraphqlPort());
-        log.info("GraphQL available at http://localhost:{}{}[KINOTIC APPLICATION]/",
-                 properties.getGraphqlPort(),
-                 properties.getGraphqlPath());
-    }
+//
+//    @EventListener
+//    public void onApplicationReadyEvent(ApplicationReadyEvent event) {
+//        log.info("Rest API listening on port {}", properties.getOpenApiPort());
+//        log.info("OpenApi Json available at http://localhost:{}/api-docs/[KINOTIC APPLICATION]/openapi.json",
+//                 properties.getOpenApiPort());
+//        log.info("GraphQL listening on port {}", properties.getGraphqlPort());
+//        log.info("GraphQL available at http://localhost:{}{}[KINOTIC APPLICATION]/",
+//                 properties.getGraphqlPort(),
+//                 properties.getGraphqlPath());
+//    }
 
 }
