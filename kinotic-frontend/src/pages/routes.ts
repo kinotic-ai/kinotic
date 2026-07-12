@@ -79,8 +79,8 @@ const pageRoutes: RouteRecordRaw[] = [
       showInMainNav: false,
       label: 'Application Details',
       icon: 'microchip.svg',
-      // Children declare their own sidebar items; detail routes without one (dashboard
-      // view/edit) still render this group's sidebar.
+      // Children declare their own sidebar items; any without one still render
+      // this group's sidebar.
       sidebarGroup: 'application'
     }  as RouteMeta,
     children: [
@@ -92,48 +92,6 @@ const pageRoutes: RouteRecordRaw[] = [
         } as RouteMeta,
         component: () => import('@/pages/ApplicationDetails.vue'),
         props: (route) => ({ applicationId: route.params.applicationId })
-      },
-      {
-        name: 'application-dashboards',
-        path: 'dashboards',
-        meta: {
-          sidebar: { group: 'application', label: 'Dashboards', icon: 'pi pi-chart-line', order: 20 } as SidebarItemMeta
-        } as RouteMeta,
-        component: () => import('@/pages/Dashboards.vue'),
-        props: (route) => ({ applicationId: route.params.applicationId })
-      },
-      {
-        name: 'dashboard-view',
-        path: 'dashboards/:dashboardId',
-        meta: { fullWidth: true } as RouteMeta,
-        component: () => import('@/pages/DashboardDetails.vue'),
-        props: (route) => ({ 
-          applicationId: route.params.applicationId,
-          dashboardId: route.params.dashboardId,
-          mode: 'view'
-        })
-      },
-      {
-        name: 'dashboard-edit',
-        path: 'dashboards/:dashboardId/edit',
-        meta: { fullWidth: true } as RouteMeta,
-        component: () => import('@/pages/DashboardDetails.vue'),
-        props: (route) => ({ 
-          applicationId: route.params.applicationId,
-          dashboardId: route.params.dashboardId,
-          mode: 'edit'
-        })
-      },
-      {
-        name: 'dashboard-new',
-        path: 'dashboards/new',
-        meta: { fullWidth: true } as RouteMeta,
-        component: () => import('@/pages/DashboardDetails.vue'),
-        props: (route) => ({ 
-          applicationId: route.params.applicationId,
-          dashboardId: 'new',
-          mode: 'edit'
-        })
       },
       {
         name: 'application-members',
