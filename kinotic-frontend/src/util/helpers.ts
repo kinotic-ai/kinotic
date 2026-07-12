@@ -43,14 +43,6 @@ export function apiUrl(path: string): string {
 }
 
 /**
- * Extracts a human-readable message from a caught error, falling back to the
- * given text when the value is not an Error or carries no message.
- */
-function errorMessage(err: unknown, fallback: string): string {
-    return err instanceof Error && err.message ? err.message : fallback
-}
-
-/**
  * Shows an error toast whose summary names the failed operation and whose detail is the
  * caught error's message. Falls back to {@link opts.fallback} (default "An unexpected error
  * occurred") when the value is not an Error or carries no message.
@@ -67,7 +59,7 @@ export function showErrorToast(toast: ToastServiceMethods,
     toast.add({
         severity: 'error',
         summary,
-        detail: errorMessage(err, opts.fallback ?? 'An unexpected error occurred'),
+        detail: err instanceof Error && err.message ? err.message : (opts.fallback ?? 'An unexpected error occurred'),
         life: opts.life ?? 5000
     })
 }
