@@ -25,6 +25,7 @@ declare module 'vue' {
     EntityTableToolbar: typeof import('./src/components/entity-list/EntityTableToolbar.vue')['default']
     EnumNode: typeof import('./src/components/nodes/EnumNode.vue')['default']
     ERTable: typeof import('./src/components/modals/ERTable.vue')['default']
+    GitHubLinkStatus: typeof import('./src/components/GitHubLinkStatus.vue')['default']
     Glitch: typeof import('./src/components/Glitch.vue')['default']
     GlobalObjectNode: typeof import('./src/components/nodes/GlobalObjectNode.vue')['default']
     IconField: typeof import('primevue/iconfield')['default']
