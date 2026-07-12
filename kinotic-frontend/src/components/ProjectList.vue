@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { errorMessage } from '@/util/helpers'
+import { showErrorToast } from '@/util/helpers'
 import { useToast } from 'primevue/usetoast'
 import CrudTable from '@/components/CrudTable.vue'
 import NewProjectSidebar from '@/components/NewProjectSidebar.vue'
@@ -123,12 +123,7 @@ async function onProjectSubmit(): Promise<void> {
     refreshTable()
   } catch (error) {
     debug('Refresh after project creation failed: %O', error)
-    toast.add({
-      severity: 'error',
-      summary: 'Failed to refresh project list',
-      detail: errorMessage(error, 'An unexpected error occurred'),
-      life: 3000
-    })
+    showErrorToast(toast, 'Failed to refresh project list', error)
   } finally {
     showProjectSidebar.value = false
   }
@@ -179,12 +174,7 @@ async function retryRepoInit(project: Project): Promise<void> {
     refreshTable()
   } catch (error) {
     debug('Retry repo initialization failed for %s: %O', project.id, error)
-    toast.add({
-      severity: 'error',
-      summary: 'Retry failed',
-      detail: errorMessage(error, `Repository initialization failed again for ${project.name}.`),
-      life: 5000
-    })
+    showErrorToast(toast, 'Retry failed', error, { fallback: `Repository initialization failed again for ${project.name}.` })
   } finally {
     retryingIds.value = retryingIds.value.filter(id => id !== project.id)
   }

@@ -2,6 +2,7 @@
 import { onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
+import { showErrorToast } from '@/util/helpers';
 import { Kinotic } from '@kinotic-ai/core';
 import { Project, ProjectType } from '@kinotic-ai/os-api';
 import { APPLICATION_STATE } from '@/states/IApplicationState';
@@ -112,12 +113,7 @@ async function handleSubmit(): Promise<void> {
         if (message.includes('GitHub is not linked')) {
             githubLinked.value = false;
         } else {
-            toast.add({
-                severity: 'error',
-                summary: 'Failed to create project',
-                detail: message || 'An unexpected error occurred',
-                life: 3000
-            });
+            showErrorToast(toast, 'Failed to create project', error);
         }
     } finally {
         loading.value = false;

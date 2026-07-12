@@ -155,7 +155,7 @@
 <script setup lang="ts">
 // @ts-ignore
 import { ref, defineProps, onMounted, watch, computed } from 'vue'
-import { errorMessage } from '@/util/helpers'
+import { showErrorToast } from '@/util/helpers'
 import { InputText, Textarea, Button, Tabs, TabList, Tab, TabPanels, TabPanel, Dialog, IconField, InputIcon, ToggleSwitch } from 'primevue'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
@@ -236,12 +236,7 @@ const saveSettings = async () => {
       life: 3000
     })
   } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Failed to save application settings',
-      detail: errorMessage(error, 'An unexpected error occurred'),
-      life: 3000
-    })
+    showErrorToast(toast, 'Failed to save application settings', error)
   } finally {
     loading.value = false
   }
@@ -258,12 +253,7 @@ const loadSavedWidgets = async () => {
     const widgets = await widgetService.findByApplicationId(APPLICATION_STATE.currentApplication.id)
     savedWidgets.value = widgets
   } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Failed to load saved widgets',
-      detail: errorMessage(error, 'An unexpected error occurred'),
-      life: 3000
-    })
+    showErrorToast(toast, 'Failed to load saved widgets', error)
   } finally {
     loadingWidgets.value = false
   }
@@ -288,12 +278,7 @@ const deleteWidget = async () => {
       life: 3000
     })
   } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Failed to delete widget',
-      detail: errorMessage(error, 'An unexpected error occurred'),
-      life: 3000
-    })
+    showErrorToast(toast, 'Failed to delete widget', error)
   } finally {
     showDeleteDialog.value = false
     widgetToDelete.value = null

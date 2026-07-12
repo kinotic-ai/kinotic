@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { errorMessage } from '@/util/helpers'
+import { showErrorToast } from '@/util/helpers'
 import { GridStack } from 'gridstack'
 import 'gridstack/dist/gridstack.min.css'
 import { DashboardEntityRepository } from '@/services/DashboardEntityRepository'
@@ -817,12 +817,7 @@ const createDashboard = async () => {
       router.push(`/application/${props.applicationId}/dashboards/${savedDashboard.id}`)
     }, 500)
   } catch (error: any) {
-    toast.add({ 
-      severity: 'error', 
-      summary: 'Failed to create dashboard',
-      detail: errorMessage(error, 'An unexpected error occurred'),
-      life: 3000
-    })
+    showErrorToast(toast, 'Failed to create dashboard', error)
   }
 }
 
@@ -861,7 +856,7 @@ const updateDashboard = async () => {
       router.push(`/application/${props.applicationId}/dashboards/${props.dashboardId}`)
     }, 500)
   } catch (error) {
-    toast.add({ severity: 'error', summary: 'Failed to update dashboard', detail: errorMessage(error, 'An unexpected error occurred'), life: 3000 })
+    showErrorToast(toast, 'Failed to update dashboard', error)
   }
 }
 
