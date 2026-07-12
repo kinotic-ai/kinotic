@@ -1,6 +1,6 @@
 import {C3Decorator, PropertyDefinition} from '@kinotic-ai/idl'
 
-export class StructureUtil {
+export class EntityDefinitionUtil {
     public static hasDecorator(decoratorName: string, decorators: C3Decorator[] | undefined): boolean {
         let hasDecorator: boolean = false
         if(decorators !== undefined && decorators.length > 0){

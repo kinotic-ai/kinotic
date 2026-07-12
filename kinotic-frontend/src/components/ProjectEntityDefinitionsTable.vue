@@ -2,8 +2,8 @@
 import { ref, computed, watch, onMounted, getCurrentInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import CrudTable from '@/components/CrudTable.vue'
-import StructureItemModal from '@/components/modals/StructureItemModal.vue'
-import StructureDataViewModal from '@/components/modals/StructureDataViewModal.vue'
+import EntityDefinitionItemModal from '@/components/modals/EntityDefinitionItemModal.vue'
+import EntityDataViewModal from '@/components/modals/EntityDataViewModal.vue'
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
 import { Kinotic } from '@kinotic-ai/core'
@@ -14,17 +14,17 @@ import type { Identifiable, IterablePage, Pageable } from '@kinotic-ai/core'
 import DatetimeUtil from "@/util/DatetimeUtil"
 import { createDebug } from '@/util/debug'
 
-const debug = createDebug('project-structures-table');
+const debug = createDebug('project-entity-definitions-table');
 
 const props = withDefaults(defineProps<{
   // Optional: ProjectList renders this table without an applicationId and the
   // table falls back to route params for its project scope.
   applicationId?: string
-  showNewStructureButton?: boolean
-  newStructureButtonText?: string
+  showNewEntityDefinitionButton?: boolean
+  newEntityDefinitionButtonText?: string
 }>(), {
-  showNewStructureButton: false,
-  newStructureButtonText: "New Entity",
+  showNewEntityDefinitionButton: false,
+  newEntityDefinitionButtonText: "New Entity",
 })
 
 const route = useRoute()
@@ -35,7 +35,7 @@ const crudTable = ref<InstanceType<typeof CrudTable>>()
 
 const projectId = computed<string>(() => route.params.projectId as string)
 
-const structureTableHeaders: CrudHeader[] = [
+const entityDefinitionTableHeaders: CrudHeader[] = [
   { field: 'name', header: 'Entity Name', sortable: true },
   { field: 'description', header: 'Description', sortable: false },
   { field: 'created', header: 'Created', sortable: false },
@@ -48,7 +48,7 @@ const showModal = ref(false)
 const showItemModal = ref(false)
 const showPublishModal = ref(false)
 const showUnpublishModal = ref(false)
-const selectedStructure = ref<EntityDefinition | null>(null)
+const selectedEntityDefinition = ref<EntityDefinition | null>(null)
 const isInitialized = ref(false)
 const actionMenus = ref<any[]>([])
 const currentActionItem = ref<EntityDefinition | null>(null)
@@ -79,24 +79,24 @@ watch(() => props.applicationId, (newApplicationId, oldApplicationId) => {
   markProjectAsActive()
 }, { immediate: true })
 
-const isProjectStructuresPage = computed<boolean>(() => {
-  return /^\/application\/[^/]+\/project\/[^/]+\/structures$/.test(route.path)
+const isProjectEntityDefinitionsPage = computed<boolean>(() => {
+  return /^\/application\/[^/]+\/project\/[^/]+\/entity-definitions$/.test(route.path)
 })
 
 watch(() => APPLICATION_STATE.currentApplication, async (newApp: any, oldApp: any) => {
   debug('APPLICATION_STATE.currentApplication changed from %s to %s', oldApp?.id, newApp?.id)
 
-  if (isProjectStructuresPage.value && newApp && newApp.id !== oldApp?.id) {
-    await handleApplicationChangeForProjectStructures(newApp)
+  if (isProjectEntityDefinitionsPage.value && newApp && newApp.id !== oldApp?.id) {
+    await handleApplicationChangeForProjectEntityDefinitions(newApp)
   } else {
     refreshTable()
     markProjectAsActive()
   }
 }, { immediate: true })
 
-async function handleApplicationChangeForProjectStructures(newApp: any) {
+async function handleApplicationChangeForProjectEntityDefinitions(newApp: any) {
   try {
-    debug('Handling application change for ProjectStructures page')
+    debug('Handling application change for ProjectEntityDefinitions page')
 
     const pageable = { pageNumber: 0, pageSize: 1 } as any
     const result = await Kinotic.projects.findAllForApplication(newApp.id, pageable)
@@ -107,7 +107,7 @@ async function handleApplicationChangeForProjectStructures(newApp: any) {
 
       const applicationId = newApp.id
       const projectId = firstProject.id ?? ''
-      await router.push(`/application/${encodeURIComponent(applicationId)}/project/${encodeURIComponent(projectId)}/structures`)
+      await router.push(`/application/${encodeURIComponent(applicationId)}/project/${encodeURIComponent(projectId)}/entity-definitions`)
     } else {
       debug('No projects found for application: %s', newApp.id)
       refreshTable()
@@ -125,7 +125,7 @@ const dataSource = computed(() => {
     findAll: async (pageable: Pageable): Promise<IterablePage<EntityDefinition>> => {
       debug('dataSource.findAll called with projectId: %s, currentApplication: %s', projectId.value, APPLICATION_STATE.currentApplication?.id)
       const result = await Kinotic.entityDefinitions.findAllForProject(projectId.value, pageable)
-      APPLICATION_STATE.structuresCount = result.totalElements ?? 0
+      APPLICATION_STATE.entityDefinitionsCount = result.totalElements ?? 0
       return result
     },
     search: async (_searchText: string, pageable: Pageable): Promise<IterablePage<EntityDefinition>> => {
@@ -156,7 +156,7 @@ function updateRouteQuery(newSearch: string) {
 
 function openModal(item: EntityDefinition) {
   try {
-    selectedStructure.value = item
+    selectedEntityDefinition.value = item
     showModal.value = true
   } catch (e) {
     debug('Failed to open modal with entityDefinition: %O', e)
@@ -165,38 +165,38 @@ function openModal(item: EntityDefinition) {
 
 function closeModal() {
   showModal.value = false
-  selectedStructure.value = null
+  selectedEntityDefinition.value = null
 }
 
 function openItemModal(item: EntityDefinition) {
-  selectedStructure.value = item
+  selectedEntityDefinition.value = item
   showItemModal.value = true
 }
 
 function closeItemModal() {
   showItemModal.value = false
-  selectedStructure.value = null
+  selectedEntityDefinition.value = null
 }
 
 function openPublishModal(item: EntityDefinition) {
   debug('openPublishModal called for item: %s', item.name);
-  selectedStructure.value = item
+  selectedEntityDefinition.value = item
   showPublishModal.value = true
 }
 
 function closePublishModal() {
   showPublishModal.value = false
-  selectedStructure.value = null
+  selectedEntityDefinition.value = null
 }
 
 function openUnpublishModal(item: EntityDefinition) {
-  selectedStructure.value = item
+  selectedEntityDefinition.value = item
   showUnpublishModal.value = true
 }
 
 function closeUnpublishModal() {
   showUnpublishModal.value = false
-  selectedStructure.value = null
+  selectedEntityDefinition.value = null
 }
 
 function onAddItem() {
@@ -243,9 +243,9 @@ async function unPublish(item: any) {
 }
 
 async function unpublishFromModal() {
-  if (!selectedStructure.value) return;
+  if (!selectedEntityDefinition.value) return;
 
-  const item = selectedStructure.value as any;
+  const item = selectedEntityDefinition.value as any;
   item["publishing"] = true;
 
   try {
@@ -279,9 +279,9 @@ function getActionMenu(item: EntityDefinition) {
 }
 
 async function publishFromModal() {
-  if (!selectedStructure.value) return;
+  if (!selectedEntityDefinition.value) return;
 
-  const item = selectedStructure.value as any;
+  const item = selectedEntityDefinition.value as any;
   item["publishing"] = true;
 
   try {
@@ -296,7 +296,7 @@ async function publishFromModal() {
 }
 
 const isPublishing = computed(() => {
-  return (selectedStructure.value as any)?.publishing || false;
+  return (selectedEntityDefinition.value as any)?.publishing || false;
 })
 
 async function markProjectAsActive() {
@@ -316,15 +316,15 @@ async function markProjectAsActive() {
     <CrudTable
       ref="crudTable"
       :data-source="dataSource"
-      :headers="structureTableHeaders"
+      :headers="entityDefinitionTableHeaders"
       :singleExpand="false"
       :search="searchText"
       @update:search="updateRouteQuery"
       @add-item="onAddItem"
       @edit-item="onEditItem"
       @onRowClick="handleRowClick"
-      :isShowAddNew="showNewStructureButton"
-      :createNewButtonText="newStructureButtonText"
+      :isShowAddNew="showNewEntityDefinitionButton"
+      :createNewButtonText="newEntityDefinitionButtonText"
       emptyStateText="No entities yet for this project"
       rowHoverColor=""
       class="!text-sm"
@@ -375,17 +375,17 @@ async function markProjectAsActive() {
       </template>
     </CrudTable>
 
-    <StructureItemModal
-      v-if="showItemModal && selectedStructure"
-      :item="selectedStructure"
+    <EntityDefinitionItemModal
+      v-if="showItemModal && selectedEntityDefinition"
+      :item="selectedEntityDefinition"
       @close="closeItemModal"
     />
 
-    <StructureDataViewModal
-      v-if="showModal && selectedStructure"
+    <EntityDataViewModal
+      v-if="showModal && selectedEntityDefinition"
       v-model="showModal"
-      :title="selectedStructure?.name || 'Data View'"
-      :entity-props="{ structureId: selectedStructure?.id }"
+      :title="selectedEntityDefinition?.name || 'Data View'"
+      :entity-props="{ entityDefinitionId: selectedEntityDefinition?.id }"
       @close="closeModal"
     />
 
@@ -397,12 +397,12 @@ async function markProjectAsActive() {
     >
       <template #header>
         <div class="flex items-center">
-          <span>{{ selectedStructure?.name || 'Entity' }}</span>
+          <span>{{ selectedEntityDefinition?.name || 'Entity' }}</span>
           <div 
             class="ml-2 px-3 py-1 rounded-full text-sm font-medium"
-            :class="selectedStructure?.published ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+            :class="selectedEntityDefinition?.published ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
           >
-            {{ selectedStructure?.published ? 'Published' : 'Unpublished' }}
+            {{ selectedEntityDefinition?.published ? 'Published' : 'Unpublished' }}
           </div>
         </div>
       </template>
@@ -438,12 +438,12 @@ async function markProjectAsActive() {
     >
       <template #header>
         <div class="flex items-center">
-          <span>{{ selectedStructure?.name || 'Entity' }}</span>
+          <span>{{ selectedEntityDefinition?.name || 'Entity' }}</span>
           <div 
             class="ml-2 px-3 py-1 rounded-full text-sm font-medium"
-            :class="selectedStructure?.published ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+            :class="selectedEntityDefinition?.published ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
           >
-            {{ selectedStructure?.published ? 'Published' : 'Unpublished' }}
+            {{ selectedEntityDefinition?.published ? 'Published' : 'Unpublished' }}
           </div>
         </div>
       </template>

@@ -1,12 +1,12 @@
-import { StructureUtil } from '@/util/StructureUtil'
+import { EntityDefinitionUtil } from '@/util/EntityDefinitionUtil'
 
 export class PropertyInspector {
-  private structureProperties: any = {}
+  private entityDefinitionProperties: any = {}
   private items: any[] = []
   private _cache = new Map<string, any[]>()
 
-  setStructureProperties(properties: any): void {
-    this.structureProperties = properties
+  setEntityDefinitionProperties(properties: any): void {
+    this.entityDefinitionProperties = properties
     this._cache.clear()
   }
 
@@ -16,7 +16,7 @@ export class PropertyInspector {
   }
 
   isDateField(field: string): boolean {
-    return StructureUtil.getPropertyDefinition(field, this.structureProperties)?.type?.type === 'date'
+    return EntityDefinitionUtil.getPropertyDefinition(field, this.entityDefinitionProperties)?.type?.type === 'date'
   }
 
 
@@ -24,7 +24,7 @@ export class PropertyInspector {
     if (path.length === 0) return false
 
     if (path.length === 1) {
-      const prop = this.structureProperties.find((p: any) => p.name === path[0])
+      const prop = this.entityDefinitionProperties.find((p: any) => p.name === path[0])
       if (!prop || prop.type?.type !== 'array') return false
       const containsType = prop.type.contains?.type
       return ['string', 'number', 'boolean', 'date'].includes(containsType)
@@ -60,7 +60,7 @@ export class PropertyInspector {
       return this._cache.get(cacheKey)!
     }
 
-    const rootProp = this.structureProperties.find((p: any) => p.name === path[0])
+    const rootProp = this.entityDefinitionProperties.find((p: any) => p.name === path[0])
     if (!rootProp) {
       this._cache.set(cacheKey, [])
       return []
