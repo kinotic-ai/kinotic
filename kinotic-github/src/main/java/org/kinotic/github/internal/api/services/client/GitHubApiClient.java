@@ -17,6 +17,12 @@ public interface GitHubApiClient {
     /** Standard token scopes used in the platform. */
     Map<String, String> READ_CONTENTS = Map.of("contents", "read");
     Map<String, String> WRITE_CONTENTS = Map.of("contents", "write");
+    /**
+     * Scope for {@link #createRepoFromTemplate}: repo creation is an administration
+     * operation, and the generate endpoint additionally requires contents read.
+     */
+    Map<String, String> CREATE_REPOSITORY = Map.of("administration", "write",
+                                                   "contents", "read");
 
     /**
      * Creates a blob on {@code repoFullName} and returns its SHA, for binary
@@ -59,8 +65,9 @@ public interface GitHubApiClient {
      * The App must have {@code Administration: Write} permission on the target
      * owner. Fails if a repo with the given name already exists under the owner.
      *
-     * @param installationToken token scoped to the installation that has access to
-     *                          the template and the target owner
+     * @param installationToken token with {@link #CREATE_REPOSITORY} scope on an
+     *                          installation that has access to the template and the
+     *                          target owner
      * @param templateFullName  {@code owner/repo} of the template
      * @param owner             target account login (user or org)
      * @param name              new repo name (must satisfy GitHub's name rules)
