@@ -11,7 +11,7 @@ dependencies {
 
     implementation 'co.elastic.clients:elasticsearch-java'
 
-    implementation 'com.stripe:stripe-java:29.3.0-beta.1'
+    implementation 'com.stripe:stripe-java'
 
     implementation 'org.apache.commons:commons-lang3'
 

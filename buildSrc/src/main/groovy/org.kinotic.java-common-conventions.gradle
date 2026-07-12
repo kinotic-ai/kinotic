@@ -85,6 +85,8 @@ dependencyManagement {
 
         dependency "com.graphql-java:graphql-java:${graphQlJavaVersion}"
 
+        dependency "com.stripe:stripe-java:${stripeJavaVersion}"
+
         dependency "commons-io:commons-io:${commonsIoVersion}"
 
         // JWT and OIDC dependencies

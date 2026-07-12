@@ -14,6 +14,7 @@ import org.kinotic.billing.api.config.KinoticBillingProperties;
 import org.kinotic.billing.api.model.StripeWebhookEvent;
 import org.kinotic.billing.api.model.StripeWebhookEventStatus;
 import org.kinotic.billing.api.services.StripeWebhookEventService;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -28,11 +29,14 @@ import java.util.Date;
  *   <li>{@code POST /webhooks/stripe/connected} — events from connected accounts</li>
  * </ul>
  * No session or user authentication applies — the signature is the authentication.
+ * <p>
+ * The gateway collects every {@link SuppliesGatewayRoutes} bean, so these routes mount only
+ * when the billing module is enabled.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class StripeWebhookHandler {
+public class StripeWebhookHandler implements SuppliesGatewayRoutes {
 
     private static final String SIGNATURE_HEADER = "Stripe-Signature";
 
@@ -41,6 +45,7 @@ public class StripeWebhookHandler {
     private final StripeWebhookEventService webhookEventService;
     private final Vertx vertx;
 
+    @Override
     public void mountRoutes(Router router) {
         // Route-scoped body handler: these paths are outside /api/* on purpose, so neither
         // the gateway's global 16 KiB body cap nor its session handler applies here.
