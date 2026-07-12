@@ -44,9 +44,8 @@ function resetForm(): void {
 async function handleSubmit(): Promise<void> {
   loading.value = true
   try {
-    // The server mints the id from the slugified name; the cast bridges the 2.x typings,
-    // which lack the name field until the os-api 3.x bump
-    const applicationData = {
+    // The server mints the id from the slugified name, so send an empty id.
+    const applicationData: Application = {
       id: '',
       name: form.name.trim(),
       organizationId: USER_STATE.getOrganizationId(),
@@ -55,7 +54,7 @@ async function handleSubmit(): Promise<void> {
       updated: null
     }
 
-    const createdApplication = await Kinotic.applications.createSync(applicationData as Application)
+    const createdApplication = await Kinotic.applications.createSync(applicationData)
 
     toast.add({
       severity: 'success',
