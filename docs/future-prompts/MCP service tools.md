@@ -101,8 +101,11 @@ existing full strategy for structure: the GraphQL converters in
 - Property/parameter `metadata` descriptions: if an `AbstractDefinition.metadata` map
   contains a `"description"` key, emit it as JSON Schema `description`.
 
-**Tests:** unit tests converting hand-built C3 trees, asserting emitted JSON (round-trip
-string comparison via JsonMapper). Cover nesting, required, unions, cycles via reference.
+**Tests:** ONE unit test file converting hand-built C3 trees and asserting emitted JSON
+(nesting, required, unions, a reference cycle). This is the plan's only unit test — a
+pure transform with no collaborators (the CLAUDE.md exception), and schema emission bugs
+are painful to localize from the Phase 4 e2e (they surface as the MCP SDK rejecting a
+tool call three layers away). Do not add per-converter test files.
 
 ~10–12 files. Verify: `CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-idl:test` (with the
 JDK 25 flags from CLAUDE.md). Commit. **STOP for approval.**
@@ -143,11 +146,11 @@ Core stays idl-free: it only marks and announces; capture happens in Phase 3.
   Phase 3 listens on; Spring events keep core decoupled from whoever consumes them and
   cost nothing when no listener exists.
 
-**Tests:** behavioral — boot a Spring context containing a `@Publish` bean (see existing
-core/kinotic-test tests for the harness pattern), assert the event fires with the right
-identifier and interface, and again on shutdown for unregister.
+**Tests:** none in this phase — the event → capture → catalog chain is exercised end to
+end by the Phase 4 e2e. Verification here is compile + code review at the approval pause
+(be explicit when pausing that this phase's behavior is unverified until Phase 4).
 
-~6–8 files. Verify: `:kinotic-core:test`. Commit. **STOP for approval.**
+~5–6 files. Verify: `:kinotic-core:compileJava`. Commit. **STOP for approval.**
 
 ---
 
@@ -211,14 +214,12 @@ validation rules), and `kinotic-api-gateway/.../stomp/StompAuthorizerFactory.jav
   entry (`sourceVersion` = kinotic version). Unregister does NOT delete — the entry stays
   (known-but-offline is a feature); liveness handles availability.
 
-**Tests:** behavioral against the ES test infrastructure used by EntityDefinition tests
-(testcontainers-style; gate/skip if the environment lacks it, per CLAUDE.md). Cover: OS
-entry capture via a test `@Publish`+`@McpTool` service, scope-filtered queries for all
-three participant types (assert OS entries invisible to org/app *ownership* queries but
-present in their `findMcpTools()`), the appId-without-orgId rejection, and descriptor
-schema content.
+**Tests:** none in this phase — the capture path, descriptor content, and the
+scope/visibility invariants are all asserted in the Phase 4 e2e (which boots real ES and
+authenticates as all three participant types). Verification here is compile + code review
+at the approval pause.
 
-~10–12 files. Verify: `:kinotic-persistence:test`. Commit. **STOP for approval.**
+~9–10 files. Verify: `:kinotic-persistence:compileJava`. Commit. **STOP for approval.**
 
 ---
 
@@ -291,11 +292,20 @@ covering: the `/mcp` endpoint, auth expectations, `@McpTool` usage on a publishe
 tool naming, and the stateless behavior (no sessions). Grep `website/content` for gateway
 route docs and match their structure.
 
-**Tests:** e2e — boot the server harness (see kinotic-test), register a test service with
-two `@McpTool` methods, connect the MCP SDK **client** over HTTP to `/mcp`, assert
-`initialize` → `tools/list` (names, schemas, hints; offline service absent) →
-`tools/call` happy path + unknown-arg error + offline error. This exercises the wire, the
-directory, the catalog, and the invoker together — worth more than mocked units here.
+**Tests:** ONE e2e test class — this is the verification for Phases 2–4 (the plan's
+testing policy: one behavioral test with real infrastructure over per-phase suites; only
+Phase 1's pure transform gets a unit test). Boot the server harness (see kinotic-test),
+register a test service with two `@McpTool` methods, connect the MCP SDK **client** over
+HTTP to `/mcp`, and assert, authenticating as each participant type where relevant:
+- `initialize` → `tools/list`: names, schemas (typed properties/required — proving the
+  Phase 1 emitter and Phase 3 capture), hints; a registered-but-offline service's tool
+  absent from the listing.
+- `tools/call`: happy path, unknown-argument error, offline-service error.
+- Scope matrix (the Phase 3 security invariants): app participant sees own-app + `os-api`
+  tools and never another app's; org participant sees `os-api` tools; ownership queries
+  (`findForApplication`) never return OS entries; `upsert` rejected for non-system
+  participants and for `applicationId` without `organizationId`.
+The boot is the expensive part and happens once; each additional assertion is cheap.
 
 ~12 files. Verify: `:kinotic-api-gateway:test` + the e2e. Commit. **STOP for approval.**
 
@@ -309,9 +319,9 @@ directory, the catalog, and the invoker together — worth more than mocked unit
   `@McpTool(description = "Lists the services this application provides, with their functions and schemas", readOnlyHint = true)`
   — the directory eats its own dog food: an org user's LLM can now introspect their app's
   services through the same tool path, scope-filtered automatically by participant.
-- Verify end-to-end in the Phase 4 harness: an `ApplicationParticipant` MCP session lists
-  the introspection tool, calls it, and receives only its own app's entries (never OS
-  entries), while OS `os-api` tools remain callable.
+- Extend the Phase 4 e2e test class (do not add a new harness): an `ApplicationParticipant`
+  MCP session lists the introspection tool, calls it, and receives only its own app's
+  entries (never OS entries), while OS `os-api` tools remain callable.
 - Decide-with-user during approval: which other OS services get `@McpTool` in this pass
   (candidates: `ApplicationService` creation/listing). Default: only the directory service.
 - Docs: extend the MCP page with the introspection tool and an "exposing your own
