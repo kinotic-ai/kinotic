@@ -222,12 +222,12 @@ exposes the `api` configuration).
     private String sourceVersion;    // kinotic release (runtime capture) or commit SHA (future sync)
     private boolean published;
     private boolean mcpExposed;      // denormalized: any function carries McpToolC3Decorator
-    private List<McpToolDescriptor> mcpTools;  // ready-to-serve, built at capture (decision #9)
+    private List<McpToolDefinition> mcpTools;  // ready-to-serve, built at capture (decision #9)
     private boolean online;
     private Instant lastStatusChange;
     ```
 
-  - `McpToolDescriptor` — dumb DTO: `toolName` (sanitized, Phase 4 naming), `description`,
+  - `McpToolDefinition` — dumb DTO: `toolName` (sanitized, Phase 4 naming), `description`,
     `inputSchema` (JSON string from `McpJsonSchemaGenerator`), `cri` (string),
     `functionName`, `List<String> parameterNames` (declared order), the three hints.
   - `ServiceDirectory` reshaped: `register(ServiceDirectoryEntry)` (upsert of contract
