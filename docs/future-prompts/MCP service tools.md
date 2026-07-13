@@ -27,10 +27,16 @@ one-line rationales:
    (kinotic servers, worker nodes, customer microVMs). Tool contracts are **data**:
    C3 `ServiceDefinition`s (from `kinotic-idl`) captured where the service registers and
    stored in a durable **ServiceDirectory** (Elasticsearch), modeled on `EntityDefinition`.
-3. **Liveness is never stored.** Online/offline is derived at read time from
-   `EventBusService.monitorListenerStatus(cri)` (`kinotic-core/.../api/event/EventBusService.java:53`)
-   — the same primitive `ServiceInvocationSupervisor` uses to cancel streams
-   (`kinotic-core/.../internal/api/service/invoker/ServiceInvocationSupervisor.java:323`).
+3. **Liveness is never persisted — and never queried on the request path.** The gateway
+   holds an in-memory liveness map fed by long-lived
+   `EventBusService.monitorListenerStatus(cri)` subscriptions
+   (`kinotic-core/.../api/event/EventBusService.java:53`) — push-based Ignite
+   cache-entry listeners (see `DefaultEventBusService.java:107-160`), the same primitive
+   `ServiceInvocationSupervisor` uses to cancel streams. One monitor per distinct
+   MCP-exposed CRI, started when the catalog first sees the descriptor, disposed when it
+   leaves the directory. Monitor setup (listener registration + one `getRegistrations`
+   lookup) is too expensive per request but trivial held open; a `tools/list` request
+   only filters the in-memory map — zero cluster calls.
 4. **Structural scope, not a scope enum.** `ServiceDirectoryEntry` has nullable
    `organizationId`/`applicationId`/`projectId` — both null = SYSTEM (OS services), exactly
    like the participant model (`kinotic-domain/.../api/security/`, validation precedent in
@@ -259,9 +265,14 @@ Jackson 3 (`tools.jackson`) — convert at the boundary via JSON strings.
 - `McpToolCatalog` — obtains descriptors via an RPC proxy of `ServiceDirectoryService`
   (`@Proxy` mechanism, see `RpcServiceProxyBeanFactory` usage elsewhere; the gateway does
   NOT gain a persistence dependency), keyed per participant scope in a Caffeine
-  `AsyncLoadingCache` with a short TTL. Joins liveness: subscribe
-  `eventBusService.monitorListenerStatus(cri)` per distinct CRI and drop offline tools
-  from `tools/list` (absent is kinder to LLMs than listed-but-failing).
+  `AsyncLoadingCache` with a short TTL. Liveness join per architecture decision #3: a
+  `ConcurrentHashMap<String, ListenerStatus>` fed by ONE long-lived
+  `monitorListenerStatus(cri)` subscription per distinct MCP-exposed CRI (started on
+  first sight of a descriptor, disposed when it leaves the directory — never created on
+  the request path). `tools/list` filters descriptors against the map in memory and drops
+  offline tools (absent is kinder to LLMs than listed-but-failing). Initial status
+  arrives asynchronously after monitor setup — treat unknown as offline rather than
+  blocking; it self-corrects within one `getRegistrations` round-trip.
 - `McpToolNames` — reversible mapping between tool name and (CRI, function): many MCP
   hosts enforce `^[a-zA-Z0-9_-]{1,128}$`, so dots/slashes must be encoded
   (e.g. `srv://com.acme.CatalogService/search` ⇄ `com_acme_CatalogService-search`);
