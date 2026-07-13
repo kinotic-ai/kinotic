@@ -133,7 +133,7 @@ platformSecrets:
     secretStorageMasterKeys: kinotic-secret-storage-master-keys
 
 # OIDC client secrets are now resolved at runtime by SecretReferenceResolver — Azure Key
-# Vault in production (kinotic.secretStorage.azure.vaultUrl) or KINOTIC_AKV_<sanitizedName>
+# Vault in production (kinotic.domain.secretStorage.azure.vaultUrl) or KINOTIC_AKV_<sanitizedName>
 # env vars in dev/local. The secret name on each OidcConfiguration row points at the AKV
 # entry; nothing is mounted into the pod.
 

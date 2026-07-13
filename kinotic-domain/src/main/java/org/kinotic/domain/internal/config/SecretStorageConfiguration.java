@@ -18,7 +18,7 @@ public class SecretStorageConfiguration {
 
     @Bean
     public SecretStorageBackend secretStorageBackend(KinoticDomainProperties properties) throws IOException {
-        SecretStorageProperties settings = properties.getSecretStorage();
+        SecretStorageProperties settings = properties.getDomain().getSecretStorage();
         if (settings == null || settings.getBackend() == null) {
             log.info("No secret storage backend configured, using in-memory storage");
             return new InMemoryBackend();

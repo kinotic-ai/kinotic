@@ -19,17 +19,17 @@ kinotic:
       - scheme: "http"
         host: "localhost"
         port: "9200"
+    secretStorage:
+      backend: ~
+      # Base64-encoded 32-byte key used by SecretNameDeriver to derive opaque, deterministic
+      # storage names. Dev-only value — production supplies this via Azure Key Vault.
+      masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
   cors:
     allowedOriginPattern: "http:\\/\\/localhost:\\d+"
     allowCredentials: true
   maxNumberOfCoresToUse: 4
   ignite:
     discoveryType: SHAREDFS
-  secretStorage:
-    backend: ~
-    # Base64-encoded 32-byte key used by SecretNameDeriver to derive opaque, deterministic
-    # storage names. Dev-only value — production supplies this via Azure Key Vault.
-    masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
   platformSecrets:
     # Auto-seeded on first boot by DevPlatformSecretsGenerator (dev profile only). Each
     # developer machine ends up with its own random keys; none of this is committed.
@@ -37,7 +37,7 @@ kinotic:
     # different origin.
     jwtSigningKeysPath: ${user.home}/.kinotic/dev-platform-secrets/jwt-signing-keys
   # OIDC client secrets resolve via SecretReferenceResolver — Azure Key Vault when
-  # kinotic.secretStorage.azure.vaultUrl is set, otherwise from KINOTIC_AKV_<name> env vars
+  # kinotic.domain.secretStorage.azure.vaultUrl is set, otherwise from KINOTIC_AKV_<name> env vars
   # (uppercased, non-alphanumerics → "_"). For local dev, export the env var matching the
   # secret name on the seeded OrgSignupOidcConfiguration / OidcConfiguration row.
 

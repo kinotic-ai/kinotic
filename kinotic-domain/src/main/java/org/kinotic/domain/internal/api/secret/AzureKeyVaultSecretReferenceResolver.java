@@ -20,20 +20,20 @@ import java.util.concurrent.CompletableFuture;
  * local dev to {@code az login} or env vars. Always reads the latest version of the
  * secret.
  *
- * <p>Active when {@code kinotic.secretStorage.azure.vaultUrl} is set and non-blank;
+ * <p>Active when {@code kinotic.domain.secretStorage.azure.vaultUrl} is set and non-blank;
  * otherwise {@link EnvVarSecretReferenceResolver} fills the bean role. Both classes use
  * {@link ConditionalOnExpression} on the same property so activation is property-driven
  * and order-independent across the {@code @Component} scan.
  */
 @Slf4j
 @Component
-@ConditionalOnExpression("!'${kinotic.secretStorage.azure.vaultUrl:}'.isBlank()")
+@ConditionalOnExpression("!'${kinotic.domain.secretStorage.azure.vaultUrl:}'.isBlank()")
 public class AzureKeyVaultSecretReferenceResolver implements SecretReferenceResolver {
 
     private final SecretAsyncClient client;
 
     public AzureKeyVaultSecretReferenceResolver(KinoticDomainProperties properties) {
-        String vaultUrl = properties.getSecretStorage().getAzure().getVaultUrl();
+        String vaultUrl = properties.getDomain().getSecretStorage().getAzure().getVaultUrl();
         log.info("Resolving named secrets from Azure Key Vault at {}", vaultUrl);
         this.client = new SecretClientBuilder()
                 .vaultUrl(vaultUrl)

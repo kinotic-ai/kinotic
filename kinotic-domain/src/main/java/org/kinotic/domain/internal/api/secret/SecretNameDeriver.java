@@ -27,7 +27,7 @@ public class SecretNameDeriver {
     private final byte[] masterKey;
 
     public SecretNameDeriver(KinoticDomainProperties properties) {
-        SecretStorageProperties settings = properties.getSecretStorage();
+        SecretStorageProperties settings = properties.getDomain().getSecretStorage();
         if (settings != null && settings.getMasterKey() != null) {
             this.masterKey = Base64.getDecoder().decode(settings.getMasterKey());
         } else {

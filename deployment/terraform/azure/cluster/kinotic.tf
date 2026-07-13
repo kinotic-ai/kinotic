@@ -40,8 +40,8 @@ resource "helm_release" "kinotic_server" {
     { name = "workloadIdentity.enabled", value = "true" },
     { name = "workloadIdentity.clientId", value = azurerm_user_assigned_identity.kinotic_server.client_id },
     # Cluster Key Vault for tenant/app secrets
-    { name = "extraEnv.KINOTIC_SECRET_STORAGE_BACKEND", value = "azure" },
-    { name = "extraEnv.KINOTIC_SECRET_STORAGE_AZURE_VAULT_URL", value = azurerm_key_vault.main.vault_uri },
+    { name = "extraEnv.KINOTIC_DOMAIN_SECRET_STORAGE_BACKEND", value = "azure" },
+    { name = "extraEnv.KINOTIC_DOMAIN_SECRET_STORAGE_AZURE_VAULT_URL", value = azurerm_key_vault.main.vault_uri },
     # Email (Azure Communication Services) — shared service from global terraform
     { name = "extraEnv.KINOTIC_EMAIL_BACKEND", value = "azure" },
     { name = "extraEnv.KINOTIC_EMAIL_AZURE_ENDPOINT", value = local.global.email_service_endpoint },
