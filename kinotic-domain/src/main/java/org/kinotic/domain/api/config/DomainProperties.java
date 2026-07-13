@@ -4,7 +4,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-import org.kinotic.core.api.config.SslProperties;
 
 import java.time.Duration;
 import java.util.List;

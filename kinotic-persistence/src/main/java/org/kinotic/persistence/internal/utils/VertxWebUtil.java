@@ -12,7 +12,7 @@ import org.kinotic.core.api.config.CorsProperties;
 import org.kinotic.core.api.crud.*;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.core.internal.utils.CorsUtil;
+import org.kinotic.domain.api.utils.CorsUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

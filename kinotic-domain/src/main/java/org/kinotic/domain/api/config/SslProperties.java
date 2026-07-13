@@ -1,4 +1,4 @@
-package org.kinotic.core.api.config;
+package org.kinotic.domain.api.config;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -15,7 +15,6 @@ import lombok.experimental.Accessors;
  * kinotic.domain.ssl.key-path=/certs/tls.key
  * </pre>
  *
- * Created by Claude on 4/4/26.
  */
 @Getter
 @Setter

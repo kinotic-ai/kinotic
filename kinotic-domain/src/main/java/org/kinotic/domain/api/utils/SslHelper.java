@@ -1,7 +1,8 @@
-package org.kinotic.core.api.config;
+package org.kinotic.domain.api.utils;
 
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.net.PemKeyCertOptions;
+import org.kinotic.domain.api.config.SslProperties;
 
 /**
  * Applies SSL/TLS configuration to Vert.x {@link HttpServerOptions}

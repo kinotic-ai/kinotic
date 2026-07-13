@@ -7,7 +7,7 @@ import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.model.*;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Zone;
-import org.kinotic.domain.internal.utils.DomainUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.security.ApplicationParticipant;
 
 import java.util.List;

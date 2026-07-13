@@ -1,4 +1,4 @@
-package org.kinotic.domain.internal.utils;
+package org.kinotic.domain.api.utils;
 
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.StringUtils;

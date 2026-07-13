@@ -5,7 +5,7 @@ import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.internal.api.repositories.OrganizationRepository;
-import org.kinotic.domain.internal.utils.DomainUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;

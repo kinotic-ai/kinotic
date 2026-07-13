@@ -7,7 +7,7 @@ import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
-import org.kinotic.domain.internal.utils.DomainUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.os.api.services.ApplicationService;
 import org.kinotic.os.api.services.ProjectService;
 import org.kinotic.domain.api.services.iam.OidcConfigurationService;

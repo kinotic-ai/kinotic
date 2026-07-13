@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.utils;
+package org.kinotic.domain.api.utils;
 
 import io.vertx.core.http.HttpMethod;
 import io.vertx.ext.web.handler.CorsHandler;

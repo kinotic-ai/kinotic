@@ -6,8 +6,8 @@ import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.web.Router;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.core.api.config.SslHelper;
-import org.kinotic.core.api.config.SslProperties;
+import org.kinotic.domain.api.utils.SslHelper;
+import org.kinotic.domain.api.config.SslProperties;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityDefinition;
 

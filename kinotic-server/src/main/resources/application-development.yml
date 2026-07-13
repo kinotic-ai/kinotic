@@ -12,7 +12,7 @@ kinotic:
     email:
       # No real ACS in dev — EmailService logs verification URLs instead of sending.
       # To test against real ACS, flip enabled=true (endpoint/sender are pre-filled).
-      enabled: false
+      enabled: true
       endpoint: https://acs-kinotic.communication.azure.com
       sender-address: "DoNotReply@kinotic.ai"
     elastic-connections:
