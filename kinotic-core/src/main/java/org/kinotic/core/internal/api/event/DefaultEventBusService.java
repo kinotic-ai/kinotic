@@ -113,20 +113,20 @@ public class DefaultEventBusService implements EventBusService {
 
             Context vertxContext = vertx.getOrCreateContext();
 
-            IgniteCache<IgniteRegistrationInfo, Boolean> cache = ignite.cache(IgniteCacheConstants.VERTX_SUBSCRIPTION_CACHE);
+            IgniteCache<String, Set<IgniteRegistrationInfo>> cache = ignite.cache(IgniteCacheConstants.VERTX_SUBSCRIPTION_CACHE);
 
             if(cache == null) {
                 sink.error(new IllegalStateException("The vertx subscription cache is not available"));
                 return;
             }
 
-            Factory<? extends CacheEntryListener<IgniteRegistrationInfo, Boolean>> listenerFactory =
+            Factory<? extends CacheEntryListener<String, Set<IgniteRegistrationInfo>>> listenerFactory =
                     FactoryBuilder.factoryOf(new SubscriptionInfoCacheEntryListener(sink, vertxContext));
 
-            Factory<? extends CacheEntryEventFilter<IgniteRegistrationInfo, Boolean>> filterFactory =
+            Factory<? extends CacheEntryEventFilter<String, Set<IgniteRegistrationInfo>>> filterFactory =
                     FactoryBuilder.factoryOf(new SubscriptionInfoCacheEntryEventFilter(address));
 
-            MutableCacheEntryListenerConfiguration<IgniteRegistrationInfo, Boolean> cacheEntryListenerConfiguration =
+            MutableCacheEntryListenerConfiguration<String, Set<IgniteRegistrationInfo>> cacheEntryListenerConfiguration =
                     new MutableCacheEntryListenerConfiguration<>(listenerFactory, filterFactory, false, false);
 
             sink.onDispose(() -> {
