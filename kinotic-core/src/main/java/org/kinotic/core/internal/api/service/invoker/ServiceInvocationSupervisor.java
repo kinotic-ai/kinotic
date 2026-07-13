@@ -10,8 +10,8 @@ import org.kinotic.core.api.exceptions.RpcMissingMethodException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
-import org.kinotic.core.api.service.ServiceFunction;
-import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
+import org.kinotic.core.api.service.FunctionDescriptor;
+import org.kinotic.core.api.service.FunctionInstanceProvider;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.reactivestreams.Publisher;
@@ -61,7 +61,7 @@ public class ServiceInvocationSupervisor {
 
 
     public ServiceInvocationSupervisor(ServiceDescriptor serviceDescriptor,
-                                       ServiceFunctionInstanceProvider instanceProvider,
+                                       FunctionInstanceProvider instanceProvider,
                                        ArgumentResolver argumentResolver,
                                        ReturnValueConverter returnValueConverter,
                                        ExceptionConverter exceptionConverter,
@@ -71,7 +71,7 @@ public class ServiceInvocationSupervisor {
                                        SecurityContext securityContext) {
 
         Validate.notNull(serviceDescriptor, "ServiceDescriptor must not be null");
-        Validate.notNull(instanceProvider, "ServiceFunctionInstanceProvider must not be null");
+        Validate.notNull(instanceProvider, "FunctionInstanceProvider must not be null");
         Validate.notNull(argumentResolver, "argumentResolver must not be null");
         Validate.notNull(returnValueConverter, "returnValueConverter must not be null");
         Validate.notNull(exceptionConverter, "exceptionConverter must not be null");
@@ -147,18 +147,18 @@ public class ServiceInvocationSupervisor {
     }
 
     private Map<String, HandlerMethod> buildMethodMap(ServiceDescriptor serviceDescriptor,
-                                                      ServiceFunctionInstanceProvider instanceProvider) {
+                                                      FunctionInstanceProvider instanceProvider) {
         final HashMap<String, HandlerMethod> ret = new HashMap<>();
 
-        for(ServiceFunction serviceFunction : serviceDescriptor.functions()){
-            Object instance = instanceProvider.provideInstance(serviceFunction);
-            Method specificMethod = AopUtils.selectInvocableMethod(serviceFunction.invocationMethod(), instance.getClass());
+        for(FunctionDescriptor functionDescriptor : serviceDescriptor.functions()){
+            Object instance = instanceProvider.provideInstance(functionDescriptor);
+            Method specificMethod = AopUtils.selectInvocableMethod(functionDescriptor.invocationMethod(), instance.getClass());
 
             // add a / since uri paths contain this
             String methodName = "/" + specificMethod.getName();
 
             if(ret.containsKey(methodName)){
-                throw new IllegalArgumentException("Multiple ServiceFunctions provided with the name " + specificMethod.getName());
+                throw new IllegalArgumentException("Multiple FunctionDescriptors provided with the name " + specificMethod.getName());
             }else{
                 HandlerMethod handlerMethod = new HandlerMethod(instance, specificMethod);
                 ret.put(methodName,  handlerMethod);

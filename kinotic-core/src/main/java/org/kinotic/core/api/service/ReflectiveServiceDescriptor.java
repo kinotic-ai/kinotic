@@ -18,19 +18,19 @@ class ReflectiveServiceDescriptor implements ServiceDescriptor{
     private static final Logger log = LoggerFactory.getLogger(ReflectiveServiceDescriptor.class);
 
     private final ServiceIdentifier serviceIdentifier;
-    private final Collection<ServiceFunction> serviceFunctions;
+    private final Collection<FunctionDescriptor> functionDescriptors;
 
     /**
      * A {@link ServiceDescriptor} created using reflection
      * @param serviceIdentifier that should be used
-     * @param serviceClass the class to introspect for methods to create {@link ServiceFunction}'s for
+     * @param serviceClass the class to introspect for methods to create {@link FunctionDescriptor}'s for
      * @throws IllegalStateException if reflection fails
      */
     public ReflectiveServiceDescriptor(ServiceIdentifier serviceIdentifier, Class<?> serviceClass) {
         this.serviceIdentifier = serviceIdentifier;
 
         // build list of service functions
-        Map<String, ServiceFunction> functionMap = new HashMap<>();
+        Map<String, FunctionDescriptor> functionMap = new HashMap<>();
         ReflectionUtils.doWithMethods(serviceClass, method -> {
             String methodName = method.getName();
             if(functionMap.containsKey(methodName)){
@@ -42,11 +42,11 @@ class ReflectiveServiceDescriptor implements ServiceDescriptor{
                              method.toGenericString());
                 }
             }else{
-                functionMap.put(methodName,  ServiceFunction.create(methodName, method));
+                functionMap.put(methodName,  FunctionDescriptor.create(methodName, method));
             }
         }, ReflectionUtils.USER_DECLARED_METHODS);
 
-        this.serviceFunctions = functionMap.values();
+        this.functionDescriptors = functionMap.values();
     }
 
     @Override
@@ -55,7 +55,7 @@ class ReflectiveServiceDescriptor implements ServiceDescriptor{
     }
 
     @Override
-    public Collection<ServiceFunction> functions() {
-        return serviceFunctions;
+    public Collection<FunctionDescriptor> functions() {
+        return functionDescriptors;
     }
 }

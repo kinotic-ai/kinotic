@@ -17,23 +17,23 @@ public interface ServiceDescriptor {
     ServiceIdentifier serviceIdentifier();
 
     /**
-     * All of the {@link ServiceFunction}'s for this {@link ServiceDescriptor}
+     * All of the {@link FunctionDescriptor}'s for this {@link ServiceDescriptor}
      * @return the list of functions
      */
-    Collection<ServiceFunction> functions();
+    Collection<FunctionDescriptor> functions();
 
     static ServiceDescriptor create(ServiceIdentifier serviceIdentifier){
         return new DefaultServiceDescriptor(serviceIdentifier);
     }
 
-    static ServiceDescriptor create(ServiceIdentifier serviceIdentifier, Collection<ServiceFunction> serviceFunctions){
-        return new DefaultServiceDescriptor(serviceIdentifier, serviceFunctions);
+    static ServiceDescriptor create(ServiceIdentifier serviceIdentifier, Collection<FunctionDescriptor> functionDescriptors){
+        return new DefaultServiceDescriptor(serviceIdentifier, functionDescriptors);
     }
 
     /**
      * Creates a {@link ServiceDescriptor} using refelction
      * @param serviceIdentifier to use for the {@link ServiceDescriptor}
-     * @param serviceClass to use to determine which {@link ServiceFunction}'s should exist
+     * @param serviceClass to use to determine which {@link FunctionDescriptor}'s should exist
      * @return the new {@link ServiceDescriptor}
      */
     static ServiceDescriptor create(ServiceIdentifier serviceIdentifier, Class<?> serviceClass){
