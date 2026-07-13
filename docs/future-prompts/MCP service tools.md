@@ -63,10 +63,21 @@ one-line rationales:
      OS entries never appear.
    - *Telemetry* → out of scope for this plan (spans carry producing-service scope; a
      later work stream).
-6. **MCP protocol via the official Java SDK 2.x** (`io.modelcontextprotocol.sdk:mcp`),
-   **stateless streamable-HTTP only**: no sessions, no SSE, no keep-alive — every POST is
-   independently authenticated. Fits the clustered gateway (no sticky sessions). Elicitation
-   / HITL is deferred until the SDK ships the 2026-07-28 stateless-elicitation spec.
+6. **Hand-rolled MCP server — the official Java SDK is NOT a runtime dependency.** The
+   SDK's server model owns one in-memory tool list per server instance, but our tool
+   list is per-caller (participant-scoped) and lives in the directory — using the SDK
+   would mean caching a server instance per scope to fake per-caller catalogs. Instead
+   the gateway implements the stateless streamable-HTTP subset directly (plain Vert.x +
+   `tools.jackson`): JSON-RPC 2.0 envelope over `POST /mcp`, methods `initialize`
+   (capabilities `tools` with `listChanged:false`, protocol version negotiation),
+   `notifications/initialized`, `ping`, `tools/list`, `tools/call`. No sessions, no SSE,
+   no keep-alive — every POST independently authenticated; GET/DELETE → 405. Implement
+   against the MCP specification (2025-06-18 or later revision current at build time;
+   note JSON-RPC batching was removed from the spec — reject batches). The official SDK
+   IS used as a **test-only** dependency: the e2e drives the server with the reference
+   client, which is the interop guarantee. Elicitation / HITL deferred until the
+   2026-07-28 stateless-elicitation spec (`IncompleteResult`) finalizes — implementable
+   directly then, no SDK dependency to wait on.
 7. **The transport lives in `kinotic-api-gateway/internal`** — NOT the separate
    `vertx-mcp` repo (it targets Vert.x 4.5.x + MCP SDK 0.11.1, both two majors stale;
    do not touch that repo). Extract to a library later if a second consumer appears.
@@ -122,8 +133,8 @@ existing full strategy for structure: the GraphQL converters in
 **Tests:** ONE unit test file converting hand-built C3 trees and asserting emitted JSON
 (nesting, required, unions, a reference cycle). This is the plan's only unit test — a
 pure transform with no collaborators (the CLAUDE.md exception), and schema emission bugs
-are painful to localize from the Phase 4 e2e (they surface as the MCP SDK rejecting a
-tool call three layers away). Do not add per-converter test files.
+are painful to localize from the Phase 4 e2e (they surface as an MCP client rejecting or
+mis-forming a tool call three layers away). Do not add per-converter test files.
 
 ~10–12 files. Verify: `CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-idl:test` (with the
 JDK 25 flags from CLAUDE.md). Commit. **STOP for approval.**
@@ -214,6 +225,7 @@ validation rules), and `kinotic-api-gateway/.../stomp/StompAuthorizerFactory.jav
   private String sourceVersion;    // commit SHA (synced) or kinotic release (OS)
   private boolean published;
   private boolean mcpExposed;      // denormalized: any function carries McpToolC3Decorator
+  private List<McpToolDescriptor> mcpTools;   // ready-to-serve, built at write time (below)
   private boolean online;          // maintained ONLY by ServiceLivenessUpdater (partial updates)
   private Instant lastStatusChange;
   ```
@@ -244,10 +256,18 @@ validation rules), and `kinotic-api-gateway/.../stomp/StompAuthorizerFactory.jav
     the enforcement at call time, this is only the listing view.
 - `api/services/McpToolDescriptor.java` (own file, dumb DTO) — everything the gateway
   needs without an idl dependency: `toolName` (sanitized, see Phase 4), `description`,
-  `inputSchema` (JSON **string**, produced here with the Phase 1 strategy via
-  `IdlConverterFactory`), `cri` (string), `functionName`, `List<String> parameterNames`
-  (declared order — needed to map MCP named args to positional), the three hints, and
-  `online` left unset (the gateway joins liveness).
+  `inputSchema` (JSON **string**), `cri` (string), `functionName`,
+  `List<String> parameterNames` (declared order — needed to map MCP named args to
+  positional), and the three hints. **Transform once, store, serve:** descriptors are
+  built at WRITE time — the writer runs the Phase 1 JSON Schema strategy (via
+  `IdlConverterFactory`) and stores the ready-to-serve descriptors on the entry
+  (`mcpTools` field) — so `findMcpTools()` is a pure query with zero conversion on the
+  read path. Regenerated on every contract upsert; never hand-edited.
+- **Capture-time validation ("compile time" for tools):** the writer REJECTS `@McpTool`
+  on any function whose return type is multi-response/streaming (inspect how the
+  `SchemaFactory` models `Flux`/`Publisher` returns vs single-value
+  `Mono`/`CompletableFuture`) — fail the registration with an error naming the function.
+  MCP tool calls are single request → single result; this is never checked at call time.
 - `internal/api/services/OsServiceDirectoryWriter.java` — listens for
   `ServiceRegisteredEvent`; if the interface has any `@McpTool` method: build the
   `ServiceDefinition` via the public `SchemaFactory`, attach `McpToolC3Decorator` to each
@@ -286,16 +306,16 @@ header, reply-to minting/validation at lines ~55–150 and ~335),
 `kinotic-core` `internal/api/service/invoker/` `ArgumentResolver`/`ReturnValueConverter`
 composites (**match the wire encoding of arguments and return values exactly — read these
 before writing the invoker; expect JSON with args in declared order, content-type
-`application/json`**), `EventConstants`, and MCP SDK 2.x docs for
-`McpStatelessServerTransport` / stateless server builder (SDK is on the 2025-11-25 spec;
-tool input validation is on by default).
+`application/json`**), `EventConstants`, and the MCP specification's stateless
+streamable-HTTP + tools pages (basic lifecycle, `tools/list`, `tools/call`, JSON-RPC
+error codes; the revision current at build time — batching is removed).
 
-**Gradle:** add `mcpSdkVersion` to `gradle.properties` (alphabetical) and pin
-`io.modelcontextprotocol.sdk:mcp` in the `dependencyManagement` block of
-`buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle`; the gateway
-`build.gradle` declares it versionless (CLAUDE.md rule). Verify with `dependencyInsight`.
-The SDK brings Jackson 2 + Reactor transitively; both coexist fine with the gateway's
-Jackson 3 (`tools.jackson`) — convert at the boundary via JSON strings.
+**Gradle:** the official SDK is a TEST-ONLY dependency (e2e client):
+`testImplementation 'io.modelcontextprotocol.sdk:mcp'` in the gateway `build.gradle`,
+with `mcpSdkVersion` in `gradle.properties` (alphabetical) and the pin in the
+`dependencyManagement` block of
+`buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle` (CLAUDE.md rule).
+NO runtime MCP dependency — the server is hand-rolled per architecture decision #6.
 
 **Create (all in `kinotic-api-gateway/.../internal/mcp/`):**
 
@@ -304,20 +324,21 @@ Jackson 3 (`tools.jackson`) — convert at the boundary via JSON strings.
   (stateless transport has no SSE stream or session to delete). Per request:
   `securityService.authenticate(headers)` → `Participant`; 401 on failure. No session
   reads — every request authenticates independently.
-- `VertxStatelessMcpTransport` — the bridge between the SDK's stateless server transport
-  SPI and a Vert.x `RoutingContext`: parse the JSON-RPC message from the body, hand it to
-  the SDK server, write the JSON response. Small by design (~100–200 lines); if the SDK
-  SPI fights Vert.x here, stop and surface the friction rather than forcing it.
-- `McpToolCatalog` — obtains descriptors via an RPC proxy of `ServiceDirectoryService`
-  (`@Proxy` mechanism, see `RpcServiceProxyBeanFactory` usage elsewhere; the gateway does
-  NOT gain a persistence dependency), keyed per participant scope in a Caffeine
-  `AsyncLoadingCache` with a short TTL (~30–60s). Liveness costs the gateway nothing:
-  `findMcpTools()` already returns only `online:true` entries (the flag is maintained
-  cluster-wide by Phase 3's `ServiceLivenessUpdater`), so offline tools are simply
-  absent from `tools/list` (kinder to LLMs than listed-but-failing). The gateway holds
-  NO liveness state and performs NO subs-map reads. A service dying inside the
-  TTL/flag-update window is caught at call time (`NO_HANDLERS` → "service offline" tool
-  error).
+- `McpJsonRpcHandler` — the hand-rolled server core (`tools.jackson` only): parse the
+  JSON-RPC 2.0 request (single messages only — reject batch arrays with -32600),
+  dispatch by method: `initialize` → static capabilities (`tools`, `listChanged:false`),
+  negotiated `protocolVersion`, `serverInfo`; `notifications/initialized` → 202-style
+  accept; `ping` → `{}`; `tools/list` / `tools/call` → the two components below; unknown
+  method → -32601; malformed JSON → -32700; bad params → -32602. Responses are plain
+  `application/json` (stateless servers may answer JSON directly; no SSE upgrade).
+- `tools/list` handling — calls `ServiceDirectoryService.findMcpTools()` via an RPC
+  proxy (`@Proxy` mechanism, see `RpcServiceProxyBeanFactory` usage elsewhere; the
+  gateway does NOT gain a persistence dependency) and wraps the stored descriptors in
+  the JSON-RPC result. Descriptors are pre-converted at write time (Phase 3) and
+  pre-filtered to `online:true` + the caller's scope — the gateway does NO conversion,
+  NO liveness work, and holds NO catalog state. No cache in v1: `tools/list` frequency
+  is low (session start), and the directory query is already scoped and indexed — add a
+  cache later only if profiling demands it (YAGNI).
 - `McpToolNames` — reversible mapping between tool name and (CRI, function): many MCP
   hosts enforce `^[a-zA-Z0-9_-]{1,128}$`, so dots/slashes must be encoded
   (e.g. `srv://com.acme.CatalogService/search` ⇄ `com_acme_CatalogService-search`);
@@ -331,9 +352,10 @@ Jackson 3 (`tools.jackson`) — convert at the boundary via JSON strings.
   the tool's `srv://` CRI, await the single reply with a timeout constant (~30s), dispose
   the listener. Map outcomes: reply event → MCP text content (JSON payload as-is);
   `NO_HANDLERS` → tool error "service offline" + notify `ServiceUnreachableReporter`
-  (below) and evict this scope's `McpToolCatalog` entry so the dead tool leaves the
-  next `tools/list` immediately; error headers per `EventConstants` → tool error with
-  the service's message; timeout → tool error.
+  (below); error headers per `EventConstants` → tool error with the service's message;
+  timeout → tool error. No streaming concerns here — multi-response functions were
+  rejected at capture time (Phase 3), so a descriptor's function is always
+  single-reply.
 - `ServiceUnreachableReporter` — small shared component: fire-and-forget call to
   `serviceDirectoryService.reportUnreachable(cri)` (never blocks or fails the caller's
   request path), debounced per CRI. Two consumers justify it now: `McpToolInvoker` and
@@ -342,13 +364,6 @@ Jackson 3 (`tools.jackson`) — convert at the boundary via JSON strings.
   wiring it there makes every gateway RPC a liveness probe, so the directory self-heals
   from ordinary STOMP traffic too. That branch is a failure path, so the hook adds no
   hot-path cost.
-  Streaming-return functions: excluded at capture time is NOT done in v1 — instead the
-  invoker rejects at call time if the reply indicates a stream (check how
-  `ServiceInvocationSupervisor` marks streaming replies); note this in the descriptor
-  Javadoc.
-- `McpServerFactory` (internal/config if it's pure wiring) — builds the SDK stateless
-  server per request-scope catalog: `tools/list` from `McpToolCatalog`, `tools/call` via
-  `McpToolInvoker`, server name/version constants, hints mapped to SDK `ToolAnnotations`.
 
 **Property:** `kinotic.disableMcp` via `@ConditionalOnProperty` matching the established
 `kinotic.disable*` idiom (CLAUDE.md properties rule — this is a deployment-shape flag).
@@ -402,7 +417,8 @@ The boot is the expensive part and happens once; each additional assertion is ch
 - **Customer TS service contracts** — arrive via CLI codegen + sync pipeline (in-flight
   kinotic-github work). No runtime contract hand-off from customer VMs, ever.
 - **Prompts / resources** — later (`McpPromptDefinition` as an application-scoped entity).
-- **HITL / elicitation** — blocked on SDK support for the 2026-07-28 stateless spec.
+- **HITL / elicitation** — deferred until the 2026-07-28 stateless spec
+  (`IncompleteResult`) finalizes; implemented directly in `McpJsonRpcHandler` then.
 - **Stateful streamable-HTTP / SSE transports, `tools/list_changed` notifications.**
 - **Telemetry span scoping** — separate work stream.
 - **The `vertx-mcp` repository** — untouched.
