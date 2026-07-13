@@ -96,48 +96,63 @@ one-line rationales:
 
 ---
 
-## Phase 1 — kinotic-idl: C3Type → JSON Schema converter + MCP decorator
+## Phase 1 — C3Type → JSON Schema via the existing OpenAPI converters + MCP decorator
 
-Everything else consumes this. Pure transforms → unit tests (per CLAUDE.md test policy).
+Everything else consumes this. **Do NOT write a new converter strategy** — the OpenAPI
+converters in `kinotic-persistence/.../internal/converters/openapi/` already implement
+~85% of C3→JSON Schema (swagger `Schema` objects serialize to valid JSON Schema for this
+subset); reuse them and add the small deltas. The emitter therefore lives in
+`kinotic-persistence` (same module as the converters AND as the Phase 3 write path);
+only the decorator goes in `kinotic-idl`.
 
-**Read first:** `kinotic-idl/.../api/converter/IdlConverterStrategy.java`,
-`C3TypeConverter.java`, `C3ConversionContext.java`, `IdlConverterFactory.java`,
-`internal/api/converter/DefaultIdlConverter.java`, the C3Type subtypes in `api/schema/`
-(especially `ObjectC3Type`, `UnionC3Type`, `ReferenceC3Type`, `EnumC3Type`), and
-`api/schema/decorators/NotNullC3Decorator.java` as the decorator template. Also study one
-existing full strategy for structure: the GraphQL converters in
-`kinotic-persistence/.../internal/converters/graphql/` (e.g. `ObjectC3TypeToGql`).
+**Read first:** `OpenApiConverterStrategy.java` (primitive/enum mapping table),
+`ObjectC3TypeToOpenApi.java` (property iteration, required handling, `$ref` emission at
+line ~55), `UnionC3TypeToOpenApi.java` (`oneOf` + discriminator), `ArrayC3TypeTpOpenApi.java`,
+`OpenApiConversionState.java` (`referencedSchemas`), `kinotic-idl/.../api/converter/`
+(`IdlConverterFactory`, `C3ConversionContext`), and
+`kinotic-idl/.../api/schema/decorators/NotNullC3Decorator.java` as the decorator template.
 
-**Create:**
+**Create / edit:**
 
 - `kinotic-idl/src/main/java/org/kinotic/idl/api/schema/decorators/McpToolC3Decorator.java`
   — follows `NotNullC3Decorator` exactly (`type = "McpTool"`, targets `FUNCTION`; add the
   enum constant to `DecoratorTarget` if absent). Fields: `String description`,
   `boolean readOnlyHint`, `boolean destructiveHint`, `boolean idempotentHint`.
-- `org.kinotic.idl.api.converter.jsonschema.JsonSchemaConverterStrategy`
-  implementing `IdlConverterStrategy<ObjectNode, ...>` where `ObjectNode` is
-  **`tools.jackson.databind.node.ObjectNode`** (Jackson 3 — what kinotic-idl already uses).
-  Do NOT resurrect the dead `internal/support/jsonSchema` model package; emit nodes directly.
-- One `C3TypeConverter` per family, own file each (CLAUDE.md: no nested types):
-  primitives (string/int/long/short/byte/float/double/boolean/char → `{"type": ...}`),
-  `DateC3Type` → `{"type":"string","format":"date-time"}`, `EnumC3Type` → `{"enum":[...]}`,
-  `ArrayC3Type` → `{"type":"array","items":...}`, `MapC3Type` →
-  `{"type":"object","additionalProperties":...}`, `ObjectC3Type` → `{"type":"object",
-  "properties":{...},"required":[...]}` (required = properties carrying
-  `NotNullC3Decorator`), `UnionC3Type` → `oneOf`, `VoidC3Type` → `{"type":"null"}`,
-  `ReferenceC3Type` → resolve and inline (conversion-context state guards cycles —
-  see how the GQL converters use `C3ConversionContext.state()`).
-- Property/parameter `metadata` descriptions: if an `AbstractDefinition.metadata` map
-  contains a `"description"` key, emit it as JSON Schema `description`.
+- Parameterize the `$ref` prefix: `ObjectC3TypeToOpenApi` (~:55) and
+  `UnionC3TypeToOpenApi` hardcode `"#/components/schemas/"` — move the prefix onto the
+  conversion state so the same converters emit `"#/$defs/"` for MCP output. Keep the
+  `referencedSchemas` mechanism itself: cyclic types REQUIRE refs; never fully inline.
+- `McpJsonSchemaGenerator` (in `kinotic-persistence`, next to the converters' consumers):
+  for a `FunctionDefinition`, converts each parameter's C3Type through the reused
+  strategy and assembles the self-contained inputSchema —
+  `{type:"object", properties:{<param name>: <schema>}, required:[...],
+  $defs:{<state.referencedSchemas>}}` — then serializes to a JSON string (swagger-core's
+  Jackson). Strip OpenAPI-only vocabulary from MCP output: `discriminator` (the `oneOf`
+  is the portable part); `readOnly` may stay (legal JSON Schema 2020-12). Emit parameter
+  `metadata` `"description"` values as JSON Schema `description`. Use FRESH conversion
+  state per service — note `OpenApiConverterStrategy.initialState()` returns a shared
+  instance against the interface contract; do not copy that, or one service's `$defs`
+  leak into another's schema.
+- Coverage gaps — add ONLY if `SchemaFactory`-derived service contracts actually produce
+  them (check `GenericTypeConverter`/`PojoTypeConverter` in kinotic-idl first; YAGNI
+  otherwise): `MapC3Type` → `{"type":"object","additionalProperties":<schema>}`,
+  `ReferenceC3Type` → `$defs` ref. The existing TODO in `ObjectC3TypeToOpenApi` about
+  same-name type collisions applies to `$defs` too (smaller blast radius: one service's
+  contract, not a whole application) — collision-check within one contract and fail
+  loudly.
 
-**Tests:** ONE unit test file converting hand-built C3 trees and asserting emitted JSON
-(nesting, required, unions, a reference cycle). This is the plan's only unit test — a
-pure transform with no collaborators (the CLAUDE.md exception), and schema emission bugs
-are painful to localize from the Phase 4 e2e (they surface as an MCP client rejecting or
-mis-forming a tool call three layers away). Do not add per-converter test files.
+**Tests:** ONE unit test file for `McpJsonSchemaGenerator`, converting hand-built
+`FunctionDefinition`s and asserting the emitted JSON strings (nesting via `$defs`,
+required, union → `oneOf` with NO `discriminator`, a reference cycle, and that the
+OpenAPI endpoints' output is unchanged by the ref-prefix parameterization). This is the
+plan's only unit test — a pure transform with no collaborators (the CLAUDE.md
+exception), and schema emission bugs are painful to localize from the Phase 4 e2e (they
+surface as an MCP client rejecting or mis-forming a tool call three layers away). Do not
+add per-converter test files.
 
-~10–12 files. Verify: `CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-idl:test` (with the
-JDK 25 flags from CLAUDE.md). Commit. **STOP for approval.**
+~6–9 files. Verify: `CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-idl:compileJava
+:kinotic-persistence:test` (with the JDK 25 flags from CLAUDE.md). Commit.
+**STOP for approval.**
 
 ---
 
@@ -259,8 +274,8 @@ validation rules), and `kinotic-api-gateway/.../stomp/StompAuthorizerFactory.jav
   `inputSchema` (JSON **string**), `cri` (string), `functionName`,
   `List<String> parameterNames` (declared order — needed to map MCP named args to
   positional), and the three hints. **Transform once, store, serve:** descriptors are
-  built at WRITE time — the writer runs the Phase 1 JSON Schema strategy (via
-  `IdlConverterFactory`) and stores the ready-to-serve descriptors on the entry
+  built at WRITE time — the writer runs Phase 1's `McpJsonSchemaGenerator` and stores
+  the ready-to-serve descriptors on the entry
   (`mcpTools` field) — so `findMcpTools()` is a pure query with zero conversion on the
   read path. Regenerated on every contract upsert; never hand-edited.
 - **Capture-time validation ("compile time" for tools):** the writer REJECTS `@McpTool`
