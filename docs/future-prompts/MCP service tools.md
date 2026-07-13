@@ -29,7 +29,7 @@ disagree, the code wins: read the referenced source before implementing against 
 3. **The ServiceDirectory API lives in `kinotic-core`; the Elasticsearch impl lives in
    `kinotic-domain`; core ships NO implementation.** `kinotic-core` is used completely
    standalone by at least one customer (no other kinotic modules), so the directory
-   must add zero runtime weight there: core defines the API, the entry/descriptor
+   must add zero runtime weight there: core defines the API, the entry/definition
    model, and the capture logic — and capture resolves `ServiceDirectory` OPTIONALLY
    (`ObjectProvider`/optional injection); when no impl bean exists, capture is skipped
    entirely (no beans, no schema work, no state). No in-memory default impl — YAGNI.
@@ -94,9 +94,15 @@ disagree, the code wins: read the referenced source before implementing against 
    Implement against the MCP specification revision current at build time. The official
    SDK IS used as a **test-only** dependency: the e2e drives the server with the
    reference client — that is the interop guarantee.
-9. **Transform once, store, serve.** MCP tool descriptors (including JSON Schemas) are
-   built at WRITE time by the capture path and stored on the entry; `tools/list` is a
-   pure query with zero conversion on the read path. Regenerated on every upsert.
+9. **Transform once, store, serve.** `McpToolDefinition`s (including JSON Schemas AND
+   the sanitized tool names) are built at WRITE time by the capture path and stored on
+   the entry; `tools/list` is a pure query with zero conversion on the read path.
+   Regenerated on every upsert.
+   Naming note (Definition vs Descriptor): `*Definition` types (`ServiceDefinition`,
+   `FunctionDefinition`, `McpToolDefinition`) are declarative, serializable contract
+   data; `*Descriptor` types (`ServiceDescriptor`, `FunctionDescriptor` — the latter
+   already renamed from `ServiceFunction` on this branch) are the node-local invocable
+   view holding live `Method` handles. Keep new types on the correct side of that line.
 10. **Streaming rejection at "compile time".** Capture REJECTS `@McpTool` on any
     function whose return type is multi-response/streaming (inspect how `SchemaFactory`
     models `Flux`/`Publisher` vs single-value `Mono`/`CompletableFuture`), failing the
@@ -170,8 +176,9 @@ union → `oneOf` with no `discriminator`, a reference cycle, parameter descript
 Pure transform, no collaborators (the CLAUDE.md unit-test exception); schema bugs are
 painful to localize from the Phase 4 e2e. No per-converter test files.
 
-~10–12 files. Verify: `CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-idl:test` (with the
-JDK 25 flags from CLAUDE.md). Commit. **STOP for approval.**
+~10–12 files. Verify: `CLAUDE_CLOUD_COMPILE=true /opt/gradle/bin/gradle :kinotic-idl:test`
+(with the JDK 25 flags from CLAUDE.md; wrapper workaround per the note at the top).
+Commit. **STOP for approval.**
 
 ---
 
@@ -219,7 +226,7 @@ exposes the `api` configuration).
     private String organizationId;   // null for OS/system services
     private String applicationId;    // null for OS/org-level; never set without organizationId
     private String projectId;        // customer provenance only
-    private String namespace, name, version;   // from ServiceIdentifier
+    private String namespace, name, version, zone;   // from ServiceIdentifier; zone drives tools-query visibility (decision #7)
     private String description;
     private ServiceDefinition contract;        // the C3 contract, decorators included
     private String sourceVersion;    // kinotic release (runtime capture) or commit SHA (future sync)
@@ -230,9 +237,14 @@ exposes the `api` configuration).
     private Instant lastStatusChange;
     ```
 
-  - `McpToolDefinition` — dumb DTO: `toolName` (sanitized, Phase 4 naming), `description`,
-    `inputSchema` (JSON string from `McpJsonSchemaGenerator`), `cri` (string),
-    `functionName`, `List<String> parameterNames` (declared order), the three hints.
+  - `McpToolDefinition` — dumb DTO: `toolName`, `description`, `inputSchema` (JSON
+    string from `McpJsonSchemaGenerator`), `cri` (string), `functionName`,
+    `List<String> parameterNames` (declared order), the three hints.
+  - Tool naming lives HERE (core, where names are minted at capture — not the gateway):
+    many MCP hosts enforce `^[a-zA-Z0-9_-]{1,128}$`, so dots/slashes must be encoded
+    (e.g. `srv://com.acme.CatalogService/search` → `com_acme_CatalogService-search`).
+    Deterministic, collision-checked within one service at capture (fail loudly). No
+    parsing names back apart — resolution uses the stored `cri`/`functionName`.
   - `ServiceDirectory` reshaped: `register(ServiceDirectoryEntry)` (upsert of contract
     fields — implementations must NOT let it clobber liveness fields they maintain),
     `unregister(String entryId)` (marks offline; entries are never deleted —
@@ -248,10 +260,15 @@ exposes the `api` configuration).
   deployments must not pay for this). When present and the interface has any `@McpTool`
   method: build the `ServiceDefinition` via idl's `SchemaFactory`, attach
   `McpToolC3Decorator` + function `metadata` descriptions from the annotations, REJECT
-  streaming-return functions (decision #10), build descriptors via
-  `McpJsonSchemaGenerator`, and call `serviceDirectory.register(entry)` (SYSTEM scope:
-  org/app null; `sourceVersion` = kinotic version). Unregistration calls
+  streaming-return functions (decision #10), assemble the `McpToolDefinition`s
+  (inputSchema via `McpJsonSchemaGenerator`, toolName via the naming rule above), and
+  call `serviceDirectory.register(entry)` (SYSTEM scope: org/app null;
+  `sourceVersion` = kinotic version). Unregistration calls
   `serviceDirectory.unregister(id)`. Core ships NO `ServiceDirectory` implementation.
+- One-line Javadoc contrast while touching these files (decision #9 naming note):
+  `ServiceDescriptor`/`FunctionDescriptor` = node-local invocable view;
+  `ServiceDefinition` (and the directory) = declarative, serializable contract view.
+  Preserve all existing authorship comments verbatim.
 - Liveness read primitives on `EventBusService` (implemented in
   `DefaultEventBusService`, consumed by Phase 3 — build nothing beyond these):
   - `monitorListenerChanges()` → `Flux<ListenerChange>` (`ListenerChange` record —
@@ -360,18 +377,16 @@ block of `buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle`
   Responses are plain `application/json` (no SSE upgrade).
 - `tools/list` — calls the autowired core `ServiceDirectory` tools query (the ES impl
   comes from `kinotic-domain`, which the gateway already depends on — no new module
-  edges) and wraps the stored descriptors — including
-  the hints as MCP tool `annotations` — in the JSON-RPC result. Descriptors are
-  pre-converted at write time and pre-filtered to online + caller-visible: the gateway
-  does NO conversion, NO liveness work, holds NO catalog state. No cache in v1 —
+  edges) and wraps the stored `McpToolDefinition`s — including the hints as MCP tool
+  `annotations` — in the JSON-RPC result. Definitions are pre-converted and pre-named
+  at write time and pre-filtered to online + caller-visible: the gateway does NO
+  conversion, NO naming, NO liveness work, holds NO catalog state. No cache in v1 —
   `tools/list` frequency is low; add one later only if profiling demands (YAGNI).
-- `McpToolNames` — reversible mapping between tool name and (CRI, function): many MCP
-  hosts enforce `^[a-zA-Z0-9_-]{1,128}$`, so dots/slashes must be encoded
-  (e.g. `srv://com.acme.CatalogService/search` ⇄ `com_acme_CatalogService-search`);
-  collision-check within a listing; keep the mapping data on the descriptor rather than
-  parsing names apart.
-- `McpToolInvoker` — `tools/call`: resolve descriptor (verify the caller may send to
-  its CRI — same zone rules as STOMP); map MCP named arguments to declared positional
+- `McpToolInvoker` — `tools/call`: resolve the `McpToolDefinition` by `toolName` from
+  the caller-visible tools query (names were minted and collision-checked at capture —
+  Phase 2; never parse a tool name apart, use the stored `cri`/`functionName`; verify
+  the caller may send to that CRI — same zone rules as STOMP); unknown tool → JSON-RPC
+  error per spec; map MCP named arguments to declared positional
   order via `parameterNames` (missing optional → null; unknown name → tool error);
   encode the body exactly as `ArgumentResolver` expects; mint a unique `reply://` CRI
   (mirror `EndpointConnectionHandler`'s replyToId approach), `listen` on it, build the
@@ -412,7 +427,8 @@ as each participant type where relevant:
   registration.
 The boot is the expensive part and happens once; each assertion is cheap.
 
-~12 files. Verify: `:kinotic-api-gateway:test` + the e2e. Commit. **STOP for approval.**
+~10–11 files. Verify: `:kinotic-api-gateway:test` + the e2e. Commit.
+**STOP for approval.**
 
 ---
 
