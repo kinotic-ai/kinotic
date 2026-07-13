@@ -36,11 +36,6 @@ public class DomainProperties {
     private String apiBaseUrl = null;
 
     /**
-     * SSL/TLS configuration for all Vert.x HTTP servers.
-     */
-    private SslProperties ssl = new SslProperties();
-
-    /**
      * Email / outbound-mail configuration.
      */
     private EmailProperties email = new EmailProperties();

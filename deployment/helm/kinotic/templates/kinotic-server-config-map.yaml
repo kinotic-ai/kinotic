@@ -36,9 +36,9 @@ data:
 
   {{- if .Values.tls.enabled }}
   # ── SSL/TLS ──────────────────────────────────────────────
-  KINOTIC_DOMAIN_SSL_ENABLED: "true"
-  KINOTIC_DOMAIN_SSL_CERTPATH: "/certs/tls.crt"
-  KINOTIC_DOMAIN_SSL_KEYPATH: "/certs/tls.key"
+  KINOTIC_APIGATEWAY_SSL_ENABLED: "true"
+  KINOTIC_APIGATEWAY_SSL_CERTPATH: "/certs/tls.crt"
+  KINOTIC_APIGATEWAY_SSL_KEYPATH: "/certs/tls.key"
   {{- end }}
 
   {{- if .Values.evictionTracking.enabled }}

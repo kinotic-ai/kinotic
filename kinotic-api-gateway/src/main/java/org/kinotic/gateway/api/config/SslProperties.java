@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.config;
+package org.kinotic.gateway.api.config;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -10,9 +10,9 @@ import lombok.experimental.Accessors;
  * <p>
  * Configured via Spring properties:
  * <pre>
- * kinotic.domain.ssl.enabled=true
- * kinotic.domain.ssl.cert-path=/certs/tls.crt
- * kinotic.domain.ssl.key-path=/certs/tls.key
+ * kinotic.apiGateway.ssl.enabled=true
+ * kinotic.apiGateway.ssl.cert-path=/certs/tls.crt
+ * kinotic.apiGateway.ssl.key-path=/certs/tls.key
  * </pre>
  *
  */
