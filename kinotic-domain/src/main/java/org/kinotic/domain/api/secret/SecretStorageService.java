@@ -1,4 +1,4 @@
-package org.kinotic.core.api.secret;
+package org.kinotic.domain.api.secret;
 
 import java.util.List;
 import java.util.Map;

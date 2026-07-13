@@ -5,7 +5,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Version;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.domain.internal.utils.DomainUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import reactor.core.publisher.Flux;
 
 import java.util.List;

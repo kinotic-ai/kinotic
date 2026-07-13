@@ -2,7 +2,7 @@
 -- /api/login/providers and the org-signup flow.
 --
 -- The OAuth client secret for each row is resolved at OAuth2-build time via
--- SecretReferenceResolver — Azure Key Vault in prod (kinotic.secretStorage.azure.vaultUrl)
+-- SecretReferenceResolver — Azure Key Vault in prod (kinotic.domain.secretStorage.azure.vaultUrl)
 -- or KINOTIC_AKV_<uppercased,sanitized-secretNameRef> env vars in dev. The secret name
 -- here must match the AKV secret object name terraform creates.
 --

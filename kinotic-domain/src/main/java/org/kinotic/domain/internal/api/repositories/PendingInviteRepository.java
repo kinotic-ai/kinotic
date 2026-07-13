@@ -6,7 +6,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.PendingInvite;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.kinotic.domain.internal.utils.DomainUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;

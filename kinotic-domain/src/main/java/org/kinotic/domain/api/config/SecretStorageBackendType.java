@@ -1,4 +1,4 @@
-package org.kinotic.core.api.config;
+package org.kinotic.domain.api.config;
 
 /**
  * Supported backend types for secret storage.

@@ -5,7 +5,7 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.internal.utils.ZoneUtil;
-import org.kinotic.domain.internal.utils.DomainUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.kinotic.domain.api.security.OrganizationParticipant;
 import org.kinotic.domain.api.security.SystemParticipant;

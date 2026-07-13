@@ -1,12 +1,12 @@
-package org.kinotic.core.internal.config;
+package org.kinotic.domain.internal.config;
 
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.core.api.config.SecretStorageProperties;
-import org.kinotic.core.internal.api.secret.AzureKeyVaultBackend;
-import org.kinotic.core.internal.api.secret.ChronicleMapBackend;
-import org.kinotic.core.internal.api.secret.InMemoryBackend;
-import org.kinotic.core.internal.api.secret.SecretStorageBackend;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.config.SecretStorageProperties;
+import org.kinotic.domain.internal.api.secret.AzureKeyVaultBackend;
+import org.kinotic.domain.internal.api.secret.ChronicleMapBackend;
+import org.kinotic.domain.internal.api.secret.InMemoryBackend;
+import org.kinotic.domain.internal.api.secret.SecretStorageBackend;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -17,8 +17,8 @@ import java.io.IOException;
 public class SecretStorageConfiguration {
 
     @Bean
-    public SecretStorageBackend secretStorageBackend(KinoticProperties properties) throws IOException {
-        SecretStorageProperties settings = properties.getSecretStorage();
+    public SecretStorageBackend secretStorageBackend(KinoticDomainProperties properties) throws IOException {
+        SecretStorageProperties settings = properties.getDomain().getSecretStorage();
         if (settings == null || settings.getBackend() == null) {
             log.info("No secret storage backend configured, using in-memory storage");
             return new InMemoryBackend();
