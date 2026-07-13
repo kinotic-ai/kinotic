@@ -5,17 +5,17 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.config.KinoticProperties;
+import org.springframework.stereotype.Component;
 
 /**
  * Contributes domain-level configuration (e.g. {@link EmailProperties}) under the
- * {@code kinotic.domain} prefix. Registered via {@code @EnableConfigurationProperties} on the
- * always-on auto-configuration (not the gated domain library), so {@code kinotic.domain.*}
- * binds even when domain logic is disabled.
+ * {@code kinotic.domain} prefix.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
+@Component
 public class KinoticDomainProperties extends KinoticProperties {
 
     /**
