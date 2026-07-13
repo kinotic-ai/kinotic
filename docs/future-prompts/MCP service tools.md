@@ -42,8 +42,13 @@ one-line rationales:
    the subs registrations, bulk-correct ES, then apply deltas) — without it, one missed
    event during failover lies forever; and call-time `NO_HANDLERS` → "service offline"
    tool error remains the authoritative guard for the window between a death and the
-   flag update. The persisted flag also serves the admin UI and health views — one
-   liveness source for every consumer, not an MCP-only mechanism.
+   flag update. Third correction layer: **demand-driven repair** — when the gateway hits
+   `NO_HANDLERS` on a dispatch, it reports the CRI to the directory
+   (`reportUnreachable`), and the persistence side re-checks current registrations and
+   sets the flag to the *verified* truth (an invalidation trigger, never a blind
+   `false` write — keeps the single-writer property and is race-proof against a service
+   reconnecting mid-report). The persisted flag also serves the admin UI and health
+   views — one liveness source for every consumer, not an MCP-only mechanism.
 4. **Structural scope, not a scope enum.** `ServiceDirectoryEntry` has nullable
    `organizationId`/`applicationId`/`projectId` — both null = SYSTEM (OS services), exactly
    like the participant model (`kinotic-domain/.../api/security/`, validation precedent in
@@ -158,14 +163,23 @@ Core stays idl-free: it only marks and announces; capture happens in Phase 3.
   successful register/unregister (it already has both values in hand). This is the seam
   Phase 3 listens on; Spring events keep core decoupled from whoever consumes them and
   cost nothing when no listener exists.
-- `EventBusService.monitorListenerChanges()` returning `Flux<ListenerChange>` (a new
-  `ListenerChange` record — address + `ListenerStatus` — own file in `api/event`): the
-  bus-wide sibling of `monitorListenerStatus(cri)`. Implemented in
-  `DefaultEventBusService` with ONE Ignite cache-entry listener over the vertx
-  subscription cache filtered to `srv://` addresses (reuse the machinery at
-  `DefaultEventBusService.java:107-160`, minus the per-address filter). Consumed by the
-  Phase 3 liveness singleton — this keeps persistence out of core's internal Ignite
-  constants.
+- Three additions to `EventBusService` (all implemented in `DefaultEventBusService`,
+  keeping persistence out of core's internal Ignite constants; each has a named Phase 3
+  consumer — build nothing beyond these):
+  - `monitorListenerChanges()` returning `Flux<ListenerChange>` (a new `ListenerChange`
+    record — address + `ListenerStatus` — own file in `api/event`): the bus-wide sibling
+    of `monitorListenerStatus(cri)`, ONE Ignite cache-entry listener over the vertx
+    subscription cache filtered to `srv://` addresses (reuse the machinery at
+    `DefaultEventBusService.java:107-160`, minus the per-address filter). Consumer: the
+    liveness singleton's delta stream.
+  - `hasListeners(CRI)` returning `CompletableFuture<Boolean>`: one-shot
+    `clusterManager.getRegistrations` read (the initial check inside
+    `monitorListenerStatus`, `DefaultEventBusService.java:142-143`), no listener
+    registration. Consumer: `reportUnreachable` verification.
+  - `activeServiceAddresses()` returning `CompletableFuture<Set<String>>`: one scan of
+    the subscription cache for `srv://` addresses. Consumer: reconciliation snapshot
+    (set-diff against directory entries beats per-entry registration lookups at 100k
+    entries).
 
 **Tests:** none in this phase — the event → capture → catalog chain is exercised end to
 end by the Phase 4 e2e. Verification here is compile + code review at the approval pause
@@ -215,6 +229,11 @@ validation rules), and `kinotic-api-gateway/.../stomp/StompAuthorizerFactory.jav
 - `api/services/ServiceDirectoryService.java` — `@Publish`ed (pick zone consistent with
   other OS services; see `EntityDefinitionService`). Operations:
   - `upsert` / `unpublish` — SYSTEM-participant only.
+  - `reportUnreachable(cri)` — demand-driven repair entry point (architecture decision
+    #3). Debounced per CRI (seconds; Caffeine). Handler re-checks current registrations
+    for the address and partial-updates the liveness fields to the verified state —
+    never a blind offline write. Callable by any authenticated participant whose zone
+    rules allow sending to that CRI (it can only trigger a verification, so it is safe).
   - `findForApplication(pageable)` — ownership listing, participant-scoped
     (`ApplicationParticipant` → own org+app; org → own org; system → all).
   - `findMcpTools()` — returns `List<McpToolDescriptor>` for entries that are
@@ -238,14 +257,14 @@ validation rules), and `kinotic-api-gateway/.../stomp/StompAuthorizerFactory.jav
   (known-but-offline is a feature); the liveness updater handles availability.
 - `internal/api/services/ServiceLivenessUpdater.java` — the HA cluster singleton from
   architecture decision #3 (Ignite service grid; verify how kinotic wires Ignite before
-  choosing the exact deployment call). Lifecycle: on start, **reconcile** (page through
-  directory entries, check current registrations, bulk partial-update `online` +
-  `lastStatusChange`), then consume `eventBusService.monitorListenerChanges()` and apply
-  deltas as ES partial updates (update API touching ONLY the two liveness fields — never
-  the contract, so it can't clobber a concurrent contract upsert). Re-run reconciliation
-  on a slow periodic timer (e.g. 10 min) as the missed-event safety net. Addresses that
-  match no directory entry are ignored (services without contracts are simply not
-  directory-known).
+  choosing the exact deployment call). Lifecycle: on start, **reconcile** — snapshot
+  `eventBusService.activeServiceAddresses()`, set-diff against directory entries, bulk
+  partial-update `online` + `lastStatusChange` — then consume
+  `eventBusService.monitorListenerChanges()` and apply deltas as ES partial updates
+  (update API touching ONLY the two liveness fields — never the contract, so it can't
+  clobber a concurrent contract upsert). Re-run reconciliation on a slow periodic timer
+  (e.g. 10 min) as the missed-event safety net. Addresses that match no directory entry
+  are ignored (services without contracts are simply not directory-known).
 
 **Tests:** none in this phase — the capture path, descriptor content, and the
 scope/visibility invariants are all asserted in the Phase 4 e2e (which boots real ES and
@@ -311,8 +330,18 @@ Jackson 3 (`tools.jackson`) — convert at the boundary via JSON strings.
   it, build the `Event` with sender participant + reply-to + content-type headers, send to
   the tool's `srv://` CRI, await the single reply with a timeout constant (~30s), dispose
   the listener. Map outcomes: reply event → MCP text content (JSON payload as-is);
-  `NO_HANDLERS` → tool error "service offline"; error headers per
-  `EventConstants` → tool error with the service's message; timeout → tool error.
+  `NO_HANDLERS` → tool error "service offline" + notify `ServiceUnreachableReporter`
+  (below) and evict this scope's `McpToolCatalog` entry so the dead tool leaves the
+  next `tools/list` immediately; error headers per `EventConstants` → tool error with
+  the service's message; timeout → tool error.
+- `ServiceUnreachableReporter` — small shared component: fire-and-forget call to
+  `serviceDirectoryService.reportUnreachable(cri)` (never blocks or fails the caller's
+  request path), debounced per CRI. Two consumers justify it now: `McpToolInvoker` and
+  `EndpointConnectionHandler.send()`'s existing `NO_HANDLERS` branch
+  (`EndpointConnectionHandler.java:149`, where `RpcMissingServiceException` is raised) —
+  wiring it there makes every gateway RPC a liveness probe, so the directory self-heals
+  from ordinary STOMP traffic too. That branch is a failure path, so the hook adds no
+  hot-path cost.
   Streaming-return functions: excluded at capture time is NOT done in v1 — instead the
   invoker rejects at call time if the reply indicates a stream (check how
   `ServiceInvocationSupervisor` marks streaming replies); note this in the descriptor
