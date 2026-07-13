@@ -62,11 +62,8 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
 
     @Override
     public CompletableFuture<Project> provision(Project project) {
+        Validate.notBlank(project.getName(), "Project name must not be blank");
         String repoName = toRepoName(project.getName());
-        if (repoName.isEmpty()) {
-            return CompletableFuture.failedFuture(new IllegalArgumentException(
-                    "Project name '" + project.getName() + "' produces an empty GitHub repository name"));
-        }
         return requireInstallation().compose(install -> {
             long installationId = install.getGithubInstallationId();
             // repoId is null — the repo doesn't exist yet, so we mint an
@@ -215,7 +212,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
         // raw name is not. It is not truncated to the repo-name cap: an npm identifier
         // shouldn't inherit GitHub's repo-name length limit.
         return Map.of("projectName", project.getName(),
-                      "projectSlug", slugify(project.getName()),
+                      "projectSlug", SLUGIFY.slugify(project.getName()),
                       "organization", project.getOrganizationId(),
                       "application", project.getApplicationId());
     }
@@ -250,12 +247,8 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
         return project;
     }
 
-    private static String slugify(String projectName) {
-        return projectName == null ? "" : SLUGIFY.slugify(projectName);
-    }
-
     private static String toRepoName(String projectName) {
-        String s = slugify(projectName);
+        String s = SLUGIFY.slugify(projectName);
         if (s.length() > GITHUB_REPO_NAME_MAX) s = s.substring(0, GITHUB_REPO_NAME_MAX);
         return s;
     }
