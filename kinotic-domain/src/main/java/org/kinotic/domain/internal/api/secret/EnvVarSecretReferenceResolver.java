@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.api.secret;
+package org.kinotic.domain.internal.api.secret;
 
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +14,7 @@ import java.util.concurrent.CompletableFuture;
  * with non-alphanumeric characters replaced by {@code _}, matching standard env-var
  * conventions. Returns {@code null} when the env var is not set.
  *
- * <p>Active when {@code kinotic.secretStorage.azure.vaultUrl} is unset or blank.
+ * <p>Active when {@code kinotic.domain.secretStorage.azure.vaultUrl} is unset or blank.
  * Mutually exclusive with {@link AzureKeyVaultSecretReferenceResolver} via the same
  * property — both classes use {@link ConditionalOnExpression} rather than
  * {@code @ConditionalOnMissingBean} so activation is property-driven and order-independent
@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @Slf4j
 @Component
-@ConditionalOnExpression("'${kinotic.secretStorage.azure.vaultUrl:}'.isBlank()")
+@ConditionalOnExpression("'${kinotic.domain.secretStorage.azure.vaultUrl:}'.isBlank()")
 public class EnvVarSecretReferenceResolver implements SecretReferenceResolver {
 
     @PostConstruct

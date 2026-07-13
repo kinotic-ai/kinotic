@@ -50,6 +50,11 @@ public class DomainProperties {
      */
     private LokiProperties loki = new LokiProperties();
 
+    /**
+     * Secret storage configuration. If null, an in-memory backend is used.
+     */
+    private SecretStorageProperties secretStorage;
+
     @NotNull
     private Duration elasticConnectionTimeout = Duration.ofSeconds(5);
 
