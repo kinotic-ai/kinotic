@@ -13,7 +13,7 @@ import io.vertx.ext.web.handler.BodyHandler;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.Nullable;
 import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.crud.Pageable;
@@ -56,7 +56,7 @@ public class OpenApiVertxRouterFactory {
     private final OpenApiService openApiService;
     private final SecurityContext securityContext;
     private final PersistenceProperties properties;
-    private final KinoticProperties kinoticProperties;
+    private final KinoticApiGatewayProperties kinoticProperties;
     private final SecurityService securityService;
     private final JavaType stringListType;
     private final JavaType tenantSpecificListType;
@@ -67,7 +67,7 @@ public class OpenApiVertxRouterFactory {
                                      OpenApiService openApiService,
                                      SecurityContext securityContext,
                                      PersistenceProperties properties,
-                                     KinoticProperties kinoticProperties,
+                                     KinoticApiGatewayProperties kinoticProperties,
                                      SecurityService securityService,
                                      Vertx vertx) {
         this.entitiesService = entitiesService;
@@ -102,7 +102,7 @@ public class OpenApiVertxRouterFactory {
     }
 
     public Router createRouter() {
-        Router router = VertxWebUtil.createRouterWithCors(vertx, kinoticProperties.getCors());
+        Router router = VertxWebUtil.createRouterWithCors(vertx, kinoticProperties.getApiGateway().getCors());
 
         BodyHandler bodyHandler = BodyHandler.create(false);
         bodyHandler.setBodyLimit(properties.getMaxHttpBodySize());

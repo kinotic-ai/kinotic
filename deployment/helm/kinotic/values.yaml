@@ -32,12 +32,11 @@ properties:
 
 # Kinotic platform — mirrors the Spring property structure:
 #   kinotic.persistence.*  → ports, ES, health
-#   kinotic.apiGateway.*   → STOMP, static web server
-#   kinotic.domain.*       → public URLs, TLS, email, platform OIDC providers
-#   kinotic.cors.*         → CORS (allowed origins, credentials)
+#   kinotic.apiGateway.*   → STOMP, static web server, TLS, CORS
+#   kinotic.domain.*       → public URLs, email, platform OIDC providers
 #   kinotic.ignite.*       → cluster (set in application-kubernetes.yml)
 kinotic:
-  # kinotic.domain.* — domain-layer configuration (public URLs, TLS, email).
+  # kinotic.domain.* — domain-layer configuration (public URLs, email).
   domain:
     # Public base URL of the SPA (no trailing slash) — used for verification email links
     # and post-OIDC SPA redirects. Must be set per-environment.
@@ -86,7 +85,7 @@ kinotic:
     discoveryPort: 47500
     communicationPort: 47100
 
-# TLS (kinotic.domain.ssl.*)
+# TLS (kinotic.apiGateway.ssl.*)
 tls:
   enabled: false
   secretName: kinotic-tls

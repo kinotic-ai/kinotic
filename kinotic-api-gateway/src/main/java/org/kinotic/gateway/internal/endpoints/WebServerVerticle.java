@@ -7,8 +7,8 @@ import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.web.Router;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.domain.api.utils.SslHelper;
-import org.kinotic.domain.api.config.SslProperties;
+import org.kinotic.gateway.api.utils.ApiGatewayUtil;
+import org.kinotic.gateway.api.config.SslProperties;
 import org.kinotic.gateway.api.config.WebServerProperties;
 import io.vertx.ext.web.handler.StaticHandler;
 
@@ -31,7 +31,7 @@ public class WebServerVerticle extends VerticleBase {
     @Override
     public Future<?> start() throws Exception {
         HttpServerOptions serverOptions = new HttpServerOptions();
-        SslHelper.applySsl(serverOptions, sslProperties);
+        ApiGatewayUtil.applySsl(serverOptions, sslProperties);
         server = vertx.createHttpServer(serverOptions);
 
         Router router = Router.router(vertx);

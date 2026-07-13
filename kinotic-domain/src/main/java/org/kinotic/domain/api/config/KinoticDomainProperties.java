@@ -7,10 +7,10 @@ import lombok.experimental.Accessors;
 import org.kinotic.core.api.config.KinoticProperties;
 
 /**
- * Contributes domain-level configuration (e.g. {@link EmailProperties}) to the
- * {@code kinotic} prefix. Registered via {@code @EnableConfigurationProperties} on the
- * always-on auto-configuration (not the gated domain library), so it stays available — the
- * api-gateway reads {@link DomainProperties#getSsl()} even when domain logic is disabled.
+ * Contributes domain-level configuration (e.g. {@link EmailProperties}) under the
+ * {@code kinotic.domain} prefix. Registered via {@code @EnableConfigurationProperties} on the
+ * always-on auto-configuration (not the gated domain library), so {@code kinotic.domain.*}
+ * binds even when domain logic is disabled.
  */
 @Getter
 @Setter
