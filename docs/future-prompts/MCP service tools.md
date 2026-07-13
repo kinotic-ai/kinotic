@@ -8,6 +8,9 @@ is committed on branch `claude/vertx-mcp-kinotic-gateway-udkpr7` before pausing.
 Read the repository `CLAUDE.md` first — every convention in it binds (package layout,
 Lombok, comments, code smells, dependency versions, docs-in-sync). Build commands for
 this cloud environment are in `CLAUDE.md` (JDK 25 download + `CLAUDE_CLOUD_COMPILE=true`).
+Known environment issue: the Gradle wrapper's 9.1.0 download 403s through the egress
+proxy (GitHub release asset) — use the pre-installed `/opt/gradle/bin/gradle` with the
+same flags instead of `./gradlew`.
 
 File paths below carry line numbers that were accurate when this plan was written —
 re-verify before editing; code may have drifted. When this plan and the actual code
