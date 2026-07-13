@@ -189,8 +189,8 @@ public class RpcTests {
     }
 
     /**
-     * A streaming result is monitored via the __vertx.subs cache so it can be terminated when its
-     * reply listener goes away. Subscription changes on other addresses must not affect the stream.
+     * A streaming result monitors its reply listener so it can be terminated when the listener goes
+     * away. Registration changes on other addresses must not affect the stream.
      */
     @Test
     public void testInfiniteFluxSurvivesUnrelatedConsumerChurn(){

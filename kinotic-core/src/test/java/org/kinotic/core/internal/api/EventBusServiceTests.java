@@ -28,10 +28,9 @@ public class EventBusServiceTests {
 
     /**
      * Pins the monitorListenerStatus contract: the initial status reflects existing listeners, removing
-     * the last listener emits INACTIVE, and a listener re-registering emits ACTIVE. The monitor observes
-     * the vertx-ignite __vertx.subs cache, whose layout is an implementation detail of the cluster
-     * manager, and Ignite delivers events even when a continuous-query filter throws — so layout drift
-     * after a Vert.x upgrade can only surface through these behavioral expectations, never as an error.
+     * the last listener emits INACTIVE, and a listener re-registering emits ACTIVE. The monitor is fed
+     * by the cluster manager's registration updates, so drift in that plumbing after a Vert.x upgrade
+     * can only surface through these behavioral expectations, never as an error.
      * Together with RpcTests.testInfiniteFluxSurvivesUnrelatedConsumerChurn this covers both failure
      * directions: a monitor that goes deaf fails here, a monitor that matches foreign addresses fails there.
      */
