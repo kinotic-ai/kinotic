@@ -15,7 +15,7 @@ import org.kinotic.domain.api.services.iam.InviteEmailMismatchException;
 import org.kinotic.domain.api.services.iam.InviteService;
 import org.kinotic.domain.internal.api.repositories.PendingInviteRepository;
 import org.kinotic.domain.internal.api.services.EmailService;
-import org.kinotic.domain.internal.utils.DomainUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;

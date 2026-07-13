@@ -10,7 +10,7 @@ import org.kinotic.domain.api.services.iam.DeviceCodeGrantService;
 import org.kinotic.domain.internal.api.model.DeviceCodeGrant;
 import org.kinotic.domain.internal.api.repositories.DeviceCodeGrantRepository;
 import org.kinotic.domain.internal.api.repositories.IamUserRepository;
-import org.kinotic.domain.internal.utils.DomainUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.security.SecureRandom;

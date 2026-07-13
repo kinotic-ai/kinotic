@@ -8,7 +8,7 @@ import org.kinotic.domain.api.services.iam.RefreshTokenService;
 import org.kinotic.domain.internal.api.model.RefreshToken;
 import org.kinotic.domain.internal.api.repositories.IamUserRepository;
 import org.kinotic.domain.internal.api.repositories.RefreshTokenRepository;
-import org.kinotic.domain.internal.utils.DomainUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;

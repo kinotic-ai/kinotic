@@ -8,7 +8,7 @@ import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.internal.api.repositories.IamUserRepository;
 import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
 import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
-import org.kinotic.domain.internal.utils.DomainUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
