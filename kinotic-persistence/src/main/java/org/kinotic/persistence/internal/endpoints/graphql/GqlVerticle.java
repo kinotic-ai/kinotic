@@ -14,7 +14,6 @@ import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.security.AuthenticationHandler;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.internal.utils.VertxWebUtil;
 
 /**
  * Created by Navíd Mitchell 🤪 on 6/7/23.
@@ -42,7 +41,7 @@ public class GqlVerticle extends VerticleBase {
         ApiGatewayUtil.applySsl(options, sslProperties);
         server = vertx.createHttpServer(options);
 
-        Router router = VertxWebUtil.createRouterWithCors(vertx, corsProperties);
+        Router router = ApiGatewayUtil.createRouterWithCors(vertx, corsProperties);
 
         if(securityService !=null){
             router.route().handler(new AuthenticationHandler(securityService, securityContext, vertx));

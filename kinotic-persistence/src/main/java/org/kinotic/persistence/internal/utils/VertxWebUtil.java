@@ -1,30 +1,16 @@
 package org.kinotic.persistence.internal.utils;
 
-import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpServerResponse;
-import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.commons.lang3.Validate;
-import org.jspecify.annotations.NonNull;
 import org.kinotic.core.api.crud.*;
-import org.kinotic.core.api.exceptions.AuthenticationException;
-import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.gateway.api.config.CorsProperties;
-import org.kinotic.gateway.api.utils.ApiGatewayUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletionException;
 
 /**
  * Created by Navíd Mitchell 🤪 on 6/1/23.
  */
 public class VertxWebUtil {
-    private static final Logger log = LoggerFactory.getLogger(VertxWebUtil.class);
 
     public static String validateAndReturnEntityDefinitionId(RoutingContext ctx){
         String organization = ctx.pathParam("organization");
@@ -130,64 +116,6 @@ public class VertxWebUtil {
         }
 
         return ret;
-    }
-
-    public static @NonNull Router createRouterWithCors(Vertx vertx,
-                                                       CorsProperties corsProperties) {
-        Router router = Router.router(vertx);
-        router.route().failureHandler(VertxWebUtil.createExceptionConvertingFailureHandler());
-        router.route().handler(ApiGatewayUtil.createCorsHandler(corsProperties));
-        return router;
-    }
-
-    public static Handler<RoutingContext> createExceptionConvertingFailureHandler(){
-        return ctx -> {
-            writeException(ctx, ctx.failure());
-        };
-    }
-
-    public static void writeException(RoutingContext context, Throwable throwable){
-        HttpServerResponse response = context.response();
-        String errorMessage;
-        int statusCode = context.statusCode();
-
-        if(throwable != null){
-
-            if(throwable instanceof CompletionException){
-                if(throwable.getCause() != null) {
-                    throwable = throwable.getCause();
-                }
-            }
-
-            errorMessage = throwable.getMessage();
-
-            if(statusCode == -1){
-                if (throwable instanceof IllegalArgumentException) {
-                    statusCode = 400;
-                } else if (throwable instanceof NullPointerException) {
-                    statusCode = 400;
-                } else if(throwable instanceof AuthenticationException){
-                    statusCode = 401;
-                } else if (throwable instanceof AuthorizationException) {
-                    statusCode = 403;
-                } else {
-                    statusCode = 500;
-                }
-            }
-            log.debug("Error processing web request. Status Code ({})", statusCode, throwable);
-        }else{
-
-            if(statusCode == -1){
-                statusCode = 500;
-            }
-            errorMessage = "Server Error";
-
-            log.warn("Unknown exception occurred processing web request. Status Code ({})", statusCode);
-        }
-        String jsonString = new JsonObject().put("error", errorMessage).encode();
-        response.setStatusCode(statusCode);
-        response.putHeader("Content-Type", "application/json");
-        response.end(jsonString);
     }
 
 }

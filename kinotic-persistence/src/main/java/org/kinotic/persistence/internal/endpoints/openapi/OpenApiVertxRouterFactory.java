@@ -14,6 +14,7 @@ import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.Nullable;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
+import org.kinotic.gateway.api.utils.ApiGatewayUtil;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.crud.Pageable;
@@ -102,7 +103,7 @@ public class OpenApiVertxRouterFactory {
     }
 
     public Router createRouter() {
-        Router router = VertxWebUtil.createRouterWithCors(vertx, kinoticProperties.getApiGateway().getCors());
+        Router router = ApiGatewayUtil.createRouterWithCors(vertx, kinoticProperties.getApiGateway().getCors());
 
         BodyHandler bodyHandler = BodyHandler.create(false);
         bodyHandler.setBodyLimit(properties.getMaxHttpBodySize());
@@ -123,10 +124,10 @@ public class OpenApiVertxRouterFactory {
                                     ctx.response().putHeader("Content-Type", "application/json");
                                     ctx.response().end(Buffer.buffer(bytes));
                                 } catch (IOException e) {
-                                    VertxWebUtil.writeException(ctx, e);
+                                    ApiGatewayUtil.writeException(ctx, e);
                                 }
                             }else{
-                                VertxWebUtil.writeException(ctx, failure);
+                                ApiGatewayUtil.writeException(ctx, failure);
                             }
                         });
               });
@@ -314,7 +315,7 @@ public class OpenApiVertxRouterFactory {
                       );
 
                   } catch (JacksonException e) {
-                      VertxWebUtil.writeException(ctx, e);
+                      ApiGatewayUtil.writeException(ctx, e);
                   }
               });
 
@@ -340,7 +341,7 @@ public class OpenApiVertxRouterFactory {
                       );
 
                   } catch (JacksonException e) {
-                      VertxWebUtil.writeException(ctx, e);
+                      ApiGatewayUtil.writeException(ctx, e);
                   }
               });
     }
@@ -377,7 +378,7 @@ public class OpenApiVertxRouterFactory {
                 );
 
             } catch (JacksonException e) {
-                VertxWebUtil.writeException(ctx, e);
+                ApiGatewayUtil.writeException(ctx, e);
             }
         });
 
@@ -448,7 +449,7 @@ public class OpenApiVertxRouterFactory {
                 );
 
             } catch (JacksonException e) {
-                VertxWebUtil.writeException(ctx, e);
+                ApiGatewayUtil.writeException(ctx, e);
             }
         });
 
@@ -502,7 +503,7 @@ public class OpenApiVertxRouterFactory {
                           );
                       }
                   } catch (JacksonException e) {
-                      VertxWebUtil.writeException(ctx, e);
+                      ApiGatewayUtil.writeException(ctx, e);
                   }
               });
 
@@ -544,14 +545,14 @@ public class OpenApiVertxRouterFactory {
         Future.fromCompletionStage(supplier.get(),
                                    vertx.getOrCreateContext())
               .onComplete(new CountHandler(ctx))
-              .onFailure(throwable -> VertxWebUtil.writeException(ctx, throwable));
+              .onFailure(throwable -> ApiGatewayUtil.writeException(ctx, throwable));
     }
 
     private void handleNoReturnValue(RoutingContext ctx, Supplier<CompletableFuture<Void>> supplier){
         Future.fromCompletionStage(supplier.get(),
                                    vertx.getOrCreateContext())
               .onComplete(new NoValueHandler(ctx))
-              .onFailure(throwable -> VertxWebUtil.writeException(ctx, throwable));
+              .onFailure(throwable -> ApiGatewayUtil.writeException(ctx, throwable));
     }
 
     private <T> void handleWithReturnValue(RoutingContext ctx, Supplier<CompletableFuture<T>> supplier){
@@ -562,7 +563,7 @@ public class OpenApiVertxRouterFactory {
         Future.fromCompletionStage(supplier.get(),
                                    vertx.getOrCreateContext())
               .onComplete(new ValueToJsonHandler<>(ctx, objectMapper, send404IfNull))
-              .onFailure(throwable -> VertxWebUtil.writeException(ctx, throwable));
+              .onFailure(throwable -> ApiGatewayUtil.writeException(ctx, throwable));
     }
 
 }

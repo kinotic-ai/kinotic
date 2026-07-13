@@ -37,13 +37,14 @@ public class ApiGatewayVertcleFactory {
     private final SessionStore sessionStore;
 
     public StompServerVerticle createApiGatewayVerticle(){
-        Router router = Router.router(vertx);
-
-        // CORS first — the SPA is a different origin from this gateway (portal.kinotic.ai
-        // vs api.kinotic.ai in prod, vite's :5173 in dev). They're same-site, so the
-        // SameSite=Lax session cookie flows; credentialed CORS (kinotic.apiGateway.cors.*) lets the
-        // cross-origin login fetch store it. Shared with the openapi/graphql routes.
-        router.route().handler(ApiGatewayUtil.createCorsHandler(properties.getApiGateway().getCors()));
+        // Router arrives pre-wired with CORS and the exception-converting failure handler, so an
+        // unhandled failure from any mounted route renders as JSON with a mapped status instead of
+        // Vert.x's default bare reason-phrase 500. CORS: the SPA is a different origin from this
+        // gateway (portal.kinotic.ai vs api.kinotic.ai in prod, vite's :5173 in dev). They're
+        // same-site, so the SameSite=Lax session cookie flows; credentialed CORS
+        // (kinotic.apiGateway.cors.*) lets the cross-origin login fetch store it. Shared with the
+        // openapi/graphql routes.
+        Router router = ApiGatewayUtil.createRouterWithCors(vertx, properties.getApiGateway().getCors());
 
         // Health check on the api-gateway port so probes work even when the static
         // web-server (9090) is disabled in KinD/Azure.
