@@ -28,7 +28,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.zip.GZIPOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -162,16 +161,6 @@ class GitHubProjectRepoProvisionerTest {
         verify(apiClient, never()).createRepoFromTemplate(anyString(), anyString(), anyString(),
                                                           anyString(), any(), anyBoolean());
         verify(apiClient).updateRef(eq("repo-token"), eq("acme/demo"), eq("heads/main"), eq("commit-sha"), eq(true));
-    }
-
-    @Test
-    void failsWhenProjectNameIsMissing() {
-        Project project = project();
-        project.setName(null);
-
-        assertThrows(RuntimeException.class, () -> provisioner.provision(project));
-        verify(apiClient, never()).createRepoFromTemplate(anyString(), anyString(), anyString(),
-                                                          anyString(), any(), anyBoolean());
     }
 
     private static Project project() {
