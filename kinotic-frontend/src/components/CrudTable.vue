@@ -52,7 +52,7 @@ const props = withDefaults(defineProps<{
   defaultPageSize?: number
   transparentDarkCards?: boolean
   // When set, each row gets an ellipsis button opening a popup menu with these
-  // items. Rendered before the additional-actions slot content.
+  // items. Rows for which the function returns an empty array get no button.
   rowActions?: (item: any) => MenuItem[]
   // Appends a Delete item to the row menu that confirms with the user, then
   // emits deleteItem. The parent performs the actual deletion.
@@ -524,10 +524,10 @@ defineExpose({ find, displayAlert });
               </template>
             </Column>
 
-            <Column v-if="hasRowMenu || $slots['additional-actions']" header="">
+            <Column v-if="hasRowMenu" header="">
               <template #body="slotProps">
                 <div class="flex min-h-[48px] w-full items-center justify-center">
-                  <template v-if="hasRowMenu">
+                  <template v-if="rowMenuItems(slotProps.data).length > 0">
                     <Button
                       icon="pi pi-ellipsis-v"
                       @click.stop="(event) => toggleRowMenu(event, slotProps.data.id)"
@@ -544,7 +544,6 @@ defineExpose({ find, displayAlert });
                       :id="'action_menu_' + slotProps.data.id"
                     />
                   </template>
-                  <slot name="additional-actions" :item="slotProps.data" />
                 </div>
               </template>
             </Column>
