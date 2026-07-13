@@ -7,6 +7,7 @@
       :search="tableSearch"
       create-new-button-text="Invite member"
       empty-state-text="No members yet"
+      :row-actions="rowActions"
       @update:search="tableSearch = $event"
       @add-item="openInviteDialog"
     >
@@ -26,31 +27,6 @@
         {{ formatDate(item.created) }}
       </template>
 
-      <template #additional-actions="{ item }">
-        <Button
-          v-if="item.invite"
-          text
-          severity="danger"
-          icon="pi pi-times"
-          title="Cancel invitation"
-          @click="confirmCancelInvite(item)"
-        />
-        <template v-else-if="!isSelf(item)">
-          <Button
-            text
-            :icon="item.enabled ? 'pi pi-ban' : 'pi pi-check-circle'"
-            :title="item.enabled ? 'Disable member' : 'Enable member'"
-            @click="confirmToggleEnabled(item)"
-          />
-          <Button
-            text
-            severity="danger"
-            icon="pi pi-trash"
-            title="Remove member"
-            @click="confirmRemove(item)"
-          />
-        </template>
-      </template>
     </CrudTable>
 
     <Dialog v-model:visible="inviteDialogVisible" modal header="Invite member" :style="{ width: '28rem' }">
@@ -82,6 +58,7 @@ import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Tag from 'primevue/tag'
+import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 
@@ -294,6 +271,25 @@ async function sendInvite() {
   } finally {
     inviting.value = false
   }
+}
+
+function rowActions(item: MemberRow): MenuItem[] {
+  if (item.invite) {
+    return [
+      { label: 'Cancel invitation', icon: 'pi pi-times', command: () => confirmCancelInvite(item) }
+    ]
+  }
+  if (isSelf(item)) {
+    return []
+  }
+  return [
+    {
+      label: item.enabled ? 'Disable member' : 'Enable member',
+      icon: item.enabled ? 'pi pi-ban' : 'pi pi-check-circle',
+      command: () => confirmToggleEnabled(item)
+    },
+    { label: 'Remove member', icon: 'pi pi-trash', command: () => confirmRemove(item) }
+  ]
 }
 
 function confirmCancelInvite(item: MemberRow) {

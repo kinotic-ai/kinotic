@@ -5,10 +5,8 @@ import EntityDataViewModal from "@/components/modals/EntityDataViewModal.vue";
 import EntityDefinitionItemModal from "@/components/modals/EntityDefinitionItemModal.vue";
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
-import Menu from "primevue/menu";
 import Tag from "primevue/tag";
 import type {
-  Identifiable,
   IterablePage,
   Pageable,
 } from "@kinotic-ai/core";
@@ -27,7 +25,6 @@ export default defineComponent({
     Button,
     CrudTable,
     Dialog,
-    Menu,
     EntityDataViewModal,
     EntityDefinitionItemModal,
     Tag,
@@ -61,8 +58,6 @@ export default defineComponent({
   data() {
     return {
       DatetimeUtil,
-      actionMenus: {} as Record<string | number, any>,
-      currentActionItem: null as EntityDefinition | null,
       dataSource1: Kinotic.entityDefinitions as IEntityDefinitionService,
       isInitialized: false,
       searchText: "",
@@ -187,14 +182,6 @@ export default defineComponent({
         this.openPublishModal(item);
       }
     },
-    onEditItem(item: Identifiable<string>): void {
-      this.$router.push(`${this.$route.path}/edit/${item.id}`);
-    },
-    toggleMenu(event: Event, item: EntityDefinition, index: string | number): void {
-      this.currentActionItem = item;
-      const menu = this.actionMenus[index];
-      menu?.toggle?.(event);
-    },
     async publish(item: any): Promise<void> {
       item["publishing"] = true;
       const table = this.$refs?.crudTable as any;
@@ -275,10 +262,10 @@ export default defineComponent({
       :singleExpand="false"
       :search="searchText"
       @update:search="updateRouteQuery"
-      @edit-item="onEditItem"
       @onRowClick="handleRowClick"
       :isShowAddNew="showNewEntityDefinitionButton"
       :createNewButtonText="newEntityDefinitionButtonText"
+      :row-actions="getActionMenu"
       class="!text-sm"
       emptyStateText="No entities yet"
     >
@@ -297,25 +284,6 @@ export default defineComponent({
           class="px-2 py-1 text-sm"
           rounded
         />
-      </template>
-      <template #additional-actions="{ item }">
-        <div class="flex items-center justify-center">
-          <Button
-            icon="pi pi-ellipsis-v"
-            @click.stop="(event) => toggleMenu(event, item, item.id)"
-            aria-haspopup="true"
-            :aria-controls="'action_menu_' + item.id"
-            type="button"
-            severity="secondary"
-            variant="text"
-          />
-          <Menu
-            :ref="(el) => (actionMenus[item.id] = el)"
-            :model="getActionMenu(item)"
-            :popup="true"
-            :id="'action_menu_' + item.id"
-          />
-        </div>
       </template>
     </CrudTable>
 

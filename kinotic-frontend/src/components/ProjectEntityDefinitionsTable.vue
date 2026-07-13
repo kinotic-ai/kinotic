@@ -10,7 +10,7 @@ import { Kinotic } from '@kinotic-ai/core'
 import { EntityDefinition } from '@kinotic-ai/os-api'
 import type { CrudHeader } from '@/types/CrudHeader'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
-import type { Identifiable, IterablePage, Pageable } from '@kinotic-ai/core'
+import type { IterablePage, Pageable } from '@kinotic-ai/core'
 import DatetimeUtil from "@/util/DatetimeUtil"
 import { createDebug } from '@/util/debug'
 
@@ -50,8 +50,6 @@ const showPublishModal = ref(false)
 const showUnpublishModal = ref(false)
 const selectedEntityDefinition = ref<EntityDefinition | null>(null)
 const isInitialized = ref(false)
-const actionMenus = ref<any[]>([])
-const currentActionItem = ref<EntityDefinition | null>(null)
 const dataSource1 = Kinotic.entityDefinitions
 
 onMounted(() => {
@@ -203,10 +201,6 @@ function onAddItem() {
   // this.$router.push("/new-entityDefinition")
 }
 
-function onEditItem(item: Identifiable<string>) {
-  router.push(`${route.path}/edit/${item.id}`)
-}
-
 function handleRowClick(item: EntityDefinition) {
   if (item.published) {
     debug('Opening data modal for published entityDefinition');
@@ -214,14 +208,6 @@ function handleRowClick(item: EntityDefinition) {
   } else {
     debug('Opening publish modal for unpublished entityDefinition');
     openPublishModal(item)
-  }
-}
-
-function toggleMenu(event: Event, item: EntityDefinition, index: number) {
-  currentActionItem.value = item
-  const menu = actionMenus.value[index]
-  if (menu) {
-    menu.toggle(event)
   }
 }
 
@@ -321,10 +307,10 @@ async function markProjectAsActive() {
       :search="searchText"
       @update:search="updateRouteQuery"
       @add-item="onAddItem"
-      @edit-item="onEditItem"
       @onRowClick="handleRowClick"
       :isShowAddNew="showNewEntityDefinitionButton"
       :createNewButtonText="newEntityDefinitionButtonText"
+      :row-actions="getActionMenu"
       emptyStateText="No entities yet for this project"
       rowHoverColor=""
       class="!text-sm"
@@ -353,25 +339,6 @@ async function markProjectAsActive() {
       </template>
       <template #item.description="{ item }">
         <span>{{ item.description }}</span>
-      </template>
-      <template #additional-actions="{ item }">
-        <div class="flex items-center justify-center">
-          <Button
-            icon="pi pi-ellipsis-v"
-            @click.stop="(event) => toggleMenu(event, item, item.id)"
-            aria-haspopup="true"
-            :aria-controls="'action_menu_' + item.id"
-            type="button"
-            severity="secondary"
-            variant="text"
-          />
-          <Menu
-            :ref="(el) => (actionMenus[item.id] = el)"
-            :model="getActionMenu(item)"
-            :popup="true"
-            :id="'action_menu_' + item.id"
-          />
-        </div>
       </template>
     </CrudTable>
 

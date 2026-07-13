@@ -8,9 +8,12 @@ import Button from "primevue/button";
 import InputText from "primevue/inputtext";
 import ConfirmDialog from "primevue/confirmdialog";
 import Card from "primevue/card";
+import Menu from "primevue/menu";
+import type { MenuItem } from "primevue/menuitem";
 import Paginator, { type PageState } from "primevue/paginator";
 import SelectButton from "primevue/selectbutton";
 import { useToast } from "primevue/usetoast";
+import { useConfirm } from "primevue/useconfirm";
 
 import {
   type IDataSource,
@@ -19,7 +22,6 @@ import {
   type Page,
   Pageable,
   Direction,
-  DataSourceUtils,
 } from "@kinotic-ai/core";
 
 import type { CrudHeader } from "@/types/CrudHeader";
@@ -39,7 +41,6 @@ const props = withDefaults(defineProps<{
   singleExpand?: boolean
   disableModifications?: boolean
   isShowAddNew?: boolean
-  isShowDelete?: boolean
   initialSearch?: string
   rowHoverColor?: string
   createNewButtonText?: string
@@ -50,13 +51,19 @@ const props = withDefaults(defineProps<{
   enableRowHover?: boolean
   defaultPageSize?: number
   transparentDarkCards?: boolean
+  // When set, each row gets an ellipsis button opening a popup menu with these
+  // items. Rows for which the function returns an empty array get no button.
+  rowActions?: (item: any) => MenuItem[]
+  // Appends a Delete item to the row menu that confirms with the user, then
+  // emits deleteItem. The parent performs the actual deletion.
+  isShowDelete?: boolean
 }>(), {
   multiSort: false,
   mustSort: true,
   singleExpand: false,
   disableModifications: false,
   isShowAddNew: true,
-  isShowDelete: true,
+  isShowDelete: false,
   initialSearch: '',
   rowHoverColor: '#f5f5f5',
   createNewButtonText: 'Add new',
@@ -74,7 +81,7 @@ const emit = defineEmits<{
   (e: "addItem"): void;
   // any: listeners type these payloads as their concrete entity (EntityDefinition,
   // Dashboard, ...), which is narrower than the Identifiable<string> rows the table holds.
-  (e: "editItem", item: any): void;
+  (e: "deleteItem", item: any): void;
   (e: "onRowClick", data: any): void;
   (e: "items-count", count: number): void;
 }>();
@@ -109,12 +116,39 @@ const viewOptions = [
   { icon: "pi pi-th-large", value: "column" },
 ];
 
-const editable = computed<boolean>(() => {
-  return (
-    props.dataSource &&
-    DataSourceUtils.instanceOfEditableDataSource(props.dataSource)
-  );
+const rowMenus = ref<Record<string, any>>({});
+const confirm = useConfirm();
+
+function toggleRowMenu(event: Event, itemId: string): void {
+  rowMenus.value[itemId]?.toggle(event);
+}
+
+const hasRowMenu = computed<boolean>(() => {
+  return !!props.rowActions || props.isShowDelete;
 });
+
+function rowMenuItems(item: DescriptiveIdentifiable): MenuItem[] {
+  const menuItems = props.rowActions ? [...props.rowActions(item)] : [];
+  if (props.isShowDelete) {
+    menuItems.push({
+      label: "Delete",
+      icon: "pi pi-trash",
+      command: () => confirmDelete(item),
+    });
+  }
+  return menuItems;
+}
+
+function confirmDelete(item: DescriptiveIdentifiable): void {
+  confirm.require({
+    header: "Confirm delete",
+    message: `Permanently delete ${item.name ?? "this item"}? This cannot be undone.`,
+    icon: "pi pi-exclamation-triangle",
+    acceptProps: { label: "Delete", severity: "danger" },
+    rejectProps: { label: "Cancel", severity: "secondary", outlined: true },
+    accept: () => emit("deleteItem", item),
+  });
+}
 
 const computedHeaders = computed<CrudHeader[]>(() => {
   return props.headers;
@@ -490,10 +524,26 @@ defineExpose({ find, displayAlert });
               </template>
             </Column>
 
-            <Column v-if="editable || $slots['additional-actions']" header="">
+            <Column v-if="hasRowMenu" header="">
               <template #body="slotProps">
                 <div class="flex min-h-[48px] w-full items-center justify-center">
-                  <slot name="additional-actions" :item="slotProps.data" />
+                  <template v-if="rowMenuItems(slotProps.data).length > 0">
+                    <Button
+                      icon="pi pi-ellipsis-v"
+                      @click.stop="(event) => toggleRowMenu(event, slotProps.data.id)"
+                      aria-haspopup="true"
+                      :aria-controls="'action_menu_' + slotProps.data.id"
+                      type="button"
+                      severity="secondary"
+                      variant="text"
+                    />
+                    <Menu
+                      :ref="(el) => (rowMenus[slotProps.data.id] = el)"
+                      :model="rowMenuItems(slotProps.data)"
+                      :popup="true"
+                      :id="'action_menu_' + slotProps.data.id"
+                    />
+                  </template>
                 </div>
               </template>
             </Column>
