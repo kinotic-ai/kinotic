@@ -41,8 +41,9 @@ import java.util.concurrent.TimeUnit;
  * Slugifies the project name with the same {@link Slugify} configuration used by
  * {@code DefaultProjectService} when deriving the project id, so a name that
  * passes the platform-side id-uniqueness check produces an identically-shaped
- * GitHub repo name. The same slug is exposed to the templates as
- * {@code projectSlug} for values that must be identifiers rather than the raw name.
+ * GitHub repo name. That slug is also exposed to the templates as
+ * {@code projectSlug} for values that must be identifiers rather than the raw name;
+ * the repo name is the same slug truncated to GitHub's repo-name length limit.
  */
 @Slf4j
 @Component
@@ -209,11 +210,12 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     }
 
     private Map<String, Object> contextFor(Project project) {
-        // projectName is the human-facing name; projectSlug is the same slug the repo
-        // is named with, for template values that must be identifiers (e.g. the
-        // package.json name), which the raw name is not.
+        // projectName is the human-facing name; projectSlug is its slug, for template
+        // values that must be npm identifiers (e.g. the package.json name), which the
+        // raw name is not. It is not truncated to the repo-name cap: an npm identifier
+        // shouldn't inherit GitHub's repo-name length limit.
         return Map.of("projectName", project.getName(),
-                      "projectSlug", toRepoName(project.getName()),
+                      "projectSlug", slugify(project.getName()),
                       "organization", project.getOrganizationId(),
                       "application", project.getApplicationId());
     }
@@ -248,9 +250,12 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
         return project;
     }
 
+    private static String slugify(String projectName) {
+        return projectName == null ? "" : SLUGIFY.slugify(projectName);
+    }
+
     private static String toRepoName(String projectName) {
-        if (projectName == null) return "";
-        String s = SLUGIFY.slugify(projectName);
+        String s = slugify(projectName);
         if (s.length() > GITHUB_REPO_NAME_MAX) s = s.substring(0, GITHUB_REPO_NAME_MAX);
         return s;
     }
