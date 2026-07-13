@@ -27,16 +27,23 @@ one-line rationales:
    (kinotic servers, worker nodes, customer microVMs). Tool contracts are **data**:
    C3 `ServiceDefinition`s (from `kinotic-idl`) captured where the service registers and
    stored in a durable **ServiceDirectory** (Elasticsearch), modeled on `EntityDefinition`.
-3. **Liveness is never persisted — and never queried on the request path.** The gateway
-   holds an in-memory liveness map fed by long-lived
-   `EventBusService.monitorListenerStatus(cri)` subscriptions
-   (`kinotic-core/.../api/event/EventBusService.java:53`) — push-based Ignite
-   cache-entry listeners (see `DefaultEventBusService.java:107-160`), the same primitive
-   `ServiceInvocationSupervisor` uses to cancel streams. One monitor per distinct
-   MCP-exposed CRI, started when the catalog first sees the descriptor, disposed when it
-   leaves the directory. Monitor setup (listener registration + one `getRegistrations`
-   lookup) is too expensive per request but trivial held open; a `tools/list` request
-   only filters the in-memory map — zero cluster calls.
+3. **Liveness is an `online` flag on the directory entry in ES, maintained by ONE
+   cluster-wide updater — never by per-service or per-gateway monitoring.** Gateways
+   serve every customer; total services may reach 100k+, so per-CRI
+   `monitorListenerStatus` monitors on gateways are forbidden (that primitive stays what
+   it is: the per-active-stream tool `ServiceInvocationSupervisor` uses). Instead a
+   single **HA cluster singleton** (Ignite service grid,
+   `ignite.services().deployClusterSingleton(...)` — `ignite-core` is already a
+   dependency; check for an existing kinotic singleton idiom first) consumes one
+   bus-wide listener-change stream and applies partial updates to the `online` field in
+   ES. Service connect/disconnect events are rare (deploys, restarts, VM lifecycle), so
+   write volume is trivial; mass events (a node death) are handled as bulk updates.
+   Non-negotiables: **reconciliation on singleton start and on a periodic timer** (scan
+   the subs registrations, bulk-correct ES, then apply deltas) — without it, one missed
+   event during failover lies forever; and call-time `NO_HANDLERS` → "service offline"
+   tool error remains the authoritative guard for the window between a death and the
+   flag update. The persisted flag also serves the admin UI and health views — one
+   liveness source for every consumer, not an MCP-only mechanism.
 4. **Structural scope, not a scope enum.** `ServiceDirectoryEntry` has nullable
    `organizationId`/`applicationId`/`projectId` — both null = SYSTEM (OS services), exactly
    like the participant model (`kinotic-domain/.../api/security/`, validation precedent in
@@ -151,6 +158,14 @@ Core stays idl-free: it only marks and announces; capture happens in Phase 3.
   successful register/unregister (it already has both values in hand). This is the seam
   Phase 3 listens on; Spring events keep core decoupled from whoever consumes them and
   cost nothing when no listener exists.
+- `EventBusService.monitorListenerChanges()` returning `Flux<ListenerChange>` (a new
+  `ListenerChange` record — address + `ListenerStatus` — own file in `api/event`): the
+  bus-wide sibling of `monitorListenerStatus(cri)`. Implemented in
+  `DefaultEventBusService` with ONE Ignite cache-entry listener over the vertx
+  subscription cache filtered to `srv://` addresses (reuse the machinery at
+  `DefaultEventBusService.java:107-160`, minus the per-address filter). Consumed by the
+  Phase 3 liveness singleton — this keeps persistence out of core's internal Ignite
+  constants.
 
 **Tests:** none in this phase — the event → capture → catalog chain is exercised end to
 end by the Phase 4 e2e. Verification here is compile + code review at the approval pause
@@ -185,6 +200,8 @@ validation rules), and `kinotic-api-gateway/.../stomp/StompAuthorizerFactory.jav
   private String sourceVersion;    // commit SHA (synced) or kinotic release (OS)
   private boolean published;
   private boolean mcpExposed;      // denormalized: any function carries McpToolC3Decorator
+  private boolean online;          // maintained ONLY by ServiceLivenessUpdater (partial updates)
+  private Instant lastStatusChange;
   ```
 
   Write-path invariant (same rule as `KinoticSecurityService`): `applicationId` without
@@ -200,12 +217,12 @@ validation rules), and `kinotic-api-gateway/.../stomp/StompAuthorizerFactory.jav
   - `upsert` / `unpublish` — SYSTEM-participant only.
   - `findForApplication(pageable)` — ownership listing, participant-scoped
     (`ApplicationParticipant` → own org+app; org → own org; system → all).
-  - `findMcpTools()` — returns `List<McpToolDescriptor>` **visible to the calling
-    participant** per the zone send rules: system → all `mcpExposed`; org participant →
-    `os-api`-zone `mcpExposed` entries; app participant → own-app entries + `os-api`
-    entries. Keep this filter logic in ONE place with a comment pointing at
-    `StompAuthorizerFactory` — `sendAllowed` remains the enforcement at call time, this
-    is only the listing view.
+  - `findMcpTools()` — returns `List<McpToolDescriptor>` for entries that are
+    `mcpExposed`, `published`, **and `online`**, **visible to the calling participant**
+    per the zone send rules: system → all; org participant → `os-api`-zone entries; app
+    participant → own-app entries + `os-api` entries. Keep this filter logic in ONE
+    place with a comment pointing at `StompAuthorizerFactory` — `sendAllowed` remains
+    the enforcement at call time, this is only the listing view.
 - `api/services/McpToolDescriptor.java` (own file, dumb DTO) — everything the gateway
   needs without an idl dependency: `toolName` (sanitized, see Phase 4), `description`,
   `inputSchema` (JSON **string**, produced here with the Phase 1 strategy via
@@ -218,7 +235,17 @@ validation rules), and `kinotic-api-gateway/.../stomp/StompAuthorizerFactory.jav
   annotated function (mapping the annotation fields), attach the method's `@McpTool`
   description into the function's `metadata` (`"description"`), and upsert a SYSTEM-scoped
   entry (`sourceVersion` = kinotic version). Unregister does NOT delete — the entry stays
-  (known-but-offline is a feature); liveness handles availability.
+  (known-but-offline is a feature); the liveness updater handles availability.
+- `internal/api/services/ServiceLivenessUpdater.java` — the HA cluster singleton from
+  architecture decision #3 (Ignite service grid; verify how kinotic wires Ignite before
+  choosing the exact deployment call). Lifecycle: on start, **reconcile** (page through
+  directory entries, check current registrations, bulk partial-update `online` +
+  `lastStatusChange`), then consume `eventBusService.monitorListenerChanges()` and apply
+  deltas as ES partial updates (update API touching ONLY the two liveness fields — never
+  the contract, so it can't clobber a concurrent contract upsert). Re-run reconciliation
+  on a slow periodic timer (e.g. 10 min) as the missed-event safety net. Addresses that
+  match no directory entry are ignored (services without contracts are simply not
+  directory-known).
 
 **Tests:** none in this phase — the capture path, descriptor content, and the
 scope/visibility invariants are all asserted in the Phase 4 e2e (which boots real ES and
@@ -265,14 +292,13 @@ Jackson 3 (`tools.jackson`) — convert at the boundary via JSON strings.
 - `McpToolCatalog` — obtains descriptors via an RPC proxy of `ServiceDirectoryService`
   (`@Proxy` mechanism, see `RpcServiceProxyBeanFactory` usage elsewhere; the gateway does
   NOT gain a persistence dependency), keyed per participant scope in a Caffeine
-  `AsyncLoadingCache` with a short TTL. Liveness join per architecture decision #3: a
-  `ConcurrentHashMap<String, ListenerStatus>` fed by ONE long-lived
-  `monitorListenerStatus(cri)` subscription per distinct MCP-exposed CRI (started on
-  first sight of a descriptor, disposed when it leaves the directory — never created on
-  the request path). `tools/list` filters descriptors against the map in memory and drops
-  offline tools (absent is kinder to LLMs than listed-but-failing). Initial status
-  arrives asynchronously after monitor setup — treat unknown as offline rather than
-  blocking; it self-corrects within one `getRegistrations` round-trip.
+  `AsyncLoadingCache` with a short TTL (~30–60s). Liveness costs the gateway nothing:
+  `findMcpTools()` already returns only `online:true` entries (the flag is maintained
+  cluster-wide by Phase 3's `ServiceLivenessUpdater`), so offline tools are simply
+  absent from `tools/list` (kinder to LLMs than listed-but-failing). The gateway holds
+  NO liveness state and performs NO subs-map reads. A service dying inside the
+  TTL/flag-update window is caught at call time (`NO_HANDLERS` → "service offline" tool
+  error).
 - `McpToolNames` — reversible mapping between tool name and (CRI, function): many MCP
   hosts enforce `^[a-zA-Z0-9_-]{1,128}$`, so dots/slashes must be encoded
   (e.g. `srv://com.acme.CatalogService/search` ⇄ `com_acme_CatalogService-search`);
