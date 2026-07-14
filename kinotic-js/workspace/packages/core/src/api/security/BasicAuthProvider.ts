@@ -9,8 +9,13 @@ export class BasicAuthProvider implements IAuthProvider {
     private readonly authHeader: string
 
     constructor(login: string, passcode: string) {
-        const encoded: string = Buffer.from(`${login}:${passcode}`).toString('base64')
-        this.authHeader = `Basic ${encoded}`
+        // btoa only handles Latin1, so encode the credentials as UTF-8 bytes before base64
+        const bytes = new TextEncoder().encode(`${login}:${passcode}`)
+        let binary = ''
+        for (const byte of bytes) {
+            binary += String.fromCharCode(byte)
+        }
+        this.authHeader = `Basic ${btoa(binary)}`
     }
 
     public getAuthHeaders(): Record<string, string> {
