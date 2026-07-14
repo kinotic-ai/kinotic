@@ -2,12 +2,15 @@ package org.kinotic.idl.api.converter.jsonschema;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.schema.ArrayC3Type;
+import org.kinotic.idl.api.schema.ByteC3Type;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.IntC3Type;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.ParameterDefinition;
+import org.kinotic.idl.api.schema.PropertyDefinition;
 import org.kinotic.idl.api.schema.ReferenceC3Type;
+import org.kinotic.idl.api.schema.ShortC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.api.schema.UnionC3Type;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
@@ -61,6 +64,44 @@ public class McpJsonSchemaGeneratorTest {
         assertEquals("name", required.get(0).asString());
 
         assertFalse(schema.has("$defs"), "no complex types means no $defs");
+    }
+
+    @Test
+    public void byteAndShortEmitInteger() {
+        FunctionDefinition function = new FunctionDefinition().setName("measure")
+                                                             .addParameter(new ParameterDefinition("b", new ByteC3Type()))
+                                                             .addParameter(new ParameterDefinition("s", new ShortC3Type()));
+
+        JsonNode schema = jsonMapper.readTree(generator.generateInputSchema(function, Map.of()));
+
+        JsonNode b = schema.path("properties").path("b");
+        assertEquals("integer", b.path("type").asString());
+        assertEquals((int) Byte.MIN_VALUE, b.path("minimum").asInt());
+        assertEquals((int) Byte.MAX_VALUE, b.path("maximum").asInt());
+
+        JsonNode s = schema.path("properties").path("s");
+        assertEquals("integer", s.path("type").asString());
+        assertEquals((int) Short.MIN_VALUE, s.path("minimum").asInt());
+        assertEquals((int) Short.MAX_VALUE, s.path("maximum").asInt());
+    }
+
+    @Test
+    public void propertyDescriptionEmitted() {
+        PropertyDefinition street = new PropertyDefinition("street", new StringC3Type());
+        street.setMetadata(Map.of("description", "Street line of the address"));
+
+        ObjectC3Type address = new ObjectC3Type().setNamespace("com.acme").setName("Address")
+                                                 .addProperty(street);
+
+        FunctionDefinition function = new FunctionDefinition()
+                .setName("saveAddress")
+                .addParameter(new ParameterDefinition("address", new ReferenceC3Type("com.acme.Address")));
+
+        JsonNode schema = jsonMapper.readTree(
+                generator.generateInputSchema(function, Map.of("com.acme.Address", address)));
+
+        assertEquals("Street line of the address",
+                     schema.path("$defs").path("Address").path("properties").path("street").path("description").asString());
     }
 
     @Test

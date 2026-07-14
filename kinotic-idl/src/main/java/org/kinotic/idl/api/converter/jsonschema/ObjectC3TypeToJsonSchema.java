@@ -35,6 +35,7 @@ public class ObjectC3TypeToJsonSchema implements C3TypeConverter<ObjectNode, Obj
         for (PropertyDefinition property : objectC3Type.getProperties()) {
 
             ObjectNode propertySchema = conversionContext.convert(property.getType());
+            JsonSchemaConverterStrategy.applyDescription(propertySchema, property);
             properties.set(property.getName(), propertySchema);
 
             if (property.containsDecorator(NotNullC3Decorator.class)) {

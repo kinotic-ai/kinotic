@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.idl.api.schema.HasMetadata;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.idl.api.schema.decorators.NotNullC3Decorator;
@@ -48,7 +47,7 @@ public class McpJsonSchemaGenerator {
 
         for (ParameterDefinition parameter : function.getParameters()) {
             ObjectNode parameterSchema = converter.convert(parameter.getType());
-            applyDescription(parameterSchema, parameter);
+            JsonSchemaConverterStrategy.applyDescription(parameterSchema, parameter);
             properties.set(parameter.getName(), parameterSchema);
 
             if (parameter.containsDecorator(NotNullC3Decorator.class)) {
@@ -70,16 +69,6 @@ public class McpJsonSchemaGenerator {
         }
 
         return inputSchema.toString();
-    }
-
-    private static void applyDescription(ObjectNode target, HasMetadata source) {
-        Map<String, ?> metadata = source.getMetadata();
-        if (metadata != null) {
-            Object description = metadata.get("description");
-            if (description != null) {
-                target.put("description", description.toString());
-            }
-        }
     }
 
 }

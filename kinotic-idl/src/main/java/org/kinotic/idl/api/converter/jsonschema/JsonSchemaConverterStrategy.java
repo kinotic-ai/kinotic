@@ -59,15 +59,29 @@ public class JsonSchemaConverterStrategy implements IdlConverterStrategy<ObjectN
         return false;
     }
 
+    /**
+     * Emits a {@code description} on the target schema from a source's {@code metadata.description}, if present.
+     * Shared by the generator (parameters) and the object converter (properties).
+     */
+    static void applyDescription(ObjectNode target, HasMetadata source) {
+        Map<String, ?> metadata = source.getMetadata();
+        if (metadata != null) {
+            Object description = metadata.get("description");
+            if (description != null) {
+                target.put("description", description.toString());
+            }
+        }
+    }
+
     private static C3TypeConverterContainer<ObjectNode, JsonSchemaConversionState> primitiveContainer() {
         C3TypeConverterContainer<ObjectNode, JsonSchemaConversionState> container = new C3TypeConverterContainer<>();
         container.addConverter(BooleanC3Type.class, (c3Type, context) -> FACTORY.objectNode().put("type", "boolean"))
                  .addConverter(ByteC3Type.class, (c3Type, context) -> FACTORY.objectNode()
-                                                                             .put("type", "number")
+                                                                             .put("type", "integer")
                                                                              .put("minimum", (int) Byte.MIN_VALUE)
                                                                              .put("maximum", (int) Byte.MAX_VALUE))
                  .addConverter(ShortC3Type.class, (c3Type, context) -> FACTORY.objectNode()
-                                                                              .put("type", "number")
+                                                                              .put("type", "integer")
                                                                               .put("minimum", (int) Short.MIN_VALUE)
                                                                               .put("maximum", (int) Short.MAX_VALUE))
                  .addConverter(CharC3Type.class, (c3Type, context) -> FACTORY.objectNode()
