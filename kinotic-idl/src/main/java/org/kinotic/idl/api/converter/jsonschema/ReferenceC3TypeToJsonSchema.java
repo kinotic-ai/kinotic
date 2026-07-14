@@ -5,7 +5,6 @@ import org.kinotic.idl.api.converter.C3TypeConverter;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.ReferenceC3Type;
-import tools.jackson.databind.node.JsonNodeFactory;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
@@ -15,8 +14,6 @@ import tools.jackson.databind.node.ObjectNode;
  * is where the {@code $ref}/{@code $defs} mechanism that makes cyclic types representable actually happens.
  */
 public class ReferenceC3TypeToJsonSchema implements C3TypeConverter<ObjectNode, ReferenceC3Type, JsonSchemaConversionState> {
-
-    private static final JsonNodeFactory FACTORY = JsonNodeFactory.instance;
 
     @Override
     public ObjectNode convert(ReferenceC3Type referenceC3Type,
@@ -32,9 +29,7 @@ public class ReferenceC3TypeToJsonSchema implements C3TypeConverter<ObjectNode, 
             state.putDefinition(definitionName, conversionContext.convert(target));
         }
 
-        ObjectNode ref = FACTORY.objectNode();
-        ref.put("$ref", "#/$defs/" + definitionName);
-        return ref;
+        return JsonSchemaNodes.ref(definitionName);
     }
 
     @Override
