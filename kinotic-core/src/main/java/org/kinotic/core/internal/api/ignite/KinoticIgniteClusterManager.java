@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.api.aignite;
+package org.kinotic.core.internal.api.ignite;
 
 import io.vertx.core.Promise;
 import io.vertx.core.spi.cluster.RegistrationInfo;
