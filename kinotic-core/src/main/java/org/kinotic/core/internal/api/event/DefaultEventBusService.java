@@ -7,7 +7,6 @@ import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.MessageConsumer;
-import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.core.spi.cluster.RegistrationInfo;
 import io.vertx.core.tracing.TracingPolicy;
 import org.apache.commons.lang3.Validate;
@@ -17,6 +16,7 @@ import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.ListenerStatus;
+import org.kinotic.core.internal.api.aignite.KinoticIgniteClusterManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -34,19 +34,16 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class DefaultEventBusService implements EventBusService {
 
-    private final ClusterManager clusterManager;
-    private final ListenerStatusMonitor listenerStatusMonitor;
+    private final KinoticIgniteClusterManager clusterManager;
     private final Vertx vertx;
     // Addresses this node currently has a local consumer for, reference counted. Populated only by
     // listen() on this node, so it holds purely local registrations and lets sends prefer local delivery.
     private final Map<String, Integer> localListenerCounts = new ConcurrentHashMap<>();
 
     public DefaultEventBusService(@Autowired(required = false)
-                                  ClusterManager clusterManager,
-                                  ListenerStatusMonitor listenerStatusMonitor,
+                                  KinoticIgniteClusterManager clusterManager,
                                   Vertx vertx) {
         this.clusterManager = clusterManager;
-        this.listenerStatusMonitor = listenerStatusMonitor;
         this.vertx = vertx;
     }
 
@@ -76,8 +73,8 @@ public class DefaultEventBusService implements EventBusService {
             throw new IllegalStateException("This method is not available when clustering is disabled");
         }
         // Every registration change on the address emits its resulting status, dedupe to transitions
-        return listenerStatusMonitor.statusFlux(cri.baseResource())
-                                    .distinctUntilChanged();
+        return clusterManager.statusFlux(cri.baseResource())
+                             .distinctUntilChanged();
     }
 
     @Override

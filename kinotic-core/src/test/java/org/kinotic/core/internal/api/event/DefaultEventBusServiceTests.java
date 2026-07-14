@@ -29,7 +29,7 @@ public class DefaultEventBusServiceTests {
     @BeforeEach
     public void setUp() {
         vertx = Vertx.vertx();
-        eventBusService = new DefaultEventBusService(null, null, vertx);
+        eventBusService = new DefaultEventBusService(null, vertx);
     }
 
     @AfterEach

@@ -1,15 +1,13 @@
-package org.kinotic.core.internal.api.event;
+package org.kinotic.core.internal.api.aignite;
 
 import io.vertx.core.Promise;
-import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.core.spi.cluster.RegistrationInfo;
 import io.vertx.core.spi.cluster.RegistrationListener;
 import io.vertx.core.spi.cluster.RegistrationUpdateEvent;
-import lombok.RequiredArgsConstructor;
+import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.ignite.Ignite;
 import org.kinotic.core.api.event.ListenerStatus;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
@@ -18,38 +16,35 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Provides a {@link Flux} of {@link ListenerStatus} for any event bus address, fed by the
- * {@link RegistrationListener} updates the cluster manager already produces for message routing.
- * Monitoring an address therefore costs a local map entry, no matter how many addresses are
- * monitored or how often monitors come and go.
+ * An {@link IgniteClusterManager} that additionally provides a {@link Flux} of {@link ListenerStatus} for
+ * any event bus address, fed by the registration updates it already receives for message routing.
+ * Monitoring an address therefore costs a local map entry, no matter how many addresses are monitored or
+ * how often monitors come and go.
  *
  * Created by navid on 7/13/26
  */
-@Component
-@RequiredArgsConstructor
 @Slf4j
-public class ListenerStatusMonitor {
+public class KinoticIgniteClusterManager extends IgniteClusterManager {
 
-    // Resolved lazily because the ClusterManager bean is itself constructed with this monitor
-    private final ObjectProvider<ClusterManager> clusterManagerProvider;
     private final Map<String, AddressMonitor> monitors = new ConcurrentHashMap<>();
 
-    /**
-     * Wraps the {@link RegistrationListener} the cluster manager was initialized with, so
-     * registration updates reach both vertx's node selector and any active monitors.
-     * @param vertxListener the listener provided by vertx core
-     * @return the wrapped listener to hand to the cluster manager
-     */
-    public RegistrationListener tee(RegistrationListener vertxListener) {
-        return new RegistrationListener() {
+    public KinoticIgniteClusterManager(Ignite ignite) {
+        super(ignite);
+    }
+
+    @Override
+    public void registrationListener(RegistrationListener registrationListener) {
+        // Wrap the listener vertx core supplies, so registration updates reach both vertx's node
+        // selector for message routing and any active monitors
+        super.registrationListener(new RegistrationListener() {
             @Override
             public boolean wantsUpdatesFor(String address) {
-                return monitors.containsKey(address) || vertxListener.wantsUpdatesFor(address);
+                return monitors.containsKey(address) || registrationListener.wantsUpdatesFor(address);
             }
 
             @Override
             public void registrationsUpdated(RegistrationUpdateEvent event) {
-                vertxListener.registrationsUpdated(event);
+                registrationListener.registrationsUpdated(event);
                 AddressMonitor monitor = monitors.get(event.address());
                 if(monitor != null){
                     monitor.emit(statusOf(event.registrations()));
@@ -58,12 +53,12 @@ public class ListenerStatusMonitor {
 
             @Override
             public void registrationsLost() {
-                vertxListener.registrationsLost();
+                registrationListener.registrationsLost();
                 // Continuity of registration updates was lost, so the current state of every
                 // monitored address must be re-queried
                 monitors.keySet().forEach(address -> refresh(address, false));
             }
-        };
+        });
     }
 
     /**
@@ -80,7 +75,7 @@ public class ListenerStatusMonitor {
                 m.subscribers++;
                 return m;
             });
-            // Query the current status only after the monitor is visible to the tee, so a
+            // Query the current status only after the monitor is visible to registrationsUpdated, so a
             // registration change between the query and the first update event cannot be missed
             refresh(address, true);
             return monitor.sink.asFlux()
@@ -90,7 +85,7 @@ public class ListenerStatusMonitor {
 
     private void refresh(String address, boolean seed) {
         Promise<List<RegistrationInfo>> promise = Promise.promise();
-        clusterManagerProvider.getObject().getRegistrations(address, promise);
+        getRegistrations(address, promise);
         promise.future().onComplete(ar -> {
             AddressMonitor monitor = monitors.get(address);
             if(monitor == null){
