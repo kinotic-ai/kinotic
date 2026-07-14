@@ -4,7 +4,6 @@ package org.kinotic.gateway.internal.endpoints;
 
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
-import io.vertx.ext.stomp.lite.StompServerOptions;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.config.KinoticProperties;
@@ -49,8 +48,7 @@ public class ApiGatewayEndpointInitializer {
         log.info("Deploying {} API Gateway Endpoint(s), 1 per core", numToDeploy);
 
 
-        StompServerOptions stompServerOptions = apiGatewayProperties.getStomp();
-        log.info("Deploying API Server at http{}://{}", apiGatewayProperties.getSsl().isEnabled() ? "s" : "", stompServerOptions.getPort());
+        log.info("Deploying API Server at http{}://{}", apiGatewayProperties.getSsl().isEnabled() ? "s" : "", apiGatewayProperties.getStompPort());
 
         if (apiGatewayProperties.getWebServer().isEnabled()) {
             log.info("Deploying static web server on port {}", apiGatewayProperties.getWebServer().getPort());
