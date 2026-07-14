@@ -1,6 +1,6 @@
 
 
-package org.kinotic.core.internal.api.aignite;
+package org.kinotic.core.internal.api.ignite;
 
 import io.vertx.core.*;
 import io.vertx.core.internal.ContextInternal;
