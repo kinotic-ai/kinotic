@@ -47,7 +47,7 @@ public class McpJsonSchemaGenerator {
 
         for (ParameterDefinition parameter : function.getParameters()) {
             ObjectNode parameterSchema = converter.convert(parameter.getType());
-            JsonSchemaNodes.applyDescription(parameterSchema, parameter);
+            JsonSchemaUtils.applyDescription(parameterSchema, parameter);
             properties.set(parameter.getName(), parameterSchema);
 
             if (parameter.containsDecorator(NotNullC3Decorator.class)) {

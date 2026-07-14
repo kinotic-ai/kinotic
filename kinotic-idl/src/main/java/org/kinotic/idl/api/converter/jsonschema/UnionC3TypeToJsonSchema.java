@@ -34,7 +34,7 @@ public class UnionC3TypeToJsonSchema implements C3TypeConverter<ObjectNode, Unio
                 state.putDefinition(definitionName, conversionContext.convert(member));
             }
 
-            oneOf.add(JsonSchemaNodes.ref(definitionName));
+            oneOf.add(JsonSchemaUtils.ref(definitionName));
         }
 
         ObjectNode schema = FACTORY.objectNode();

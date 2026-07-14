@@ -9,11 +9,11 @@ import java.util.Map;
 /**
  * Stateless helpers for building and decorating the {@code tools.jackson} nodes that make up a JSON Schema.
  */
-final class JsonSchemaNodes {
+final class JsonSchemaUtils {
 
     private static final JsonNodeFactory FACTORY = JsonNodeFactory.instance;
 
-    private JsonSchemaNodes() {
+    private JsonSchemaUtils() {
     }
 
     /**

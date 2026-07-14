@@ -29,7 +29,7 @@ public class ReferenceC3TypeToJsonSchema implements C3TypeConverter<ObjectNode, 
             state.putDefinition(definitionName, conversionContext.convert(target));
         }
 
-        return JsonSchemaNodes.ref(definitionName);
+        return JsonSchemaUtils.ref(definitionName);
     }
 
     @Override
