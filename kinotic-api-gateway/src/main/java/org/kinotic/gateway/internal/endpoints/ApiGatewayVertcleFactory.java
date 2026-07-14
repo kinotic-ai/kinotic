@@ -70,19 +70,19 @@ public class ApiGatewayVertcleFactory {
         // here, so a disabled module contributes nothing and the gateway still boots.
         gatewayRoutes.forEach(routes -> routes.mountRoutes(router));
 
-        StompServerOptions stompServerOptions = new StompServerOptions()
-                .setPort(properties.getApiGateway().getStompPort())
-                .setWebsocketPath(STOMP_WEBSOCKET_PATH)
-                .setDebugEnabled(properties.isDebug());
-        stompServerOptions.setMaxBodyLength(properties.getMaxEventPayloadSize());
-
         // The STOMP WebSocket handshake authenticates from the browser session, so the
         // SessionHandler must also cover the WebSocket path — it is not under /api/*.
         router.route(STOMP_WEBSOCKET_PATH).handler(sessionHandler);
 
-        HttpServerOptions serverOptions = new HttpServerOptions();
-        serverOptions.setWebSocketSubProtocols(List.of("v12.stomp"));
-        serverOptions.setMaxWebSocketFrameSize(properties.getMaxEventPayloadSize());
+        StompServerOptions stompServerOptions = new StompServerOptions()
+                .setWebsocketPath(STOMP_WEBSOCKET_PATH)
+                .setDebugEnabled(properties.isDebug())
+                .setMaxBodyLength(properties.getMaxEventPayloadSize());
+
+        HttpServerOptions serverOptions = new HttpServerOptions()
+                .setPort(properties.getApiGateway().getStompPort())
+                .setWebSocketSubProtocols(List.of("v12.stomp"))
+                .setMaxWebSocketFrameSize(properties.getMaxEventPayloadSize());
         ApiGatewayUtil.applySsl(serverOptions, properties.getApiGateway().getSsl());
 
         return StompServerVerticleFactory.create(serverOptions, stompServerOptions, stompServerHandlerFactory, router);

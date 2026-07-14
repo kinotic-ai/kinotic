@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Monitoring an address therefore costs a local map entry, no matter how many addresses are monitored or
  * how often monitors come and go.
  *
- * Created by navid on 7/13/26
+ * Created by Navid on 7/13/26
  */
 @Slf4j
 public class KinoticIgniteClusterManager extends IgniteClusterManager {
