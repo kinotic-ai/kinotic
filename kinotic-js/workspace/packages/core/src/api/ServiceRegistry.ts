@@ -8,7 +8,7 @@ import {
 } from '@opentelemetry/semantic-conventions'
 import { Observable } from 'rxjs'
 import { first, map } from 'rxjs/operators'
-import info from '../../package.json' assert { type: 'json' }
+import info from '../../package.json' with { type: 'json' }
 import { Event } from './event/EventBus'
 import { EventConstants, type IEvent, type IEventBus } from './event/IEventBus'
 import type {IEventFactory, IServiceProxy, IServiceRegistry} from './IServiceRegistry'
