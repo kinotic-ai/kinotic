@@ -4,7 +4,7 @@ package org.kinotic.core.internal.utils;
 
 import org.kinotic.core.api.event.StreamData;
 import org.kinotic.core.api.event.StreamOperation;
-import org.kinotic.core.internal.api.aignite.Observer;
+import org.kinotic.core.internal.api.ignite.Observer;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
