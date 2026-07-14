@@ -462,6 +462,11 @@ review.
   kinotic-github work). No runtime contract hand-off from customer VMs, ever.
 - **Prompts / resources** — later (`McpPromptDefinition` as an application-scoped
   entity).
+- **Entity data tools with projection** — later, when `JsonEntitiesRepository` methods
+  get `@McpTool`: add an `includedFields` parameter to the read methods, flowing into
+  the existing (currently unreachable-via-RPC) projection seam
+  `EntityContext.getIncludedFieldsFilter()` → ES `_source` filtering. Token-metered LLM
+  callers benefit twice: smaller reads, cheaper context.
 - **HITL / elicitation** — deferred until the 2026-07-28 stateless spec
   (`IncompleteResult`) finalizes; implemented directly in `McpJsonRpcHandler` then.
 - **Stateful streamable-HTTP / SSE transports, `tools/list_changed` notifications.**
