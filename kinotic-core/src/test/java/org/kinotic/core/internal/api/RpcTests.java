@@ -6,6 +6,7 @@ import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.eventbus.MessageConsumer;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,7 @@ import reactor.util.function.Tuple2;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -184,6 +186,32 @@ public class RpcTests {
                     .expectNextMatches(s -> s.startsWith("Hello Sucka"))
                     .thenCancel()
                     .verify();
+    }
+
+    /**
+     * A streaming result monitors its reply listener so it can be terminated when the listener goes
+     * away. Registration changes on other addresses must not affect the stream.
+     */
+    @Test
+    public void testInfiniteFluxSurvivesUnrelatedConsumerChurn(){
+        Flux<String> flux = rpcTestServiceProxy.getInfiniteFlux();
+
+        StepVerifier.create(flux)
+                    .expectNextMatches(s -> s.startsWith("Hello Sucka"))
+                    .then(() -> {
+                        try {
+                            MessageConsumer<Object> unrelated =
+                                    vertx.eventBus().consumer("some.completely.unrelated.address", msg -> {});
+                            unrelated.completion().toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+                            unrelated.unregister().toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+                    .expectNextMatches(s -> s.startsWith("Hello Sucka"))
+                    .expectNextMatches(s -> s.startsWith("Hello Sucka"))
+                    .thenCancel()
+                    .verify(Duration.ofSeconds(15));
     }
 
     @Test

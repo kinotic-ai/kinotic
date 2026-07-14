@@ -48,7 +48,7 @@ public interface EventBusService {
     /**
      * Monitors the status of listeners for the {@link CRI#baseResource()} of the given {@link CRI}
      * @param cri to check for registered listeners
-     * @return a {@link Flux} that returns a stream of statuses for the given listener
+     * @return a {@link Flux} that emits the current status on subscribe and every status transition after that
      */
     Flux<ListenerStatus> monitorListenerStatus(CRI cri);
 
