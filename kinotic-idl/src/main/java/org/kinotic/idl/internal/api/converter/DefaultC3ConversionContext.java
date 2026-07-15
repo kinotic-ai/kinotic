@@ -1,14 +1,14 @@
 package org.kinotic.idl.internal.api.converter;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.idl.api.schema.C3Type;
+import org.kinotic.idl.api.converter.C3ConversionException;
 import org.kinotic.idl.api.converter.C3ConversionContext;
 import org.kinotic.idl.api.converter.C3TypeConverter;
 import org.kinotic.idl.api.converter.Cacheable;
 import org.kinotic.idl.api.converter.IdlConverterStrategy;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.kinotic.idl.api.schema.C3Type;
+import org.kinotic.idl.api.schema.ComplexC3Type;
+import org.kinotic.idl.api.schema.ReferenceC3Type;
 
 import java.util.*;
 
@@ -17,13 +17,9 @@ import java.util.*;
  */
 public class DefaultC3ConversionContext<R, S> implements C3ConversionContext<R, S> {
 
-    private static final Logger log = LoggerFactory.getLogger(DefaultC3ConversionContext.class);
-
     private final IdlConverterStrategy<R, S> strategy;
 
     private final Deque<C3Type> conversionDepthStack = new ArrayDeque<>();
-
-    private final Deque<C3Type> errorStack = new ArrayDeque<>();
 
     private final Map<C3Type, R> cache = new HashMap<>();
 
@@ -36,13 +32,12 @@ public class DefaultC3ConversionContext<R, S> implements C3ConversionContext<R, 
 
     @Override
     public R convert(C3Type c3Type) {
+        Validate.notNull(c3Type, "C3Type must not be null");
+
+        //FIXME: add JSR-380 validation
+
+        conversionDepthStack.addFirst(c3Type);
         try {
-            Validate.notNull(c3Type, "C3Type must not be null");
-
-            //FIXME: add JSR-380 validation
-
-            conversionDepthStack.addFirst(c3Type);
-
             @SuppressWarnings("unchecked")
             C3TypeConverter<R, C3Type, S> converter = (C3TypeConverter<R, C3Type, S>) findConverter(c3Type);
             Validate.isTrue(converter != null,
@@ -62,9 +57,12 @@ public class DefaultC3ConversionContext<R, S> implements C3ConversionContext<R, 
                 }
             }
             return result;
-        } catch (Exception e) {
-            logException(e);
+        } catch (C3ConversionException e) {
+            // already carries the conversion chain, stamped at the deepest frame where the stack was complete
             throw e;
+        } catch (Exception e) {
+            String message = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            throw new C3ConversionException(message + "\n  while converting: " + conversionChain(), e);
         } finally {
             conversionDepthStack.removeFirst();
         }
@@ -84,34 +82,27 @@ public class DefaultC3ConversionContext<R, S> implements C3ConversionContext<R, 
         return null;
     }
 
-    /**
-     * Log an exception when appropriate dealing with only logging once even when recursion has occurred
-     * @param e to log
-     */
-    private void logException(Exception e){
-        if(log.isDebugEnabled() || log.isTraceEnabled()){
-            // This indicates this is the first time logException has been called for this context.
-            // This would occur at the furthest call depth so at this point the conversionDepthStack has the complete stack
-            if(errorStack.isEmpty()){
-                // We loop vs add all to keep stack intact
-                for(C3Type c3Type: conversionDepthStack){
-                    errorStack.addFirst(c3Type);
-                }
-            }
-            if(conversionDepthStack.size() == 1) { // we are at the top of the stack during recursion
-                StringBuilder sb = new StringBuilder("Error occurred during conversion.\n" + e.getMessage() + "\n");
-                int objectCount = 1;
-                for (C3Type c3Type : errorStack) {
-                    sb.append(StringUtils.leftPad("", objectCount, '\t'));
-                    sb.append("- ");
-                    sb.append(c3Type.toString());
-                    sb.append("\n");
-                    objectCount++;
-                }
-                log.debug(sb.toString());
-                errorStack.clear(); // we have printed reset
+    private String conversionChain() {
+        StringBuilder sb = new StringBuilder();
+        // conversionDepthStack is newest-first; render root-first so the chain reads top-down
+        for (Iterator<C3Type> it = conversionDepthStack.descendingIterator(); it.hasNext(); ) {
+            sb.append(describe(it.next()));
+            if (it.hasNext()) {
+                sb.append(" > ");
             }
         }
+        return sb.toString();
+    }
+
+    private static String describe(C3Type c3Type) {
+        String name = null;
+        if (c3Type instanceof ComplexC3Type complexC3Type) {
+            name = complexC3Type.getQualifiedName();
+        } else if (c3Type instanceof ReferenceC3Type referenceC3Type) {
+            name = referenceC3Type.getQualifiedName();
+        }
+        return name != null ? c3Type.getClass().getSimpleName() + "(" + name + ")"
+                            : c3Type.getClass().getSimpleName();
     }
 
 }
