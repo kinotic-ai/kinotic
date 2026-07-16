@@ -8,6 +8,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.RpcServiceProxy;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.service.ServiceIdentifier;
+import org.kinotic.core.internal.api.directory.ServiceDirectoryRegistrar;
 import org.kinotic.core.internal.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.slf4j.Logger;
@@ -33,9 +34,12 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
     private static final Logger log = LoggerFactory.getLogger(ServiceRegistrationBeanPostProcessor.class);
 
     private final ServiceRegistry serviceRegistry;
+    private final ServiceDirectoryRegistrar serviceDirectoryRegistrar;
 
-    public ServiceRegistrationBeanPostProcessor(ServiceRegistry serviceRegistry) {
+    public ServiceRegistrationBeanPostProcessor(ServiceRegistry serviceRegistry,
+                                                ServiceDirectoryRegistrar serviceDirectoryRegistrar) {
         this.serviceRegistry = serviceRegistry;
+        this.serviceDirectoryRegistrar = serviceDirectoryRegistrar;
     }
 
     @Override
@@ -54,6 +58,13 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                 log.trace("Successfully Registered service {}", serviceIdentifier);
             } catch (Exception e) {
                 log.error("Error Registering service {}", serviceIdentifier, e);
+            }
+
+            // Directory capture is a secondary concern; a bad @McpTool annotation must not crash service registration
+            try {
+                serviceDirectoryRegistrar.capture(serviceIdentifier, clazz);
+            } catch (Exception e) {
+                log.error("Failed to capture MCP tools for service {}: {}", serviceIdentifier, e.getMessage(), e);
             }
         });
         return bean;
@@ -75,6 +86,8 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             } catch (Exception e) {
                 log.error("Error Un-Registering service {}", serviceIdentifier, e);
             }
+
+            serviceDirectoryRegistrar.remove(serviceIdentifier, clazz);
         });
     }
 

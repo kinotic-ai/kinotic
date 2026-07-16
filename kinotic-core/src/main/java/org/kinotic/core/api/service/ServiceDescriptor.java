@@ -5,7 +5,9 @@ package org.kinotic.core.api.service;
 import java.util.Collection;
 
 /**
- * Describes services that can be registered with the Continuum
+ * Describes services that can be registered with the Continuum.
+ * This is the node-local, invocable view of a service, holding live {@link FunctionDescriptor}s; the declarative,
+ * serializable contract view is {@code ServiceDefinition} in the service directory.
  * Created by Navíd Mitchell 🤪 on 7/18/21.
  */
 public interface ServiceDescriptor {

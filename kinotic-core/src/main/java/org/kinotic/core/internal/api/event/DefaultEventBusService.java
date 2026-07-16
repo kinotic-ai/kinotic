@@ -22,8 +22,11 @@ import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
+import org.kinotic.core.api.event.ListenerChange;
 import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.internal.config.IgniteCacheConstants;
+import org.kinotic.core.internal.api.aignite.ServiceListenerChangeCacheEntryListener;
+import org.kinotic.core.internal.api.aignite.ServiceSubscriptionCacheEntryEventFilter;
 import org.kinotic.core.internal.api.aignite.SubscriptionInfoCacheEntryEventFilter;
 import org.kinotic.core.internal.api.aignite.SubscriptionInfoCacheEntryListener;
 import org.kinotic.core.internal.utils.IgniteUtil;
@@ -35,11 +38,13 @@ import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
+import javax.cache.Cache;
 import javax.cache.configuration.Factory;
 import javax.cache.configuration.FactoryBuilder;
 import javax.cache.configuration.MutableCacheEntryListenerConfiguration;
 import javax.cache.event.CacheEntryEventFilter;
 import javax.cache.event.CacheEntryListener;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,6 +60,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DefaultEventBusService implements EventBusService {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultEventBusService.class);
+    private static final String SERVICE_ADDRESS_PREFIX = EventConstants.SERVICE_DESTINATION_SCHEME + "://";
     private final Ignite ignite;
     private final ClusterManager clusterManager;
     private final Vertx vertx;
@@ -162,6 +168,75 @@ public class DefaultEventBusService implements EventBusService {
             });
         });
         return ret.subscribeOn(scheduler);
+    }
+
+    @Override
+    public Flux<ListenerChange> monitorListenerChanges() {
+        if(ignite == null){
+            throw new IllegalStateException("This method is not available when ignite is disabled");
+        }
+        Flux<ListenerChange> ret = Flux.create(sink -> {
+
+            Context vertxContext = vertx.getOrCreateContext();
+
+            IgniteCache<IgniteRegistrationInfo, Boolean> cache = ignite.cache(IgniteCacheConstants.VERTX_SUBSCRIPTION_CACHE);
+
+            if(cache == null) {
+                sink.error(new IllegalStateException("The vertx subscription cache is not available"));
+                return;
+            }
+
+            Factory<? extends CacheEntryListener<IgniteRegistrationInfo, Boolean>> listenerFactory =
+                    FactoryBuilder.factoryOf(new ServiceListenerChangeCacheEntryListener(sink, vertxContext));
+
+            Factory<? extends CacheEntryEventFilter<IgniteRegistrationInfo, Boolean>> filterFactory =
+                    FactoryBuilder.factoryOf(new ServiceSubscriptionCacheEntryEventFilter(SERVICE_ADDRESS_PREFIX));
+
+            MutableCacheEntryListenerConfiguration<IgniteRegistrationInfo, Boolean> cacheEntryListenerConfiguration =
+                    new MutableCacheEntryListenerConfiguration<>(listenerFactory, filterFactory, false, false);
+
+            sink.onDispose(() -> {
+                log.trace("Disposing of monitorListenerChanges");
+                vertxContext.executeBlocking(() -> {
+                    cache.deregisterCacheEntryListener(cacheEntryListenerConfiguration);
+                    return null;
+                });
+            });
+
+            cache.registerCacheEntryListener(cacheEntryListenerConfiguration);
+        });
+        return ret.subscribeOn(scheduler);
+    }
+
+    @Override
+    public Future<Boolean> hasListeners(CRI cri) {
+        if(clusterManager == null){
+            throw new IllegalStateException("This method is not available when clustering is disabled");
+        }
+        Promise<List<RegistrationInfo>> promise = Promise.promise();
+        clusterManager.getRegistrations(cri.baseResource(), promise);
+        return promise.future().map(list -> list != null && !list.isEmpty());
+    }
+
+    @Override
+    public Future<Set<String>> activeServiceAddresses() {
+        if(ignite == null){
+            throw new IllegalStateException("This method is not available when ignite is disabled");
+        }
+        return vertx.executeBlocking(() -> {
+            IgniteCache<IgniteRegistrationInfo, Boolean> cache = ignite.cache(IgniteCacheConstants.VERTX_SUBSCRIPTION_CACHE);
+            if(cache == null){
+                throw new IllegalStateException("The vertx subscription cache is not available");
+            }
+            Set<String> addresses = new HashSet<>();
+            for(Cache.Entry<IgniteRegistrationInfo, Boolean> entry : cache){
+                String address = entry.getKey().address();
+                if(address.startsWith(SERVICE_ADDRESS_PREFIX)){
+                    addresses.add(address);
+                }
+            }
+            return addresses;
+        });
     }
 
     @Override

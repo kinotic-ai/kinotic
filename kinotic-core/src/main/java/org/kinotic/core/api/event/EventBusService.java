@@ -6,6 +6,8 @@ package org.kinotic.core.api.event;
 import io.vertx.core.Future;
 import reactor.core.publisher.Flux;
 
+import java.util.Set;
+
 /**
  * Provides functionality for non-persistent {@link Event}'s
  *
@@ -51,5 +53,26 @@ public interface EventBusService {
      * @return a {@link Flux} that returns a stream of statuses for the given listener
      */
     Flux<ListenerStatus> monitorListenerStatus(CRI cri);
+
+    /**
+     * Monitors listener registration changes across all service ({@code srv://}) addresses as a stream of deltas.
+     * The stream carries only changes; take a snapshot with {@link #activeServiceAddresses()} to establish a baseline.
+     * @return a {@link Flux} of {@link ListenerChange}s for service addresses
+     */
+    Flux<ListenerChange> monitorListenerChanges();
+
+    /**
+     * Checks whether the {@link CRI#baseResource()} of the given {@link CRI} currently has a registered listener,
+     * reading the authoritative cluster registrations directly.
+     * @param cri to check for a registered listener
+     * @return a {@link Future} containing true if a listener is registered, false if not
+     */
+    Future<Boolean> hasListeners(CRI cri);
+
+    /**
+     * Snapshots every service ({@code srv://}) address that currently has a registered listener.
+     * @return a {@link Future} containing the set of active service addresses
+     */
+    Future<Set<String>> activeServiceAddresses();
 
 }

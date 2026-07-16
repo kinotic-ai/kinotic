@@ -5,6 +5,8 @@ package org.kinotic.core.api.service;
 import java.lang.reflect.Method;
 
 /**
+ * The node-local, invocable view of a service function, holding the live {@link Method} to invoke; the declarative,
+ * serializable contract view is {@code FunctionDefinition} in kinotic-idl.
  * Created by Navíd Mitchell 🤪 on 7/18/21.
  */
 public interface FunctionDescriptor {
