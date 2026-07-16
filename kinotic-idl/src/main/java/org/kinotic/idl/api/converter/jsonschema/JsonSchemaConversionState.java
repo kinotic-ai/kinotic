@@ -9,9 +9,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Holds the state accumulated while converting a single function's parameters to JSON Schema.
- * Modeled on the OpenAPI {@code OpenApiConversionState}, but self-contained (no swagger types) and created fresh
- * per function so one function's {@code $defs} never leak into another's.
+ * Holds the state accumulated while converting a single function's parameters to JSON Schema: the {@code $defs} built
+ * so far plus the reference-resolution bookkeeping. A fresh instance is used per function.
+ * Modeled on the OpenAPI {@code OpenApiConversionState}.
  * Created by Navíd Mitchell 🤪 on 5/14/23.
  */
 public class JsonSchemaConversionState {

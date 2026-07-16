@@ -11,8 +11,6 @@ import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Converts a {@link UnionC3Type} to a JSON Schema {@code oneOf} of {@code $ref}s, one per member type.
- * The OpenAPI discriminator is dropped: {@code discriminator} is OpenAPI vocabulary, {@code oneOf} is the portable
- * part.
  * Ported from the OpenAPI {@code UnionC3TypeToOpenApi}.
  * Created by Navíd Mitchell 🤪 on 5/27/23.
  */

@@ -15,12 +15,9 @@ import java.util.Set;
 
 /**
  * {@link IdlConverterStrategy} that converts Continuum IDL {@link C3Type}s to JSON Schema {@link ObjectNode}s for MCP
- * tool input schemas. Ports the OpenAPI {@code OpenApiConverterStrategy} primitive/enum/date mapping table onto
- * {@code tools.jackson} nodes (no swagger dependency).
- * <p>
- * Unlike the OpenAPI strategy, {@link #initialState()} returns a NEW state on every call so one function's
- * {@code $defs} never leak into another's, and caching is off so no schema node is ever shared/mutated across
- * conversions.
+ * tool input schemas, porting the OpenAPI {@code OpenApiConverterStrategy} primitive/enum/date mapping table onto
+ * {@code tools.jackson} nodes. {@link #initialState()} returns a fresh state per conversion, so each function's schema
+ * is built independently.
  * Created by Navíd Mitchell 🤪 on 5/14/23.
  */
 public class JsonSchemaConverterStrategy implements IdlConverterStrategy<ObjectNode, JsonSchemaConversionState> {

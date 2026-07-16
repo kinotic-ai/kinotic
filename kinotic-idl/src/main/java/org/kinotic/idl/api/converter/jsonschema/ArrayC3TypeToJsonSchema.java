@@ -10,7 +10,7 @@ import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Converts an {@link ArrayC3Type} to a JSON Schema array, delegating the element type back through the context.
- * A byte array is the special case: it is a base64-encoded string on the wire, not an array of numbers.
+ * A byte array maps to a base64-encoded string.
  * Ported from the OpenAPI {@code ArrayC3TypeTpOpenApi}.
  * Created By Navíd Mitchell 🤪on 2/26/25
  */

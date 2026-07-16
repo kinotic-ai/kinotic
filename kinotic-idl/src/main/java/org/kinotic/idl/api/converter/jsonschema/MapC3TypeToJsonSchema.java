@@ -9,7 +9,7 @@ import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Converts a {@link MapC3Type} to an open JSON Schema object whose {@code additionalProperties} carries the value
- * schema. JSON object keys are always strings, so the map's key type is not represented.
+ * schema keyed by string property names.
  */
 public class MapC3TypeToJsonSchema implements C3TypeConverter<ObjectNode, MapC3Type, JsonSchemaConversionState> {
 
