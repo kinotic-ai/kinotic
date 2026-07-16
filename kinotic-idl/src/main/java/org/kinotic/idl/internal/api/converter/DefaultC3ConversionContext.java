@@ -1,5 +1,6 @@
 package org.kinotic.idl.internal.api.converter;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.idl.api.converter.C3ConversionException;
 import org.kinotic.idl.api.converter.C3ConversionContext;
@@ -15,6 +16,7 @@ import java.util.*;
 /**
  * Created by Navíd Mitchell 🤪 on 4/26/23.
  */
+@Slf4j
 public class DefaultC3ConversionContext<R, S> implements C3ConversionContext<R, S> {
 
     private final IdlConverterStrategy<R, S> strategy;
@@ -62,7 +64,11 @@ public class DefaultC3ConversionContext<R, S> implements C3ConversionContext<R, 
             throw e;
         } catch (Exception e) {
             String message = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            throw new C3ConversionException(message + "\n  while converting: " + conversionChain(), e);
+            C3ConversionException conversionException
+                    = new C3ConversionException(message + "\nwhile converting:\n" + conversionChain(), e);
+            // logged here only: outer frames rethrow the C3ConversionException without wrapping or logging
+            log.debug("Error occurred during conversion.\n{}", conversionException.getMessage(), e);
+            throw conversionException;
         } finally {
             conversionDepthStack.removeFirst();
         }
@@ -84,12 +90,16 @@ public class DefaultC3ConversionContext<R, S> implements C3ConversionContext<R, 
 
     private String conversionChain() {
         StringBuilder sb = new StringBuilder();
-        // conversionDepthStack is newest-first; render root-first so the chain reads top-down
+        int depth = 1;
+        // conversionDepthStack is newest-first; render root-first, one indent level per conversion hop
         for (Iterator<C3Type> it = conversionDepthStack.descendingIterator(); it.hasNext(); ) {
-            sb.append(describe(it.next()));
+            sb.append("\t".repeat(depth))
+              .append("- ")
+              .append(describe(it.next()));
             if (it.hasNext()) {
-                sb.append(" > ");
+                sb.append('\n');
             }
+            depth++;
         }
         return sb.toString();
     }
